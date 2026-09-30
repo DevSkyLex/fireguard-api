@@ -48,10 +48,31 @@ use function sprintf;
 final readonly class DompdfEquipmentLabelSheetRenderer implements EquipmentLabelSheetPdfRendererPort
 {
   // #region Constants
+  /**
+   * Constant TEMPLATE.
+   *
+   * Twig template used to render the equipment label sheet.
+   *
+   * @access private
+   */
   private const string TEMPLATE = 'equipment/labels.html.twig';
 
+  /**
+   * Constant PAPER_SIZE.
+   *
+   * Page size used for the generated label sheet.
+   *
+   * @access private
+   */
   private const string PAPER_SIZE = 'A4';
 
+  /**
+   * Constant PAPER_ORIENTATION.
+   *
+   * Page orientation used for the generated label sheet.
+   *
+   * @access private
+   */
   private const string PAPER_ORIENTATION = 'portrait';
 
   /**
@@ -82,6 +103,17 @@ final readonly class DompdfEquipmentLabelSheetRenderer implements EquipmentLabel
   // #endregion
 
   // #region Methods
+  /**
+   * Method render.
+   *
+   * Adds QR image data to label rows and renders the sheet as PDF bytes.
+   *
+   * @access public
+   *
+   * @param array<string, mixed> $context values used by the equipment label template
+   *
+   * @return string generated PDF bytes
+   */
   public function render(array $context): string
   {
     if (isset($context['labels']) && is_array($context['labels'])) {

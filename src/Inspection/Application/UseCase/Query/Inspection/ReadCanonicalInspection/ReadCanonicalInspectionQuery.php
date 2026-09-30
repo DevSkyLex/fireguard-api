@@ -25,6 +25,17 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ReadCanonicalInspectionQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the canonical inspection selected for a read projection.
+   *
+   * @access public
+   *
+   * @param string $inspectionId identifier of the canonical inspection to read
+   *
+   * @return void
+   */
   public function __construct(
     public string $inspectionId,
   ) {

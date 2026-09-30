@@ -21,6 +21,9 @@ use Symfony\Component\HttpKernel\KernelEvents;
 final readonly class TrustedDeviceCookieListener
 {
   // #region Constants
+  /**
+   * Constant REQUEST_ATTRIBUTE
+   */
   public const string REQUEST_ATTRIBUTE = '_trusted_device_cookie';
   // #endregion
 

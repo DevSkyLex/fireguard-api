@@ -7,8 +7,16 @@ namespace Facility\Application\UseCase\Command\Facility\RestoreFacility;
 use DateTimeImmutable;
 use Shared\Application\Message\ResultMessage;
 
+/**
+ * Class RestoreFacilityResult
+ *
+ * Carries the restored facility's identity, hierarchy, details, metadata, and timestamps.
+ *
+ * @category Result
+ */
 final readonly class RestoreFacilityResult implements ResultMessage
 {
+  // #region Constructor
   /**
    * @param array<string, mixed> $metadata
    */
@@ -26,4 +34,5 @@ final readonly class RestoreFacilityResult implements ResultMessage
     public DateTimeImmutable $updatedAt,
   ) {
   }
+  // #endregion
 }

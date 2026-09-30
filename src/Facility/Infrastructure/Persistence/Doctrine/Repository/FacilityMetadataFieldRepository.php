@@ -32,6 +32,17 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Creates a repository for persisted facility metadata definitions on the main database.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager the main entity manager
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {
@@ -40,6 +51,17 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
   // #endregion
 
   // #region Methods
+  /**
+   * Method save.
+   *
+   * Creates or updates the persisted definition from the domain field.
+   *
+   * @access public
+   *
+   * @param FacilityMetadataField $field the metadata field aggregate
+   *
+   * @return void
+   */
   public function save(FacilityMetadataField $field): void
   {
     $record = FacilityMetadataFieldMapper::toRecord($field);
@@ -66,6 +88,17 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
     $this->entityManager->flush();
   }
 
+  /**
+   * Method delete.
+   *
+   * Removes a field definition without rewriting facility metadata values.
+   *
+   * @access public
+   *
+   * @param FacilityMetadataFieldId $id the metadata field identifier
+   *
+   * @return void
+   */
   public function delete(FacilityMetadataFieldId $id): void
   {
     $record = $this->repository->find((string) $id);
@@ -77,6 +110,17 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById
+   *
+   * Looks up a metadata definition by its domain identifier and maps a matching record.
+   *
+   * @access public
+   *
+   * @param FacilityMetadataFieldId $id the metadata field identifier
+   *
+   * @return ?FacilityMetadataField the field when it exists
+   */
   public function findById(FacilityMetadataFieldId $id): ?FacilityMetadataField
   {
     $record = $this->repository->find((string) $id);
@@ -88,6 +132,18 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
     return FacilityMetadataFieldMapper::toDomain($record);
   }
 
+  /**
+   * Method findByOrganizationIdAndKey
+   *
+   * Finds a metadata definition by machine key within its owning organization.
+   *
+   * @access public
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param string $key the machine key
+   *
+   * @return ?FacilityMetadataField the matching field when it exists
+   */
   public function findByOrganizationIdAndKey(FacilityOrganizationId $organizationId, string $key): ?FacilityMetadataField
   {
     /** @var OrganizationRecord $organization */
@@ -102,6 +158,18 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
     return FacilityMetadataFieldMapper::toDomain($record);
   }
 
+  /**
+   * Method findByOrganizationId.
+   *
+   * Lists definitions in label order for a stable form-schema listing.
+   *
+   * @access public
+   * @access public
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   *
+   * @return list<FacilityMetadataField> the organization's field definitions
+   */
   public function findByOrganizationId(FacilityOrganizationId $organizationId): array
   {
     /** @var OrganizationRecord $organization */
@@ -116,6 +184,17 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
     );
   }
 
+  /**
+   * Method countByOrganizationId
+   *
+   * Counts metadata definitions belonging to one organization.
+   *
+   * @access public
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   *
+   * @return int the number of field definitions
+   */
   public function countByOrganizationId(FacilityOrganizationId $organizationId): int
   {
     /** @var OrganizationRecord $organization */

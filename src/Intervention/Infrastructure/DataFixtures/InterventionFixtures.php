@@ -25,7 +25,7 @@ use function explode;
 use function sprintf;
 
 /**
- * DataFixtures InterventionFixtures.
+ * Class InterventionFixtures
  *
  * Seeds the intervention workspace end to end: labels, reusable templates,
  * twelve interventions spanning **every** {@see InterventionStatus} case with
@@ -64,30 +64,121 @@ use function sprintf;
 final class InterventionFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
   // #region Constants
+  /**
+   * Constant PUBLISHED_INTERVENTION_REFERENCE
+   *
+   * Fixture reference for the seeded published intervention.
+   *
+   * @access public
+   */
   public const string PUBLISHED_INTERVENTION_REFERENCE = 'intervention-seed-published';
 
+  /**
+   * Constant IN_PROGRESS_INTERVENTION_REFERENCE
+   *
+   * Fixture reference for the seeded intervention in progress.
+   *
+   * @access public
+   */
   public const string IN_PROGRESS_INTERVENTION_REFERENCE = 'intervention-seed-in-progress';
 
+  /**
+   * Constant SUBMITTED_INTERVENTION_REFERENCE
+   *
+   * Fixture reference for the seeded submitted intervention.
+   *
+   * @access public
+   */
   public const string SUBMITTED_INTERVENTION_REFERENCE = 'intervention-seed-submitted';
 
+  /**
+   * Constant CHANGES_REQUESTED_INTERVENTION_REFERENCE
+   *
+   * Fixture reference for the seeded intervention returned for changes.
+   *
+   * @access public
+   */
   public const string CHANGES_REQUESTED_INTERVENTION_REFERENCE = 'intervention-seed-changes-requested';
 
+  /**
+   * Constant DRAFT_INTERVENTION_REFERENCE
+   *
+   * Fixture reference for the seeded draft intervention.
+   *
+   * @access public
+   */
   public const string DRAFT_INTERVENTION_REFERENCE = 'intervention-seed-draft';
 
+  /**
+   * Constant MONTHLY_TEMPLATE_REFERENCE
+   *
+   * Fixture reference for the seeded monthly maintenance template.
+   *
+   * @access public
+   */
   public const string MONTHLY_TEMPLATE_REFERENCE = 'intervention-seed-monthly-template';
 
+  /**
+   * Constant REGIONAL_AUDIT_TEMPLATE_REFERENCE
+   *
+   * Fixture reference for the seeded regional audit template.
+   *
+   * @access public
+   */
   public const string REGIONAL_AUDIT_TEMPLATE_REFERENCE = 'intervention-seed-regional-audit-template';
 
+  /**
+   * Constant SITE_OPENING_TEMPLATE_REFERENCE
+   *
+   * Fixture reference for the seeded site-opening template.
+   *
+   * @access public
+   */
   public const string SITE_OPENING_TEMPLATE_REFERENCE = 'intervention-seed-site-opening-template';
 
+  /**
+   * Constant LABEL_REGULATORY_REFERENCE
+   *
+   * Fixture reference for the seeded regulatory label.
+   *
+   * @access public
+   */
   public const string LABEL_REGULATORY_REFERENCE = 'intervention-seed-label-regulatory';
 
+  /**
+   * Constant LABEL_FIELD_WORK_REFERENCE
+   *
+   * Fixture reference for the seeded field-work label.
+   *
+   * @access public
+   */
   public const string LABEL_FIELD_WORK_REFERENCE = 'intervention-seed-label-field-work';
 
+  /**
+   * Constant LABEL_QUICK_WIN_REFERENCE
+   *
+   * Fixture reference for the seeded quick-win label.
+   *
+   * @access public
+   */
   public const string LABEL_QUICK_WIN_REFERENCE = 'intervention-seed-label-quick-win';
 
+  /**
+   * Constant LABEL_VENDOR_REFERENCE
+   *
+   * Fixture reference for the seeded vendor label.
+   *
+   * @access public
+   */
   public const string LABEL_VENDOR_REFERENCE = 'intervention-seed-label-vendor';
 
+  /**
+   * Constant LABEL_BLOCKED_REFERENCE
+   *
+   * Fixture reference for the seeded blocked label.
+   *
+   * @access public
+   */
   public const string LABEL_BLOCKED_REFERENCE = 'intervention-seed-label-blocked';
 
   /**
@@ -720,6 +811,13 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    */
   public const int BULK_INTERVENTION_COUNT = 40;
 
+  /**
+   * Constant COMMISSIONING_INSPECTION_TARGET
+   *
+   * Work-item target label used for the commissioning inspection seed.
+   *
+   * @access private
+   */
   private const string COMMISSIONING_INSPECTION_TARGET = 'Commissioning inspection';
 
   /**
@@ -791,6 +889,15 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
   // #endregion
 
   // #region Methods
+  /**
+   * Method getGroups
+   *
+   * Returns the fixture groups used to load intervention seed data.
+   *
+   * @access public
+   *
+   * @return list<string> fixture group names
+   */
   public static function getGroups(): array
   {
     return ['intervention', 'main-seed'];
@@ -808,6 +915,17 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ];
   }
 
+  /**
+   * Method load
+   *
+   * Persists the intervention workspace fixture graph after its organization, facility, and equipment dependencies.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture object manager
+   *
+   * @return void
+   */
   public function load(ObjectManager $manager): void
   {
     /** @var OrganizationRecord $organization */

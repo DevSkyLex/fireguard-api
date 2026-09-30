@@ -9,6 +9,21 @@ namespace Inspection\Application\Contract\Inspection;
  */
 final readonly class InspectionListCriteria
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Combines subject, execution, inspector, and text filters used by inspection list and count queries.
+   *
+   * @access public
+   *
+   * @param InspectionSubjectCriteria $subject equipment, facility, and checklist filters
+   * @param InspectionExecutionCriteria $execution result, status, and performed-time filters
+   * @param InspectionInspectorCriteria $inspector inspector identity and type filters
+   * @param ?string $search optional free-text query applied to inspection fields
+   *
+   * @return void
+   */
   public function __construct(
     public InspectionSubjectCriteria $subject = new InspectionSubjectCriteria(),
     public InspectionExecutionCriteria $execution = new InspectionExecutionCriteria(),
@@ -16,6 +31,7 @@ final readonly class InspectionListCriteria
     public ?string $search = null,
   ) {
   }
+  // #endregion
 
   /**
    * CSV export deliberately omits inspector type and free-text search.

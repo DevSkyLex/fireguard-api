@@ -16,40 +16,167 @@ use function explode;
 use function hash;
 use function sprintf;
 
+/**
+ * Class OrganizationFixtures
+ *
+ * Seeds the main organization, its roles and roster, invitations, teams, and secondary tenants.
+ *
+ * @category Fixtures
+ */
 final class OrganizationFixtures extends Fixture implements FixtureGroupInterface
 {
+  // #region Constants
+  /**
+   * Constant ORGANIZATION_REFERENCE
+   *
+   * Fixture reference for the primary seeded organization.
+   *
+   * @access public
+   */
   public const string ORGANIZATION_REFERENCE = 'organization-seed';
 
+  /**
+   * Constant ADMIN_ROLE_REFERENCE
+   *
+   * Fixture reference for the primary organization administrator role.
+   *
+   * @access public
+   */
   public const string ADMIN_ROLE_REFERENCE = 'organization-seed-admin-role';
 
+  /**
+   * Constant MEMBER_ROLE_REFERENCE
+   *
+   * Fixture reference for the primary organization member role.
+   *
+   * @access public
+   */
   public const string MEMBER_ROLE_REFERENCE = 'organization-seed-member-role';
 
+  /**
+   * Constant INSPECTOR_ROLE_REFERENCE
+   *
+   * Fixture reference for the restricted inspector role.
+   *
+   * @access public
+   */
   public const string INSPECTOR_ROLE_REFERENCE = 'organization-seed-inspector-role';
 
+  /**
+   * Constant OWNER_MEMBER_REFERENCE
+   *
+   * Fixture reference for the primary organization owner membership.
+   *
+   * @access public
+   */
   public const string OWNER_MEMBER_REFERENCE = 'organization-seed-owner-member';
 
+  /**
+   * Constant INSPECTOR_MEMBER_REFERENCE
+   *
+   * Fixture reference for the restricted inspector membership.
+   *
+   * @access public
+   */
   public const string INSPECTOR_MEMBER_REFERENCE = 'organization-seed-inspector-member';
 
+  /**
+   * Constant INVITATION_REFERENCE
+   *
+   * Fixture reference for the pending invitation used by organization flows.
+   *
+   * @access public
+   */
   public const string INVITATION_REFERENCE = 'organization-seed-invitation';
 
+  /**
+   * Constant SAFETY_MANAGER_MEMBER_REFERENCE
+   *
+   * Fixture reference for the seeded safety manager membership.
+   *
+   * @access public
+   */
   public const string SAFETY_MANAGER_MEMBER_REFERENCE = 'organization-seed-safety-manager-member';
 
+  /**
+   * Constant PARIS_TECHNICIAN_MEMBER_REFERENCE
+   *
+   * Fixture reference for the seeded Paris technician membership.
+   *
+   * @access public
+   */
   public const string PARIS_TECHNICIAN_MEMBER_REFERENCE = 'organization-seed-paris-technician-member';
 
+  /**
+   * Constant FIELD_TECHNICIAN_MEMBER_REFERENCE
+   *
+   * Fixture reference for the seeded field technician membership.
+   *
+   * @access public
+   */
   public const string FIELD_TECHNICIAN_MEMBER_REFERENCE = 'organization-seed-field-technician-member';
 
+  /**
+   * Constant REGIONAL_COORDINATOR_MEMBER_REFERENCE
+   *
+   * Fixture reference for the seeded regional coordinator membership.
+   *
+   * @access public
+   */
   public const string REGIONAL_COORDINATOR_MEMBER_REFERENCE = 'organization-seed-regional-coordinator-member';
 
+  /**
+   * Constant EXTERNAL_AUDITOR_MEMBER_REFERENCE
+   *
+   * Fixture reference for the seeded external auditor membership.
+   *
+   * @access public
+   */
   public const string EXTERNAL_AUDITOR_MEMBER_REFERENCE = 'organization-seed-external-auditor-member';
 
+  /**
+   * Constant WAREHOUSE_LEAD_MEMBER_REFERENCE
+   *
+   * Fixture reference for the seeded warehouse lead membership.
+   *
+   * @access public
+   */
   public const string WAREHOUSE_LEAD_MEMBER_REFERENCE = 'organization-seed-warehouse-lead-member';
 
+  /**
+   * Constant PARIS_TEAM_REFERENCE
+   *
+   * Fixture reference for the seeded Paris safety team.
+   *
+   * @access public
+   */
   public const string PARIS_TEAM_REFERENCE = 'organization-seed-paris-team';
 
+  /**
+   * Constant REGIONAL_TEAM_REFERENCE
+   *
+   * Fixture reference for the seeded regional field team.
+   *
+   * @access public
+   */
   public const string REGIONAL_TEAM_REFERENCE = 'organization-seed-regional-team';
 
+  /**
+   * Constant AUDIT_TEAM_REFERENCE
+   *
+   * Fixture reference for the seeded audit and compliance team.
+   *
+   * @access public
+   */
   public const string AUDIT_TEAM_REFERENCE = 'organization-seed-audit-team';
 
+  /**
+   * Constant ORGANIZATION_ID
+   *
+   * Stable identifier for the primary organization fixture.
+   *
+   * @access public
+   */
   public const string ORGANIZATION_ID = '11111111-1111-4111-8111-111111111111';
 
   /**
@@ -306,19 +433,70 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     ],
   ];
 
+  /**
+   * Constant STAFF_JOINED_AT
+   *
+   * Join timestamp shared by staff fixture entries that use the common date.
+   *
+   * @access private
+   */
   private const string STAFF_JOINED_AT = '2026-03-10T09:00:00+00:00';
 
+  /**
+   * Constant MARCH_FIRST_AT
+   *
+   * Timestamp used by seeded March organization and invitation records.
+   *
+   * @access private
+   */
   private const string MARCH_FIRST_AT = '2026-03-01T09:00:00+00:00';
 
+  /**
+   * Constant OWNER_USER_ID
+   *
+   * Stable user identifier assigned as owner of the primary seeded organization.
+   *
+   * @access private
+   */
   private const string OWNER_USER_ID = 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890';
 
+  /**
+   * Constant INSPECTOR_USER_ID
+   *
+   * Stable user identifier assigned to the restricted inspector membership.
+   *
+   * @access private
+   */
   private const string INSPECTOR_USER_ID = 'b2c3d4e5-f6a7-4901-8cde-f23456789012';
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method getGroups
+   *
+   * Returns the fixture groups used to load organization seed data.
+   *
+   * @access public
+   *
+   * @return list<string> fixture group names
+   */
   public static function getGroups(): array
   {
     return ['organization', 'main-seed'];
   }
 
+  /**
+   * Method load
+   *
+   * Persists the primary organization graph and its secondary organization fixtures.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture object manager
+   *
+   * @return void
+   */
   public function load(ObjectManager $manager): void
   {
     $organizationCreatedAt = SeedTimeline::at('2026-02-01T09:00:00+00:00');
@@ -426,11 +604,14 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
   }
 
   /**
-   * Method bulkMemberReference.
+   * Method bulkMemberReference
    *
+   * Builds the stable reference name for a bulk seeded organization member.
+   *
+   * @access public
    * @since 1.2.0
    *
-   * @param int $index the bulk member index, `0` to `BULK_MEMBER_COUNT - 1`
+   * @param int $index the bulk member index, from zero to one less than the configured count
    *
    * @return string the fixture reference name
    */
@@ -440,8 +621,19 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
   }
 
   /**
-   * @param array<string, OrganizationRoleRecord> $rolesByReference
-   * @param array<string, OrganizationMemberRecord> $membersByReference
+   * Method seedStaffAndTeams
+   *
+   * Persists the seeded staff memberships, role assignments, and team memberships.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture object manager
+   * @param OrganizationRecord $organization organization receiving the roster and teams
+   * @param OrganizationRoleRecord $memberRole role assigned to ordinary staff members
+   * @param array<string, OrganizationRoleRecord> $rolesByReference roles indexed by fixture reference
+   * @param array<string, OrganizationMemberRecord> $membersByReference mutable member lookup for team seeding
+   *
+   * @return void
    */
   private function seedStaffAndTeams(ObjectManager $manager, OrganizationRecord $organization, OrganizationRoleRecord $memberRole, array $rolesByReference, array $membersByReference): void
   {
@@ -512,6 +704,20 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     }
   }
 
+  /**
+   * Method seedInvitations
+   *
+   * Persists pending, accepted, and expired invitation examples with their assigned roles.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture object manager
+   * @param OrganizationRecord $organization organization receiving the invitations
+   * @param OrganizationRoleRecord $memberRole role assigned to ordinary invitees
+   * @param OrganizationRoleRecord $inspectorRole role assigned to the expired invitation
+   *
+   * @return void
+   */
   private function seedInvitations(ObjectManager $manager, OrganizationRecord $organization, OrganizationRoleRecord $memberRole, OrganizationRoleRecord $inspectorRole): void
   {
     $invitation = new OrganizationInvitationRecord();
@@ -576,11 +782,16 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
   }
 
   /**
-   * Method loadSecondaryOrganizations.
+   * Method loadSecondaryOrganizations
    *
+   * Persists each secondary organization with its owner, system roles, and configured extra members.
+   *
+   * @access private
    * @since 1.3.0
    *
-   * @param ObjectManager $manager the object manager
+   * @param ObjectManager $manager fixture object manager
+   *
+   * @return void
    */
   private function loadSecondaryOrganizations(ObjectManager $manager): void
   {
@@ -659,4 +870,5 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       }
     }
   }
+  // #endregion
 }

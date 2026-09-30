@@ -37,6 +37,17 @@ final readonly class TagRepository implements TagRepositoryPort
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the entity manager used to access tag records and equipment-tag links.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager Doctrine entity manager used to access tag and equipment-tag persistence
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

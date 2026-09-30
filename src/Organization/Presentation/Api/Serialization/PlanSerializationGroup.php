@@ -14,7 +14,13 @@ namespace Organization\Presentation\Api\Serialization;
  */
 final class PlanSerializationGroup
 {
+  /**
+   * Constant READ
+   */
   public const string READ = 'Plan:read';
 
+  /**
+   * Constant WRITE
+   */
   public const string WRITE = 'Plan:write';
 }

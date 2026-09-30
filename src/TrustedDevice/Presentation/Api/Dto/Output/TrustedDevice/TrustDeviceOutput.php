@@ -14,6 +14,10 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
  */
 final class TrustDeviceOutput
 {
+  // #region Properties
+  /**
+   * Property deviceId
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Trusted device identifier (UUID).',
@@ -30,6 +34,9 @@ final class TrustDeviceOutput
   )]
   public string $deviceId;
 
+  /**
+   * Property token
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Trusted device token used for bypassing MFA on this device.',
@@ -45,6 +52,9 @@ final class TrustDeviceOutput
   )]
   public string $token;
 
+  /**
+   * Property deviceName
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Friendly name for the device.',
@@ -60,6 +70,9 @@ final class TrustDeviceOutput
   )]
   public string $deviceName;
 
+  /**
+   * Property expiresAt
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'When the trusted device token expires.',
@@ -75,4 +88,5 @@ final class TrustDeviceOutput
     ],
   )]
   public DateTimeImmutable $expiresAt;
+  // #endregion
 }

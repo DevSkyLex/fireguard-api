@@ -13,8 +13,30 @@ use Import\Domain\ValueObject\ImportJobId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 
+/**
+ * Class ResumeImportJobHandler
+ *
+ * Reauthorizes a retained import job and queues it for another execution.
+ *
+ * @category Handler
+ */
 final readonly class ResumeImportJobHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the job, authorization, execution and queue capabilities used to resume work.
+   *
+   * @access public
+   *
+   * @param ImportJobRepositoryPort $jobs reads retained import jobs
+   * @param OrganizationAuthorizationPort $authorization checks the actor's organization access
+   * @param ImportExecutionPort $execution resumes the retained job
+   * @param ImportJobQueuePort $queue schedules import execution
+   *
+   * @return void
+   */
   public function __construct(
     private ImportJobRepositoryPort $jobs,
     private OrganizationAuthorizationPort $authorization,
@@ -23,6 +45,24 @@ final readonly class ResumeImportJobHandler implements CommandHandler
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Checks current write access, resumes the job and returns its refreshed state.
+   * Jobs outside the actor's scope are reported as missing.
+   *
+   * @access public
+   *
+   * @param ResumeImportJobCommand $command identifies the job and requesting user
+   *
+   * @return GetImportJobResult the resumed job state
+   *
+   * @throws ImportJobNotFoundException when the job is missing or outside the actor's scope
+   * @throws ImportAccessDeniedException when the actor lacks the required write permission
+   */
   public function __invoke(ResumeImportJobCommand $command): GetImportJobResult
   {
     $id = ImportJobId::fromString($command->importJobId);
@@ -41,4 +81,5 @@ final readonly class ResumeImportJobHandler implements CommandHandler
 
     return GetImportJobResult::fromDomain($job);
   }
+  // #endregion
 }

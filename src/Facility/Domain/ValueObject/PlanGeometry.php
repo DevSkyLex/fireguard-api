@@ -40,6 +40,9 @@ final readonly class PlanGeometry
   // #endregion
 
   // #region Properties
+  /**
+   * Property attachmentId
+   */
   private string $attachmentId;
 
   /**

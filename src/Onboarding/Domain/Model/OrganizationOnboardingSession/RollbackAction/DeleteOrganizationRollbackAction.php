@@ -23,6 +23,9 @@ use function is_string;
 final readonly class DeleteOrganizationRollbackAction implements RollbackActionInterface
 {
   // #region Constants
+  /**
+   * Constant ACTION_TYPE
+   */
   public const string ACTION_TYPE = 'delete_organization';
   // #endregion
 

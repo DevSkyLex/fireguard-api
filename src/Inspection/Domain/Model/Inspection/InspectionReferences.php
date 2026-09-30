@@ -9,6 +9,21 @@ use Inspection\Domain\ValueObject\{InspectionChecklistId, InspectionEquipmentId,
 /** Equipment and inspector references for a new or restored inspection. */
 final readonly class InspectionReferences
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Captures the inspected equipment, inspector, and optional facility and checklist references.
+   *
+   * @access public
+   *
+   * @param InspectionEquipmentId $equipmentId equipment inspected
+   * @param Inspector $inspector inspector identity and type
+   * @param ?InspectionFacilityId $facilityId facility associated with the inspection, when known
+   * @param ?InspectionChecklistId $checklistId checklist used for the inspection, when known
+   *
+   * @return void
+   */
   public function __construct(
     public InspectionEquipmentId $equipmentId,
     public Inspector $inspector,
@@ -16,4 +31,5 @@ final readonly class InspectionReferences
     public ?InspectionChecklistId $checklistId = null,
   ) {
   }
+  // #endregion
 }

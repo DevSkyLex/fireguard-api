@@ -17,6 +17,17 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetEquipmentKpisQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the organization whose equipment KPI counters are requested.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose equipment counters are requested
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
   ) {

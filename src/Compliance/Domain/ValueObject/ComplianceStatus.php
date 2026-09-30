@@ -25,9 +25,24 @@ use function array_column;
  */
 enum ComplianceStatus: string
 {
+  /**
+   * Case COMPLIANT
+   */
   case COMPLIANT = 'compliant';
+
+  /**
+   * Case AT_RISK
+   */
   case AT_RISK = 'at_risk';
+
+  /**
+   * Case NON_COMPLIANT
+   */
   case NON_COMPLIANT = 'non_compliant';
+
+  /**
+   * Case NOT_APPLICABLE
+   */
   case NOT_APPLICABLE = 'not_applicable';
 
   // #region Methods

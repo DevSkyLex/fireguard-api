@@ -22,6 +22,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class ResolveCanonicalInspectionScopeResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Returns the organization scope resolved for the canonical inspection request, when known.
+   *
+   * @access public
+   *
+   * @param ?string $organizationId resolved organization scope, or null when it could not be determined
+   *
+   * @return void
+   */
   public function __construct(
     public ?string $organizationId = null,
   ) {

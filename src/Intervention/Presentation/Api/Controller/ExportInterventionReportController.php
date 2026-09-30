@@ -69,6 +69,9 @@ final class ExportInterventionReportController extends AbstractController
   use InterventionWorkflowExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant MAX_ITEMS_PER_PAGE
+   */
   private const int MAX_ITEMS_PER_PAGE = 100;
   // #endregion
 

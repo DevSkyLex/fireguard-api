@@ -59,6 +59,9 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
    */
   private const int DEFAULT_ITEMS_PER_PAGE = 50;
 
+  /**
+   * Constant MAX_ITEMS_PER_PAGE
+   */
   private const int MAX_ITEMS_PER_PAGE = 100;
   // #endregion
 

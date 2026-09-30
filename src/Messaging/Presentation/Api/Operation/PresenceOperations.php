@@ -14,9 +14,18 @@ namespace Messaging\Presentation\Api\Operation;
  */
 final class PresenceOperations
 {
+  /**
+   * Constant PING
+   */
   public const string PING = 'messaging_ping_presence';
 
+  /**
+   * Constant GET
+   */
   public const string GET = 'messaging_get_presence';
 
+  /**
+   * Constant SUBSCRIPTION
+   */
   public const string SUBSCRIPTION = 'messaging_presence_subscription';
 }

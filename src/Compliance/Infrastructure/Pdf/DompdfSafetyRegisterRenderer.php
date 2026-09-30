@@ -28,10 +28,31 @@ use Twig\Environment;
 final readonly class DompdfSafetyRegisterRenderer implements SafetyRegisterPdfRendererPort
 {
   // #region Constants
+  /**
+   * Constant TEMPLATE.
+   *
+   * Twig template used to render the safety register.
+   *
+   * @access private
+   */
   private const string TEMPLATE = 'compliance/safety_register.html.twig';
 
+  /**
+   * Constant PAPER_SIZE.
+   *
+   * Page size used for the generated register.
+   *
+   * @access private
+   */
   private const string PAPER_SIZE = 'A4';
 
+  /**
+   * Constant PAPER_ORIENTATION.
+   *
+   * Page orientation used for the generated register.
+   *
+   * @access private
+   */
   private const string PAPER_ORIENTATION = 'portrait';
   // #endregion
 
@@ -50,6 +71,17 @@ final readonly class DompdfSafetyRegisterRenderer implements SafetyRegisterPdfRe
   // #endregion
 
   // #region Methods
+  /**
+   * Method render.
+   *
+   * Renders the safety register template as PDF bytes with remote loading and PHP disabled.
+   *
+   * @access public
+   *
+   * @param array<string, mixed> $context values used by the safety register template
+   *
+   * @return string generated PDF bytes
+   */
   public function render(array $context): string
   {
     $html = $this->twig->render(self::TEMPLATE, $context);

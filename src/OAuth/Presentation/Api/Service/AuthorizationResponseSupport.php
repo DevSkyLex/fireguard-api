@@ -15,9 +15,29 @@ use function parse_url;
 use function preg_match;
 use function urldecode;
 
-/** Converts OAuth authorization responses and extracts returned auth codes. */
+/**
+ * Class AuthorizationResponseSupport
+ *
+ * Converts OAuth authorization responses and extracts returned authorization codes.
+ *
+ * @category Service
+ */
 final class AuthorizationResponseSupport
 {
+  // #region Methods
+  /**
+   * Method buildOidcError.
+   *
+   * Builds the JSON response shape used for OIDC authorization errors.
+   *
+   * @access public
+   *
+   * @param string $error OIDC error identifier
+   * @param string $description human-readable error description
+   * @param int $status HTTP response status code
+   *
+   * @return JsonResponse the OIDC error response
+   */
   public static function buildOidcError(string $error, string $description, int $status): JsonResponse
   {
     return new JsonResponse(
@@ -29,6 +49,17 @@ final class AuthorizationResponseSupport
     );
   }
 
+  /**
+   * Method extractCodeFromResponse.
+   *
+   * Extracts an authorization code from a redirect response or form-post body.
+   *
+   * @access public
+   *
+   * @param \Psr\Http\Message\ResponseInterface $response OAuth server response
+   *
+   * @return ?string authorization code, or null when none is present
+   */
   public static function extractCodeFromResponse(\Psr\Http\Message\ResponseInterface $response): ?string
   {
     $code = self::extractCodeFromLocation($response->getHeaderLine('Location'));
@@ -44,6 +75,17 @@ final class AuthorizationResponseSupport
     return self::extractCodeFromFormPostBody($body);
   }
 
+  /**
+   * Method convertPsrResponse.
+   *
+   * Converts a PSR-7 response to its HttpFoundation response representation.
+   *
+   * @access public
+   *
+   * @param \Psr\Http\Message\ResponseInterface $psrResponse response to convert
+   *
+   * @return Response converted framework response
+   */
   public static function convertPsrResponse(\Psr\Http\Message\ResponseInterface $psrResponse): Response
   {
     $httpFoundationFactory = new HttpFoundationFactory();
@@ -51,6 +93,17 @@ final class AuthorizationResponseSupport
     return $httpFoundationFactory->createResponse($psrResponse);
   }
 
+  /**
+   * Method extractCodeFromLocation.
+   *
+   * Reads an authorization code from the query or fragment of a redirect location.
+   *
+   * @access private
+   *
+   * @param string $location redirect location value
+   *
+   * @return ?string authorization code, or null when absent
+   */
   private static function extractCodeFromLocation(string $location): ?string
   {
     $parts = parse_url($location);
@@ -88,6 +141,17 @@ final class AuthorizationResponseSupport
     return $code;
   }
 
+  /**
+   * Method extractCodeFromFormPostBody.
+   *
+   * Reads an authorization code from common form-post response body shapes.
+   *
+   * @access private
+   *
+   * @param string $body response body content
+   *
+   * @return ?string authorization code, or null when absent
+   */
   private static function extractCodeFromFormPostBody(string $body): ?string
   {
     if (1 === preg_match('/name=["\']code["\'][^>]*value=["\']([^"\']+)["\']/i', $body, $matches)) {
@@ -103,6 +167,17 @@ final class AuthorizationResponseSupport
       : null;
   }
 
+  /**
+   * Method readResponseBody.
+   *
+   * Reads a response body while restoring its cursor when the stream is seekable.
+   *
+   * @access private
+   *
+   * @param \Psr\Http\Message\ResponseInterface $response response to read
+   *
+   * @return string body content, or an empty string when unreadable
+   */
   private static function readResponseBody(\Psr\Http\Message\ResponseInterface $response): string
   {
     try {
@@ -125,4 +200,5 @@ final class AuthorizationResponseSupport
       return '';
     }
   }
+  // #endregion
 }

@@ -52,6 +52,20 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives command dispatch, organization authorization, caller identity, and equipment output assembly for plan-position changes.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus port used to dispatch the plan-position command
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
+   * @param Security $security security context used to obtain the acting member
+   * @param \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail factory used to assemble the updated equipment response
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -65,12 +79,17 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
   /**
    * Method process.
    *
+   * Checks the authenticated organization context and dispatches the requested equipment plan-position update.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param SetEquipmentPlanPositionInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return EquipmentOutput the equipment with its updated plan position
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): EquipmentOutput
   {

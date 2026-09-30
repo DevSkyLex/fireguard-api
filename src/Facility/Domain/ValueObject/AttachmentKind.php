@@ -18,8 +18,14 @@ namespace Facility\Domain\ValueObject;
  */
 enum AttachmentKind: string
 {
+  /**
+   * Case DOCUMENT
+   */
   case DOCUMENT = 'document';
 
+  /**
+   * Case FLOOR_PLAN
+   */
   case FLOOR_PLAN = 'floor_plan';
 
   // #region Methods

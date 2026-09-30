@@ -128,6 +128,17 @@ final readonly class ExecuteAutomationRuleHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method executeOnce.
+   *
+   * Reserves an idempotent rule run, applies its policy, and records the execution outcome.
+   *
+   * @access private
+   *
+   * @param ExecuteAutomationRuleCommand $command the rule, subject, and trigger context
+   *
+   * @return VoidResult the neutral handler result
+   */
   private function executeOnce(ExecuteAutomationRuleCommand $command): VoidResult
   {
     $runId = $this->runs->reserveRun($command->ruleKey, $command->organizationId, $command->subjectId, $command->triggerPayload, $command->attemptId);

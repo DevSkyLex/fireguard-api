@@ -31,9 +31,25 @@ final readonly class SessionTrackingAdapter implements SessionTrackingPort
     private SessionTrackingServicePort $sessionTracking,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method recordSession
+   *
+   * Records session the supplied values.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   * @param string $ipAddress the client IP address
+   * @param string $userAgent the user agent
+   * @param ?string $accessTokenId the access token identifier
+   * @param ?string $refreshTokenId the refresh token identifier
+   * @param bool $rememberMe the remember me
+   *
+   * @return void
+   */
   public function recordSession(
     string $userId,
     string $ipAddress,
@@ -52,6 +68,20 @@ final readonly class SessionTrackingAdapter implements SessionTrackingPort
     );
   }
 
+  /**
+   * Method rotateSessionTokens
+   *
+   * Rotates session tokens the supplied values.
+   *
+   * @access public
+   *
+   * @param string $currentRefreshTokenId the current refresh token identifier
+   * @param ?string $currentAccessTokenId the current access token identifier
+   * @param string $newAccessTokenId the new access token identifier
+   * @param string $newRefreshTokenId the new refresh token identifier
+   *
+   * @return bool
+   */
   public function rotateSessionTokens(
     string $currentRefreshTokenId,
     ?string $currentAccessTokenId,
@@ -66,6 +96,18 @@ final readonly class SessionTrackingAdapter implements SessionTrackingPort
     );
   }
 
+  /**
+   * Method revokeSessionByToken
+   *
+   * Revokes session by token the supplied values.
+   *
+   * @access public
+   *
+   * @param ?string $refreshTokenId the refresh token identifier
+   * @param ?string $accessTokenId the access token identifier
+   *
+   * @return void
+   */
   public function revokeSessionByToken(?string $refreshTokenId, ?string $accessTokenId): void
   {
     $this->sessionTracking->revokeSessionByToken(

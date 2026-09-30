@@ -23,27 +23,111 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use function array_map;
 use function str_replace;
 
+/**
+ * Class NonConformityRepository
+ *
+ * Bridges non-conformity aggregates and timestamp-aware Doctrine storage.
+ *
+ * @category Repository
+ *
+ * @see NonConformityRepositoryPort
+ */
 final readonly class NonConformityRepository implements NonConformityRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant NON_CONFORMITY_COUNT_EXPRESSION
+   *
+   * DQL aggregate used by collection count queries.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string NON_CONFORMITY_COUNT_EXPRESSION = 'COUNT(r.id)';
 
+  /**
+   * Constant ORGANIZATION_ID_PREDICATE
+   *
+   * Parameterized organization predicate applied through the inspection join.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ORGANIZATION_ID_PREDICATE = 'o.id = :organizationId';
 
+  /**
+   * Constant SEVERITY_PREDICATE
+   *
+   * Parameterized exact severity predicate.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string SEVERITY_PREDICATE = 'r.severity = :severity';
 
+  /**
+   * Constant STATUS_PREDICATE
+   *
+   * Parameterized exact status predicate.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string STATUS_PREDICATE = 'r.status = :status';
 
+  /**
+   * Constant OPEN_STATUSES_PREDICATE
+   *
+   * Parameterized predicate selecting the unresolved status set.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string OPEN_STATUSES_PREDICATE = 'r.status IN (:openStatuses)';
 
+  /**
+   * Constant SEARCH_PLACEHOLDER
+   *
+   * Bound parameter reused by the literal-substring search predicates.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string SEARCH_PLACEHOLDER = ':search';
   // #endregion
 
+  // #region Properties
   /**
+   * Property repository
+   *
+   * Doctrine record collection used by identifier reads and persistence operations.
+   *
+   * @access private
+   *
    * @var EntityRepository<NonConformityRecord>
    */
   private EntityRepository $repository;
+  // #endregion
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Binds the non-conformity record repository and the configured storage time zone.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager explicitly wired entity manager that owns the non-conformity records
+   * @param string $storageTimeZone storage IANA time-zone name, defaulting to UTC
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     #[Autowire('%env(default:database_storage_timezone_default:DATABASE_STORAGE_TIMEZONE)%')]
@@ -51,7 +135,20 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   ) {
     $this->repository = $this->entityManager->getRepository(NonConformityRecord::class);
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method save
+   *
+   * Writes a new or existing non-conformity and flushes its inspection association and timestamps.
+   *
+   * @access public
+   *
+   * @param NonConformity $nonConformity aggregate whose current state is written
+   *
+   * @return void
+   */
   public function save(NonConformity $nonConformity): void
   {
     $record = $this->normalizeRecordDateTimesToStorage(NonConformityMapper::toRecord($nonConformity));
@@ -92,6 +189,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById
+   *
+   * Reads one non-conformity and reinterprets its stored wall-clock timestamps.
+   *
+   * @access public
+   *
+   * @param NonConformityId $id non-conformity identifier to resolve
+   *
+   * @return ?NonConformity
+   */
   public function findById(NonConformityId $id): ?NonConformity
   {
     $record = $this->repository->find((string) $id);
@@ -103,6 +211,23 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return NonConformityMapper::toDomain($this->reinterpretRecordDateTimesFromStorage($record));
   }
 
+  /**
+   * Method findByInspectionId
+   *
+   * Lists filtered non-conformities for an inspection after applying sorting and pagination.
+   *
+   * @access public
+   *
+   * @param NonConformityInspectionId $inspectionId inspection whose non-conformities are queried
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   * @param ?string $search optional literal substring matched against description, severity, status and notes
+   * @param Sorting $sorting allowed record field and direction applied before pagination
+   * @param int $limit maximum number of records selected
+   * @param int $offset number of matched records skipped before selection
+   *
+   * @return list<NonConformity>
+   */
   public function findByInspectionId(
     NonConformityInspectionId $inspectionId,
     ?string $severity = null,
@@ -126,6 +251,20 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     );
   }
 
+  /**
+   * Method countByInspectionId
+   *
+   * Counts the same filtered inspection collection used by the list query.
+   *
+   * @access public
+   *
+   * @param NonConformityInspectionId $inspectionId inspection whose non-conformities are queried
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   * @param ?string $search optional literal substring matched against description, severity, status and notes
+   *
+   * @return int
+   */
   public function countByInspectionId(
     NonConformityInspectionId $inspectionId,
     ?string $severity = null,
@@ -139,11 +278,14 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   }
 
   /**
-   * Method countsByInspectionIds.
+   * Method countsByInspectionIds
    *
+   * Counts non-conformities for several inspections in one grouped query.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param list<string> $inspectionIds
+   * @param list<string> $inspectionIds inspection identifiers to count together; absent groups are omitted
    *
    * @return array<string, int>
    */
@@ -173,6 +315,23 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $counts;
   }
 
+  /**
+   * Method findByOrganizationId
+   *
+   * Lists an organization's filtered non-conformities with a stable identifier tie-breaker.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   * @param ?string $search optional literal substring matched against description, severity, status and notes
+   * @param Sorting $sorting allowed record field and direction applied before pagination
+   * @param int $limit maximum number of records selected
+   * @param int $offset number of matched records skipped before selection
+   *
+   * @return list<NonConformity>
+   */
   public function findByOrganizationId(
     InspectionOrganizationId $organizationId,
     ?string $severity = null,
@@ -197,6 +356,20 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     );
   }
 
+  /**
+   * Method countByOrganizationId
+   *
+   * Counts an organization's filtered collection before pagination.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   * @param ?string $search optional literal substring matched against description, severity, status and notes
+   *
+   * @return int
+   */
   public function countByOrganizationId(
     InspectionOrganizationId $organizationId,
     ?string $severity = null,
@@ -209,6 +382,20 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
 
+  /**
+   * Method countOverviewByOrganizationId
+   *
+   * Projects status, overdue and critical-open counters in one organization-scoped query.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param string $dueAtBefore exclusive due-date cutoff parsed with its supplied time-zone information
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   *
+   * @return array{total: int, open: int, in_progress: int, done: int, waived: int, overdue: int, critical_open: int}
+   */
   public function countOverviewByOrganizationId(
     InspectionOrganizationId $organizationId,
     string $dueAtBefore,
@@ -259,6 +446,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ];
   }
 
+  /**
+   * Method countByStatusForOrganizationId
+   *
+   * Groups an organization's non-conformities by their persisted status.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   *
+   * @return array<string, int>
+   */
   public function countByStatusForOrganizationId(InspectionOrganizationId $organizationId): array
   {
     /** @var list<array{status: string, nonConformityCount: int|string}> $rows */
@@ -281,6 +479,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $counts;
   }
 
+  /**
+   * Method countBySeverityForOrganizationId
+   *
+   * Groups an organization's non-conformities by their persisted severity.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   *
+   * @return array<string, int>
+   */
   public function countBySeverityForOrganizationId(InspectionOrganizationId $organizationId): array
   {
     /** @var list<array{severity: string, nonConformityCount: int|string}> $rows */
@@ -303,6 +512,20 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $counts;
   }
 
+  /**
+   * Method countOverdueByOrganizationId
+   *
+   * Counts due dates before the cutoff; a missing status filter selects open and in-progress rows.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param string $dueAtBefore exclusive due-date cutoff parsed with its supplied time-zone information
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   *
+   * @return int
+   */
   public function countOverdueByOrganizationId(
     InspectionOrganizationId $organizationId,
     string $dueAtBefore,
@@ -335,6 +558,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->getSingleScalarResult();
   }
 
+  /**
+   * Method countSlaBreachedByOrganizationId
+   *
+   * Counts unresolved rows already stamped by the SLA breach notification sweep.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   *
+   * @return int
+   */
   public function countSlaBreachedByOrganizationId(InspectionOrganizationId $organizationId): int
   {
     return (int) $this->entityManager->createQueryBuilder()
@@ -351,6 +585,20 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->getSingleScalarResult();
   }
 
+  /**
+   * Method countActiveByOrganizationIdAtDate
+   *
+   * Counts rows created before the instant and not resolved until after it.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param string $at instant at which active rows are counted
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   *
+   * @return int
+   */
   public function countActiveByOrganizationIdAtDate(
     InspectionOrganizationId $organizationId,
     string $at,
@@ -381,6 +629,22 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->getSingleScalarResult();
   }
 
+  /**
+   * Method countByCreatedDayForOrganizationId
+   *
+   * Buckets creation counts by local calendar day within the inclusive timestamp bounds.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param string $createdAtFrom inclusive creation-time lower bound
+   * @param string $createdAtTo inclusive creation-time upper bound
+   * @param ?string $timeZone optional bucket IANA zone; null or empty derives the zone from the lower bound
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   *
+   * @return array<string, int>
+   */
   public function countByCreatedDayForOrganizationId(
     InspectionOrganizationId $organizationId,
     string $createdAtFrom,
@@ -432,6 +696,22 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $counts;
   }
 
+  /**
+   * Method countByResolvedDayForOrganizationId
+   *
+   * Buckets resolution counts by local calendar day within the inclusive timestamp bounds.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param string $resolvedAtFrom inclusive resolution-time lower bound
+   * @param string $resolvedAtTo inclusive resolution-time upper bound
+   * @param ?string $timeZone optional bucket IANA zone; null or empty derives the zone from the lower bound
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   *
+   * @return array<string, int>
+   */
   public function countByResolvedDayForOrganizationId(
     InspectionOrganizationId $organizationId,
     string $resolvedAtFrom,
@@ -484,6 +764,22 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $counts;
   }
 
+  /**
+   * Method countPeriodMetricsByOrganizationId
+   *
+   * Projects opened, resolved and initially active counts with one organization-scoped query.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param string $periodFrom inclusive lower bound for created and resolved period metrics
+   * @param string $periodTo inclusive upper bound for created and resolved period metrics
+   * @param string $activeAt instant defining the initially active population
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   *
+   * @return array{opened: int, resolved: int, activeAtStart: int}
+   */
   public function countPeriodMetricsByOrganizationId(
     InspectionOrganizationId $organizationId,
     string $periodFrom,
@@ -533,6 +829,18 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ];
   }
 
+  /**
+   * Method countOpenCriticalByOrganizationId
+   *
+   * Counts critical rows; a missing status filter selects open and in-progress rows.
+   *
+   * @access public
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   *
+   * @return int
+   */
   public function countOpenCriticalByOrganizationId(InspectionOrganizationId $organizationId, ?string $status = null): int
   {
     $queryBuilder = $this->entityManager->createQueryBuilder()
@@ -557,11 +865,14 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   }
 
   /**
-   * Method countsOpenByInspectionIds.
+   * Method countsOpenByInspectionIds
    *
+   * Counts open and in-progress non-conformities for several inspections in one grouped query.
+   *
+   * @access public
    * @since 1.6.0
    *
-   * @param list<string> $inspectionIds
+   * @param list<string> $inspectionIds inspection identifiers to count together; absent groups are omitted
    *
    * @return array<string, int>
    */
@@ -594,9 +905,18 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   }
 
   /**
-   * Method countExportCandidates.
+   * Method countExportCandidates
    *
+   * Counts severity/status-filtered rows before fetching the organization export.
+   *
+   * @access public
    * @since 1.6.0
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   *
+   * @return int
    */
   public function countExportCandidates(
     InspectionOrganizationId $organizationId,
@@ -609,14 +929,21 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   }
 
   /**
-   * Method listExportCandidates.
+   * Method listExportCandidates
+   *
+   * Projects export candidates together with their inspection's facility and equipment identifiers.
    *
    * Selects the owning inspection's `facilityId`/`equipmentId` in the same
    * query (a partial `NEW` object select), so naming the facility/equipment
    * in bulk never needs a second round trip per row to discover which
    * inspection each non-conformity belongs to.
    *
+   * @access public
    * @since 1.6.0
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
    *
    * @return list<NonConformityExportCandidate>
    */
@@ -656,6 +983,20 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     );
   }
 
+  /**
+   * Method createListQueryBuilder
+   *
+   * Builds the shared inspection query and escapes wildcard characters in text searches.
+   *
+   * @access private
+   *
+   * @param NonConformityInspectionId $inspectionId inspection whose non-conformities are queried
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   * @param ?string $search optional literal substring matched against description, severity, status and notes
+   *
+   * @return QueryBuilder
+   */
   private function createListQueryBuilder(
     NonConformityInspectionId $inspectionId,
     ?string $severity,
@@ -693,12 +1034,23 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   }
 
   /**
-   * Method createOrganizationListQueryBuilder.
+   * Method createOrganizationListQueryBuilder
+   *
+   * Builds the shared organization query and escapes wildcard characters in text searches.
    *
    * Shared base for `findByOrganizationId()` and `countByOrganizationId()`,
    * so the two never drift on which rows they see. Org-scoping comes from
    * the join to the inspection and organization records, never from
    * trusting a caller-supplied ID.
+   *
+   * @access private
+   *
+   * @param InspectionOrganizationId $organizationId owning organization used by the inspection join
+   * @param ?string $severity optional exact severity filter; null leaves all severities eligible
+   * @param ?string $status optional exact status filter; null applies the query's default status behavior
+   * @param ?string $search optional literal substring matched against description, severity, status and notes
+   *
+   * @return QueryBuilder
    */
   private function createOrganizationListQueryBuilder(
     InspectionOrganizationId $organizationId,
@@ -735,6 +1087,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $qb;
   }
 
+  /**
+   * Method resolveSortField
+   *
+   * Maps allowed sort fields to record properties and falls back to creation time.
+   *
+   * @access private
+   *
+   * @param string $field requested sort field checked against the supported record properties
+   *
+   * @return string
+   */
   private function resolveSortField(string $field): string
   {
     return match ($field) {
@@ -745,6 +1108,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     };
   }
 
+  /**
+   * Method normalizeRecordDateTimesToStorage
+   *
+   * Updates the supplied record's timestamps to the configured storage time zone.
+   *
+   * @access private
+   *
+   * @param NonConformityRecord $record record whose timestamp representation is normalized
+   *
+   * @return NonConformityRecord
+   */
   private function normalizeRecordDateTimesToStorage(NonConformityRecord $record): NonConformityRecord
   {
     $record->dueAt = $this->normalizeNullableDateTimeForStorage($record->dueAt);
@@ -755,6 +1129,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $record;
   }
 
+  /**
+   * Method reinterpretRecordDateTimesFromStorage
+   *
+   * Clones a hydrated record before reinterpreting its stored wall-clock timestamps.
+   *
+   * @access private
+   *
+   * @param NonConformityRecord $record record whose timestamp representation is normalized
+   *
+   * @return NonConformityRecord
+   */
   private function reinterpretRecordDateTimesFromStorage(NonConformityRecord $record): NonConformityRecord
   {
     $normalized = clone $record;
@@ -766,6 +1151,18 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $normalized;
   }
 
+  /**
+   * Method resolveBucketTimeZone
+   *
+   * Uses the requested bucket zone or derives it from the lower-bound timestamp.
+   *
+   * @access private
+   *
+   * @param ?string $timeZone optional bucket IANA zone; null or empty derives the zone from the lower bound
+   * @param string $lowerBound timestamp used to derive the bucket zone when none is specified
+   *
+   * @return DateTimeZone
+   */
   private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
   {
     if (null !== $timeZone && '' !== $timeZone) {
@@ -775,6 +1172,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return new DateTimeImmutable($lowerBound)->getTimezone();
   }
 
+  /**
+   * Method resolveStorageTimeZone
+   *
+   * Constructs the configured storage zone and translates an invalid configuration.
+   *
+   * @access private
+   *
+   * @return DateTimeZone
+   *
+   * @throws InvalidStorageTimeZoneException when the configured IANA zone is invalid
+   */
   private function resolveStorageTimeZone(): DateTimeZone
   {
     try {
@@ -784,17 +1192,50 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     }
   }
 
+  /**
+   * Method normalizeTimestampToStorageDateTime
+   *
+   * Parses a timestamp and preserves its instant in the configured storage zone.
+   *
+   * @access private
+   *
+   * @param string $value timestamp value to parse, convert or reinterpret according to this operation
+   *
+   * @return DateTimeImmutable
+   */
   private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
   {
     return new DateTimeImmutable($value)
       ->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method normalizeDateTimeForStorage
+   *
+   * Preserves the instant while converting it to the configured storage zone.
+   *
+   * @access private
+   *
+   * @param DateTimeImmutable $value timestamp value to parse, convert or reinterpret according to this operation
+   *
+   * @return DateTimeImmutable
+   */
   private function normalizeDateTimeForStorage(DateTimeImmutable $value): DateTimeImmutable
   {
     return $value->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method normalizeNullableDateTimeForStorage
+   *
+   * Converts a present timestamp to the storage zone and preserves null values.
+   *
+   * @access private
+   *
+   * @param ?DateTimeImmutable $value timestamp value to parse, convert or reinterpret according to this operation
+   *
+   * @return ?DateTimeImmutable
+   */
   private function normalizeNullableDateTimeForStorage(?DateTimeImmutable $value): ?DateTimeImmutable
   {
     if (null === $value) {
@@ -804,6 +1245,19 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $this->normalizeDateTimeForStorage($value);
   }
 
+  /**
+   * Method reinterpretStorageDateTime
+   *
+   * Interprets stored clock fields in the configured zone, including their microseconds.
+   *
+   * @access private
+   *
+   * @param DateTimeImmutable $value timestamp value to parse, convert or reinterpret according to this operation
+   *
+   * @return DateTimeImmutable
+   *
+   * @throws StoredDateTimeReinterpretationException when the stored clock fields cannot be reconstructed
+   */
   private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
   {
     $normalized = DateTimeImmutable::createFromFormat(
@@ -819,6 +1273,17 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $normalized;
   }
 
+  /**
+   * Method reinterpretNullableStorageDateTime
+   *
+   * Reinterprets a present stored timestamp and preserves null values.
+   *
+   * @access private
+   *
+   * @param ?DateTimeImmutable $value timestamp value to parse, convert or reinterpret according to this operation
+   *
+   * @return ?DateTimeImmutable
+   */
   private function reinterpretNullableStorageDateTime(?DateTimeImmutable $value): ?DateTimeImmutable
   {
     if (null === $value) {
@@ -828,10 +1293,23 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $this->reinterpretStorageDateTime($value);
   }
 
+  /**
+   * Method normalizeTimestampForStorageTimeZone
+   *
+   * Formats a timestamp for a zone-less SQL comparison in the specified storage zone.
+   *
+   * @access private
+   *
+   * @param string $value timestamp value to parse, convert or reinterpret according to this operation
+   * @param DateTimeZone $storageTimeZone zone in which the SQL comparison value is formatted
+   *
+   * @return string
+   */
   private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
   {
     return new DateTimeImmutable($value)
       ->setTimezone($storageTimeZone)
       ->format('Y-m-d H:i:s.u');
   }
+  // #endregion
 }

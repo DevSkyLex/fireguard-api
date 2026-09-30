@@ -43,6 +43,7 @@ use function strtolower;
  */
 final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
 {
+  // #region Constants
   /**
    * Defensive cap on the number of nodes (source included) a duplication may
    * traverse. Refused with FacilitySubtreeTooLargeException beyond this.
@@ -51,7 +52,23 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
    */
   private const int MAX_SUBTREE_NODES = 500;
 
+  // #endregion
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the DuplicateFacilitySubtreeHandler dependencies and state.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository the facility repository
+   * @param UuidFactory $uuidFactory the uuid factory
+   * @param OrganizationQuotaPort $quota the quota
+   * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param EventDispatcherPort $eventDispatcher the event dispatcher
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private UuidFactory $uuidFactory,
@@ -60,8 +77,8 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method __invoke.
@@ -179,6 +196,17 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
     });
   }
 
+  /**
+   * Method saveClone
+   *
+   * Persists a copied facility node and its associated metadata.
+   *
+   * @access private
+   *
+   * @param Facility $clone the clone
+   *
+   * @return void
+   */
   private function saveClone(Facility $clone): void
   {
     try {

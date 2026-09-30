@@ -42,6 +42,18 @@ final readonly class CreateMetadataFieldHandler implements CommandHandler
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the metadata-field repository and identifier factory used to create organization definitions.
+   *
+   * @access public
+   *
+   * @param FacilityMetadataFieldRepositoryPort $repository port used to validate limits and persist field definitions
+   * @param UuidFactory $uuidFactory factory used to assign the new metadata-field identifier
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityMetadataFieldRepositoryPort $repository,
     private UuidFactory $uuidFactory,

@@ -22,13 +22,25 @@ use function trim;
  */
 final readonly class OrganizationVatNumber implements Stringable
 {
+  /**
+   * Constant MIN_LENGTH
+   */
   private const int MIN_LENGTH = 5;
 
+  /**
+   * Constant MAX_LENGTH
+   */
   private const int MAX_LENGTH = 64;
 
+  /**
+   * Constant PATTERN
+   */
   private const string PATTERN = '/^[A-Z0-9\-\/. ]+$/';
 
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

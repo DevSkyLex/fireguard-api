@@ -40,10 +40,31 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constants
+  /**
+   * Constant ATTACHMENT_NOT_FOUND_MESSAGE.
+   *
+   * Stable public message returned when a facility attachment is unavailable.
+   *
+   * @access private
+   */
   private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Coordinates primary-attachment updates with persistence, authorization, request fields, and revision checks.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager the main entity manager
+   * @param CommandBusPort $commandBus dispatches primary attachment commands
+   * @param OrganizationAuthorizationPort $authorization enforces organization access
+   * @param Security $security resolves the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,
@@ -57,12 +78,17 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
   /**
    * Method process.
    *
+   * Checks facility write access and revision state before setting the requested attachment as primary.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param null $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return FacilityAttachmentOutput the updated primary attachment
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityAttachmentOutput
   {
@@ -110,6 +136,17 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
     return FacilityMediaProvider::output($record);
   }
 
+  /**
+   * Method mapMessengerException.
+   *
+   * Maps known wrapped attachment failures to HTTP exceptions and preserves unknown failures.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the message bus failure to inspect
+   *
+   * @return Throwable the mapped HTTP exception or original failure
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $notFloorPlan = $this->findException($exception, FacilityAttachmentNotFloorPlanException::class);

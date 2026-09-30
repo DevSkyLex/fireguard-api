@@ -23,6 +23,19 @@ use Shared\Application\Message\ResultMessage;
 final readonly class DeleteCanonicalEquipmentResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Returns whether deletion was hard or retained as a status transition, including the prior status when available.
+   *
+   * @access public
+   *
+   * @param string $equipmentId identifier of the equipment processed
+   * @param bool $hardDeleted whether the equipment row was physically removed
+   * @param ?string $previousStatus status before deletion, when the row was retained
+   *
+   * @return void
+   */
   public function __construct(
     public string $equipmentId,
     public bool $hardDeleted = false,

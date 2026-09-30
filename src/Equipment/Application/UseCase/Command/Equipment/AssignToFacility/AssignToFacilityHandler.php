@@ -27,6 +27,20 @@ use function sprintf;
 final readonly class AssignToFacilityHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment, facility, tag, and naming capabilities needed to validate and assign equipment.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load and update equipment
+   * @param FacilityValidationPort $facilityValidation port used to confirm the selected facility is available in the organization
+   * @param TagRepositoryPort $tagRepository port used by equipment assignment rules for associated tags
+   * @param FacilityNamingPort $facilityNaming port used to resolve facility context for related records
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private FacilityValidationPort $facilityValidation,

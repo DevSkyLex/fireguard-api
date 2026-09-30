@@ -24,7 +24,16 @@ use User\Infrastructure\Persistence\Doctrine\Record\UserEmailChangeRequestRecord
  */
 final readonly class UserEmailChangeRequestRepository implements EmailChangeRequestRepositoryPort
 {
+  // #region Constants
+  /**
+   * Constant UNCONFIRMED_PREDICATE.
+   *
+   * DQL condition shared by queries that select pending email change requests.
+   *
+   * @access private
+   */
   private const string UNCONFIRMED_PREDICATE = 'r.confirmedAt IS NULL';
+  // #endregion
 
   // #region Constructor
   /**
@@ -44,6 +53,17 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
   // #endregion
 
   // #region Methods
+  /**
+   * Method save.
+   *
+   * Persists the request's current state in the auth database.
+   *
+   * @access public
+   *
+   * @param EmailChangeRequest $request the email change request aggregate
+   *
+   * @return void no return value
+   */
   public function save(EmailChangeRequest $request): void
   {
     $record = $this->entityManager->find(UserEmailChangeRequestRecord::class, $request->id());
@@ -65,6 +85,18 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findActiveByTokenHash.
+   *
+   * Finds an unconfirmed request matching the token hash that remains unexpired.
+   *
+   * @access public
+   *
+   * @param string $tokenHash hash of the confirmation token
+   * @param DateTimeImmutable $now reference instant for expiry filtering
+   *
+   * @return ?EmailChangeRequest the matching active request, when found
+   */
   public function findActiveByTokenHash(string $tokenHash, DateTimeImmutable $now): ?EmailChangeRequest
   {
     $record = $this->entityManager->createQueryBuilder()
@@ -81,6 +113,18 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
     return $record instanceof UserEmailChangeRequestRecord ? $this->toDomain($record) : null;
   }
 
+  /**
+   * Method confirmIfPending.
+   *
+   * Atomically confirms a pending, unexpired request if it still meets the database predicate.
+   *
+   * @access public
+   *
+   * @param string $requestId the request identifier
+   * @param DateTimeImmutable $now confirmation instant and expiry boundary
+   *
+   * @return bool whether this call confirmed the request
+   */
   public function confirmIfPending(string $requestId, DateTimeImmutable $now): bool
   {
     // Single conditional UPDATE — the WHERE clause re-checks the pending
@@ -113,6 +157,18 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
     return true;
   }
 
+  /**
+   * Method findActiveByUserId.
+   *
+   * Finds an unconfirmed, unexpired request for the user.
+   *
+   * @access public
+   *
+   * @param UserId $userId the user identifier
+   * @param DateTimeImmutable $now reference instant for expiry filtering
+   *
+   * @return ?EmailChangeRequest the active request, when found
+   */
   public function findActiveByUserId(UserId $userId, DateTimeImmutable $now): ?EmailChangeRequest
   {
     $record = $this->entityManager->createQueryBuilder()
@@ -130,6 +186,17 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
     return $record instanceof UserEmailChangeRequestRecord ? $this->toDomain($record) : null;
   }
 
+  /**
+   * Method removePendingForUser.
+   *
+   * Deletes all unconfirmed requests belonging to the user.
+   *
+   * @access public
+   *
+   * @param UserId $userId the user identifier
+   *
+   * @return int number of requests deleted
+   */
   public function removePendingForUser(UserId $userId): int
   {
     /** @var int */

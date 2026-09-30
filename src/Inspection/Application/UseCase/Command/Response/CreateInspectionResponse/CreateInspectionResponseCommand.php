@@ -22,6 +22,23 @@ use Shared\Application\Message\CommandMessage;
 final readonly class CreateInspectionResponseCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries one checklist response value and its optional intervention evidence references.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope used to authorize the inspection
+   * @param string $inspectionId inspection receiving the response
+   * @param string $itemKey checklist item key being answered
+   * @param mixed $value submitted checklist answer value
+   * @param ?string $interventionId related intervention identifier, when this response records field evidence
+   * @param ?string $resourceId related resource identifier, when present
+   * @param ?string $clientId client-generated evidence identifier used for replay or deduplication
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public string $inspectionId,

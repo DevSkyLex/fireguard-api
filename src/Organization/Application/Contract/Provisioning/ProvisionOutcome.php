@@ -23,10 +23,33 @@ namespace Organization\Application\Contract\Provisioning;
  */
 enum ProvisionOutcome
 {
+  /**
+   * Case CREATED
+   */
   case CREATED;
+
+  /**
+   * Case QUOTA_EXCEEDED
+   */
   case QUOTA_EXCEEDED;
+
+  /**
+   * Case ALREADY_MEMBER
+   */
   case ALREADY_MEMBER;
+
+  /**
+   * Case ALREADY_INVITED
+   */
   case ALREADY_INVITED;
+
+  /**
+   * Case UNKNOWN_ROLE
+   */
   case UNKNOWN_ROLE;
+
+  /**
+   * Case INVALID
+   */
   case INVALID;
 }

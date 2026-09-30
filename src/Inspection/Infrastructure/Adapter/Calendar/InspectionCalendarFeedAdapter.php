@@ -38,8 +38,22 @@ use function sprintf;
 final readonly class InspectionCalendarFeedAdapter implements InspectionCalendarFeedPort
 {
   // #region Constants
+  /**
+   * Constant SOURCE_KEY.
+   *
+   * Identifies inspection entries in calendar feed items.
+   *
+   * @access private
+   */
   private const string SOURCE_KEY = 'inspection';
 
+  /**
+   * Constant TARGET_TYPE.
+   *
+   * Identifies the inspection record type used by calendar links.
+   *
+   * @access private
+   */
   private const string TARGET_TYPE = 'inspection';
   // #endregion
 
@@ -58,6 +72,20 @@ final readonly class InspectionCalendarFeedAdapter implements InspectionCalendar
   // #endregion
 
   // #region Methods
+  /**
+   * Method findBetween.
+   *
+   * Lists organization inspections in the requested time range and maps them to calendar items.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param DateTimeImmutable $from the inclusive range start
+   * @param DateTimeImmutable $to the inclusive range end
+   * @param int $limit the maximum number of inspections to return
+   *
+   * @return list<CalendarFeedItem> the matching calendar entries
+   */
   public function findBetween(string $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, int $limit): array
   {
     $inspections = $this->inspections->findByOrganizationId(

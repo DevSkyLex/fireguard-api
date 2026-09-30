@@ -200,16 +200,34 @@ final class MaintenanceScheduleResource
    */
   private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
 
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant ORGANIZATION_IRI_DESCRIPTION
+   */
   private const string ORGANIZATION_IRI_DESCRIPTION = 'Organization IRI.';
 
+  /**
+   * Constant FACILITY_IRI_FILTER_DESCRIPTION
+   */
   private const string FACILITY_IRI_FILTER_DESCRIPTION = 'Facility IRI filter.';
 
+  /**
+   * Constant EQUIPMENT_TYPE_FILTER_DESCRIPTION
+   */
   private const string EQUIPMENT_TYPE_FILTER_DESCRIPTION = 'Equipment type filter.';
 
+  /**
+   * Constant DUE_STATUS_FILTER_DESCRIPTION
+   */
   private const string DUE_STATUS_FILTER_DESCRIPTION = 'Due status filter (unscheduled|up_to_date|due_soon|overdue).';
 
+  /**
+   * Constant NEXT_DUE_UPPER_BOUND_DESCRIPTION
+   */
   private const string NEXT_DUE_UPPER_BOUND_DESCRIPTION = 'ISO-8601 upper bound on the next due date.';
   // #endregion
 }

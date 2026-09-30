@@ -17,10 +17,19 @@ namespace Auth\Domain\ValueObject\Security;
  */
 enum SignInGrantType: string
 {
+  /**
+   * Case PASSWORD
+   */
   case PASSWORD = 'password';
 
+  /**
+   * Case GOOGLE
+   */
   case GOOGLE = 'federated_google';
 
+  /**
+   * Case MICROSOFT
+   */
   case MICROSOFT = 'federated_microsoft';
 
   /**

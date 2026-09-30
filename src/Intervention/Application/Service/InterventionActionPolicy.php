@@ -62,12 +62,25 @@ use function is_string;
  */
 final readonly class InterventionActionPolicy
 {
+  // #region Constants
+  /**
+   * Permission required to plan interventions and work items.
+   */
   private const string PERMISSION_PLAN = 'organization.interventions.plan';
 
+  /**
+   * Permission required to execute intervention work.
+   */
   private const string PERMISSION_EXECUTE = 'organization.interventions.execute';
 
+  /**
+   * Permission required to review submitted interventions.
+   */
   private const string PERMISSION_REVIEW = 'organization.interventions.review';
 
+  /**
+   * Permission required to publish submitted interventions.
+   */
   private const string PERMISSION_PUBLISH = 'organization.interventions.publish';
 
   /**
@@ -75,6 +88,7 @@ final readonly class InterventionActionPolicy
    * check in `DoctrineInterventionWorkflowGatewayAdapter::mutateIntervention()`.
    */
   private const array DELETABLE_STATUSES = [InterventionStatus::DRAFT, InterventionStatus::ABANDONED];
+  // #endregion
 
   // #region Constructor
   /**
@@ -236,6 +250,21 @@ final readonly class InterventionActionPolicy
     return false;
   }
 
+  /**
+   * Method canMutateWorkItems.
+   *
+   * Allows work-item changes when scheduling is mutable and the caller has permission and scope.
+   *
+   * @access private
+   *
+   * @param InterventionWorkflowContext $context intervention and organization context
+   * @param string $userId the caller's user identifier
+   * @param InterventionStatus $status current workflow status
+   * @param bool $isDraft whether the intervention is a draft
+   * @param bool $isTeamMember whether the caller is responsible or a participant
+   *
+   * @return bool whether the caller may mutate work items
+   */
   private function canMutateWorkItems(InterventionWorkflowContext $context, string $userId, InterventionStatus $status, bool $isDraft, bool $isTeamMember): bool
   {
     return $this->mutabilityPolicy->isScheduleMutable($status)
@@ -243,11 +272,40 @@ final readonly class InterventionActionPolicy
       && ($isDraft || $isTeamMember);
   }
 
+  /**
+   * Method canMutateChanges.
+   *
+   * Checks execution permission, change-creation window, and team membership.
+   *
+   * @access private
+   *
+   * @param InterventionStatus $status current workflow status
+   * @param bool $hasExecute whether the caller has execution permission
+   * @param bool $isTeamMember whether the caller belongs to the intervention team
+   *
+   * @return bool whether the caller may add changes
+   */
   private function canMutateChanges(InterventionStatus $status, bool $hasExecute, bool $isTeamMember): bool
   {
     return $hasExecute && $this->isChangeCreationWindow($status) && $isTeamMember;
   }
 
+  /**
+   * Method canManageAttachments.
+   *
+   * Checks whether the caller can manage attachments in the current workflow phase.
+   *
+   * @access private
+   *
+   * @param InterventionWorkflowContext $context intervention and organization context
+   * @param string $userId the caller's user identifier
+   * @param InterventionStatus $status current workflow status
+   * @param bool $isDraft whether the intervention is a draft
+   * @param bool $hasExecute whether the caller has execution permission
+   * @param bool $isTeamMember whether the caller belongs to the intervention team
+   *
+   * @return bool whether the caller may manage attachments
+   */
   private function canManageAttachments(
     InterventionWorkflowContext $context,
     string $userId,
@@ -262,12 +320,38 @@ final readonly class InterventionActionPolicy
         : ($hasExecute && $isTeamMember));
   }
 
+  /**
+   * Method canSubmit.
+   *
+   * Allows submission when execution permission and the responsible-member transition are present.
+   *
+   * @access private
+   *
+   * @param InterventionStatus $status current workflow status
+   * @param bool $hasExecute whether the caller has execution permission
+   * @param bool $isResponsible whether the caller is the responsible member
+   *
+   * @return bool whether the caller may submit
+   */
   private function canSubmit(InterventionStatus $status, bool $hasExecute, bool $isResponsible): bool
   {
     return $hasExecute && $isResponsible
       && in_array(InterventionStatus::SUBMITTED, $this->transitionPolicy->allowedFrom($status), true);
   }
 
+  /**
+   * Method canWithdraw.
+   *
+   * Allows withdrawal from submitted status for the responsible member with execution permission.
+   *
+   * @access private
+   *
+   * @param InterventionStatus $status current workflow status
+   * @param bool $hasExecute whether the caller has execution permission
+   * @param bool $isResponsible whether the caller is the responsible member
+   *
+   * @return bool whether the caller may withdraw
+   */
   private function canWithdraw(InterventionStatus $status, bool $hasExecute, bool $isResponsible): bool
   {
     return $hasExecute && $isResponsible && InterventionStatus::SUBMITTED === $status

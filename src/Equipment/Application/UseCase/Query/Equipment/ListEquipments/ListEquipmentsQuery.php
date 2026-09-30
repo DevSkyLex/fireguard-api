@@ -19,6 +19,27 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ListEquipmentsQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries organization-scoped filters, pagination, and ordering for an equipment list request.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose equipment is listed
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $type optional equipment type filter
+   * @param ?string $status optional lifecycle status filter
+   * @param ?string $brand optional brand filter
+   * @param ?string $model optional model filter
+   * @param ?string $subType optional subtype filter
+   * @param Pagination $pagination requested page and page size
+   * @param ?string $search optional text search
+   * @param Sorting $sorting requested equipment sort field and direction
+   * @param ?string $maintenanceDueStatus optional maintenance due-state filter
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public ?string $facilityId = null,

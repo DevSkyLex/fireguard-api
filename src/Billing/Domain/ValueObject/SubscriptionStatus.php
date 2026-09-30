@@ -18,13 +18,44 @@ namespace Billing\Domain\ValueObject;
  */
 enum SubscriptionStatus: string
 {
+  /**
+   * Case INCOMPLETE
+   */
   case INCOMPLETE = 'incomplete';
+
+  /**
+   * Case INCOMPLETE_EXPIRED
+   */
   case INCOMPLETE_EXPIRED = 'incomplete_expired';
+
+  /**
+   * Case TRIALING
+   */
   case TRIALING = 'trialing';
+
+  /**
+   * Case ACTIVE
+   */
   case ACTIVE = 'active';
+
+  /**
+   * Case PAST_DUE
+   */
   case PAST_DUE = 'past_due';
+
+  /**
+   * Case CANCELED
+   */
   case CANCELED = 'canceled';
+
+  /**
+   * Case UNPAID
+   */
   case UNPAID = 'unpaid';
+
+  /**
+   * Case PAUSED
+   */
   case PAUSED = 'paused';
 
   // #region Methods

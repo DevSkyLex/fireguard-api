@@ -33,11 +33,33 @@ final class TotpPendingEnrollmentNotFoundException extends ApplicationException
   // #endregion
 
   // #region Methods
+  /**
+   * Method forUser
+   *
+   * Creates the not-found exception for a user's pending TOTP enrollment.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @param string $userId the user identifier
+   *
+   * @return self the pending enrollment exception
+   */
   public static function forUser(string $userId): self
   {
     return new self(userId: $userId);
   }
 
+  /**
+   * Method context
+   *
+   * Returns the user identifier in the exception context payload.
+   *
+   * @access public
+   *
+   * @return array{userId: string} the exception context
+   */
   public function context(): array
   {
     return [

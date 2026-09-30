@@ -28,6 +28,9 @@ use function trim;
 final readonly class OrganizationCountry implements Stringable
 {
   // #region Constants
+  /**
+   * Constant PATTERN
+   */
   private const string PATTERN = '/^[A-Z]{2}$/';
 
   /**
@@ -65,6 +68,9 @@ final readonly class OrganizationCountry implements Stringable
   // #endregion
 
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

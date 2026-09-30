@@ -36,6 +36,17 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Uses the main entity manager to persist and query intervention attachment records.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager for the Intervention module database
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

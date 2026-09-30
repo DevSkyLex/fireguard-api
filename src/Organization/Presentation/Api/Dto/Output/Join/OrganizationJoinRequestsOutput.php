@@ -17,8 +17,13 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class OrganizationJoinRequestsOutput
 {
+  // #region Properties
+  /**
+   * Property totalItems
+   */
   #[Groups([OrganizationSerializationGroup::READ])]
   public int $totalItems = 0;
+  // #endregion
 
   /**
    * @since 1.0.0

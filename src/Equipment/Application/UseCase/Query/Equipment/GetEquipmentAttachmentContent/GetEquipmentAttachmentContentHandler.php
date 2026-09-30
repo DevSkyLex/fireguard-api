@@ -35,6 +35,19 @@ use Shared\Application\Port\Outbound\FileStoragePort;
 final readonly class GetEquipmentAttachmentContentHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment and attachment repositories plus file storage to retrieve validated attachment bytes.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to validate equipment ownership and organization scope
+   * @param AttachmentRepositoryPort $attachmentRepository port used to locate attachment metadata
+   * @param FileStoragePort $fileStorage port used to read the attachment contents
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private AttachmentRepositoryPort $attachmentRepository,

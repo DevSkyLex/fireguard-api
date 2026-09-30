@@ -16,9 +16,14 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class OrganizationDashboardOutput
 {
+  // #region Properties
+  /**
+   * Property generatedAt
+   */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $generatedAt = '';
+  // #endregion
 
   /**
    * @var array{from?: string, to?: string, comparison?: string, timezone?: string}

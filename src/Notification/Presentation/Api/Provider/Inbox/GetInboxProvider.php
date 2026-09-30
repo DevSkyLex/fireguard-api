@@ -34,6 +34,9 @@ use function trim;
  */
 final readonly class GetInboxProvider implements ProviderInterface
 {
+  /**
+   * Constant DEFAULT_LIMIT
+   */
   private const int DEFAULT_LIMIT = 20;
 
   // #region Constructor

@@ -27,6 +27,18 @@ use function array_map;
 final readonly class ListFacilitiesHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility and equipment-dependency capabilities used to assemble filtered facility results.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to retrieve facilities matching the list criteria
+   * @param FacilityEquipmentDependencyPort $equipmentDependency port used to include equipment-dependent facility information
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,

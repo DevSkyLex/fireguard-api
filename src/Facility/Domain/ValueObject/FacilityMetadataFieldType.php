@@ -14,10 +14,29 @@ namespace Facility\Domain\ValueObject;
  */
 enum FacilityMetadataFieldType: string
 {
+  /**
+   * Case TEXT
+   */
   case TEXT = 'text';
+
+  /**
+   * Case NUMBER
+   */
   case NUMBER = 'number';
+
+  /**
+   * Case DATE
+   */
   case DATE = 'date';
+
+  /**
+   * Case BOOLEAN
+   */
   case BOOLEAN = 'boolean';
+
+  /**
+   * Case SELECT
+   */
   case SELECT = 'select';
 
   // #region Methods

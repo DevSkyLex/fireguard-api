@@ -37,6 +37,21 @@ final readonly class MessagingReadMarkerRepository implements MessagingReadMarke
   // #endregion
 
   // #region Methods
+  /**
+   * Method upsert.
+   *
+   * Creates or updates the read marker without moving it backward.
+   *
+   * @access public
+   *
+   * @param string $conversationId the conversation identifier
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the reading member's identifier
+   * @param DateTimeImmutable $lastReadAt the read instant
+   * @param ?string $lastReadMessageId the last message read, if any
+   *
+   * @return void
+   */
   public function upsert(string $conversationId, string $organizationId, string $memberId, DateTimeImmutable $lastReadAt, ?string $lastReadMessageId): void
   {
     $conversation = $this->entityManager->getReference(MessagingConversationRecord::class, $conversationId);
@@ -70,6 +85,21 @@ final readonly class MessagingReadMarkerRepository implements MessagingReadMarke
     $this->entityManager->flush();
   }
 
+  /**
+   * Method markDelivered.
+   *
+   * Advances the delivery receipt without changing the member's read position.
+   *
+   * @access public
+   *
+   * @param string $conversationId the conversation identifier
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the acknowledging member's identifier
+   * @param string $messageId the delivered message identifier
+   * @param DateTimeImmutable $deliveredAt the acknowledgement instant
+   *
+   * @return void
+   */
   public function markDelivered(string $conversationId, string $organizationId, string $memberId, string $messageId, DateTimeImmutable $deliveredAt): void
   {
     $conversation = $this->entityManager->getReference(MessagingConversationRecord::class, $conversationId);
@@ -96,6 +126,18 @@ final readonly class MessagingReadMarkerRepository implements MessagingReadMarke
     $this->entityManager->flush();
   }
 
+  /**
+   * Method receiptPositions.
+   *
+   * Returns delivery and read positions for the supplied current participants.
+   *
+   * @access public
+   *
+   * @param string $conversationId the conversation identifier
+   * @param list<string> $memberIds current participant identifiers
+   *
+   * @return list<ConversationReceiptPosition> the participant receipt positions
+   */
   public function receiptPositions(string $conversationId, array $memberIds): array
   {
     if ([] === $memberIds) {
@@ -129,6 +171,19 @@ final readonly class MessagingReadMarkerRepository implements MessagingReadMarke
     return $positions;
   }
 
+  /**
+   * Method unreadCounts.
+   *
+   * Counts messages from other members after each participant's read marker.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the reading member's identifier
+   * @param list<string> $conversationIds the conversation identifiers
+   *
+   * @return array<string, int> unread counts indexed by conversation id
+   */
   public function unreadCounts(string $organizationId, string $memberId, array $conversationIds): array
   {
     $counts = [];
@@ -163,6 +218,18 @@ final readonly class MessagingReadMarkerRepository implements MessagingReadMarke
     return $counts;
   }
 
+  /**
+   * Method lastReadAtByConversations.
+   *
+   * Resolves read timestamps for multiple conversations in one query.
+   *
+   * @access public
+   *
+   * @param string $memberId the reading member's identifier
+   * @param list<string> $conversationIds the conversation identifiers
+   *
+   * @return array<string, DateTimeImmutable> read timestamps indexed by conversation id; absent conversations have no marker
+   */
   public function lastReadAtByConversations(string $memberId, array $conversationIds): array
   {
     if ([] === $conversationIds) {

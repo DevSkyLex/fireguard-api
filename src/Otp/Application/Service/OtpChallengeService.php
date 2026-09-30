@@ -42,6 +42,22 @@ final readonly class OtpChallengeService implements OtpChallengePort
   // #endregion
 
   // #region Methods
+  /**
+   * Method generate
+   *
+   * Creates a verification challenge and returns its public token, masked recipient and expiry details.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   * @param OtpPurpose $purpose the purpose
+   * @param OtpChannel $channel the channel
+   * @param string $recipient the recipient
+   * @param ?int $ttlSeconds the optional ttl seconds
+   * @param ?int $maxAttempts the optional max attempts
+   *
+   * @return ChallengeInfo
+   */
   public function generate(
     string $userId,
     OtpPurpose $purpose,
@@ -69,6 +85,19 @@ final readonly class OtpChallengeService implements OtpChallengePort
     );
   }
 
+  /**
+   * Method generateDecoy
+   *
+   * Returns a challenge-shaped decoy without storing a code or sending a message, keeping account-existence responses indistinguishable.
+   *
+   * @access public
+   *
+   * @param OtpPurpose $purpose the purpose
+   * @param OtpChannel $channel the channel
+   * @param string $recipient the recipient
+   *
+   * @return ChallengeInfo
+   */
   public function generateDecoy(
     OtpPurpose $purpose,
     OtpChannel $channel,
@@ -88,6 +117,18 @@ final readonly class OtpChallengeService implements OtpChallengePort
     );
   }
 
+  /**
+   * Method verify
+   *
+   * Verifies the submitted challenge token and code and returns the verification outcome.
+   *
+   * @access public
+   *
+   * @param string $challengeToken the public challenge token
+   * @param string $code the submitted code
+   *
+   * @return VerificationInfo the verification outcome
+   */
   public function verify(string $challengeToken, string $code): VerificationInfo
   {
     return $this->verifyCommand(new VerifyOtpCommand(
@@ -96,6 +137,21 @@ final readonly class OtpChallengeService implements OtpChallengePort
     ));
   }
 
+  /**
+   * Method verifyFor
+   *
+   * Verifies the challenge while also binding it to the expected user, purpose and optional current recipient.
+   *
+   * @access public
+   *
+   * @param string $challengeToken the public challenge token
+   * @param string $code the submitted code
+   * @param string $userId the user identifier
+   * @param OtpPurpose $purpose the purpose
+   * @param ?string $recipient the optional recipient
+   *
+   * @return VerificationInfo
+   */
   public function verifyFor(
     string $challengeToken,
     string $code,
@@ -112,6 +168,17 @@ final readonly class OtpChallengeService implements OtpChallengePort
     ));
   }
 
+  /**
+   * Method verifyCommand
+   *
+   * Maps missing challenges and invalid request values to the neutral verification failure returned to callers.
+   *
+   * @access private
+   *
+   * @param VerifyOtpCommand $command the command to handle
+   *
+   * @return VerificationInfo
+   */
   private function verifyCommand(VerifyOtpCommand $command): VerificationInfo
   {
     try {

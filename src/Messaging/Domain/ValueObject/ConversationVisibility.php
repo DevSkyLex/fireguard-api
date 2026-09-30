@@ -21,6 +21,13 @@ namespace Messaging\Domain\ValueObject;
  */
 enum ConversationVisibility: string
 {
+  /**
+   * Case SUBJECT
+   */
   case SUBJECT = 'subject';
+
+  /**
+   * Case PARTICIPANTS
+   */
   case PARTICIPANTS = 'participants';
 }

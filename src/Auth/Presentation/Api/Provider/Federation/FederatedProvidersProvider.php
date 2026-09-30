@@ -20,9 +20,24 @@ use function array_map;
  */
 final readonly class FederatedProvidersProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the federation service used to list configured providers that are enabled for sign-in.
+   *
+   * @access public
+   *
+   * @param FederatedAuthenticationService $federation service that exposes configured federated providers
+   *
+   * @return void
+   */
   public function __construct(private FederatedAuthenticationService $federation)
   {
   }
+  // #endregion
+
+  // #region Methods
 
   /**
    * @return list<FederatedProviderOutput>
@@ -34,4 +49,5 @@ final readonly class FederatedProvidersProvider implements ProviderInterface
       $this->federation->enabledProviders(),
     );
   }
+  // #endregion
 }

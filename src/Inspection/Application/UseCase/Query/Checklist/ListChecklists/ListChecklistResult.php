@@ -24,6 +24,27 @@ use Shared\Application\Message\ResultMessage;
 final readonly class ListChecklistResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Projects checklist identity, version, lifecycle, item count, and editability for a collection row.
+   *
+   * @access public
+   *
+   * @param string $checklistId identifier of the checklist
+   * @param string $organizationId organization owning the checklist
+   * @param string $name display name of the checklist
+   * @param string $version checklist version label
+   * @param string $status lifecycle status of the checklist
+   * @param int $itemCount number of checklist items
+   * @param DateTimeImmutable $createdAt time the checklist was created
+   * @param DateTimeImmutable $updatedAt time the checklist was last updated
+   * @param ?string $referenceCode optional stable reference code
+   * @param ?string $previousChecklistId identifier of the prior checklist version, when linked
+   * @param bool $itemsEditable whether checklist items can currently be edited
+   *
+   * @return void
+   */
   public function __construct(
     public string $checklistId,
     public string $organizationId,

@@ -35,6 +35,21 @@ use ValueError;
 final readonly class AddNonConformityHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives inspection and non-conformity repositories, an identifier factory, event dispatch, and transaction management for creation.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to load and validate the inspection scope
+   * @param NonConformityRepositoryPort $nonConformityRepository port used to persist the new finding
+   * @param UuidFactory $uuidFactory factory used to assign the non-conformity identifier
+   * @param EventDispatcherPort $eventDispatcher port used to publish the committed finding event
+   * @param TransactionManagerPort $transactions port used to commit the finding and its outbox event atomically
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,

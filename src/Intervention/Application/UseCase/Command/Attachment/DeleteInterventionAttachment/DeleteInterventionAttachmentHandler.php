@@ -27,6 +27,20 @@ use Shared\Domain\Exception\InvalidValueException;
 final readonly class DeleteInterventionAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Checks intervention scope and permission before deleting attachment data.
+   *
+   * @access public
+   *
+   * @param InterventionResourceManager $interventionResourceManager service resolving intervention context and mutation permissions
+   * @param OrganizationAuthorizationPort $authorization port used to verify organization membership and permissions
+   * @param InterventionAttachmentRepositoryPort $attachmentRepository repository used to locate and remove attachment records
+   * @param FileStoragePort $fileStorage storage port used to delete the attachment bytes
+   *
+   * @return void
+   */
   public function __construct(
     private InterventionResourceManager $interventionResourceManager,
     private OrganizationAuthorizationPort $authorization,

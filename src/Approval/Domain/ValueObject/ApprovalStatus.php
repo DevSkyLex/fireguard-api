@@ -16,11 +16,34 @@ use function array_column;
  */
 enum ApprovalStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case APPROVED
+   */
   case APPROVED = 'approved';
+
+  /**
+   * Case REJECTED
+   */
   case REJECTED = 'rejected';
+
+  /**
+   * Case WITHDRAWN
+   */
   case WITHDRAWN = 'withdrawn';
+
+  /**
+   * Case CANCELLED
+   */
   case CANCELLED = 'cancelled';
+
+  /**
+   * Case EXPIRED
+   */
   case EXPIRED = 'expired';
 
   // #region Methods

@@ -18,6 +18,9 @@ use Throwable;
  */
 final class ClientResourceAlreadyExistsHttpException extends RuntimeException implements ProblemExceptionInterface
 {
+  /**
+   * Constant TYPE
+   */
   public const TYPE = '/problems/client-resource-already-exists';
 
   /**

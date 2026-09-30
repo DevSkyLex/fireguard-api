@@ -18,8 +18,14 @@ use Shared\Application\Message\ResultMessage;
 final readonly class ResendRegistrationResult implements ResultMessage
 {
   // #region Constants
+  /**
+   * Constant ERROR_INVALID_TOKEN
+   */
   public const string ERROR_INVALID_TOKEN = 'invalid_token';
 
+  /**
+   * Constant ERROR_RESEND_NOT_ALLOWED
+   */
   public const string ERROR_RESEND_NOT_ALLOWED = 'resend_not_allowed';
   // #endregion
 

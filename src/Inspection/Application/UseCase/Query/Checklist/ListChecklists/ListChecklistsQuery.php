@@ -19,6 +19,21 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ListChecklistsQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries organization-scoped status, search, pagination, and ordering for checklist listing.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose checklists are listed
+   * @param ?string $status optional lifecycle status filter
+   * @param Pagination $pagination requested page and page size
+   * @param ?string $search optional text search
+   * @param Sorting $sorting requested sort field and direction
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public ?string $status = null,

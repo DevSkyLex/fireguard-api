@@ -36,6 +36,19 @@ final readonly class MaintenanceScheduleSynchronizerAdapter implements Inspectio
   // #endregion
 
   // #region Methods
+  /**
+   * Method onInspectionClosed.
+   *
+   * Forwards a closed inspection timestamp to the maintenance scheduling port.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $equipmentId the inspected equipment identifier
+   * @param DateTimeImmutable $closedAt the inspection closure time
+   *
+   * @return void no return value
+   */
   public function onInspectionClosed(string $organizationId, string $equipmentId, DateTimeImmutable $closedAt): void
   {
     $this->schedulePort->onInspectionClosed($organizationId, $equipmentId, $closedAt);

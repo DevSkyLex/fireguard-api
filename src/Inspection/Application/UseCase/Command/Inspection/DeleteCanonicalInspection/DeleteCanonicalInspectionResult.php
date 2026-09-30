@@ -22,6 +22,19 @@ use Shared\Application\Message\ResultMessage;
 final readonly class DeleteCanonicalInspectionResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Reports whether the inspection was hard-deleted and its prior status when retained.
+   *
+   * @access public
+   *
+   * @param string $inspectionId identifier of the processed inspection
+   * @param bool $hardDeleted whether the inspection record was physically removed
+   * @param ?string $previousStatus prior status when the record was retained
+   *
+   * @return void
+   */
   public function __construct(
     public string $inspectionId,
     public bool $hardDeleted = false,

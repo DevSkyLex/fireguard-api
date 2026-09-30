@@ -41,6 +41,19 @@ use function is_string;
 final readonly class CreateFacilityMetadataFieldProcessor implements ProcessorInterface
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives command dispatch, organization authorization, and caller identity for metadata-field creation.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus port used to dispatch the create command
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
+   * @param Security $security security context used to obtain the acting member
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -53,12 +66,17 @@ final readonly class CreateFacilityMetadataFieldProcessor implements ProcessorIn
   /**
    * Method process.
    *
+   * Checks facility metadata write access and creates a field definition for the organization.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param CreateFacilityMetadataFieldInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return FacilityMetadataFieldOutput the created metadata field
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityMetadataFieldOutput
   {

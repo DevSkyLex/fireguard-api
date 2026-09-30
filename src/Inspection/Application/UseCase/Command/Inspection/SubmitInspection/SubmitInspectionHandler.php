@@ -22,6 +22,18 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 final readonly class SubmitInspectionHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the inspection repository and event dispatcher used to commit and publish submission.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to load and persist the inspection lifecycle
+   * @param EventDispatcherPort $eventDispatcher port used to publish the committed submission event
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private EventDispatcherPort $eventDispatcher,

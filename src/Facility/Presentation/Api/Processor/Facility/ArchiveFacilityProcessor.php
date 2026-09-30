@@ -37,6 +37,20 @@ final readonly class ArchiveFacilityProcessor implements ProcessorInterface
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the detail factory, command dispatch, organization authorization, and caller identity for facility archival.
+   *
+   * @access public
+   *
+   * @param FacilityDetailOutputFactory $detail factory used to assemble the updated facility detail response
+   * @param CommandBusPort $commandBus port used to dispatch the archive command
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
+   * @param Security $security security context used to obtain the acting member
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
@@ -50,12 +64,17 @@ final readonly class ArchiveFacilityProcessor implements ProcessorInterface
   /**
    * Method process.
    *
+   * Checks facility write access, dispatches the archive command, and returns the updated facility details.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param null $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return FacilityOutput the archived facility
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {

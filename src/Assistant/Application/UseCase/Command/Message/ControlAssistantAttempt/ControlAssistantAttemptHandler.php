@@ -15,10 +15,45 @@ use Shared\Application\Port\Outbound\{ClockPort, UuidGeneratorPort};
 /** Handler ControlAssistantAttemptHandler. Retry keeps the question and message, and atomically queues one new attempt. */
 final readonly class ControlAssistantAttemptHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Coordinates message locking, access checks, attempt persistence, and generation dispatch for assistant controls.
+   *
+   * @access public
+   *
+   * @param AssistantAttemptLockPort $lock serializes control operations for a message
+   * @param AssistantMessageRepositoryPort $messages loads and saves assistant messages
+   * @param AssistantThreadRepositoryPort $threads loads the owning thread
+   * @param AssistantAccessPolicy $access checks actor access to the assistant
+   * @param AssistantGenerationDispatcherPort $dispatcher queues retry attempts
+   * @param AssistantAttemptWriter $writer publishes message state changes
+   * @param ClockPort $clock supplies the current time
+   * @param UuidGeneratorPort $ids generates replacement attempt identifiers
+   *
+   * @return void
+   */
   public function __construct(private AssistantAttemptLockPort $lock, private AssistantMessageRepositoryPort $messages, private AssistantThreadRepositoryPort $threads, private AssistantAccessPolicy $access, private AssistantGenerationDispatcherPort $dispatcher, private AssistantAttemptWriter $writer, private ClockPort $clock, private UuidGeneratorPort $ids)
   {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Retries or cancels the current generation under the message lock after checking thread ownership.
+   *
+   * @access public
+   *
+   * @param ControlAssistantAttemptCommand $command the actor, thread, message, and attempt action
+   *
+   * @return ControlAssistantAttemptResult the resulting message and attempt state
+   *
+   * @throws AssistantThreadNotFoundException when the thread or message is outside the actor's organization
+   */
   public function __invoke(ControlAssistantAttemptCommand $command): ControlAssistantAttemptResult
   {
     return $this->lock->synchronized($command->messageId, function () use ($command): ControlAssistantAttemptResult {
@@ -42,4 +77,5 @@ final readonly class ControlAssistantAttemptHandler implements CommandHandler
       return new ControlAssistantAttemptResult(AssistantMessageView::fromDomain($message));
     });
   }
+  // #endregion
 }

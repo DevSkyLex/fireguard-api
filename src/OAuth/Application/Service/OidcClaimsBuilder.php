@@ -176,6 +176,18 @@ final class OidcClaimsBuilder implements OidcClaimsBuilderInterface
     return in_array(strtolower($scope), $scopes, true);
   }
 
+  /**
+   * Method buildFullName
+   *
+   * Joins the available normalized given and family names for the OIDC name claim.
+   *
+   * @access private
+   *
+   * @param string|null $givenName the optional given name
+   * @param string|null $familyName the optional family name
+   *
+   * @return string|null the combined name, or null when both parts are empty
+   */
   private function buildFullName(?string $givenName, ?string $familyName): ?string
   {
     $given = $this->normalizeText($givenName);
@@ -188,6 +200,17 @@ final class OidcClaimsBuilder implements OidcClaimsBuilderInterface
     return trim(trim((string) $given . ' ' . (string) $family));
   }
 
+  /**
+   * Method normalizeText
+   *
+   * Trims a claim value and converts empty text to null.
+   *
+   * @access private
+   *
+   * @param string|null $value the optional claim text
+   *
+   * @return string|null the trimmed non-empty text
+   */
   private function normalizeText(?string $value): ?string
   {
     if (!is_string($value)) {

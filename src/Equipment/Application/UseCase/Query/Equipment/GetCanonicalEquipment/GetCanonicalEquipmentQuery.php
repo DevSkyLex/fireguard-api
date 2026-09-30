@@ -22,6 +22,17 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetCanonicalEquipmentQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the equipment whose canonical API representation is requested.
+   *
+   * @access public
+   *
+   * @param string $equipmentId identifier of the equipment to retrieve
+   *
+   * @return void
+   */
   public function __construct(
     public string $equipmentId,
   ) {

@@ -19,12 +19,39 @@ use Auth\Domain\ValueObject\Federation\FederatedProvider;
  */
 interface FederatedFlowRepositoryPort
 {
+  // #region Methods
+  /**
+   * Method save
+   *
+   * Persists the federated flow under its state hash.
+   *
+   * @access public
+   *
+   * @param FederatedFlow $flow the flow
+   *
+   * @return void
+   */
   public function save(FederatedFlow $flow): void;
 
+  /**
+   * Method consume
+   *
+   * Atomically consumes the federated flow for its state hash so it cannot be used again.
+   *
+   * @access public
+   *
+   * @param string $rawState the raw state
+   * @param string $browserBinding the browser binding
+   * @param FederatedProvider $provider the provider
+   * @param string $intent the intent
+   *
+   * @return ?FederatedFlow
+   */
   public function consume(
     string $rawState,
     string $browserBinding,
     FederatedProvider $provider,
     string $intent,
   ): ?FederatedFlow;
+  // #endregion
 }

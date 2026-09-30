@@ -16,7 +16,14 @@ use function array_column;
  */
 enum InspectorType: string
 {
+  /**
+   * Case USER
+   */
   case USER = 'user';
+
+  /**
+   * Case EXTERNAL
+   */
   case EXTERNAL = 'external';
 
   // #region Methods

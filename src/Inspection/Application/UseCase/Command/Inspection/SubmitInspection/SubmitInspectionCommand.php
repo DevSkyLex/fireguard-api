@@ -17,6 +17,18 @@ use Shared\Application\Message\CommandMessage;
 final readonly class SubmitInspectionCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the organization-scoped inspection to submit.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope used to authorize the operation
+   * @param string $inspectionId inspection to submit
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public string $inspectionId,

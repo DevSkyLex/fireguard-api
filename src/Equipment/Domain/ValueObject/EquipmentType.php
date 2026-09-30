@@ -16,17 +16,64 @@ use function array_column;
  */
 enum EquipmentType: string
 {
+  /**
+   * Case FIRE_EXTINGUISHER
+   */
   case FIRE_EXTINGUISHER = 'fire_extinguisher';
+
+  /**
+   * Case SMOKE_DETECTOR
+   */
   case SMOKE_DETECTOR = 'smoke_detector';
+
+  /**
+   * Case HEAT_DETECTOR
+   */
   case HEAT_DETECTOR = 'heat_detector';
+
+  /**
+   * Case SPRINKLER
+   */
   case SPRINKLER = 'sprinkler';
+
+  /**
+   * Case FIRE_ALARM_PANEL
+   */
   case FIRE_ALARM_PANEL = 'fire_alarm_panel';
+
+  /**
+   * Case HYDRANT
+   */
   case HYDRANT = 'hydrant';
+
+  /**
+   * Case FIRE_DOOR
+   */
   case FIRE_DOOR = 'fire_door';
+
+  /**
+   * Case EMERGENCY_LIGHTING
+   */
   case EMERGENCY_LIGHTING = 'emergency_lighting';
+
+  /**
+   * Case ACCESS_CONTROL
+   */
   case ACCESS_CONTROL = 'access_control';
+
+  /**
+   * Case CAMERA
+   */
   case CAMERA = 'camera';
+
+  /**
+   * Case GAS_DETECTOR
+   */
   case GAS_DETECTOR = 'gas_detector';
+
+  /**
+   * Case OTHER
+   */
   case OTHER = 'other';
 
   // #region Methods

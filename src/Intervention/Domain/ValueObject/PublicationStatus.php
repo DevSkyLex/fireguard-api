@@ -14,9 +14,24 @@ namespace Intervention\Domain\ValueObject;
  */
 enum PublicationStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case PROCESSING
+   */
   case PROCESSING = 'processing';
+
+  /**
+   * Case COMPLETED
+   */
   case COMPLETED = 'completed';
+
+  /**
+   * Case FAILED
+   */
   case FAILED = 'failed';
 
   /**

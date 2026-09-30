@@ -52,6 +52,13 @@ use function strtolower;
 final readonly class CreateFacilityHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant SETUP_JOURNAL_UNAVAILABLE_MESSAGE
+   *
+   * Error message used when a setup receipt is requested without a configured journal port.
+   *
+   * @access private
+   */
   private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
   // #endregion
 
@@ -173,6 +180,19 @@ final readonly class CreateFacilityHandler implements CommandHandler
     return $this->toResult($facility);
   }
 
+  /**
+   * Method assertSetupProtocol
+   *
+   * Rejects setup receipts when the journal is unavailable or the command combines incompatible protocols.
+   *
+   * @access private
+   *
+   * @param CreateFacilityCommand $command command whose setup options are checked
+   *
+   * @return void
+   *
+   * @throws OrganizationSetupConflict when the setup request cannot be safely journaled
+   */
   private function assertSetupProtocol(CreateFacilityCommand $command): void
   {
     if (null !== $command->setupContext && null === $this->setup) {
@@ -183,6 +203,22 @@ final readonly class CreateFacilityHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method assertParent
+   *
+   * Validates that an optional parent exists in the same organization, is active, and allows the requested depth.
+   *
+   * @access private
+   *
+   * @param FacilityId|null $parentId optional parent facility identifier
+   * @param FacilityOrganizationId $organizationId organization scope for the new facility
+   *
+   * @return void
+   *
+   * @throws FacilityNotFoundException when the parent does not exist
+   * @throws FacilityHierarchyException when the parent belongs to another organization or exceeds maximum depth
+   * @throws FacilityArchivedException when the parent is inactive
+   */
   private function assertParent(?FacilityId $parentId, FacilityOrganizationId $organizationId): void
   {
     if (null === $parentId) {
@@ -204,6 +240,21 @@ final readonly class CreateFacilityHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method persistFacility
+   *
+   * Starts or replays a setup receipt, then enforces quota and persists the facility within its transaction.
+   *
+   * @access private
+   *
+   * @param CreateFacilityCommand $command facility creation request and optional setup context
+   * @param Facility $facility validated facility aggregate to persist
+   * @param bool $replayed output flag set when an earlier setup operation is reused
+   *
+   * @return Facility persisted or previously created facility
+   *
+   * @throws OrganizationSetupConflict when the setup journal cannot safely resume the operation
+   */
   private function persistFacility(CreateFacilityCommand $command, Facility $facility, bool &$replayed): Facility
   {
     if (null !== $command->setupContext) {
@@ -229,6 +280,22 @@ final readonly class CreateFacilityHandler implements CommandHandler
     return $facility;
   }
 
+  /**
+   * Method saveFacility
+   *
+   * Persists the facility and completes its setup receipt, translating recognized database constraints.
+   *
+   * @access private
+   *
+   * @param CreateFacilityCommand $command creation request containing optional setup context
+   * @param Facility $facility facility aggregate being saved
+   *
+   * @return void
+   *
+   * @throws FacilityCodeAlreadyExistsException when the organization already uses the facility code
+   * @throws FacilityOrganizationNotFoundException when the organization foreign key no longer exists
+   * @throws FacilityNotFoundException when the parent foreign key no longer exists
+   */
   private function saveFacility(CreateFacilityCommand $command, Facility $facility): void
   {
     try {

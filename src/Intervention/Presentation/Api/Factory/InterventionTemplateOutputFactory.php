@@ -20,14 +20,18 @@ use function array_map;
 final class InterventionTemplateOutputFactory
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_IRI_PREFIX
+   */
   private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
   // #endregion
 
   /**
    * Method fromView.
    *
-   * Executes the from view operation.
+   * Maps template view fields and organization IRI to the API output DTO.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionTemplateView $view the view value

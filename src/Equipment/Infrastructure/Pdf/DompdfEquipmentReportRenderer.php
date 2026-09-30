@@ -9,7 +9,7 @@ use Equipment\Application\Port\Outbound\EquipmentReportPdfRendererPort;
 use Twig\Environment;
 
 /**
- * Adapter DompdfEquipmentReportRenderer.
+ * Class DompdfEquipmentReportRenderer
  *
  * Renders `templates/equipment/report.html.twig` and converts the resulting
  * HTML to PDF bytes with dompdf — mirrors
@@ -28,10 +28,33 @@ use Twig\Environment;
 final readonly class DompdfEquipmentReportRenderer implements EquipmentReportPdfRendererPort
 {
   // #region Constants
+  /**
+   * Constant TEMPLATE
+   *
+   * Twig template used to render the equipment report.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string TEMPLATE = 'equipment/report.html.twig';
 
+  /**
+   * Constant PAPER_SIZE
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PAPER_SIZE = 'A4';
 
+  /**
+   * Constant PAPER_ORIENTATION
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PAPER_ORIENTATION = 'portrait';
   // #endregion
 
@@ -50,6 +73,17 @@ final readonly class DompdfEquipmentReportRenderer implements EquipmentReportPdf
   // #endregion
 
   // #region Methods
+  /**
+   * Method render.
+   *
+   * Renders the equipment report to PDF with remote resources and PHP execution disabled.
+   *
+   * @access public
+   *
+   * @param array<string, mixed> $context template data
+   *
+   * @return string rendered PDF bytes
+   */
   public function render(array $context): string
   {
     $html = $this->twig->render(self::TEMPLATE, $context);

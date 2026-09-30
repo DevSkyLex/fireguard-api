@@ -22,6 +22,17 @@ use function array_map;
 final readonly class ListMetadataFieldsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the repository used to list field definitions for an organization.
+   *
+   * @access public
+   *
+   * @param FacilityMetadataFieldRepositoryPort $repository port used to list organization metadata-field definitions
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityMetadataFieldRepositoryPort $repository,
   ) {

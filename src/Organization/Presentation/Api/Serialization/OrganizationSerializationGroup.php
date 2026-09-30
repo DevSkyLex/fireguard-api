@@ -14,7 +14,13 @@ namespace Organization\Presentation\Api\Serialization;
  */
 final class OrganizationSerializationGroup
 {
+  /**
+   * Constant READ
+   */
   public const string READ = 'Organization:read';
 
+  /**
+   * Constant WRITE
+   */
   public const string WRITE = 'Organization:write';
 }

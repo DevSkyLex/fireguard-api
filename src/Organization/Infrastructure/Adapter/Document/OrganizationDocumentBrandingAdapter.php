@@ -49,6 +49,17 @@ final readonly class OrganizationDocumentBrandingAdapter implements Organization
   // #endregion
 
   // #region Methods
+  /**
+   * Method getDocumentBranding.
+   *
+   * Resolves organization branding for documents, falling back to regional defaults when absent.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return OrganizationDocumentBranding the document branding values
+   */
   public function getDocumentBranding(string $organizationId): OrganizationDocumentBranding
   {
     try {

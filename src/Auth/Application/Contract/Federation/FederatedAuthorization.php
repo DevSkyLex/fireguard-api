@@ -16,9 +16,23 @@ namespace Auth\Application\Contract\Federation;
  */
 final readonly class FederatedAuthorization
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the provider authorization URL and PKCE verifier for the authorization-code exchange.
+   *
+   * @access public
+   *
+   * @param string $authorizationUrl provider URL to which the browser is redirected
+   * @param string $codeVerifier PKCE verifier retained for the token exchange
+   *
+   * @return void
+   */
   public function __construct(
     public string $authorizationUrl,
     public string $codeVerifier,
   ) {
   }
+  // #endregion
 }

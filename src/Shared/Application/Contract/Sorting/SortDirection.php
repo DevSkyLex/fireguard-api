@@ -14,6 +14,13 @@ namespace Shared\Application\Contract\Sorting;
  */
 enum SortDirection: string
 {
+  /**
+   * Case ASC
+   */
   case ASC = 'asc';
+
+  /**
+   * Case DESC
+   */
   case DESC = 'desc';
 }

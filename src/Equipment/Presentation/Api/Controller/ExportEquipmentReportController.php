@@ -58,8 +58,14 @@ final class ExportEquipmentReportController extends AbstractController
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   */
   private const string READ_PERMISSION = 'organization.equipment.read';
 
+  /**
+   * Constant MAX_ITEMS_PER_SECTION
+   */
   private const int MAX_ITEMS_PER_SECTION = 100;
   // #endregion
 

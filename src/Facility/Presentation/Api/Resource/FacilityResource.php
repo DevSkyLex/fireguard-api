@@ -765,26 +765,59 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class FacilityResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FORBIDDEN_DESCRIPTION
+   */
   private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant INCLUDE_ARCHIVED_DESCRIPTION
+   */
   private const string INCLUDE_ARCHIVED_DESCRIPTION = 'When true, archived facilities are included. Default: false.';
 
+  /**
+   * Constant TYPE_FILTER_DESCRIPTION
+   */
   private const string TYPE_FILTER_DESCRIPTION = 'Filter by facility type.';
 
+  /**
+   * Constant STATUS_FILTER_DESCRIPTION
+   */
   private const string STATUS_FILTER_DESCRIPTION = 'Filter by facility status.';
 
+  /**
+   * Constant PARENT_FILTER_DESCRIPTION
+   */
   private const string PARENT_FILTER_DESCRIPTION = 'Filter by direct parent facility identifier.';
 
+  /**
+   * Constant ROOT_FILTER_DESCRIPTION
+   */
   private const string ROOT_FILTER_DESCRIPTION = 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.';
 
+  /**
+   * Constant CODE_FILTER_DESCRIPTION
+   */
   private const string CODE_FILTER_DESCRIPTION = 'Filter by exact facility code.';
 
+  /**
+   * Constant COORDINATES_FILTER_DESCRIPTION
+   */
   private const string COORDINATES_FILTER_DESCRIPTION = 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.';
 
+  /**
+   * Constant INVALID_IDENTIFIER_DESCRIPTION
+   */
   private const string INVALID_IDENTIFIER_DESCRIPTION = 'Invalid identifier';
 
+  /**
+   * Constant NOT_FOUND_DESCRIPTION
+   */
   private const string NOT_FOUND_DESCRIPTION = 'Facility not found';
   // #endregion
 }

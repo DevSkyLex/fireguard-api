@@ -37,6 +37,21 @@ final readonly class MessagingReactionRepository implements MessagingReactionRep
   // #endregion
 
   // #region Methods
+  /**
+   * Method add.
+   *
+   * Inserts idempotently so a duplicate reaction cannot poison the ORM transaction.
+   *
+   * @access public
+   *
+   * @param string $messageId the owning message identifier
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the reacting member's identifier
+   * @param string $emoji the reaction emoji
+   * @param DateTimeImmutable $createdAt the reaction date
+   *
+   * @return void
+   */
   public function add(string $messageId, string $organizationId, string $memberId, string $emoji, DateTimeImmutable $createdAt): void
   {
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
@@ -61,6 +76,19 @@ final readonly class MessagingReactionRepository implements MessagingReactionRep
     );
   }
 
+  /**
+   * Method remove.
+   *
+   * Deletes a member's reaction; removing an absent reaction is a no-op.
+   *
+   * @access public
+   *
+   * @param string $messageId the owning message identifier
+   * @param string $memberId the reacting member's identifier
+   * @param string $emoji the reaction emoji
+   *
+   * @return void
+   */
   public function remove(string $messageId, string $memberId, string $emoji): void
   {
     $this->entityManager->getConnection()->executeStatement(
@@ -69,6 +97,17 @@ final readonly class MessagingReactionRepository implements MessagingReactionRep
     );
   }
 
+  /**
+   * Method findByMessageIds.
+   *
+   * Batch-loads reactions in one query to avoid one query per message.
+   *
+   * @access public
+   *
+   * @param list<string> $messageIds the owning message identifiers
+   *
+   * @return list<MessageReactionView> the flat, unaggregated reaction list
+   */
   public function findByMessageIds(array $messageIds): array
   {
     if ([] === $messageIds) {

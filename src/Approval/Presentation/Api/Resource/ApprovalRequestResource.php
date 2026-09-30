@@ -137,5 +137,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class ApprovalRequestResource
 {
+  /**
+   * Constant USER_SECURITY
+   */
   private const USER_SECURITY = "is_granted('ROLE_USER')";
 }

@@ -48,11 +48,35 @@ final readonly class OrganizationCallerMembershipService implements Organization
   // #endregion
 
   // #region Methods
+  /**
+   * Method isOwner.
+   *
+   * Checks whether the caller is the organization's recorded owner.
+   *
+   * @access public
+   *
+   * @param string $organizationOwnerUserId the organization owner's user identifier
+   * @param string $callerUserId the caller's user identifier
+   *
+   * @return bool whether the caller owns the organization
+   */
   public function isOwner(string $organizationOwnerUserId, string $callerUserId): bool
   {
     return $organizationOwnerUserId === $callerUserId;
   }
 
+  /**
+   * Method findActiveCallerMembership.
+   *
+   * Loads the caller's organization membership and excludes inactive memberships.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param string $callerUserId the caller's user identifier
+   *
+   * @return ?OrganizationMember the active membership, or null when absent or inactive
+   */
   public function findActiveCallerMembership(OrganizationId $organizationId, string $callerUserId): ?OrganizationMember
   {
     $membership = $this->memberRepository->findByOrganizationAndUser($organizationId, $callerUserId);
@@ -60,6 +84,18 @@ final readonly class OrganizationCallerMembershipService implements Organization
     return null !== $membership && $membership->isActive() ? $membership : null;
   }
 
+  /**
+   * Method resolveRoles.
+   *
+   * Resolves the active membership's organization roles into caller-role results.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param ?OrganizationMember $membership the caller's active membership, when present
+   *
+   * @return list<GetOrganizationCallerRoleResult> the roles belonging to this organization
+   */
   public function resolveRoles(OrganizationId $organizationId, ?OrganizationMember $membership): array
   {
     if (null === $membership) {

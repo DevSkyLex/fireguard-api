@@ -150,5 +150,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class PasswordResetResource
 {
+  /**
+   * Constant TAG
+   */
   private const TAG = 'Password Reset';
 }

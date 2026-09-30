@@ -29,6 +29,21 @@ use function is_string;
 /** @implements ProviderInterface<FacilityOutput> */
 final readonly class ListFacilityDescendantsProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies query dispatch, organization authorization, authenticated user access, and request context.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus query dispatcher
+   * @param OrganizationAuthorizationPort $authorization organization permission resolver
+   * @param Security $security current authenticated user accessor
+   * @param RequestStack $requestStack current request access for query parameters
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -37,8 +52,25 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
   /**
+   * Method provide
+   *
+   * Authorizes and returns the requested facility descendants with search, sorting, and archive filters.
+   *
+   * @access public
+   *
+   * @param Operation $operation API operation metadata
+   * @param array<string, mixed> $uriVariables route variables containing organizationId and facilityId
+   * @param array<string, mixed> $context provider context for collection filters
+   *
    * @return list<FacilityOutput>
+   *
+   * @throws AccessDeniedHttpException when the caller is unauthenticated or lacks permission
+   * @throws BadRequestHttpException when required route variables or filters are invalid
+   * @throws NotFoundHttpException when the facility is outside the visible organization scope
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
@@ -95,6 +127,17 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     return array_map($this->mapResult(...), $result->items);
   }
 
+  /**
+   * Method findFacilityNotFoundException
+   *
+   * Searches nested handler exceptions for a facility-not-found error.
+   *
+   * @access private
+   *
+   * @param Throwable $exception exception chain to inspect
+   *
+   * @return FacilityNotFoundException|null matching exception, or null when absent
+   */
   private function findFacilityNotFoundException(Throwable $exception): ?FacilityNotFoundException
   {
     $current = $exception;
@@ -118,6 +161,17 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     return null;
   }
 
+  /**
+   * Method findInvalidArgumentException
+   *
+   * Searches nested handler exceptions for an invalid-argument error.
+   *
+   * @access private
+   *
+   * @param Throwable $exception exception chain to inspect
+   *
+   * @return InvalidArgumentException|null matching exception, or null when absent
+   */
   private function findInvalidArgumentException(Throwable $exception): ?InvalidArgumentException
   {
     $current = $exception;
@@ -141,6 +195,17 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     return null;
   }
 
+  /**
+   * Method mapResult
+   *
+   * Maps a facility query result to the API output DTO.
+   *
+   * @access private
+   *
+   * @param GetFacilityResult $facility facility result to map
+   *
+   * @return FacilityOutput serialized API output data
+   */
   private function mapResult(GetFacilityResult $facility): FacilityOutput
   {
     $output = new FacilityOutput();
@@ -165,4 +230,5 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
 
     return $output;
   }
+  // #endregion
 }

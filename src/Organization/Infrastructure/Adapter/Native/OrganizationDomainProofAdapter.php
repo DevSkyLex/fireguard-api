@@ -44,6 +44,15 @@ use const FILE_SKIP_EMPTY_LINES;
  */
 final readonly class OrganizationDomainProofAdapter implements OrganizationDomainProofPort
 {
+  /**
+   * Constant GENERIC.
+   *
+   * Lists public email domains that cannot prove ownership of an organization domain.
+   *
+   * @access private
+   *
+   * @var list<string>
+   */
   private const array GENERIC = ['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'hotmail.fr', 'outlook.fr', 'live.com', 'live.fr', 'msn.com', 'yahoo.com', 'yahoo.fr', 'ymail.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'pm.me', 'gmx.com', 'gmx.de', 'gmx.fr', 'mail.com', 'zoho.com', 'orange.fr', 'wanadoo.fr', 'laposte.net', 'free.fr', 'sfr.fr', 'bbox.fr', 'tuta.com', 'tutanota.com', 'yandex.com', 'yandex.ru', 'qq.com', '163.com'];
 
   /**
@@ -119,6 +128,19 @@ final readonly class OrganizationDomainProofAdapter implements OrganizationDomai
     return substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-' . substr($hex, 12, 4) . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20);
   }
 
+  /**
+   * Method asciiDomain
+   *
+   * Normalizes a domain to lowercase ASCII and rejects invalid internationalized names.
+   *
+   * @access private
+   *
+   * @param string $domain the submitted domain value
+   *
+   * @return string the normalized ASCII domain
+   *
+   * @throws OrganizationJoinInputException when IDN conversion fails
+   */
   private function asciiDomain(string $domain): string
   {
     $domain = strtolower(rtrim(trim($domain), '.'));

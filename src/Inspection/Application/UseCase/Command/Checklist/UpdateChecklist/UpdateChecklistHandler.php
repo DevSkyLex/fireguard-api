@@ -39,14 +39,27 @@ use function strtolower;
 final readonly class UpdateChecklistHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the UpdateChecklistHandler dependencies and state.
+   *
+   * @access public
+   *
+   * @param ChecklistLockPort $locks the locks
+   * @param ChecklistRepositoryPort $checklistRepository the checklist repository
+   * @param UuidFactory $uuidFactory the uuid factory
+   *
+   * @return void
+   */
   public function __construct(
     private ChecklistLockPort $locks,
     private ChecklistRepositoryPort $checklistRepository,
     private UuidFactory $uuidFactory,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method __invoke.
@@ -58,6 +71,17 @@ final readonly class UpdateChecklistHandler implements CommandHandler
     return $this->locks->withLock($command->organizationId, $command->checklistId, fn (): UpdateChecklistResult => $this->execute($command));
   }
 
+  /**
+   * Method execute
+   *
+   * Applies checklist changes after enforcing the aggregate’s archive and inspection-reference constraints.
+   *
+   * @access private
+   *
+   * @param UpdateChecklistCommand $command the command to handle
+   *
+   * @return UpdateChecklistResult
+   */
   private function execute(UpdateChecklistCommand $command): UpdateChecklistResult
   {
     $checklistId = ChecklistId::fromString($command->checklistId);

@@ -20,8 +20,14 @@ namespace Shared\Domain\Attachment;
 enum AttachmentCategory: string
 {
   // #region Cases
+  /**
+   * Case IMAGE
+   */
   case IMAGE = 'image';
 
+  /**
+   * Case DOCUMENT
+   */
   case DOCUMENT = 'document';
   // #endregion
 

@@ -14,9 +14,23 @@ namespace Session\Domain\Model\Session;
  */
 final readonly class RestoredSessionTokens
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Carries token record identifiers associated with a restored session.
+   *
+   * @access public
+   *
+   * @param ?string $accessTokenId optional access-token record identifier
+   * @param ?string $refreshTokenId optional refresh-token record identifier
+   *
+   * @return void
+   */
   public function __construct(
     public ?string $accessTokenId,
     public ?string $refreshTokenId,
   ) {
   }
+  // #endregion
 }

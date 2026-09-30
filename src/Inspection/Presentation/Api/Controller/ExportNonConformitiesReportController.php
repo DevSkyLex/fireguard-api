@@ -58,6 +58,11 @@ final class ExportNonConformitiesReportController extends AbstractController
   use InspectionExportExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   *
+   * Permission required to export an organization's non-conformities.
+   */
   private const string READ_PERMISSION = 'organization.inspection.read';
 
   /**
@@ -285,6 +290,18 @@ final class ExportNonConformitiesReportController extends AbstractController
     return $context;
   }
 
+  /**
+   * Method localizeSeverityGroup
+   *
+   * Formats the dates in each row of a severity group when the expected row list is present.
+   *
+   * @access private
+   *
+   * @param mixed $group report group to localize
+   * @param DocumentDateFormatter $formatter formats report dates
+   *
+   * @return mixed localized group, or the original value when its shape is unexpected
+   */
   private static function localizeSeverityGroup(mixed $group, DocumentDateFormatter $formatter): mixed
   {
     if (!is_array($group) || !isset($group['rows']) || !is_array($group['rows'])) {
@@ -299,6 +316,18 @@ final class ExportNonConformitiesReportController extends AbstractController
     return $group;
   }
 
+  /**
+   * Method localizeNonConformityRow
+   *
+   * Formats the created and resolved dates when the report row is an array.
+   *
+   * @access private
+   *
+   * @param mixed $row report row to localize
+   * @param DocumentDateFormatter $formatter formats report dates
+   *
+   * @return mixed localized row, or the original value when it is not an array
+   */
   private static function localizeNonConformityRow(mixed $row, DocumentDateFormatter $formatter): mixed
   {
     if (!is_array($row)) {

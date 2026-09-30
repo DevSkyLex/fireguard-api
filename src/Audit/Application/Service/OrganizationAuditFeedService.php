@@ -50,9 +50,24 @@ final readonly class OrganizationAuditFeedService implements OrganizationAuditFe
     private AuditEventRepositoryPort $auditEventRepository,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method listForOrganization
+   *
+   * Lists audit events scoped to the supplied organization and filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $action the optional action
+   * @param ?DateTimeImmutable $from the optional range start
+   * @param ?DateTimeImmutable $to the optional range end
+   * @param Pagination $pagination the optional pagination
+   *
+   * @return PaginatedResult<OrganizationAuditEntry> projected audit page
+   */
   public function listForOrganization(
     string $organizationId,
     ?string $action = null,
@@ -91,6 +106,20 @@ final readonly class OrganizationAuditFeedService implements OrganizationAuditFe
     );
   }
 
+  /**
+   * Method exportForOrganization
+   *
+   * Exports audit events scoped to the supplied organization and filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $action the optional action
+   * @param ?DateTimeImmutable $from the optional range start
+   * @param ?DateTimeImmutable $to the optional range end
+   *
+   * @return iterable<OrganizationAuditEntry> projected entries, yielded as consumed
+   */
   public function exportForOrganization(
     string $organizationId,
     ?string $action = null,

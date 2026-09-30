@@ -17,6 +17,18 @@ use Shared\Application\Message\CommandMessage;
 final readonly class ArchiveChecklistCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the organization and checklist to archive.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization owning the checklist
+   * @param string $checklistId checklist to archive
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public string $checklistId,

@@ -40,6 +40,17 @@ final readonly class OtpRepository implements OtpRepositoryPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method save.
+   *
+   * Persists an OTP aggregate, reusing the existing record when available.
+   *
+   * @access public
+   *
+   * @param Otp $otp the OTP aggregate
+   *
+   * @return void no return value
+   */
   public function save(Otp $otp): void
   {
     $repository = $this->entityManager->getRepository(OtpRecord::class);
@@ -54,6 +65,17 @@ final readonly class OtpRepository implements OtpRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById.
+   *
+   * Loads an OTP aggregate by its identifier.
+   *
+   * @access public
+   *
+   * @param OtpId $id the OTP identifier
+   *
+   * @return ?Otp the OTP aggregate when found
+   */
   public function findById(OtpId $id): ?Otp
   {
     $repository = $this->entityManager->getRepository(OtpRecord::class);
@@ -66,6 +88,18 @@ final readonly class OtpRepository implements OtpRepositoryPort
     return $this->mapper->toDomain($record);
   }
 
+  /**
+   * Method findActiveByUserAndPurpose.
+   *
+   * Finds the newest unverified OTP for a user and purpose that has not expired.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   * @param OtpPurpose $purpose the OTP purpose
+   *
+   * @return ?Otp the matching active OTP, when present
+   */
   public function findActiveByUserAndPurpose(string $userId, OtpPurpose $purpose): ?Otp
   {
     $repository = $this->entityManager->getRepository(OtpRecord::class);
@@ -90,6 +124,17 @@ final readonly class OtpRepository implements OtpRepositoryPort
     return $this->mapper->toDomain($record);
   }
 
+  /**
+   * Method findByChallengeToken.
+   *
+   * Finds an OTP by its challenge token, locking and refreshing the row inside a transaction.
+   *
+   * @access public
+   *
+   * @param \Otp\Domain\ValueObject\ChallengeToken $token the challenge token
+   *
+   * @return ?Otp the matching OTP, when present
+   */
   public function findByChallengeToken(\Otp\Domain\ValueObject\ChallengeToken $token): ?Otp
   {
     $repository = $this->entityManager->getRepository(OtpRecord::class);
@@ -112,6 +157,18 @@ final readonly class OtpRepository implements OtpRepositoryPort
     return $this->mapper->toDomain($record);
   }
 
+  /**
+   * Method revokeAllForUser.
+   *
+   * Expires all active, unverified OTPs for the user and purpose.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   * @param OtpPurpose $purpose the OTP purpose
+   *
+   * @return int number of records updated
+   */
   public function revokeAllForUser(string $userId, OtpPurpose $purpose): int
   {
     // Set expires_at to now for all active OTPs

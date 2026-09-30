@@ -18,6 +18,17 @@ use Shared\Application\Message\QueryHandler;
 final readonly class ListChannelsHandler implements QueryHandler
 {
   // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Lists each OTP channel with its label and delivery requirement.
+   *
+   * @access public
+   *
+   * @param ListChannelsQuery $query the channel list query
+   *
+   * @return ListChannelsResult the available channel entries
+   */
   public function __invoke(ListChannelsQuery $query): ListChannelsResult
   {
     $items = [];

@@ -43,6 +43,18 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
   {
   }
 
+  /**
+   * Method assignableRoles
+   *
+   * Lists organization roles whose permissions the actor may grant.
+   *
+   * @access public
+   *
+   * @param string $actor the actor identifier
+   * @param string $organizationId the organization identifier
+   *
+   * @return list<array{id: string, label: string}> assignable role identifiers and labels
+   */
   public function assignableRoles(string $actor, string $organizationId): array
   {
     $this->assertManage($actor, $organizationId);
@@ -64,6 +76,22 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     return $allowed;
   }
 
+  /**
+   * Method assertManage
+   *
+   * Requires organization membership, management permissions and an active organization.
+   *
+   * @access public
+   *
+   * @param string $actor the actor identifier
+   * @param string $organizationId the organization identifier
+   * @param bool $settings whether settings-write permission is also required
+   *
+   * @return void
+   *
+   * @throws OrganizationNotFoundException when the actor is not a member
+   * @throws OrganizationJoinException when the organization is unavailable
+   */
   public function assertManage(string $actor, string $organizationId, bool $settings = false): void
   {
     if (!$this->authorization->isMemberOf($actor, $organizationId)) {
@@ -76,6 +104,20 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     }
   }
 
+  /**
+   * Method assertEligibleRole
+   *
+   * Validates that the selected organization role does not exceed the member role.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $roleId the role identifier
+   *
+   * @return string the validated role name
+   *
+   * @throws OrganizationJoinException when the role is not eligible
+   */
   public function assertEligibleRole(string $organizationId, string $roleId): string
   {
     $role = $this->roles->findById(OrganizationRoleId::fromString($roleId));
@@ -87,6 +129,21 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     return (string) $role->name();
   }
 
+  /**
+   * Method eligibleDomain
+   *
+   * Finds a usable verified domain matching the email address.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $email the applicant email address
+   * @param DateTimeImmutable $now time used to check domain usability
+   *
+   * @return OrganizationDomain the matching usable domain
+   *
+   * @throws OrganizationJoinException when no usable matching domain exists
+   */
   public function eligibleDomain(string $organizationId, string $email, DateTimeImmutable $now): OrganizationDomain
   {
     $domain = strtolower(substr($email, strrpos($email, '@') + 1));
@@ -99,6 +156,17 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     throw new OrganizationJoinException('organization_join_domain_unavailable');
   }
 
+  /**
+   * Method policyView
+   *
+   * Builds the join policy view with eligible roles and verified domains.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return array<string, mixed> policy data with verified domains and eligible role choices
+   */
   public function policyView(string $organizationId): array
   {
     $policy = $this->joins->policy($organizationId);
@@ -118,11 +186,35 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     return ['mode' => $policy->mode->value, 'roleId' => $proposedRoleId, 'roleLabel' => $roleLabel, 'domains' => array_map($this->domainView(...), $this->joins->domains($organizationId)), 'eligibleRoles' => $eligible];
   }
 
+  /**
+   * Method domainView
+   *
+   * Converts a domain model to its API-facing values.
+   *
+   * @access public
+   *
+   * @param OrganizationDomain $domain the organization domain
+   *
+   * @return array<string, mixed> domain values for the API view
+   */
   public function domainView(OrganizationDomain $domain): array
   {
     return ['id' => $domain->id, 'domain' => $domain->domain, 'status' => 'verified' === $domain->status && !$domain->isUsable(new DateTimeImmutable()) ? 'suspended' : $domain->status, 'dnsName' => $domain->dnsName(), 'dnsValue' => $domain->dnsValue, 'verifiedAt' => $domain->verifiedAt?->format('c'), 'lastCheckedAt' => $domain->lastCheckedAt?->format('c')];
   }
 
+  /**
+   * Method requestView
+   *
+   * Builds a join request view and the actions available to the actor.
+   *
+   * @access public
+   *
+   * @param OrganizationJoinRequest $request the join request
+   * @param string $actor the actor identifier
+   * @param bool $manager whether the actor manages organization membership
+   *
+   * @return array<string, mixed> request values and actor-specific actions
+   */
   public function requestView(OrganizationJoinRequest $request, string $actor, bool $manager = false): array
   {
     $org = $this->organizations->findById(OrganizationId::fromString($request->organizationId));
@@ -136,6 +228,21 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     return [...($manager ? ['applicantEmail' => $request->email] : []), 'id' => $request->id, 'organizationId' => $request->organizationId, 'organizationName' => null !== $org ? (string) $org->name() : '', 'status' => $state, 'createdAt' => $request->createdAt->format('c'), 'expiresAt' => $request->expiresAt->format('c'), 'actions' => $actions];
   }
 
+  /**
+   * Method assertRoleChange
+   *
+   * Prevents changing the automatic join role to permissions beyond the member role.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $roleId the role identifier
+   * @param list<string>|null $permissions proposed permissions, when supplied
+   *
+   * @return void
+   *
+   * @throws OrganizationJoinException when the role remains in use but becomes ineligible
+   */
   public function assertRoleChange(string $organizationId, string $roleId, ?array $permissions): void
   {
     $this->joins->lock($organizationId);
@@ -149,6 +256,17 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     }
   }
 
+  /**
+   * Method requestEmailProof
+   *
+   * Reads the applicant's authoritative email ownership result.
+   *
+   * @access private
+   *
+   * @param OrganizationJoinRequest $request the join request
+   *
+   * @return ?EmailOwnershipResult the proof, or null when the ownership service is unavailable
+   */
   private function requestEmailProof(OrganizationJoinRequest $request): ?EmailOwnershipResult
   {
     try {
@@ -162,6 +280,18 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     }
   }
 
+  /**
+   * Method emailMatchesRequest
+   *
+   * Checks that verified email ownership predates and matches the request address.
+   *
+   * @access private
+   *
+   * @param ?EmailOwnershipResult $email the current email ownership result
+   * @param OrganizationJoinRequest $request the join request
+   *
+   * @return bool whether the proof matches the request
+   */
   private function emailMatchesRequest(?EmailOwnershipResult $email, OrganizationJoinRequest $request): bool
   {
     return null !== $email

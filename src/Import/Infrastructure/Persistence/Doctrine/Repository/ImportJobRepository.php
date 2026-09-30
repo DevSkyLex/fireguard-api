@@ -46,6 +46,17 @@ final readonly class ImportJobRepository implements ImportJobRepositoryPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method save.
+   *
+   * Inserts or updates the persistence record for an import job.
+   *
+   * @access public
+   *
+   * @param ImportJob $job the import job aggregate
+   *
+   * @return void no return value
+   */
   public function save(ImportJob $job): void
   {
     $record = $this->repository->find((string) $job->id());
@@ -65,6 +76,17 @@ final readonly class ImportJobRepository implements ImportJobRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById.
+   *
+   * Reloads an import job record and maps it to its domain aggregate.
+   *
+   * @access public
+   *
+   * @param ImportJobId $id the import job identifier
+   *
+   * @return ?ImportJob the aggregate when found
+   */
   public function findById(ImportJobId $id): ?ImportJob
   {
     $record = $this->repository->find((string) $id);
@@ -75,6 +97,21 @@ final readonly class ImportJobRepository implements ImportJobRepositoryPort
     return $record instanceof ImportJobRecord ? ImportJobMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method listByOrganization.
+   *
+   * Lists organization import jobs filtered by kind and optional permitted kinds.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?ImportKind $kind optional kind filter
+   * @param int $limit maximum number of jobs to return
+   * @param int $offset number of earlier jobs to skip
+   * @param ?list<ImportKind> $allowedKinds optional caller-permitted kinds
+   *
+   * @return list<ImportJob> matching import jobs, newest first
+   */
   public function listByOrganization(string $organizationId, ?ImportKind $kind, int $limit, int $offset, ?array $allowedKinds = null): array
   {
     if ([] === $allowedKinds) {
@@ -105,6 +142,19 @@ final readonly class ImportJobRepository implements ImportJobRepositoryPort
     return array_map(ImportJobMapper::toDomain(...), $records);
   }
 
+  /**
+   * Method countByOrganization.
+   *
+   * Counts organization import jobs using the same kind filters as the list query.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?ImportKind $kind optional kind filter
+   * @param ?list<ImportKind> $allowedKinds optional caller-permitted kinds
+   *
+   * @return int number of matching import jobs
+   */
   public function countByOrganization(string $organizationId, ?ImportKind $kind, ?array $allowedKinds = null): int
   {
     if ([] === $allowedKinds) {

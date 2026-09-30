@@ -26,12 +26,35 @@ use const FILTER_VALIDATE_INT;
 )]
 final class BackfillMessageLinksCommand extends Command
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Injects the command bus used to execute each configured message-link backfill batch.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus dispatches bounded backfill batches
+   *
+   * @return void
+   */
   public function __construct(
     private readonly CommandBusPort $commandBus,
   ) {
     parent::__construct();
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method configure.
+   *
+   * Defines the batch size, resume cursor and dry-run options.
+   *
+   * @access protected
+   *
+   * @return void
+   */
   protected function configure(): void
   {
     $this
@@ -40,6 +63,18 @@ final class BackfillMessageLinksCommand extends Command
       ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Count extracted links without writing');
   }
 
+  /**
+   * Method execute.
+   *
+   * Dispatches batches until complete and reports command failures.
+   *
+   * @access protected
+   *
+   * @param InputInterface $input parsed console options
+   * @param OutputInterface $output console output stream
+   *
+   * @return int Symfony command status
+   */
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
     $io = new SymfonyStyle($input, $output);
@@ -98,4 +133,5 @@ final class BackfillMessageLinksCommand extends Command
 
     return Command::SUCCESS;
   }
+  // #endregion
 }

@@ -19,10 +19,19 @@ use Shared\Application\Message\ResultMessage;
 final readonly class MfaResendResult implements ResultMessage
 {
   // #region Constants
+  /**
+   * Constant ERROR_INVALID_CHALLENGE
+   */
   public const string ERROR_INVALID_CHALLENGE = 'invalid_challenge';
 
+  /**
+   * Constant ERROR_RESEND_NOT_ALLOWED
+   */
   public const string ERROR_RESEND_NOT_ALLOWED = 'resend_not_allowed';
 
+  /**
+   * Constant ERROR_TOTP_NOT_RESENDABLE
+   */
   public const string ERROR_TOTP_NOT_RESENDABLE = 'totp_not_resendable';
   // #endregion
 

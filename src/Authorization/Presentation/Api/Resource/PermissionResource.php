@@ -228,17 +228,38 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class PermissionResource
 {
+  /**
+   * Constant TAG
+   */
   private const TAG = 'Authorization - Permissions';
 
+  /**
+   * Constant AUTHENTICATION_REQUIRED
+   */
   private const AUTHENTICATION_REQUIRED = 'Authentication required - missing or invalid access token';
 
+  /**
+   * Constant ITEM_URI
+   */
   private const ITEM_URI = '/permissions/{id}';
 
+  /**
+   * Constant RESPONSE_ID
+   */
   private const RESPONSE_ID = '$response.body#/id';
 
+  /**
+   * Constant NOT_FOUND
+   */
   private const NOT_FOUND = 'Permission not found';
 
+  /**
+   * Constant MANAGE_SECURITY
+   */
   private const MANAGE_SECURITY = "is_granted('permissions.manage')";
 
+  /**
+   * Constant MANAGE_FORBIDDEN
+   */
   private const MANAGE_FORBIDDEN = 'Insufficient permissions - permissions.manage required';
 }

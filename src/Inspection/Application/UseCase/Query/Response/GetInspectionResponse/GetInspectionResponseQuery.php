@@ -23,6 +23,17 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetInspectionResponseQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the checklist response selected for retrieval.
+   *
+   * @access public
+   *
+   * @param string $responseId identifier of the checklist response to retrieve
+   *
+   * @return void
+   */
   public function __construct(
     public string $responseId,
   ) {

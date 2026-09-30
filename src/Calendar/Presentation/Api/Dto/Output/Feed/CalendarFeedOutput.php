@@ -55,6 +55,9 @@ final class CalendarFeedOutput
   #[ApiProperty(readable: true, writable: false)]
   public array $sources = [];
 
+  /**
+   * Property complete
+   */
   #[Groups([CalendarSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public bool $complete = true;

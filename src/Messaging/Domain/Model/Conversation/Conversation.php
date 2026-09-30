@@ -47,6 +47,30 @@ use Messaging\Domain\ValueObject\{ChannelName, ConversationId, ConversationVisib
 final class Conversation
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Initializes a conversation with its subject, visibility and persisted activity state.
+   *
+   * @access private
+   *
+   * @param ConversationId $id conversation identifier
+   * @param string $organizationId organization that owns the conversation
+   * @param MessagingSubjectType $subjectType type of subject bound to the conversation
+   * @param ?string $subjectId optional subject identifier for subject conversations
+   * @param ConversationVisibility $visibility visibility mode controlling participant access
+   * @param ?DateTimeImmutable $lastMessageAt timestamp of the most recent message, if any
+   * @param int $messagesCount persisted message count
+   * @param bool $isArchived whether the conversation is archived
+   * @param DateTimeImmutable $createdAt original creation timestamp
+   * @param DateTimeImmutable $updatedAt most recent update timestamp
+   * @param ?ChannelName $name optional channel name
+   * @param ?string $teamId optional owning team identifier
+   * @param ?string $createdByMemberId optional member who created the channel
+   * @param ?string $parentConversationId optional parent channel identifier
+   *
+   * @return void
+   */
   private function __construct(
     private readonly ConversationId $id,
     private readonly string $organizationId,

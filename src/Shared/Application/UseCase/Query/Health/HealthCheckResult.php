@@ -21,10 +21,19 @@ use function date;
 final readonly class HealthCheckResult implements ResultMessage
 {
   // #region Constants
+  /**
+   * Constant STATUS_HEALTHY
+   */
   public const string STATUS_HEALTHY = 'healthy';
 
+  /**
+   * Constant STATUS_DEGRADED
+   */
   public const string STATUS_DEGRADED = 'degraded';
 
+  /**
+   * Constant STATUS_UNHEALTHY
+   */
   public const string STATUS_UNHEALTHY = 'unhealthy';
   // #endregion
 

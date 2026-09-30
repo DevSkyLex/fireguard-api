@@ -32,6 +32,18 @@ final readonly class OtpModuleChallengeVerifierAdapter implements ChallengeVerif
   // #endregion
 
   // #region Methods
+  /**
+   * Method verify.
+   *
+   * Delegates MFA challenge verification to the OTP module and maps its result.
+   *
+   * @access public
+   *
+   * @param string $challengeToken the pre-authentication challenge token
+   * @param string $code the submitted one-time code
+   *
+   * @return MfaVerifyResult the mapped verification result
+   */
   public function verify(string $challengeToken, string $code): MfaVerifyResult
   {
     /** @var VerificationInfo $result */

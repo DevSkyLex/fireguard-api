@@ -14,7 +14,18 @@ namespace Organization\Domain\ValueObject;
  */
 enum OrganizationJoinMode: string
 {
+  /**
+   * Case INVITATION_ONLY
+   */
   case INVITATION_ONLY = 'invitation_only';
+
+  /**
+   * Case APPROVAL_REQUIRED
+   */
   case APPROVAL_REQUIRED = 'approval_required';
+
+  /**
+   * Case AUTOMATIC
+   */
   case AUTOMATIC = 'automatic';
 }

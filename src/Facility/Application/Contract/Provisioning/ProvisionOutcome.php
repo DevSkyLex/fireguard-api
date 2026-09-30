@@ -20,7 +20,18 @@ namespace Facility\Application\Contract\Provisioning;
  */
 enum ProvisionOutcome
 {
+  /**
+   * Case CREATED
+   */
   case CREATED;
+
+  /**
+   * Case QUOTA_EXCEEDED
+   */
   case QUOTA_EXCEEDED;
+
+  /**
+   * Case INVALID
+   */
   case INVALID;
 }

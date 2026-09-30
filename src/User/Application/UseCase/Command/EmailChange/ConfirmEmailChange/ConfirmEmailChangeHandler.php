@@ -46,6 +46,9 @@ use function array_values;
  */
 final readonly class ConfirmEmailChangeHandler implements CommandHandler
 {
+  /**
+   * Constant INVALID_TOKEN_MESSAGE
+   */
   private const string INVALID_TOKEN_MESSAGE = 'Invalid or expired email change token.';
 
   // #region Constructor

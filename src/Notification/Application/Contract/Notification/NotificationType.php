@@ -26,14 +26,29 @@ use function in_array;
 final class NotificationType
 {
   // #region Categories
+  /**
+   * Constant CATEGORY_SYSTEM
+   */
   public const string CATEGORY_SYSTEM = 'system';
 
+  /**
+   * Constant CATEGORY_ORGANIZATION
+   */
   public const string CATEGORY_ORGANIZATION = 'organization';
 
+  /**
+   * Constant CATEGORY_USER
+   */
   public const string CATEGORY_USER = 'user';
 
+  /**
+   * Constant CATEGORY_FACILITY
+   */
   public const string CATEGORY_FACILITY = 'facility';
 
+  /**
+   * Constant CATEGORY_EQUIPMENT
+   */
   public const string CATEGORY_EQUIPMENT = 'equipment';
   // #endregion
 

@@ -25,6 +25,19 @@ use function trim;
 final readonly class AddTagToEquipmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment and tag repositories plus an identifier factory to find or create and link a tag.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load equipment and confirm its organization scope
+   * @param TagRepositoryPort $tagRepository port used to find or create the organization tag and link it
+   * @param UuidFactory $uuidFactory factory used when a new tag needs an identifier
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,

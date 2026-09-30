@@ -24,7 +24,12 @@ namespace Messaging\Application\Contract\Presence;
  */
 final readonly class MemberPresenceView
 {
+  // #region Properties
+  /**
+   * Property status
+   */
   public string $status;
+  // #endregion
 
   // #region Constructor
   /**

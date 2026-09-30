@@ -13,7 +13,9 @@ use Notification\Infrastructure\Persistence\Doctrine\Record\NotificationPreferen
 use function array_map;
 
 /**
- * Repository NotificationPreferenceRepository.
+ * Class NotificationPreferenceRepository
+ *
+ * Reads and persists user notification preferences through Doctrine.
  *
  * @category Repository
  * @version 1.0.0
@@ -31,11 +33,16 @@ final readonly class NotificationPreferenceRepository implements NotificationPre
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
+   * Creates the repository and prepares the preference record repository.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the Doctrine entity manager
+   *
+   * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -45,6 +52,17 @@ final readonly class NotificationPreferenceRepository implements NotificationPre
   // #endregion
 
   // #region Methods
+  /**
+   * Method findByUserId
+   *
+   * Lists a user’s notification preferences in category order.
+   *
+   * @access public
+   *
+   * @param string $userId user whose preferences are requested
+   *
+   * @return list<NotificationPreference> preference aggregates
+   */
   public function findByUserId(string $userId): array
   {
     /** @var list<NotificationPreferenceRecord> $records */
@@ -56,6 +74,18 @@ final readonly class NotificationPreferenceRepository implements NotificationPre
     );
   }
 
+  /**
+   * Method findByUserIdAndCategory
+   *
+   * Finds one preference by its user and category pair.
+   *
+   * @access public
+   *
+   * @param string $userId user whose preference is requested
+   * @param string $category preference category
+   *
+   * @return NotificationPreference|null preference aggregate, or null when none exists
+   */
   public function findByUserIdAndCategory(string $userId, string $category): ?NotificationPreference
   {
     $record = $this->repository->find(['userId' => $userId, 'category' => $category]);
@@ -67,6 +97,17 @@ final readonly class NotificationPreferenceRepository implements NotificationPre
     return NotificationPreferenceMapper::toDomain($record);
   }
 
+  /**
+   * Method saveMany
+   *
+   * Updates existing preference records or persists new ones, then flushes the unit of work.
+   *
+   * @access public
+   *
+   * @param list<NotificationPreference> $preferences preference aggregates to persist
+   *
+   * @return void
+   */
   public function saveMany(array $preferences): void
   {
     foreach ($preferences as $preference) {

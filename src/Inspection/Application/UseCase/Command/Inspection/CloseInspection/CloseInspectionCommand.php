@@ -17,6 +17,18 @@ use Shared\Application\Message\CommandMessage;
 final readonly class CloseInspectionCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the organization-scoped inspection to close.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope used to authorize the operation
+   * @param string $inspectionId inspection to close
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public string $inspectionId,

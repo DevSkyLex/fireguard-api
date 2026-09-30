@@ -49,6 +49,15 @@ final readonly class MaintenanceScheduleProvider implements ScheduleProviderInte
   // #endregion
 
   // #region Methods
+  /**
+   * Method getSchedule.
+   *
+   * Provides the hourly maintenance schedule recomputation with shared state and a lock.
+   *
+   * @access public
+   *
+   * @return Schedule the configured maintenance schedule
+   */
   public function getSchedule(): Schedule
   {
     return new Schedule()

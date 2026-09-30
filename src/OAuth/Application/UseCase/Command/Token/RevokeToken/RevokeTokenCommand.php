@@ -21,6 +21,9 @@ final readonly class RevokeTokenCommand implements CommandMessage
    */
   public const string HINT_ACCESS_TOKEN = 'access_token';
 
+  /**
+   * Constant HINT_REFRESH_TOKEN
+   */
   public const string HINT_REFRESH_TOKEN = 'refresh_token';
 
   /**

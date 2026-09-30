@@ -169,6 +169,9 @@ final class ApprovalRequestOutput
   #[Groups([ApprovalSerializationGroup::READ])]
   public array $allowedActions = [];
 
+  /**
+   * Property decisionBlockReason
+   */
   #[Groups([ApprovalSerializationGroup::READ])]
   public ?string $decisionBlockReason = null;
   // #endregion

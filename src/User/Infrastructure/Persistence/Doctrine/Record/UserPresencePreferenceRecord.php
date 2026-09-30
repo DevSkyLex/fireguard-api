@@ -18,16 +18,30 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'user_presence_preferences')]
 class UserPresencePreferenceRecord
 {
+  // #region Properties
+  /**
+   * Property userId
+   */
   #[ORM\Id]
   #[ORM\Column(name: 'user_id', type: 'string', length: 36)]
   public string $userId;
 
+  /**
+   * Property doNotDisturb
+   */
   #[ORM\Column(name: 'do_not_disturb', type: 'boolean', options: ['default' => false])]
   public bool $doNotDisturb = false;
 
+  /**
+   * Property invisible
+   */
   #[ORM\Column(type: 'boolean', options: ['default' => false])]
   public bool $invisible = false;
 
+  /**
+   * Property revision
+   */
   #[ORM\Column(type: 'integer', options: ['default' => 0])]
   public int $revision = 0;
+  // #endregion
 }

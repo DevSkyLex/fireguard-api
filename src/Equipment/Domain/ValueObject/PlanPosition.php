@@ -29,10 +29,19 @@ use function is_string;
 final readonly class PlanPosition
 {
   // #region Properties
+  /**
+   * Property attachmentId
+   */
   private string $attachmentId;
 
+  /**
+   * Property x
+   */
   private float $x;
 
+  /**
+   * Property y
+   */
   private float $y;
   // #endregion
 

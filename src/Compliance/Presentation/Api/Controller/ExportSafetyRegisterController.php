@@ -49,6 +49,9 @@ final class ExportSafetyRegisterController extends AbstractController
   use ComplianceExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant EXPORT_PERMISSION
+   */
   private const string EXPORT_PERMISSION = 'organization.compliance.export';
   // #endregion
 

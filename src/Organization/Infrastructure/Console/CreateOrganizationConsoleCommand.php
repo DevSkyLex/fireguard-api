@@ -54,8 +54,8 @@ final class CreateOrganizationConsoleCommand extends Command
   ) {
     parent::__construct();
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method configure
@@ -138,6 +138,20 @@ HELP
     return $this->createOrganization($io, $name, trim($ownerRaw), $slug);
   }
 
+  /**
+   * Method createOrganization
+   *
+   * Creates an organization for the selected owner and reports the created organization details in the console.
+   *
+   * @access private
+   *
+   * @param SymfonyStyle $io the console input/output helper
+   * @param string $name the name
+   * @param string $ownerIdentifier the owner identifier
+   * @param ?string $slug the slug
+   *
+   * @return int the command exit status
+   */
   private function createOrganization(SymfonyStyle $io, string $name, string $ownerIdentifier, ?string $slug): int
   {
     try {

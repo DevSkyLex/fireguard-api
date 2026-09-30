@@ -30,8 +30,26 @@ use function mb_strimwidth;
 final readonly class InspectionMessagingSubjectResolverAdapter implements MessagingSubjectResolverPort
 {
   // #region Constants
+  /**
+   * Constant REQUIRED_READ_PERMISSION
+   *
+   * Permission required to resolve a non-conformity subject.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string REQUIRED_READ_PERMISSION = 'organization.inspection.read';
 
+  /**
+   * Constant LABEL_MAX_LENGTH
+   *
+   * Maximum width of the subject label returned to Messaging.
+   *
+   * @access private
+   *
+   * @var int
+   */
   private const int LABEL_MAX_LENGTH = 80;
   // #endregion
 
@@ -50,11 +68,34 @@ final readonly class InspectionMessagingSubjectResolverAdapter implements Messag
   // #endregion
 
   // #region Methods
+  /**
+   * Method supports
+   *
+   * Handles non-conformity subject references.
+   *
+   * @access public
+   *
+   * @param MessagingSubjectType $type subject type to check
+   *
+   * @return bool whether this adapter supports the type
+   */
   public function supports(MessagingSubjectType $type): bool
   {
     return MessagingSubjectType::NON_CONFORMITY === $type;
   }
 
+  /**
+   * Method resolve
+   *
+   * Resolves an organization's non-conformity and its required read permission.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope
+   * @param string $subjectId non-conformity identifier
+   *
+   * @return MessagingSubjectResolution existence, label and permission projection
+   */
   public function resolve(string $organizationId, string $subjectId): MessagingSubjectResolution
   {
     $record = $this->entityManager->find(NonConformityRecord::class, $subjectId);

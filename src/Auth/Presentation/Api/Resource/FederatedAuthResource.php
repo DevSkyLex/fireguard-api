@@ -108,5 +108,8 @@ use Symfony\Component\HttpFoundation\Response;
 )]
 final class FederatedAuthResource
 {
+  /**
+   * Constant USER_SECURITY
+   */
   private const USER_SECURITY = "is_granted('ROLE_USER')";
 }

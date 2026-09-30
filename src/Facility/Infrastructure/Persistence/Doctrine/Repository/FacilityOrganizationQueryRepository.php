@@ -28,6 +28,9 @@ use function usort;
 abstract readonly class FacilityOrganizationQueryRepository implements FacilityOrganizationQueryPort
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_PREDICATE
+   */
   protected const string ORGANIZATION_PREDICATE = 'f.organization = :organization';
   // #endregion
 
@@ -108,8 +111,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method countOverviewByOrganizationId.
    *
-   * Executes the count overview by organization id operation.
+   * Counts organization facilities and the active subset, optionally filtered by facility type.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization id value
@@ -147,8 +151,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method countByTypeForOrganizationId.
    *
-   * Executes the count by type for organization id operation.
+   * Groups organization facility counts by type, using the repository’s archival filter.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization id value
@@ -182,8 +187,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method countByCreatedDayForOrganizationId.
    *
-   * Executes the count by created day for organization id operation.
+   * Groups published facility counts by creation day in the requested timezone and date range.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization id value
@@ -375,8 +381,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method createListQueryBuilder.
    *
-   * Executes the create list query builder operation.
+   * Builds an organization-scoped query for published facilities and the supplied list criteria.
    *
+   * @access protected
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization id value
@@ -449,8 +456,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method matchesSearch.
    *
-   * Executes the matches search operation.
+   * Checks whether a normalized search term occurs in a facility name, type, status, code, or address.
    *
+   * @access protected
    * @since 1.0.0
    *
    * @param FacilityRecord $record the record value
@@ -510,8 +518,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method resolveSortField.
    *
-   * Executes the resolve sort field operation.
+   * Maps supported facility sort keys to Doctrine query fields, defaulting to facility name.
    *
+   * @access protected
    * @since 1.0.0
    *
    * @param string $field the field value
@@ -533,8 +542,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method resolveBucketTimeZone.
    *
-   * Executes the resolve bucket time zone operation.
+   * Uses the requested bucket timezone, or the lower-bound timestamp timezone when none is supplied.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param ?string $timeZone the time zone value
@@ -554,8 +564,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method resolveStorageTimeZone.
    *
-   * Executes the resolve storage time zone operation.
+   * Creates the configured storage timezone and reports invalid configuration through the module exception.
    *
+   * @access private
    * @since 1.0.0
    *
    * @return DateTimeZone the resolve storage time zone result
@@ -572,8 +583,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Method normalizeTimestampForStorageTimeZone.
    *
-   * Executes the normalize timestamp for storage time zone operation.
+   * Parses a timestamp, shifts it to the given storage timezone, and formats it for SQL comparison.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $value the value value

@@ -17,6 +17,18 @@ use Shared\Application\Message\CommandMessage;
 final readonly class DeleteInspectionResponseCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the response identifier and expected revision for an optimistic delete.
+   *
+   * @access public
+   *
+   * @param string $responseId response to delete
+   * @param int $expectedRevision revision read by the caller before deletion
+   *
+   * @return void
+   */
   public function __construct(
     public string $responseId,
     public int $expectedRevision,

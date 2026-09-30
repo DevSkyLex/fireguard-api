@@ -12,8 +12,29 @@ use function sprintf;
 use function str_pad;
 use function substr;
 
+/**
+ * Class DashboardDateTimeParser
+ *
+ * Parses dashboard date filters that include an explicit ISO 8601 timezone offset.
+ *
+ * @category Support
+ */
 final class DashboardDateTimeParser
 {
+  // #region Methods
+  /**
+   * Method parseNullable
+   *
+   * Returns null for an absent filter and parses any non-empty value as a date-time.
+   * InvalidValueException reports a non-empty value outside the accepted ISO 8601 format.
+   *
+   * @access public
+   *
+   * @param string|null $value optional date-time filter value
+   * @param string $filterName filter name used in validation errors
+   *
+   * @return DateTimeImmutable|null parsed date-time, or null when the filter is absent
+   */
   public static function parseNullable(?string $value, string $filterName): ?DateTimeImmutable
   {
     if (null === $value || '' === $value) {
@@ -23,6 +44,20 @@ final class DashboardDateTimeParser
     return self::parse($value, $filterName);
   }
 
+  /**
+   * Method parse
+   *
+   * Parses an ISO 8601 date-time with an explicit timezone and optional fractional seconds.
+   * Fractional seconds may contain one to six digits.
+   * InvalidValueException reports malformed values or a missing explicit timezone.
+   *
+   * @access public
+   *
+   * @param string $value date-time string with a timezone offset
+   * @param string $filterName filter name used in validation errors
+   *
+   * @return DateTimeImmutable parsed date-time with the supplied offset
+   */
   public static function parse(string $value, string $filterName): DateTimeImmutable
   {
     if (!preg_match(
@@ -59,4 +94,5 @@ final class DashboardDateTimeParser
 
     return $dateTime;
   }
+  // #endregion
 }

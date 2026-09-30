@@ -34,6 +34,9 @@ use function substr;
 final readonly class GetCalendarFeedHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   */
   private const string READ_PERMISSION = 'organization.events.read';
 
   /**

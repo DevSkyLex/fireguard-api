@@ -10,6 +10,22 @@ use Equipment\Domain\ValueObject\{EquipmentRecordStatus, EquipmentStatus};
 /** Persisted publication and optimistic-lock state of a canonical equipment row. */
 final readonly class RestoredCanonicalEquipmentLifecycle
 {
+  /**
+   * Method __construct
+   *
+   * Restores the canonical equipment publication state and optimistic-lock revision.
+   *
+   * @access public
+   *
+   * @param EquipmentRecordStatus $recordStatus publication state of the canonical persistence record
+   * @param ?string $interventionId intervention linked to this equipment, when present
+   * @param EquipmentStatus $status operational status restored for the equipment
+   * @param ?DateTimeImmutable $commissionedAt commissioning time, when the equipment has been commissioned
+   * @param int $revision optimistic-lock revision persisted for the equipment
+   * @param DateTimeImmutable $updatedAt time the equipment record was last updated
+   *
+   * @return void
+   */
   public function __construct(
     public EquipmentRecordStatus $recordStatus,
     public ?string $interventionId,

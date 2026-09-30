@@ -43,6 +43,20 @@ final readonly class FacilityPlanOverlayProvider implements ProviderInterface
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the FacilityPlanOverlayProvider dependencies and state.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus the query bus
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   * @param Security $security the security
+   * @param RequestStack $requestStack the request stack
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -50,8 +64,8 @@ final readonly class FacilityPlanOverlayProvider implements ProviderInterface
     private RequestStack $requestStack,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method provide.
@@ -114,6 +128,17 @@ final readonly class FacilityPlanOverlayProvider implements ProviderInterface
     return $output;
   }
 
+  /**
+   * Method mapMessengerException
+   *
+   * Maps messenger exception the supplied values.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the exception to inspect
+   *
+   * @return Throwable
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $notFound = $this->findException($exception, FacilityNotFoundException::class);

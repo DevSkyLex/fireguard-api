@@ -24,6 +24,17 @@ use function sprintf;
 final readonly class ChecklistValidationAdapter implements ChecklistValidationPort
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Uses the module checklist repository to validate checklist usability.
+   *
+   * @access public
+   *
+   * @param ChecklistRepositoryPort $checklistRepository repository used to load checklist state
+   *
+   * @return void
+   */
   public function __construct(
     private ChecklistRepositoryPort $checklistRepository,
   ) {

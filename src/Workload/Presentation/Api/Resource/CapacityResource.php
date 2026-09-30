@@ -31,6 +31,9 @@ use Workload\Presentation\Api\Provider\CapacityProvider;
 final class CapacityResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
   // #endregion
 }

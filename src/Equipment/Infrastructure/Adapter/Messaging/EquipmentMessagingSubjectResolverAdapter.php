@@ -13,7 +13,9 @@ use Messaging\Domain\ValueObject\MessagingSubjectType;
 use function sprintf;
 
 /**
- * Adapter EquipmentMessagingSubjectResolverAdapter.
+ * Class EquipmentMessagingSubjectResolverAdapter
+ *
+ * Resolves published equipment subjects for Messaging.
  *
  * Implements Messaging's `MessagingSubjectResolverPort` for `equipment`
  * subjects — the cross-module tagged-iterator seam copied from
@@ -27,6 +29,13 @@ use function sprintf;
 final readonly class EquipmentMessagingSubjectResolverAdapter implements MessagingSubjectResolverPort
 {
   // #region Constants
+  /**
+   * Constant REQUIRED_READ_PERMISSION
+   *
+   * Permission required to read an equipment subject in messaging.
+   *
+   * @access private
+   */
   private const string REQUIRED_READ_PERMISSION = 'organization.equipment.read';
   // #endregion
 
@@ -45,11 +54,35 @@ final readonly class EquipmentMessagingSubjectResolverAdapter implements Messagi
   // #endregion
 
   // #region Methods
+  /**
+   * Method supports
+   *
+   * Reports whether this resolver handles equipment subjects.
+   *
+   * @access public
+   *
+   * @param MessagingSubjectType $type subject type to check
+   *
+   * @return bool whether the type is equipment
+   */
   public function supports(MessagingSubjectType $type): bool
   {
     return MessagingSubjectType::EQUIPMENT === $type;
   }
 
+  /**
+   * Method resolve
+   *
+   * Checks that the equipment is published and belongs to the organization.
+   * The result carries the read permission required for access to the subject.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization requesting the subject
+   * @param string $subjectId equipment identifier to resolve
+   *
+   * @return MessagingSubjectResolution existence, display label and required permission
+   */
   public function resolve(string $organizationId, string $subjectId): MessagingSubjectResolution
   {
     $record = $this->entityManager->find(EquipmentRecord::class, $subjectId);

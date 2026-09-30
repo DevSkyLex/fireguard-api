@@ -18,11 +18,19 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class OrganizationAccessPolicyInput
 {
+  // #region Properties
+  /**
+   * Property mode
+   */
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[Assert\Choice(choices: ['invitation_only', 'approval_required', 'automatic'])]
   public string $mode = 'invitation_only';
 
+  /**
+   * Property roleId
+   */
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[Assert\Uuid]
   public ?string $roleId = null;
+  // #endregion
 }

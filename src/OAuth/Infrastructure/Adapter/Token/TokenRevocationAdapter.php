@@ -21,7 +21,9 @@ use function is_string;
 use function json_decode;
 
 /**
- * Adapter TokenRevocationAdapter.
+ * Class TokenRevocationAdapter
+ *
+ * Revokes stored OAuth or interactive-session tokens, invalidates token cache entries and publishes revocation events.
  *
  * @category Adapter
  * @version 1.0.0
@@ -36,14 +38,21 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
-   * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
-   * @param RefreshTokenRepositoryPort $refreshTokenRepository the refresh token repository
-   * @param TokenCachePort $tokenCache the token cache
-   * @param SessionTrackingPort $sessionTracking the session tracking service
-   * @param LoggerInterface $logger the logger
-   * @param string $encryptionKey the encryption key
+   * Configures token storage, session revocation, event publication and encryption used to process revocation requests.
+   *
+   * @access public
+   *
+   * @param AccessTokenRepositoryPort $accessTokenRepository reads and persists access-token state
+   * @param RefreshTokenRepositoryPort $refreshTokenRepository reads and persists refresh-token state
+   * @param TokenCachePort $tokenCache invalidates cached token lookups
+   * @param SessionTrackingPort $sessionTracking revokes the session anchored to a token pair
+   * @param EventDispatcherPort $eventDispatcher publishes token-revoked events
+   * @param LoggerInterface $logger records revocation outcomes on the security channel
+   * @param string $encryptionKey key used to decrypt refresh-token payloads
+   *
+   * @return void
    */
   public function __construct(
     private readonly AccessTokenRepositoryPort $accessTokenRepository,
@@ -61,6 +70,17 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
   // #endregion
 
   // #region Methods
+  /**
+   * Method revokeRefreshToken
+   *
+   * Decrypts the refresh-token payload, revokes its stored token and associated session, and emits a revocation event.
+   *
+   * @access public
+   *
+   * @param string $encryptedToken the encrypted refresh-token value from the cookie
+   *
+   * @return bool whether a stored refresh token was revoked
+   */
   public function revokeRefreshToken(string $encryptedToken): bool
   {
     if ('' === $encryptedToken) {
@@ -122,6 +142,17 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
     }
   }
 
+  /**
+   * Method revokeAccessToken
+   *
+   * Reads the JWT identifier, revokes its stored access token and session, and emits a revocation event.
+   *
+   * @access public
+   *
+   * @param string $jwtToken the serialized access-token JWT
+   *
+   * @return bool whether a stored access token was revoked
+   */
   public function revokeAccessToken(string $jwtToken): bool
   {
     if ('' === $jwtToken) {
@@ -186,6 +217,17 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
     }
   }
 
+  /**
+   * Method revokeAllUserTokens
+   *
+   * Logs the requested bulk revocation; repository support for revoking every user token is not implemented here.
+   *
+   * @access public
+   *
+   * @param string $userId the user whose tokens were requested for revocation
+   *
+   * @return void
+   */
   public function revokeAllUserTokens(string $userId): void
   {
     // This would require additional repository methods
@@ -196,9 +238,11 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
   }
 
   /**
-   * Method revokeSessionByTokenIds.
+   * Method revokeSessionByTokenIds
    *
    * Best-effort session revocation for a token.
+   *
+   * @access private
    *
    * @param string|null $refreshTokenId the refresh token ID
    * @param string|null $accessTokenId the access token ID

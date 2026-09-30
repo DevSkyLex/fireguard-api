@@ -33,6 +33,21 @@ use function max;
 /** @implements ProviderInterface<FacilityOutput> */
 final readonly class ListFacilityChildrenProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the query, organization access check, authenticated actor, and request filters for child listings.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus retrieves paginated child facilities
+   * @param OrganizationAuthorizationPort $authorization checks organization access
+   * @param Security $security resolves the authenticated user
+   * @param RequestStack $requestStack provides request query parameters
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -40,7 +55,9 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     private RequestStack $requestStack,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
    * @return TraversablePaginator<FacilityOutput>
    */
@@ -123,6 +140,17 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     );
   }
 
+  /**
+   * Method findFacilityNotFoundException.
+   *
+   * Searches nested Messenger failures for a facility-not-found exception.
+   *
+   * @access private
+   *
+   * @param Throwable $exception the failure to inspect
+   *
+   * @return ?FacilityNotFoundException the nested exception, when present
+   */
   private function findFacilityNotFoundException(Throwable $exception): ?FacilityNotFoundException
   {
     $current = $exception;
@@ -146,6 +174,17 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     return null;
   }
 
+  /**
+   * Method findInvalidArgumentException.
+   *
+   * Searches nested Messenger failures for an invalid-argument exception.
+   *
+   * @access private
+   *
+   * @param Throwable $exception the failure to inspect
+   *
+   * @return ?InvalidArgumentException the nested exception, when present
+   */
   private function findInvalidArgumentException(Throwable $exception): ?InvalidArgumentException
   {
     $current = $exception;
@@ -169,6 +208,17 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     return null;
   }
 
+  /**
+   * Method mapResult.
+   *
+   * Copies a facility query result into its API output DTO.
+   *
+   * @access private
+   *
+   * @param GetFacilityResult $facility the facility query result
+   *
+   * @return FacilityOutput the API representation
+   */
   private function mapResult(GetFacilityResult $facility): FacilityOutput
   {
     $output = new FacilityOutput();
@@ -194,4 +244,5 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
 
     return $output;
   }
+  // #endregion
 }

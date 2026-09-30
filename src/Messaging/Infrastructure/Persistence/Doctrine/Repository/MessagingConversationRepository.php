@@ -32,12 +32,46 @@ use function min;
 final readonly class MessagingConversationRepository implements MessagingConversationRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_PREDICATE
+   *
+   * Shared DQL condition that scopes rows to one organization.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ORGANIZATION_PREDICATE = 'c.organization = :organization';
 
+  /**
+   * Constant ARCHIVED_PREDICATE
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ARCHIVED_PREDICATE = 'c.isArchived = :isArchived';
 
+  /**
+   * Constant CONVERSATION_COUNT_EXPRESSION
+   *
+   * Count expression applied to conversation listings.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string CONVERSATION_COUNT_EXPRESSION = 'COUNT(c.id)';
 
+  /**
+   * Constant LAST_MESSAGE_NULL_ORDER_EXPRESSION
+   *
+   * Places conversations without message activity after dated rows.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string LAST_MESSAGE_NULL_ORDER_EXPRESSION = 'CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END';
   // #endregion
 
@@ -58,6 +92,22 @@ final readonly class MessagingConversationRepository implements MessagingConvers
   // #endregion
 
   // #region Methods
+  /**
+   * Method getOrCreate.
+   *
+   * Resolves the unique subject tuple using an idempotent insert and follow-up read.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param MessagingSubjectType $subjectType the subject type
+   * @param ?string $subjectId the subject identifier
+   * @param ConversationVisibility $visibility visibility to persist when creating
+   *
+   * @return ConversationView the existing or newly created conversation
+   *
+   * @throws MessagingNotFoundException when the inserted or concurrent row cannot be read
+   */
   public function getOrCreate(string $organizationId, MessagingSubjectType $subjectType, ?string $subjectId, ConversationVisibility $visibility): ConversationView
   {
     $existing = $this->findByTriple($organizationId, $subjectType->value, $subjectId);
@@ -105,6 +155,17 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return $view;
   }
 
+  /**
+   * Method findById.
+   *
+   * Loads a conversation view for read-only callers.
+   *
+   * @access public
+   *
+   * @param string $id the conversation identifier
+   *
+   * @return ?ConversationView the conversation view, or null when not found
+   */
   public function findById(string $id): ?ConversationView
   {
     $record = $this->entityManager->find(MessagingConversationRecord::class, $id);
@@ -112,6 +173,17 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return $record instanceof MessagingConversationRecord ? $this->view($record) : null;
   }
 
+  /**
+   * Method findAggregateById.
+   *
+   * Loads the domain aggregate for callers that need to mutate the conversation.
+   *
+   * @access public
+   *
+   * @param string $id the conversation identifier
+   *
+   * @return ?Conversation the conversation aggregate, or null when not found
+   */
   public function findAggregateById(string $id): ?Conversation
   {
     $record = $this->entityManager->find(MessagingConversationRecord::class, $id);
@@ -119,6 +191,23 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return $record instanceof MessagingConversationRecord ? $this->aggregate($record) : null;
   }
 
+  /**
+   * Method list.
+   *
+   * Lists subject-thread conversations; channel and direct-message rows are excluded.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param ?MessagingSubjectType $subjectType optional subject type filter
+   * @param ?string $subjectId optional subject identifier filter
+   * @param ?bool $isArchived optional archived-state filter
+   * @param ?string $unreadForMemberId optional member id for unread-activity filtering
+   * @param int $page page number, clamped to at least one
+   * @param int $itemsPerPage page size, clamped to 1–100
+   *
+   * @return ConversationPage the conversation page result
+   */
   public function list(
     string $organizationId,
     ?MessagingSubjectType $subjectType,
@@ -182,6 +271,19 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return new ConversationPage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
   }
 
+  /**
+   * Method save.
+   *
+   * Persists a changed aggregate and returns its refreshed view.
+   *
+   * @access public
+   *
+   * @param Conversation $conversation the conversation aggregate
+   *
+   * @return ConversationView the persisted conversation view
+   *
+   * @throws MessagingNotFoundException when the aggregate has no persisted row
+   */
   public function save(Conversation $conversation): ConversationView
   {
     $id = (string) $conversation->id();
@@ -203,6 +305,18 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return $this->view($record);
   }
 
+  /**
+   * Method touchOnNewMessage.
+   *
+   * Atomically increments the message count and advances conversation activity.
+   *
+   * @access public
+   *
+   * @param string $conversationId the conversation identifier
+   * @param DateTimeImmutable $at the new message creation instant
+   *
+   * @return void
+   */
   public function touchOnNewMessage(string $conversationId, DateTimeImmutable $at): void
   {
     // A single atomic UPDATE — not a load-modify-save cycle — so concurrent
@@ -214,6 +328,17 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     );
   }
 
+  /**
+   * Method createChannel.
+   *
+   * Persists a fresh channel aggregate and returns its view.
+   *
+   * @access public
+   *
+   * @param Conversation $channel the channel aggregate
+   *
+   * @return ConversationView the persisted channel view
+   */
   public function createChannel(Conversation $channel): ConversationView
   {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $channel->organizationId());
@@ -239,6 +364,17 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return $this->view($record);
   }
 
+  /**
+   * Method findChannelById.
+   *
+   * Returns null when the identifier belongs to a non-channel conversation.
+   *
+   * @access public
+   *
+   * @param string $id the channel identifier
+   *
+   * @return ?ChannelView the channel view, or null when absent or not a channel
+   */
   public function findChannelById(string $id): ?ChannelView
   {
     $record = $this->entityManager->find(MessagingConversationRecord::class, $id);
@@ -251,6 +387,21 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return $this->channelView($record, $counts[$record->id] ?? 0);
   }
 
+  /**
+   * Method listChannelsForMember.
+   *
+   * Lists only channels in which the member participates, with participant counts.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the participating member's identifier
+   * @param ?bool $isArchived optional archived-state filter
+   * @param int $page page number, clamped to at least one
+   * @param int $itemsPerPage page size, clamped to 1–100
+   *
+   * @return ChannelPage the channel page result
+   */
   public function listChannelsForMember(string $organizationId, string $memberId, ?bool $isArchived, int $page, int $itemsPerPage): ChannelPage
   {
     $page = max(1, $page);
@@ -300,6 +451,21 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return new ChannelPage($items, $page, $itemsPerPage, $total);
   }
 
+  /**
+   * Method listDirectConversationsForMember.
+   *
+   * Lists only direct conversations in which this member participates.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the participating member's identifier
+   * @param ?bool $isArchived optional archived-state filter
+   * @param int $page page number, clamped to at least one
+   * @param int $itemsPerPage page size, clamped to 1–100
+   *
+   * @return ConversationPage the direct conversation page result
+   */
   public function listDirectConversationsForMember(string $organizationId, string $memberId, ?bool $isArchived, int $page, int $itemsPerPage): ConversationPage
   {
     $page = max(1, $page);
@@ -341,6 +507,18 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return new ConversationPage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
   }
 
+  /**
+   * Method findChannelIdsBoundToTeam.
+   *
+   * Resolves channel identifiers currently bound to a team within an organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $teamId the organization team identifier
+   *
+   * @return list<string> the bound channel identifiers
+   */
   public function findChannelIdsBoundToTeam(string $organizationId, string $teamId): array
   {
     /** @var list<string> */
@@ -350,6 +528,17 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     );
   }
 
+  /**
+   * Method findSubjectTypesByIds.
+   *
+   * Batch-resolves subject types for access-rule routing.
+   *
+   * @access public
+   *
+   * @param list<string> $conversationIds the conversation identifiers
+   *
+   * @return array<string, string> subject types indexed by conversation id; unknown ids are absent
+   */
   public function findSubjectTypesByIds(array $conversationIds): array
   {
     if ([] === $conversationIds) {

@@ -17,6 +17,19 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetFacilityPlanOverlayQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the organization-scoped facility and optional plan attachment requested for the overlay.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope used to authorize the read
+   * @param string $facilityId facility whose plan overlay is requested
+   * @param ?string $attachmentId specific attachment to use, or null for the facility primary plan
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public string $facilityId,

@@ -20,6 +20,12 @@ use function max;
 use function time;
 
 /**
+ * Class ConfirmPasswordSetupProcessor.
+ *
+ * Completes the authenticated user's initial password setup after verifying the emailed confirmation code.
+ *
+ * @category Processor
+ *
  * @implements ProcessorInterface<ConfirmPasswordChangeInput, ConfirmPasswordChangeOutput>
  *
  * @version 1.0.0
@@ -28,6 +34,20 @@ use function time;
  */
 final readonly class ConfirmPasswordSetupProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the ConfirmPasswordSetupProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param InitialPasswordService $passwordSetup the password setup
+   * @param Security $security the security
+   * @param RateLimiterFactory $rateLimiter the rate limiter
+   *
+   * @return void
+   */
   public function __construct(
     private InitialPasswordService $passwordSetup,
     private Security $security,
@@ -36,6 +56,22 @@ final readonly class ConfirmPasswordSetupProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param ConfirmPasswordChangeInput $data confirmation token, code and new password
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables route variables supplied by API Platform
+   * @param array<string, mixed> $context processor context supplied by API Platform
+   *
+   * @return ConfirmPasswordChangeOutput
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConfirmPasswordChangeOutput
   {
     $user = $this->security->getUser();
@@ -62,4 +98,5 @@ final readonly class ConfirmPasswordSetupProcessor implements ProcessorInterface
       return new ConfirmPasswordChangeOutput(false, 'Password could not be configured.', $exception->errorCode, $attempts);
     }
   }
+  // #endregion
 }

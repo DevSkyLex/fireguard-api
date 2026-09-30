@@ -10,6 +10,13 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, 
 use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
+/**
+ * Class ChecklistMapper
+ *
+ * Maps checklist records and item records to the checklist domain model and back.
+ *
+ * @category Mapper
+ */
 final class ChecklistMapper
 {
   /**
@@ -49,6 +56,19 @@ final class ChecklistMapper
     );
   }
 
+  /**
+   * Method toRecord.
+   *
+   * Maps the checklist aggregate's persisted fields to a Doctrine record.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @param Checklist $checklist the checklist aggregate to map
+   *
+   * @return ChecklistRecord the persistence record
+   */
   public static function toRecord(Checklist $checklist): ChecklistRecord
   {
     $record = new ChecklistRecord();

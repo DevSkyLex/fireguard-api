@@ -17,7 +17,14 @@ namespace Billing\Domain\ValueObject;
  */
 enum BillingInterval: string
 {
+  /**
+   * Case MONTH
+   */
   case MONTH = 'month';
+
+  /**
+   * Case YEAR
+   */
   case YEAR = 'year';
 
   // #region Methods

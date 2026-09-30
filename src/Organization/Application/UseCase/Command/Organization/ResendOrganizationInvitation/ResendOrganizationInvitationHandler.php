@@ -29,6 +29,9 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
 {
   use InvitationInvalidationTrait;
 
+  /**
+   * Constant DEFAULT_EXPIRATION_DAYS
+   */
   private const int DEFAULT_EXPIRATION_DAYS = 7;
 
   // #region Constructor

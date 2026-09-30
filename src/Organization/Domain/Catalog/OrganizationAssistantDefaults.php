@@ -49,6 +49,9 @@ final class OrganizationAssistantDefaults
    */
   public const float MIN_TEMPERATURE = 0.0;
 
+  /**
+   * Constant MAX_TEMPERATURE
+   */
   public const float MAX_TEMPERATURE = 2.0;
 
   /**

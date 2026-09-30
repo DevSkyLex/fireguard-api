@@ -21,6 +21,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class GetCanonicalInspectionResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the canonical inspection view when a matching record exists.
+   *
+   * @access public
+   *
+   * @param ?CanonicalInspectionView $view canonical inspection projection when found, or null when absent
+   *
+   * @return void
+   */
   public function __construct(
     public ?CanonicalInspectionView $view = null,
   ) {

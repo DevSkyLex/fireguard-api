@@ -18,6 +18,21 @@ use function is_string;
 /** Reads scoped active identities and account preferences with one query per database. */
 final readonly class GetPresenceHandler implements QueryHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the GetPresenceHandler dependencies and state.
+   *
+   * @access public
+   *
+   * @param MessagingAccessPolicy $accessPolicy the access policy
+   * @param CachePort $cache the cache
+   * @param MessagingMemberDirectoryPort $members the members
+   * @param PresencePreferenceReaderPort $preferences the preferences
+   *
+   * @return void
+   */
   public function __construct(
     private MessagingAccessPolicy $accessPolicy,
     private CachePort $cache,
@@ -26,6 +41,19 @@ final readonly class GetPresenceHandler implements QueryHandler
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Executes the use case represented by GetPresenceHandler and returns its result.
+   *
+   * @access public
+   *
+   * @param GetPresenceQuery $query the query to execute
+   *
+   * @return GetPresenceResult
+   */
   public function __invoke(GetPresenceQuery $query): GetPresenceResult
   {
     $this->accessPolicy->assertCanReadPresence($query->userId, $query->organizationId);
@@ -45,4 +73,5 @@ final readonly class GetPresenceHandler implements QueryHandler
 
     return new GetPresenceResult($presences);
   }
+  // #endregion
 }

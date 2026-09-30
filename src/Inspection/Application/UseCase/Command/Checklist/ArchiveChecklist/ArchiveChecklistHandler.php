@@ -20,6 +20,18 @@ use Shared\Application\Message\CommandHandler;
 final readonly class ArchiveChecklistHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the checklist lock and repository used to serialize and persist archival.
+   *
+   * @access public
+   *
+   * @param ChecklistLockPort $locks serializes updates for the checklist
+   * @param ChecklistRepositoryPort $checklistRepository loads and saves checklist aggregates
+   *
+   * @return void
+   */
   public function __construct(
     private ChecklistLockPort $locks,
     private ChecklistRepositoryPort $checklistRepository,
@@ -38,6 +50,19 @@ final readonly class ArchiveChecklistHandler implements CommandHandler
     return $this->locks->withLock($command->organizationId, $command->checklistId, fn (): ArchiveChecklistResult => $this->execute($command));
   }
 
+  /**
+   * Method execute.
+   *
+   * Archives the checklist after confirming it belongs to the requested organization.
+   *
+   * @access private
+   *
+   * @param ArchiveChecklistCommand $command the organization and checklist identifiers
+   *
+   * @return ArchiveChecklistResult the archive outcome
+   *
+   * @throws ChecklistNotFoundException when the checklist is absent or belongs to another organization
+   */
   private function execute(ArchiveChecklistCommand $command): ArchiveChecklistResult
   {
     $checklistId = ChecklistId::fromString($command->checklistId);

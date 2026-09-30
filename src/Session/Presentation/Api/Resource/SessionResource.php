@@ -174,10 +174,19 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class SessionResource
 {
   // #region Constants
+  /**
+   * Constant AUTHENTICATION_REQUIRED_DESCRIPTION
+   */
   private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant SECURITY_SESSIONS_REVOKE
+   */
   private const string SECURITY_SESSIONS_REVOKE = "is_granted('sessions.revoke')";
   // #endregion
 }

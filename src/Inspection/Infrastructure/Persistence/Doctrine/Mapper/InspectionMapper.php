@@ -20,8 +20,30 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
+/**
+ * Class InspectionMapper
+ *
+ * Maps inspection records to domain aggregates and aggregate state to records.
+ *
+ * @category Mapper
+ */
 final class InspectionMapper
 {
+  /**
+   * Method toDomain.
+   *
+   * Reconstitutes an inspection aggregate from its record and associated organization.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @param InspectionRecord $record the persistence record
+   *
+   * @return Inspection the reconstructed aggregate
+   *
+   * @throws LogicException when the record has no organization reference
+   */
   public static function toDomain(InspectionRecord $record): Inspection
   {
     if (!$record->organization instanceof OrganizationRecord) {
@@ -54,6 +76,19 @@ final class InspectionMapper
     );
   }
 
+  /**
+   * Method toRecord.
+   *
+   * Maps the inspection aggregate's persisted fields to a Doctrine record.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @param Inspection $inspection the inspection aggregate
+   *
+   * @return InspectionRecord the persistence record
+   */
   public static function toRecord(Inspection $inspection): InspectionRecord
   {
     $record = new InspectionRecord();

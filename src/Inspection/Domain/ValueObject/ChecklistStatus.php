@@ -16,7 +16,14 @@ use function array_column;
  */
 enum ChecklistStatus: string
 {
+  /**
+   * Case ACTIVE
+   */
   case ACTIVE = 'active';
+
+  /**
+   * Case ARCHIVED
+   */
   case ARCHIVED = 'archived';
 
   // #region Methods

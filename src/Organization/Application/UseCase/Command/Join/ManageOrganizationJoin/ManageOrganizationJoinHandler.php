@@ -107,6 +107,20 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     return $result;
   }
 
+  /**
+   * Method acceptInvitation
+   *
+   * Accepts an invitation with the user's verified email address.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command requested operation
+   *
+   * @return ManageOrganizationJoinResult organization result
+   *
+   * @throws OrganizationJoinException when email proof is not verified
+   * @throws LogicException when the invitation command returns an unexpected result
+   */
   private function acceptInvitation(ManageOrganizationJoinCommand $command): ManageOrganizationJoinResult
   {
     $email = $this->emails->get($command->userId);
@@ -121,6 +135,20 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     return new ManageOrganizationJoinResult(['organizationId' => $result->organizationId]);
   }
 
+  /**
+   * Method organizationId
+   *
+   * Resolves the organization scope, including the scope of a cancellation request.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command requested operation
+   *
+   * @return string organization identifier
+   *
+   * @throws OrganizationNotFoundException when a cancellation request is unavailable
+   * @throws OrganizationJoinInputException when the operation lacks an organization
+   */
   private function organizationId(ManageOrganizationJoinCommand $command): string
   {
     $orgId = $command->organizationId;
@@ -138,6 +166,18 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     return $orgId;
   }
 
+  /**
+   * Method authorizeOperation
+   *
+   * Applies the authorization checks required by the selected operation.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command requested operation
+   * @param string $orgId organization scope
+   *
+   * @return void
+   */
   private function authorizeOperation(ManageOrganizationJoinCommand $command, string $orgId): void
   {
     if (in_array($command->operation, ['policy', 'domain_add', 'domain_remove', 'domain_verify'], true)) {
@@ -148,6 +188,22 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method executeLockedOperation
+   *
+   * Runs the operation selected by the command while the organization lock is held.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command requested operation
+   * @param string $orgId organization scope
+   * @param ?AddOrganizationMemberResult $memberAdded receives the membership result
+   * @param ?OrganizationJoinRequest $changedRequest receives the changed request
+   * @param bool $changed receives whether state changed
+   * @param bool $invalidatedEmail receives whether email proof was invalidated
+   *
+   * @return ManageOrganizationJoinResult operation result
+   */
   private function executeLockedOperation(ManageOrganizationJoinCommand $command, string $orgId, ?AddOrganizationMemberResult &$memberAdded, ?OrganizationJoinRequest &$changedRequest, bool &$changed, bool &$invalidatedEmail): ManageOrganizationJoinResult
   {
     $this->joins->lock($orgId);
@@ -166,6 +222,22 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     };
   }
 
+  /**
+   * Method afterCommit
+   *
+   * Dispatches events and notifications for changes that completed durably.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command requested operation
+   * @param string $orgId organization scope
+   * @param ?AddOrganizationMemberResult $memberAdded committed membership, if any
+   * @param ?OrganizationJoinRequest $changedRequest committed request, if any
+   * @param bool $changed whether state changed
+   * @param bool $invalidatedEmail whether email proof was invalidated
+   *
+   * @return void
+   */
   private function afterCommit(ManageOrganizationJoinCommand $command, string $orgId, ?AddOrganizationMemberResult $memberAdded, ?OrganizationJoinRequest $changedRequest, bool $changed, bool $invalidatedEmail): void
   {
     if ($memberAdded instanceof AddOrganizationMemberResult && $memberAdded->wasCreatedOrReactivated) {
@@ -184,6 +256,20 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method configurePolicy
+   *
+   * Applies a join policy change and its related domain operations.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command requested policy operation
+   * @param string $orgId organization scope
+   * @param DateTimeImmutable $now operation time
+   * @param bool $changed receives whether policy state changed
+   *
+   * @return ManageOrganizationJoinResult policy projection
+   */
   private function configurePolicy(ManageOrganizationJoinCommand $command, string $orgId, DateTimeImmutable $now, bool &$changed): ManageOrganizationJoinResult
   {
     $mode = OrganizationJoinMode::tryFrom($command->mode ?? '');
@@ -211,6 +297,19 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     return new ManageOrganizationJoinResult($this->access->policyView($orgId));
   }
 
+  /**
+   * Method addDomain
+   *
+   * Adds a domain and records its DNS proof information.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command domain operation
+   * @param string $orgId organization scope
+   * @param bool $changed receives whether state changed
+   *
+   * @return ManageOrganizationJoinResult domain projection
+   */
   private function addDomain(ManageOrganizationJoinCommand $command, string $orgId, bool &$changed): ManageOrganizationJoinResult
   {
     $name = $this->dns->normalize($command->domain ?? '');
@@ -230,6 +329,20 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     return new ManageOrganizationJoinResult($this->access->domainView($domain));
   }
 
+  /**
+   * Method changeDomain
+   *
+   * Changes the status of an existing organization domain.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command domain operation
+   * @param string $orgId organization scope
+   * @param DateTimeImmutable $now operation time
+   * @param bool $changed receives whether state changed
+   *
+   * @return ManageOrganizationJoinResult domain projection
+   */
   private function changeDomain(ManageOrganizationJoinCommand $command, string $orgId, DateTimeImmutable $now, bool &$changed): ManageOrganizationJoinResult
   {
     foreach ($this->joins->domains($orgId) as $domain) {
@@ -252,6 +365,23 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     throw OrganizationNotFoundException::withId('domain');
   }
 
+  /**
+   * Method decideRequest
+   *
+   * Applies an approval or rejection to a pending join request.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command decision operation
+   * @param string $orgId organization scope
+   * @param DateTimeImmutable $now decision time
+   * @param ?AddOrganizationMemberResult $memberAdded receives membership result when approved
+   * @param ?OrganizationJoinRequest $changedRequest receives the changed request
+   * @param bool $changed receives whether state changed
+   * @param bool $invalidatedEmail receives whether email proof was invalidated
+   *
+   * @return ManageOrganizationJoinResult decision projection
+   */
   private function decideRequest(ManageOrganizationJoinCommand $command, string $orgId, DateTimeImmutable $now, ?AddOrganizationMemberResult &$memberAdded, ?OrganizationJoinRequest &$changedRequest, bool &$changed, bool &$invalidatedEmail): ManageOrganizationJoinResult
   {
     $request = $this->joins->request($command->resourceId ?? '');
@@ -290,11 +420,37 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     return new ManageOrganizationJoinResult($this->access->requestView($request, $command->userId, 'cancel' !== $command->operation));
   }
 
+  /**
+   * Method approvalEmailInvalid
+   *
+   * Checks whether email ownership is absent, unverified or newer than the request.
+   *
+   * @access private
+   *
+   * @param OrganizationJoinRequest $request request being approved
+   * @param EmailOwnershipResult $email current ownership proof
+   *
+   * @return bool whether approval must be denied for invalid proof
+   */
   private function approvalEmailInvalid(OrganizationJoinRequest $request, EmailOwnershipResult $email): bool
   {
     return !$email->verified || null === $email->verifiedAt || $email->verifiedAt > $request->createdAt || strtolower($email->email) !== $request->email;
   }
 
+  /**
+   * Method assertApprovalAllowed
+   *
+   * Checks invitation, domain, policy and role-grant constraints before approval.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command approval operation
+   * @param string $orgId organization scope
+   * @param DateTimeImmutable $now decision time
+   * @param EmailOwnershipResult $email verified applicant email
+   *
+   * @return void
+   */
   private function assertApprovalAllowed(ManageOrganizationJoinCommand $command, string $orgId, DateTimeImmutable $now, EmailOwnershipResult $email): void
   {
     $pendingInvitation = $this->invitations->findPendingByOrganizationAndEmail(OrganizationId::fromString($orgId), new Email($email->email));
@@ -311,6 +467,22 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     $this->grant->assertCanAssignRoles($command->userId, $orgId, $command->roleIds);
   }
 
+  /**
+   * Method joinOrRequest
+   *
+   * Joins automatically or creates or returns a request according to organization policy.
+   *
+   * @access private
+   *
+   * @param ManageOrganizationJoinCommand $command requested operation
+   * @param string $orgId organization scope
+   * @param DateTimeImmutable $now operation time
+   * @param ?AddOrganizationMemberResult $memberAdded receives membership result
+   * @param ?OrganizationJoinRequest $changedRequest receives a new request
+   * @param bool $changed receives whether state changed
+   *
+   * @return ManageOrganizationJoinResult operation result
+   */
   private function joinOrRequest(ManageOrganizationJoinCommand $command, string $orgId, DateTimeImmutable $now, ?AddOrganizationMemberResult &$memberAdded, ?OrganizationJoinRequest &$changedRequest, bool &$changed): ManageOrganizationJoinResult
   {
     $proof = $this->emails->get($command->userId);
@@ -350,6 +522,20 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     return new ManageOrganizationJoinResult($requestView);
   }
 
+  /**
+   * Method findPendingRequest
+   *
+   * Finds the current request and marks expired or stale pending requests.
+   *
+   * @access private
+   *
+   * @param string $userId applicant identifier
+   * @param string $orgId organization scope
+   * @param EmailOwnershipResult $proof current email ownership proof
+   * @param DateTimeImmutable $now evaluation time
+   *
+   * @return ?OrganizationJoinRequest pending request, if any
+   */
   private function findPendingRequest(string $userId, string $orgId, EmailOwnershipResult $proof, DateTimeImmutable $now): ?OrganizationJoinRequest
   {
     $pending = null;
@@ -370,6 +556,19 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     return $pending;
   }
 
+  /**
+   * Method staleRequest
+   *
+   * Checks whether expiry or changed email proof invalidates a request.
+   *
+   * @access private
+   *
+   * @param OrganizationJoinRequest $request request to inspect
+   * @param EmailOwnershipResult $proof current email ownership proof
+   * @param DateTimeImmutable $now evaluation time
+   *
+   * @return bool whether the request is stale
+   */
   private function staleRequest(OrganizationJoinRequest $request, EmailOwnershipResult $proof, DateTimeImmutable $now): bool
   {
     return 'expired' === $request->state($now) || $request->email !== strtolower($proof->email) || null === $proof->verifiedAt || $proof->verifiedAt > $request->createdAt;

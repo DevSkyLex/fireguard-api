@@ -12,6 +12,13 @@ use Organization\Presentation\Api\Provider\Organization\ListOrganizationLegalTyp
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
+/**
+ * Class OrganizationLegalTypeResource
+ *
+ * Exposes the legal entity type reference catalog used by organization settings.
+ *
+ * @category Resource
+ */
 #[ApiResource(
   shortName: 'OrganizationLegalType',
   routePrefix: '/organizations',

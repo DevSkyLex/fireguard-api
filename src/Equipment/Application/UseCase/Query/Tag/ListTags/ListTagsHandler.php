@@ -22,6 +22,17 @@ use function array_slice;
 final readonly class ListTagsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the tag repository used to list organization tags.
+   *
+   * @access public
+   *
+   * @param TagRepositoryPort $tagRepository port used to retrieve tags within an organization
+   *
+   * @return void
+   */
   public function __construct(
     private TagRepositoryPort $tagRepository,
   ) {

@@ -9,6 +9,22 @@ namespace Intervention\Application\Contract\Recurrence;
  */
 final readonly class InterventionRecurrenceUpdateRequest
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Groups validated recurrence patch sections while preserving field presence.
+   *
+   * @access public
+   *
+   * @param string $id recurrence identifier to update
+   * @param InterventionRecurrenceIdentityPatch $identity identity fields supplied by the patch
+   * @param InterventionRecurrenceCadencePatch $cadence frequency rule fields supplied by the patch
+   * @param InterventionRecurrenceSchedulePatch $schedule schedule fields supplied by the patch
+   * @param InterventionRecurrenceLifecyclePatch $lifecycle lifecycle fields supplied by the patch
+   *
+   * @return void
+   */
   public function __construct(
     public string $id,
     public InterventionRecurrenceIdentityPatch $identity,
@@ -17,4 +33,5 @@ final readonly class InterventionRecurrenceUpdateRequest
     public InterventionRecurrenceLifecyclePatch $lifecycle,
   ) {
   }
+  // #endregion
 }

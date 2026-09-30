@@ -43,9 +43,21 @@ final readonly class OrganizationApprovalMemberDirectoryAdapter implements Appro
     private OrganizationAuthorizationPort $authorization,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method resolveMemberId
+   *
+   * Resolves member id from the supplied context.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $userId the user identifier
+   *
+   * @return ?string
+   */
   public function resolveMemberId(string $organizationId, string $userId): ?string
   {
     try {
@@ -59,6 +71,19 @@ final readonly class OrganizationApprovalMemberDirectoryAdapter implements Appro
     return null === $member ? null : (string) $member->id();
   }
 
+  /**
+   * Method memberSatisfiesRole
+   *
+   * Checks whether the member’s effective organization role meets the required minimum role.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $memberId the member identifier
+   * @param string $minRole the min role
+   *
+   * @return bool
+   */
   public function memberSatisfiesRole(string $organizationId, string $memberId, string $minRole): bool
   {
     if (OrganizationSystemRoleCatalog::MEMBER === $minRole) {

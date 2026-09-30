@@ -36,7 +36,6 @@ use function is_string;
  */
 final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterface
 {
-  // #region Traits
   /**
    * Trait UnwrapsOrganizationBusFailures.
    *
@@ -51,7 +50,6 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
    * @see UnwrapsOrganizationBusFailures
    */
   use UnwrapsOrganizationBusFailures;
-  // #endregion
 
   // #region Constructor
   /**
@@ -73,10 +71,9 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     private Security $security,
   ) {
   }
+
   // #endregion
-
   // #region Methods
-
   /**
    * Method process.
    *
@@ -88,12 +85,15 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
    * only the guard ports, which run in-process before dispatch; the
    * `MessengerRuntimeException` clause is what maps the real runtime path.
    *
+   * @access public
    * @since 1.1.0
    *
-   * @param mixed $data the input data
+   * @param UpdateOrganizationRoleInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return OrganizationRoleOutput the updated organization role
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationRoleOutput
   {
@@ -159,6 +159,17 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     return $output;
   }
 
+  /**
+   * Method rethrowWrappedFailure
+   *
+   * Maps known wrapped application failures to their corresponding HTTP exceptions and rethrows unrecognized failures.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the exception to inspect
+   *
+   * @return never this method never returns normally
+   */
   private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
   {
     $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);

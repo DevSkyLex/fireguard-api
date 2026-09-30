@@ -22,8 +22,14 @@ use function min;
  */
 final readonly class ListInboxItemsHandler implements QueryHandler
 {
+  /**
+   * Constant MIN_LIMIT
+   */
   private const int MIN_LIMIT = 1;
 
+  /**
+   * Constant MAX_LIMIT
+   */
   private const int MAX_LIMIT = 50;
 
   // #region Constructor

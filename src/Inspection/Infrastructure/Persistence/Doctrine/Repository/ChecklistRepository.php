@@ -17,29 +17,74 @@ use function array_map;
 use function in_array;
 use function str_replace;
 
+/**
+ * Class ChecklistRepository
+ *
+ * Persists checklist aggregates and performs organization-scoped checklist queries.
+ *
+ * @category Repository
+ */
 final readonly class ChecklistRepository implements ChecklistRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant SEARCH_PLACEHOLDER.
+   *
+   * Query parameter placeholder shared by checklist text-search predicates.
+   *
+   * @access private
+   */
   private const string SEARCH_PLACEHOLDER = ':search';
   // #endregion
 
+  // #region Properties
   /**
+   * Property checklistRepository.
+   *
    * @var EntityRepository<ChecklistRecord>
    */
   private EntityRepository $checklistRepository;
 
   /**
+   * Property itemRepository.
+   *
    * @var EntityRepository<ChecklistItemRecord>
    */
   private EntityRepository $itemRepository;
+  // #endregion
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Creates checklist and item repositories from the main entity manager.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager the main entity manager
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {
     $this->checklistRepository = $this->entityManager->getRepository(ChecklistRecord::class);
     $this->itemRepository = $this->entityManager->getRepository(ChecklistItemRecord::class);
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method save.
+   *
+   * Inserts or updates a checklist and synchronizes its item records.
+   *
+   * @access public
+   *
+   * @param Checklist $checklist the checklist aggregate to persist
+   *
+   * @return void no return value
+   */
   public function save(Checklist $checklist): void
   {
     $record = ChecklistMapper::toRecord($checklist);
@@ -61,6 +106,17 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById.
+   *
+   * Loads a checklist with its ordered items and reconstitutes the aggregate.
+   *
+   * @access public
+   *
+   * @param ChecklistId $id the checklist identifier
+   *
+   * @return ?Checklist the checklist aggregate, when found
+   */
   public function findById(ChecklistId $id): ?Checklist
   {
     $record = $this->checklistRepository->find((string) $id);
@@ -83,6 +139,22 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     return ChecklistMapper::toDomain($record, $itemRecords);
   }
 
+  /**
+   * Method findByOrganizationId.
+   *
+   * Lists organization checklists without hydrating item collections per result.
+   *
+   * @access public
+   *
+   * @param ChecklistOrganizationId $organizationId the organization identifier
+   * @param ?string $status optional checklist status filter
+   * @param ?string $search optional checklist text filter
+   * @param Sorting $sorting sort field and direction
+   * @param int $limit maximum number of checklists to return
+   * @param int $offset number of earlier checklists to skip
+   *
+   * @return list<Checklist> matching checklist aggregates
+   */
   public function findByOrganizationId(
     ChecklistOrganizationId $organizationId,
     ?string $status = null,
@@ -113,6 +185,19 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     );
   }
 
+  /**
+   * Method countByOrganizationId.
+   *
+   * Counts organization checklists using the same status and search filters as listing.
+   *
+   * @access public
+   *
+   * @param ChecklistOrganizationId $organizationId the organization identifier
+   * @param ?string $status optional checklist status filter
+   * @param ?string $search optional checklist text filter
+   *
+   * @return int number of matching checklists
+   */
   public function countByOrganizationId(
     ChecklistOrganizationId $organizationId,
     ?string $status = null,
@@ -279,6 +364,19 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     }
   }
 
+  /**
+   * Method createListQueryBuilder.
+   *
+   * Builds the organization-scoped query shared by checklist listing and counting.
+   *
+   * @access private
+   *
+   * @param ChecklistOrganizationId $organizationId the organization identifier
+   * @param ?string $status optional checklist status filter
+   * @param ?string $search optional checklist text filter
+   *
+   * @return QueryBuilder query builder for the filtered checklist records
+   */
   private function createListQueryBuilder(
     ChecklistOrganizationId $organizationId,
     ?string $status,
@@ -309,6 +407,17 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     return $qb;
   }
 
+  /**
+   * Method resolveSortField.
+   *
+   * Maps supported public sort fields to record property names.
+   *
+   * @access private
+   *
+   * @param string $field requested sort field
+   *
+   * @return string record field name, defaulting to createdAt
+   */
   private function resolveSortField(string $field): string
   {
     return match ($field) {
@@ -318,4 +427,5 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
       default => 'createdAt',
     };
   }
+  // #endregion
 }

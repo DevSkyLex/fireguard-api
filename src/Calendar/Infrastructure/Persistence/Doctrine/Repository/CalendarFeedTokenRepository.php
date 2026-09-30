@@ -11,7 +11,9 @@ use Calendar\Infrastructure\Persistence\Doctrine\Record\CalendarFeedTokenRecord;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 
 /**
- * Repository CalendarFeedTokenRepository.
+ * Class CalendarFeedTokenRepository
+ *
+ * Persists and retrieves active calendar feed tokens.
  *
  * `organizationId`/`userId` are queried as plain columns (no Doctrine
  * association), mirroring {@see CalendarEventRepository}.
@@ -46,6 +48,17 @@ final readonly class CalendarFeedTokenRepository implements CalendarFeedTokenRep
   // #endregion
 
   // #region Methods
+  /**
+   * Method save
+   *
+   * Inserts or updates the persisted representation of a calendar feed token.
+   *
+   * @access public
+   *
+   * @param CalendarFeedToken $token token state to persist
+   *
+   * @return void
+   */
   public function save(CalendarFeedToken $token): void
   {
     $record = $this->repository->find((string) $token->id());
@@ -66,6 +79,18 @@ final readonly class CalendarFeedTokenRepository implements CalendarFeedTokenRep
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findActiveByOrganizationAndUser
+   *
+   * Finds the non-revoked feed token for an organization and user, if one exists.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization that owns the feed
+   * @param string $userId user whose feed token is requested
+   *
+   * @return CalendarFeedToken|null active token, or null when none is stored
+   */
   public function findActiveByOrganizationAndUser(string $organizationId, string $userId): ?CalendarFeedToken
   {
     /** @var ?CalendarFeedTokenRecord $record */
@@ -82,6 +107,17 @@ final readonly class CalendarFeedTokenRepository implements CalendarFeedTokenRep
     return $record instanceof CalendarFeedTokenRecord ? CalendarFeedTokenMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method findActiveByTokenHash
+   *
+   * Resolves a non-revoked token by its stored hash.
+   *
+   * @access public
+   *
+   * @param string $tokenHash hash used to locate the token without storing its secret value
+   *
+   * @return CalendarFeedToken|null active token, or null when no matching token exists
+   */
   public function findActiveByTokenHash(string $tokenHash): ?CalendarFeedToken
   {
     /** @var ?CalendarFeedTokenRecord $record */

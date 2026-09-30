@@ -106,6 +106,21 @@ final class FacilityExportCriteriaFactory
     return array_keys($filters);
   }
 
+  /**
+   * Method assertKnownType.
+   *
+   * Rejects facility type filters that are not defined by the facility type enum.
+   *
+   * @access private
+   *
+   * @static
+   *
+   * @param string $type the requested facility type
+   *
+   * @return void no return value
+   *
+   * @throws BadRequestHttpException when the type is not recognized
+   */
   private static function assertKnownType(string $type): void
   {
     if (null === FacilityType::tryFrom($type)) {
@@ -113,6 +128,21 @@ final class FacilityExportCriteriaFactory
     }
   }
 
+  /**
+   * Method assertKnownStatus.
+   *
+   * Rejects facility status filters that are not defined by the facility status enum.
+   *
+   * @access private
+   *
+   * @static
+   *
+   * @param string $status the requested facility status
+   *
+   * @return void no return value
+   *
+   * @throws BadRequestHttpException when the status is not recognized
+   */
   private static function assertKnownStatus(string $status): void
   {
     if (null === FacilityStatus::tryFrom($status)) {

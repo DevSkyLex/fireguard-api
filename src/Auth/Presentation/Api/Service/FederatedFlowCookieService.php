@@ -25,8 +25,26 @@ use const FILTER_VALIDATE_BOOL;
  */
 final readonly class FederatedFlowCookieService
 {
+  // #region Constants
+  /**
+   * Constant NAME
+   */
   private const string NAME = 'federated_flow';
 
+  // #endregion
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the FederatedFlowCookieService dependencies and state.
+   *
+   * @access public
+   *
+   * @param string $environment the optional environment
+   * @param ?string $cookieSecure the optional cookie secure
+   *
+   * @return void
+   */
   public function __construct(
     #[Autowire('%kernel.environment%')]
     private string $environment = 'prod',
@@ -35,6 +53,8 @@ final readonly class FederatedFlowCookieService
   ) {
   }
 
+  // #endregion
+  // #region Methods
   /**
    * @since 1.0.0
    */
@@ -59,6 +79,15 @@ final readonly class FederatedFlowCookieService
     return $request->cookies->get(self::NAME);
   }
 
+  /**
+   * Method secure
+   *
+   * Uses the explicit cookie security setting when configured, otherwise enables Secure in production.
+   *
+   * @access private
+   *
+   * @return bool
+   */
   private function secure(): bool
   {
     if (null !== $this->cookieSecure && '' !== $this->cookieSecure) {
@@ -67,4 +96,5 @@ final readonly class FederatedFlowCookieService
 
     return 'prod' === $this->environment;
   }
+  // #endregion
 }

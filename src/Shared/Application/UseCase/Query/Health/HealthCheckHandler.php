@@ -21,6 +21,17 @@ use Shared\Application\Port\Outbound\HealthCheckPort;
 final readonly class HealthCheckHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Collects dependency health through the shared health-check port.
+   *
+   * @access public
+   *
+   * @param HealthCheckPort $healthCheck port that probes configured dependencies
+   *
+   * @return void
+   */
   public function __construct(
     private HealthCheckPort $healthCheck,
   ) {

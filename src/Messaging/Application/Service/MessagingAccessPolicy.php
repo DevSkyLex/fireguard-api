@@ -25,10 +25,19 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 final readonly class MessagingAccessPolicy
 {
   // #region Constants
+  /**
+   * Constant READ
+   */
   private const string READ = 'organization.messaging.read';
 
+  /**
+   * Constant WRITE
+   */
   private const string WRITE = 'organization.messaging.write';
 
+  /**
+   * Constant MANAGE
+   */
   private const string MANAGE = 'organization.messaging.manage';
   // #endregion
 

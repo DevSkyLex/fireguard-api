@@ -52,6 +52,20 @@ final readonly class ListEquipmentsHandler implements QueryHandler
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment, tag, maintenance-status, and facility-naming capabilities used to build filtered equipment results.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to retrieve filtered equipment and counts
+   * @param TagRepositoryPort $tagRepository port used to add tag data to each equipment view
+   * @param MaintenanceDueStatusPort $maintenanceDueStatusPort port used to apply or report maintenance due status
+   * @param FacilityNamingPort $facilityNaming port used to resolve facility display names
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,

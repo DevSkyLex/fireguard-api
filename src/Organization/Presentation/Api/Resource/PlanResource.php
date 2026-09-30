@@ -132,12 +132,24 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class PlanResource
 {
   // #region Constants
+  /**
+   * Constant PLAN_URI_TEMPLATE
+   */
   private const string PLAN_URI_TEMPLATE = '/{id}';
 
+  /**
+   * Constant PLAN_NOT_FOUND_DESCRIPTION
+   */
   private const string PLAN_NOT_FOUND_DESCRIPTION = 'Plan not found';
 
+  /**
+   * Constant SECURITY_ROLE_ADMIN
+   */
   private const string SECURITY_ROLE_ADMIN = "is_granted('ROLE_ADMIN')";
 
+  /**
+   * Constant ADMIN_PRIVILEGES_REQUIRED_DESCRIPTION
+   */
   private const string ADMIN_PRIVILEGES_REQUIRED_DESCRIPTION = 'Administrator privileges required';
   // #endregion
 }

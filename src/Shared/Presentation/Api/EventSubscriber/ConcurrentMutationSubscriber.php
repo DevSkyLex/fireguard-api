@@ -13,11 +13,33 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /** Subscriber ConcurrentMutationSubscriber. A stale database write is a recoverable precondition failure. */
 final readonly class ConcurrentMutationSubscriber implements EventSubscriberInterface
 {
+  /**
+   * Method getSubscribedEvents
+   *
+   * Registers the listener that maps optimistic locking conflicts to HTTP 412 responses.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return array<string, array{string, int}> exception event mapped to its listener and priority
+   */
   public static function getSubscribedEvents(): array
   {
     return [KernelEvents::EXCEPTION => ['onException', 10]];
   }
 
+  /**
+   * Method onException
+   *
+   * Converts an optimistic locking exception into a resource revision conflict response.
+   *
+   * @access public
+   *
+   * @param ExceptionEvent $event the kernel exception event
+   *
+   * @return void no return value
+   */
   public function onException(ExceptionEvent $event): void
   {
     $error = $event->getThrowable();

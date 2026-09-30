@@ -14,13 +14,28 @@ namespace Organization\Presentation\Api\Operation;
  */
 final class PlanOperations
 {
+  /**
+   * Constant LIST_PLANS
+   */
   public const string LIST_PLANS = 'listPlans';
 
+  /**
+   * Constant GET_PLAN
+   */
   public const string GET_PLAN = 'getPlan';
 
+  /**
+   * Constant CREATE_PLAN
+   */
   public const string CREATE_PLAN = 'createPlan';
 
+  /**
+   * Constant UPDATE_PLAN
+   */
   public const string UPDATE_PLAN = 'updatePlan';
 
+  /**
+   * Constant DELETE_PLAN
+   */
   public const string DELETE_PLAN = 'deletePlan';
 }

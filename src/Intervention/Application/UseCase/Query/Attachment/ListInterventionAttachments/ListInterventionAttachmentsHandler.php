@@ -24,6 +24,19 @@ use Shared\Application\Message\QueryHandler;
 final readonly class ListInterventionAttachmentsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Authorizes access and maps attachment metadata for an intervention.
+   *
+   * @access public
+   *
+   * @param InterventionResourceGatewayPort $resources port used to resolve intervention ownership context
+   * @param OrganizationAuthorizationPort $authorization port used to authorize organization-scoped reads
+   * @param InterventionAttachmentRepositoryPort $attachmentRepository repository used to list attachment metadata
+   *
+   * @return void
+   */
   public function __construct(
     private InterventionResourceGatewayPort $resources,
     private OrganizationAuthorizationPort $authorization,

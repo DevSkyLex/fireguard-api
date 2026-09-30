@@ -111,6 +111,17 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryPort
     );
   }
 
+  /**
+   * Method findByEncryptedToken.
+   *
+   * Decrypts the token payload and resolves its refresh token record when valid.
+   *
+   * @access public
+   *
+   * @param string $encryptedToken the encrypted refresh token value
+   *
+   * @return RefreshToken|null the stored token, or null when it cannot be resolved
+   */
   public function findByEncryptedToken(string $encryptedToken): ?RefreshToken
   {
     try {

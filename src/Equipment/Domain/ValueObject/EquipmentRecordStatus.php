@@ -24,6 +24,13 @@ namespace Equipment\Domain\ValueObject;
  */
 enum EquipmentRecordStatus: string
 {
+  /**
+   * Case DRAFT
+   */
   case DRAFT = 'draft';
+
+  /**
+   * Case PUBLISHED
+   */
   case PUBLISHED = 'published';
 }

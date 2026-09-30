@@ -23,6 +23,20 @@ use function array_map;
 final readonly class GetEquipmentHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment, tag, maintenance-status, and facility-naming capabilities used to build the equipment view.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load organization equipment
+   * @param TagRepositoryPort $tagRepository port used to retrieve equipment tags
+   * @param MaintenanceDueStatusPort $maintenanceDueStatusPort port used to resolve the current maintenance due status
+   * @param FacilityNamingPort $facilityNaming port used to provide facility display names
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,

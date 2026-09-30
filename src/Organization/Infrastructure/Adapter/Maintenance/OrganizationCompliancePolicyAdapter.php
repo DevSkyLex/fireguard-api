@@ -41,9 +41,20 @@ final readonly class OrganizationCompliancePolicyAdapter implements MaintenanceC
     private OrganizationRepositoryPort $organizationRepository,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method compliancePolicy
+   *
+   * Builds the maintenance compliance policy from organization settings, using module defaults when the organization or settings are unavailable.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return MaintenanceCompliancePolicy
+   */
   public function compliancePolicy(string $organizationId): MaintenanceCompliancePolicy
   {
     try {

@@ -28,15 +28,69 @@ use function preg_match;
 use function sprintf;
 use function trim;
 
-/** Applies and validates proposed changes to one published facility row. */
+/**
+ * Class FacilityInterventionPatchApplier
+ *
+ * Applies and validates proposed changes to one published facility row.
+ *
+ * @category Service
+ */
 final readonly class FacilityInterventionPatchApplier
 {
+  // #region Constants
+  /**
+   * Constant PATCHABLE_FIELDS.
+   *
+   * Facility fields accepted in an intervention draft patch.
+   *
+   * @access private
+   *
+   * @var list<string>
+   */
   private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude', 'planGeometry'];
 
+  /**
+   * Constant STATUSES.
+   *
+   * Facility statuses accepted by this patch adapter.
+   *
+   * @access private
+   *
+   * @var list<string>
+   */
   private const STATUSES = ['active', 'archived'];
 
+  /**
+   * Constant TYPES.
+   *
+   * Facility types accepted by this patch adapter.
+   *
+   * @access private
+   *
+   * @var list<string>
+   */
   private const TYPES = ['site', 'building', 'floor', 'zone', 'area'];
 
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Coordinates facility patch changes with hierarchy, archival, metadata, and floor-plan attachment rules.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager loads published facility records
+   * @param FacilityArchivalGuardPort $archivalGuard checks active descendants before archival
+   * @param FacilityRepositoryPort $facilityRepository reads facility hierarchy
+   * @param FacilityMetadataSchemaGuard $metadataSchemaGuard validates metadata changes
+   * @param \Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort $attachments resolves floor-plan attachments
+   * @param \Facility\Application\Service\FacilityAttachmentAncestryGuard $planAncestry checks attachment ancestry
+   * @param int $maxDepth maximum allowed facility hierarchy depth
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private FacilityArchivalGuardPort $archivalGuard,
@@ -47,17 +101,22 @@ final readonly class FacilityInterventionPatchApplier
     private int $maxDepth,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
    * Method apply.
    *
-   * Executes the apply operation.
+   * Applies accepted patch fields to a published facility after checking ownership and facility constraints.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $organizationId the organization id value
    * @param string $resource the resource value
    * @param array<string, mixed> $patch the patch value
+   *
+   * @return void no return value
    */
   public function apply(string $organizationId, string $resource, array $patch): void
   {
@@ -87,6 +146,19 @@ final readonly class FacilityInterventionPatchApplier
     $record->updatedAt = new DateTimeImmutable();
   }
 
+  /**
+   * Method assertPlanUsable.
+   *
+   * Verifies the selected floor plan belongs to the facility or one of its ancestors.
+   *
+   * @access public
+   *
+   * @param FacilityRecord $record the facility with the proposed plan geometry
+   *
+   * @return void no return value
+   *
+   * @throws FacilityPatchConflictException when the attachment is invalid for the facility
+   */
   public function assertPlanUsable(FacilityRecord $record): void
   {
     if (null === $record->planGeometry || null === $record->organization) {
@@ -278,6 +350,21 @@ final readonly class FacilityInterventionPatchApplier
     }
   }
 
+  /**
+   * Method assertStatusChangeAllowed.
+   *
+   * Prevents invalid restore and archive transitions involving hierarchy dependents.
+   *
+   * @access private
+   *
+   * @param string $organizationId owning organization identifier
+   * @param FacilityRecord $record facility after applying the patch
+   * @param string $previousStatus status before the patch
+   *
+   * @return void no return value
+   *
+   * @throws FacilityPatchConflictException when the requested status change violates hierarchy rules
+   */
   private function assertStatusChangeAllowed(string $organizationId, FacilityRecord $record, string $previousStatus): void
   {
     // Restoring (archived -> active) is refused while the parent is archived.
@@ -350,8 +437,9 @@ final readonly class FacilityInterventionPatchApplier
   /**
    * Method id.
    *
-   * Executes the id operation.
+   * Extracts the facility identifier from its canonical API resource IRI and rejects malformed values.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $resource the resource value
@@ -381,4 +469,5 @@ final readonly class FacilityInterventionPatchApplier
       throw new FacilityPatchConflictException(sprintf('Unsupported facility patch fields: %s.', implode(', ', $unknown)));
     }
   }
+  // #endregion
 }

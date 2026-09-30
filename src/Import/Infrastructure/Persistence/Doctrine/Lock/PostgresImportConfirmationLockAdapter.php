@@ -30,6 +30,20 @@ final readonly class PostgresImportConfirmationLockAdapter implements ImportConf
   {
   }
 
+  /**
+   * Method synchronized.
+   *
+   * Runs the import confirmation operation while holding a pessimistic job lock.
+   *
+   * @access public
+   *
+   * @template T
+   *
+   * @param string $simulationId the import job identifier to lock
+   * @param callable(): T $operation the confirmation operation to run under the lock
+   *
+   * @return T the confirmation operation result
+   */
   public function synchronized(string $simulationId, callable $operation): mixed
   {
     return $this->entityManager->wrapInTransaction(function () use ($simulationId, $operation): mixed {

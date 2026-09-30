@@ -19,8 +19,14 @@ use function array_values;
  */
 final class OrganizationSystemRoleCatalog
 {
+  /**
+   * Constant ADMIN
+   */
   public const string ADMIN = 'admin';
 
+  /**
+   * Constant MEMBER
+   */
   public const string MEMBER = 'member';
 
   /**

@@ -14,6 +14,13 @@ namespace Notification\Application\Contract\Notification;
  */
 enum NotificationChannel: string
 {
+  /**
+   * Case EMAIL
+   */
   case EMAIL = 'email';
+
+  /**
+   * Case MERCURE
+   */
   case MERCURE = 'mercure';
 }

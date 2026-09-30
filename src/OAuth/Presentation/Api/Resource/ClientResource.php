@@ -330,14 +330,29 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class ClientResource
 {
   // #region Constants
+  /**
+   * Constant OPENAPI_TAG_CLIENT_MANAGEMENT
+   */
   private const string OPENAPI_TAG_CLIENT_MANAGEMENT = 'Client Management';
 
+  /**
+   * Constant CLIENT_ID_RESPONSE_LINK
+   */
   private const string CLIENT_ID_RESPONSE_LINK = '$response.body#/id';
 
+  /**
+   * Constant CLIENT_URI_TEMPLATE
+   */
   private const string CLIENT_URI_TEMPLATE = '/clients/{id}';
 
+  /**
+   * Constant CLIENT_NOT_FOUND_DESCRIPTION
+   */
   private const string CLIENT_NOT_FOUND_DESCRIPTION = 'Client not found';
 
+  /**
+   * Constant SECURITY_CLIENTS_UPDATE
+   */
   private const string SECURITY_CLIENTS_UPDATE = "is_granted('clients.update')";
   // #endregion
 }

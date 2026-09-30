@@ -93,6 +93,18 @@ final readonly class InterventionRecurrenceProcessor implements ProcessorInterfa
     }
   }
 
+  /**
+   * Method create
+   *
+   * Builds and dispatches a recurrence creation command from the API input.
+   *
+   * @access private
+   *
+   * @param CreateInterventionRecurrenceInput $data the recurrence details supplied by the client
+   * @param SecurityUser $user the authenticated user creating the recurrence
+   *
+   * @return InterventionRecurrenceOutput the created recurrence output
+   */
   private function create(CreateInterventionRecurrenceInput $data, SecurityUser $user): InterventionRecurrenceOutput
   {
     /** @var CreateInterventionRecurrenceResult $result */
@@ -114,6 +126,21 @@ final readonly class InterventionRecurrenceProcessor implements ProcessorInterfa
     return $this->mapper->fromView($result->recurrence);
   }
 
+  /**
+   * Method update
+   *
+   * Builds and dispatches an update command for an existing recurrence.
+   *
+   * @access private
+   *
+   * @param UpdateInterventionRecurrenceInput $data the recurrence fields supplied by the client
+   * @param SecurityUser $user the authenticated user updating the recurrence
+   * @param string|null $id the recurrence identifier from the route
+   *
+   * @return InterventionRecurrenceOutput the updated recurrence output
+   *
+   * @throws BadRequestHttpException when the recurrence identifier is missing
+   */
   private function update(UpdateInterventionRecurrenceInput $data, SecurityUser $user, ?string $id): InterventionRecurrenceOutput
   {
     if (null === $id) {

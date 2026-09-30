@@ -17,8 +17,14 @@ use Shared\Domain\Exception\InvalidValueException;
 final readonly class FacilityCoordinates
 {
   // #region Properties
+  /**
+   * Property latitude
+   */
   private float $latitude;
 
+  /**
+   * Property longitude
+   */
   private float $longitude;
   // #endregion
 

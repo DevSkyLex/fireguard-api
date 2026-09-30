@@ -12,10 +12,37 @@ use function hash;
 /** Adapter DoctrineIdempotentConsumerAdapter. One receipt transaction per owning database. */
 final readonly class DoctrineIdempotentConsumerAdapter implements IdempotentConsumerPort
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the DoctrineIdempotentConsumerAdapter dependencies and state.
+   *
+   * @access public
+   *
+   * @param Connection $connection the connection
+   *
+   * @return void
+   */
   public function __construct(private Connection $connection)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method consume
+   *
+   * Atomically consumes the federated flow for its state hash so it cannot be used again.
+   *
+   * @access public
+   *
+   * @param string $eventId the event identifier
+   * @param string $consumer the consumer
+   * @param callable $operation the operation
+   *
+   * @return bool
+   */
   public function consume(string $eventId, string $consumer, callable $operation): bool
   {
     return $this->connection->transactional(function () use ($eventId, $consumer, $operation): bool {
@@ -31,4 +58,5 @@ final readonly class DoctrineIdempotentConsumerAdapter implements IdempotentCons
       return true;
     });
   }
+  // #endregion
 }

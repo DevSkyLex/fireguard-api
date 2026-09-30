@@ -54,6 +54,9 @@ final class OrganizationApprovalDefaults
    */
   public const int MIN_APPROVAL_TTL_DAYS = 1;
 
+  /**
+   * Constant MAX_APPROVAL_TTL_DAYS
+   */
   public const int MAX_APPROVAL_TTL_DAYS = 90;
   // #endregion
 

@@ -14,6 +14,10 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
  */
 final class TrustedDeviceOutput
 {
+  // #region Properties
+  /**
+   * Property id
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Trusted device identifier (UUID).',
@@ -30,6 +34,9 @@ final class TrustedDeviceOutput
   )]
   public string $id;
 
+  /**
+   * Property name
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Friendly name for the device.',
@@ -45,6 +52,9 @@ final class TrustedDeviceOutput
   )]
   public string $name;
 
+  /**
+   * Property lastUsedAt
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Last time the device was used.',
@@ -61,6 +71,9 @@ final class TrustedDeviceOutput
   )]
   public DateTimeImmutable $lastUsedAt;
 
+  /**
+   * Property expiresAt
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'When the trust expires.',
@@ -77,6 +90,9 @@ final class TrustedDeviceOutput
   )]
   public DateTimeImmutable $expiresAt;
 
+  /**
+   * Property createdAt
+   */
   #[Groups([TrustedDeviceSerializationGroup::READ])]
   #[ApiProperty(
     description: 'When the device was added.',
@@ -92,4 +108,5 @@ final class TrustedDeviceOutput
     ],
   )]
   public DateTimeImmutable $createdAt;
+  // #endregion
 }

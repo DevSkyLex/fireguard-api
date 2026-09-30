@@ -16,9 +16,24 @@ use function in_array;
  */
 enum InterventionWorkItemStatus: string
 {
+  /**
+   * Case PLANNED
+   */
   case PLANNED = 'planned';
+
+  /**
+   * Case IN_PROGRESS
+   */
   case IN_PROGRESS = 'in_progress';
+
+  /**
+   * Case COMPLETED
+   */
   case COMPLETED = 'completed';
+
+  /**
+   * Case SKIPPED
+   */
   case SKIPPED = 'skipped';
 
   /**

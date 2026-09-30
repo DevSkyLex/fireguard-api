@@ -26,6 +26,10 @@ use function explode;
  */
 final class OrganizationAuthorizationService implements OrganizationAuthorizationPort, ResetInterface
 {
+  // #region Properties
+  /**
+   * Property observedRevision
+   */
   private int $observedRevision = -1;
 
   /**
@@ -52,6 +56,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   private array $statusCache = [];
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -69,8 +74,8 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
     private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method hasPermission.
@@ -219,6 +224,15 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
     }
   }
 
+  /**
+   * Method reset
+   *
+   * Clears cached organization permissions and membership decisions.
+   *
+   * @access public
+   *
+   * @return void
+   */
   public function reset(): void
   {
     $this->permissionCache = [];

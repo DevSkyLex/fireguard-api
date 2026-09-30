@@ -34,6 +34,20 @@ final readonly class MessagingConversationFavoriteRepository implements Messagin
   // #endregion
 
   // #region Methods
+  /**
+   * Method favorite.
+   *
+   * Inserts a conversation favorite idempotently without aborting the transaction on duplicates.
+   *
+   * @access public
+   *
+   * @param string $conversationId the conversation identifier
+   * @param string $organizationId the organization identifier
+   * @param string $memberId the favoriting member identifier
+   * @param DateTimeImmutable $favoritedAt the time the favorite was recorded
+   *
+   * @return void no return value
+   */
   public function favorite(string $conversationId, string $organizationId, string $memberId, DateTimeImmutable $favoritedAt): void
   {
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
@@ -57,6 +71,18 @@ final readonly class MessagingConversationFavoriteRepository implements Messagin
     );
   }
 
+  /**
+   * Method unfavorite.
+   *
+   * Removes a member's favorite entry for the conversation when present.
+   *
+   * @access public
+   *
+   * @param string $conversationId the conversation identifier
+   * @param string $memberId the member identifier
+   *
+   * @return void no return value
+   */
   public function unfavorite(string $conversationId, string $memberId): void
   {
     $this->entityManager->getConnection()->executeStatement(
@@ -65,6 +91,18 @@ final readonly class MessagingConversationFavoriteRepository implements Messagin
     );
   }
 
+  /**
+   * Method findFavoritedConversationIds.
+   *
+   * Selects which candidate conversations the member has favorited.
+   *
+   * @access public
+   *
+   * @param string $memberId the member identifier
+   * @param list<string> $conversationIds candidate conversation identifiers
+   *
+   * @return list<string> favorited conversation identifiers
+   */
   public function findFavoritedConversationIds(string $memberId, array $conversationIds): array
   {
     if ([] === $conversationIds) {

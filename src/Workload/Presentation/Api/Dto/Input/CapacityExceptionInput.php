@@ -16,14 +16,25 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class CapacityExceptionInput
 {
+  // #region Properties
+  /**
+   * Property startsOn
+   */
   #[Assert\NotBlank]
   #[Assert\Date]
   public string $startsOn = '';
 
+  /**
+   * Property endsOn
+   */
   #[Assert\NotBlank]
   #[Assert\Date]
   public string $endsOn = '';
 
+  /**
+   * Property minutes
+   */
   #[Assert\Range(min: 0, max: 1440)]
   public int $minutes = 0;
+  // #endregion
 }

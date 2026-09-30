@@ -80,12 +80,15 @@ final readonly class InviteOrganizationMemberProcessor implements ProcessorInter
    *
    * Processes API input and dispatches the corresponding command.
    *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param InviteOrganizationMemberInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return OrganizationInvitationOutput the created invitation
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationInvitationOutput
   {
@@ -132,6 +135,17 @@ final readonly class InviteOrganizationMemberProcessor implements ProcessorInter
     return $this->buildInvitationOutput($result);
   }
 
+  /**
+   * Method rethrowWrappedFailure.
+   *
+   * Maps recognized wrapped handler failures to their HTTP exceptions and rethrows unrecognized failures.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the message bus failure to inspect
+   *
+   * @return never this method always throws
+   */
   private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
   {
     // The handler's failures arrive wrapped by the bus; preserve their HTTP mapping.

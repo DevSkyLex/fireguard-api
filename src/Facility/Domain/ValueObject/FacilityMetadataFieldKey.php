@@ -27,10 +27,16 @@ use function trim;
 final readonly class FacilityMetadataFieldKey implements Stringable
 {
   // #region Constants
+  /**
+   * Constant PATTERN
+   */
   private const string PATTERN = '/^[a-z0-9]+([_-][a-z0-9]+)*$/';
   // #endregion
 
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

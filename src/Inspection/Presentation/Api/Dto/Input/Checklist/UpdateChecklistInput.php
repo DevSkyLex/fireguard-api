@@ -24,15 +24,23 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class UpdateChecklistInput
 {
+  // #region Properties
+  /**
+   * Property name
+   */
   #[Assert\Length(max: 255)]
   #[Groups([InspectionSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Checklist name', required: false, example: 'Contrôle Extincteur')]
   public ?string $name = null;
 
+  /**
+   * Property referenceCode
+   */
   #[Assert\Length(max: 40)]
   #[Groups([InspectionSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Optional human-facing reference code, unique per organization', required: false, example: 'CHK-EXT-Q')]
   public ?string $referenceCode = null;
+  // #endregion
 
   /**
    * Full replacement item list. Rejected with a conflict when the checklist

@@ -20,15 +20,49 @@ use function min;
  */
 final readonly class BackfillMessageLinksHandler implements CommandHandler
 {
+  // #region Constants
+  /**
+   * Constant MAX_BATCH_SIZE.
+   *
+   * Caps each link backfill invocation to a bounded message batch.
+   */
   private const int MAX_BATCH_SIZE = 500;
+  // #endregion
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies cursor-based message reads, link replacement and URL extraction for resumable backfills.
+   *
+   * @access public
+   *
+   * @param MessagingMessageRepositoryPort $messages reads messages in cursor batches
+   * @param MessagingLinkRepositoryPort $links replaces extracted link rows
+   * @param UrlExtractor $urlExtractor extracts URLs from message bodies
+   *
+   * @return void
+   */
   public function __construct(
     private MessagingMessageRepositoryPort $messages,
     private MessagingLinkRepositoryPort $links,
     private UrlExtractor $urlExtractor,
   ) {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Rebuilds message link rows in bounded id-cursor batches, with optional dry-run mode.
+   *
+   * @access public
+   *
+   * @param BackfillMessageLinksCommand $command the batch cursor and execution options
+   *
+   * @return BackfillMessageLinksResult counts and continuation cursor for this batch
+   */
   public function __invoke(BackfillMessageLinksCommand $command): BackfillMessageLinksResult
   {
     $batchSize = max(1, min(self::MAX_BATCH_SIZE, $command->batchSize));
@@ -58,4 +92,5 @@ final readonly class BackfillMessageLinksHandler implements CommandHandler
       hasMore: count($candidates) === $batchSize,
     );
   }
+  // #endregion
 }

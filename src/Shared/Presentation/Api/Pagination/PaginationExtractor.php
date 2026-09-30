@@ -24,6 +24,9 @@ use function min;
  */
 final class PaginationExtractor
 {
+  /**
+   * Constant DEFAULT_ITEMS_PER_PAGE
+   */
   private const int DEFAULT_ITEMS_PER_PAGE = 30;
 
   /**

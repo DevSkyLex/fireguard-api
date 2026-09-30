@@ -26,7 +26,9 @@ use function sprintf;
 use function strtoupper;
 
 /**
- * Provider SecurityUserProvider.
+ * Class SecurityUserProvider
+ *
+ * Builds Symfony principals from the user query and authorization ports, using validated cache data when available.
  *
  * @category User
  * @version 1.0.0
@@ -37,9 +39,32 @@ use function strtoupper;
  */
 final readonly class SecurityUserProvider implements UserProviderInterface
 {
+  // #region Constants
+  /**
+   * Constant DEFAULT_CACHE_TTL_SECONDS
+   *
+   * Default freshness window used when caching a user's authentication projection.
+   *
+   * @access private
+   */
   private const int DEFAULT_CACHE_TTL_SECONDS = 15;
+  // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Resolves users and roles through application ports and optionally caches the user projection for the configured seconds.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus retrieves the local user record
+   * @param AuthorizationPort $authorizationService supplies the user's assigned role names
+   * @param ?CachePort $cache optional cache for the authentication projection
+   * @param int $cacheTtl cache freshness in seconds; non-positive values disable caching
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private AuthorizationPort $authorizationService,
@@ -50,14 +75,31 @@ final readonly class SecurityUserProvider implements UserProviderInterface
   // #endregion
 
   // #region Methods
+  /**
+   * Method loadUserByIdentifier
+   *
+   * Loads the framework user by treating its identifier as the local user ID.
+   *
+   * @access public
+   *
+   * @param string $identifier local user identifier
+   *
+   * @return SecurityUser the concrete security user required by authentication and authorization callers
+   */
   public function loadUserByIdentifier(string $identifier): UserInterface
   {
     return $this->loadUserById(userId: $identifier);
   }
 
   /**
-   * @param string $userId the user ID
-   * @param list<string> $scopes optional OAuth2 scopes
+   * Method loadUserById
+   *
+   * Resolves a user's status and RBAC roles, reusing a valid cache projection when available.
+   *
+   * @access public
+   *
+   * @param string $userId the local user identifier
+   * @param list<string> $scopes OAuth2 scopes attached to this authenticated principal
    *
    * @return SecurityUser the security user
    *
@@ -124,6 +166,19 @@ final readonly class SecurityUserProvider implements UserProviderInterface
     }
   }
 
+  /**
+   * Method refreshUser
+   *
+   * Reloads a supported SecurityUser by local ID while preserving its current scopes.
+   *
+   * @access public
+   *
+   * @param UserInterface $user the user instance to refresh
+   *
+   * @return UserInterface the refreshed security user
+   *
+   * @throws UnsupportedUserException when the instance is not a SecurityUser
+   */
   public function refreshUser(UserInterface $user): UserInterface
   {
     if (!$user instanceof SecurityUser) {
@@ -133,12 +188,31 @@ final readonly class SecurityUserProvider implements UserProviderInterface
     return $this->loadUserById($user->getId(), $user->getScopes());
   }
 
+  /**
+   * Method supportsClass
+   *
+   * Accepts only the concrete user class produced by this provider.
+   *
+   * @access public
+   *
+   * @param string $class fully qualified user class name
+   *
+   * @return bool whether this provider supports the class
+   */
   public function supportsClass(string $class): bool
   {
     return SecurityUser::class === $class;
   }
 
   /**
+   * Method mapStatusToRoles
+   *
+   * Adds the base user role and includes the verified role only when the account can sign in.
+   *
+   * @access private
+   *
+   * @param bool $canLogin whether the account is eligible to sign in
+   *
    * @return list<string>
    */
   private function mapStatusToRoles(bool $canLogin): array
@@ -153,6 +227,14 @@ final readonly class SecurityUserProvider implements UserProviderInterface
   }
 
   /**
+   * Method readCache
+   *
+   * Accepts only cached payloads with the fields and scalar types required to rebuild a security user.
+   *
+   * @access private
+   *
+   * @param string $userId local user identifier used in the cache key
+   *
    * @return array{id: string, email: string, roles: list<string>, isActive: bool, tenantId: ?string}|null
    */
   private function readCache(string $userId): ?array
@@ -187,6 +269,17 @@ final readonly class SecurityUserProvider implements UserProviderInterface
     ];
   }
 
+  /**
+   * Method cachedValue
+   *
+   * Reads the user projection from cache and treats backend failures as a cache miss.
+   *
+   * @access private
+   *
+   * @param string $userId local user identifier used in the cache key
+   *
+   * @return mixed the cached value, or null when unavailable
+   */
   private function cachedValue(string $userId): mixed
   {
     try {
@@ -197,8 +290,16 @@ final readonly class SecurityUserProvider implements UserProviderInterface
   }
 
   /**
+   * Method createSecurityUserFromPayload
+   *
+   * Rebuilds the framework principal from a validated cache payload while applying the current request scopes.
+   *
+   * @access private
+   *
    * @param array{id: string, email: string, roles: list<string>, isActive: bool, tenantId: ?string} $payload
    * @param list<string> $scopes
+   *
+   * @return SecurityUser reconstructed authentication principal
    */
   private function createSecurityUserFromPayload(array $payload, array $scopes): SecurityUser
   {
@@ -214,7 +315,16 @@ final readonly class SecurityUserProvider implements UserProviderInterface
   }
 
   /**
+   * Method writeCache
+   *
+   * Stores the user projection when caching is enabled and suppresses cache failures so authentication can continue.
+   *
+   * @access private
+   *
+   * @param string $userId local user identifier used in the cache key
    * @param array{id: string, email: string, roles: list<string>, isActive: bool, tenantId: ?string} $payload
+   *
+   * @return void
    */
   private function writeCache(string $userId, array $payload): void
   {

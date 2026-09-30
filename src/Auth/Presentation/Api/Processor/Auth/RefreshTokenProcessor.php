@@ -148,6 +148,20 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     return $output;
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Consumes the refresh limit keyed by the token identity and client IP.
+   *
+   * @access private
+   *
+   * @param string $refreshToken the refresh token used to derive the rate limit identity
+   * @param string $ipAddress the client IP address used to derive the rate limit key
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the refresh limit is exceeded
+   */
   private function enforceRateLimit(string $refreshToken, string $ipAddress): void
   {
     if (null === $this->rateLimiter) {
@@ -168,6 +182,18 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds a rate limit key from hashed token identity and client IP values.
+   *
+   * @access private
+   *
+   * @param string $refreshToken the refresh token
+   * @param string $ipAddress the client IP address
+   *
+   * @return string the rate limiter key
+   */
   private function getRateLimitKey(string $refreshToken, string $ipAddress): string
   {
     $identityHash = hash('sha256', $this->getRateLimitIdentity($refreshToken));
@@ -176,6 +202,17 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     return sprintf('token_refresh_%s_%s', substr($identityHash, 0, 16), substr($ipHash, 0, 16));
   }
 
+  /**
+   * Method getRateLimitIdentity
+   *
+   * Resolves the user identity from the refresh token payload, falling back to the token value.
+   *
+   * @access private
+   *
+   * @param string $refreshToken the refresh token to decode
+   *
+   * @return string the identity used to derive the rate limit key
+   */
   private function getRateLimitIdentity(string $refreshToken): string
   {
     $payload = $this->jwtService->decodeRefreshToken($refreshToken);

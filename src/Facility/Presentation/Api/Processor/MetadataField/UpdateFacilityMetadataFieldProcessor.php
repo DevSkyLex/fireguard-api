@@ -37,6 +37,20 @@ use function is_string;
 final readonly class UpdateFacilityMetadataFieldProcessor implements ProcessorInterface
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the UpdateFacilityMetadataFieldProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   * @param Security $security the security
+   * @param RequestStack $requestStack the request stack
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -44,18 +58,23 @@ final readonly class UpdateFacilityMetadataFieldProcessor implements ProcessorIn
     private RequestStack $requestStack,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method process.
    *
+   * Checks facility metadata write access and updates the selected field definition.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param UpdateFacilityMetadataFieldInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return FacilityMetadataFieldOutput the updated metadata field
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityMetadataFieldOutput
   {
@@ -139,6 +158,17 @@ final readonly class UpdateFacilityMetadataFieldProcessor implements ProcessorIn
     return $output;
   }
 
+  /**
+   * Method mapMessengerException
+   *
+   * Maps messenger exception the supplied values.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the exception to inspect
+   *
+   * @return Throwable
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $notFound = $this->findException($exception, FacilityMetadataFieldNotFoundException::class);

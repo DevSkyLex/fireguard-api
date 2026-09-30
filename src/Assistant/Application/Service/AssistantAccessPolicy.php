@@ -30,6 +30,9 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 final readonly class AssistantAccessPolicy
 {
   // #region Constants
+  /**
+   * Constant USE_PERMISSION
+   */
   private const string USE_PERMISSION = 'organization.assistant.use';
   // #endregion
 

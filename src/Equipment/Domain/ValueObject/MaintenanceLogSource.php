@@ -19,6 +19,13 @@ namespace Equipment\Domain\ValueObject;
  */
 enum MaintenanceLogSource: string
 {
+  /**
+   * Case STATUS_TRANSITION
+   */
   case STATUS_TRANSITION = 'status_transition';
+
+  /**
+   * Case INTERVENTION
+   */
   case INTERVENTION = 'intervention';
 }

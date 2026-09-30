@@ -25,6 +25,21 @@ use function array_map;
 final readonly class DecommissionEquipmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the capabilities needed to decommission equipment, record its maintenance state, and publish the committed change.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load and persist equipment state
+   * @param TagRepositoryPort $tagRepository port used by equipment status handling
+   * @param MaintenanceLogRepositoryPort $maintenanceLogRepository port used to record the maintenance lifecycle change
+   * @param FacilityNamingPort $facilityNaming port used to resolve the facility label for the change
+   * @param EventDispatcherPort $eventDispatcher port used to publish the committed equipment event
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,

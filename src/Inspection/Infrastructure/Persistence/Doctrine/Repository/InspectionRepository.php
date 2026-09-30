@@ -37,12 +37,40 @@ use function strtoupper;
 final readonly class InspectionRepository implements InspectionRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_PREDICATE.
+   *
+   * DQL predicate that scopes inspection reads to an organization.
+   *
+   * @access private
+   */
   private const string ORGANIZATION_PREDICATE = 'i.organization = :organization';
 
+  /**
+   * Constant STATUS_PREDICATE.
+   *
+   * DQL predicate used when filtering inspections by status.
+   *
+   * @access private
+   */
   private const string STATUS_PREDICATE = 'i.status = :status';
 
+  /**
+   * Constant RESULT_PREDICATE.
+   *
+   * DQL predicate used when filtering inspections by result.
+   *
+   * @access private
+   */
   private const string RESULT_PREDICATE = 'i.result = :result';
 
+  /**
+   * Constant INSPECTOR_TYPE_PREDICATE.
+   *
+   * DQL predicate used when filtering inspections by inspector type.
+   *
+   * @access private
+   */
   private const string INSPECTOR_TYPE_PREDICATE = 'i.inspectorType = :inspectorType';
   // #endregion
 
@@ -72,11 +100,14 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method save.
    *
-   * Executes the save operation.
+   * Persists the inspection aggregate, updating its record when present and inserting it otherwise.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param Inspection $inspection the inspection value
+   *
+   * @return void no return value
    */
   public function save(Inspection $inspection): void
   {
@@ -111,11 +142,14 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method remove.
    *
-   * Executes the remove operation.
+   * Removes the persisted inspection record when it exists.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param Inspection $inspection the inspection value
+   *
+   * @return void no return value
    */
   public function remove(Inspection $inspection): void
   {
@@ -132,8 +166,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method findById.
    *
-   * Executes the find by id operation.
+   * Loads an inspection by identifier and maps its stored date-times into the domain representation.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionId $id the id value
@@ -183,6 +218,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     );
   }
 
+  /**
+   * Method findPublishedById.
+   *
+   * Loads an inspection aggregate only when its record is published.
+   *
+   * @access public
+   *
+   * @param InspectionId $id the inspection identifier
+   *
+   * @return ?Inspection the published aggregate, or null when absent or unpublished
+   */
   public function findPublishedById(InspectionId $id): ?Inspection
   {
     $record = $this->repository->find((string) $id);
@@ -197,8 +243,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method findByOrganizationId.
    *
-   * Executes the find by organization id operation.
+   * Lists published inspections for an organization using the supplied filters, sort order, and page bounds.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -237,8 +284,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method countByOrganizationId.
    *
-   * Executes the count by organization id operation.
+   * Counts published inspections matching the same organization and filters used by list queries.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -369,8 +417,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method countOverviewByOrganizationId.
    *
-   * Executes the count overview by organization id operation.
+   * Aggregates organization inspection totals and status/result counts with optional filters.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -436,8 +485,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method countByStatusForOrganizationId.
    *
-   * Executes the count by status for organization id operation.
+   * Groups an organization’s published inspection counts by lifecycle status.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -467,8 +517,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method countByResultForOrganizationId.
    *
-   * Executes the count by result for organization id operation.
+   * Groups an organization’s published inspection counts by inspection result.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -498,8 +549,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method countByInspectorTypeForOrganizationId.
    *
-   * Executes the count by inspector type for organization id operation.
+   * Groups an organization’s published inspection counts by inspector type.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -529,8 +581,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method countByPerformedDayForOrganizationId.
    *
-   * Executes the count by performed day for organization id operation.
+   * Groups organization inspection counts by performed day after converting storage timestamps into the requested bucket timezone.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -602,8 +655,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method countPeriodMetricsByOrganizationId.
    *
-   * Executes the count period metrics by organization id operation.
+   * Aggregates organization inspection totals and result metrics within the supplied performed-at bounds.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -671,8 +725,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method createListQueryBuilder.
    *
-   * Executes the create list query builder operation.
+   * Builds an organization-scoped query for published inspections and the supplied list criteria.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
@@ -767,8 +822,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method resolveSortField.
    *
-   * Executes the resolve sort field operation.
+   * Maps supported inspection sort keys to their Doctrine query fields, defaulting to creation time.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $field the field value
@@ -788,8 +844,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method normalizeRecordDateTimesToStorage.
    *
-   * Executes the normalize record date times to storage operation.
+   * Converts a record’s performed, created, and updated timestamps to the configured storage timezone before persistence.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param InspectionRecord $record the record value
@@ -808,8 +865,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method reinterpretRecordDateTimesFromStorage.
    *
-   * Executes the reinterpret record date times from storage operation.
+   * Clones a loaded record and restores its date-time fields using the configured storage timezone.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param InspectionRecord $record the record value
@@ -829,8 +887,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method resolveBucketTimeZone.
    *
-   * Executes the resolve bucket time zone operation.
+   * Uses the requested bucket timezone, or the lower-bound timestamp timezone when none is supplied.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param ?string $timeZone the time zone value
@@ -850,8 +909,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method resolveStorageTimeZone.
    *
-   * Executes the resolve storage time zone operation.
+   * Creates the configured storage timezone and reports invalid configuration through the module exception.
    *
+   * @access private
    * @since 1.0.0
    *
    * @return DateTimeZone the resolve storage time zone result
@@ -868,8 +928,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method normalizeTimestampToStorageDateTime.
    *
-   * Executes the normalize timestamp to storage date time operation.
+   * Parses a timestamp and converts it to an immutable date-time in the configured storage timezone.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $value the value value
@@ -885,8 +946,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method normalizeDateTimeForStorage.
    *
-   * Executes the normalize date time for storage operation.
+   * Converts an immutable date-time to the configured storage timezone before writing it.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param DateTimeImmutable $value the value value
@@ -901,8 +963,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method reinterpretStorageDateTime.
    *
-   * Executes the reinterpret storage date time operation.
+   * Reconstructs the stored wall-clock value in the configured storage timezone.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param DateTimeImmutable $value the value value
@@ -927,8 +990,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   /**
    * Method normalizeTimestampForStorageTimeZone.
    *
-   * Executes the normalize timestamp for storage time zone operation.
+   * Parses a timestamp, shifts it to the given storage timezone, and formats it for SQL comparison.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $value the value value

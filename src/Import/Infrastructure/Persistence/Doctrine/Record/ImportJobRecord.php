@@ -178,12 +178,21 @@ class ImportJobRecord
   #[ORM\Column(name: 'completed_at', type: 'datetime_immutable', nullable: true)]
   public ?DateTimeImmutable $completedAt = null;
 
+  /**
+   * Property leaseOwner
+   */
   #[ORM\Column(name: 'lease_owner', type: 'string', length: 36, nullable: true)]
   public ?string $leaseOwner = null;
 
+  /**
+   * Property leaseExpiresAt
+   */
   #[ORM\Column(name: 'lease_expires_at', type: 'datetime_immutable', nullable: true)]
   public ?DateTimeImmutable $leaseExpiresAt = null;
 
+  /**
+   * Property confirmedJobId
+   */
   #[ORM\Column(name: 'confirmed_job_id', type: 'string', length: 36, nullable: true)]
   public ?string $confirmedJobId = null;
   // #endregion

@@ -18,6 +18,19 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ListTagsQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries an organization scope, optional search text, and pagination for tag listing.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose tags are listed
+   * @param ?string $search optional text used to filter tag names
+   * @param Pagination $pagination requested page and page size
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public ?string $search = null,

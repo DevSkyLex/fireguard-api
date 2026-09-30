@@ -135,6 +135,15 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     }
   }
 
+  /**
+   * Method generateNonce
+   *
+   * Generates and caches a random nonce for a DPoP proof.
+   *
+   * @access public
+   *
+   * @return string the generated nonce
+   */
   public function generateNonce(): string
   {
     $nonce = bin2hex(random_bytes(32));
@@ -148,6 +157,17 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return $nonce;
   }
 
+  /**
+   * Method isNonceValid
+   *
+   * Checks whether the nonce has a live cache entry.
+   *
+   * @access public
+   *
+   * @param string $nonce nonce to check
+   *
+   * @return bool whether the nonce is present
+   */
   public function isNonceValid(string $nonce): bool
   {
     $item = $this->cache->getItem('dpop_nonce_' . $nonce);
@@ -155,6 +175,17 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return $item->isHit();
   }
 
+  /**
+   * Method calculateThumbprint
+   *
+   * Extracts the JWK from a compact proof header and calculates its thumbprint.
+   *
+   * @access public
+   *
+   * @param string $dpopHeader compact DPoP proof
+   *
+   * @return ?string the thumbprint, or null when the header cannot be parsed
+   */
   public function calculateThumbprint(string $dpopHeader): ?string
   {
     try {
@@ -268,6 +299,18 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return 1 === $result;
   }
 
+  /**
+   * Method opensslSignature
+   *
+   * Converts a JOSE signature to the encoding expected by OpenSSL.
+   *
+   * @access private
+   *
+   * @param string $signature JOSE signature bytes
+   * @param string $alg declared signing algorithm
+   *
+   * @return ?string OpenSSL signature bytes, or null for unsupported input
+   */
   private function opensslSignature(string $signature, string $alg): ?string
   {
     return str_starts_with($alg, 'ES') ? $this->joseEcdsaSignatureToDer($signature, $alg) : $signature;
@@ -413,6 +456,18 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     };
   }
 
+  /**
+   * Method leftPadToLength
+   *
+   * Left-pads a binary value to the requested width when it fits.
+   *
+   * @access private
+   *
+   * @param string $value binary value
+   * @param int $length required width
+   *
+   * @return ?string padded value, or null when it exceeds the width
+   */
   private function leftPadToLength(string $value, int $length): ?string
   {
     if (strlen($value) > $length) {
@@ -426,6 +481,18 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return str_repeat("\x00", $length - strlen($value)) . $value;
   }
 
+  /**
+   * Method buildRsaPublicKeyPem
+   *
+   * Encodes RSA modulus and exponent as a SubjectPublicKeyInfo PEM value.
+   *
+   * @access private
+   *
+   * @param string $modulus RSA modulus bytes
+   * @param string $exponent RSA exponent bytes
+   *
+   * @return string PEM-encoded public key
+   */
   private function buildRsaPublicKeyPem(string $modulus, string $exponent): string
   {
     $rsaPublicKey = $this->asn1Sequence(
@@ -441,6 +508,19 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return $this->pemEncode('PUBLIC KEY', $spki);
   }
 
+  /**
+   * Method buildEcPublicKeyPem
+   *
+   * Encodes an elliptic-curve point and curve identifier as a PEM public key.
+   *
+   * @access private
+   *
+   * @param string $curveOid curve object identifier
+   * @param string $x encoded x coordinate
+   * @param string $y encoded y coordinate
+   *
+   * @return string PEM-encoded public key
+   */
   private function buildEcPublicKeyPem(string $curveOid, string $x, string $y): string
   {
     $publicKey = "\x04" . $x . $y;
@@ -452,6 +532,18 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return $this->pemEncode('PUBLIC KEY', $spki);
   }
 
+  /**
+   * Method pemEncode
+   *
+   * Wraps DER bytes in a PEM block with the supplied label.
+   *
+   * @access private
+   *
+   * @param string $label PEM block label
+   * @param string $der DER-encoded data
+   *
+   * @return string PEM representation
+   */
   private function pemEncode(string $label, string $der): string
   {
     $body = chunk_split(base64_encode($der), 64, "\n");
@@ -459,11 +551,31 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return "-----BEGIN {$label}-----\n{$body}-----END {$label}-----\n";
   }
 
+  /** Method asn1Sequence
+   *
+   * Encodes bytes as a DER sequence.
+   *
+   * @access private
+   *
+   * @param string $data encoded sequence contents
+   *
+   * @return string DER sequence
+   */
   private function asn1Sequence(string $data): string
   {
     return "\x30" . $this->asn1Length(strlen($data)) . $data;
   }
 
+  /** Method asn1Integer
+   *
+   * Encodes an unsigned byte string as a DER integer.
+   *
+   * @access private
+   *
+   * @param string $data integer bytes
+   *
+   * @return string DER integer
+   */
   private function asn1Integer(string $data): string
   {
     // JOSE integers have a fixed width; DER requires a minimal signed encoding.
@@ -480,11 +592,31 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return "\x02" . $this->asn1Length(strlen($data)) . $data;
   }
 
+  /** Method asn1BitString
+   *
+   * Encodes bytes as a DER bit string with zero unused bits.
+   *
+   * @access private
+   *
+   * @param string $data bit string contents
+   *
+   * @return string DER bit string
+   */
   private function asn1BitString(string $data): string
   {
     return "\x03" . $this->asn1Length(strlen($data) + 1) . "\x00" . $data;
   }
 
+  /** Method asn1Oid
+   *
+   * Encodes dotted-decimal arcs as a DER object identifier.
+   *
+   * @access private
+   *
+   * @param string $oid dotted-decimal identifier
+   *
+   * @return string DER object identifier encoding
+   */
   private function asn1Oid(string $oid): string
   {
     $parts = array_map('intval', explode('.', $oid));
@@ -503,6 +635,16 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return "\x06" . $this->asn1Length(strlen($encoded)) . $encoded;
   }
 
+  /** Method base128Encode
+   *
+   * Encodes a non-negative integer into base-128 continuation bytes.
+   *
+   * @access private
+   *
+   * @param int $value integer to encode
+   *
+   * @return string base-128 bytes
+   */
   private function base128Encode(int $value): string
   {
     $bytes = [];
@@ -524,6 +666,16 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     return $encoded;
   }
 
+  /** Method asn1Length
+   *
+   * Encodes a DER length using short or long form.
+   *
+   * @access private
+   *
+   * @param int $length content length
+   *
+   * @return string DER length bytes
+   */
   private function asn1Length(int $length): string
   {
     if ($length < 0x80) {

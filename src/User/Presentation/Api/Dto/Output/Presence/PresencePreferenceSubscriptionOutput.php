@@ -16,12 +16,23 @@ use Symfony\Component\Serializer\Annotation\Groups;
  */
 final class PresencePreferenceSubscriptionOutput
 {
+  // #region Properties
+  /**
+   * Property topic
+   */
   #[Groups(['presence-preference:read'])]
   public string $topic = '';
 
+  /**
+   * Property token
+   */
   #[Groups(['presence-preference:read'])]
   public string $token = '';
 
+  /**
+   * Property expiresAt
+   */
   #[Groups(['presence-preference:read'])]
   public string $expiresAt = '';
+  // #endregion
 }

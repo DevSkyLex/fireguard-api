@@ -208,6 +208,20 @@ final class OnboardingTargetResolver
     return $candidate;
   }
 
+  /**
+   * Method isEligibleCreationTarget.
+   *
+   * Checks that the candidate is active and was created and owned by the session user after the session began.
+   *
+   * @access private
+   *
+   * @static
+   *
+   * @param OnboardingOrganizationCandidate $organization the organization candidate to check
+   * @param OrganizationOnboardingSession $session the onboarding session that owns the flow
+   *
+   * @return bool whether the organization can be used as the creation target
+   */
   private static function isEligibleCreationTarget(
     OnboardingOrganizationCandidate $organization,
     OrganizationOnboardingSession $session,

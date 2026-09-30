@@ -30,6 +30,18 @@ use function trim;
 final readonly class CreateChecklistHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the checklist repository and identifier factory used to create checklist templates.
+   *
+   * @access public
+   *
+   * @param ChecklistRepositoryPort $checklistRepository port used to persist checklist data
+   * @param UuidFactory $uuidFactory factory used to create the checklist identifier
+   *
+   * @return void
+   */
   public function __construct(
     private ChecklistRepositoryPort $checklistRepository,
     private UuidFactory $uuidFactory,

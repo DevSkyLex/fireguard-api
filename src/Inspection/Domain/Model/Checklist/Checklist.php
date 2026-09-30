@@ -57,6 +57,15 @@ final class Checklist
   }
   // #endregion
 
+  /**
+   * Method previousChecklistId.
+   *
+   * Returns the identifier of the checklist this revision supersedes, when present.
+   *
+   * @access public
+   *
+   * @return ChecklistId|null the previous checklist identifier
+   */
   public function previousChecklistId(): ?ChecklistId
   {
     return $this->previousChecklistId;

@@ -18,8 +18,13 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class OrganizationDomainInput
 {
+  // #region Properties
+  /**
+   * Property domain
+   */
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[Assert\NotBlank]
   #[Assert\Length(max: 253)]
   public string $domain = '';
+  // #endregion
 }

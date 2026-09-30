@@ -30,6 +30,22 @@ use const JSON_THROW_ON_ERROR;
  */
 final readonly class FixtureUserPasswords
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Groups fixture credential strings without exposing their values in diagnostics.
+   *
+   * @access private
+   *
+   * @param string $admin credential string for the administrative fixture account
+   * @param string $test credential string for the test fixture account
+   * @param string $demo credential string for the demo fixture account
+   * @param string $staff credential string for the staff fixture account
+   * @param string $devClient credential string for the development client fixture account
+   *
+   * @return void
+   */
   private function __construct(
     public string $admin,
     public string $test,
@@ -38,6 +54,7 @@ final readonly class FixtureUserPasswords
     public string $devClient,
   ) {
   }
+  // #endregion
 
   /**
    * Parses the complete fixture credential set without exposing its values in errors.

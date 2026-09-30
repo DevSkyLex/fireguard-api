@@ -16,8 +16,19 @@ use function array_column;
  */
 enum InspectionResult: string
 {
+  /**
+   * Case PASS
+   */
   case PASS = 'pass';
+
+  /**
+   * Case FAIL
+   */
   case FAIL = 'fail';
+
+  /**
+   * Case PARTIAL
+   */
   case PARTIAL = 'partial';
 
   // #region Methods

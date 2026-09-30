@@ -34,11 +34,34 @@ final readonly class SessionStatusAdapter implements SessionStatusPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method activeSessionId.
+   *
+   * Resolves the active session matching both token and user identifiers.
+   *
+   * @access public
+   *
+   * @param string $accessTokenId the access token identifier
+   * @param string $userId the signed user identifier
+   *
+   * @return string|null the active session identifier when found
+   */
   public function activeSessionId(string $accessTokenId, string $userId): ?string
   {
     return $this->sessionStatus->activeSessionId($accessTokenId, $userId);
   }
 
+  /**
+   * Method isAccessTokenRevoked.
+   *
+   * Delegates the diagnostic lookup for an access token's revocation state.
+   *
+   * @access public
+   *
+   * @param string $accessTokenId the access token identifier
+   *
+   * @return bool whether the token is recorded as revoked
+   */
   public function isAccessTokenRevoked(string $accessTokenId): bool
   {
     return $this->sessionStatus->isAccessTokenRevoked(accessTokenId: $accessTokenId);

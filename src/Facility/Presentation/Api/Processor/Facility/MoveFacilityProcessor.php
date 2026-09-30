@@ -38,6 +38,21 @@ use function is_string;
 final readonly class MoveFacilityProcessor implements ProcessorInterface
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides facility output reload, command dispatch, access checks, actor identity, and request context for moves.
+   *
+   * @access public
+   *
+   * @param FacilityDetailOutputFactory $detail reads the updated facility output
+   * @param CommandBusPort $commandBus dispatches facility move commands
+   * @param OrganizationAuthorizationPort $authorization enforces organization access
+   * @param Security $security resolves the authenticated user
+   * @param RequestStack $requestStack provides the current request
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
@@ -52,12 +67,17 @@ final readonly class MoveFacilityProcessor implements ProcessorInterface
   /**
    * Method process.
    *
+   * Checks write access, dispatches the facility move command, and returns the updated facility details.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param MoveFacilityInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return FacilityOutput the moved facility
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
@@ -115,6 +135,17 @@ final readonly class MoveFacilityProcessor implements ProcessorInterface
     return $this->detail->read($organizationId, $result->facilityId);
   }
 
+  /**
+   * Method mapMessengerException.
+   *
+   * Maps known wrapped facility move failures to HTTP exceptions and preserves unknown failures.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the message bus failure to inspect
+   *
+   * @return Throwable the mapped HTTP exception or original failure
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $notFound = $this->findFacilityNotFoundException($exception);

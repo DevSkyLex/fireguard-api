@@ -18,6 +18,9 @@ use Messaging\Presentation\Api\Dto\Output\{ChannelOutput, ChannelParticipantOutp
 final class ChannelOutputFactory
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_IRI_PREFIX
+   */
   private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
   // #endregion
 

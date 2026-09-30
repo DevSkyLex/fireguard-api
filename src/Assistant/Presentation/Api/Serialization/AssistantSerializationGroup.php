@@ -14,7 +14,13 @@ namespace Assistant\Presentation\Api\Serialization;
  */
 final class AssistantSerializationGroup
 {
+  /**
+   * Constant READ
+   */
   public const string READ = 'Assistant:read';
 
+  /**
+   * Constant WRITE
+   */
   public const string WRITE = 'Assistant:write';
 }

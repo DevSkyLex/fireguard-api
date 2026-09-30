@@ -14,8 +14,19 @@ namespace Intervention\Domain\ValueObject;
  */
 enum InterventionChangeStatus: string
 {
+  /**
+   * Case PROPOSED
+   */
   case PROPOSED = 'proposed';
+
+  /**
+   * Case REJECTED
+   */
   case REJECTED = 'rejected';
+
+  /**
+   * Case APPLIED
+   */
   case APPLIED = 'applied';
 
   /**

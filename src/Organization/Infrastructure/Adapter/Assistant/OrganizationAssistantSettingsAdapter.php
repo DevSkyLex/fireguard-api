@@ -42,11 +42,33 @@ final readonly class OrganizationAssistantSettingsAdapter implements AssistantOr
   // #endregion
 
   // #region Methods
+  /**
+   * Method isEnabledFor
+   *
+   * Reports whether assistant access is enabled in the organization's settings.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return bool whether the assistant is enabled
+   */
   public function isEnabledFor(string $organizationId): bool
   {
     return $this->settingsFor($organizationId)->enabled ?? false;
   }
 
+  /**
+   * Method includeBusinessContextFor
+   *
+   * Reports whether assistant responses may include organization business context.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return bool whether business context is enabled
+   */
   public function includeBusinessContextFor(string $organizationId): bool
   {
     return $this->settingsFor($organizationId)->includeBusinessContext ?? false;

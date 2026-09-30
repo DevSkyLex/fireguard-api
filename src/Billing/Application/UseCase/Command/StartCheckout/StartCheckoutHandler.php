@@ -78,6 +78,19 @@ final readonly class StartCheckoutHandler implements CommandHandler
     return $this->reconciliation->synchronized($command->organizationId, fn (): StartCheckoutResult => $this->execute($command));
   }
 
+  /**
+   * Method execute.
+   *
+   * Resolves the payable plan, ensures its Stripe customer, and creates a Checkout session.
+   *
+   * @access private
+   *
+   * @param StartCheckoutCommand $command the organization and requested plan details
+   *
+   * @return StartCheckoutResult the Checkout session URL
+   *
+   * @throws InvalidArgumentException when the cadence or plan is not payable
+   */
   private function execute(StartCheckoutCommand $command): StartCheckoutResult
   {
     $interval = BillingInterval::fromString($command->interval);

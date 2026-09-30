@@ -15,6 +15,24 @@ use Shared\Application\Factory\UuidFactory;
  */
 final readonly class InterventionWorkflowWriterRuntime
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Shares transaction-scoped dependencies among intervention workflow writers.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager owning the workflow transaction
+   * @param UuidFactory $uuidFactory factory for generating domain identifiers
+   * @param InterventionMemberPolicy $memberPolicy policy for checking intervention member roles
+   * @param InterventionNotificationService $notifications service for workflow notifications
+   * @param InterventionViewMapper $views mapper for intervention read projections
+   * @param InterventionActivityPort $activities port for appending intervention activity entries
+   * @param InterventionWorkflowMutationSupport $support support service for scoped records and shared mutation checks
+   *
+   * @return void
+   */
   public function __construct(
     public EntityManagerInterface $entityManager,
     public UuidFactory $uuidFactory,
@@ -25,4 +43,5 @@ final readonly class InterventionWorkflowWriterRuntime
     public InterventionWorkflowMutationSupport $support,
   ) {
   }
+  // #endregion
 }

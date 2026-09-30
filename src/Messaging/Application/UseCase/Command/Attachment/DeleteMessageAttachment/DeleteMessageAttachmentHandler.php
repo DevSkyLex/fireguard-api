@@ -29,6 +29,19 @@ use Shared\Domain\Exception\InvalidValueException;
 final readonly class DeleteMessageAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Deletes an attachment after verifying uploader ownership or moderation permission.
+   *
+   * @access public
+   *
+   * @param MessagingAttachmentRepositoryPort $attachments repository used to find and remove attachment metadata
+   * @param MessagingAccessPolicy $accessPolicy policy used to resolve active membership and manager permission
+   * @param FileStoragePort $fileStorage storage port used to delete the stored file bytes
+   *
+   * @return void
+   */
   public function __construct(
     private MessagingAttachmentRepositoryPort $attachments,
     private MessagingAccessPolicy $accessPolicy,

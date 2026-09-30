@@ -332,24 +332,54 @@ final class InterventionResource
    */
   private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
 
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant INTERVENTION_URI_TEMPLATE
+   */
   private const string INTERVENTION_URI_TEMPLATE = '/interventions/{id}';
 
+  /**
+   * Constant ORGANIZATION_IRI_DESCRIPTION
+   */
   private const string ORGANIZATION_IRI_DESCRIPTION = 'Organization IRI.';
 
+  /**
+   * Constant NAME_FILTER_DESCRIPTION
+   */
   private const string NAME_FILTER_DESCRIPTION = 'Case-insensitive partial match on the intervention name.';
 
+  /**
+   * Constant RESPONSIBLE_IRI_DESCRIPTION
+   */
   private const string RESPONSIBLE_IRI_DESCRIPTION = 'Responsible member IRI.';
 
+  /**
+   * Constant TYPE_FILTER_DESCRIPTION
+   */
   private const string TYPE_FILTER_DESCRIPTION = 'Intervention type.';
 
+  /**
+   * Constant STATUS_FILTER_DESCRIPTION
+   */
   private const string STATUS_FILTER_DESCRIPTION = 'Intervention status.';
 
+  /**
+   * Constant PRIORITY_FILTER_DESCRIPTION
+   */
   private const string PRIORITY_FILTER_DESCRIPTION = 'Intervention priority: low, normal, high, urgent.';
 
+  /**
+   * Constant DUE_FROM_FILTER_DESCRIPTION
+   */
   private const string DUE_FROM_FILTER_DESCRIPTION = 'Inclusive lower due-date bound.';
 
+  /**
+   * Constant DUE_BEFORE_FILTER_DESCRIPTION
+   */
   private const string DUE_BEFORE_FILTER_DESCRIPTION = 'Inclusive upper due-date bound.';
   // #endregion
 }

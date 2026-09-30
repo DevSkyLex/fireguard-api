@@ -14,9 +14,18 @@ namespace User\Presentation\Api\Operation;
  */
 final class PresencePreferenceOperations
 {
+  /**
+   * Constant GET
+   */
   public const string GET = 'user_get_presence_preference';
 
+  /**
+   * Constant UPDATE
+   */
   public const string UPDATE = 'user_update_presence_preference';
 
+  /**
+   * Constant SUBSCRIPTION
+   */
   public const string SUBSCRIPTION = 'user_presence_preference_subscription';
 }

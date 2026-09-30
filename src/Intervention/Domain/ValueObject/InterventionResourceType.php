@@ -14,7 +14,18 @@ namespace Intervention\Domain\ValueObject;
  */
 enum InterventionResourceType: string
 {
+  /**
+   * Case FACILITY
+   */
   case FACILITY = 'facility';
+
+  /**
+   * Case EQUIPMENT
+   */
   case EQUIPMENT = 'equipment';
+
+  /**
+   * Case INSPECTION
+   */
   case INSPECTION = 'inspection';
 }

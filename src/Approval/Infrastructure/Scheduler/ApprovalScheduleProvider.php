@@ -51,6 +51,15 @@ final readonly class ApprovalScheduleProvider implements ScheduleProviderInterfa
   // #endregion
 
   // #region Methods
+  /**
+   * Method getSchedule.
+   *
+   * Provides the hourly stale approval request sweep with shared state and a lock.
+   *
+   * @access public
+   *
+   * @return Schedule the configured approval schedule
+   */
   public function getSchedule(): Schedule
   {
     return new Schedule()

@@ -48,6 +48,18 @@ final readonly class OrganizationInterventionMemberDirectoryAdapter implements I
   // #endregion
 
   // #region Methods
+  /**
+   * Method displayNamesFor.
+   *
+   * Resolves display names for requested active members in the specified organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param list<string> $memberIds the member identifiers to resolve
+   *
+   * @return array<string, string> display names keyed by member identifier
+   */
   public function displayNamesFor(string $organizationId, array $memberIds): array
   {
     if ([] === $memberIds) {

@@ -29,12 +29,23 @@ use ValueError;
 final readonly class UpdateMetadataFieldHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the UpdateMetadataFieldHandler dependencies and state.
+   *
+   * @access public
+   *
+   * @param FacilityMetadataFieldRepositoryPort $repository the repository
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityMetadataFieldRepositoryPort $repository,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method __invoke.
@@ -82,6 +93,18 @@ final readonly class UpdateMetadataFieldHandler implements CommandHandler
     );
   }
 
+  /**
+   * Method applyChanges
+   *
+   * Applies the requested metadata field changes to the current definition.
+   *
+   * @access private
+   *
+   * @param FacilityMetadataField $field the field
+   * @param UpdateMetadataFieldCommand $command the command to handle
+   *
+   * @return void
+   */
   private function applyChanges(FacilityMetadataField $field, UpdateMetadataFieldCommand $command): void
   {
     if ($command->hasLabel) {

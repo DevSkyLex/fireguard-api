@@ -37,11 +37,14 @@ use const OPENSSL_RAW_DATA;
  */
 final readonly class OpensslTotpSecretCipherAdapter implements TotpSecretCipherPort
 {
+  // #region Properties
   /**
    * @var array<string, string> raw keys, never logged
    */
   private array $keys;
+  // #endregion
 
+  // #region Constructor
   /**
    * Constructor.
    *
@@ -68,12 +71,35 @@ final readonly class OpensslTotpSecretCipherAdapter implements TotpSecretCipherP
     }
     $this->keys = $keys;
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method canEncrypt
+   *
+   * Reports whether a write key is configured for new TOTP secret ciphertext.
+   *
+   * @access public
+   *
+   * @return bool true when a write key is configured
+   */
   public function canEncrypt(): bool
   {
     return '' !== $this->writeKeyId;
   }
 
+  /**
+   * Method encrypt
+   *
+   * Encrypts a TOTP secret in the versioned AES-256-GCM envelope using the write key and authenticated slot context.
+   *
+   * @access public
+   *
+   * @param string $plaintext the TOTP secret to encrypt
+   * @param string $context the user-and-slot binding included as authenticated data
+   *
+   * @return string
+   */
   public function encrypt(#[SensitiveParameter] string $plaintext, string $context): string
   {
     if (!$this->canEncrypt()) {
@@ -90,6 +116,18 @@ final readonly class OpensslTotpSecretCipherAdapter implements TotpSecretCipherP
     return $prefix . base64_encode($nonce . $tag . $encrypted);
   }
 
+  /**
+   * Method decrypt
+   *
+   * Authenticates and decrypts a versioned TOTP secret envelope; malformed data, an unknown key or a context mismatch fails closed.
+   *
+   * @access public
+   *
+   * @param string $ciphertext the versioned encrypted secret envelope
+   * @param string $context the user-and-slot binding included as authenticated data
+   *
+   * @return string
+   */
   public function decrypt(#[SensitiveParameter] string $ciphertext, string $context): string
   {
     $parts = explode(':', $ciphertext, 4);
@@ -108,8 +146,20 @@ final readonly class OpensslTotpSecretCipherAdapter implements TotpSecretCipherP
     return $plaintext;
   }
 
+  /**
+   * Method needsRotation
+   *
+   * Reports whether ciphertext is not using the configured write key, or no write key is available.
+   *
+   * @access public
+   *
+   * @param string $ciphertext the versioned encrypted secret envelope
+   *
+   * @return bool true when the ciphertext needs re-encryption with the configured write key
+   */
   public function needsRotation(string $ciphertext): bool
   {
     return !$this->canEncrypt() || !str_starts_with($ciphertext, 'totp:v1:' . $this->writeKeyId . ':');
   }
+  // #endregion
 }

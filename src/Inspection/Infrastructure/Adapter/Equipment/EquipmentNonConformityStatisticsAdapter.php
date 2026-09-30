@@ -39,6 +39,17 @@ final readonly class EquipmentNonConformityStatisticsAdapter implements NonConfo
   // #endregion
 
   // #region Methods
+  /**
+   * Method countOpenNonConformities.
+   *
+   * Counts equipment non-conformities that are open or in progress for an organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return int the combined non-conformity count
+   */
   public function countOpenNonConformities(string $organizationId): int
   {
     $organization = InspectionOrganizationId::fromString($organizationId);

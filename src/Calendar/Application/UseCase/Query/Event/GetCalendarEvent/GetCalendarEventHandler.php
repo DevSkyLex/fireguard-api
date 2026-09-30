@@ -21,6 +21,9 @@ use Shared\Application\Message\QueryHandler;
 final readonly class GetCalendarEventHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   */
   private const string READ_PERMISSION = 'organization.events.read';
   // #endregion
 

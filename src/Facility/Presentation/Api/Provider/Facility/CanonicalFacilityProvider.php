@@ -38,6 +38,9 @@ use function min;
 final readonly class CanonicalFacilityProvider implements ProviderInterface
 {
   // #region Constants
+  /**
+   * Constant FACILITY_NOT_FOUND_MESSAGE
+   */
   private const string FACILITY_NOT_FOUND_MESSAGE = 'Facility not found.';
   // #endregion
 
@@ -173,8 +176,9 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
   /**
    * Method organization.
    *
-   * Executes the organization operation.
+   * Resolves the organization from the organization filter or an intervention’s context, rejecting requests with neither.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param mixed $organizationValue the organization value value
@@ -205,11 +209,14 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
   /**
    * Method assertRead.
    *
-   * Executes the assert read operation.
+   * Requires organization.facilities.read access and hides organizations outside the actor’s scope as not found.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
+   *
+   * @return void no return value
    */
   private function assertRead(string $organizationId): void
   {
@@ -230,8 +237,9 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
   /**
    * Method map.
    *
-   * Executes the map operation.
+   * Maps a facility record to its API output, including plan geometry only for detail reads.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param FacilityRecord $record the record value

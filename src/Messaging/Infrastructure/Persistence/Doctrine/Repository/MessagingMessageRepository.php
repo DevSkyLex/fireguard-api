@@ -31,6 +31,15 @@ use function sprintf;
 final readonly class MessagingMessageRepository implements MessagingMessageRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant MESSAGE_COUNT_EXPRESSION
+   *
+   * Count expression used when paging message queries.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string MESSAGE_COUNT_EXPRESSION = 'COUNT(m.id)';
   // #endregion
 
@@ -49,6 +58,17 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
   // #endregion
 
   // #region Methods
+  /**
+   * Method append.
+   *
+   * Persists a newly created message and returns its view.
+   *
+   * @access public
+   *
+   * @param Message $message the message aggregate
+   *
+   * @return MessageView the persisted message view
+   */
   public function append(Message $message): MessageView
   {
     $record = new MessagingMessageRecord();
@@ -76,6 +96,17 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return $this->view($record);
   }
 
+  /**
+   * Method findById.
+   *
+   * Loads a message view for read-only callers.
+   *
+   * @access public
+   *
+   * @param string $id the message identifier
+   *
+   * @return ?MessageView the message view, or null when not found
+   */
   public function findById(string $id): ?MessageView
   {
     $record = $this->entityManager->find(MessagingMessageRecord::class, $id);
@@ -83,6 +114,17 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return $record instanceof MessagingMessageRecord ? $this->view($record) : null;
   }
 
+  /**
+   * Method findAggregateById.
+   *
+   * Loads the aggregate for a command that mutates the message.
+   *
+   * @access public
+   *
+   * @param string $id the message identifier
+   *
+   * @return ?Message the message aggregate, or null when not found
+   */
   public function findAggregateById(string $id): ?Message
   {
     $record = $this->entityManager->find(MessagingMessageRecord::class, $id);
@@ -90,6 +132,19 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return $record instanceof MessagingMessageRecord ? $this->aggregate($record) : null;
   }
 
+  /**
+   * Method listByConversation.
+   *
+   * Lists root messages only; threaded replies use the dedicated parent query.
+   *
+   * @access public
+   *
+   * @param string $conversationId the owning conversation identifier
+   * @param int $page page number
+   * @param int $itemsPerPage page size
+   *
+   * @return MessagePage the root message page result
+   */
   public function listByConversation(string $conversationId, int $page, int $itemsPerPage): MessagePage
   {
     $page = max(1, $page);
@@ -126,6 +181,19 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return new MessagePage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
   }
 
+  /**
+   * Method listRepliesByParent.
+   *
+   * Lists a root message's replies in creation order.
+   *
+   * @access public
+   *
+   * @param string $parentMessageId the parent message identifier
+   * @param int $page page number
+   * @param int $itemsPerPage page size
+   *
+   * @return MessagePage the reply page result
+   */
   public function listRepliesByParent(string $parentMessageId, int $page, int $itemsPerPage): MessagePage
   {
     $page = max(1, $page);
@@ -155,6 +223,17 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return new MessagePage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
   }
 
+  /**
+   * Method incrementReplyCount.
+   *
+   * Atomically increments the parent message reply counter.
+   *
+   * @access public
+   *
+   * @param string $parentMessageId the parent message identifier
+   *
+   * @return void
+   */
   public function incrementReplyCount(string $parentMessageId): void
   {
     // A single atomic UPDATE — not a load-modify-save cycle — so concurrent
@@ -166,6 +245,19 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     );
   }
 
+  /**
+   * Method listPinnedByConversation.
+   *
+   * Lists pinned messages in stable pin order for the requested page.
+   *
+   * @access public
+   *
+   * @param string $conversationId the owning conversation identifier
+   * @param int $page page number
+   * @param int $itemsPerPage page size
+   *
+   * @return MessagePage the pinned message page result
+   */
   public function listPinnedByConversation(string $conversationId, int $page, int $itemsPerPage): MessagePage
   {
     $page = max(1, $page);
@@ -199,6 +291,20 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return new MessagePage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
   }
 
+  /**
+   * Method listSavedByMember.
+   *
+   * Lists a member's saved messages across the organization, newest saved first.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the saving member's identifier
+   * @param int $page page number
+   * @param int $itemsPerPage page size
+   *
+   * @return MessagePage the saved message page result
+   */
   public function listSavedByMember(string $organizationId, string $memberId, int $page, int $itemsPerPage): MessagePage
   {
     $page = max(1, $page);
@@ -237,6 +343,17 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return new MessagePage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
   }
 
+  /**
+   * Method save.
+   *
+   * Persists a mutated message aggregate and returns its current view.
+   *
+   * @access public
+   *
+   * @param Message $message the message aggregate
+   *
+   * @return MessageView the persisted message view
+   */
   public function save(Message $message): MessageView
   {
     $id = (string) $message->id();
@@ -259,6 +376,18 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return $this->view($record);
   }
 
+  /**
+   * Method listLinkBackfillBatch.
+   *
+   * Returns an ordered batch of message data needed to rebuild extracted links.
+   *
+   * @access public
+   *
+   * @param ?string $afterMessageId exclusive message-id cursor
+   * @param int $limit maximum batch size
+   *
+   * @return list<MessageLinkBackfillCandidate> the ordered link candidates
+   */
   public function listLinkBackfillBatch(?string $afterMessageId, int $limit): array
   {
     $limit = max(1, min(500, $limit));

@@ -21,8 +21,19 @@ use function array_column;
  */
 enum WebhookDeliveryStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case DELIVERED
+   */
   case DELIVERED = 'delivered';
+
+  /**
+   * Case FAILED
+   */
   case FAILED = 'failed';
 
   // #region Methods

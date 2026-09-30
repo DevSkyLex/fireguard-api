@@ -31,6 +31,17 @@ final readonly class InspectionAttachmentRepository implements InspectionAttachm
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Uses the configured Doctrine manager to persist and retrieve inspection attachments.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager for the Inspection module database
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

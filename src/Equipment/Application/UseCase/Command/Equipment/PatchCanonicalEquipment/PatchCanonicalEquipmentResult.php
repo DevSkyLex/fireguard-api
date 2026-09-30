@@ -23,6 +23,20 @@ use Shared\Application\Message\ResultMessage;
 final readonly class PatchCanonicalEquipmentResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Returns the equipment status and revision after the patch, with its previous status when changed.
+   *
+   * @access public
+   *
+   * @param string $equipmentId identifier of the updated equipment
+   * @param string $status status after applying the patch
+   * @param int $revision new revision assigned to the equipment
+   * @param ?string $previousStatus status before the patch, when it changed
+   *
+   * @return void
+   */
   public function __construct(
     public string $equipmentId,
     public string $status,

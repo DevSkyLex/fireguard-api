@@ -32,18 +32,68 @@ use function is_numeric;
  */
 final readonly class InterventionWorkloadFixtures implements FixtureInterface, FixtureGroupInterface
 {
+  // #region Properties
+  /**
+   * Constant ORGANIZATION
+   *
+   * Identifies the organization that receives the opt-in workload examples.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 
+  /**
+   * Constant OWNER
+   *
+   * Identifies the member responsible for the generated interventions.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string OWNER = '11111111-1111-4111-8111-111111111115';
 
+  /**
+   * Constant FIELD_TECHNICIAN
+   *
+   * Identifies the field technician in the example workforce.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string FIELD_TECHNICIAN = '0034f559-02ce-4ddb-a8b7-2e47dbc0be2c';
 
+  /**
+   * Constant PARIS_TECHNICIAN
+   *
+   * Identifies the Paris technician in the example workforce.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PARIS_TECHNICIAN = '126b5cfc-208e-48b0-ae88-7bd97a1eecf8';
 
+  /**
+   * Constant COORDINATOR
+   *
+   * Identifies the coordinator in the example workforce.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string COORDINATOR = '853db03d-8a54-4c57-9faa-822de84c93f4';
 
   /**
-   * @var array<string, string> existing seed members and human-readable task labels
+   * Constant TASKS
+   *
+   * @access private
+   *
+   * @var array<string, string> member identifiers mapped to demo task labels
    */
   private const array TASKS = [
     self::OWNER => 'Review the site inventory',
@@ -54,13 +104,22 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     '24fcc785-bd58-43b9-9028-47f01b66d9fe' => 'Inventory warehouse safety equipment',
   ];
 
-  // #region Methods
+  // #endregion
+
+  // #region Constructor
   /**
+   * Method __construct.
+   *
+   * Provides organization workforce, deterministic time and workload coordination for intervention workload fixtures.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param OrganizationWorkforceDirectoryPort $workforce public regional and membership context
    * @param ClockPort $clock anchors demo tasks to the current local week
    * @param WorkloadCoordinationPort $coordination coordinates with live planning mutations
+   *
+   * @return void
    */
   public function __construct(
     private OrganizationWorkforceDirectoryPort $workforce,
@@ -68,8 +127,15 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     private WorkloadCoordinationPort $coordination,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
+   * Method getGroups.
+   *
+   * Keeps workload examples opt-in instead of adding them to the standard seed baseline.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @return list<string> opt-in groups, excluded from the standard seed baseline
@@ -80,6 +146,11 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
   }
 
   /**
+   * Method load.
+   *
+   * Appends deterministic examples while preserving existing interventions and histories.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param ObjectManager $manager main object manager inside the caller's transaction
@@ -120,6 +191,22 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     $manager->flush();
   }
 
+  /**
+   * Method seedWeek.
+   *
+   * Adds a week of field-work scenarios and representative tasks.
+   *
+   * @access private
+   *
+   * @param EntityManagerInterface $manager main entity manager
+   * @param InterventionRecord $source existing intervention used as association source
+   * @param DateTimeImmutable $monday start of the workload week
+   * @param DateTimeImmutable $today local current date
+   * @param DateTimeImmutable $now audit timestamp
+   * @param int $offset week offset in days
+   *
+   * @return void
+   */
   private function seedWeek(EntityManagerInterface $manager, InterventionRecord $source, DateTimeImmutable $monday, DateTimeImmutable $today, DateTimeImmutable $now, int $offset): void
   {
     $start = $monday->modify('+' . $offset . ' days');
@@ -140,6 +227,22 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     $this->task($manager, $intervention, new InterventionWorkloadTask('unassigned', 'Loading bay inventory - assignment needed', null, 180, $start, $start->modify('+4 days')), $now);
   }
 
+  /**
+   * Method seedDay.
+   *
+   * Creates one day's tasks and representative completed or in-progress time entries.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager main object manager
+   * @param InterventionRecord $intervention demo intervention receiving the tasks
+   * @param DateTimeImmutable $date date represented by the tasks
+   * @param DateTimeImmutable $today local current date
+   * @param DateTimeImmutable $now audit timestamp
+   * @param int $day zero-based weekday offset
+   *
+   * @return void
+   */
   private function seedDay(ObjectManager $manager, InterventionRecord $intervention, DateTimeImmutable $date, DateTimeImmutable $today, DateTimeImmutable $now, int $day): void
   {
     $isToday = $date->format('Y-m-d') === $today->format('Y-m-d');
@@ -168,6 +271,20 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     }
   }
 
+  /**
+   * Method seedOtherScenarios.
+   *
+   * Adds draft, undated and overdue examples alongside the weekly scenarios.
+   *
+   * @access private
+   *
+   * @param EntityManagerInterface $manager main entity manager
+   * @param InterventionRecord $source existing intervention used as association source
+   * @param DateTimeImmutable $monday start of the workload week
+   * @param DateTimeImmutable $now audit timestamp
+   *
+   * @return void
+   */
   private function seedOtherScenarios(EntityManagerInterface $manager, InterventionRecord $source, DateTimeImmutable $monday, DateTimeImmutable $now): void
   {
     $draft = $this->intervention($manager, $source, new InterventionWorkloadScenario('forecast:' . $monday->format('Y-m-d'), 'Workload demo - upcoming campaign (draft)', 'draft', $monday, $monday->modify('+13 days')), $now);
@@ -185,6 +302,11 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
   }
 
   /**
+   * Method intervention.
+   *
+   * Creates one deterministic scenario unless its identifier already exists.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param EntityManagerInterface $manager main entity manager
@@ -249,6 +371,11 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
   }
 
   /**
+   * Method task.
+   *
+   * Persists a workload task and its assignment when it has an assignee.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param ObjectManager $manager main object manager
@@ -287,6 +414,11 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
   }
 
   /**
+   * Method time.
+   *
+   * Persists worked time and each audit version for a representative task.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param ObjectManager $manager main object manager

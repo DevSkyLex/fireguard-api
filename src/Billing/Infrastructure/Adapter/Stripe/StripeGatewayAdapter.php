@@ -42,6 +42,13 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
    */
   private StripeClient $stripe;
 
+  /**
+   * Property liveMode.
+   *
+   * Whether the configured Stripe key targets live mode.
+   *
+   * @access private
+   */
   private bool $liveMode;
   // #endregion
 
@@ -159,11 +166,31 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
     );
   }
 
+  /**
+   * Method isLiveMode.
+   *
+   * Reports whether the adapter was configured with a live Stripe key.
+   *
+   * @access public
+   *
+   * @return bool whether Stripe live mode is active
+   */
   public function isLiveMode(): bool
   {
     return $this->liveMode;
   }
 
+  /**
+   * Method listSubscriptions.
+   *
+   * Lists all Stripe subscriptions associated with a customer.
+   *
+   * @access public
+   *
+   * @param string $customerId the Stripe customer identifier
+   *
+   * @return list<StripeSubscription> the customer's subscription snapshots
+   */
   public function listSubscriptions(string $customerId): array
   {
     try {

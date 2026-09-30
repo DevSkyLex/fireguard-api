@@ -17,6 +17,18 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetFacilityBuildingModelQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the organization-scoped facility whose building model is requested.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope used to authorize the lookup
+   * @param string $facilityId facility whose building model is requested
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public string $facilityId,

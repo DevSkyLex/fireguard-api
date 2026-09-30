@@ -142,10 +142,19 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class FacilityAttachmentResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FORBIDDEN_DESCRIPTION
+   */
   private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant NOT_FOUND_DESCRIPTION
+   */
   private const string NOT_FOUND_DESCRIPTION = 'Attachment not found';
   // #endregion
 }

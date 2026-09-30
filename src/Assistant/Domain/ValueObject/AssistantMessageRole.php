@@ -16,7 +16,14 @@ use function array_column;
  */
 enum AssistantMessageRole: string
 {
+  /**
+   * Case USER
+   */
   case USER = 'user';
+
+  /**
+   * Case ASSISTANT
+   */
   case ASSISTANT = 'assistant';
 
   // #region Methods

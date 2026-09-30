@@ -134,6 +134,21 @@ final readonly class CreateChallengeProcessor implements ProcessorInterface
     return null;
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Consumes the challenge creation limit when a rate limiter is configured.
+   *
+   * @access private
+   *
+   * @param string $userIdentifier the user identity used to derive the limit key
+   * @param string $purpose the challenge purpose
+   * @param string $channel the delivery channel
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when challenge creation is rate limited
+   */
   private function enforceRateLimit(string $userIdentifier, string $purpose, string $channel): void
   {
     if (null === $this->rateLimiter) {
@@ -154,6 +169,19 @@ final readonly class CreateChallengeProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds a rate limit key from hashed user and challenge context values.
+   *
+   * @access private
+   *
+   * @param string $userIdentifier the user identity
+   * @param string $purpose the challenge purpose
+   * @param string $channel the delivery channel
+   *
+   * @return string the rate limiter key
+   */
   private function getRateLimitKey(string $userIdentifier, string $purpose, string $channel): string
   {
     $userHash = hash('sha256', $userIdentifier);

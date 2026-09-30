@@ -144,7 +144,15 @@ final class ImportJobOutput
    */
   public string $updatedAt = '';
 
+  // #region Properties
+  /**
+   * Property canConfirm
+   */
   public bool $canConfirm = false;
 
+  /**
+   * Property confirmedJobId
+   */
   public ?string $confirmedJobId = null;
+  // #endregion
 }

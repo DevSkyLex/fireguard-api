@@ -37,6 +37,20 @@ final readonly class UpdateEquipmentProcessor implements ProcessorInterface
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives command dispatch, organization authorization, caller identity, and equipment response assembly for equipment updates.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus port used to dispatch the update command
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
+   * @param Security $security security context used to obtain the acting member
+   * @param EquipmentDetailOutputFactory $outputFactory factory used to assemble the updated equipment response
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -50,12 +64,17 @@ final readonly class UpdateEquipmentProcessor implements ProcessorInterface
   /**
    * Method process.
    *
+   * Checks the authenticated organization context and dispatches the equipment field update with its revision precondition.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param UpdateEquipmentInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return EquipmentOutput the updated equipment
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): EquipmentOutput
   {

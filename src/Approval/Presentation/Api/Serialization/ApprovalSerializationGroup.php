@@ -14,7 +14,13 @@ namespace Approval\Presentation\Api\Serialization;
  */
 final class ApprovalSerializationGroup
 {
+  /**
+   * Constant READ
+   */
   public const string READ = 'Approval:read';
 
+  /**
+   * Constant WRITE
+   */
   public const string WRITE = 'Approval:write';
 }

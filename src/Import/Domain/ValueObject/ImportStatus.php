@@ -20,9 +20,24 @@ use function array_column;
  */
 enum ImportStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case PROCESSING
+   */
   case PROCESSING = 'processing';
+
+  /**
+   * Case COMPLETED
+   */
   case COMPLETED = 'completed';
+
+  /**
+   * Case FAILED
+   */
   case FAILED = 'failed';
 
   // #region Methods

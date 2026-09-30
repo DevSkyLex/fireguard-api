@@ -16,6 +16,22 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
  */
 final readonly class SeedNonConformityFinding
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Provides finding details for a seeded non-conformity.
+   *
+   * @access public
+   *
+   * @param string $id seeded non-conformity identifier
+   * @param InspectionRecord $inspection inspection record that owns the finding
+   * @param string $description finding description
+   * @param string $severity finding severity
+   * @param string $status finding lifecycle status
+   *
+   * @return void
+   */
   public function __construct(
     public string $id,
     public InspectionRecord $inspection,
@@ -24,4 +40,5 @@ final readonly class SeedNonConformityFinding
     public string $status,
   ) {
   }
+  // #endregion
 }

@@ -14,7 +14,13 @@ namespace Billing\Presentation\Api\Serialization;
  */
 final class BillingSerializationGroup
 {
+  /**
+   * Constant READ
+   */
   public const string READ = 'Billing:read';
 
+  /**
+   * Constant WRITE
+   */
   public const string WRITE = 'Billing:write';
 }

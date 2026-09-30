@@ -37,6 +37,9 @@ use function trim;
  */
 final readonly class OrganizationSetupService implements OrganizationSetupPort
 {
+  /**
+   * Constant FIELDS
+   */
   private const array FIELDS = [
     'create_organization' => ['name' => '', 'slug' => null],
     'invite_members' => ['email' => '', 'roleIds' => []],

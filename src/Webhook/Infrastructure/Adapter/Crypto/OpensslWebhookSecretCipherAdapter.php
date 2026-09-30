@@ -40,10 +40,31 @@ use const OPENSSL_RAW_DATA;
 final readonly class OpensslWebhookSecretCipherAdapter implements WebhookSecretCipherPort
 {
   // #region Constants
+  /**
+   * Constant CIPHER_METHOD.
+   *
+   * Authenticated cipher used for webhook secret encryption.
+   *
+   * @access private
+   */
   private const string CIPHER_METHOD = 'aes-256-gcm';
 
+  /**
+   * Constant NONCE_LENGTH.
+   *
+   * Nonce byte length used by the AES-GCM encryption calls.
+   *
+   * @access private
+   */
   private const int NONCE_LENGTH = 12;
 
+  /**
+   * Constant TAG_LENGTH.
+   *
+   * Authentication tag byte length used by the AES-GCM calls.
+   *
+   * @access private
+   */
   private const int TAG_LENGTH = 16;
   // #endregion
 
@@ -63,6 +84,19 @@ final readonly class OpensslWebhookSecretCipherAdapter implements WebhookSecretC
   // #endregion
 
   // #region Methods
+  /**
+   * Method encrypt.
+   *
+   * Encrypts a signing secret using a random nonce and returns the encoded payload.
+   *
+   * @access public
+   *
+   * @param string $plaintext webhook signing secret to encrypt
+   *
+   * @return string base64-encoded nonce, authentication tag, and ciphertext
+   *
+   * @throws WebhookSecretCipherException when encryption fails
+   */
   public function encrypt(string $plaintext): string
   {
     $nonce = random_bytes(self::NONCE_LENGTH);
@@ -92,6 +126,19 @@ final readonly class OpensslWebhookSecretCipherAdapter implements WebhookSecretC
     return base64_encode($nonce . $tag . $ciphertext);
   }
 
+  /**
+   * Method decrypt.
+   *
+   * Decodes and decrypts a stored webhook secret, rejecting malformed or unauthenticated data.
+   *
+   * @access public
+   *
+   * @param string $ciphertext base64-encoded encrypted payload
+   *
+   * @return string decrypted webhook signing secret
+   *
+   * @throws WebhookSecretCipherException when the payload is malformed or cannot be authenticated
+   */
   public function decrypt(string $ciphertext): string
   {
     $raw = base64_decode($ciphertext, true);

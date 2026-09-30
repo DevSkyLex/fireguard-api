@@ -35,10 +35,29 @@ use function in_array;
  */
 enum AssistantMessageStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case STREAMING
+   */
   case STREAMING = 'streaming';
+
+  /**
+   * Case COMPLETE
+   */
   case COMPLETE = 'complete';
+
+  /**
+   * Case FAILED
+   */
   case FAILED = 'failed';
+
+  /**
+   * Case CANCELLED
+   */
   case CANCELLED = 'cancelled';
 
   // #region Methods

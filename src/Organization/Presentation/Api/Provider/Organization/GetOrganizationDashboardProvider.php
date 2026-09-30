@@ -67,6 +67,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    */
   use UnwrapsOrganizationBusFailures;
 
+  /**
+   * Constant INVALID_BOOLEAN_FILTER_MESSAGE
+   */
   private const string INVALID_BOOLEAN_FILTER_MESSAGE = 'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.';
   // #endregion
 

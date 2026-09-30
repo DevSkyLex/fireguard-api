@@ -43,6 +43,9 @@ use function is_string;
 final readonly class PingPresenceHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant PRESENCE_TTL_SECONDS
+   */
   private const int PRESENCE_TTL_SECONDS = 90;
   // #endregion
 

@@ -60,8 +60,8 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     private readonly ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method process
@@ -135,11 +135,34 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     return $output;
   }
 
+  /**
+   * Method isValidOtpCode
+   *
+   * Reports whether valid otp code the requested condition.
+   *
+   * @access private
+   *
+   * @param string $code the submitted code
+   *
+   * @return bool
+   */
   private function isValidOtpCode(string $code): bool
   {
     return strlen($code) === $this->otpCodeLength && ctype_digit($code);
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Enforces the endpoint rate limit for the supplied recipient or request context.
+   *
+   * @access private
+   *
+   * @param string $preAuthToken the pre auth token
+   * @param string $ipAddress the client IP address
+   *
+   * @return void
+   */
   private function enforceRateLimit(string $preAuthToken, string $ipAddress): void
   {
     if (null === $this->rateLimiter) {
@@ -160,6 +183,18 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds the stable rate-limit key for the current request.
+   *
+   * @access private
+   *
+   * @param string $preAuthToken the pre auth token
+   * @param string $ipAddress the client IP address
+   *
+   * @return string
+   */
   private function getRateLimitKey(string $preAuthToken, string $ipAddress): string
   {
     $tokenHash = hash('sha256', $preAuthToken);

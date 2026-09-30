@@ -14,8 +14,19 @@ namespace Organization\Domain\ValueObject;
  */
 enum OrganizationStatus: string
 {
+  /**
+   * Case ACTIVE
+   */
   case ACTIVE = 'active';
+
+  /**
+   * Case SUSPENDED
+   */
   case SUSPENDED = 'suspended';
+
+  /**
+   * Case ARCHIVED
+   */
   case ARCHIVED = 'archived';
   // #region Methods
 

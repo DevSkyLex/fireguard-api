@@ -18,6 +18,26 @@ use Shared\Application\Message\ResultMessage;
 final readonly class NonConformityResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Projects a finding description, severity, lifecycle, resolution data, and timestamps.
+   *
+   * @access public
+   *
+   * @param string $nonConformityId identifier of the finding
+   * @param string $inspectionId inspection containing the finding
+   * @param string $description recorded deficiency description
+   * @param string $severity recorded severity
+   * @param string $status current lifecycle status
+   * @param ?string $dueAt resolution deadline, when set
+   * @param ?string $resolvedAt resolution timestamp, when resolved
+   * @param ?string $notes handling notes, when present
+   * @param DateTimeImmutable $createdAt time the finding was created
+   * @param DateTimeImmutable $updatedAt time the finding was last updated
+   *
+   * @return void
+   */
   public function __construct(
     public string $nonConformityId,
     public string $inspectionId,

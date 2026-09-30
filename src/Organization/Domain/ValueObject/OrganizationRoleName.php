@@ -19,6 +19,9 @@ use function preg_match;
  */
 final readonly class OrganizationRoleName implements Stringable
 {
+  /**
+   * Constant PATTERN
+   */
   private const string PATTERN = '/^[a-z0-9_]{3,50}$/';
 
   // #region Constructor

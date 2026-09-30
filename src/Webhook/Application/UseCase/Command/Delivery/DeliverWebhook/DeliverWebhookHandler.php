@@ -88,8 +88,8 @@ final readonly class DeliverWebhookHandler implements CommandHandler
    * @var int RETRY_MAX_DELAY_SECONDS
    */
   private const int RETRY_MAX_DELAY_SECONDS = 3600;
-  // #endregion
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -113,8 +113,8 @@ final readonly class DeliverWebhookHandler implements CommandHandler
     private int $timeoutSeconds = 10,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method __invoke.
@@ -139,6 +139,17 @@ final readonly class DeliverWebhookHandler implements CommandHandler
     return new VoidResult();
   }
 
+  /**
+   * Method attemptDelivery
+   *
+   * Attempts webhook delivery and records the resulting delivery state.
+   *
+   * @access private
+   *
+   * @param WebhookDelivery $delivery the delivery
+   *
+   * @return void
+   */
   private function attemptDelivery(WebhookDelivery $delivery): void
   {
     $subscription = $this->subscriptionRepository->findById($delivery->subscriptionId());

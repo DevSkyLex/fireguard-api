@@ -28,10 +28,25 @@ use function substr;
 final class OAuth2ScopeVoter extends Voter
 {
   // #region Constants
+  /**
+   * Constant SCOPE_PREFIX
+   */
   private const string SCOPE_PREFIX = 'SCOPE_';
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method supports
+   *
+   * Limits this voter to OAuth2 scope attributes.
+   *
+   * @access protected
+   *
+   * @param string $attribute the attribute
+   * @param mixed $subject the subject
+   *
+   * @return bool
+   */
   protected function supports(string $attribute, mixed $subject): bool
   {
     return str_starts_with(
@@ -40,6 +55,20 @@ final class OAuth2ScopeVoter extends Voter
     );
   }
 
+  /**
+   * Method voteOnAttribute
+   *
+   * Grants access only when the token carries the requested OAuth2 scope.
+   *
+   * @access protected
+   *
+   * @param string $attribute the attribute
+   * @param mixed $subject the subject
+   * @param TokenInterface $token the token
+   * @param ?Vote $vote the optional vote
+   *
+   * @return bool
+   */
   protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
   {
     $user = $token->getUser();

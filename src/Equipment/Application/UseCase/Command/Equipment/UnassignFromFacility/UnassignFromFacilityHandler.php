@@ -23,6 +23,20 @@ use function array_map;
 final readonly class UnassignFromFacilityHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment and tag capabilities plus maintenance and facility context for an unassignment.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load and persist equipment assignment
+   * @param TagRepositoryPort $tagRepository port used by equipment lifecycle handling
+   * @param MaintenanceLogRepositoryPort $maintenanceLogRepository port used to record the assignment change where required
+   * @param FacilityNamingPort $facilityNaming port used to resolve facility context for related records
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,

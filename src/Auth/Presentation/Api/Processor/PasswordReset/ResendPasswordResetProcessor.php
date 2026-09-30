@@ -124,6 +124,20 @@ final readonly class ResendPasswordResetProcessor implements ProcessorInterface
     };
   }
 
+  /**
+   * Method enforceRateLimit.
+   *
+   * Consumes the resend limit keyed by the challenge token and optional client IP.
+   *
+   * @access private
+   *
+   * @param string $token the password reset challenge token
+   * @param string|null $ipAddress the client IP, when available
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the resend limit is exceeded
+   */
   private function enforceRateLimit(string $token, ?string $ipAddress): void
   {
     $key = $this->getRateLimitKey($token, $ipAddress);

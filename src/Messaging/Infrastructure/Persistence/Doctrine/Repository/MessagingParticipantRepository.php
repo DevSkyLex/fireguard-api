@@ -41,6 +41,22 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
   // #endregion
 
   // #region Methods
+  /**
+   * Method addParticipant
+   *
+   * Inserts a participant idempotently so conflicts do not abort the transaction.
+   *
+   * @access public
+   *
+   * @param string $conversationId channel identifier
+   * @param string $organizationId owning organization identifier
+   * @param string $memberId organization member identifier
+   * @param ?string $role optional membership label
+   * @param string $source participant source
+   * @param DateTimeImmutable $addedAt time the participant joined
+   *
+   * @return void
+   */
   public function addParticipant(
     string $conversationId,
     string $organizationId,
@@ -72,6 +88,17 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     );
   }
 
+  /** Method removeParticipant
+   *
+   * Removes one member's participant row from a conversation.
+   *
+   * @access public
+   *
+   * @param string $conversationId channel identifier
+   * @param string $memberId organization member identifier
+   *
+   * @return void
+   */
   public function removeParticipant(string $conversationId, string $memberId): void
   {
     $this->entityManager->getConnection()->executeStatement(
@@ -80,6 +107,17 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     );
   }
 
+  /** Method isParticipant
+   *
+   * Checks whether the member has a participant row in the conversation.
+   *
+   * @access public
+   *
+   * @param string $conversationId channel identifier
+   * @param string $memberId organization member identifier
+   *
+   * @return bool whether the member participates
+   */
   public function isParticipant(string $conversationId, string $memberId): bool
   {
     $count = $this->entityManager->getConnection()->fetchOne(
@@ -90,6 +128,17 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     return is_numeric($count) && ((int) $count) > 0;
   }
 
+  /**
+   * Method listParticipants
+   *
+   * Lists conversation participants ordered by join time.
+   *
+   * @access public
+   *
+   * @param string $conversationId channel identifier
+   *
+   * @return list<ParticipantView> participant projections
+   */
   public function listParticipants(string $conversationId): array
   {
     $conversation = $this->entityManager->getReference(MessagingConversationRecord::class, $conversationId);
@@ -109,6 +158,17 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     ), $records);
   }
 
+  /**
+   * Method listMemberIds
+   *
+   * Lists member identifiers stored for the conversation.
+   *
+   * @access public
+   *
+   * @param string $conversationId channel identifier
+   *
+   * @return list<string> participant identifiers
+   */
   public function listMemberIds(string $conversationId): array
   {
     /** @var list<string> */
@@ -118,6 +178,18 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     );
   }
 
+  /**
+   * Method listChannelIdsForMember
+   *
+   * Lists conversations in which the organization member participates.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization identifier
+   * @param string $memberId member identifier
+   *
+   * @return list<string> conversation identifiers
+   */
   public function listChannelIdsForMember(string $organizationId, string $memberId): array
   {
     /** @var list<string> */
@@ -127,6 +199,18 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     );
   }
 
+  /**
+   * Method findCounterpartMemberIds
+   *
+   * Resolves other participant identifiers for a batch of direct conversations.
+   *
+   * @access public
+   *
+   * @param list<string> $conversationIds direct conversation identifiers
+   * @param string $excludingMemberId member to exclude from results
+   *
+   * @return array<string, string> conversation-to-counterpart mapping
+   */
   public function findCounterpartMemberIds(array $conversationIds, string $excludingMemberId): array
   {
     if ([] === $conversationIds) {
@@ -141,6 +225,19 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     );
   }
 
+  /**
+   * Method replaceParticipants
+   *
+   * Reconciles team-sourced participant rows with the supplied member list.
+   *
+   * @access public
+   *
+   * @param string $conversationId channel identifier
+   * @param string $organizationId organization identifier
+   * @param list<string> $memberIds desired team member identifiers
+   *
+   * @return void
+   */
   public function replaceParticipants(string $conversationId, string $organizationId, array $memberIds): void
   {
     $connection = $this->entityManager->getConnection();
@@ -167,6 +264,18 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     }
   }
 
+  /**
+   * Method removeMemberFromAllChannels
+   *
+   * Removes the member's participant rows across the organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization identifier
+   * @param string $memberId member identifier
+   *
+   * @return void
+   */
   public function removeMemberFromAllChannels(string $organizationId, string $memberId): void
   {
     $this->entityManager->getConnection()->executeStatement(
@@ -175,6 +284,20 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     );
   }
 
+  /**
+   * Method addMemberToChannels
+   *
+   * Adds the member to each supplied channel with the given source label.
+   *
+   * @access public
+   *
+   * @param list<string> $conversationIds channel identifiers
+   * @param string $organizationId organization identifier
+   * @param string $memberId member identifier
+   * @param string $source participant source
+   *
+   * @return void
+   */
   public function addMemberToChannels(array $conversationIds, string $organizationId, string $memberId, string $source): void
   {
     $now = new DateTimeImmutable();
@@ -183,6 +306,18 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     }
   }
 
+  /**
+   * Method removeMemberFromChannels
+   *
+   * Removes the member from the supplied channels.
+   *
+   * @access public
+   *
+   * @param list<string> $conversationIds channel identifiers
+   * @param string $memberId member identifier
+   *
+   * @return void
+   */
   public function removeMemberFromChannels(array $conversationIds, string $memberId): void
   {
     if ([] === $conversationIds) {

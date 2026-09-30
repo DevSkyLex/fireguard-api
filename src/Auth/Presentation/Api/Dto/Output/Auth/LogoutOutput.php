@@ -18,6 +18,9 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class LogoutOutput
 {
+  /**
+   * Constant SUCCESS_MESSAGE
+   */
   private const string SUCCESS_MESSAGE = 'Logged out successfully';
 
   // #region Properties

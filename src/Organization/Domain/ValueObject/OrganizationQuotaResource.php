@@ -21,9 +21,24 @@ use function sprintf;
  */
 enum OrganizationQuotaResource: string
 {
+  /**
+   * Case MEMBERS
+   */
   case MEMBERS = 'members';
+
+  /**
+   * Case FACILITIES
+   */
   case FACILITIES = 'facilities';
+
+  /**
+   * Case EQUIPMENT
+   */
   case EQUIPMENT = 'equipment';
+
+  /**
+   * Case INSPECTIONS
+   */
   case INSPECTIONS = 'inspections';
   // #region Methods
 

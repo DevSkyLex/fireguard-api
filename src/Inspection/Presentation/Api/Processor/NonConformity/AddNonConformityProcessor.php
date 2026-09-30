@@ -26,6 +26,20 @@ final readonly class AddNonConformityProcessor implements ProcessorInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the finding-creation command bus, organization access check, and authenticated actor.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus dispatches non-conformity creation commands
+   * @param OrganizationAuthorizationPort $authorization enforces organization access
+   * @param Security $security resolves the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -33,6 +47,25 @@ final readonly class AddNonConformityProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Creates a non-conformity for the requested inspection after validating the authenticated user.
+   *
+   * @access public
+   *
+   * @param AddNonConformityInput $data the processor input containing non-conformity details
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the organization and inspection route variables
+   * @param array<string, mixed> $context the processor context
+   *
+   * @return NonConformityOutput the created non-conformity output
+   *
+   * @throws AccessDeniedHttpException when the current user is not authenticated
+   * @throws BadRequestHttpException when a required route identifier is missing
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): NonConformityOutput
   {
     /** @var AddNonConformityInput $data */
@@ -98,4 +131,5 @@ final readonly class AddNonConformityProcessor implements ProcessorInterface
 
     return $output;
   }
+  // #endregion
 }

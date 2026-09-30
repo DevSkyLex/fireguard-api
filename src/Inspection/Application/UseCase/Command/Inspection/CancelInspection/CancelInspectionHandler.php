@@ -11,14 +11,49 @@ use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
+/**
+ * Class CancelInspectionHandler
+ *
+ * Cancels a published inspection and dispatches its resulting domain events.
+ *
+ * @category Handler
+ */
 final readonly class CancelInspectionHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the inspection lock and repository used to serialize and persist cancellation.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository loads and saves inspection aggregates
+   * @param EventDispatcherPort $eventDispatcher dispatches events released by the aggregate
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Cancels an inspection after confirming it belongs to the requested organization.
+   *
+   * @access public
+   *
+   * @param CancelInspectionCommand $command the organization and inspection identifiers
+   *
+   * @return CancelInspectionResult the cancelled inspection result
+   *
+   * @throws InspectionNotFoundException when the inspection is absent or outside the organization
+   */
   public function __invoke(CancelInspectionCommand $command): CancelInspectionResult
   {
     $inspectionId = InspectionId::fromString($command->inspectionId);
@@ -50,4 +85,5 @@ final readonly class CancelInspectionHandler implements CommandHandler
       organizationId: $command->organizationId,
     );
   }
+  // #endregion
 }

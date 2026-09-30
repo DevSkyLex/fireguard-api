@@ -22,6 +22,17 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetCanonicalFacilityQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the canonical facility requested by the caller.
+   *
+   * @access public
+   *
+   * @param string $facilityId identifier of the canonical facility to retrieve
+   *
+   * @return void
+   */
   public function __construct(
     public string $facilityId,
   ) {

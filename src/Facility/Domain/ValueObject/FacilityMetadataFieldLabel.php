@@ -23,6 +23,9 @@ use function trim;
 final readonly class FacilityMetadataFieldLabel implements Stringable
 {
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

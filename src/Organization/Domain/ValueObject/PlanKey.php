@@ -24,13 +24,25 @@ use function trim;
  */
 final readonly class PlanKey implements Stringable
 {
+  /**
+   * Constant MIN_LENGTH
+   */
   private const int MIN_LENGTH = 2;
 
+  /**
+   * Constant MAX_LENGTH
+   */
   private const int MAX_LENGTH = 60;
 
+  /**
+   * Constant PATTERN
+   */
   private const string PATTERN = '/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/';
 
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

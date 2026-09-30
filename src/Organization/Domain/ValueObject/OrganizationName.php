@@ -21,6 +21,9 @@ use function trim;
 final readonly class OrganizationName implements Stringable
 {
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

@@ -20,6 +20,19 @@ use Shared\Application\Message\QueryHandler;
 final readonly class ListInspectionAttachmentsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives inspection, non-conformity, and attachment repositories used to validate scope and list files.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to validate the inspection and organization scope
+   * @param NonConformityRepositoryPort $nonConformityRepository port used to validate an optional finding association
+   * @param InspectionAttachmentRepositoryPort $attachmentRepository port used to retrieve matching attachment metadata
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,

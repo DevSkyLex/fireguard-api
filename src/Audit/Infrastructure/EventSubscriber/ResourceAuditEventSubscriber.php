@@ -15,6 +15,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /** Records the resource event family. */
 final readonly class ResourceAuditEventSubscriber extends AbstractAuditEventSubscriber implements EventSubscriberInterface
 {
+  // #region Methods
   /**
    * @return array<string, string>
    */
@@ -250,6 +251,17 @@ final readonly class ResourceAuditEventSubscriber extends AbstractAuditEventSubs
     );
   }
 
+  /**
+   * Method onFacilityPlanGeometryChanged
+   *
+   * Handles facility plan geometry changed the supplied event.
+   *
+   * @access public
+   *
+   * @param FacilityPlanGeometryChangedEvent $event the event to handle
+   *
+   * @return void
+   */
   public function onFacilityPlanGeometryChanged(FacilityPlanGeometryChangedEvent $event): void
   {
     $operation = 'moved';
@@ -274,6 +286,17 @@ final readonly class ResourceAuditEventSubscriber extends AbstractAuditEventSubs
     );
   }
 
+  /**
+   * Method onEquipmentPlanPositionChanged
+   *
+   * Handles equipment plan position changed the supplied event.
+   *
+   * @access public
+   *
+   * @param EquipmentPlanPositionChangedEvent $event the event to handle
+   *
+   * @return void
+   */
   public function onEquipmentPlanPositionChanged(EquipmentPlanPositionChangedEvent $event): void
   {
     $operation = 'moved';
@@ -441,4 +464,5 @@ final readonly class ResourceAuditEventSubscriber extends AbstractAuditEventSubs
       occurredAt: $event->occurredAt,
     );
   }
+  // #endregion
 }

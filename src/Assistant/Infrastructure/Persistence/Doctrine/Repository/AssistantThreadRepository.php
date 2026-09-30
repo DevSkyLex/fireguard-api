@@ -46,6 +46,17 @@ final readonly class AssistantThreadRepository implements AssistantThreadReposit
   // #endregion
 
   // #region Methods
+  /**
+   * Method save.
+   *
+   * Inserts or updates the row for the supplied assistant thread aggregate.
+   *
+   * @access public
+   *
+   * @param AssistantThread $thread the assistant thread aggregate
+   *
+   * @return void no return value
+   */
   public function save(AssistantThread $thread): void
   {
     $record = $this->repository->find((string) $thread->id());
@@ -68,6 +79,17 @@ final readonly class AssistantThreadRepository implements AssistantThreadReposit
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById.
+   *
+   * Loads an assistant thread by its domain identifier.
+   *
+   * @access public
+   *
+   * @param AssistantThreadId $id the assistant thread identifier
+   *
+   * @return ?AssistantThread the aggregate when found
+   */
   public function findById(AssistantThreadId $id): ?AssistantThread
   {
     $record = $this->repository->find((string) $id);
@@ -75,6 +97,20 @@ final readonly class AssistantThreadRepository implements AssistantThreadReposit
     return $record instanceof AssistantThreadRecord ? AssistantThreadMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method listByOrganizationAndMember.
+   *
+   * Lists only the member's threads in the organization, most recently active first.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the owning member identifier
+   * @param int $limit maximum number of threads to return
+   * @param int $offset number of earlier threads to skip
+   *
+   * @return list<AssistantThread> the matching threads
+   */
   public function listByOrganizationAndMember(string $organizationId, string $memberId, int $limit, int $offset): array
   {
     // Alias `t` — never `member`, a reserved DQL keyword.
@@ -94,6 +130,18 @@ final readonly class AssistantThreadRepository implements AssistantThreadReposit
     return array_map(AssistantThreadMapper::toDomain(...), $records);
   }
 
+  /**
+   * Method countByOrganizationAndMember.
+   *
+   * Counts threads belonging to the member within the organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the owning member identifier
+   *
+   * @return int number of matching threads
+   */
   public function countByOrganizationAndMember(string $organizationId, string $memberId): int
   {
     return (int) $this->repository->createQueryBuilder('t')

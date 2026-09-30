@@ -30,7 +30,12 @@ use function preg_match;
  */
 final readonly class FacilityInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort
 {
+  // #region Properties
+  /**
+   * Property patchApplier
+   */
   private FacilityInterventionPatchApplier $patchApplier;
+  // #endregion
 
   /**
    * Constructor.
@@ -69,8 +74,9 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method supports.
    *
-   * Executes the supports operation.
+   * Recognizes canonical facility API resource IRIs handled by this adapter.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resource the resource value
@@ -85,8 +91,9 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method supportsResourceType.
    *
-   * Executes the supports resource type operation.
+   * Reports whether the adapter owns the facility resource type.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionResourceType $type the type value
@@ -101,8 +108,9 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method resourceExists.
    *
-   * Executes the resource exists operation.
+   * Checks whether a facility record exists for the supplied identifier.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -117,8 +125,9 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method resourceBelongsToOrganization.
    *
-   * Executes the resource belongs to organization operation.
+   * Checks that the identified facility belongs to the requested organization.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -136,8 +145,9 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method clientIdExists.
    *
-   * Executes the client id exists operation.
+   * Checks whether a facility already uses the supplied client identifier.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $clientId the client id value
@@ -152,8 +162,9 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method assign.
    *
-   * Executes the assign operation.
+   * Associates a facility with an intervention and sets its draft or published assignment state.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -179,8 +190,9 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method countForIntervention.
    *
-   * Executes the count for intervention operation.
+   * Counts facility records assigned to an intervention.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
@@ -240,13 +252,16 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method apply.
    *
-   * Executes the apply operation.
+   * Delegates an intervention patch to the facility patch applier and maps facility conflicts to intervention conflicts.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $organizationId the organization id value
    * @param string $resource the resource value
    * @param array<string, mixed> $patch the patch value
+   *
+   * @return void no return value
    */
   public function apply(string $organizationId, string $resource, array $patch): void
   {
@@ -260,11 +275,14 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   /**
    * Method publishDrafts.
    *
-   * Executes the publish drafts operation.
+   * Validates draft floor plans, then publishes all facility records assigned to the intervention.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
+   *
+   * @return void no return value
    */
   public function publishDrafts(string $interventionId): void
   {

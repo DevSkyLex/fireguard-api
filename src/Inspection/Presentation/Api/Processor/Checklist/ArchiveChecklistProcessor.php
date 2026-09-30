@@ -27,6 +27,21 @@ final readonly class ArchiveChecklistProcessor implements ProcessorInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides checklist command and query buses, organization authorization, and the authenticated actor.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus dispatches checklist archive commands
+   * @param QueryBusPort $queryBus reads the updated checklist
+   * @param OrganizationAuthorizationPort $authorization enforces organization access
+   * @param Security $security resolves the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
@@ -35,6 +50,25 @@ final readonly class ArchiveChecklistProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Archives the requested checklist after validating the authenticated user and route identifiers.
+   *
+   * @access public
+   *
+   * @param mixed $data the processor input
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the organization and checklist route variables
+   * @param array<string, mixed> $context the processor context
+   *
+   * @return ChecklistOutput the archived checklist output
+   *
+   * @throws AccessDeniedHttpException when the current user is not authenticated
+   * @throws BadRequestHttpException when a required route identifier is missing
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ChecklistOutput
   {
     $user = $this->security->getUser();
@@ -114,4 +148,5 @@ final readonly class ArchiveChecklistProcessor implements ProcessorInterface
 
     return $output;
   }
+  // #endregion
 }

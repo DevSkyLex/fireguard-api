@@ -14,6 +14,13 @@ use Inspection\Presentation\Api\Provider\Checklist\{GetChecklistProvider, ListCh
 use Inspection\Presentation\Api\Serialization\InspectionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
+/**
+ * Class ChecklistResource
+ *
+ * Declares the API Platform resource and operations for organization checklists.
+ *
+ * @category Resource
+ */
 #[ApiResource(
   shortName: 'Checklist',
   routePrefix: '/organizations',
@@ -142,10 +149,31 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class ChecklistResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER.
+   *
+   * Authentication expression applied to checklist operations.
+   *
+   * @access private
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FORBIDDEN_DESCRIPTION.
+   *
+   * OpenAPI description for insufficient organization permissions.
+   *
+   * @access private
+   */
   private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant NOT_FOUND_DESCRIPTION.
+   *
+   * OpenAPI description for a checklist that cannot be found.
+   *
+   * @access private
+   */
   private const string NOT_FOUND_DESCRIPTION = 'Checklist not found';
   // #endregion
 }

@@ -48,9 +48,22 @@ final readonly class MaintenanceScheduleService implements MaintenanceSchedulePo
     private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort $inspectionHistory,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method onInspectionClosed
+   *
+   * Handles inspection closed the supplied event.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $equipmentId the equipment identifier
+   * @param DateTimeImmutable $closedAt the closed time
+   *
+   * @return void
+   */
   public function onInspectionClosed(string $organizationId, string $equipmentId, DateTimeImmutable $closedAt): void
   {
     $this->locks->synchronized($organizationId, $equipmentId, fn () => $this->recompute($organizationId, $equipmentId, $closedAt));
@@ -64,6 +77,19 @@ final readonly class MaintenanceScheduleService implements MaintenanceSchedulePo
     $this->locks->synchronized($organizationId, $equipmentId, fn () => $this->recompute($organizationId, $equipmentId));
   }
 
+  /**
+   * Method recompute
+   *
+   * Recomputes the next maintenance schedule after an intervention closes.
+   *
+   * @access private
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $equipmentId the equipment identifier
+   * @param ?DateTimeImmutable $closedAt the optional closed time
+   *
+   * @return void
+   */
   private function recompute(string $organizationId, string $equipmentId, ?DateTimeImmutable $closedAt = null): void
   {
     $equipment = $this->directory->findEquipment($equipmentId);

@@ -10,7 +10,7 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * DTO CreateOrganizationRoleInput.
+ * Class CreateOrganizationRoleInput
  *
  * @category DTO
  * @version 1.0.0
@@ -19,22 +19,26 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class CreateOrganizationRoleInput
 {
+  // #region Properties
+  /**
+   * Property name
+   *
+   * @since 1.0.0
+   */
   #[Assert\NotBlank(message: 'Role name is required.')]
   #[Assert\Regex(
     pattern: '/^[a-z0-9_]{3,50}$/',
     message: 'Role name must be 3-50 chars, lowercase alphanumeric or underscore.',
-    // #region Properties
-    /**
-     * Property name.
-     *
-     * @since 1.0.0
-     */
   )]
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Role name', required: true, example: 'inspector')]
   public string $name = '';
 
   /**
+   * Property permissions
+   *
+   * @since 1.0.0
+   *
    * @var list<string>
    */
   #[Assert\NotBlank(message: 'At least one permission is required.')]
@@ -42,17 +46,12 @@ final class CreateOrganizationRoleInput
     new Assert\Type(type: 'string'),
     new Assert\NotBlank(message: 'Permission cannot be blank.'),
   ])]
-  /**
-   * Property permissions.
-   *
-   * @since 1.0.0
-   */
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Role permissions', required: true, example: ['organization.read', 'organization.members.read'])]
   public array $permissions = [];
 
   /**
-   * Property description.
+   * Property description
    *
    * @since 1.0.0
    */

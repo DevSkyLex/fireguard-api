@@ -20,6 +20,18 @@ use Shared\Application\Message\CommandHandler;
 final readonly class RemoveTagFromEquipmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment and tag repositories used to verify scope and remove the association.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load the organization-scoped equipment
+   * @param TagRepositoryPort $tagRepository port used to remove the tag association
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,

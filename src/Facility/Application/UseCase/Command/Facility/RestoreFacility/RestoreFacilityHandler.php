@@ -16,14 +16,52 @@ use Throwable;
 use function str_contains;
 use function strtolower;
 
+/**
+ * Class RestoreFacilityHandler
+ *
+ * Restores a facility within its organization and emits an event only after a persisted state transition.
+ *
+ * @category UseCase
+ */
 final readonly class RestoreFacilityHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies facility persistence and post-save event dispatch.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository facility lookup and persistence
+   * @param EventDispatcherPort $eventDispatcher dispatcher for the committed restoration event
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Restores an organization-scoped facility after validating its parent and translates persistence constraints.
+   *
+   * @access public
+   *
+   * @param RestoreFacilityCommand $command facility and organization identifiers
+   *
+   * @return RestoreFacilityResult restored facility snapshot
+   *
+   * @throws FacilityNotFoundException when the facility or parent is outside the organization or missing
+   * @throws FacilityArchivedException when its parent facility is inactive
+   * @throws FacilityOrganizationNotFoundException when the organization foreign key no longer exists
+   */
   public function __invoke(RestoreFacilityCommand $command): RestoreFacilityResult
   {
     $facilityId = FacilityId::fromString($command->facilityId);
@@ -89,6 +127,17 @@ final readonly class RestoreFacilityHandler implements CommandHandler
     );
   }
 
+  /**
+   * Method isOrganizationConstraintViolation
+   *
+   * Checks the exception chain for a facility-to-organization foreign-key failure.
+   *
+   * @access private
+   *
+   * @param Throwable $exception persistence exception to inspect
+   *
+   * @return bool whether the chain contains the organization constraint violation
+   */
   private function isOrganizationConstraintViolation(Throwable $exception): bool
   {
     $current = $exception;
@@ -107,4 +156,5 @@ final readonly class RestoreFacilityHandler implements CommandHandler
 
     return false;
   }
+  // #endregion
 }

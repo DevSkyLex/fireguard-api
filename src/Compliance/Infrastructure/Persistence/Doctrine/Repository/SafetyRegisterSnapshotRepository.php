@@ -14,7 +14,9 @@ use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use function array_map;
 
 /**
- * Repository SafetyRegisterSnapshotRepository.
+ * Class SafetyRegisterSnapshotRepository
+ *
+ * Persists and retrieves organization-scoped archived safety register snapshots.
  *
  * Persists archived safety register snapshots on the **main** database
  * (`compliance_register_snapshots`). Wired with the explicit
@@ -36,11 +38,16 @@ final readonly class SafetyRegisterSnapshotRepository implements SafetyRegisterS
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
+   * Creates the repository and prepares the snapshot record repository.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the Doctrine entity manager
+   *
+   * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -50,6 +57,17 @@ final readonly class SafetyRegisterSnapshotRepository implements SafetyRegisterS
   // #endregion
 
   // #region Methods
+  /**
+   * Method save
+   *
+   * Persists a new immutable snapshot record and flushes it to the main database.
+   *
+   * @access public
+   *
+   * @param SafetyRegisterSnapshot $snapshot snapshot aggregate to archive
+   *
+   * @return void
+   */
   public function save(SafetyRegisterSnapshot $snapshot): void
   {
     $record = new SafetyRegisterSnapshotRecord();
@@ -59,6 +77,18 @@ final readonly class SafetyRegisterSnapshotRepository implements SafetyRegisterS
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findForOrganization
+   *
+   * Finds a snapshot only when both its identifier and organization match.
+   *
+   * @access public
+   *
+   * @param SafetyRegisterSnapshotId $id snapshot identifier
+   * @param string $organizationId organization scope
+   *
+   * @return SafetyRegisterSnapshot|null snapshot aggregate, or null when outside the scope or absent
+   */
   public function findForOrganization(SafetyRegisterSnapshotId $id, string $organizationId): ?SafetyRegisterSnapshot
   {
     $record = $this->repository->findOneBy([
@@ -69,6 +99,19 @@ final readonly class SafetyRegisterSnapshotRepository implements SafetyRegisterS
     return $record instanceof SafetyRegisterSnapshotRecord ? SafetyRegisterSnapshotMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method listByOrganization
+   *
+   * Lists an organization’s snapshots newest first with offset pagination.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope
+   * @param int $limit maximum number of snapshots
+   * @param int $offset zero-based row offset
+   *
+   * @return list<SafetyRegisterSnapshot> snapshot aggregates
+   */
   public function listByOrganization(string $organizationId, int $limit, int $offset): array
   {
     $queryBuilder = $this->entityManager->createQueryBuilder()
@@ -87,6 +130,17 @@ final readonly class SafetyRegisterSnapshotRepository implements SafetyRegisterS
     return array_map(SafetyRegisterSnapshotMapper::toDomain(...), $records);
   }
 
+  /**
+   * Method countByOrganization
+   *
+   * Counts archived snapshots belonging to one organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope
+   *
+   * @return int number of snapshots in the scope
+   */
   public function countByOrganization(string $organizationId): int
   {
     return (int) $this->entityManager->createQueryBuilder()

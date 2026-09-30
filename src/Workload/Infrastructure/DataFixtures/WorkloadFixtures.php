@@ -28,14 +28,29 @@ use Workload\Infrastructure\Persistence\Doctrine\Record\{CapacityExceptionRecord
  */
 final readonly class WorkloadFixtures implements FixtureInterface, FixtureGroupInterface
 {
+  /**
+   * Constant ORGANIZATION
+   */
   private const string ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 
+  /**
+   * Constant OWNER
+   */
   private const string OWNER = '11111111-1111-4111-8111-111111111115';
 
+  /**
+   * Constant FIELD_TECHNICIAN
+   */
   private const string FIELD_TECHNICIAN = '0034f559-02ce-4ddb-a8b7-2e47dbc0be2c';
 
+  /**
+   * Constant PARIS_TECHNICIAN
+   */
   private const string PARIS_TECHNICIAN = '126b5cfc-208e-48b0-ae88-7bd97a1eecf8';
 
+  /**
+   * Constant COORDINATOR
+   */
   private const string COORDINATOR = '853db03d-8a54-4c57-9faa-822de84c93f4';
 
   // #region Methods

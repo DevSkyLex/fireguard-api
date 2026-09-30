@@ -26,7 +26,9 @@ use function str_contains;
 use function trim;
 
 /**
- * Command AddOrganizationAdminConsoleCommand.
+ * Class AddOrganizationAdminConsoleCommand
+ *
+ * Adds an existing user to an organization with the owner role through an operator command.
  *
  * @category Console Command
  * @version 1.0.0
@@ -40,20 +42,30 @@ use function trim;
 )]
 final class AddOrganizationAdminConsoleCommand extends Command
 {
+  /**
+   * Constant OWNER_ROLE_NAME
+   *
+   * Role assigned by this recovery command.
+   *
+   * @access private
+   */
   private const string OWNER_ROLE_NAME = 'owner';
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
-   * Initializes a new instance of the AddOrganizationAdminConsoleCommand class.
+   * Supplies command dispatch and user, organization and role lookup capabilities.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
    * @param UserRepositoryPort $userRepository the user repository
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationRoleRepositoryPort $organizationRoleRepository the organization role repository
+   *
+   * @return void
    */
   public function __construct(
     private readonly CommandBusPort $commandBus,
@@ -72,7 +84,10 @@ final class AddOrganizationAdminConsoleCommand extends Command
    *
    * Configures the command.
    *
+   * @access protected
    * @since 1.0.0
+   *
+   * @return void
    */
   protected function configure(): void
   {
@@ -106,6 +121,7 @@ HELP
    *
    * Executes the command.
    *
+   * @access protected
    * @since 1.0.0
    *
    * @param InputInterface $input the input
@@ -138,6 +154,19 @@ HELP
     return $this->addAdmin($io, $organizationIdStr, $userIdentifier);
   }
 
+  /**
+   * Method addAdmin
+   *
+   * Resolves the organization and user, then assigns the owner role through the command bus.
+   *
+   * @access private
+   *
+   * @param SymfonyStyle $io console output and error renderer
+   * @param string $organizationIdStr supplied organization identifier
+   * @param string $userIdentifier supplied user UUID or email
+   *
+   * @return int console success or failure status
+   */
   private function addAdmin(SymfonyStyle $io, string $organizationIdStr, string $userIdentifier): int
   {
     $organizationId = $this->resolveOrganizationId($io, $organizationIdStr);
@@ -153,6 +182,18 @@ HELP
     return $this->assignOwnerRole($io, $organizationId, $organizationIdStr, $userId, $userIdentifier);
   }
 
+  /**
+   * Method resolveOrganizationId
+   *
+   * Validates the organization identifier and confirms the organization exists.
+   *
+   * @access private
+   *
+   * @param SymfonyStyle $io console output and error renderer
+   * @param string $organizationIdStr supplied organization identifier
+   *
+   * @return OrganizationId|null validated identifier, or null after a reported lookup failure
+   */
   private function resolveOrganizationId(SymfonyStyle $io, string $organizationIdStr): ?OrganizationId
   {
     try {
@@ -174,6 +215,18 @@ HELP
     return $organizationId;
   }
 
+  /**
+   * Method resolveAdminUserId
+   *
+   * Resolves the supplied UUID or email and reports lookup failures to the console.
+   *
+   * @access private
+   *
+   * @param SymfonyStyle $io console output and error renderer
+   * @param string $userIdentifier supplied user UUID or email
+   *
+   * @return string|null resolved user identifier, or null after a reported lookup failure
+   */
   private function resolveAdminUserId(SymfonyStyle $io, string $userIdentifier): ?string
   {
     try {
@@ -185,6 +238,21 @@ HELP
     }
   }
 
+  /**
+   * Method assignOwnerRole
+   *
+   * Dispatches owner membership creation with quota enforcement disabled for the operator recovery path.
+   *
+   * @access private
+   *
+   * @param SymfonyStyle $io console output and error renderer
+   * @param OrganizationId $organizationId validated organization identifier
+   * @param string $organizationIdStr original organization identifier for messages and command input
+   * @param string $userId resolved user identifier
+   * @param string $userIdentifier original UUID or email for messages
+   *
+   * @return int console success or failure status
+   */
   private function assignOwnerRole(SymfonyStyle $io, OrganizationId $organizationId, string $organizationIdStr, string $userId, string $userIdentifier): int
   {
     // Find the owner role for this organization

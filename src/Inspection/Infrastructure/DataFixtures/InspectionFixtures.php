@@ -21,35 +21,153 @@ use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
 use function intdiv;
 use function sprintf;
 
+/**
+ * Class InspectionFixtures
+ *
+ * Seeds representative checklists, inspections and non-conformity records.
+ *
+ * @category DataFixtures
+ */
 final class InspectionFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
+  // #region Constants
+  /** Constant CHECKLIST_REFERENCE
+   *
+   * Fixture reference for the monthly checklist.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string CHECKLIST_REFERENCE = 'inspection-seed-checklist';
 
+  /** Constant ANNUAL_CHECKLIST_REFERENCE
+   *
+   * Fixture reference for the annual checklist.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string ANNUAL_CHECKLIST_REFERENCE = 'inspection-seed-annual-checklist';
 
+  /** Constant PASSING_INSPECTION_REFERENCE
+   *
+   * Fixture reference for a passing inspection.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string PASSING_INSPECTION_REFERENCE = 'inspection-seed-pass';
 
+  /** Constant FAILING_INSPECTION_REFERENCE
+   *
+   * Fixture reference for a failing inspection.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string FAILING_INSPECTION_REFERENCE = 'inspection-seed-fail';
 
+  /** Constant TREND_CHECKLIST_ID
+   *
+   * Stable identifier used by the inspection trend fixtures.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string TREND_CHECKLIST_ID = 'e6f5fe61-910b-4cd0-8d09-72af38405c64';
 
+  /** Constant ADMIN_USER_NAME
+   *
+   * Display name assigned to the seeded administrator inspector.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ADMIN_USER_NAME = 'Admin User';
 
+  /** Constant TEST_USER_NAME
+   *
+   * Display name assigned to the seeded test inspector.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string TEST_USER_NAME = 'Test User';
 
+  /** Constant EXTERNAL_SAFETY_SERVICES_NAME
+   *
+   * Name used for a seeded external inspector.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string EXTERNAL_SAFETY_SERVICES_NAME = 'External Safety Services';
 
+  /** Constant SAFE_CHECK_CONSULTANTS_NAME
+   *
+   * Name used for a seeded external inspection provider.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string SAFE_CHECK_CONSULTANTS_NAME = 'SafeCheck Consultants';
 
+  /** Constant APRIL_ELEVENTH_DUE_AT
+   *
+   * Due timestamp used by an April seeded non-conformity.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string APRIL_ELEVENTH_DUE_AT = '2026-04-11T12:00:00+00:00';
 
+  /** Constant AQUAFIRE_MAINTENANCE_NAME
+   *
+   * Name used for the seeded AquaFire maintenance inspector.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string AQUAFIRE_MAINTENANCE_NAME = 'AquaFire Maintenance';
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method getGroups
+   *
+   * Returns the groups used to load inspection fixtures.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return list<string> fixture group names
+   */
   public static function getGroups(): array
   {
     return ['inspection', 'main-seed'];
   }
 
+  /**
+   * Method getDependencies
+   *
+   * Declares organization, facility and equipment fixture prerequisites.
+   *
+   * @access public
+   *
+   * @return list<class-string> fixture dependencies
+   */
   public function getDependencies(): array
   {
     return [
@@ -59,6 +177,17 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ];
   }
 
+  /**
+   * Method load
+   *
+   * Seeds checklist and inspection data for the configured organization.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   *
+   * @return void
+   */
   public function load(ObjectManager $manager): void
   {
     /** @var OrganizationRecord $organization */
@@ -80,6 +209,18 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->flush();
   }
 
+  /**
+   * Method seedMonthlyChecklist
+   *
+   * Creates the checklist used by recurring inspection seed data.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   *
+   * @return ChecklistRecord seeded checklist record
+   */
   private function seedMonthlyChecklist(ObjectManager $manager, OrganizationRecord $organization): ChecklistRecord
   {
 
@@ -255,6 +396,19 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ];
   }
 
+  /**
+   * Method seedAprilCoreInspections
+   *
+   * Creates the core inspections dated in April.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   * @param ChecklistRecord $checklist monthly checklist
+   *
+   * @return void
+   */
   private function seedAprilCoreInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
   {
     /** @var EquipmentRecord $extinguisher */
@@ -520,6 +674,18 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
   }
 
+  /**
+   * Method seedAnnualChecklist
+   *
+   * Creates the annual checklist used by yearly inspection examples.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   *
+   * @return ChecklistRecord seeded annual checklist
+   */
   private function seedAnnualChecklist(ObjectManager $manager, OrganizationRecord $organization): ChecklistRecord
   {
 
@@ -554,6 +720,19 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     return $annualChecklist;
   }
 
+  /**
+   * Method seedAnnualWinterInspections
+   *
+   * Creates the winter inspection fixtures linked to the annual checklist.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   * @param ChecklistRecord $annualChecklist annual checklist
+   *
+   * @return void
+   */
   private function seedAnnualWinterInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $annualChecklist): void
   {
     /** @var EquipmentRecord $hydrant */
@@ -661,6 +840,20 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
   }
 
+  /**
+   * Method seedSpringInspections
+   *
+   * Creates spring inspection examples using monthly and annual checklists.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   * @param ChecklistRecord $checklist monthly checklist
+   * @param ChecklistRecord $annualChecklist annual checklist
+   *
+   * @return void
+   */
   private function seedSpringInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
   {
     /** @var EquipmentRecord $heatDetector */
@@ -756,6 +949,20 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
   }
 
+  /**
+   * Method seedJanuaryInspections
+   *
+   * Creates January inspection examples for the monthly and annual checklists.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   * @param ChecklistRecord $checklist monthly checklist
+   * @param ChecklistRecord $annualChecklist annual checklist
+   *
+   * @return void
+   */
   private function seedJanuaryInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
   {
     /** @var EquipmentRecord $extinguisher */
@@ -899,6 +1106,19 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($janSprinklerInspection);
   }
 
+  /**
+   * Method seedFebruaryInspections
+   *
+   * Creates February inspection examples for the monthly checklist.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   * @param ChecklistRecord $checklist monthly checklist
+   *
+   * @return void
+   */
   private function seedFebruaryInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
   {
     /** @var EquipmentRecord $heatDetector */
@@ -971,6 +1191,20 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
   }
 
+  /**
+   * Method seedMarchAprilInspections
+   *
+   * Creates March and April inspection examples for both checklist versions.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   * @param ChecklistRecord $checklist monthly checklist
+   * @param ChecklistRecord $annualChecklist annual checklist
+   *
+   * @return void
+   */
   private function seedMarchAprilInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
   {
     /** @var EquipmentRecord $sprinkler */
@@ -1144,6 +1378,19 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($aprHeatDetectorInspection);
   }
 
+  /**
+   * Method seedAdditionalEquipmentInspections
+   *
+   * Adds inspection rows across the seeded equipment collection.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param OrganizationRecord $organization owning organization
+   * @param ChecklistRecord $checklist checklist assigned to the inspections
+   *
+   * @return void
+   */
   private function seedAdditionalEquipmentInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
   {
     $indexes = ['inspection' => 0, 'nonConformity' => 0];
@@ -1222,6 +1469,22 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     }
   }
 
+  /**
+   * Method seedAdditionalNonConformity
+   *
+   * Creates a deterministic non-conformity finding for an additional inspection.
+   *
+   * @access private
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   * @param InspectionRecord $inspection inspection owning the finding
+   * @param string $result inspection result used to select finding severity
+   * @param DateTimeImmutable $performedAt inspection time
+   * @param string $locationLabel equipment or location description
+   * @param int $nonConformityIndex index used to vary seeded values
+   *
+   * @return void
+   */
   private function seedAdditionalNonConformity(
     ObjectManager $manager,
     InspectionRecord $inspection,
@@ -1270,6 +1533,20 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
   }
 
+  /**
+   * Method createInspection
+   *
+   * Creates an inspection record from its seed identity and observation.
+   *
+   * @access private
+   *
+   * @param OrganizationRecord $organization owning organization
+   * @param SeedInspectionIdentity $identity identifiers and associations
+   * @param SeedInspectionObservation $observation inspection values
+   * @param ?string $notes optional inspection notes
+   *
+   * @return InspectionRecord created inspection record
+   */
   private function createInspection(
     OrganizationRecord $organization,
     SeedInspectionIdentity $identity,
@@ -1296,6 +1573,19 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     return $inspection;
   }
 
+  /**
+   * Method createNonConformity
+   *
+   * Creates a non-conformity record from its finding and timeline values.
+   *
+   * @access private
+   *
+   * @param SeedNonConformityFinding $finding finding details
+   * @param SeedNonConformityTimeline $timeline lifecycle timestamps
+   * @param ?string $notes optional notes
+   *
+   * @return NonConformityRecord created record
+   */
   private function createNonConformity(
     SeedNonConformityFinding $finding,
     SeedNonConformityTimeline $timeline,
@@ -1315,4 +1605,5 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     return $nonConformity;
   }
+  // #endregion
 }

@@ -9,6 +9,21 @@ namespace Inspection\Application\Contract\Inspection;
  */
 final readonly class InspectionExecutionCriteria
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Groups result, status, and performed-time filters for inspection reads.
+   *
+   * @access public
+   *
+   * @param ?string $result optional inspection result filter
+   * @param ?string $status optional inspection lifecycle status filter
+   * @param ?string $performedAtFrom inclusive lower bound for performed time, when supplied
+   * @param ?string $performedAtTo inclusive upper bound for performed time, when supplied
+   *
+   * @return void
+   */
   public function __construct(
     public ?string $result = null,
     public ?string $status = null,
@@ -16,4 +31,5 @@ final readonly class InspectionExecutionCriteria
     public ?string $performedAtTo = null,
   ) {
   }
+  // #endregion
 }

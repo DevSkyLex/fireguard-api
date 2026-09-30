@@ -37,6 +37,9 @@ final class ConversationOutputFactory
     'channel' => 'channels',
   ];
 
+  /**
+   * Constant ORGANIZATION_IRI_PREFIX
+   */
   private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
   // #endregion
 

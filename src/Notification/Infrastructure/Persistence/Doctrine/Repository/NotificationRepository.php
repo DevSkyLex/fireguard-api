@@ -22,7 +22,9 @@ use function min;
 use function sprintf;
 
 /**
- * Repository NotificationRepository.
+ * Class NotificationRepository
+ *
+ * Queries and persists notification records for recipient-scoped inbox operations.
  *
  * @category Repository
  * @version 1.0.0
@@ -32,8 +34,22 @@ use function sprintf;
 final readonly class NotificationRepository implements NotificationRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant RECIPIENT_PREDICATE
+   *
+   * Shared recipient condition for notification queries.
+   *
+   * @access private
+   */
   private const string RECIPIENT_PREDICATE = 'n.recipientUserId = :userId';
 
+  /**
+   * Constant ORGANIZATION_PREDICATE
+   *
+   * Shared organization condition applied when an organization filter is supplied.
+   *
+   * @access private
+   */
   private const string ORGANIZATION_PREDICATE = 'n.organizationId = :organizationId';
   // #endregion
 
@@ -46,11 +62,16 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
+   * Creates the repository and prepares its notification record repository.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the Doctrine entity manager
+   *
+   * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -60,6 +81,17 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
   // #endregion
 
   // #region Methods
+  /**
+   * Method save
+   *
+   * Inserts or updates the persisted record for a notification aggregate.
+   *
+   * @access public
+   *
+   * @param Notification $notification notification aggregate to persist
+   *
+   * @return void
+   */
   public function save(Notification $notification): void
   {
     $record = NotificationMapper::toRecord($notification);
@@ -85,6 +117,18 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findByIdForUser
+   *
+   * Finds a notification only when its recipient matches the supplied user.
+   *
+   * @access public
+   *
+   * @param NotificationId $id notification identifier
+   * @param string $userId recipient user identifier
+   *
+   * @return Notification|null notification aggregate, or null when not found for that user
+   */
   public function findByIdForUser(NotificationId $id, string $userId): ?Notification
   {
     $record = $this->repository->findOneBy([
@@ -99,6 +143,22 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     return NotificationMapper::toDomain($record);
   }
 
+  /**
+   * Method findByUserId
+   *
+   * Lists recipient notifications after applying filters, ordering, pagination, and an optional cursor.
+   *
+   * @access public
+   *
+   * @param string $userId recipient user identifier
+   * @param NotificationListCriteria $criteria list and visibility filters
+   * @param int $limit maximum number of results before the repository cap
+   * @param int $offset zero-based result offset
+   * @param DateTimeImmutable|null $before optional strict creation-time cutoff
+   * @param InboxCursor|null $cursor optional composite inbox position
+   *
+   * @return list<Notification> matching notification aggregates
+   */
   public function findByUserId(
     string $userId,
     NotificationListCriteria $criteria = new NotificationListCriteria(),
@@ -142,6 +202,18 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     );
   }
 
+  /**
+   * Method countByUserId
+   *
+   * Counts recipient notifications matching the supplied list and visibility filters.
+   *
+   * @access public
+   *
+   * @param string $userId recipient user identifier
+   * @param NotificationListCriteria $criteria list and visibility filters
+   *
+   * @return int matching notification count
+   */
   public function countByUserId(
     string $userId,
     NotificationListCriteria $criteria = new NotificationListCriteria(),
@@ -158,6 +230,18 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
 
+  /**
+   * Method countUnreadByUserId
+   *
+   * Counts unread notifications for a recipient, optionally limited to one organization.
+   *
+   * @access public
+   *
+   * @param string $userId recipient user identifier
+   * @param string|null $organizationId optional organization identifier
+   *
+   * @return int unread notification count
+   */
   public function countUnreadByUserId(string $userId, ?string $organizationId = null): int
   {
     $qb = $this->entityManager->createQueryBuilder()
@@ -175,6 +259,19 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
 
+  /**
+   * Method markAllAsReadForUser
+   *
+   * Marks all unread notifications for a recipient as read, optionally within one organization.
+   *
+   * @access public
+   *
+   * @param string $userId recipient user identifier
+   * @param string|null $organizationId optional organization identifier
+   * @param DateTimeImmutable|null $readAt read timestamp, defaulting to the current time
+   *
+   * @return int number of rows reported as updated by Doctrine
+   */
   public function markAllAsReadForUser(string $userId, ?string $organizationId = null, ?DateTimeImmutable $readAt = null): int
   {
     $now = $readAt ?? new DateTimeImmutable();

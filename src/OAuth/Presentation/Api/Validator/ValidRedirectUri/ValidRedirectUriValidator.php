@@ -22,6 +22,9 @@ use function parse_url;
  */
 final class ValidRedirectUriValidator extends ConstraintValidator
 {
+  /**
+   * Constant URI_PLACEHOLDER
+   */
   private const string URI_PLACEHOLDER = '{{ uri }}';
 
   // #region Methods

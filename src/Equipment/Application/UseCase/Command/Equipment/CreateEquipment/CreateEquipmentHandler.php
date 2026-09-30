@@ -30,6 +30,9 @@ use ValueError;
 final readonly class CreateEquipmentHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant SETUP_JOURNAL_UNAVAILABLE_MESSAGE
+   */
   private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
   // #endregion
 

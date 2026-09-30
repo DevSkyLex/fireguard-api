@@ -38,6 +38,7 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
 {
   use InterventionWorkflowExceptionMapperTrait;
 
+  // #region Constructor
   /**
    * Constructor.
    *
@@ -58,11 +59,14 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
   /**
    * Method process.
    *
-   * Executes the process operation.
+   * Routes template create, update and delete inputs to their commands and maps workflow failures to API errors.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param mixed $data the data value
@@ -97,6 +101,18 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
     }
   }
 
+  /**
+   * Method create
+   *
+   * Creates an intervention template for the authenticated organization member.
+   *
+   * @access private
+   *
+   * @param CreateInterventionTemplateInput $data the data
+   * @param SecurityUser $user the user
+   *
+   * @return InterventionTemplateOutput
+   */
   private function create(CreateInterventionTemplateInput $data, SecurityUser $user): InterventionTemplateOutput
   {
     /** @var CreateInterventionTemplateResult $result */
@@ -117,6 +133,19 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
     return $this->mapper->fromView($result->template);
   }
 
+  /**
+   * Method update
+   *
+   * Updates an existing intervention template after resolving its organization scope.
+   *
+   * @access private
+   *
+   * @param UpdateInterventionTemplateInput $data the data
+   * @param SecurityUser $user the user
+   * @param ?string $id the identifier
+   *
+   * @return InterventionTemplateOutput
+   */
   private function update(UpdateInterventionTemplateInput $data, SecurityUser $user, ?string $id): InterventionTemplateOutput
   {
     if (null === $id) {
@@ -174,8 +203,9 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
   /**
    * Method user.
    *
-   * Executes the user operation.
+   * Returns the authenticated security user or rejects the request when no supported user is present.
    *
+   * @access private
    * @since 1.0.0
    *
    * @return SecurityUser the user result
@@ -189,4 +219,5 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
 
     return $user;
   }
+  // #endregion
 }

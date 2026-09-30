@@ -19,15 +19,23 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
  */
 final class UpdatePresencePreferenceInput
 {
+  // #region Properties
+  /**
+   * Property doNotDisturb
+   */
   #[Groups(['presence-preference:write'])]
   #[Assert\Type('bool')]
   #[ApiProperty(openapiContext: ['type' => 'boolean'])]
   public mixed $doNotDisturb = null;
 
+  /**
+   * Property invisible
+   */
   #[Groups(['presence-preference:write'])]
   #[Assert\Type('bool')]
   #[ApiProperty(openapiContext: ['type' => 'boolean'])]
   public mixed $invisible = null;
+  // #endregion
 
   /**
    * Require at least one explicit boolean while allowing independent partial updates.

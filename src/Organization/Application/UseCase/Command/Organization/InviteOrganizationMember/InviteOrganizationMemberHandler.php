@@ -46,12 +46,27 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
   use InvitationInvalidationTrait;
 
   // #region Constants
+  /**
+   * Constant SETUP_JOURNAL_UNAVAILABLE_MESSAGE.
+   *
+   * Error text used when setup-context invitations cannot access journaling.
+   */
   private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
-  // #endregion
 
+  /**
+   * Constant DEFAULT_MEMBER_ROLE.
+   *
+   * Role assigned when an invitation contains no explicit roles.
+   */
   private const string DEFAULT_MEMBER_ROLE = 'member';
 
+  /**
+   * Constant DEFAULT_EXPIRATION_DAYS.
+   *
+   * Default validity period for a new organization invitation.
+   */
   private const int DEFAULT_EXPIRATION_DAYS = 7;
+  // #endregion
 
   // #region Constructor
   /**
@@ -184,6 +199,23 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     return $this->deliverInvitation($command, $invitation, (string) $organization->name(), $acceptUrl, $recipientUserId, $emailLocale, $tokenHash) ?? $result;
   }
 
+  /**
+   * Method deliverInvitation.
+   *
+   * Sends the invitation and revokes it when email delivery fails.
+   *
+   * @access private
+   *
+   * @param InviteOrganizationMemberCommand $command the invitation request
+   * @param OrganizationInvitation $invitation the persisted invitation
+   * @param string $organizationName the organization display name
+   * @param string $acceptUrl the generated acceptance URL
+   * @param ?string $recipientUserId the existing recipient user identifier
+   * @param string $emailLocale the recipient's email locale
+   * @param string $tokenHash the stored invitation token hash
+   *
+   * @return ?InviteOrganizationMemberResult the revoked invitation result, when delivery failure invalidates it
+   */
   private function deliverInvitation(InviteOrganizationMemberCommand $command, OrganizationInvitation $invitation, string $organizationName, string $acceptUrl, ?string $recipientUserId, string $emailLocale, string $tokenHash): ?InviteOrganizationMemberResult
   {
     $notification = null;
@@ -244,6 +276,21 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     return null;
   }
 
+  /**
+   * Method assertCanInvite.
+   *
+   * Rejects duplicate pending invitations and invitations to active members.
+   *
+   * @access private
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param Email $email the invitee email address
+   * @param ?string $existingUserId the local user identifier, when the email is registered
+   *
+   * @return void no return value
+   *
+   * @throws OrganizationMembershipConflictException when an active member or live invitation already exists
+   */
   private function assertCanInvite(OrganizationId $organizationId, Email $email, ?string $existingUserId): void
   {
     $pendingInvitation = $this->invitationRepository->findPendingByOrganizationAndEmail(

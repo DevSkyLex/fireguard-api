@@ -43,6 +43,20 @@ final readonly class MessagingMediaProvider implements ProviderInterface
   use MessagingExceptionMapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Queries and maps paginated attachment metadata for a conversation.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus bus used to dispatch the attachment-list query
+   * @param MessageAttachmentOutputFactory $mapper factory mapping attachment data to API output
+   * @param Security $security security context used to identify the authenticated user
+   * @param RequestStack $requestStack current request used to read pagination parameters
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private MessageAttachmentOutputFactory $mapper,

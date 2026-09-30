@@ -64,8 +64,22 @@ final class ExportInspectionReportController extends AbstractController
   use InspectionExportExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant READ_PERMISSION.
+   *
+   * Organization permission required to export inspection reports.
+   *
+   * @access private
+   */
   private const string READ_PERMISSION = 'organization.inspection.read';
 
+  /**
+   * Constant MAX_ITEMS_PER_SECTION.
+   *
+   * Bounds the number of inspection report items loaded for each section.
+   *
+   * @access private
+   */
   private const int MAX_ITEMS_PER_SECTION = 200;
   // #endregion
 
@@ -334,6 +348,20 @@ final class ExportInspectionReportController extends AbstractController
     return $context;
   }
 
+  /**
+   * Method localizeNonConformity.
+   *
+   * Formats due and resolution dates in a non-conformity row while preserving non-array values.
+   *
+   * @access private
+   *
+   * @static
+   *
+   * @param mixed $nonConformity the report row to localize
+   * @param DocumentDateFormatter $formatter formats report dates
+   *
+   * @return mixed the localized row or the original non-array value
+   */
   private static function localizeNonConformity(mixed $nonConformity, DocumentDateFormatter $formatter): mixed
   {
     if (!is_array($nonConformity)) {

@@ -16,8 +16,9 @@ use Shared\Application\Port\Outbound\{ClockPort, TransactionManagerPort, UuidGen
 use Workload\Application\Port\Inbound\WorkloadCoordinationPort;
 
 /**
- * WriteTimeEntryHandler.
- * Actual work never mutates the operational task/intervention or published dossier.
+ * Class WriteTimeEntryHandler
+ *
+ * Writes the independent time journal without mutating operational tasks or published dossiers.
  *
  * @category UseCase
  * @version 1.0.0
@@ -26,7 +27,13 @@ use Workload\Application\Port\Inbound\WorkloadCoordinationPort;
  */
 final readonly class WriteTimeEntryHandler implements CommandHandler
 {
+  // #region Constructor
   /**
+   * Method __construct
+   *
+   * Supplies journal, access, workforce, transaction, identifier and clock capabilities.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionTimeEntryRepositoryPort $entries persistence port for the independent time journal
@@ -36,6 +43,8 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
    * @param TransactionManagerPort $transactions main-database transaction boundary
    * @param UuidGeneratorPort $uuids generates stable identifiers when the caller did not supply one
    * @param ClockPort $clock clock used for calculation and journal timestamps
+   *
+   * @return void
    */
   public function __construct(
     private InterventionTimeEntryRepositoryPort $entries,
@@ -48,9 +57,17 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
   /**
-   * Persists an authorized, idempotent journal mutation without altering operational or published data.
+   * Method __invoke
    *
+   * Runs a time-entry mutation inside the main transaction boundary.
+   *
+   * @access public
+   *
+   * Persists an authorized, idempotent journal mutation without altering operational or published data.
    * @since 1.0.0
    *
    * @param WriteTimeEntryCommand $command authorized use-case input to validate and persist
@@ -62,6 +79,22 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
     return $this->transactions->transactional(fn (): WriteTimeEntryResult => $this->writeInsideTransaction($command));
   }
 
+  /**
+   * Method writeInsideTransaction
+   *
+   * Loads and authorizes the task context, coordinates workload, and applies the requested action.
+   *
+   * @access private
+   *
+   * @param WriteTimeEntryCommand $command validated journal mutation and actor
+   *
+   * @return WriteTimeEntryResult saved entry or idempotent replay result
+   *
+   * @throws InterventionNotFoundException when the task or requested entry is unavailable
+   * @throws InterventionConflictException when an entry identifier was used by another mutation
+   * @throws InterventionValidationException when the work date is in the future
+   * @throws InterventionPreconditionRequiredException when a change omits the expected revision
+   */
   private function writeInsideTransaction(WriteTimeEntryCommand $command): WriteTimeEntryResult
   {
     $task = $this->entries->context($command->taskId, true);
@@ -83,6 +116,21 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
       : $this->changeEntry($command, $task, $existing, $actor);
   }
 
+  /**
+   * Method assertWorkDate
+   *
+   * Checks that the work date does not follow the current date in the organization's timezone.
+   *
+   * @access private
+   *
+   * @param TimeEntryTaskContext $task task and organization context
+   * @param WriteTimeEntryCommand $command requested work date
+   *
+   * @return void
+   *
+   * @throws InterventionNotFoundException when workforce timezone context is unavailable
+   * @throws InterventionValidationException when actual work is dated in the future
+   */
   private function assertWorkDate(TimeEntryTaskContext $task, WriteTimeEntryCommand $command): void
   {
     $context = $this->workforce->context($task->organizationId);
@@ -95,6 +143,23 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method createEntry
+   *
+   * Creates a time entry or returns an exact replay of the same actor's create request.
+   *
+   * @access private
+   *
+   * @param WriteTimeEntryCommand $command create request
+   * @param TimeEntryTaskContext $task task context owning the journal entry
+   * @param TimeEntryView|null $existing entry already using a supplied identifier
+   * @param string $beneficiary member receiving the recorded time
+   * @param string $actor authorized actor writing the entry
+   *
+   * @return WriteTimeEntryResult saved entry or replay result
+   *
+   * @throws InterventionConflictException when the identifier belongs to a different create request
+   */
   private function createEntry(WriteTimeEntryCommand $command, TimeEntryTaskContext $task, ?TimeEntryView $existing, string $beneficiary, string $actor): WriteTimeEntryResult
   {
     if (null !== $existing) {
@@ -109,6 +174,19 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
     return new WriteTimeEntryResult($this->entries->save($entry, $task->organizationId, $actor));
   }
 
+  /**
+   * Method isCreateReplay
+   *
+   * Checks whether an existing entry exactly matches the original create request and actor.
+   *
+   * @access private
+   *
+   * @param WriteTimeEntryCommand $command repeated create request
+   * @param TimeEntryView $existing existing entry to compare
+   * @param string $actor authorized actor issuing the request
+   *
+   * @return bool whether the request is an exact create replay
+   */
   private function isCreateReplay(WriteTimeEntryCommand $command, TimeEntryView $existing, string $actor): bool
   {
     if ($existing->createdBy !== $actor || $existing->memberId !== ($command->memberId ?? $actor)) {
@@ -119,6 +197,23 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
     return null !== $original && $original->workedOn === $command->workedOn && $original->minutes === $command->minutes && $original->note === $command->note;
   }
 
+  /**
+   * Method changeEntry
+   *
+   * Cancels or corrects an existing entry using its expected revision and replay rules.
+   *
+   * @access private
+   *
+   * @param WriteTimeEntryCommand $command requested cancellation or correction
+   * @param TimeEntryTaskContext $task task context owning the journal entry
+   * @param TimeEntryView|null $existing entry being changed
+   * @param string $actor authorized actor writing the change
+   *
+   * @return WriteTimeEntryResult saved entry or idempotent replay result
+   *
+   * @throws InterventionNotFoundException when the entry does not exist
+   * @throws InterventionPreconditionRequiredException when the expected revision is missing
+   */
   private function changeEntry(WriteTimeEntryCommand $command, TimeEntryTaskContext $task, ?TimeEntryView $existing, string $actor): WriteTimeEntryResult
   {
     if (null === $existing) {
@@ -141,6 +236,19 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
     return new WriteTimeEntryResult($this->entries->save($entry, $task->organizationId, $actor));
   }
 
+  /**
+   * Method isChangeReplay
+   *
+   * Recognizes only an identical operation against the immediately preceding revision.
+   *
+   * @access private
+   *
+   * @param WriteTimeEntryCommand $command repeated cancellation or correction
+   * @param TimeEntryView $existing current persisted entry
+   * @param string $actor authorized actor that performed the prior change
+   *
+   * @return bool whether the request repeats the immediately previous operation
+   */
   private function isChangeReplay(WriteTimeEntryCommand $command, TimeEntryView $existing, string $actor): bool
   {
     // Only the immediately previous operation may be replayed; never rebase it.
@@ -152,4 +260,5 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
       || ('correct' === $command->action && !$existing->cancelled && $existing->workedOn === $command->workedOn
         && $existing->minutes === $command->minutes && $existing->note === $command->note);
   }
+  // #endregion
 }

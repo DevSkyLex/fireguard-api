@@ -14,8 +14,23 @@ namespace Intervention\Domain\ValueObject;
  */
 enum InterventionPriority: string
 {
+  /**
+   * Case LOW
+   */
   case LOW = 'low';
+
+  /**
+   * Case NORMAL
+   */
   case NORMAL = 'normal';
+
+  /**
+   * Case HIGH
+   */
   case HIGH = 'high';
+
+  /**
+   * Case URGENT
+   */
   case URGENT = 'urgent';
 }

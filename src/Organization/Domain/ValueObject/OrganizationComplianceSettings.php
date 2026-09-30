@@ -53,6 +53,9 @@ final readonly class OrganizationComplianceSettings
    */
   public const int MIN_SLA_DAYS = 1;
 
+  /**
+   * Constant MAX_SLA_DAYS
+   */
   public const int MAX_SLA_DAYS = 365;
 
   /**
@@ -60,6 +63,9 @@ final readonly class OrganizationComplianceSettings
    */
   public const int MIN_REMINDER_WINDOW_DAYS = 1;
 
+  /**
+   * Constant MAX_REMINDER_WINDOW_DAYS
+   */
   public const int MAX_REMINDER_WINDOW_DAYS = 180;
   // #endregion
 

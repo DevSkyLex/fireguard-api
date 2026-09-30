@@ -25,6 +25,34 @@ use Shared\Application\Message\CommandMessage;
 final readonly class PatchCanonicalEquipmentCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries only submitted equipment fields; each has-field flag distinguishes an omitted field from an explicit null value.
+   *
+   * @access public
+   *
+   * @param string $equipmentId equipment to update
+   * @param int $expectedRevision revision the caller read before submitting changes
+   * @param bool $hasType whether the type field was included in the request
+   * @param ?string $type new type value, or null when explicitly cleared
+   * @param bool $hasStatus whether the status field was included in the request
+   * @param ?string $status new status value, or null when explicitly cleared
+   * @param bool $hasSubType whether the subtype field was included in the request
+   * @param ?string $subType new subtype value, or null when explicitly cleared
+   * @param bool $hasBrand whether the brand field was included in the request
+   * @param ?string $brand new brand value, or null when explicitly cleared
+   * @param bool $hasModel whether the model field was included in the request
+   * @param ?string $model new model value, or null when explicitly cleared
+   * @param bool $hasSerialNumber whether the serial number field was included in the request
+   * @param ?string $serialNumber new serial number, or null when explicitly cleared
+   * @param bool $hasLocationLabel whether the location label field was included in the request
+   * @param ?string $locationLabel new location label, or null when explicitly cleared
+   * @param bool $hasFacility whether the facility field was included in the request
+   * @param ?string $facilityId new facility identifier, or null when explicitly unassigned
+   *
+   * @return void
+   */
   public function __construct(
     public string $equipmentId,
     public int $expectedRevision,

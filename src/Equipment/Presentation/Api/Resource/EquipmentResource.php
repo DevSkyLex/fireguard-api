@@ -500,28 +500,64 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class EquipmentResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FORBIDDEN_DESCRIPTION
+   */
   private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant NOT_FOUND_DESCRIPTION
+   */
   private const string NOT_FOUND_DESCRIPTION = 'Equipment not found';
 
+  /**
+   * Constant INVALID_INPUT_DESCRIPTION
+   */
   private const string INVALID_INPUT_DESCRIPTION = 'Invalid input';
 
+  /**
+   * Constant INVALID_IDENTIFIER_DESCRIPTION
+   */
   private const string INVALID_IDENTIFIER_DESCRIPTION = 'Invalid identifier';
 
+  /**
+   * Constant DECOMMISSIONED_DESCRIPTION
+   */
   private const string DECOMMISSIONED_DESCRIPTION = 'Equipment already decommissioned';
 
+  /**
+   * Constant TYPE_FILTER_DESCRIPTION
+   */
   private const string TYPE_FILTER_DESCRIPTION = 'Filter by equipment type.';
 
+  /**
+   * Constant STATUS_FILTER_DESCRIPTION
+   */
   private const string STATUS_FILTER_DESCRIPTION = 'Filter by equipment status.';
 
+  /**
+   * Constant BRAND_FILTER_DESCRIPTION
+   */
   private const string BRAND_FILTER_DESCRIPTION = 'Filter by exact equipment brand.';
 
+  /**
+   * Constant MODEL_FILTER_DESCRIPTION
+   */
   private const string MODEL_FILTER_DESCRIPTION = 'Filter by exact equipment model.';
 
+  /**
+   * Constant SUBTYPE_FILTER_DESCRIPTION
+   */
   private const string SUBTYPE_FILTER_DESCRIPTION = 'Filter by exact equipment subtype.';
 
+  /**
+   * Constant MAINTENANCE_DUE_FILTER_DESCRIPTION
+   */
   private const string MAINTENANCE_DUE_FILTER_DESCRIPTION = 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).';
   // #endregion
 }

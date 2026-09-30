@@ -55,13 +55,16 @@ final readonly class InterventionNotificationService
   /**
    * Method assigned.
    *
-   * Executes the assigned operation.
+   * Sends the assigned member the intervention assignment notification.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
    * @param string $interventionName the intervention name value
    * @param string $memberId the member id value
+   *
+   * @return void no return value
    */
   public function assigned(string $interventionId, string $interventionName, string $memberId): void
   {
@@ -77,13 +80,16 @@ final readonly class InterventionNotificationService
   /**
    * Method changesRequested.
    *
-   * Executes the changes requested operation.
+   * Notifies the responsible member when review requests changes, and does nothing when no responsible member is set.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
    * @param string $interventionName the intervention name value
    * @param ?string $responsibleId the responsible id value
+   *
+   * @return void no return value
    */
   public function changesRequested(string $interventionId, string $interventionName, ?string $responsibleId): void
   {
@@ -411,6 +417,18 @@ final readonly class InterventionNotificationService
     }
   }
 
+  /**
+   * Method sendReminderToUser.
+   *
+   * Sends one reminder and contains delivery failures so other recipients can still be notified.
+   *
+   * @access private
+   *
+   * @param string $userId the recipient user identifier
+   * @param SendNotificationRequest $message the reminder content and delivery context
+   *
+   * @return void no return value
+   */
   private function sendReminderToUser(string $userId, SendNotificationRequest $message): void
   {
     try {
@@ -431,8 +449,9 @@ final readonly class InterventionNotificationService
   /**
    * Method send.
    *
-   * Executes the send operation.
+   * Delivers an intervention notification only for an active organization member whose notification policy allows it.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $memberId the member id value
@@ -440,6 +459,8 @@ final readonly class InterventionNotificationService
    * @param string $subject the subject value
    * @param string $body the body value
    * @param string $interventionId the intervention id value
+   *
+   * @return void no return value
    */
   private function send(string $memberId, string $type, string $subject, string $body, string $interventionId): void
   {

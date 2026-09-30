@@ -36,6 +36,19 @@ final readonly class AddTagToEquipmentProcessor implements ProcessorInterface
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives command dispatch, organization authorization, and the caller security context for tag creation.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus port used to dispatch the add-tag command
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
+   * @param Security $security security context used to obtain the acting member
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,

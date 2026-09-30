@@ -38,9 +38,13 @@ use function min;
 final readonly class CanonicalEquipmentProvider implements ProviderInterface
 {
   // #region Constants
+  /**
+   * Constant EQUIPMENT_NOT_FOUND_MESSAGE
+   */
   private const string EQUIPMENT_NOT_FOUND_MESSAGE = 'Equipment not found.';
-  // #endregion
 
+  // #endregion
+  // #region Constructor
   /**
    * Constructor.
    *
@@ -64,6 +68,8 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
   /**
    * Method provide.
    *
@@ -85,6 +91,17 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     return $this->provideCollection($operation, $context);
   }
 
+  /**
+   * Method provideItem
+   *
+   * Provides item the supplied values.
+   *
+   * @access private
+   *
+   * @param string $id the identifier
+   *
+   * @return EquipmentOutput
+   */
   private function provideItem(string $id): EquipmentOutput
   {
     $record = $this->entityManager->find(EquipmentRecord::class, $id);
@@ -175,8 +192,9 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
   /**
    * Method organization.
    *
-   * Executes the organization operation.
+   * Resolves the owning organization directly or through the linked intervention context.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param mixed $organizationValue the organization value value
@@ -207,12 +225,16 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
   /**
    * Method assertRead.
    *
-   * Executes the assert read operation.
+   * Requires organization equipment-read access and hides organizations outside the caller’s scope as not found.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $notFoundMessage the not-found message for this route when the caller
    *                                has no active membership in the organization
+   * @param string $organizationId the organization whose equipment-read permission is checked
+   *
+   * @return void no return value
    */
   private function assertRead(string $organizationId, string $notFoundMessage): void
   {
@@ -233,8 +255,9 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
   /**
    * Method map.
    *
-   * Executes the map operation.
+   * Maps a persisted equipment record and its organization and intervention IRIs to the API output.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param EquipmentRecord $record the record value
@@ -267,4 +290,5 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
 
     return $output;
   }
+  // #endregion
 }

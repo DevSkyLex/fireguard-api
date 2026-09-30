@@ -24,6 +24,28 @@ use Shared\Application\Message\ResultMessage;
 final readonly class OrganizationNonConformityResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Projects a finding with its inspection and optional equipment identifiers and serial number.
+   *
+   * @access public
+   *
+   * @param string $nonConformityId identifier of the finding
+   * @param string $inspectionId inspection containing the finding
+   * @param string $description recorded deficiency description
+   * @param string $severity recorded severity
+   * @param string $status current lifecycle status
+   * @param ?string $dueAt resolution deadline, when set
+   * @param ?string $resolvedAt resolution timestamp, when resolved
+   * @param ?string $notes handling notes, when present
+   * @param DateTimeImmutable $createdAt time the finding was created
+   * @param DateTimeImmutable $updatedAt time the finding was last updated
+   * @param ?string $equipmentId related equipment identifier, when available
+   * @param ?string $equipmentSerialNumber related equipment serial number, when available
+   *
+   * @return void
+   */
   public function __construct(
     public string $nonConformityId,
     public string $inspectionId,

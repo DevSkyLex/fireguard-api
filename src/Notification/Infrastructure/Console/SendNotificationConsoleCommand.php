@@ -148,6 +148,18 @@ HELP
     return $this->sendRequest($request, $io);
   }
 
+  /**
+   * Method readRequest.
+   *
+   * Validates arguments and options, then builds a notification request for dispatch.
+   *
+   * @access private
+   *
+   * @param InputInterface $input command arguments and options
+   * @param SymfonyStyle $io styled command output for validation messages
+   *
+   * @return ?SendNotificationRequest the validated request, or null when invalid
+   */
   private function readRequest(InputInterface $input, SymfonyStyle $io): ?SendNotificationRequest
   {
     $type = $this->requiredArgument($input, $io, 'type');
@@ -200,6 +212,18 @@ HELP
     );
   }
 
+  /**
+   * Method sendRequest.
+   *
+   * Sends the validated notification request and reports success or failure.
+   *
+   * @access private
+   *
+   * @param SendNotificationRequest $request the notification to send
+   * @param SymfonyStyle $io styled command output
+   *
+   * @return int the Symfony command exit status
+   */
   private function sendRequest(SendNotificationRequest $request, SymfonyStyle $io): int
   {
     try {
@@ -219,6 +243,19 @@ HELP
     }
   }
 
+  /**
+   * Method requiredArgument.
+   *
+   * Reads a required string argument, reporting an error when it is empty.
+   *
+   * @access private
+   *
+   * @param InputInterface $input command input
+   * @param SymfonyStyle $io styled command output for validation errors
+   * @param string $name argument name
+   *
+   * @return ?string trimmed argument value, or null when invalid
+   */
   private function requiredArgument(InputInterface $input, SymfonyStyle $io, string $name): ?string
   {
     $raw = $input->getArgument($name);
@@ -231,6 +268,18 @@ HELP
     return trim($raw);
   }
 
+  /**
+   * Method nullableOption.
+   *
+   * Returns a trimmed non-empty string option or treats it as absent.
+   *
+   * @access private
+   *
+   * @param InputInterface $input command input
+   * @param string $name option name
+   *
+   * @return ?string trimmed option value, or null when empty or not a string
+   */
   private function nullableOption(InputInterface $input, string $name): ?string
   {
     $raw = $input->getOption($name);

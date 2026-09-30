@@ -94,16 +94,45 @@ final readonly class TenantIsolationSubscriber implements EventSubscriberInterfa
     }
   }
 
+  /**
+   * Method onKernelTerminate.
+   *
+   * Disables the tenant filter before the worker can reuse this entity manager.
+   *
+   * @access public
+   *
+   * @param TerminateEvent $event the completed request event
+   *
+   * @return void no return value
+   */
   public function onKernelTerminate(TerminateEvent $event): void
   {
     $this->disableTenantFilter();
   }
 
+  /**
+   * Method reset.
+   *
+   * Clears tenant filter state when the subscriber is reset between requests.
+   *
+   * @access public
+   *
+   * @return void no return value
+   */
   public function reset(): void
   {
     $this->disableTenantFilter();
   }
 
+  /**
+   * Method disableTenantFilter.
+   *
+   * Disables the Doctrine tenant filter when it is configured and enabled.
+   *
+   * @access private
+   *
+   * @return void no return value
+   */
   private function disableTenantFilter(): void
   {
     try {

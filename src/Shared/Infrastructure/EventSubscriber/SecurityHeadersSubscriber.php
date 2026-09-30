@@ -43,6 +43,20 @@ final readonly class SecurityHeadersSubscriber implements EventSubscriberInterfa
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Captures the environment and configured CSP/HSTS settings used when adding response headers.
+   *
+   * @access public
+   *
+   * @param string $environment the current application environment
+   * @param string $headersEnabled whether security headers are enabled
+   * @param string $customCsp the configured content security policy directives
+   * @param int $hstsMaxAge the configured HSTS max-age in seconds
+   *
+   * @return void
+   */
   public function __construct(
     #[Autowire('%kernel.environment%')]
     private string $environment,
@@ -126,6 +140,17 @@ final readonly class SecurityHeadersSubscriber implements EventSubscriberInterfa
     }
   }
 
+  /**
+   * Method getSubscribedEvents
+   *
+   * Registers the response listener after other subscribers set their headers.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return array<string, array{string, int}> response event mapped to its listener and priority
+   */
   public static function getSubscribedEvents(): array
   {
     // Run after other subscribers to ensure headers are set last

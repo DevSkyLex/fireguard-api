@@ -42,8 +42,13 @@ use function sprintf;
  */
 final readonly class AddOrganizationMemberHandler implements CommandHandler
 {
+  // #region Constants
+  /**
+   * Constant DEFAULT_MEMBER_ROLE
+   */
   private const string DEFAULT_MEMBER_ROLE = 'member';
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -74,8 +79,8 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method __invoke.
@@ -179,6 +184,21 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method sendMemberNotification
+   *
+   * Sends the member notification for the organization membership change.
+   *
+   * @access private
+   *
+   * @param AddOrganizationMemberCommand $command the command to handle
+   * @param AddOrganizationMemberResult $result the use-case result
+   * @param OrganizationId $organizationId the organization identifier
+   * @param string $organizationName the organization name
+   * @param string $recipientEmail the recipient email
+   *
+   * @return void
+   */
   private function sendMemberNotification(
     AddOrganizationMemberCommand $command,
     AddOrganizationMemberResult $result,

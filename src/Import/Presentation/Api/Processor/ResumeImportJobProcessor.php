@@ -24,10 +24,43 @@ final readonly class ResumeImportJobProcessor implements ProcessorInterface
 {
   use ImportExceptionMapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Connects authenticated import-resume requests to the command bus and output mapper.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commands dispatches the resume command
+   * @param Security $security resolves the authenticated user
+   * @param ImportJobOutputFactory $output maps import job results
+   *
+   * @return void
+   */
   public function __construct(private CommandBusPort $commands, private Security $security, private ImportJobOutputFactory $output)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process.
+   *
+   * Resumes the requested import job for the authenticated user and maps its current state.
+   *
+   * @access public
+   *
+   * @param mixed $data the processor input
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the route variables containing the job identifier
+   * @param array<string, mixed> $context the processor context
+   *
+   * @return ImportJobOutput the resumed import job state
+   *
+   * @throws AccessDeniedHttpException when the current user is not authenticated
+   * @throws BadRequestHttpException when the import job identifier is missing
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ImportJobOutput
   {
     $user = $this->security->getUser();
@@ -48,4 +81,5 @@ final readonly class ResumeImportJobProcessor implements ProcessorInterface
       throw $this->mapImportException($exception);
     }
   }
+  // #endregion
 }

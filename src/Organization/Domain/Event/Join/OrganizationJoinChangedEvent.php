@@ -16,7 +16,12 @@ use DateTimeImmutable;
  */
 final readonly class OrganizationJoinChangedEvent
 {
+  // #region Properties
+  /**
+   * Property occurredAt
+   */
   public DateTimeImmutable $occurredAt;
+  // #endregion
 
   /**
    * @since 1.0.0

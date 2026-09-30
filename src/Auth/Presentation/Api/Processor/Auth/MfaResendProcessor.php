@@ -137,6 +137,20 @@ final readonly class MfaResendProcessor implements ProcessorInterface
     };
   }
 
+  /**
+   * Method enforceRateLimit.
+   *
+   * Consumes the resend limit keyed by the pre-authentication token and client IP.
+   *
+   * @access private
+   *
+   * @param string $preAuthToken the MFA challenge token used to derive the limit key
+   * @param string $ipAddress the client IP used to derive the limit key
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the resend limit is exceeded
+   */
   private function enforceRateLimit(string $preAuthToken, string $ipAddress): void
   {
     $key = $this->getRateLimitKey($preAuthToken, $ipAddress);

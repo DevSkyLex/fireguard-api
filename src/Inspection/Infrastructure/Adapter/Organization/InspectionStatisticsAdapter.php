@@ -22,11 +22,36 @@ use Organization\Application\Port\Outbound\InspectionStatisticsPort;
  */
 final readonly class InspectionStatisticsAdapter implements InspectionStatisticsPort
 {
+  /**
+   * Method __construct
+   *
+   * Initializes the inspection repository used for organization statistics.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository inspection repository
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
   ) {
   }
 
+  /**
+   * Method countInspections
+   *
+   * Counts inspections for an organization with optional filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param ?string $status the optional lifecycle status filter
+   * @param ?string $result the optional inspection result filter
+   * @param ?string $inspectorType the optional inspector type filter
+   *
+   * @return int
+   */
   public function countInspections(
     string $organizationId,
     ?string $status = null,
@@ -58,6 +83,20 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     return $total - $cancelled;
   }
 
+  /**
+   * Method countInspectionOverview
+   *
+   * Returns aggregate inspection overview counts for dashboard cards.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param ?string $status the optional lifecycle status filter
+   * @param ?string $result the optional inspection result filter
+   * @param ?string $inspectorType the optional inspector type filter
+   *
+   * @return array{total: int, draft: int, submitted: int, closed: int, cancelled: int, pass: int, fail: int, partial: int}
+   */
   public function countInspectionOverview(
     string $organizationId,
     ?string $status = null,
@@ -87,6 +126,17 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     return $overview;
   }
 
+  /**
+   * Method countInspectionsByStatus
+   *
+   * Returns inspection counts grouped by status.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   *
+   * @return array<string, int> map of status => count
+   */
   public function countInspectionsByStatus(string $organizationId): array
   {
     $counts = $this->inspectionRepository->countByStatusForOrganizationId(
@@ -101,6 +151,17 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     return $normalizedCounts;
   }
 
+  /**
+   * Method countInspectionsByResult
+   *
+   * Returns inspection counts grouped by result.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   *
+   * @return array<string, int> map of result => count
+   */
   public function countInspectionsByResult(string $organizationId): array
   {
     $counts = $this->inspectionRepository->countByResultForOrganizationId(
@@ -115,6 +176,17 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     return $normalizedCounts;
   }
 
+  /**
+   * Method countInspectionsByInspectorType
+   *
+   * Returns inspection counts grouped by inspector type.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   *
+   * @return array<string, int> map of inspector type => count
+   */
   public function countInspectionsByInspectorType(string $organizationId): array
   {
     $counts = $this->inspectionRepository->countByInspectorTypeForOrganizationId(
@@ -129,6 +201,18 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     return $normalizedCounts;
   }
 
+  /**
+   * Method countInspectionsPerformedSince
+   *
+   * Counts inspections performed from a given lower bound.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $performedAtFrom the inclusive lower bound for performed-at dates
+   *
+   * @return int
+   */
   public function countInspectionsPerformedSince(string $organizationId, string $performedAtFrom): int
   {
     return $this->inspectionRepository->countByOrganizationId(
@@ -137,6 +221,22 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     );
   }
 
+  /**
+   * Method countInspectionsBetween
+   *
+   * Counts inspections for a bounded period with optional filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $performedAtFrom the inclusive lower bound for performed-at dates
+   * @param string $performedAtTo the inclusive upper bound for performed-at dates
+   * @param ?string $status the optional lifecycle status filter
+   * @param ?string $result the optional inspection result filter
+   * @param ?string $inspectorType the optional inspector type filter
+   *
+   * @return int
+   */
   public function countInspectionsBetween(
     string $organizationId,
     string $performedAtFrom,
@@ -154,6 +254,22 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     );
   }
 
+  /**
+   * Method countInspectionPeriodMetrics
+   *
+   * Returns aggregate inspection counts for a bounded dashboard period.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $performedAtFrom the inclusive lower bound for performed-at dates
+   * @param string $performedAtTo the inclusive upper bound for performed-at dates
+   * @param ?string $status the optional lifecycle status filter
+   * @param ?string $result the optional inspection result filter
+   * @param ?string $inspectorType the optional inspector type filter
+   *
+   * @return array{total: int, closed: int, pass: int, fail: int, partial: int}
+   */
   public function countInspectionPeriodMetrics(
     string $organizationId,
     string $performedAtFrom,
@@ -172,6 +288,23 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     );
   }
 
+  /**
+   * Method countInspectionsPerformedByDay
+   *
+   * Returns inspection counts grouped by performed day for a period.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $performedAtFrom the inclusive lower bound for performed-at dates
+   * @param string $performedAtTo the inclusive upper bound for performed-at dates
+   * @param ?string $timeZone the timezone used to group performed dates
+   * @param ?string $status the optional lifecycle status filter
+   * @param ?string $result the optional inspection result filter
+   * @param ?string $inspectorType the optional inspector type filter
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
   public function countInspectionsPerformedByDay(
     string $organizationId,
     string $performedAtFrom,

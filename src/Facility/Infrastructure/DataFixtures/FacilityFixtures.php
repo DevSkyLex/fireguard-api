@@ -24,6 +24,13 @@ use function str_starts_with;
 use function strlen;
 use function substr;
 
+/**
+ * Class FacilityFixtures
+ *
+ * Seeds facility hierarchies, regional sites and sample stored attachments.
+ *
+ * @category DataFixtures
+ */
 final class FacilityFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
   /**
@@ -37,14 +44,59 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
    */
   public const string SITE_ID = '22222222-2222-4222-8222-222222222221';
 
+  /**
+   * Constant SITE_CREATED_AT
+   *
+   * Timestamp literal used for the root-site fixture.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string SITE_CREATED_AT = '2026-03-03T08:00:00+00:00';
 
+  /**
+   * Constant SITE_REFERENCE
+   *
+   * Fixture reference for the root site.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string SITE_REFERENCE = 'facility-seed-site';
 
+  /**
+   * Constant BUILDING_REFERENCE
+   *
+   * Fixture reference for the seeded building.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string BUILDING_REFERENCE = 'facility-seed-building';
 
+  /**
+   * Constant FLOOR_ONE_REFERENCE
+   *
+   * Fixture reference for the first seeded floor.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string FLOOR_ONE_REFERENCE = 'facility-seed-floor-one';
 
+  /**
+   * Constant FLOOR_TWO_REFERENCE
+   *
+   * Fixture reference for the second seeded floor.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string FLOOR_TWO_REFERENCE = 'facility-seed-floor-two';
 
   /**
@@ -60,20 +112,92 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
    */
   public const string FLOOR_TWO_PLAN_ID = 'b7d1f0a5-5c3e-4a19-9f26-1d0c4e88a730';
 
+  /**
+   * Constant ZONE_REFERENCE
+   *
+   * Fixture reference for the seeded zone.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string ZONE_REFERENCE = 'facility-seed-zone';
 
+  /**
+   * Constant ZONE_B_REFERENCE
+   *
+   * Fixture reference for the second seeded zone.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string ZONE_B_REFERENCE = 'facility-seed-zone-b';
 
+  /**
+   * Constant AREA_REFERENCE
+   *
+   * Fixture reference for the seeded area.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string AREA_REFERENCE = 'facility-seed-area';
 
+  /**
+   * Constant STORAGE_ROOM_REFERENCE
+   *
+   * Fixture reference for the seeded storage room.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string STORAGE_ROOM_REFERENCE = 'facility-seed-storage-room';
 
+  /**
+   * Constant LYON_SITE_REFERENCE
+   *
+   * Fixture reference for the Lyon site.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string LYON_SITE_REFERENCE = 'facility-seed-lyon-site';
 
+  /**
+   * Constant MARSEILLE_SITE_REFERENCE
+   *
+   * Fixture reference for the Marseille site.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string MARSEILLE_SITE_REFERENCE = 'facility-seed-marseille-site';
 
+  /**
+   * Constant BORDEAUX_SITE_REFERENCE
+   *
+   * Fixture reference for the Bordeaux site.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string BORDEAUX_SITE_REFERENCE = 'facility-seed-bordeaux-site';
 
+  /**
+   * Constant LILLE_SITE_REFERENCE
+   *
+   * Fixture reference for the Lille site.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string LILLE_SITE_REFERENCE = 'facility-seed-lille-site';
 
   /**
@@ -155,6 +279,15 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     ['reference' => 'facility-seed-angers-site', 'id' => 'e655e57a-9b3b-408e-b752-2d1ec738d48d', 'name' => 'Angers Loire Distribution Centre', 'code' => 'SITE-ANG', 'address' => '16 Rue Plantagenet, 49000 Angers', 'city' => 'Angers', 'latitude' => 47.4784, 'longitude' => -0.5632, 'createdAt' => '2026-03-24T08:00:00+00:00'],
   ];
 
+  /**
+   * Constant ARCHIVED_ANNEX_REFERENCE
+   *
+   * Fixture reference for the archived annex.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string ARCHIVED_ANNEX_REFERENCE = 'facility-seed-archived-annex';
 
   /**
@@ -211,8 +344,26 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     ['reference' => 'facility-seed-angers-zone', 'id' => 'c0763555-28b9-48d2-944e-4b1cac8d036a', 'parentReference' => 'facility-seed-angers-building', 'type' => 'zone', 'name' => 'Angers Operations Zone', 'code' => 'ZN-ANG', 'createdAt' => '2026-03-24T09:00:00+00:00'],
   ];
 
+  /**
+   * Constant PDF_MIME_TYPE
+   *
+   * MIME type assigned to the seeded PDF documents.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PDF_MIME_TYPE = 'application/pdf';
 
+  /**
+   * Constant PARIS_BUILDING_ADDRESS
+   *
+   * Address shared by the seeded Paris building records.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PARIS_BUILDING_ADDRESS = '12 Rue des Pompiers, 75011 Paris';
 
   /**
@@ -253,16 +404,47 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     ['id' => '512b75e9-79dd-4beb-b228-f08a63b30584', 'facilityReference' => self::LILLE_SITE_REFERENCE, 'fileName' => 'lille-sprinkler-as-built.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 1_572_864, 'label' => 'Sprinkler as-built drawings', 'uploadedAt' => '2026-03-12T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
   ];
 
+  /**
+   * Method getGroups
+   *
+   * Returns the facility fixture group names.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return list<string> fixture group names
+   */
   public static function getGroups(): array
   {
     return ['facility', 'main-seed'];
   }
 
+  /**
+   * Method getDependencies
+   *
+   * Declares the organization fixture required to create owned facilities.
+   *
+   * @access public
+   *
+   * @return list<class-string> fixture dependencies
+   */
   public function getDependencies(): array
   {
     return [OrganizationFixtures::class];
   }
 
+  /**
+   * Method load
+   *
+   * Creates the facility seed records and their related data.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   *
+   * @return void
+   */
   public function load(ObjectManager $manager): void
   {
     /** @var OrganizationRecord $organization */
@@ -617,6 +799,19 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     file_put_contents($target, $contents);
   }
 
+  /**
+   * Method createFacility
+   *
+   * Builds and persists one facility from a seed and optional hierarchy settings.
+   *
+   * @access private
+   *
+   * @param OrganizationRecord $organization owning organization record
+   * @param FacilitySeed $seed facility seed data
+   * @param ?FacilitySeedOptions $options optional parent, location or metadata settings
+   *
+   * @return FacilityRecord persisted facility record
+   */
   private function createFacility(OrganizationRecord $organization, FacilitySeed $seed, ?FacilitySeedOptions $options = null): FacilityRecord
   {
     $options ??= new FacilitySeedOptions();

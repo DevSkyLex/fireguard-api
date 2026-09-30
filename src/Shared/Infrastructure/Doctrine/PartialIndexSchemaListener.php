@@ -7,6 +7,8 @@ namespace Shared\Infrastructure\Doctrine;
 use Doctrine\ORM\Tools\Event\GenerateSchemaEventArgs;
 
 /**
+ * Class PartialIndexSchemaListener
+ *
  * Re-declares the PostgreSQL partial indexes that Doctrine ORM's mapping layer
  * cannot express.
  *
@@ -24,16 +26,25 @@ use Doctrine\ORM\Tools\Event\GenerateSchemaEventArgs;
  * It only touches the `main` entity manager (see service registration); the
  * `hasTable()` guards make it a no-op anywhere the tables are absent.
  *
+ * @category EventListener
+ *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class PartialIndexSchemaListener
 {
+  // #region Methods
   /**
-   * @description Adds the unmappable partial indexes to the generated schema.
+   * Method postGenerateSchema
    *
+   * @description
+   * Adds the unmappable partial indexes to the generated schema.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param GenerateSchemaEventArgs $args the schema-generation event
+   *
+   * @return void
    */
   public function postGenerateSchema(GenerateSchemaEventArgs $args): void
   {
@@ -97,4 +108,5 @@ final class PartialIndexSchemaListener
       }
     }
   }
+  // #endregion
 }

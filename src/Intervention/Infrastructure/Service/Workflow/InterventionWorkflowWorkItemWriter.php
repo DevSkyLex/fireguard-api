@@ -34,10 +34,28 @@ use function in_array;
 use function trim;
 
 /**
- * Persists work-item mutations and assignment history.
+ * Class InterventionWorkflowWorkItemWriter
+ *
+ * Persists workflow changes to work items and records assignment history.
+ *
+ * @category Service
  */
 final readonly class InterventionWorkflowWorkItemWriter
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies workflow collaborators for work-item mutation, policy and event dispatch.
+   *
+   * @access public
+   *
+   * @param InterventionWorkflowWriterRuntime $runtime persistence and workflow collaborators
+   * @param InterventionWorkItemTransitionPolicy $workItemTransitionPolicy validates status changes
+   * @param EventDispatcherPort $eventDispatcher dispatches workflow events
+   *
+   * @return void
+   */
   public function __construct(
     private InterventionWorkflowWriterRuntime $runtime,
     private InterventionWorkItemTransitionPolicy $workItemTransitionPolicy,
@@ -45,6 +63,9 @@ final readonly class InterventionWorkflowWorkItemWriter
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
   /**
    * Method mutateWorkItem.
    *
@@ -96,6 +117,21 @@ final readonly class InterventionWorkflowWorkItemWriter
     return $this->runtime->views->workItemView($record);
   }
 
+  /**
+   * Method assertWorkItemMutationAllowed
+   *
+   * Enforces assignment and execution rules for changes to existing work items.
+   *
+   * @access private
+   *
+   * @param InterventionWorkItemRecord $record work item being changed
+   * @param InterventionRecord $intervention owning intervention
+   * @param InterventionWorkflowMutation $mutation requested mutation and actor
+   *
+   * @return void
+   *
+   * @throws InterventionConflictException when a finished item cannot be reassigned or edited
+   */
   private function assertWorkItemMutationAllowed(InterventionWorkItemRecord $record, InterventionRecord $intervention, InterventionWorkflowMutation $mutation): void
   {
     if ('draft' !== $intervention->status && !$this->isWorkItemPlanningOnly($mutation)) {
@@ -117,6 +153,20 @@ final readonly class InterventionWorkflowWorkItemWriter
     }
   }
 
+  /**
+   * Method deleteWorkItem
+   *
+   * Deletes a prepared work item without time history and updates its parent timestamp.
+   *
+   * @access private
+   *
+   * @param InterventionWorkItemRecord $record work item to remove
+   * @param InterventionRecord $intervention owning intervention
+   *
+   * @return void
+   *
+   * @throws InterventionConflictException when the intervention is beyond draft state
+   */
   private function deleteWorkItem(InterventionWorkItemRecord $record, InterventionRecord $intervention): void
   {
     if ('draft' !== $intervention->status) {
@@ -361,4 +411,5 @@ final readonly class InterventionWorkflowWorkItemWriter
 
     return $this->runtime->views->workItemView($record);
   }
+  // #endregion
 }

@@ -9,6 +9,24 @@ namespace Equipment\Application\Contract\Equipment;
  */
 final readonly class EquipmentListCriteria
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries optional filters shared by equipment listing and its matching count.
+   *
+   * @access public
+   *
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $type optional equipment type filter
+   * @param ?string $status optional lifecycle status filter
+   * @param ?string $brand optional brand filter
+   * @param ?string $model optional model filter
+   * @param ?string $subType optional equipment subtype filter
+   * @param ?string $search optional text search applied to equipment fields
+   *
+   * @return void
+   */
   public function __construct(
     public ?string $facilityId = null,
     public ?string $type = null,
@@ -19,4 +37,5 @@ final readonly class EquipmentListCriteria
     public ?string $search = null,
   ) {
   }
+  // #endregion
 }

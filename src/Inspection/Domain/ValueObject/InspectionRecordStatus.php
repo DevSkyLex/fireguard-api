@@ -24,6 +24,13 @@ namespace Inspection\Domain\ValueObject;
  */
 enum InspectionRecordStatus: string
 {
+  /**
+   * Case DRAFT
+   */
   case DRAFT = 'draft';
+
+  /**
+   * Case PUBLISHED
+   */
   case PUBLISHED = 'published';
 }

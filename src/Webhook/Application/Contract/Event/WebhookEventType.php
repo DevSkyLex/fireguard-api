@@ -28,20 +28,79 @@ use function array_column;
  */
 enum WebhookEventType: string
 {
+  /**
+   * Case EQUIPMENT_COMMISSIONED
+   */
   case EQUIPMENT_COMMISSIONED = 'equipment.commissioned';
+
+  /**
+   * Case EQUIPMENT_DECOMMISSIONED
+   */
   case EQUIPMENT_DECOMMISSIONED = 'equipment.decommissioned';
+
+  /**
+   * Case EQUIPMENT_UNDER_MAINTENANCE
+   */
   case EQUIPMENT_UNDER_MAINTENANCE = 'equipment.under_maintenance';
+
+  /**
+   * Case EQUIPMENT_RETURNED_TO_STOCK
+   */
   case EQUIPMENT_RETURNED_TO_STOCK = 'equipment.returned_to_stock';
+
+  /**
+   * Case INSPECTION_SUBMITTED
+   */
   case INSPECTION_SUBMITTED = 'inspection.submitted';
+
+  /**
+   * Case INSPECTION_CLOSED
+   */
   case INSPECTION_CLOSED = 'inspection.closed';
+
+  /**
+   * Case NON_CONFORMITY_RECORDED
+   */
   case NON_CONFORMITY_RECORDED = 'inspection.non_conformity_recorded';
+
+  /**
+   * Case NON_CONFORMITY_STATUS_CHANGED
+   */
   case NON_CONFORMITY_STATUS_CHANGED = 'inspection.non_conformity_status_changed';
+
+  /**
+   * Case INTERVENTION_PUBLISHED
+   */
   case INTERVENTION_PUBLISHED = 'intervention.published';
+
+  /**
+   * Case MAINTENANCE_CAMPAIGN_GENERATED
+   */
   case MAINTENANCE_CAMPAIGN_GENERATED = 'maintenance.campaign_generated';
+
+  /**
+   * Case FACILITY_CREATED
+   */
   case FACILITY_CREATED = 'facility.created';
+
+  /**
+   * Case FACILITY_ARCHIVED
+   */
   case FACILITY_ARCHIVED = 'facility.archived';
+
+  /**
+   * Case FACILITY_RESTORED
+   */
   case FACILITY_RESTORED = 'facility.restored';
+
+  /**
+   * Case FACILITY_UPDATED
+   */
   case FACILITY_UPDATED = 'facility.updated';
+
+  /**
+   * Case PING
+   */
   case PING = 'webhook.ping';
 
   // #region Methods

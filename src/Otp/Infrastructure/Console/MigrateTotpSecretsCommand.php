@@ -54,12 +54,33 @@ final class MigrateTotpSecretsCommand extends Command
     parent::__construct();
   }
 
+  /**
+   * Method configure
+   *
+   * Defines options for verification-only processing and bounded migration batches.
+   *
+   * @access protected
+   *
+   * @return void no return value
+   */
   protected function configure(): void
   {
     $this->addOption('verify-only', null, InputOption::VALUE_NONE, 'Authenticate all envelopes without writing; fail if any row still needs migration.');
     $this->addOption('batch-size', null, InputOption::VALUE_REQUIRED, 'Rows locked in each transaction (1–1000).', '100');
   }
 
+  /**
+   * Method execute
+   *
+   * Verifies TOTP ciphertexts or migrates eligible records in bounded batches.
+   *
+   * @access protected
+   *
+   * @param InputInterface $input the console input options
+   * @param OutputInterface $output the console output stream
+   *
+   * @return int the command exit status
+   */
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
     $io = new SymfonyStyle($input, $output);

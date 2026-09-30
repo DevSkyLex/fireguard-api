@@ -66,15 +66,6 @@ enum OtpChannel: string
   }
 
   /**
-   * Method getLabel.
-   *
-   * Returns a human-readable label for this channel.
-   *
-   * @since 1.0.0
-   *
-   * @return string human-readable label
-   */
-  /**
    * Method mask.
    *
    * Masks a recipient for display, according to what this channel carries.
@@ -100,6 +91,16 @@ enum OtpChannel: string
     };
   }
 
+  /**
+   * Method getLabel.
+   *
+   * Returns the user-facing label for this OTP channel.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @return string the channel label
+   */
   public function getLabel(): string
   {
     return match ($this) {

@@ -82,8 +82,14 @@ use Symfony\Component\HttpFoundation\Response;
 final class InspectionResponseResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant RESPONSE_URI_TEMPLATE
+   */
   private const string RESPONSE_URI_TEMPLATE = '/inspection-responses/{id}';
   // #endregion
 }

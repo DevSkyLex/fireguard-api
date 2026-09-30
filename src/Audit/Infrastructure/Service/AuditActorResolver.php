@@ -11,11 +11,27 @@ use Symfony\Bundle\SecurityBundle\Security;
 /** Resolves the explicit, durable-event or authenticated audit actor. */
 final readonly class AuditActorResolver
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the security context and durable event context used to resolve audit attribution.
+   *
+   * @access public
+   *
+   * @param Security $security security context used to inspect the authenticated actor
+   * @param DurableEventContextPort $eventContext durable event metadata used when resolving an asynchronous actor
+   *
+   * @return void
+   */
   public function __construct(
     private Security $security,
     private DurableEventContextPort $eventContext,
   ) {
   }
+  // #endregion
+
+  // #region Methods
 
   /**
    * @return array{type: string, id: ?string, email: ?string}
@@ -37,4 +53,5 @@ final readonly class AuditActorResolver
       'email' => $explicitEmail ?? ($actorId === $tokenId ? $tokenEmail : null),
     ];
   }
+  // #endregion
 }

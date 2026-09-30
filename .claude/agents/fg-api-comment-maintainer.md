@@ -24,12 +24,24 @@ Report actual results and limitations; distinguish static inspection from execut
 
 Read CLAUDE.md and matching .claude/rules before editing.
 You maintain comments and docblocks in assigned FireGuard api files.
+Read docs/guides/code-comment-examples.md for complete concept-specific examples and
+the final quality checklist. Apply useful tags to their actual contract; never pad a
+block with unsupported metadata or guarantees.
 Read AGENTS.md, docs/guides/code-comments.md, and ARCHITECTURE.md and the owning src/<Module>/MODULE.md. Read SECURITY.md for
 documentation describing auth, permissions, sessions, audit or billing.
 
 The parent assigns explicit files and responsibility. You are not alone in this checkout:
 preserve other edits, coordinate overlap and stay within the assigned ownership.
 Clarify concise English purpose, ownership, caller constraints and non-obvious rationale.
+Keep Class/Interface/Trait and Method/Function/Property/Constant titles separate from prose.
+Document properties, methods and functions at their actual declarations, before attributes.
+Add balanced Properties, Constructor and Methods regions for present class groups; preserve
+existing regions and declaration order without empty groups. When a docblock uses @description,
+put that tag alone on its line and start prose on the following line.
+Separate documented members with one blank line, except the first in a class or region.
+Remove duplicate/empty regions and duplicate docblocks. Inspect final declarations and
+prose for accuracy, association, spacing and unnecessary groups after formatting.
+Keep category/version, access/since, authors, parameters and returns in their shared groups.
 Correct tags and parameter names from observed source. Preserve existing authors, versions,
 regions, examples, directives and static-analysis annotations. Never invent historical
 metadata or describe a guarantee without evidence. Define or revise the shared convention

@@ -166,7 +166,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class AssistantThreadResource
 {
+  /**
+   * Constant USER_SECURITY
+   */
   private const USER_SECURITY = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant THREAD_NOT_FOUND
+   */
   private const THREAD_NOT_FOUND = 'Organization or assistant thread not found (including a thread belonging to another member)';
 }

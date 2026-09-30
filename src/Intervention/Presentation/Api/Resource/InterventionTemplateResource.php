@@ -114,8 +114,14 @@ use Symfony\Component\HttpFoundation\Response;
 final class InterventionTemplateResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant TEMPLATE_URI_TEMPLATE
+   */
   private const string TEMPLATE_URI_TEMPLATE = '/intervention-templates/{id}';
   // #endregion
 }

@@ -12,6 +12,24 @@ namespace Facility\Application\Contract\Facility;
  */
 final readonly class FacilityListCriteria
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries optional filters for facility listing while keeping archived visibility as an explicit repository scope.
+   *
+   * @access public
+   *
+   * @param ?string $type optional facility type filter
+   * @param ?string $status optional facility status filter
+   * @param ?string $parentFacilityId optional parent facility filter
+   * @param ?string $code optional facility code filter
+   * @param ?string $search optional text search
+   * @param bool $rootsOnly whether to list only root facilities
+   * @param ?bool $hasCoordinates whether both coordinates must be present or absent, when specified
+   *
+   * @return void
+   */
   public function __construct(
     public ?string $type = null,
     public ?string $status = null,
@@ -22,4 +40,5 @@ final readonly class FacilityListCriteria
     public ?bool $hasCoordinates = null,
   ) {
   }
+  // #endregion
 }

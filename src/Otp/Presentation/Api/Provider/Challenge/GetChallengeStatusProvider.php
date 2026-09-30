@@ -27,7 +27,6 @@ use function max;
  */
 final readonly class GetChallengeStatusProvider implements ProviderInterface
 {
-  // #region Constants
   // #region Constructor
   /**
    * Constructor.
@@ -38,9 +37,22 @@ final readonly class GetChallengeStatusProvider implements ProviderInterface
     private QueryBusPort $queryBus,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method provide
+   *
+   * Provides the requested API resource from the supplied operation context.
+   *
+   * @access public
+   *
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return ChallengeOutput
+   */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ChallengeOutput
   {
     $token = $uriVariables['token'] ?? null;

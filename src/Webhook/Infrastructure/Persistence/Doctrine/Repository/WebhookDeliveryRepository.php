@@ -18,7 +18,9 @@ use function json_encode;
 use const JSON_THROW_ON_ERROR;
 
 /**
- * Repository WebhookDeliveryRepository.
+ * Class WebhookDeliveryRepository
+ *
+ * Reserves webhook deliveries idempotently and provides their persisted state.
  *
  * @category Repository
  * @version 1.0.0
@@ -36,11 +38,16 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
+   * Creates the repository and prepares the delivery record repository.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the Doctrine entity manager
+   *
+   * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -50,6 +57,22 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
   // #endregion
 
   // #region Methods
+  /**
+   * Method reserve
+   *
+   * Reserves a delivery with an insert-on-conflict operation so duplicate events remain transaction-safe.
+   *
+   * @access public
+   *
+   * @param WebhookDeliveryId $id delivery identifier
+   * @param WebhookSubscriptionId $subscriptionId receiving subscription identifier
+   * @param string $organizationId tenant scope for the delivery
+   * @param string $eventType event type being delivered
+   * @param string $eventId source event identifier
+   * @param array<string, mixed> $payload event payload to store
+   *
+   * @return bool whether a new reservation was inserted
+   */
   public function reserve(
     WebhookDeliveryId $id,
     WebhookSubscriptionId $subscriptionId,
@@ -97,6 +120,17 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
     return $affected > 0;
   }
 
+  /**
+   * Method save
+   *
+   * Inserts or updates a delivery record from its domain aggregate.
+   *
+   * @access public
+   *
+   * @param WebhookDelivery $delivery delivery aggregate to persist
+   *
+   * @return void
+   */
   public function save(WebhookDelivery $delivery): void
   {
     $record = $this->repository->find((string) $delivery->id());
@@ -116,6 +150,17 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById
+   *
+   * Finds a delivery by its identifier and maps it to the domain model.
+   *
+   * @access public
+   *
+   * @param WebhookDeliveryId $id delivery identifier
+   *
+   * @return WebhookDelivery|null delivery aggregate, or null when absent
+   */
   public function findById(WebhookDeliveryId $id): ?WebhookDelivery
   {
     $record = $this->repository->find((string) $id);
@@ -123,6 +168,20 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
     return $record instanceof WebhookDeliveryRecord ? WebhookDeliveryMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method listBySubscription
+   *
+   * Lists subscription deliveries newest first with optional status filtering and pagination.
+   *
+   * @access public
+   *
+   * @param WebhookSubscriptionId $subscriptionId subscription whose deliveries are listed
+   * @param string|null $status optional exact status filter
+   * @param int $limit maximum number of rows
+   * @param int $offset zero-based row offset
+   *
+   * @return list<WebhookDelivery> matching delivery aggregates
+   */
   public function listBySubscription(WebhookSubscriptionId $subscriptionId, ?string $status, int $limit, int $offset): array
   {
     $queryBuilder = $this->repository->createQueryBuilder('d')
@@ -143,6 +202,18 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
     return array_map(WebhookDeliveryMapper::toDomain(...), $records);
   }
 
+  /**
+   * Method countBySubscription
+   *
+   * Counts a subscription’s deliveries with an optional exact status filter.
+   *
+   * @access public
+   *
+   * @param WebhookSubscriptionId $subscriptionId subscription whose deliveries are counted
+   * @param string|null $status optional exact status filter
+   *
+   * @return int matching delivery count
+   */
   public function countBySubscription(WebhookSubscriptionId $subscriptionId, ?string $status): int
   {
     $criteria = ['subscriptionId' => (string) $subscriptionId];

@@ -19,19 +19,47 @@ use function in_array;
  */
 enum InterventionStatus: string
 {
+  /**
+   * Case DRAFT
+   */
   case DRAFT = 'draft';
+
+  /**
+   * Case PLANNED
+   */
   case PLANNED = 'planned';
+
+  /**
+   * Case IN_PROGRESS
+   */
   case IN_PROGRESS = 'in_progress';
+
+  /**
+   * Case SUBMITTED
+   */
   case SUBMITTED = 'submitted';
+
+  /**
+   * Case CHANGES_REQUESTED
+   */
   case CHANGES_REQUESTED = 'changes_requested';
+
+  /**
+   * Case PUBLISHED
+   */
   case PUBLISHED = 'published';
+
+  /**
+   * Case ABANDONED
+   */
   case ABANDONED = 'abandoned';
 
   /**
    * Method isMutable.
    *
-   * Executes the is mutable operation.
+   * Identifies statuses that still allow intervention mutations; published and abandoned are terminal.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return bool the is mutable result

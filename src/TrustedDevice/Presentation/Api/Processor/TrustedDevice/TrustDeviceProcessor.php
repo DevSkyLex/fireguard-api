@@ -23,6 +23,21 @@ use TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService;
  */
 final readonly class TrustDeviceProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the TrustDeviceProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param Security $security the security
+   * @param RequestStack $requestStack the request stack
+   * @param TrustedDeviceCookieService $cookieService the cookie service
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private Security $security,
@@ -31,6 +46,22 @@ final readonly class TrustDeviceProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param mixed $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return TrustDeviceOutput
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): TrustDeviceOutput
   {
     $user = $this->security->getUser();
@@ -75,4 +106,5 @@ final readonly class TrustDeviceProcessor implements ProcessorInterface
 
     return $output;
   }
+  // #endregion
 }

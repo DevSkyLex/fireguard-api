@@ -73,8 +73,14 @@ use Symfony\Component\HttpFoundation\Response;
 final class CanonicalFacilityResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FACILITY_URI_TEMPLATE
+   */
   private const string FACILITY_URI_TEMPLATE = '/facilities/{id}';
   // #endregion
 }

@@ -22,10 +22,41 @@ use function is_string;
  */
 final readonly class GetConversationReceiptsProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the query bus and authenticated actor used to request conversation receipts.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus dispatches the conversation receipts query
+   * @param CurrentActorPort $actor resolves the authenticated user
+   *
+   * @return void
+   */
   public function __construct(private QueryBusPort $queryBus, private CurrentActorPort $actor)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method provide
+   *
+   * Reads receipt positions for the authenticated user and requested conversation.
+   *
+   * @access public
+   *
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the route variables containing the conversation identifier
+   * @param array<string, mixed> $context the provider context
+   *
+   * @return ConversationReceiptsOutput the conversation receipts output
+   *
+   * @throws AccessDeniedHttpException when no authenticated actor is available
+   * @throws BadRequestHttpException when the conversation identifier is missing
+   */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ConversationReceiptsOutput
   {
     $userId = $this->actor->userId();
@@ -53,4 +84,5 @@ final readonly class GetConversationReceiptsProvider implements ProviderInterfac
 
     return $output;
   }
+  // #endregion
 }

@@ -46,6 +46,17 @@ final readonly class AssistantMessageRepository implements AssistantMessageRepos
   // #endregion
 
   // #region Methods
+  /**
+   * Method save.
+   *
+   * Inserts or updates the row for the supplied assistant message aggregate.
+   *
+   * @access public
+   *
+   * @param AssistantMessage $message the assistant message aggregate
+   *
+   * @return void no return value
+   */
   public function save(AssistantMessage $message): void
   {
     $record = $this->repository->find((string) $message->id());
@@ -69,6 +80,17 @@ final readonly class AssistantMessageRepository implements AssistantMessageRepos
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById.
+   *
+   * Loads an assistant message by its domain identifier.
+   *
+   * @access public
+   *
+   * @param AssistantMessageId $id the assistant message identifier
+   *
+   * @return ?AssistantMessage the aggregate when found
+   */
   public function findById(AssistantMessageId $id): ?AssistantMessage
   {
     $record = $this->repository->find((string) $id);
@@ -76,6 +98,19 @@ final readonly class AssistantMessageRepository implements AssistantMessageRepos
     return $record instanceof AssistantMessageRecord ? AssistantMessageMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method listByThread.
+   *
+   * Lists a thread's messages chronologically within the requested page.
+   *
+   * @access public
+   *
+   * @param string $threadId the owning thread identifier
+   * @param int $limit maximum number of messages to return
+   * @param int $offset number of earlier messages to skip
+   *
+   * @return list<AssistantMessage> the matching messages
+   */
   public function listByThread(string $threadId, int $limit, int $offset): array
   {
     // Alias `m` — never `member`, a reserved DQL keyword. `IDENTITY()`
@@ -94,6 +129,17 @@ final readonly class AssistantMessageRepository implements AssistantMessageRepos
     return array_map(AssistantMessageMapper::toDomain(...), $records);
   }
 
+  /**
+   * Method countByThread.
+   *
+   * Counts messages belonging to the specified thread.
+   *
+   * @access public
+   *
+   * @param string $threadId the owning thread identifier
+   *
+   * @return int number of matching messages
+   */
   public function countByThread(string $threadId): int
   {
     return (int) $this->repository->createQueryBuilder('m')

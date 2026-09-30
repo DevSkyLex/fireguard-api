@@ -14,7 +14,14 @@ namespace Facility\Domain\ValueObject;
  */
 enum FacilityStatus: string
 {
+  /**
+   * Case ACTIVE
+   */
   case ACTIVE = 'active';
+
+  /**
+   * Case ARCHIVED
+   */
   case ARCHIVED = 'archived';
 
   // #region Methods

@@ -22,6 +22,13 @@ use Inspection\Presentation\Api\Provider\Inspection\{GetInspectionProvider, List
 use Inspection\Presentation\Api\Serialization\InspectionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
+/**
+ * Class InspectionResource
+ *
+ * Declares inspection API routes, operations, serialization and OpenAPI metadata.
+ *
+ * @category Resource
+ */
 #[ApiResource(
   shortName: 'LegacyInspection',
   routePrefix: '/organizations',
@@ -475,28 +482,136 @@ final class InspectionResource
    */
   private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
 
+  /**
+   * Constant SECURITY_ROLE_USER
+   *
+   * Coarse security expression required for inspection operations.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FORBIDDEN_DESCRIPTION
+   *
+   * OpenAPI description used for forbidden responses.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant EQUIPMENT_FILTER_DESCRIPTION
+   *
+   * OpenAPI label for the equipment filter.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string EQUIPMENT_FILTER_DESCRIPTION = 'Filter by equipment';
 
+  /**
+   * Constant FACILITY_FILTER_DESCRIPTION
+   *
+   * OpenAPI label for the facility filter.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string FACILITY_FILTER_DESCRIPTION = 'Filter by facility';
 
+  /**
+   * Constant RESULT_FILTER_DESCRIPTION
+   *
+   * OpenAPI label for the result filter.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string RESULT_FILTER_DESCRIPTION = 'Filter by result (pass, fail, partial)';
 
+  /**
+   * Constant STATUS_FILTER_DESCRIPTION
+   *
+   * OpenAPI label for the status filter.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string STATUS_FILTER_DESCRIPTION = 'Filter by status (draft, submitted, closed)';
 
+  /**
+   * Constant PERFORMED_FROM_FILTER_DESCRIPTION
+   *
+   * OpenAPI label for the lower performed-time bound.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PERFORMED_FROM_FILTER_DESCRIPTION = 'Filter inspections performed on or after this instant.';
 
+  /**
+   * Constant PERFORMED_TO_FILTER_DESCRIPTION
+   *
+   * OpenAPI label for the upper performed-time bound.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PERFORMED_TO_FILTER_DESCRIPTION = 'Filter inspections performed on or before this instant.';
 
+  /**
+   * Constant INSPECTOR_FILTER_DESCRIPTION
+   *
+   * OpenAPI label for the inspector identifier filter.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string INSPECTOR_FILTER_DESCRIPTION = 'Filter by inspector user identifier.';
 
+  /**
+   * Constant CHECKLIST_FILTER_DESCRIPTION
+   *
+   * OpenAPI label for the checklist identifier filter.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string CHECKLIST_FILTER_DESCRIPTION = 'Filter by checklist identifier.';
 
+  /**
+   * Constant INSPECTION_URI_TEMPLATE
+   *
+   * Canonical URI template for a single inspection.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string INSPECTION_URI_TEMPLATE = '/{organizationId}/inspections/{inspectionId}';
 
+  /**
+   * Constant NOT_FOUND_DESCRIPTION
+   *
+   * OpenAPI description for an unavailable inspection.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string NOT_FOUND_DESCRIPTION = 'Inspection not found';
   // #endregion
 }

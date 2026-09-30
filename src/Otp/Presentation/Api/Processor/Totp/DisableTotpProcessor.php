@@ -182,6 +182,19 @@ final readonly class DisableTotpProcessor implements ProcessorInterface
     return null;
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Consumes the TOTP disable limit when a rate limiter is configured.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier used to derive the limit key
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the disable limit is exceeded
+   */
   private function enforceRateLimit(string $userId): void
   {
     if (null === $this->rateLimiter) {
@@ -202,6 +215,17 @@ final readonly class DisableTotpProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds a rate limit key from a hash of the user identifier.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   *
+   * @return string the rate limiter key
+   */
   private function getRateLimitKey(string $userId): string
   {
     return sprintf('otp_totp_disable_%s', substr(hash('sha256', $userId), 0, 16));

@@ -29,12 +29,35 @@ use function sprintf;
 )]
 final class SyncPermissionsCommand extends Command
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the SyncPermissionsCommand dependencies and state.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager the entity manager
+   *
+   * @return void
+   */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
   ) {
     parent::__construct();
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method configure
+   *
+   * Declares the options supported by the permission synchronization command.
+   *
+   * @access protected
+   *
+   * @return void
+   */
   protected function configure(): void
   {
     $this
@@ -42,6 +65,18 @@ final class SyncPermissionsCommand extends Command
       ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Show changes without writing to the database');
   }
 
+  /**
+   * Method execute
+   *
+   * Synchronizes default permissions and reports the result to the console.
+   *
+   * @access protected
+   *
+   * @param InputInterface $input the incoming input
+   * @param OutputInterface $output the output being built
+   *
+   * @return int
+   */
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
     $io = new SymfonyStyle($input, $output);
@@ -183,4 +218,5 @@ final class SyncPermissionsCommand extends Command
 
     return $updates;
   }
+  // #endregion
 }

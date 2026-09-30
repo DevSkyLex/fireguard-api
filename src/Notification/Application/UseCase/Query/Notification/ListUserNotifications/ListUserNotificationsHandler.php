@@ -25,6 +25,9 @@ use function min;
  */
 final readonly class ListUserNotificationsHandler implements QueryHandler
 {
+  /**
+   * Constant HIDE_READ_AFTER_DAYS
+   */
   private const int HIDE_READ_AFTER_DAYS = 30;
 
   /**

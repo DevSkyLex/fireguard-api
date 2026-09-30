@@ -62,6 +62,19 @@ final readonly class ResumeSubscriptionHandler implements CommandHandler
     return $this->reconciliation->synchronized($command->organizationId, fn (): VoidResult => $this->execute($command));
   }
 
+  /**
+   * Method execute.
+   *
+   * Resumes cancellation with Stripe and saves the refreshed local subscription.
+   *
+   * @access private
+   *
+   * @param ResumeSubscriptionCommand $command the organization subscription command
+   *
+   * @return VoidResult the neutral handler result
+   *
+   * @throws NoActiveSubscriptionException when no Stripe-backed subscription exists
+   */
   private function execute(ResumeSubscriptionCommand $command): VoidResult
   {
     $subscription = $this->subscriptions->findByOrganizationId($command->organizationId, refresh: true);

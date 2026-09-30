@@ -54,12 +54,56 @@ use const PHP_URL_SCHEME;
  */
 final readonly class FederatedAuthenticationService
 {
+  /**
+   * Constant LOGIN
+   *
+   * Intent label stored for federated sign-in flows.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string LOGIN = 'login';
 
+  /**
+   * Constant LINK
+   *
+   * Intent label stored for federated account-linking flows.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string LINK = 'link';
 
+  /**
+   * Constant INVALID_FLOW_MESSAGE
+   *
+   * User-facing message returned for invalid or expired flow state.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string INVALID_FLOW_MESSAGE = 'This connection request is no longer valid.';
 
+  /**
+   * Method __construct
+   *
+   * Initializes federated provider, flow, identity, session and user services.
+   *
+   * @access public
+   *
+   * @param FederatedProviderClientPort $providerClient provider authorization client
+   * @param FederatedFlowRepositoryPort $flows one-time flow persistence
+   * @param FederatedIdentityRepositoryPort $identities linked identity persistence
+   * @param TransactionManagerPort $transaction transaction boundary
+   * @param FederatedUserPort $users user account operations
+   * @param SessionIssuer $sessionIssuer session creation service
+   * @param string $frontendUrl configured frontend base URL
+   *
+   * @return void
+   */
   public function __construct(
     private FederatedProviderClientPort $providerClient,
     private FederatedFlowRepositoryPort $flows,
@@ -248,6 +292,23 @@ final readonly class FederatedAuthenticationService
     return $this->connections($userId);
   }
 
+  /**
+   * Method start
+   *
+   * Creates a short-lived authorization flow and returns its provider URL.
+   *
+   * @access private
+   *
+   * @param FederatedProvider $provider selected identity provider
+   * @param string $intent flow purpose
+   * @param ?string $userId linking user, when applicable
+   * @param string $returnUrl post-flow relative destination
+   * @param string $browserBinding browser binding token
+   *
+   * @return string provider authorization URL
+   *
+   * @throws FederatedAuthException when the provider is unavailable
+   */
   private function start(
     FederatedProvider $provider,
     string $intent,
@@ -277,6 +338,22 @@ final readonly class FederatedAuthenticationService
     return $authorization->authorizationUrl;
   }
 
+  /**
+   * Method consume
+   *
+   * Consumes and validates a one-time provider flow for the expected intent.
+   *
+   * @access private
+   *
+   * @param FederatedProvider $provider expected provider
+   * @param string $intent expected flow purpose
+   * @param string $state authorization state
+   * @param string $browserBinding browser binding token
+   *
+   * @return FederatedFlow validated flow
+   *
+   * @throws FederatedAuthException when the state is invalid or unavailable
+   */
   private function consume(FederatedProvider $provider, string $intent, string $state, string $browserBinding): FederatedFlow
   {
     if ('' === $state) {
@@ -290,6 +367,22 @@ final readonly class FederatedAuthenticationService
     return $flow;
   }
 
+  /**
+   * Method providerProfile
+   *
+   * Completes provider authentication and requires verified email in its profile.
+   *
+   * @access private
+   *
+   * @param FederatedProvider $provider selected provider
+   * @param FederatedFlow $flow validated flow
+   * @param string $code provider authorization code
+   * @param ?string $providerError callback error, if supplied
+   *
+   * @return FederatedProfile authenticated provider profile
+   *
+   * @throws FederatedAuthException when the provider denies sign-in or email is unverified
+   */
   private function providerProfile(
     FederatedProvider $provider,
     FederatedFlow $flow,
@@ -310,6 +403,18 @@ final readonly class FederatedAuthenticationService
     return $profile;
   }
 
+  /**
+   * Method newConnection
+   *
+   * Creates a provider identity connection with initial timestamps.
+   *
+   * @access private
+   *
+   * @param string $userId owning user identifier
+   * @param FederatedProfile $profile verified provider profile
+   *
+   * @return FederatedConnection new connection
+   */
   private function newConnection(string $userId, FederatedProfile $profile): FederatedConnection
   {
     $now = new DateTimeImmutable();
@@ -325,6 +430,18 @@ final readonly class FederatedAuthenticationService
     );
   }
 
+  /**
+   * Method touchConnection
+   *
+   * Persists a connection with refreshed email and last-use timestamp.
+   *
+   * @access private
+   *
+   * @param FederatedConnection $connection existing connection
+   * @param FederatedProfile $profile latest verified provider profile
+   *
+   * @return void
+   */
   private function touchConnection(FederatedConnection $connection, FederatedProfile $profile): void
   {
     $this->identities->save(new FederatedConnection(
@@ -338,6 +455,18 @@ final readonly class FederatedAuthenticationService
     ));
   }
 
+  /**
+   * Method callbackUri
+   *
+   * Builds the frontend callback path for sign-in or account linking.
+   *
+   * @access private
+   *
+   * @param FederatedProvider $provider selected provider
+   * @param string $intent flow purpose
+   *
+   * @return string callback URI
+   */
   private function callbackUri(FederatedProvider $provider, string $intent): string
   {
     $base = rtrim($this->frontendUrl, '/');
@@ -347,6 +476,17 @@ final readonly class FederatedAuthenticationService
       : $base . '/auth/federated/' . $provider->value . '/callback';
   }
 
+  /**
+   * Method safeReturnUrl
+   *
+   * Restricts post-flow navigation to relative paths without host or scheme.
+   *
+   * @access private
+   *
+   * @param string $returnUrl requested destination
+   *
+   * @return string safe relative path or the root path
+   */
   private function safeReturnUrl(string $returnUrl): string
   {
     if (
@@ -363,6 +503,15 @@ final readonly class FederatedAuthenticationService
     return $returnUrl;
   }
 
+  /**
+   * Method randomToken
+   *
+   * Generates a URL-safe random flow token.
+   *
+   * @access private
+   *
+   * @return string random token
+   */
   private function randomToken(): string
   {
     return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');

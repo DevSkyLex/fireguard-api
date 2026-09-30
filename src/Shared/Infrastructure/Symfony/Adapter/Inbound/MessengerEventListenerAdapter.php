@@ -39,6 +39,19 @@ final readonly class MessengerEventListenerAdapter implements EventListenerPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method handle.
+   *
+   * Dispatches an event and returns a handled result when it implements the shared result contract.
+   *
+   * @access public
+   *
+   * @param object $event the event sent to the message bus
+   *
+   * @return ResultMessage|null the handler result, when one is returned
+   *
+   * @throws MessengerRuntimeException when dispatch or result mapping fails
+   */
   public function handle(object $event): ?ResultMessage
   {
     try {

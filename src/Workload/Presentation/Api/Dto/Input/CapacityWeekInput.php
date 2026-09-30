@@ -16,9 +16,14 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class CapacityWeekInput
 {
+  // #region Properties
+  /**
+   * Property effectiveOn
+   */
   #[Assert\NotBlank]
   #[Assert\Date]
   public string $effectiveOn = '';
+  // #endregion
 
   /**
    * @var list<int>

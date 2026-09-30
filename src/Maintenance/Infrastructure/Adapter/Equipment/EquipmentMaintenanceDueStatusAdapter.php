@@ -41,6 +41,18 @@ final readonly class EquipmentMaintenanceDueStatusAdapter implements Maintenance
   // #endregion
 
   // #region Methods
+  /**
+   * Method dueStatusesForEquipment.
+   *
+   * Returns each requested equipment's stored due status, defaulting missing schedules to unscheduled.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param list<string> $equipmentIds the equipment identifiers to resolve
+   *
+   * @return array<string, string> due status keyed by equipment identifier
+   */
   public function dueStatusesForEquipment(string $organizationId, array $equipmentIds): array
   {
     if ([] === $equipmentIds) {

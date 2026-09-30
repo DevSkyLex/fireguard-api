@@ -17,6 +17,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class DeleteMetadataFieldResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Returns the identifier of the metadata-field definition processed by deletion.
+   *
+   * @access public
+   *
+   * @param string $id identifier of the metadata field processed
+   *
+   * @return void
+   */
   public function __construct(
     public string $id,
   ) {

@@ -52,6 +52,17 @@ use function substr;
 final readonly class FacilityMetadataSchemaGuard
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the metadata-field repository used to validate organization-defined facility metadata.
+   *
+   * @access public
+   *
+   * @param FacilityMetadataFieldRepositoryPort $repository port used to load metadata field definitions for the organization
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityMetadataFieldRepositoryPort $repository,
   ) {

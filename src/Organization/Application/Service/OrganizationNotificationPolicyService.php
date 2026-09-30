@@ -41,6 +41,17 @@ final readonly class OrganizationNotificationPolicyService implements Organizati
   // #endregion
 
   // #region Methods
+  /**
+   * Method notificationPolicy.
+   *
+   * Returns the organization's notification settings, using defaults when its identifier is invalid or absent.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return OrganizationNotificationSettings the effective notification settings
+   */
   public function notificationPolicy(string $organizationId): OrganizationNotificationSettings
   {
     try {

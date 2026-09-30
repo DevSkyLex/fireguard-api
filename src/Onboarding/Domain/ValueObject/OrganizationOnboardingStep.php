@@ -17,14 +17,29 @@ use function in_array;
 final class OrganizationOnboardingStep
 {
   // #region Constants
+  /**
+   * Constant CREATE_ORGANIZATION
+   */
   public const string CREATE_ORGANIZATION = 'create_organization';
 
+  /**
+   * Constant SELECT_PLAN
+   */
   public const string SELECT_PLAN = 'select_plan';
 
+  /**
+   * Constant INVITE_MEMBERS
+   */
   public const string INVITE_MEMBERS = 'invite_members';
 
+  /**
+   * Constant CREATE_FIRST_FACILITY
+   */
   public const string CREATE_FIRST_FACILITY = 'create_first_facility';
 
+  /**
+   * Constant CREATE_FIRST_EQUIPMENT
+   */
   public const string CREATE_FIRST_EQUIPMENT = 'create_first_equipment';
 
   /**

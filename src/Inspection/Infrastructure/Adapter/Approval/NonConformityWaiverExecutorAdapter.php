@@ -55,14 +55,34 @@ final readonly class NonConformityWaiverExecutorAdapter implements ApprovalActio
     private QueryBusPort $queryBus,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method actionType
+   *
+   * Returns the registered action type for non-conformity waivers.
+   *
+   * @access public
+   *
+   * @return string
+   */
   public function actionType(): string
   {
     return ApprovalActionTypes::NC_WAIVER;
   }
 
+  /**
+   * Method execute
+   *
+   * Records the approved non-conformity waiver described by the deferred action context.
+   *
+   * @access public
+   *
+   * @param DeferredActionContext $context the context
+   *
+   * @return void
+   */
   public function execute(DeferredActionContext $context): void
   {
     $inspectionId = self::stringPayload($context->payload, 'inspectionId');

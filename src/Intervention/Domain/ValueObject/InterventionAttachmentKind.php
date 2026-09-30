@@ -19,6 +19,13 @@ namespace Intervention\Domain\ValueObject;
  */
 enum InterventionAttachmentKind: string
 {
+  /**
+   * Case FILE
+   */
   case FILE = 'file';
+
+  /**
+   * Case SIGNATURE
+   */
   case SIGNATURE = 'signature';
 }

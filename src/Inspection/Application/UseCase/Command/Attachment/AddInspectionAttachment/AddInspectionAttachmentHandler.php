@@ -29,6 +29,21 @@ use Throwable;
 final readonly class AddInspectionAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives inspection, non-conformity, and attachment repositories plus file storage and an identifier factory.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to load the inspection and confirm its organization scope
+   * @param NonConformityRepositoryPort $nonConformityRepository port used to validate the optional non-conformity association
+   * @param InspectionAttachmentRepositoryPort $attachmentRepository port used to check identity and persist attachment metadata
+   * @param FileStoragePort $fileStorage port used to write file bytes and clean them up on persistence failure
+   * @param UuidFactory $uuidFactory factory used when no attachment identifier was supplied
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,

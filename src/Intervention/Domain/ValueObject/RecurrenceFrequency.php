@@ -20,10 +20,29 @@ use function array_column;
  */
 enum RecurrenceFrequency: string
 {
+  /**
+   * Case WEEKLY
+   */
   case WEEKLY = 'weekly';
+
+  /**
+   * Case MONTHLY
+   */
   case MONTHLY = 'monthly';
+
+  /**
+   * Case QUARTERLY
+   */
   case QUARTERLY = 'quarterly';
+
+  /**
+   * Case SEMIANNUAL
+   */
   case SEMIANNUAL = 'semiannual';
+
+  /**
+   * Case ANNUAL
+   */
   case ANNUAL = 'annual';
 
   // #region Methods

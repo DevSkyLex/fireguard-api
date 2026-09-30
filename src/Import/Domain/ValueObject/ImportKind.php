@@ -21,8 +21,19 @@ use function array_column;
  */
 enum ImportKind: string
 {
+  /**
+   * Case EQUIPMENT
+   */
   case EQUIPMENT = 'equipment';
+
+  /**
+   * Case FACILITY
+   */
   case FACILITY = 'facility';
+
+  /**
+   * Case MEMBER
+   */
   case MEMBER = 'member';
 
   // #region Methods

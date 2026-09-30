@@ -37,8 +37,14 @@ use function sprintf;
 final readonly class OnboardingNotificationSubscriber implements EventSubscriberInterface
 {
   // #region Constants
+  /**
+   * Constant NOTIFICATION_TYPE
+   */
   private const string NOTIFICATION_TYPE = 'onboarding.organization_session_completed';
 
+  /**
+   * Constant EMAIL_TEMPLATE
+   */
   private const string EMAIL_TEMPLATE = 'notification/email/onboarding_organization_completed.html.twig';
   // #endregion
 

@@ -18,6 +18,23 @@ use Auth\Domain\ValueObject\Federation\FederatedProvider;
  */
 final readonly class FederatedProfile
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the identity claims returned by a federated provider after profile validation.
+   *
+   * @access public
+   *
+   * @param FederatedProvider $provider provider that authenticated the identity
+   * @param string $subject provider-scoped subject identifier
+   * @param string $email email address asserted by the provider
+   * @param bool $emailVerified whether the provider reports the email as verified
+   * @param string $firstName given name returned by the provider
+   * @param string $lastName family name returned by the provider
+   *
+   * @return void
+   */
   public function __construct(
     public FederatedProvider $provider,
     public string $subject,
@@ -27,4 +44,5 @@ final readonly class FederatedProfile
     public string $lastName,
   ) {
   }
+  // #endregion
 }

@@ -26,7 +26,7 @@ use function substr;
 use function trim;
 
 /**
- * Processor EndSessionProcessor.
+ * Class EndSessionProcessor
  *
  * Handles OpenID Connect end-session requests.
  *
@@ -42,7 +42,7 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
 {
   // #region Constants
   /**
-   * Constant BEARER_PREFIX.
+   * Constant BEARER_PREFIX
    *
    * Bearer prefix for Authorization header.
    *
@@ -53,7 +53,7 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
   private const string BEARER_PREFIX = 'Bearer ';
 
   /**
-   * Constant COOKIE_ATTRIBUTE.
+   * Constant COOKIE_ATTRIBUTE
    *
    * Request attribute storing the refresh token cookie.
    *
@@ -66,11 +66,12 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
    * Initializes a new instance of the
    * EndSessionProcessor class.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param RequestStack $requestStack the request stack
@@ -78,6 +79,8 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
    * @param QueryBusPort $queryBus the query bus
    * @param JwtParserPort $jwtParser the JWT parser
    * @param RefreshTokenCookieService $cookieService the refresh token cookie service
+   *
+   * @return void
    */
   public function __construct(
     private readonly RequestStack $requestStack,
@@ -94,6 +97,14 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
    * Method provide
    * {@inheritDoc}
    *
+   * Exposes the end-session response through the read operation.
+   *
+   * @access public
+   *
+   * @param Operation $operation API Platform operation metadata
+   * @param array<string, mixed> $uriVariables route variables supplied by API Platform
+   * @param array<string, mixed> $context provider context supplied by API Platform
+   *
    * @return Response the end-session response
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): Response
@@ -105,6 +116,15 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
    * Method process
    * {@inheritDoc}
    *
+   * Processes the end-session operation using the same logout response path as the provider entry point.
+   *
+   * @access public
+   *
+   * @param mixed $data unused processor input
+   * @param Operation $operation API Platform operation metadata
+   * @param array<string, mixed> $uriVariables route variables supplied by API Platform
+   * @param array<string, mixed> $context processor context supplied by API Platform
+   *
    * @return Response the end-session response
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Response
@@ -112,6 +132,17 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     return $this->handleEndSession();
   }
 
+  /**
+   * Method handleEndSession
+   *
+   * Revokes presented tokens and clears the refresh cookie before validating any post-logout redirect.
+   *
+   * @access private
+   *
+   * @return Response JSON logout result or an allowed client redirect
+   *
+   * @throws BadRequestHttpException when no current request exists
+   */
   private function handleEndSession(): Response
   {
     $request = $this->requestStack->getCurrentRequest();
@@ -173,6 +204,17 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     );
   }
 
+  /**
+   * Method revokeTokens
+   *
+   * Requests revocation of the cookie refresh token and bearer access token independently; failures do not block logout.
+   *
+   * @access private
+   *
+   * @param Request $request current logout request
+   *
+   * @return void
+   */
   private function revokeTokens(Request $request): void
   {
     $refreshToken = $this->cookieService->getRefreshTokenFromRequest($request);
@@ -201,6 +243,17 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     }
   }
 
+  /**
+   * Method clearRefreshTokenCookie
+   *
+   * Places the clearing cookie on the request for the response listener to attach.
+   *
+   * @access private
+   *
+   * @param Request $request current logout request
+   *
+   * @return void
+   */
   private function clearRefreshTokenCookie(Request $request): void
   {
     $request->attributes->set(
@@ -209,6 +262,17 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     );
   }
 
+  /**
+   * Method extractAccessToken
+   *
+   * Extracts a non-empty token only from a bearer Authorization header.
+   *
+   * @access private
+   *
+   * @param Request $request current logout request
+   *
+   * @return ?string bearer token, or null when the header is absent or malformed
+   */
   private function extractAccessToken(Request $request): ?string
   {
     $authHeader = $request->headers->get('Authorization', '');
@@ -222,6 +286,17 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     return '' !== $token ? $token : null;
   }
 
+  /**
+   * Method resolveClientIdFromHint
+   *
+   * Reads the first non-empty audience claim from an ID-token hint already validated by the caller.
+   *
+   * @access private
+   *
+   * @param string $idTokenHint validated ID-token hint
+   *
+   * @return ?string first client audience, or null when absent
+   */
   private function resolveClientIdFromHint(string $idTokenHint): ?string
   {
     $claims = $this->jwtParser->parse($idTokenHint) ?? [];
@@ -242,6 +317,18 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     return null;
   }
 
+  /**
+   * Method isAllowedPostLogoutRedirectUri
+   *
+   * Allows a redirect only when the client can be loaded, is active, and has registered the exact URI.
+   *
+   * @access private
+   *
+   * @param string $clientId OAuth client identifier
+   * @param string $postLogoutRedirectUri requested post-logout URI
+   *
+   * @return bool whether the exact URI is registered for an active client
+   */
   private function isAllowedPostLogoutRedirectUri(string $clientId, string $postLogoutRedirectUri): bool
   {
     try {
@@ -258,6 +345,18 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     return in_array($postLogoutRedirectUri, $result->redirectUris, true);
   }
 
+  /**
+   * Method appendState
+   *
+   * Appends a URL-encoded state parameter while preserving any existing query string.
+   *
+   * @access private
+   *
+   * @param string $uri approved post-logout redirect URI
+   * @param ?string $state caller-provided state value
+   *
+   * @return string redirect URI with state when supplied
+   */
   private function appendState(string $uri, ?string $state): string
   {
     if (null === $state || '' === $state) {
@@ -271,6 +370,18 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     return $uri . $separator . 'state=' . rawurlencode($state);
   }
 
+  /**
+   * Method readParam
+   *
+   * Reads a trimmed non-empty string from request attributes, query parameters, then form data.
+   *
+   * @access private
+   *
+   * @param Request $request current logout request
+   * @param string $key parameter name
+   *
+   * @return ?string normalized parameter value, or null when unavailable
+   */
   private function readParam(Request $request, string $key): ?string
   {
     $value = $request->attributes->get($key)
@@ -288,6 +399,17 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
     return $normalized;
   }
 
+  /**
+   * Method buildInvalidRequest
+   *
+   * Creates an OAuth invalid_request payload with an HTTP 400 status.
+   *
+   * @access private
+   *
+   * @param string $message public error description
+   *
+   * @return JsonResponse protocol error response
+   */
   private function buildInvalidRequest(string $message): JsonResponse
   {
     return new JsonResponse(

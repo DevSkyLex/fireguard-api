@@ -14,8 +14,29 @@ use Inspection\Domain\ValueObject\{
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
 use LogicException;
 
+/**
+ * Class NonConformityMapper
+ *
+ * Converts non-conformity domain state to and from its Doctrine record representation.
+ *
+ * @category Mapper
+ */
 final class NonConformityMapper
 {
+  // #region Methods
+  /**
+   * Method toDomain
+   *
+   * Reconstitutes a non-conformity from its record and requires its inspection relation.
+   *
+   * @access public
+   *
+   * @param NonConformityRecord $record persisted non-conformity state
+   *
+   * @return NonConformity reconstructed domain object
+   *
+   * @throws LogicException when the record has no inspection record
+   */
   public static function toDomain(NonConformityRecord $record): NonConformity
   {
     if (!$record->inspection instanceof InspectionRecord) {
@@ -38,6 +59,17 @@ final class NonConformityMapper
     );
   }
 
+  /**
+   * Method toRecord
+   *
+   * Copies domain state into a new Doctrine record for persistence.
+   *
+   * @access public
+   *
+   * @param NonConformity $nonConformity domain state to persist
+   *
+   * @return NonConformityRecord record populated from the domain object
+   */
   public static function toRecord(NonConformity $nonConformity): NonConformityRecord
   {
     $record = new NonConformityRecord();
@@ -53,4 +85,5 @@ final class NonConformityMapper
 
     return $record;
   }
+  // #endregion
 }

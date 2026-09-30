@@ -17,7 +17,12 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class FederatedStartInput
 {
+  // #region Properties
+  /**
+   * Property returnUrl
+   */
   #[Assert\Length(max: 500)]
   #[SerializedName('return_url')]
   public string $returnUrl = '/';
+  // #endregion
 }

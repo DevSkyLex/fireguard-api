@@ -32,6 +32,19 @@ use function is_string;
 final readonly class GetFacilityProvider implements ProviderInterface
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives organization authorization, caller identity, and facility detail assembly for a scoped read.
+   *
+   * @access public
+   *
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
+   * @param Security $security security context used to obtain the requesting member
+   * @param \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail factory used to assemble the facility detail response
+   *
+   * @return void
+   */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
     private Security $security,

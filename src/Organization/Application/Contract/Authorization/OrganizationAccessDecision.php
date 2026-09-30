@@ -24,8 +24,19 @@ namespace Organization\Application\Contract\Authorization;
  */
 enum OrganizationAccessDecision: string
 {
+  /**
+   * Case GRANTED
+   */
   case GRANTED = 'granted';
+
+  /**
+   * Case MISSING_PERMISSION
+   */
   case MISSING_PERMISSION = 'missing_permission';
+
+  /**
+   * Case OUTSIDE_SCOPE
+   */
   case OUTSIDE_SCOPE = 'outside_scope';
 
   // #region Methods

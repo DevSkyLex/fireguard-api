@@ -25,6 +25,19 @@ use function array_map;
 final readonly class UpdateEquipmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment, tag, and facility-naming capabilities used to apply an update.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load and persist equipment
+   * @param TagRepositoryPort $tagRepository port used by equipment lifecycle handling
+   * @param FacilityNamingPort $facilityNaming port used to resolve facility context for related records
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,

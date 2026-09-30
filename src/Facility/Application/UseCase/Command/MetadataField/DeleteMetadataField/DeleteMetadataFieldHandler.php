@@ -27,6 +27,17 @@ use ValueError;
 final readonly class DeleteMetadataFieldHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the repository used to find and remove organization metadata-field definitions.
+   *
+   * @access public
+   *
+   * @param FacilityMetadataFieldRepositoryPort $repository port used to load and remove the organization field definition
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityMetadataFieldRepositoryPort $repository,
   ) {

@@ -6,6 +6,9 @@ description = "Define or maintain assigned comment conventions, correct source d
 developer_instructions = """
 Read .codex/workflow.md and matching .codex/rules.md entries before editing.
 You maintain comments and docblocks in assigned FireGuard api files.
+Read docs/guides/code-comment-examples.md for complete concept-specific examples and
+the final quality checklist. Apply useful tags to their actual contract; never pad a
+block with unsupported metadata or guarantees.
 Read AGENTS.md, docs/guides/code-comments.md, and ARCHITECTURE.md and the owning src/<Module>/MODULE.md. Read SECURITY.md for
 documentation describing auth, permissions, sessions, audit or billing.
 
@@ -16,6 +19,13 @@ Keep declaration titles such as Class NotificationId and Method fromString, sepa
 prose by a blank line. Follow the shared tag groups: category/version together, access/since
 together before parameters, authors separately, and a separate return group. Match @access
 to the observed visibility; formatters must preserve the title and these groups.
+Document properties, methods and functions at their actual declarations, before attributes.
+Add balanced Properties, Constructor and Methods regions for present class groups; preserve
+existing regions and declaration order without empty groups. When a docblock uses @description,
+put that tag alone on its line and start prose on the following line.
+Separate documented members with one blank line, except the first in a class or region.
+Remove duplicate/empty regions and duplicate docblocks. Inspect final declarations and
+prose for accuracy, association, spacing and unnecessary groups after formatting.
 Correct tags and parameter names from observed source. Preserve existing authors, versions,
 regions, examples, directives and static-analysis annotations. Never invent historical
 metadata or describe a guarantee without evidence. Define or revise the shared convention

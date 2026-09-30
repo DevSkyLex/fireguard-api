@@ -289,9 +289,18 @@ final class AuthResource
     ],
   ];
 
+  /**
+   * Constant LOGOUT_LINK_DESCRIPTION
+   */
   private const LOGOUT_LINK_DESCRIPTION = 'Logout and revoke all tokens - requires Bearer access_token header';
 
+  /**
+   * Constant USER_INFO_LINK_DESCRIPTION
+   */
   private const USER_INFO_LINK_DESCRIPTION = 'Get authenticated user information - requires Bearer access_token header';
 
+  /**
+   * Constant RESPONSE_ACCESS_TOKEN
+   */
   private const RESPONSE_ACCESS_TOKEN = '$response.body#/access_token';
 }

@@ -96,6 +96,18 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
     return $this->dispatchCreate($request, $parentFacilityId);
   }
 
+  /**
+   * Method dispatchCreate.
+   *
+   * Dispatches facility creation and translates domain or transport failures into a provisioning result.
+   *
+   * @access private
+   *
+   * @param ProvisionFacilityRequest $request the facility data and batch context
+   * @param string|null $parentFacilityId the resolved parent identifier, when available
+   *
+   * @return ProvisionFacilityResult the creation outcome
+   */
   private function dispatchCreate(ProvisionFacilityRequest $request, ?string $parentFacilityId): ProvisionFacilityResult
   {
     try {

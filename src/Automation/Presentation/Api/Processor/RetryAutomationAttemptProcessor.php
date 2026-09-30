@@ -18,10 +18,39 @@ use function is_string;
 /** @implements ProcessorInterface<RetryAutomationAttemptInput, AutomationAttemptOutput> */
 final readonly class RetryAutomationAttemptProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the RetryAutomationAttemptProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commands the commands
+   * @param CurrentActorPort $actor the actor
+   *
+   * @return void
+   */
   public function __construct(private CommandBusPort $commands, private CurrentActorPort $actor)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param RetryAutomationAttemptInput $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return AutomationAttemptOutput
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): AutomationAttemptOutput
   {
     $actor = $this->actor->userId() ?? throw new AccessDeniedHttpException('Authentication required.');
@@ -35,4 +64,5 @@ final readonly class RetryAutomationAttemptProcessor implements ProcessorInterfa
 
     return AutomationAttemptOutput::fromView($result->attempt);
   }
+  // #endregion
 }

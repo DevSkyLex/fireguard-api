@@ -41,6 +41,17 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
   // #endregion
 
   // #region Methods
+  /**
+   * Method purgeForUser.
+   *
+   * Deletes user-owned records from the repositories managed by this adapter.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier whose data is purged
+   *
+   * @return void no return value
+   */
   public function purgeForUser(string $userId): void
   {
     $normalizedUserId = trim($userId);
@@ -124,11 +135,18 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
   }
 
   /**
-   * @param array<string, mixed> $parameters
-   */
-  /**
-   * @param class-string $entityClass
-   * @param array<string, mixed> $parameters
+   * Method deleteWhere.
+   *
+   * Deletes records matching the supplied DQL predicate and applies each named query parameter.
+   *
+   * @access private
+   *
+   * @param class-string $entityClass the Doctrine entity class to delete
+   * @param string $alias the query alias for the entity
+   * @param string $where the DQL predicate limiting the deletion
+   * @param array<string, mixed> $parameters named values bound to the predicate
+   *
+   * @return void
    */
   private function deleteWhere(string $entityClass, string $alias, string $where, array $parameters): void
   {

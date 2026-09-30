@@ -31,12 +31,24 @@ use function sprintf;
  */
 final readonly class InspectionInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort
 {
+  /**
+   * Constant INTERVENTION_PREDICATE
+   */
   private const string INTERVENTION_PREDICATE = 'record.interventionId = :interventionId';
 
+  /**
+   * Constant PATCHABLE_FIELDS
+   */
   private const PATCHABLE_FIELDS = ['result', 'status', 'notes', 'signature'];
 
+  /**
+   * Constant RESULTS
+   */
   private const RESULTS = ['pass', 'fail', 'partial'];
 
+  /**
+   * Constant STATUSES
+   */
   private const STATUSES = ['draft', 'submitted', 'closed', 'cancelled'];
 
   /**
@@ -69,8 +81,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method supports.
    *
-   * Executes the supports operation.
+   * Recognizes canonical inspection API resource IRIs handled by this adapter.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resource the resource value
@@ -85,8 +98,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method supportsResourceType.
    *
-   * Executes the supports resource type operation.
+   * Reports whether the adapter owns the inspection resource type.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionResourceType $type the type value
@@ -101,8 +115,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method resourceExists.
    *
-   * Executes the resource exists operation.
+   * Checks whether an inspection record exists for the supplied identifier.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -117,8 +132,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method resourceBelongsToOrganization.
    *
-   * Executes the resource belongs to organization operation.
+   * Checks that the identified inspection is associated with the requested organization.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -136,8 +152,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method clientIdExists.
    *
-   * Executes the client id exists operation.
+   * Checks whether an inspection already uses the supplied client identifier.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $clientId the client id value
@@ -152,8 +169,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method assign.
    *
-   * Executes the assign operation.
+   * Associates an inspection with an intervention and records its draft or published assignment state.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -180,8 +198,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method countForIntervention.
    *
-   * Executes the count for intervention operation.
+   * Counts inspection records assigned to an intervention.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
@@ -241,13 +260,16 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method apply.
    *
-   * Executes the apply operation.
+   * Validates and applies supported changes to an organization-owned published inspection while enforcing its lifecycle.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $organizationId the organization id value
    * @param string $resource the resource value
    * @param array<string, mixed> $patch the patch value
+   *
+   * @return void no return value
    */
   public function apply(string $organizationId, string $resource, array $patch): void
   {
@@ -276,11 +298,14 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method publishDrafts.
    *
-   * Executes the publish drafts operation.
+   * Publishes draft inspections and responses assigned to an intervention, incrementing their revisions.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
+   *
+   * @return void no return value
    */
   public function publishDrafts(string $interventionId): void
   {
@@ -389,8 +414,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * Method id.
    *
-   * Executes the id operation.
+   * Extracts the inspection identifier from its canonical API resource IRI and rejects malformed values.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $resource the resource value

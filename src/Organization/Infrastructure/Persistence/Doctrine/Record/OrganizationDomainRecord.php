@@ -21,25 +21,48 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_org_domain_exact', columns: ['domain'])]
 class OrganizationDomainRecord
 {
+  // #region Properties
+  /**
+   * Property id
+   */
   #[ORM\Id]
   #[ORM\Column(name: 'id', type: 'string', length: 36)]
   public string $id;
 
+  /**
+   * Property organizationId
+   */
   #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
   public string $organizationId;
 
+  /**
+   * Property domain
+   */
   #[ORM\Column(name: 'domain', type: 'string', length: 253)]
   public string $domain;
 
+  /**
+   * Property dnsValue
+   */
   #[ORM\Column(name: 'dns_value', type: 'string', length: 128)]
   public string $dnsValue;
 
+  /**
+   * Property status
+   */
   #[ORM\Column(name: 'status', type: 'string', length: 16)]
   public string $status;
 
+  /**
+   * Property verifiedAt
+   */
   #[ORM\Column(name: 'verified_at', type: 'datetime_immutable', nullable: true)]
   public ?DateTimeImmutable $verifiedAt = null;
 
+  /**
+   * Property lastCheckedAt
+   */
   #[ORM\Column(name: 'last_checked_at', type: 'datetime_immutable', nullable: true)]
   public ?DateTimeImmutable $lastCheckedAt = null;
+  // #endregion
 }

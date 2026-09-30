@@ -28,6 +28,9 @@ use Shared\Application\Factory\UuidFactory;
  */
 final readonly class EquipmentMaintenanceLogSynchronizer implements EquipmentMaintenanceLogSynchronizerPort
 {
+  /**
+   * Constant UNDER_MAINTENANCE
+   */
   private const string UNDER_MAINTENANCE = 'under_maintenance';
 
   // #region Constructor

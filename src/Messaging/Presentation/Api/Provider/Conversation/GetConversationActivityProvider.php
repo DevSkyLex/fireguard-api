@@ -42,10 +42,19 @@ final readonly class GetConversationActivityProvider implements ProviderInterfac
   use MessagingExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant DEFAULT_BUCKETS
+   */
   private const int DEFAULT_BUCKETS = 26;
 
+  /**
+   * Constant MIN_BUCKETS
+   */
   private const int MIN_BUCKETS = 1;
 
+  /**
+   * Constant MAX_BUCKETS
+   */
   private const int MAX_BUCKETS = 366;
   // #endregion
 

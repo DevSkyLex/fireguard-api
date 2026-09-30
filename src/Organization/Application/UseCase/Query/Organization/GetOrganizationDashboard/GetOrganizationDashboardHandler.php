@@ -59,6 +59,15 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    */
   private const string STORAGE_TIME_ZONE = 'UTC';
 
+  /**
+   * Constant DEFAULT_CACHE_TTL_SECONDS
+   *
+   * Default lifetime for cached dashboard results.
+   *
+   * @access private
+   *
+   * @var int
+   */
   private const int DEFAULT_CACHE_TTL_SECONDS = 30;
 
   /**
@@ -372,6 +381,18 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     );
   }
 
+  /**
+   * Method buildCacheKey
+   *
+   * Builds a cache key from dashboard filters and the intervention access flag.
+   *
+   * @access private
+   *
+   * @param GetOrganizationDashboardQuery $query the dashboard query
+   * @param bool $includeInterventions whether recent interventions are included
+   *
+   * @return string the cache key
+   */
   private function buildCacheKey(GetOrganizationDashboardQuery $query, bool $includeInterventions): string
   {
     try {
@@ -398,6 +419,17 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     return 'organization.dashboard.' . hash('sha256', $payload);
   }
 
+  /**
+   * Method readCache
+   *
+   * Returns a cached dashboard result when the cache contains the expected type.
+   *
+   * @access private
+   *
+   * @param string $cacheKey the dashboard cache key
+   *
+   * @return ?GetOrganizationDashboardResult the cached result, if available
+   */
   private function readCache(string $cacheKey): ?GetOrganizationDashboardResult
   {
     if (null === $this->cache || $this->cacheTtl <= 0) {
@@ -413,6 +445,18 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     return $cached instanceof GetOrganizationDashboardResult ? $cached : null;
   }
 
+  /**
+   * Method writeCache
+   *
+   * Stores the dashboard result using the configured cache lifetime.
+   *
+   * @access private
+   *
+   * @param string $cacheKey the dashboard cache key
+   * @param GetOrganizationDashboardResult $result the result to cache
+   *
+   * @return void
+   */
   private function writeCache(string $cacheKey, GetOrganizationDashboardResult $result): void
   {
     if (null === $this->cache || $this->cacheTtl <= 0) {
@@ -484,6 +528,19 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     );
   }
 
+  /**
+   * Method buildNonConformityPeriodResolutionRate
+   *
+   * Calculates the resolved share of non-conformities active or opened in the period.
+   *
+   * @access private
+   *
+   * @param int $openedCount number opened during the period
+   * @param int $resolvedCount number resolved during the period
+   * @param int $activeAtStartCount number active at the period start
+   *
+   * @return float the resolution percentage
+   */
   private function buildNonConformityPeriodResolutionRate(
     int $openedCount,
     int $resolvedCount,
@@ -624,6 +681,21 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     return $this->facilityStatistics->countFacilitiesCreatedByDay(...$arguments);
   }
 
+  /**
+   * Method countPeriodFacilitiesCreated
+   *
+   * Sums daily facility creation counts for the requested period.
+   *
+   * @access private
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $createdAtFrom inclusive period start
+   * @param string $createdAtTo inclusive period end
+   * @param string $timeZone timezone used for daily buckets
+   * @param ?string $type optional facility type filter
+   *
+   * @return int the number of facilities created
+   */
   private function countPeriodFacilitiesCreated(string $organizationId, string $createdAtFrom, string $createdAtTo, string $timeZone, ?string $type = null): int
   {
     return DashboardSeriesBuilder::sumSeries($this->countFacilitiesCreatedByDay(
@@ -654,6 +726,22 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     return $this->equipmentStatistics->countEquipmentCreatedByDay(...$arguments);
   }
 
+  /**
+   * Method countPeriodEquipmentCreated
+   *
+   * Sums daily equipment creation counts for the requested period.
+   *
+   * @access private
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $createdAtFrom inclusive period start
+   * @param string $createdAtTo inclusive period end
+   * @param string $timeZone timezone used for daily buckets
+   * @param ?string $type optional equipment type filter
+   * @param ?string $status optional equipment status filter
+   *
+   * @return int the number of equipment records created
+   */
   private function countPeriodEquipmentCreated(string $organizationId, string $createdAtFrom, string $createdAtTo, string $timeZone, ?string $type = null, ?string $status = null): int
   {
     return DashboardSeriesBuilder::sumSeries($this->countEquipmentCreatedByDay(
@@ -688,6 +776,19 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     return $this->inspectionStatistics->countInspectionsPerformedByDay(...$arguments);
   }
 
+  /**
+   * Method countMembersJoinedBetween
+   *
+   * Counts members after converting period bounds to the storage timezone.
+   *
+   * @access private
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param DateTimeImmutable $joinedAtFrom period start
+   * @param DateTimeImmutable $joinedAtTo period end
+   *
+   * @return int the number of members who joined in the period
+   */
   private function countMembersJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int
   {
     return $this->memberRepository->countJoinedBetween(
@@ -697,6 +798,17 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     );
   }
 
+  /**
+   * Method normalizeMemberTimestampForStorage
+   *
+   * Converts a member timestamp to the configured persistence timezone.
+   *
+   * @access private
+   *
+   * @param DateTimeImmutable $value the timestamp to convert
+   *
+   * @return DateTimeImmutable the timestamp in the storage timezone
+   */
   private function normalizeMemberTimestampForStorage(DateTimeImmutable $value): DateTimeImmutable
   {
     return $value->setTimezone(new DateTimeZone(self::STORAGE_TIME_ZONE));

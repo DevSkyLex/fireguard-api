@@ -31,6 +31,19 @@ use function array_keys;
 final readonly class ListOrganizationNonConformitiesHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives finding and inspection repositories plus equipment naming for organization-level results.
+   *
+   * @access public
+   *
+   * @param NonConformityRepositoryPort $nonConformityRepository port used to retrieve organization findings
+   * @param InspectionRepositoryPort $inspectionRepository port used to load inspection details for each finding
+   * @param EquipmentNamingPort $equipmentNaming port used to resolve equipment display information
+   *
+   * @return void
+   */
   public function __construct(
     private NonConformityRepositoryPort $nonConformityRepository,
     private InspectionRepositoryPort $inspectionRepository,

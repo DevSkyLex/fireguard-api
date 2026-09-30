@@ -62,6 +62,17 @@ final class JwtParserAdapter implements JwtParserPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method parse.
+   *
+   * Parses a JWT and extracts selected claims without asserting its signature validity.
+   *
+   * @access public
+   *
+   * @param string $token encoded JWT
+   *
+   * @return ?array<string, mixed> selected claims, or null when parsing fails
+   */
   public function parse(string $token): ?array
   {
     try {
@@ -105,6 +116,17 @@ final class JwtParserAdapter implements JwtParserPort
     }
   }
 
+  /**
+   * Method validate.
+   *
+   * Verifies the token signature and its time-based validity constraints.
+   *
+   * @access public
+   *
+   * @param string $token encoded JWT
+   *
+   * @return bool whether the token passes signature and time validation
+   */
   public function validate(string $token): bool
   {
     try {
@@ -133,6 +155,15 @@ final class JwtParserAdapter implements JwtParserPort
       $constraints = [
         new SignedWith($this->jwtConfig->signer(), $this->jwtConfig->verificationKey()),
         new LooseValidAt(new class () implements ClockInterface {
+          /**
+           * Method now.
+           *
+           * Returns the current instant used to evaluate token time claims.
+           *
+           * @access public
+           *
+           * @return DateTimeImmutable current time
+           */
           public function now(): DateTimeImmutable
           {
             return new DateTimeImmutable();
@@ -146,6 +177,17 @@ final class JwtParserAdapter implements JwtParserPort
     }
   }
 
+  /**
+   * Method getTokenId.
+   *
+   * Extracts the string token identifier claim when parsing succeeds.
+   *
+   * @access public
+   *
+   * @param string $token encoded JWT
+   *
+   * @return ?string the token identifier, or null when unavailable
+   */
   public function getTokenId(string $token): ?string
   {
     $claims = $this->parse($token);
@@ -158,6 +200,17 @@ final class JwtParserAdapter implements JwtParserPort
     return is_string($jti) ? $jti : null;
   }
 
+  /**
+   * Method getUserId.
+   *
+   * Extracts the string subject claim when parsing succeeds.
+   *
+   * @access public
+   *
+   * @param string $token encoded JWT
+   *
+   * @return ?string the subject identifier, or null when unavailable
+   */
   public function getUserId(string $token): ?string
   {
     $claims = $this->parse($token);

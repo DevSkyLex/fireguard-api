@@ -36,6 +36,20 @@ final readonly class PutUnderMaintenanceProcessor implements ProcessorInterface
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives command dispatch, organization authorization, caller identity, and equipment output assembly for the maintenance transition.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus port used to dispatch the maintenance command
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
+   * @param Security $security security context used to obtain the acting member
+   * @param EquipmentDetailOutputFactory $outputFactory factory used to assemble the updated equipment response
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,

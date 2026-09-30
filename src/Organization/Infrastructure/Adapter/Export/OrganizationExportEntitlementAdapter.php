@@ -46,8 +46,8 @@ final readonly class OrganizationExportEntitlementAdapter implements ComplianceE
    * @var list<string>
    */
   private const array ENTITLED_PLAN_KEYS = ['pro', 'max'];
-  // #endregion
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -62,9 +62,20 @@ final readonly class OrganizationExportEntitlementAdapter implements ComplianceE
     private PlanRepositoryPort $planRepository,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method isExportEntitled
+   *
+   * Reports whether export entitled the requested condition.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return bool
+   */
   public function isExportEntitled(string $organizationId): bool
   {
     $planKey = $this->resolvePlanKey($organizationId);
@@ -72,6 +83,17 @@ final readonly class OrganizationExportEntitlementAdapter implements ComplianceE
     return null !== $planKey && in_array($planKey, self::ENTITLED_PLAN_KEYS, true);
   }
 
+  /**
+   * Method resolvePlanKey
+   *
+   * Resolves plan key from the supplied context.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return ?string
+   */
   public function resolvePlanKey(string $organizationId): ?string
   {
     try {

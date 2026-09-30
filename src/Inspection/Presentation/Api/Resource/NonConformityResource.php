@@ -16,6 +16,13 @@ use Inspection\Presentation\Api\Provider\NonConformity\{GetNonConformityProvider
 use Inspection\Presentation\Api\Serialization\InspectionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
+/**
+ * Class NonConformityResource
+ *
+ * Declares the API Platform resource and operations for inspection non-conformities.
+ *
+ * @category Resource
+ */
 #[ApiResource(
   shortName: 'NonConformity',
   routePrefix: '/organizations',
@@ -279,12 +286,40 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class NonConformityResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER.
+   *
+   * Authentication expression applied to non-conformity operations.
+   *
+   * @access private
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FORBIDDEN_DESCRIPTION.
+   *
+   * OpenAPI description for insufficient organization permissions.
+   *
+   * @access private
+   */
   private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant SEVERITY_FILTER_DESCRIPTION.
+   *
+   * OpenAPI description for filtering non-conformities by severity.
+   *
+   * @access private
+   */
   private const string SEVERITY_FILTER_DESCRIPTION = 'Filter by severity (low, medium, high, critical)';
 
+  /**
+   * Constant STATUS_FILTER_DESCRIPTION.
+   *
+   * OpenAPI description for filtering non-conformities by status.
+   *
+   * @access private
+   */
   private const string STATUS_FILTER_DESCRIPTION = 'Filter by status (open, in_progress, done, waived)';
   // #endregion
 }

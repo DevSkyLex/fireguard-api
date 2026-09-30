@@ -77,8 +77,14 @@ use Symfony\Component\HttpFoundation\Response;
 final class InterventionChangeResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant CHANGE_URI_TEMPLATE
+   */
   private const string CHANGE_URI_TEMPLATE = '/intervention-changes/{id}';
   // #endregion
 }

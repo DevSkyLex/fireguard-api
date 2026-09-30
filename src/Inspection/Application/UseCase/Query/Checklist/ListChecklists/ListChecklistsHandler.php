@@ -24,6 +24,17 @@ use function in_array;
 final readonly class ListChecklistsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the checklist repository used to query matching checklist templates.
+   *
+   * @access public
+   *
+   * @param ChecklistRepositoryPort $checklistRepository port used to retrieve checklist rows matching the query
+   *
+   * @return void
+   */
   public function __construct(
     private ChecklistRepositoryPort $checklistRepository,
   ) {

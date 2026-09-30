@@ -60,6 +60,13 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
   use UnwrapsOrganizationBusFailures;
 
   // #region Constants
+  /**
+   * Constant INVALID_BOOLEAN_FILTER_MESSAGE.
+   *
+   * Error template used when a dashboard boolean filter is not recognized.
+   *
+   * @access private
+   */
   private const string INVALID_BOOLEAN_FILTER_MESSAGE = 'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.';
   // #endregion
 
@@ -198,6 +205,17 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     return $output;
   }
 
+  /**
+   * Method askTrend
+   *
+   * Dispatches the dashboard trend query and maps its known failures to HTTP responses.
+   *
+   * @access private
+   *
+   * @param GetOrganizationDashboardTrendQuery $query the organization trend query
+   *
+   * @return GetOrganizationDashboardTrendResult the requested trend data
+   */
   private function askTrend(GetOrganizationDashboardTrendQuery $query): GetOrganizationDashboardTrendResult
   {
     try {

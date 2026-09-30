@@ -46,8 +46,8 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    * @var EntityRepository<OrganizationRoleRecord>
    */
   private EntityRepository $roleRepository;
-  // #endregion
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -65,8 +65,8 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
     $this->invitationRoleRepository = $entityManager->getRepository(OrganizationInvitationRoleRecord::class);
     $this->roleRepository = $entityManager->getRepository(OrganizationRoleRecord::class);
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method save.
@@ -344,6 +344,17 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
     return $this->countByStatusForOrganizationId($organizationId)['pending'] ?? 0;
   }
 
+  /**
+   * Method countByOrganizationId
+   *
+   * Counts by organization id matching the supplied filters.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int
+   */
   public function countByOrganizationId(OrganizationId $organizationId): int
   {
     /**
@@ -356,6 +367,17 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
     ]);
   }
 
+  /**
+   * Method countByStatusForOrganizationId
+   *
+   * Counts by status for organization id matching the supplied filters.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return array<string, int> counts indexed by the invitation status keys pending, accepted, revoked and expired
+   */
   public function countByStatusForOrganizationId(OrganizationId $organizationId): array
   {
     /**

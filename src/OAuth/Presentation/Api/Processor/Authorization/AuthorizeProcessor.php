@@ -108,6 +108,15 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     return $this->handleAuthorizationRequest();
   }
 
+  /**
+   * Method handleAuthorizationRequest.
+   *
+   * Validates the OAuth authorization request, user session, consent, and completion response.
+   *
+   * @access private
+   *
+   * @return Response OAuth or OIDC authorization response
+   */
   private function handleAuthorizationRequest(): Response
   {
     $request = $this->requestStack->getCurrentRequest();
@@ -244,6 +253,17 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     return $securityUser;
   }
 
+  /**
+   * Method buildAuthorizationRequest.
+   *
+   * Converts normalized framework request parameters into the League server request.
+   *
+   * @access private
+   *
+   * @param Request $request incoming authorization request
+   *
+   * @return ServerRequest request passed to the authorization server
+   */
   private function buildAuthorizationRequest(Request $request): ServerRequest
   {
     $params = $this->normalizeAuthorizationParams($request);
@@ -286,6 +306,17 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     return $params;
   }
 
+  /**
+   * Method validatePkceRequest.
+   *
+   * Requires a challenge for code responses and rejects unsupported challenge methods.
+   *
+   * @access private
+   *
+   * @param Request $request incoming authorization request
+   *
+   * @return ?JsonResponse invalid-request response, or null when the PKCE parameters pass
+   */
   private function validatePkceRequest(Request $request): ?JsonResponse
   {
     $responseType = $this->readParam($request, 'response_type');
@@ -305,6 +336,18 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       : $this->buildInvalidRequest('Invalid code_challenge_method value.');
   }
 
+  /**
+   * Method readParam.
+   *
+   * Reads and trims a string value from request attributes, query, or body parameters.
+   *
+   * @access private
+   *
+   * @param Request $request incoming request
+   * @param string $key parameter name
+   *
+   * @return ?string non-empty parameter value, or null when absent or not a string
+   */
   private function readParam(Request $request, string $key): ?string
   {
     $value = $request->attributes->get($key)
@@ -337,6 +380,17 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     return $identifiers;
   }
 
+  /**
+   * Method buildInvalidRequest.
+   *
+   * Creates the OAuth invalid_request JSON response.
+   *
+   * @access private
+   *
+   * @param string $message error description
+   *
+   * @return JsonResponse HTTP 400 OAuth error response
+   */
   private function buildInvalidRequest(string $message): JsonResponse
   {
     return new JsonResponse(
@@ -348,6 +402,19 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     );
   }
 
+  /**
+   * Method enforceRateLimit.
+   *
+   * Consumes an authorization-request rate-limit token when a limiter is configured.
+   *
+   * @access private
+   *
+   * @param Request $request incoming request used to derive the rate-limit key
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the request exceeds its rate limit
+   */
   private function enforceRateLimit(Request $request): void
   {
     if (null === $this->rateLimiter) {
@@ -370,6 +437,18 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     );
   }
 
+  /**
+   * Method getRateLimitKey.
+   *
+   * Builds a limiter key from truncated hashes of client and address values.
+   *
+   * @access private
+   *
+   * @param string $clientId OAuth client identifier
+   * @param string $ipAddress client IP address
+   *
+   * @return string rate-limit key
+   */
   private function getRateLimitKey(string $clientId, string $ipAddress): string
   {
     $clientHash = hash('sha256', $clientId);
@@ -433,6 +512,18 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     return in_array('consent', $prompts, true);
   }
 
+  /**
+   * Method requiresRecentAuth.
+   *
+   * Checks whether the user's recorded authentication time is missing or older than max_age.
+   *
+   * @access private
+   *
+   * @param string $userId authenticated user identifier
+   * @param int $maxAge maximum authentication age in seconds
+   *
+   * @return bool whether recent authentication is required
+   */
   private function requiresRecentAuth(string $userId, int $maxAge): bool
   {
     if ('' === trim($userId)) {
@@ -445,6 +536,18 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     return null === $authTime || $maxAge <= 0 || ($authTime->getTimestamp() + $maxAge) < time();
   }
 
+  /**
+   * Method storeNonceFromResponse.
+   *
+   * Associates a supplied OIDC nonce with the authorization code returned in the response.
+   *
+   * @access private
+   *
+   * @param Request $request incoming authorization request
+   * @param \Psr\Http\Message\ResponseInterface $response authorization response
+   *
+   * @return void no return value
+   */
   private function storeNonceFromResponse(Request $request, \Psr\Http\Message\ResponseInterface $response): void
   {
     $nonce = $this->readParam($request, 'nonce');

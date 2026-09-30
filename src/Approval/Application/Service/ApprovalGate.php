@@ -75,6 +75,17 @@ final readonly class ApprovalGate implements ApprovalGatePort
   // #endregion
 
   // #region Methods
+  /**
+   * Method evaluate.
+   *
+   * Applies the organization's approval policy and reserves a pending request when review is required.
+   *
+   * @access public
+   *
+   * @param ApprovalGateRequest $request the action and organization context to evaluate
+   *
+   * @return ApprovalGateDecision whether the action can proceed or needs approval
+   */
   public function evaluate(ApprovalGateRequest $request): ApprovalGateDecision
   {
     $policy = $this->policy->policyFor($request->organizationId);

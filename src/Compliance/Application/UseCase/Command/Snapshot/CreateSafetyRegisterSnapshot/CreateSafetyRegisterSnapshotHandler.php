@@ -50,6 +50,9 @@ use function strlen;
 final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant EXPORT_PERMISSION
+   */
   private const string EXPORT_PERMISSION = 'organization.compliance.export';
   // #endregion
 

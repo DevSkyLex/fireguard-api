@@ -29,7 +29,16 @@ use const JSON_THROW_ON_ERROR;
  */
 final readonly class ApprovalRequestRepository implements ApprovalRequestRepositoryPort
 {
+  // #region Constants
+  /**
+   * Constant STATUS_PREDICATE.
+   *
+   * DQL condition used to filter approval requests by status.
+   *
+   * @access private
+   */
   private const string STATUS_PREDICATE = 'r.status = :status';
+  // #endregion
 
   // #region Properties
   /**
@@ -54,6 +63,17 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
   // #endregion
 
   // #region Methods
+  /**
+   * Method reservePending.
+   *
+   * Claims the pending request tuple idempotently and returns the winning identifier.
+   *
+   * @access public
+   *
+   * @param ApprovalRequestCreation $creation pending request values to reserve
+   *
+   * @return ApprovalReservation whether this call created the reservation and its identifier
+   */
   public function reservePending(ApprovalRequestCreation $creation): ApprovalReservation
   {
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
@@ -103,6 +123,17 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
     return new ApprovalReservation((string) $creation->id, true);
   }
 
+  /**
+   * Method save.
+   *
+   * Inserts or updates an approval request aggregate.
+   *
+   * @access public
+   *
+   * @param ApprovalRequest $request the approval request aggregate
+   *
+   * @return void no return value
+   */
   public function save(ApprovalRequest $request): void
   {
     $record = $this->repository->find((string) $request->id());
@@ -122,6 +153,17 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById.
+   *
+   * Loads an approval request by its domain identifier.
+   *
+   * @access public
+   *
+   * @param ApprovalRequestId $id the approval request identifier
+   *
+   * @return ?ApprovalRequest the request when found
+   */
   public function findById(ApprovalRequestId $id): ?ApprovalRequest
   {
     $record = $this->repository->find((string) $id);
@@ -129,6 +171,21 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
     return $record instanceof ApprovalRequestRecord ? ApprovalRequestMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method listByOrganization.
+   *
+   * Lists organization approval requests with optional status and action filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param ?string $status optional request status filter
+   * @param ?string $actionType optional action type filter
+   * @param int $limit maximum number of requests to return
+   * @param int $offset number of earlier requests to skip
+   *
+   * @return list<ApprovalRequest> matching requests, newest first
+   */
   public function listByOrganization(string $organizationId, ?string $status, ?string $actionType, int $limit, int $offset): array
   {
     $qb = $this->repository->createQueryBuilder('r')
@@ -153,6 +210,19 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
     return array_map(ApprovalRequestMapper::toDomain(...), $records);
   }
 
+  /**
+   * Method countByOrganization.
+   *
+   * Counts organization approval requests using the optional filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param ?string $status optional request status filter
+   * @param ?string $actionType optional action type filter
+   *
+   * @return int number of matching requests
+   */
   public function countByOrganization(string $organizationId, ?string $status, ?string $actionType): int
   {
     $qb = $this->repository->createQueryBuilder('r')
@@ -171,6 +241,18 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
 
+  /**
+   * Method findPendingExpiredBefore.
+   *
+   * Lists expired pending requests in expiry order for the expiration sweep.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $now expiry comparison instant
+   * @param int $limit maximum number of requests to return
+   *
+   * @return list<ApprovalRequest> expired pending requests
+   */
   public function findPendingExpiredBefore(DateTimeImmutable $now, int $limit): array
   {
     /** @var list<ApprovalRequestRecord> $records */

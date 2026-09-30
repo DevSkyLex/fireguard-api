@@ -366,19 +366,43 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class RoleResource
 {
+  /**
+   * Constant TAG
+   */
   private const TAG = 'Authorization - Roles';
 
+  /**
+   * Constant AUTHENTICATION_REQUIRED
+   */
   private const AUTHENTICATION_REQUIRED = 'Authentication required - missing or invalid access token';
 
+  /**
+   * Constant ITEM_URI
+   */
   private const ITEM_URI = '/roles/{id}';
 
+  /**
+   * Constant RESPONSE_ID
+   */
   private const RESPONSE_ID = '$response.body#/id';
 
+  /**
+   * Constant ADD_PERMISSION_DESCRIPTION
+   */
   private const ADD_PERMISSION_DESCRIPTION = 'Add a permission to this role';
 
+  /**
+   * Constant NOT_FOUND
+   */
   private const NOT_FOUND = 'Role not found';
 
+  /**
+   * Constant UPDATE_SECURITY
+   */
   private const UPDATE_SECURITY = "is_granted('roles.update')";
 
+  /**
+   * Constant UPDATE_FORBIDDEN
+   */
   private const UPDATE_FORBIDDEN = 'Insufficient permissions - roles.update required';
 }

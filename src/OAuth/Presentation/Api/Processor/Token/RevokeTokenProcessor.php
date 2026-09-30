@@ -91,6 +91,19 @@ final readonly class RevokeTokenProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method enforceRateLimit.
+   *
+   * Consumes the token revocation rate limit for the client IP address.
+   *
+   * @access private
+   *
+   * @param string|null $ipAddress the client IP address, when available
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the revocation limit is exceeded
+   */
   private function enforceRateLimit(?string $ipAddress): void
   {
     $key = $ipAddress ?? 'unknown';

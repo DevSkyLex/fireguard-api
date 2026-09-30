@@ -56,6 +56,20 @@ final class SessionRepository implements SessionRepositoryPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method rotateTokens.
+   *
+   * Atomically replaces the active token pair only when the supplied pair is still current.
+   *
+   * @access public
+   *
+   * @param string $currentRefreshTokenId the current refresh token identifier
+   * @param string $currentAccessTokenId the current access token identifier
+   * @param string $newAccessTokenId the replacement access token identifier
+   * @param string $newRefreshTokenId the replacement refresh token identifier
+   *
+   * @return bool whether the current, non-revoked token pair was rotated
+   */
   public function rotateTokens(string $currentRefreshTokenId, string $currentAccessTokenId, string $newAccessTokenId, string $newRefreshTokenId): bool
   {
     // The conditional UPDATE serializes refreshes and revocations on the same row.

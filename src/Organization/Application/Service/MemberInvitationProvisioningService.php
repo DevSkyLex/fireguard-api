@@ -153,6 +153,17 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
     }
   }
 
+  /**
+   * Method fromDispatchException.
+   *
+   * Maps recognized invitation dispatch failures to provisioning outcomes and rethrows others.
+   *
+   * @access private
+   *
+   * @param Throwable $exception the dispatch failure to classify
+   *
+   * @return ProvisionMemberInvitationResult the mapped provisioning outcome
+   */
   private function fromDispatchException(Throwable $exception): ProvisionMemberInvitationResult
   {
     return match (true) {

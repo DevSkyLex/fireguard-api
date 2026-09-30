@@ -14,9 +14,24 @@ namespace Equipment\Domain\ValueObject;
  */
 enum EquipmentStatus: string
 {
+  /**
+   * Case IN_STOCK
+   */
   case IN_STOCK = 'in_stock';
+
+  /**
+   * Case OPERATIONAL
+   */
   case OPERATIONAL = 'operational';
+
+  /**
+   * Case UNDER_MAINTENANCE
+   */
   case UNDER_MAINTENANCE = 'under_maintenance';
+
+  /**
+   * Case DECOMMISSIONED
+   */
   case DECOMMISSIONED = 'decommissioned';
 
   // #region Methods

@@ -124,8 +124,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class OrganizationInvitationResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant OPENAPI_TAG_INVITATIONS
+   */
   private const string OPENAPI_TAG_INVITATIONS = 'Organization Invitations';
   // #endregion
 }

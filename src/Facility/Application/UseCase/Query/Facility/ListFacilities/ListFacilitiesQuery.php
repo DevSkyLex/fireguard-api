@@ -19,6 +19,27 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ListFacilitiesQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the organization scope, visibility options, filters, pagination, and ordering for a facility list.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose facilities are listed
+   * @param bool $includeArchived whether archived facilities are included
+   * @param Pagination $pagination requested page and page size
+   * @param ?string $type optional facility type filter
+   * @param ?string $status optional facility status filter
+   * @param ?string $parentFacilityId optional parent facility filter
+   * @param bool $rootsOnly whether only top-level facilities are returned
+   * @param ?string $code optional facility code filter
+   * @param ?bool $hasCoordinates whether latitude and longitude must both be set or unset, when specified
+   * @param ?string $search optional text search
+   * @param Sorting $sorting requested field and direction for ordering results
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public bool $includeArchived = false,

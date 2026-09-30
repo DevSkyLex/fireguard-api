@@ -14,7 +14,18 @@ namespace Intervention\Domain\ValueObject;
  */
 enum InterventionType: string
 {
+  /**
+   * Case SITE_SETUP
+   */
   case SITE_SETUP = 'site_setup';
+
+  /**
+   * Case INVENTORY
+   */
   case INVENTORY = 'inventory';
+
+  /**
+   * Case INSPECTION_CAMPAIGN
+   */
   case INSPECTION_CAMPAIGN = 'inspection_campaign';
 }

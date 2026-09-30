@@ -33,6 +33,17 @@ final readonly class NotificationService implements NotificationPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method send.
+   *
+   * Sends a notification request through the notification use case and maps its result.
+   *
+   * @access public
+   *
+   * @param SendNotificationRequest $request the notification content and recipient details
+   *
+   * @return SentNotification the sent notification contract
+   */
   public function send(SendNotificationRequest $request): SentNotification
   {
     $result = $this->sendNotificationHandler->__invoke(new SendNotificationCommand(

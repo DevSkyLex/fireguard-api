@@ -22,6 +22,19 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ListInspectionAttachmentsQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the organization-scoped inspection and optional related non-conformity for attachment listing.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope used to authorize the read
+   * @param string $inspectionId inspection whose attachments are listed
+   * @param ?string $nonConformityId optional finding used to narrow the attachment list
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public string $inspectionId,

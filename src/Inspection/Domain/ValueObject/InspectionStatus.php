@@ -16,9 +16,24 @@ use function array_column;
  */
 enum InspectionStatus: string
 {
+  /**
+   * Case DRAFT
+   */
   case DRAFT = 'draft';
+
+  /**
+   * Case SUBMITTED
+   */
   case SUBMITTED = 'submitted';
+
+  /**
+   * Case CLOSED
+   */
   case CLOSED = 'closed';
+
+  /**
+   * Case CANCELLED
+   */
   case CANCELLED = 'cancelled';
 
   // #region Methods

@@ -21,6 +21,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class GetInspectionResponseResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the requested response view when it exists.
+   *
+   * @access public
+   *
+   * @param ?InspectionResponseView $view response projection, or null when no matching response exists
+   *
+   * @return void
+   */
   public function __construct(
     public ?InspectionResponseView $view = null,
   ) {

@@ -168,14 +168,29 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class OrganizationAuditEventResource
 {
   // #region Constants
+  /**
+   * Constant ACTION_FILTER_DESCRIPTION
+   */
   private const string ACTION_FILTER_DESCRIPTION = 'Optional exact audit action filter (e.g. organization.member_added).';
 
+  /**
+   * Constant EXAMPLE_FROM_DATE
+   */
   private const string EXAMPLE_FROM_DATE = '2026-03-01T00:00:00Z';
 
+  /**
+   * Constant FROM_FILTER_DESCRIPTION
+   */
   private const string FROM_FILTER_DESCRIPTION = 'Optional inclusive ISO 8601 lower bound on the occurrence datetime.';
 
+  /**
+   * Constant EXAMPLE_TO_DATE
+   */
   private const string EXAMPLE_TO_DATE = '2026-03-29T23:59:59Z';
 
+  /**
+   * Constant TO_FILTER_DESCRIPTION
+   */
   private const string TO_FILTER_DESCRIPTION = 'Optional inclusive ISO 8601 upper bound on the occurrence datetime.';
   // #endregion
 }

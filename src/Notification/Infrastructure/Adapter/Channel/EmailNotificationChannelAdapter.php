@@ -24,8 +24,13 @@ use function trim;
  */
 final readonly class EmailNotificationChannelAdapter implements EmailNotificationChannelPort
 {
+  // #region Constants
+  /**
+   * Constant DEFAULT_TEMPLATE
+   */
   private const string DEFAULT_TEMPLATE = 'notification/email/default.html.twig';
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -40,9 +45,21 @@ final readonly class EmailNotificationChannelAdapter implements EmailNotificatio
     private Environment $twig,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method send
+   *
+   * Sends the notification through the email channel using its prepared payload.
+   *
+   * @access public
+   *
+   * @param Notification $notification the notification
+   * @param array<string, mixed> $channelPayload optional channel-specific values
+   *
+   * @return void
+   */
   public function send(Notification $notification, array $channelPayload = []): void
   {
     $recipient = $notification->recipientEmail();

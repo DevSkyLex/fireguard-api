@@ -42,10 +42,19 @@ use function in_array;
 final readonly class InterventionViewMapper
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_IRI_PREFIX
+   */
   private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
 
+  /**
+   * Constant MEMBER_IRI_SEGMENT
+   */
   private const string MEMBER_IRI_SEGMENT = '/members/';
 
+  /**
+   * Constant INTERVENTION_IRI_PREFIX
+   */
   private const string INTERVENTION_IRI_PREFIX = '/api/interventions/';
   // #endregion
 

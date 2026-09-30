@@ -11,15 +11,44 @@ use Equipment\Application\Contract\Event\EquipmentPlanPositionChangedEvent;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
-/** Listener EquipmentPlanAuditListener. The audit fact commits with every direct or published mutation. */
+/**
+ * Class EquipmentPlanAuditListener
+ *
+ * Enqueues the equipment plan-position audit fact alongside persisted mutations.
+ */
 #[AsDoctrineListener(event: Events::postPersist, connection: 'main')]
 #[AsDoctrineListener(event: Events::postUpdate, connection: 'main')]
 final readonly class EquipmentPlanAuditListener
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the dispatcher that enqueues plan-position audit facts with equipment writes.
+   *
+   * @access public
+   *
+   * @param EventDispatcherPort $events enqueues plan-position audit facts transactionally
+   *
+   * @return void
+   */
   public function __construct(private EventDispatcherPort $events)
   {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method postPersist.
+   *
+   * Enqueues a placement event when newly persisted equipment already has a plan position.
+   *
+   * @access public
+   *
+   * @param PostPersistEventArgs $args Doctrine event context
+   *
+   * @return void
+   */
   public function postPersist(PostPersistEventArgs $args): void
   {
     $record = $args->getObject();
@@ -28,6 +57,17 @@ final readonly class EquipmentPlanAuditListener
     }
   }
 
+  /**
+   * Method postUpdate.
+   *
+   * Enqueues placement changes and first publication from Doctrine's change set.
+   *
+   * @access public
+   *
+   * @param PostUpdateEventArgs $args Doctrine event context
+   *
+   * @return void
+   */
   public function postUpdate(PostUpdateEventArgs $args): void
   {
     $record = $args->getObject();
@@ -44,6 +84,18 @@ final readonly class EquipmentPlanAuditListener
     $this->enqueue($record, $previous['attachmentId'] ?? null);
   }
 
+  /**
+   * Method enqueue.
+   *
+   * Dispatches an audit fact only for published equipment in an organization.
+   *
+   * @access private
+   *
+   * @param EquipmentRecord $record persisted equipment source
+   * @param ?string $previousAttachmentId previous plan attachment, when available
+   *
+   * @return void
+   */
   private function enqueue(EquipmentRecord $record, ?string $previousAttachmentId): void
   {
     if ('published' !== $record->recordStatus || null === $record->organization) {
@@ -59,4 +111,5 @@ final readonly class EquipmentPlanAuditListener
       $record->updatedAt,
     ));
   }
+  // #endregion
 }

@@ -41,6 +41,20 @@ use function is_string;
 final readonly class ListFacilitiesProvider implements ProviderInterface
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives query dispatch, organization authorization, caller identity, and request context for facility listing.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus port used to dispatch the facility-list query
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
+   * @param Security $security security context used to obtain the requesting member
+   * @param RequestStack $requestStack request context used to read collection filters and pagination
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,

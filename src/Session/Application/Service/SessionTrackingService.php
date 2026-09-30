@@ -36,6 +36,22 @@ final readonly class SessionTrackingService implements SessionTrackingPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method recordSession.
+   *
+   * Creates a tracked session for a user when a non-empty user identifier is available.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   * @param string $ipAddress the observed client IP address
+   * @param string $userAgent the observed client user agent
+   * @param ?string $accessTokenId the associated access token identifier
+   * @param ?string $refreshTokenId the associated refresh token identifier
+   * @param bool $rememberMe whether the session was requested as persistent
+   *
+   * @return void no return value
+   */
   public function recordSession(
     string $userId,
     string $ipAddress,
@@ -58,6 +74,20 @@ final readonly class SessionTrackingService implements SessionTrackingPort
     ));
   }
 
+  /**
+   * Method rotateSessionTokens.
+   *
+   * Replaces session token identifiers through the session update use case.
+   *
+   * @access public
+   *
+   * @param string $currentRefreshTokenId the refresh token identifier being rotated
+   * @param ?string $currentAccessTokenId the associated current access token identifier
+   * @param string $newAccessTokenId the replacement access token identifier
+   * @param string $newRefreshTokenId the replacement refresh token identifier
+   *
+   * @return bool whether the session was updated
+   */
   public function rotateSessionTokens(
     string $currentRefreshTokenId,
     ?string $currentAccessTokenId,
@@ -76,6 +106,18 @@ final readonly class SessionTrackingService implements SessionTrackingPort
     ))->updated;
   }
 
+  /**
+   * Method revokeSessionByToken.
+   *
+   * Revokes a tracked session when at least one token identifier is supplied.
+   *
+   * @access public
+   *
+   * @param ?string $refreshTokenId the refresh token identifier, when available
+   * @param ?string $accessTokenId the access token identifier, when available
+   *
+   * @return void no return value
+   */
   public function revokeSessionByToken(?string $refreshTokenId, ?string $accessTokenId): void
   {
     if ((null === $refreshTokenId || '' === $refreshTokenId) && (null === $accessTokenId || '' === $accessTokenId)) {

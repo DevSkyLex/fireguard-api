@@ -23,6 +23,13 @@ namespace Facility\Domain\ValueObject;
  */
 enum FacilityRecordStatus: string
 {
+  /**
+   * Case DRAFT
+   */
   case DRAFT = 'draft';
+
+  /**
+   * Case PUBLISHED
+   */
   case PUBLISHED = 'published';
 }

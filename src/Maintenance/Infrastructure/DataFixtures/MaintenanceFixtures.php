@@ -91,11 +91,29 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
   // #endregion
 
   // #region Methods
+  /**
+   * Method getGroups.
+   *
+   * Includes maintenance schedules in the maintenance and main seed groups.
+   *
+   * @access public
+   *
+   * @return list<string> fixture groups
+   */
   public static function getGroups(): array
   {
     return ['maintenance', 'main-seed'];
   }
 
+  /**
+   * Method getDependencies.
+   *
+   * Ensures organization and equipment references exist before schedules are seeded.
+   *
+   * @access public
+   *
+   * @return list<class-string<Fixture>> prerequisite fixtures
+   */
   public function getDependencies(): array
   {
     return [
@@ -104,6 +122,17 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
     ];
   }
 
+  /**
+   * Method load.
+   *
+   * Seeds schedules whose due dates and statuses agree with the current policy.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture object manager
+   *
+   * @return void
+   */
   public function load(ObjectManager $manager): void
   {
     /** @var OrganizationRecord $organization */

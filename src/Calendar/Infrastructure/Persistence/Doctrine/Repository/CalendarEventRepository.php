@@ -16,7 +16,9 @@ use function array_map;
 use function max;
 
 /**
- * Repository CalendarEventRepository.
+ * Class CalendarEventRepository
+ *
+ * Persists and queries standalone events without an ORM association to organization records.
  *
  * `organizationId` is queried as a plain column (not a Doctrine association):
  * `CalendarEventRecord` never carries an ORM relation to `organizations` (see
@@ -38,11 +40,16 @@ final readonly class CalendarEventRepository implements CalendarEventRepositoryP
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
+   * Creates the repository and prepares the standalone event record repository.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the Doctrine entity manager
+   *
+   * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -52,6 +59,17 @@ final readonly class CalendarEventRepository implements CalendarEventRepositoryP
   // #endregion
 
   // #region Methods
+  /**
+   * Method save
+   *
+   * Inserts or updates a calendar event, assigning its mapped fields before a new record is persisted.
+   *
+   * @access public
+   *
+   * @param CalendarEvent $event event aggregate to persist
+   *
+   * @return void
+   */
   public function save(CalendarEvent $event): void
   {
     $record = $this->repository->find((string) $event->id());
@@ -74,6 +92,17 @@ final readonly class CalendarEventRepository implements CalendarEventRepositoryP
     $this->entityManager->flush();
   }
 
+  /**
+   * Method remove
+   *
+   * Removes the persisted event record when the aggregate identifier exists.
+   *
+   * @access public
+   *
+   * @param CalendarEvent $event event aggregate identifying the record
+   *
+   * @return void
+   */
   public function remove(CalendarEvent $event): void
   {
     $record = $this->repository->find((string) $event->id());
@@ -84,6 +113,17 @@ final readonly class CalendarEventRepository implements CalendarEventRepositoryP
     }
   }
 
+  /**
+   * Method findById
+   *
+   * Finds a standalone event by identifier and maps it to the domain model.
+   *
+   * @access public
+   *
+   * @param CalendarEventId $id event identifier
+   *
+   * @return CalendarEvent|null event aggregate, or null when absent
+   */
   public function findById(CalendarEventId $id): ?CalendarEvent
   {
     $record = $this->repository->find((string) $id);
@@ -91,6 +131,20 @@ final readonly class CalendarEventRepository implements CalendarEventRepositoryP
     return $record instanceof CalendarEventRecord ? CalendarEventMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method listBetween
+   *
+   * Lists organization events overlapping the requested range in start-time order.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization identifier stored on the event record
+   * @param DateTimeImmutable $from inclusive range start
+   * @param DateTimeImmutable $to inclusive range end
+   * @param int $limit maximum number of records to return, with a floor of one
+   *
+   * @return list<CalendarEvent> matching event aggregates
+   */
   public function listBetween(string $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, int $limit): array
   {
     /** @var list<CalendarEventRecord> $records */

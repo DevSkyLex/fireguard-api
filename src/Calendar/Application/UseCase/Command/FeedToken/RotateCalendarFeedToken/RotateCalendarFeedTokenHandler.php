@@ -31,6 +31,9 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 final readonly class RotateCalendarFeedTokenHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   */
   private const string READ_PERMISSION = 'organization.events.read';
   // #endregion
 

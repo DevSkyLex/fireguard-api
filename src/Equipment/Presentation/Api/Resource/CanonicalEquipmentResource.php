@@ -82,8 +82,14 @@ use Symfony\Component\HttpFoundation\Response;
 final class CanonicalEquipmentResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant ITEM_URI_TEMPLATE
+   */
   private const string ITEM_URI_TEMPLATE = '/equipment/{id}';
   // #endregion
 }

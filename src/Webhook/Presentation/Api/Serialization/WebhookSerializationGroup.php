@@ -14,7 +14,13 @@ namespace Webhook\Presentation\Api\Serialization;
  */
 final class WebhookSerializationGroup
 {
+  /**
+   * Constant READ
+   */
   public const string READ = 'Webhook:read';
 
+  /**
+   * Constant WRITE
+   */
   public const string WRITE = 'Webhook:write';
 }

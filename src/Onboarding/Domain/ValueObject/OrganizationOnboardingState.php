@@ -17,10 +17,19 @@ use function in_array;
 final class OrganizationOnboardingState
 {
   // #region Constants
+  /**
+   * Constant IN_PROGRESS
+   */
   public const string IN_PROGRESS = 'in_progress';
 
+  /**
+   * Constant COMPLETED
+   */
   public const string COMPLETED = 'completed';
 
+  /**
+   * Constant BLOCKED
+   */
   public const string BLOCKED = 'blocked';
   // #endregion
 

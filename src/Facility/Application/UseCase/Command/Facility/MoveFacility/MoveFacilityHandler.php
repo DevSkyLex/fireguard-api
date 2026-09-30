@@ -34,6 +34,19 @@ use function strtolower;
 final readonly class MoveFacilityHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the facility repository and event dispatcher plus the configured hierarchy depth limit.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to load and persist facility hierarchy state
+   * @param EventDispatcherPort $eventDispatcher port used to publish the committed hierarchy change
+   * @param int $maxDepth maximum hierarchy depth accepted by the module
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private EventDispatcherPort $eventDispatcher,

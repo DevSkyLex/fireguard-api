@@ -52,6 +52,9 @@ final readonly class DoctrineNonConformityStatisticsGatewayAdapter implements No
    */
   private const int TOP_N = 10;
 
+  /**
+   * Constant OPEN_STATUSES_PREDICATE
+   */
   private const string OPEN_STATUSES_PREDICATE = 'nonConformity.status IN (:openStatuses)';
   // #endregion
 

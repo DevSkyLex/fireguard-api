@@ -77,8 +77,8 @@ final class ImportJob
     private ?string $confirmedJobId = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method create.
@@ -168,6 +168,15 @@ final class ImportJob
     );
   }
 
+  /**
+   * Method canConfirm
+   *
+   * Reports whether confirm the requested condition.
+   *
+   * @access public
+   *
+   * @return bool
+   */
   public function canConfirm(): bool
   {
     return $this->dryRun && ImportStatus::COMPLETED === $this->status
@@ -176,6 +185,15 @@ final class ImportJob
       && $this->processedRows === $this->totalRows && $this->successfulRows === $this->totalRows;
   }
 
+  /**
+   * Method confirmedJobId
+   *
+   * Returns the job identifier after the import has been confirmed, or null beforehand.
+   *
+   * @access public
+   *
+   * @return ?string
+   */
   public function confirmedJobId(): ?string
   {
     return $this->confirmedJobId;

@@ -12,11 +12,33 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /** Subscriber PlanFailureSubscriber. Stable recovery codes without exposing hidden resources. */
 final readonly class PlanFailureSubscriber implements EventSubscriberInterface
 {
+  /**
+   * Method getSubscribedEvents.
+   *
+   * Registers the exception listener for stable equipment plan error responses.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return array<string, array{string, int}> exception event mapped to its listener and priority
+   */
   public static function getSubscribedEvents(): array
   {
     return [KernelEvents::EXCEPTION => ['onException', 10]];
   }
 
+  /**
+   * Method onException.
+   *
+   * Maps recognized equipment plan failures to stable conflict responses.
+   *
+   * @access public
+   *
+   * @param ExceptionEvent $event the kernel exception event
+   *
+   * @return void no return value
+   */
   public function onException(ExceptionEvent $event): void
   {
     $error = $event->getThrowable();

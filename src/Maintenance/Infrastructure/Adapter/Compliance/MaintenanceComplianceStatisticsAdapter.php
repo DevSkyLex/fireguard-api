@@ -60,6 +60,17 @@ final readonly class MaintenanceComplianceStatisticsAdapter implements Maintenan
   // #endregion
 
   // #region Methods
+  /**
+   * Method dueStatusCountsByFacility.
+   *
+   * Groups the persisted maintenance due-status counts by facility.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return array<string, array{up_to_date: int, due_soon: int, overdue: int, unscheduled: int}> status counts keyed by facility
+   */
   public function dueStatusCountsByFacility(string $organizationId): array
   {
     $sql = <<<'SQL'
@@ -96,6 +107,17 @@ final readonly class MaintenanceComplianceStatisticsAdapter implements Maintenan
     return $counts;
   }
 
+  /**
+   * Method lastInspectionClosedAtByFacility.
+   *
+   * Retrieves each facility's latest stored inspection closure timestamp.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return array<string, string> ISO 8601 timestamps keyed by facility
+   */
   public function lastInspectionClosedAtByFacility(string $organizationId): array
   {
     $sql = <<<'SQL'
@@ -125,6 +147,17 @@ final readonly class MaintenanceComplianceStatisticsAdapter implements Maintenan
     return $dates;
   }
 
+  /**
+   * Method evaluationByFacility.
+   *
+   * Returns the evaluated schedule count and oldest evaluation per facility.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return array<string, array{evaluatedCount: int, oldestEvaluatedAt: ?string}> evaluation summaries keyed by facility
+   */
   public function evaluationByFacility(string $organizationId): array
   {
     /** @var list<array{facility_key: string, evaluated_count: int|string, oldest_evaluated_at: ?string}> $rows */

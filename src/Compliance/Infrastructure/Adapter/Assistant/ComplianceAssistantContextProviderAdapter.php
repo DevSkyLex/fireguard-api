@@ -43,6 +43,13 @@ use function sprintf;
 final readonly class ComplianceAssistantContextProviderAdapter implements AssistantContextProviderPort
 {
   // #region Constants
+  /**
+   * Constant SOURCE_KEY.
+   *
+   * Identifies the compliance summary source in assistant context fragments.
+   *
+   * @access private
+   */
   private const string SOURCE_KEY = 'compliance.summary';
   // #endregion
 
@@ -63,6 +70,18 @@ final readonly class ComplianceAssistantContextProviderAdapter implements Assist
   // #endregion
 
   // #region Methods
+  /**
+   * Method supports.
+   *
+   * Checks that the actor has every permission required to read compliance data.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param AssistantContextScope $scope the actor and requested context scope
+   *
+   * @return bool whether the assistant may include compliance context
+   */
   public function supports(string $organizationId, AssistantContextScope $scope): bool
   {
     $granted = $this->authorization->getUserPermissions($scope->actorUserId, $organizationId);
@@ -70,6 +89,19 @@ final readonly class ComplianceAssistantContextProviderAdapter implements Assist
     return [] === array_diff(OrganizationPermissionCatalog::complianceReadDependencies(), $granted);
   }
 
+  /**
+   * Method provide.
+   *
+   * Builds a bounded compliance summary fragment for the assistant context.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param AssistantContextScope $scope the actor and requested context scope
+   * @param AssistantContextBudget $budget the remaining context size budget
+   *
+   * @return AssistantContextFragment the compliance summary or an empty fragment
+   */
   public function provide(string $organizationId, AssistantContextScope $scope, AssistantContextBudget $budget): AssistantContextFragment
   {
     try {

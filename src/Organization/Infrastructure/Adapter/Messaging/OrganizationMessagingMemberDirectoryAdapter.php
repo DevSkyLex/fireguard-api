@@ -48,6 +48,18 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
   // #endregion
 
   // #region Methods
+  /**
+   * Method resolveActiveMemberId.
+   *
+   * Resolves the user's active organization member identifier, returning null for invalid IDs.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $userId the local user identifier
+   *
+   * @return ?string active member identifier, or null when no active membership exists
+   */
   public function resolveActiveMemberId(string $organizationId, string $userId): ?string
   {
     try {
@@ -59,6 +71,18 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
     return null !== $member && $member->isActive() ? $member->id()->value : null;
   }
 
+  /**
+   * Method memberIsActive.
+   *
+   * Checks that a member identifier belongs to this organization and is active.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $memberId the organization member identifier
+   *
+   * @return bool whether the member is active in this organization
+   */
   public function memberIsActive(string $organizationId, string $memberId): bool
   {
     try {
@@ -70,6 +94,18 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
     return null !== $member && $member->isActive() && $member->organizationId()->value === $organizationId;
   }
 
+  /**
+   * Method resolveUserIdForMember.
+   *
+   * Resolves a member's local user identifier only when it belongs to this organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $memberId the organization member identifier
+   *
+   * @return ?string local user identifier, or null when the member is absent or out of scope
+   */
   public function resolveUserIdForMember(string $organizationId, string $memberId): ?string
   {
     try {
@@ -85,6 +121,18 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
     return $member->userId();
   }
 
+  /**
+   * Method displayNamesFor.
+   *
+   * Resolves human-readable names for supplied members in one organization-scoped pass.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param list<string> $memberIds member identifiers to resolve
+   *
+   * @return array<string, string> available display names keyed by member identifier
+   */
   public function displayNamesFor(string $organizationId, array $memberIds): array
   {
     if ([] === $memberIds) {
@@ -112,6 +160,18 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
     return $names;
   }
 
+  /**
+   * Method activeUserIdsForMembers.
+   *
+   * Resolves local user identifiers for active members in the organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param list<string> $memberIds member identifiers to resolve
+   *
+   * @return array<string, string> active member identifier to local user identifier map
+   */
   public function activeUserIdsForMembers(string $organizationId, array $memberIds): array
   {
     try {
@@ -121,6 +181,17 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
     }
   }
 
+  /**
+   * Method activeMembershipsForUser.
+   *
+   * Returns the active organization membership identities for a local user.
+   *
+   * @access public
+   *
+   * @param string $userId the local user identifier
+   *
+   * @return list<array{organizationId: string, memberId: string}> the user's active membership identities
+   */
   public function activeMembershipsForUser(string $userId): array
   {
     return $this->members->findActiveMembershipIdentitiesForUser($userId);

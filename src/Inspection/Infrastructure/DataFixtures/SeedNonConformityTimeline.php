@@ -16,6 +16,21 @@ use DateTimeImmutable;
  */
 final readonly class SeedNonConformityTimeline
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Provides lifecycle timestamps for a seeded non-conformity.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $createdAt creation timestamp
+   * @param DateTimeImmutable $updatedAt most recent update timestamp
+   * @param ?DateTimeImmutable $dueAt optional due date
+   * @param ?DateTimeImmutable $resolvedAt optional resolution timestamp
+   *
+   * @return void
+   */
   public function __construct(
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
@@ -23,4 +38,5 @@ final readonly class SeedNonConformityTimeline
     public ?DateTimeImmutable $resolvedAt = null,
   ) {
   }
+  // #endregion
 }

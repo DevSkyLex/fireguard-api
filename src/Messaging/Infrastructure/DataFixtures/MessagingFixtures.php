@@ -34,32 +34,119 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 final class MessagingFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
   // #region Constants
+  /** Constant GENERAL_CHANNEL_ID
+   *
+   * Stable identifier for the seeded general channel.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string GENERAL_CHANNEL_ID = '33333333-3333-4333-8333-333333333331';
 
+  /** Constant INTERVENTIONS_CHANNEL_ID
+   *
+   * Stable identifier for the seeded interventions channel.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string INTERVENTIONS_CHANNEL_ID = '33333333-3333-4333-8333-333333333332';
 
+  /** Constant PARIS_CHANNEL_ID
+   *
+   * Stable identifier for the seeded Paris interventions channel.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string PARIS_CHANNEL_ID = '33333333-3333-4333-8333-333333333333';
 
+  /** Constant DIRECT_CONVERSATION_ID
+   *
+   * Stable identifier for the seeded direct conversation.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string DIRECT_CONVERSATION_ID = '33333333-3333-4333-8333-333333333334';
 
+  /** Constant OWNER_MEMBER_ID
+   *
+   * Seed member identifier for the organization owner.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string OWNER_MEMBER_ID = '11111111-1111-4111-8111-111111111115';
 
+  /** Constant INSPECTOR_MEMBER_ID
+   *
+   * Seed member identifier for the inspector.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string INSPECTOR_MEMBER_ID = '11111111-1111-4111-8111-111111111116';
 
+  /** Constant ORGANIZATION_ID
+   *
+   * Organization identifier shared with the organization fixtures.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ORGANIZATION_ID = OrganizationFixtures::ORGANIZATION_ID;
   // #endregion
 
   // #region Methods
+  /**
+   * Method getGroups
+   *
+   * Returns the messaging fixture group name.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return list<string> fixture group names
+   */
   public static function getGroups(): array
   {
     return ['messaging', 'main-seed'];
   }
 
+  /**
+   * Method getDependencies
+   *
+   * Declares the organization fixtures required for seeded member references.
+   *
+   * @access public
+   *
+   * @return list<class-string> fixture dependencies
+   */
   public function getDependencies(): array
   {
     return [OrganizationFixtures::class];
   }
 
+  /**
+   * Method load
+   *
+   * Creates the seeded channels, participants and sample conversations.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   *
+   * @return void
+   */
   public function load(ObjectManager $manager): void
   {
     /** @var OrganizationRecord $organization */
@@ -196,6 +283,21 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
     $manager->flush();
   }
 
+  /**
+   * Method createChannel
+   *
+   * Builds a seeded channel with its organization and optional parent.
+   *
+   * @access private
+   *
+   * @param string $id conversation identifier
+   * @param OrganizationRecord $organization owning organization
+   * @param string $name channel name
+   * @param ?MessagingConversationRecord $parent parent channel, if nested
+   * @param DateTimeImmutable $createdAt creation time
+   *
+   * @return MessagingConversationRecord channel record
+   */
   private function createChannel(
     string $id,
     OrganizationRecord $organization,
@@ -218,6 +320,18 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
     return $channel;
   }
 
+  /**
+   * Method createParticipant
+   *
+   * Builds a manual participant record for a seeded conversation.
+   *
+   * @access private
+   *
+   * @param MessagingConversationRecord $conversation owning conversation
+   * @param string $memberId organization member identifier
+   *
+   * @return MessagingParticipantRecord participant record
+   */
   private function createParticipant(MessagingConversationRecord $conversation, string $memberId): MessagingParticipantRecord
   {
     $participant = new MessagingParticipantRecord();
@@ -230,6 +344,18 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
     return $participant;
   }
 
+  /**
+   * Method createReadMarker
+   *
+   * Builds an unread marker for a seeded conversation participant.
+   *
+   * @access private
+   *
+   * @param MessagingConversationRecord $conversation owning conversation
+   * @param string $memberId organization member identifier
+   *
+   * @return MessagingReadMarkerRecord read-marker record
+   */
   private function createReadMarker(MessagingConversationRecord $conversation, string $memberId): MessagingReadMarkerRecord
   {
     $marker = new MessagingReadMarkerRecord();
@@ -245,6 +371,21 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
     return $marker;
   }
 
+  /**
+   * Method createMessage
+   *
+   * Builds a message record with its author, text and creation timestamp.
+   *
+   * @access private
+   *
+   * @param string $id message identifier
+   * @param MessagingConversationRecord $conversation owning conversation
+   * @param string $authorMemberId author member identifier
+   * @param string $body message body
+   * @param DateTimeImmutable $createdAt message creation time
+   *
+   * @return MessagingMessageRecord message record
+   */
   private function createMessage(
     string $id,
     MessagingConversationRecord $conversation,
@@ -264,6 +405,19 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
     return $message;
   }
 
+  /**
+   * Method createReaction
+   *
+   * Builds a reaction record for a seeded message.
+   *
+   * @access private
+   *
+   * @param MessagingMessageRecord $message reacted-to message
+   * @param string $memberId reacting member identifier
+   * @param string $emoji reaction label
+   *
+   * @return MessagingReactionRecord reaction record
+   */
   private function createReaction(MessagingMessageRecord $message, string $memberId, string $emoji): MessagingReactionRecord
   {
     $reaction = new MessagingReactionRecord();
@@ -276,6 +430,19 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
     return $reaction;
   }
 
+  /**
+   * Method summarize
+   *
+   * Sets the conversation's seeded message count and latest activity timestamps.
+   *
+   * @access private
+   *
+   * @param MessagingConversationRecord $conversation conversation to summarize
+   * @param int $messagesCount number of messages
+   * @param DateTimeImmutable $lastMessageAt latest message time
+   *
+   * @return void
+   */
   private function summarize(MessagingConversationRecord $conversation, int $messagesCount, DateTimeImmutable $lastMessageAt): void
   {
     $conversation->messagesCount = $messagesCount;

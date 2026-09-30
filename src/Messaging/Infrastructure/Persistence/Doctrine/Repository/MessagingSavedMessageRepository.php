@@ -34,6 +34,20 @@ final readonly class MessagingSavedMessageRepository implements MessagingSavedMe
   // #endregion
 
   // #region Methods
+  /**
+   * Method save.
+   *
+   * Records a saved message idempotently so duplicate requests do not abort the transaction.
+   *
+   * @access public
+   *
+   * @param string $messageId the message identifier
+   * @param string $organizationId the organization identifier
+   * @param string $memberId the saving member identifier
+   * @param DateTimeImmutable $savedAt the time the message was saved
+   *
+   * @return void no return value
+   */
   public function save(string $messageId, string $organizationId, string $memberId, DateTimeImmutable $savedAt): void
   {
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
@@ -57,6 +71,18 @@ final readonly class MessagingSavedMessageRepository implements MessagingSavedMe
     );
   }
 
+  /**
+   * Method unsave.
+   *
+   * Removes a member's saved-message entry when it exists.
+   *
+   * @access public
+   *
+   * @param string $messageId the message identifier
+   * @param string $memberId the member identifier
+   *
+   * @return void no return value
+   */
   public function unsave(string $messageId, string $memberId): void
   {
     $this->entityManager->getConnection()->executeStatement(
@@ -65,6 +91,18 @@ final readonly class MessagingSavedMessageRepository implements MessagingSavedMe
     );
   }
 
+  /**
+   * Method findSavedMessageIds.
+   *
+   * Selects which candidate messages the member has saved.
+   *
+   * @access public
+   *
+   * @param string $memberId the member identifier
+   * @param list<string> $messageIds candidate message identifiers
+   *
+   * @return list<string> saved message identifiers
+   */
   public function findSavedMessageIds(string $memberId, array $messageIds): array
   {
     if ([] === $messageIds) {

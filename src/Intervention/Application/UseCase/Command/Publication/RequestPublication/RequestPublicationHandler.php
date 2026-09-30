@@ -51,8 +51,9 @@ final readonly class RequestPublicationHandler implements CommandHandler
   /**
    * Method __invoke.
    *
-   * Executes the   invoke operation.
+   * Runs publication-request validation and state changes inside the transaction port.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param RequestPublicationCommand $command the command value
@@ -64,6 +65,21 @@ final readonly class RequestPublicationHandler implements CommandHandler
     return $this->transactions->transactional(fn (): RequestPublicationResult => $this->request($command));
   }
 
+  /**
+   * Method request.
+   *
+   * Authorizes publication and reuses or creates the publication for the requested intervention revision.
+   *
+   * @access private
+   *
+   * @param RequestPublicationCommand $command the intervention, user, and revision request
+   *
+   * @return RequestPublicationResult the requested publication state
+   *
+   * @throws InterventionNotFoundException when the intervention is missing or outside the user's scope
+   * @throws InterventionAccessDeniedException when publication permission is missing
+   * @throws InterventionConflictException when the intervention is not submitted
+   */
   private function request(RequestPublicationCommand $command): RequestPublicationResult
   {
     $context = $this->publications->interventionContext($command->interventionId);

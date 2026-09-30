@@ -23,6 +23,9 @@ use Automation\Presentation\Api\Provider\AutomationHistoryProvider;
 final class AutomationResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
   // #endregion
 }

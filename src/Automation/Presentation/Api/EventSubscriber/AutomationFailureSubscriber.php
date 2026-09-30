@@ -13,11 +13,33 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /** Subscriber AutomationFailureSubscriber. Safe stable automation errors. */
 final readonly class AutomationFailureSubscriber implements EventSubscriberInterface
 {
+  /**
+   * Method getSubscribedEvents.
+   *
+   * Registers the listener that maps automation failures to stable API errors.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return array<string, array{string, int}> exception event mapped to its listener and priority
+   */
   public static function getSubscribedEvents(): array
   {
     return [KernelEvents::EXCEPTION => ['onException', 10]];
   }
 
+  /**
+   * Method onException.
+   *
+   * Maps recognized automation retry failures to their public error response.
+   *
+   * @access public
+   *
+   * @param ExceptionEvent $event the kernel exception event
+   *
+   * @return void no return value
+   */
   public function onException(ExceptionEvent $event): void
   {
     $error = $event->getThrowable();

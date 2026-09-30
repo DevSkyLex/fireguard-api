@@ -58,14 +58,29 @@ final readonly class CalendarFeedAggregator
    */
   private const int PER_SOURCE_LIMIT = 500;
 
+  /**
+   * Constant SOURCE_KEY_CALENDAR_EVENT
+   */
   private const string SOURCE_KEY_CALENDAR_EVENT = 'calendar_event';
 
+  /**
+   * Constant SOURCE_KEY_INSPECTION
+   */
   private const string SOURCE_KEY_INSPECTION = 'inspection';
 
+  /**
+   * Constant SOURCE_KEY_INTERVENTION
+   */
   private const string SOURCE_KEY_INTERVENTION = 'intervention';
 
+  /**
+   * Constant SOURCE_KEY_MAINTENANCE
+   */
   private const string SOURCE_KEY_MAINTENANCE = 'maintenance';
 
+  /**
+   * Constant TARGET_TYPE_CALENDAR_EVENT
+   */
   private const string TARGET_TYPE_CALENDAR_EVENT = 'calendar_event';
   // #endregion
 

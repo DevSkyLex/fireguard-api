@@ -17,6 +17,18 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetInterventionAttachmentContentQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Identifies the caller and attachment whose content is requested.
+   *
+   * @access public
+   *
+   * @param string $userId user requesting the attachment content
+   * @param string $attachmentId attachment identifier to retrieve
+   *
+   * @return void
+   */
   public function __construct(
     public string $userId,
     public string $attachmentId,

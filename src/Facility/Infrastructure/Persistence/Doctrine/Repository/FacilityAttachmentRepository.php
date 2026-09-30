@@ -31,6 +31,17 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the entity manager used to access facility attachment records.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager Doctrine entity manager used to access attachment persistence
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

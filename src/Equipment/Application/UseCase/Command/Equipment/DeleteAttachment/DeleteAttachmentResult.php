@@ -17,6 +17,18 @@ use Shared\Application\Message\ResultMessage;
 final readonly class DeleteAttachmentResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Returns the identifiers of the attachment removed from the equipment.
+   *
+   * @access public
+   *
+   * @param string $attachmentId identifier of the removed attachment
+   * @param string $equipmentId equipment that owned the attachment
+   *
+   * @return void
+   */
   public function __construct(
     public string $attachmentId,
     public string $equipmentId,

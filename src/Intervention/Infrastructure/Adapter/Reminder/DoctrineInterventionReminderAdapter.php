@@ -50,6 +50,20 @@ final readonly class DoctrineInterventionReminderAdapter implements Intervention
   // #endregion
 
   // #region Methods
+  /**
+   * Method pageDueSoon.
+   *
+   * Returns a page of active interventions due within the reminder window and not yet notified.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $now current instant
+   * @param DateTimeImmutable $threshold inclusive end of the due-soon window
+   * @param int $limit maximum number of candidates to return
+   * @param int $offset number of earlier candidates to skip
+   *
+   * @return InterventionReminderPage due-soon candidates and total count
+   */
   public function pageDueSoon(DateTimeImmutable $now, DateTimeImmutable $threshold, int $limit, int $offset): InterventionReminderPage
   {
     $qb = $this->baseQuery($limit, $offset)
@@ -62,6 +76,19 @@ final readonly class DoctrineInterventionReminderAdapter implements Intervention
     return $this->page($qb);
   }
 
+  /**
+   * Method pageOverdue.
+   *
+   * Returns a page of active interventions past due and not yet notified.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $now current instant
+   * @param int $limit maximum number of candidates to return
+   * @param int $offset number of earlier candidates to skip
+   *
+   * @return InterventionReminderPage overdue candidates and total count
+   */
   public function pageOverdue(DateTimeImmutable $now, int $limit, int $offset): InterventionReminderPage
   {
     $qb = $this->baseQuery($limit, $offset)
@@ -72,6 +99,18 @@ final readonly class DoctrineInterventionReminderAdapter implements Intervention
     return $this->page($qb);
   }
 
+  /**
+   * Method markDueSoonNotified.
+   *
+   * Stores the timestamp used to suppress another due-soon notice for this due date.
+   *
+   * @access public
+   *
+   * @param string $interventionId the intervention identifier
+   * @param DateTimeImmutable $at when the reminder was sent
+   *
+   * @return void no return value
+   */
   public function markDueSoonNotified(string $interventionId, DateTimeImmutable $at): void
   {
     $record = $this->intervention($interventionId);
@@ -79,6 +118,18 @@ final readonly class DoctrineInterventionReminderAdapter implements Intervention
     $this->entityManager->flush();
   }
 
+  /**
+   * Method markOverdueNotified.
+   *
+   * Stores the timestamp used to suppress another overdue notice for this due date.
+   *
+   * @access public
+   *
+   * @param string $interventionId the intervention identifier
+   * @param DateTimeImmutable $at when the reminder was sent
+   *
+   * @return void no return value
+   */
   public function markOverdueNotified(string $interventionId, DateTimeImmutable $at): void
   {
     $record = $this->intervention($interventionId);

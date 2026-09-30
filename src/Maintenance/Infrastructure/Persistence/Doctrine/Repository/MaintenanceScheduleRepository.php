@@ -30,12 +30,44 @@ use function min;
 final readonly class MaintenanceScheduleRepository implements MaintenanceScheduleRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_PREDICATE
+   *
+   * Reusable DQL clause that scopes schedules to an organization.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ORGANIZATION_PREDICATE = 's.organization = :organization';
 
+  /**
+   * Constant FACILITY_PREDICATE
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string FACILITY_PREDICATE = 's.facilityId = :facilityId';
 
+  /**
+   * Constant EQUIPMENT_TYPE_PREDICATE
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string EQUIPMENT_TYPE_PREDICATE = 's.equipmentType = :equipmentType';
 
+  /**
+   * Constant DUE_BEFORE_PREDICATE
+   *
+   * Excludes schedules without a next due date from the upper-bound filter.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string DUE_BEFORE_PREDICATE = 's.nextDueAt IS NOT NULL AND s.nextDueAt <= :dueBefore';
   // #endregion
 
@@ -56,6 +88,17 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
   // #endregion
 
   // #region Methods
+  /**
+   * Method findById.
+   *
+   * Refreshes a found row before mapping its current persisted state.
+   *
+   * @access public
+   *
+   * @param string $id the maintenance schedule identifier
+   *
+   * @return ?MaintenanceScheduleView the schedule view, or null when not found
+   */
   public function findById(string $id): ?MaintenanceScheduleView
   {
     $record = $this->entityManager->find(MaintenanceScheduleRecord::class, $id);
@@ -67,6 +110,18 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     return $record instanceof MaintenanceScheduleRecord ? $this->view($record) : null;
   }
 
+  /**
+   * Method findByOrganizationAndEquipment.
+   *
+   * Looks up a schedule within the specified organization and equipment scope.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $equipmentId the equipment identifier
+   *
+   * @return ?MaintenanceScheduleView the schedule view, or null when not found
+   */
   public function findByOrganizationAndEquipment(string $organizationId, string $equipmentId): ?MaintenanceScheduleView
   {
     $record = $this->findRecordByOrganizationAndEquipment($organizationId, $equipmentId);
@@ -78,6 +133,23 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     return $record instanceof MaintenanceScheduleRecord ? $this->view($record) : null;
   }
 
+  /**
+   * Method list.
+   *
+   * Returns a bounded page ordered by due date, with undated schedules last.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $equipmentType optional equipment type filter
+   * @param ?string $dueStatus optional due status filter
+   * @param ?DateTimeImmutable $dueBefore optional upper bound on the next due date
+   * @param int $page the page number
+   * @param int $itemsPerPage the maximum number of results per page, capped at 100
+   *
+   * @return MaintenanceSchedulePage the schedule page result
+   */
   public function list(
     string $organizationId,
     ?string $facilityId,
@@ -127,6 +199,20 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     return new MaintenanceSchedulePage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
   }
 
+  /**
+   * Method listDueForCampaign.
+   *
+   * Selects due-soon and overdue schedules matching campaign filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $equipmentType optional equipment type filter
+   * @param DateTimeImmutable $dueBefore the upper bound on the next due date
+   *
+   * @return list<MaintenanceScheduleView> the matching schedules
+   */
   public function listDueForCampaign(
     string $organizationId,
     ?string $facilityId,
@@ -159,6 +245,18 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     return array_map($this->view(...), $records);
   }
 
+  /**
+   * Method pageForSweep.
+   *
+   * Returns a bounded, id-ordered page spanning all organizations for the recompute sweep.
+   *
+   * @access public
+   *
+   * @param int $limit requested page size, clamped to at least one
+   * @param int $offset result offset, clamped to zero or greater
+   *
+   * @return MaintenanceSchedulePage the schedule page result
+   */
   public function pageForSweep(int $limit, int $offset): MaintenanceSchedulePage
   {
     $limit = max(1, $limit);
@@ -177,6 +275,19 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     return new MaintenanceSchedulePage(array_map($this->view(...), $records), 0, $limit, 0);
   }
 
+  /**
+   * Method save.
+   *
+   * Creates or updates a schedule from a complete snapshot and returns its view.
+   *
+   * @access public
+   *
+   * @param MaintenanceScheduleSnapshot $snapshot the schedule snapshot
+   *
+   * @return MaintenanceScheduleView the persisted schedule view
+   *
+   * @throws MaintenanceNotFoundException when an explicitly identified schedule is missing
+   */
   public function save(MaintenanceScheduleSnapshot $snapshot): MaintenanceScheduleView
   {
     $record = null !== $snapshot->id
@@ -219,6 +330,18 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     return $this->view($record);
   }
 
+  /**
+   * Method removeByOrganizationAndEquipment.
+   *
+   * Removes a tracked schedule when equipment is no longer eligible.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $equipmentId the equipment identifier
+   *
+   * @return void
+   */
   public function removeByOrganizationAndEquipment(string $organizationId, string $equipmentId): void
   {
     $record = $this->findRecordByOrganizationAndEquipment($organizationId, $equipmentId);
@@ -230,6 +353,21 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $this->entityManager->flush();
   }
 
+  /**
+   * Method countForExport.
+   *
+   * Counts filtered rows without fetching them, allowing callers to enforce the export cap.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $equipmentType optional equipment type filter
+   * @param ?string $dueStatus optional due status filter
+   * @param ?DateTimeImmutable $dueBefore optional upper bound on the next due date
+   *
+   * @return int the matching schedule count
+   */
   public function countForExport(
     string $organizationId,
     ?string $facilityId,
@@ -242,6 +380,21 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     return (int) $qb->select('COUNT(s.id)')->getQuery()->getSingleScalarResult();
   }
 
+  /**
+   * Method listExportCandidates.
+   *
+   * Returns the stable export ordering; callers should check the row cap first.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $equipmentType optional equipment type filter
+   * @param ?string $dueStatus optional due status filter
+   * @param ?DateTimeImmutable $dueBefore optional upper bound on the next due date
+   *
+   * @return list<MaintenanceScheduleExportCandidate> the matching schedule rows
+   */
   public function listExportCandidates(
     string $organizationId,
     ?string $facilityId,

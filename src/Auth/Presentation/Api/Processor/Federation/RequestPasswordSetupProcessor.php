@@ -19,6 +19,12 @@ use function max;
 use function time;
 
 /**
+ * Class RequestPasswordSetupProcessor.
+ *
+ * Starts password setup for the authenticated user and returns the challenge delivery details.
+ *
+ * @category Processor
+ *
  * @implements ProcessorInterface<void, RequestPasswordChangeOutput>
  *
  * @version 1.0.0
@@ -27,6 +33,20 @@ use function time;
  */
 final readonly class RequestPasswordSetupProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the RequestPasswordSetupProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param InitialPasswordService $passwordSetup the password setup
+   * @param Security $security the security
+   * @param RateLimiterFactory $rateLimiter the rate limiter
+   *
+   * @return void
+   */
   public function __construct(
     private InitialPasswordService $passwordSetup,
     private Security $security,
@@ -35,6 +55,22 @@ final readonly class RequestPasswordSetupProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param mixed $data unused because this operation has no request body
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables route variables supplied by API Platform
+   * @param array<string, mixed> $context processor context supplied by API Platform
+   *
+   * @return RequestPasswordChangeOutput
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RequestPasswordChangeOutput
   {
     $user = $this->security->getUser();
@@ -65,4 +101,5 @@ final readonly class RequestPasswordSetupProcessor implements ProcessorInterface
       maxAttempts: $challenge->maxAttempts,
     );
   }
+  // #endregion
 }

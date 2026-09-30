@@ -59,8 +59,8 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
     private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Process the password change request.
@@ -114,6 +114,17 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
     );
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Enforces the endpoint rate limit for the supplied recipient or request context.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   *
+   * @return void
+   */
   private function enforceRateLimit(string $userId): void
   {
     if (null === $this->rateLimiter) {
@@ -134,6 +145,17 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds the stable rate-limit key for the current request.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   *
+   * @return string
+   */
   private function getRateLimitKey(string $userId): string
   {
     $userHash = hash('sha256', $userId);

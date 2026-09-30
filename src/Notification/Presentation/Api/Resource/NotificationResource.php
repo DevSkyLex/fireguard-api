@@ -331,8 +331,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class NotificationResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant AUTHENTICATION_REQUIRED_DESCRIPTION
+   */
   private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
   // #endregion
 }

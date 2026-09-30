@@ -16,6 +16,13 @@ namespace Auth\Domain\ValueObject\Federation;
  */
 enum FederatedProvider: string
 {
+  /**
+   * Case GOOGLE
+   */
   case GOOGLE = 'google';
+
+  /**
+   * Case MICROSOFT
+   */
   case MICROSOFT = 'microsoft';
 }

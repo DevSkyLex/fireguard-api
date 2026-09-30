@@ -22,6 +22,18 @@ use function array_map;
 final readonly class ListMaintenanceLogsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment and maintenance-log repositories used to list logs within the equipment scope.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to validate equipment and organization scope
+   * @param MaintenanceLogRepositoryPort $maintenanceLogRepository port used to retrieve the equipment maintenance history
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private MaintenanceLogRepositoryPort $maintenanceLogRepository,

@@ -133,6 +133,20 @@ final class IdTokenIssuerAdapter implements IdTokenIssuerPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method issueIdToken
+   *
+   * Signs an ID token for the subject and audience with the configured OIDC key.
+   *
+   * @access public
+   *
+   * @param non-empty-string $subject the authenticated subject identifier
+   * @param non-empty-string $audience the client identifier receiving the token
+   * @param string|null $nonce the request nonce, when supplied
+   * @param array<string, mixed> $claims additional claims to include
+   *
+   * @return string the signed ID token
+   */
   public function issueIdToken(string $subject, string $audience, ?string $nonce = null, array $claims = []): string
   {
     $now = new DateTimeImmutable();

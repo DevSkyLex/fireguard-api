@@ -16,7 +16,9 @@ use function array_map;
 use function max;
 
 /**
- * Adapter InterventionStatisticsAdapter.
+ * Class InterventionStatisticsAdapter
+ *
+ * Provides intervention summaries for the Organization module's statistics port.
  *
  * Implements the Organization module's intervention statistics port
  * using the Intervention module's own persistence records directly
@@ -32,20 +34,48 @@ use function max;
 final readonly class InterventionStatisticsAdapter implements InterventionStatisticsPort
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_PREDICATE
+   *
+   * Restricts intervention queries to the requested organization.
+   *
+   * @access private
+   */
   private const string ORGANIZATION_PREDICATE = 'intervention.organization = :organization';
 
+  /**
+   * Constant OPEN_STATUS_PREDICATE
+   *
+   * Excludes terminal intervention statuses from open-work queries.
+   *
+   * @access private
+   */
   private const string OPEN_STATUS_PREDICATE = 'intervention.status NOT IN (:closed)';
-  // #endregion
 
   /**
-   * The two end states. An intervention that reached either is over, so it is
-   * neither open work nor something that can still become late.
+   * Constant CLOSED_STATUSES
+   *
+   * Excludes published and abandoned interventions, which are terminal states and cannot become late.
+   *
+   * @access private
    *
    * @var list<string>
    */
   private const array CLOSED_STATUSES = ['published', 'abandoned'];
+  // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the main-database entity manager used to query interventions.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager main-database entity manager
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

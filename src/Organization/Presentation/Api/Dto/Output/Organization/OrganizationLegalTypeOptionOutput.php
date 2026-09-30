@@ -18,11 +18,19 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class OrganizationLegalTypeOptionOutput
 {
+  // #region Properties
+  /**
+   * Property value
+   */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $value = '';
 
+  /**
+   * Property label
+   */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $label = '';
+  // #endregion
 }

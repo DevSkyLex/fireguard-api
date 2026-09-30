@@ -31,11 +31,25 @@ use function max;
  */
 final readonly class ListTrustedDevicesProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Loads the authenticated user’s trusted devices and paginates the API output.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus bus used to dispatch the trusted-device list query
+   * @param Security $security security context used to identify the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private Security $security,
   ) {
   }
+  // #endregion
 
   /**
    * @return TraversablePaginator<TrustedDeviceOutput>

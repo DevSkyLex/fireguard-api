@@ -34,7 +34,7 @@ use function substr;
 use function time;
 
 /**
- * Processor FederatedCompleteProcessor.
+ * Class FederatedCompleteProcessor
  *
  * Finalizes public sign-in or authenticated provider linking while returning
  * stable client error codes and keeping provider details out of API responses.
@@ -48,6 +48,25 @@ use function time;
  */
 final readonly class FederatedCompleteProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the FederatedCompleteProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param FederatedAuthenticationService $federation the federation
+   * @param Security $security the security
+   * @param RequestStack $requestStack the request stack
+   * @param RefreshTokenCookieService $cookieService the cookie service
+   * @param FederatedFlowCookieService $flowCookieService the flow cookie service
+   * @param TrustedDeviceCookieService $trustedDeviceCookieService the trusted device cookie service
+   * @param LoggerInterface $logger the logger
+   * @param RateLimiterFactory $rateLimiter the rate limiter
+   *
+   * @return void
+   */
   public function __construct(
     private FederatedAuthenticationService $federation,
     private Security $security,
@@ -61,6 +80,22 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param FederatedCompleteInput $data provider callback and flow state fields
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables route variables containing the provider
+   * @param array<string, mixed> $context processor context supplied by API Platform
+   *
+   * @return LoginOutput|FederatedConnectionsOutput
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): LoginOutput|FederatedConnectionsOutput
   {
     $provider = $this->provider($uriVariables);
@@ -149,7 +184,17 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
   }
 
   /**
-   * @param array<string, mixed> $uriVariables
+   * Method provider
+   *
+   * Resolves the provider route value to a supported federated identity provider.
+   *
+   * @access private
+   *
+   * @param array<string, mixed> $uriVariables API Platform route variables
+   *
+   * @return FederatedProvider selected provider
+   *
+   * @throws BadRequestHttpException when the route provider is unknown
    */
   private function provider(array $uriVariables): FederatedProvider
   {
@@ -162,6 +207,17 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
     return $provider;
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Enforces the endpoint rate limit for the supplied recipient or request context.
+   *
+   * @access private
+   *
+   * @param string $ipAddress the client IP address
+   *
+   * @return void
+   */
   private function enforceRateLimit(string $ipAddress): void
   {
     $limit = $this->rateLimiter->create(substr(hash('sha256', $ipAddress), 0, 24))->consume();
@@ -173,4 +229,5 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
 
     throw new TooManyRequestsHttpException($seconds, 'Too many authentication attempts.');
   }
+  // #endregion
 }

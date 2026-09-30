@@ -21,6 +21,19 @@ use Shared\Application\Port\Outbound\FileStoragePort;
 final readonly class DeleteInspectionAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives inspection and attachment repositories plus file storage to remove the attachment metadata and bytes.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to validate the inspection and organization scope
+   * @param InspectionAttachmentRepositoryPort $attachmentRepository port used to load and remove attachment metadata
+   * @param FileStoragePort $fileStorage port used to delete the attachment bytes
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private InspectionAttachmentRepositoryPort $attachmentRepository,

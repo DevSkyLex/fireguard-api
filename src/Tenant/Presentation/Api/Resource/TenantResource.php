@@ -244,16 +244,34 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
 final class TenantResource
 {
   // #region Constants
+  /**
+   * Constant VALIDATION_FAILED_DESCRIPTION
+   */
   private const string VALIDATION_FAILED_DESCRIPTION = 'Invalid request - validation failed';
 
+  /**
+   * Constant AUTHENTICATION_REQUIRED_DESCRIPTION
+   */
   private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant TENANT_URI_TEMPLATE
+   */
   private const string TENANT_URI_TEMPLATE = '/tenants/{id}';
 
+  /**
+   * Constant TENANT_NOT_FOUND_DESCRIPTION
+   */
   private const string TENANT_NOT_FOUND_DESCRIPTION = 'Tenant not found';
 
+  /**
+   * Constant SECURITY_TENANTS_UPDATE
+   */
   private const string SECURITY_TENANTS_UPDATE = "is_granted('tenants.update')";
   // #endregion
 }

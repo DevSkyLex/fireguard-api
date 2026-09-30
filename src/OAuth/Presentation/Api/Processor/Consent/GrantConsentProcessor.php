@@ -42,7 +42,9 @@ use function trim;
 use function urldecode;
 
 /**
- * Processor GrantConsentProcessor.
+ * Class GrantConsentProcessor
+ *
+ * Records an authenticated user's consent decision and completes the validated authorization request through League OAuth.
  *
  * @category Processor
  * @version 1.0.0
@@ -55,17 +57,21 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
 {
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
    * Initializes a new instance of the
    * GrantConsentProcessor class.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param AuthorizationServer $authorizationServer the League authorization server
    * @param CommandBusPort $commandBus the command bus
    * @param Security $security the security service
    * @param AuthCodeRepositoryPort $authCodeRepository the auth code repository
+   * @param ?RateLimiterFactory $rateLimiter optional consent grant limiter
+   *
+   * @return void
    */
   public function __construct(
     private AuthorizationServer $authorizationServer,
@@ -85,12 +91,13 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
    *
    * Processes the consent grant request.
    *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
-   * @param Operation $operation the operation
-   * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context the context
+   * @param mixed $data request data, checked below so malformed bodies receive an HTTP 400 response
+   * @param Operation $operation API Platform operation metadata
+   * @param array<string, mixed> $uriVariables route variables supplied by API Platform
+   * @param array<string, mixed> $context processor context supplied by API Platform
    *
    * @return Response the authorization response
    */
@@ -169,6 +176,17 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     return $this->convertPsrResponse($psrResponse);
   }
 
+  /**
+   * Method buildAuthorizationRequest
+   *
+   * Reconstructs the authorization parameters for League after consent is recorded, omitting values that were not supplied.
+   *
+   * @access private
+   *
+   * @param GrantConsentInput $input validated consent and authorization request fields
+   *
+   * @return ServerRequest PSR request used to validate the authorization flow
+   */
   private function buildAuthorizationRequest(GrantConsentInput $input): ServerRequest
   {
     $params = array_filter([
@@ -190,6 +208,20 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     return $psrRequest;
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Consumes the per-user/client grant budget and raises HTTP 429 when the limiter rejects the attempt.
+   *
+   * @access private
+   *
+   * @param string $userId authenticated local user identifier
+   * @param string $clientId requested OAuth client identifier
+   *
+   * @return void
+   *
+   * @throws TooManyRequestsHttpException when the configured budget is exhausted
+   */
   private function enforceRateLimit(string $userId, string $clientId): void
   {
     if (null === $this->rateLimiter) {
@@ -210,6 +242,18 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds a stable limiter key from truncated hashes so raw user and client identifiers are not stored in the key.
+   *
+   * @access private
+   *
+   * @param string $userId authenticated local user identifier
+   * @param string $clientId requested OAuth client identifier
+   *
+   * @return string limiter key containing hashed identifiers
+   */
   private function getRateLimitKey(string $userId, string $clientId): string
   {
     $userHash = hash('sha256', $userId);
@@ -219,7 +263,15 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
   }
 
   /**
-   * @return list<string>
+   * Method parseScopes
+   *
+   * Splits a space-delimited scope string, trims entries and removes duplicates while preserving order.
+   *
+   * @access private
+   *
+   * @param ?string $scope requested OAuth scope string
+   *
+   * @return list<string> normalized unique scopes
    */
   private function parseScopes(?string $scope): array
   {
@@ -236,6 +288,17 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     return array_values(array_unique($items));
   }
 
+  /**
+   * Method normalizeValue
+   *
+   * Keeps only non-empty strings from optional authorization fields and trims surrounding whitespace.
+   *
+   * @access private
+   *
+   * @param mixed $value optional raw request value
+   *
+   * @return ?string normalized string, or null when the value is not a usable string
+   */
   private function normalizeValue(mixed $value): ?string
   {
     if (!is_string($value)) {
@@ -250,6 +313,18 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     return $normalized;
   }
 
+  /**
+   * Method storeNonceFromResponse
+   *
+   * Stores the request nonce against the authorization code returned by the completed authorization response.
+   *
+   * @access private
+   *
+   * @param GrantConsentInput $input consent request containing the optional nonce
+   * @param \Psr\Http\Message\ResponseInterface $response completed League authorization response
+   *
+   * @return void
+   */
   private function storeNonceFromResponse(GrantConsentInput $input, \Psr\Http\Message\ResponseInterface $response): void
   {
     $nonce = $this->normalizeValue($input->nonce);
@@ -265,6 +340,17 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     $this->authCodeRepository->updateNonce($code, $nonce);
   }
 
+  /**
+   * Method extractCodeFromResponse
+   *
+   * Finds the authorization code in the Location header first, then checks the form-post body.
+   *
+   * @access private
+   *
+   * @param \Psr\Http\Message\ResponseInterface $response completed League authorization response
+   *
+   * @return ?string authorization code, or null when the response contains none
+   */
   private function extractCodeFromResponse(\Psr\Http\Message\ResponseInterface $response): ?string
   {
     $code = $this->extractCodeFromLocation($response->getHeaderLine('Location'));
@@ -280,6 +366,17 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     return $this->extractCodeFromFormPostBody($body);
   }
 
+  /**
+   * Method extractCodeFromLocation
+   *
+   * Searches the redirect query and fragment parameters for the authorization code.
+   *
+   * @access private
+   *
+   * @param string $location response Location header
+   *
+   * @return ?string authorization code, or null when the URI has none
+   */
   private function extractCodeFromLocation(string $location): ?string
   {
     $parts = parse_url($location);
@@ -305,7 +402,15 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
   }
 
   /**
-   * @param array<int|string, mixed> $params
+   * Method extractCodeFromParams
+   *
+   * Returns a string authorization code from parsed redirect parameters.
+   *
+   * @access private
+   *
+   * @param array<int|string, mixed> $params parsed query or fragment values
+   *
+   * @return ?string code value, or null when absent or not a string
    */
   private function extractCodeFromParams(array $params): ?string
   {
@@ -317,6 +422,17 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     return $code;
   }
 
+  /**
+   * Method extractCodeFromFormPostBody
+   *
+   * Extracts a code from either ordering of the HTML form name/value attributes or from a query-like body.
+   *
+   * @access private
+   *
+   * @param string $body response body produced by the form-post response mode
+   *
+   * @return ?string authorization code, or null when no supported representation matches
+   */
   private function extractCodeFromFormPostBody(string $body): ?string
   {
     if (1 === preg_match('/name=["\']code["\'][^>]*value=["\']([^"\']+)["\']/i', $body, $matches)) {
@@ -332,6 +448,17 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
       : null;
   }
 
+  /**
+   * Method readResponseBody
+   *
+   * Reads a seekable response body without changing its current position and returns an empty string on read failure.
+   *
+   * @access private
+   *
+   * @param \Psr\Http\Message\ResponseInterface $response response whose body may contain the form-post code
+   *
+   * @return string response body, or an empty string when it cannot be read
+   */
   private function readResponseBody(\Psr\Http\Message\ResponseInterface $response): string
   {
     try {
@@ -355,6 +482,17 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     }
   }
 
+  /**
+   * Method convertPsrResponse
+   *
+   * Converts League's PSR-7 response to the Symfony response returned by API Platform.
+   *
+   * @access private
+   *
+   * @param \Psr\Http\Message\ResponseInterface $psrResponse response generated by League OAuth
+   *
+   * @return Response HTTP Foundation response for the API client
+   */
   private function convertPsrResponse(\Psr\Http\Message\ResponseInterface $psrResponse): Response
   {
     $httpFoundationFactory = new HttpFoundationFactory();

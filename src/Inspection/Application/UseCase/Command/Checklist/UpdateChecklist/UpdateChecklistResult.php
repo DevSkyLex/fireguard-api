@@ -18,6 +18,19 @@ use Shared\Application\Message\ResultMessage;
 final readonly class UpdateChecklistResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Returns the updated checklist identity, organization scope, and modification time.
+   *
+   * @access public
+   *
+   * @param string $checklistId identifier of the updated checklist
+   * @param string $organizationId organization owning the checklist
+   * @param DateTimeImmutable $updatedAt time the checklist was updated
+   *
+   * @return void
+   */
   public function __construct(
     public string $checklistId,
     public string $organizationId,

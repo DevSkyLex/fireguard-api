@@ -14,7 +14,13 @@ namespace Calendar\Presentation\Api\Serialization;
  */
 final class CalendarSerializationGroup
 {
+  /**
+   * Constant READ
+   */
   public const string READ = 'Calendar:read';
 
+  /**
+   * Constant WRITE
+   */
   public const string WRITE = 'Calendar:write';
 }

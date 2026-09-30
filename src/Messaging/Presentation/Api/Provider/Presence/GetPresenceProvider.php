@@ -49,6 +49,9 @@ final readonly class GetPresenceProvider implements ProviderInterface
   use MessagingExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant MAX_MEMBER_IDS
+   */
   private const int MAX_MEMBER_IDS = 100;
   // #endregion
 

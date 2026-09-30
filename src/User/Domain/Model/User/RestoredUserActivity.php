@@ -17,6 +17,21 @@ use User\Domain\ValueObject\Locale;
  */
 final readonly class RestoredUserActivity
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Carries persisted account activity and locale during user restoration.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $createdAt user account creation timestamp
+   * @param ?DateTimeImmutable $lastLoginAt optional most recent successful login timestamp
+   * @param ?string $lastSignInMethod optional method used for the last sign-in
+   * @param Locale $locale preferred locale for user-facing messages
+   *
+   * @return void
+   */
   public function __construct(
     public DateTimeImmutable $createdAt,
     public ?DateTimeImmutable $lastLoginAt,
@@ -24,4 +39,5 @@ final readonly class RestoredUserActivity
     public Locale $locale,
   ) {
   }
+  // #endregion
 }

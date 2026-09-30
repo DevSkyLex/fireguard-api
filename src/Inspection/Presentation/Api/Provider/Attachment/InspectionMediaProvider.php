@@ -40,14 +40,55 @@ final readonly class InspectionMediaProvider implements ProviderInterface
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constants
+  /**
+   * Constant MISSING_READ_PERMISSION_MESSAGE
+   *
+   * Error text used when organization inspection-read permission is denied.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string MISSING_READ_PERMISSION_MESSAGE = 'Missing organization.inspection.read permission.';
 
+  /**
+   * Constant NON_CONFORMITY_NOT_FOUND_MESSAGE
+   *
+   * Error text for an unavailable non-conformity attachment owner.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string NON_CONFORMITY_NOT_FOUND_MESSAGE = 'Non-conformity not found.';
 
+  /**
+   * Constant ATTACHMENT_NOT_FOUND_MESSAGE
+   *
+   * Error text for an unavailable inspection attachment.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes attachment persistence, query, access and security services.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager attachment record manager
+   * @param QueryBusPort $queryBus attachment query bus
+   * @param OrganizationAuthorizationPort $authorization organization access checks
+   * @param Security $security current security context
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private QueryBusPort $queryBus,

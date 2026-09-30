@@ -50,6 +50,20 @@ final readonly class DuplicateFacilitySubtreeProcessor implements ProcessorInter
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the DuplicateFacilitySubtreeProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param FacilityDetailOutputFactory $detail the detail
+   * @param CommandBusPort $commandBus the command bus
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   * @param Security $security the security
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
@@ -57,18 +71,23 @@ final readonly class DuplicateFacilitySubtreeProcessor implements ProcessorInter
     private Security $security,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method process.
    *
+   * Checks write access and duplicates the requested facility subtree through the application command.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param DuplicateFacilitySubtreeInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return FacilityOutput the duplicated subtree root
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
@@ -116,6 +135,17 @@ final readonly class DuplicateFacilitySubtreeProcessor implements ProcessorInter
     return $this->detail->read($organizationId, $result->facilityId);
   }
 
+  /**
+   * Method mapMessengerException
+   *
+   * Maps messenger exception the supplied values.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the exception to inspect
+   *
+   * @return Throwable
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);

@@ -34,6 +34,23 @@ use Throwable;
 final readonly class AddMessageAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Validates message and conversation access before storing attachment metadata and bytes.
+   *
+   * @access public
+   *
+   * @param MessagingMessageRepositoryPort $messages repository used to load the target message
+   * @param MessagingConversationRepositoryPort $conversations repository used to load its conversation
+   * @param MessagingSubjectResolverRegistry $resolvers registry resolving permissions for subject conversations
+   * @param MessagingAccessPolicy $accessPolicy policy enforcing organization and participant access
+   * @param MessagingAttachmentRepositoryPort $attachments repository used to persist attachment metadata
+   * @param FileStoragePort $fileStorage storage port used to write or roll back file bytes
+   * @param UuidFactory $uuidFactory factory for generating an attachment identifier
+   *
+   * @return void
+   */
   public function __construct(
     private MessagingMessageRepositoryPort $messages,
     private MessagingConversationRepositoryPort $conversations,

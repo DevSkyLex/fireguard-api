@@ -22,10 +22,39 @@ use function is_string;
  */
 final readonly class AcknowledgeDeliveryProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the AcknowledgeDeliveryProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param CurrentActorPort $actor the actor
+   *
+   * @return void
+   */
   public function __construct(private CommandBusPort $commandBus, private CurrentActorPort $actor)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param mixed $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return ConversationSignalOutput
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConversationSignalOutput
   {
     $userId = $this->actor->userId();
@@ -41,4 +70,5 @@ final readonly class AcknowledgeDeliveryProcessor implements ProcessorInterface
 
     return new ConversationSignalOutput();
   }
+  // #endregion
 }

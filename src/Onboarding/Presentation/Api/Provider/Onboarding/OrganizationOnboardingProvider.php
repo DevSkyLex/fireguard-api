@@ -26,6 +26,18 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 final readonly class OrganizationOnboardingProvider implements ProviderInterface
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Loads onboarding progress for the authenticated user.
+   *
+   * @access public
+   *
+   * @param OrganizationOnboardingServicePort $flowService service port for reading organization onboarding state
+   * @param Security $security security context used to identify the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private OrganizationOnboardingServicePort $flowService,
     private Security $security,

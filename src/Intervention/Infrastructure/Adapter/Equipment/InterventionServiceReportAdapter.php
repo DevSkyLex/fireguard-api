@@ -36,6 +36,17 @@ use function preg_match;
 final readonly class InterventionServiceReportAdapter implements InterventionServiceReportPort
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Uses the main entity manager to project applied equipment changes as service history.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager for the Intervention module database
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

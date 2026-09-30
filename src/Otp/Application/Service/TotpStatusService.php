@@ -30,6 +30,17 @@ final readonly class TotpStatusService implements TotpStatusPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method isEnabled.
+   *
+   * Reports whether the user has an active TOTP enrollment.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   *
+   * @return bool whether TOTP is enabled for the user
+   */
   public function isEnabled(string $userId): bool
   {
     $enrollment = $this->enrollmentRepository->findByUserId($userId);

@@ -25,6 +25,13 @@ use Messaging\Domain\ValueObject\MessagingSubjectType;
 final readonly class FacilityMessagingSubjectResolverAdapter implements MessagingSubjectResolverPort
 {
   // #region Constants
+  /**
+   * Constant REQUIRED_READ_PERMISSION.
+   *
+   * Permission required to read facility details through Messaging.
+   *
+   * @access private
+   */
   private const string REQUIRED_READ_PERMISSION = 'organization.facilities.read';
   // #endregion
 
@@ -43,11 +50,34 @@ final readonly class FacilityMessagingSubjectResolverAdapter implements Messagin
   // #endregion
 
   // #region Methods
+  /**
+   * Method supports.
+   *
+   * Reports whether this resolver handles facility messaging subjects.
+   *
+   * @access public
+   *
+   * @param MessagingSubjectType $type the messaging subject type
+   *
+   * @return bool whether the type is a facility
+   */
   public function supports(MessagingSubjectType $type): bool
   {
     return MessagingSubjectType::FACILITY === $type;
   }
 
+  /**
+   * Method resolve.
+   *
+   * Resolves a published facility within the organization for messaging access checks.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $subjectId the facility identifier
+   *
+   * @return MessagingSubjectResolution the existence, label, and required permission
+   */
   public function resolve(string $organizationId, string $subjectId): MessagingSubjectResolution
   {
     $record = $this->entityManager->find(FacilityRecord::class, $subjectId);

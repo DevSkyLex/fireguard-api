@@ -22,18 +22,30 @@ use Symfony\Component\Serializer\Attribute\Groups;
 final class FacilityMetadataFieldOutput
 {
   // #region Properties
+  /**
+   * Property id
+   */
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(identifier: true, readable: true, writable: false)]
   public string $id = '';
 
+  /**
+   * Property key
+   */
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $key = '';
 
+  /**
+   * Property label
+   */
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $label = '';
 
+  /**
+   * Property fieldType
+   */
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $fieldType = '';
@@ -45,14 +57,23 @@ final class FacilityMetadataFieldOutput
   #[ApiProperty(readable: true, writable: false)]
   public array $options = [];
 
+  /**
+   * Property facilityType
+   */
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $facilityType = null;
 
+  /**
+   * Property required
+   */
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public bool $required = false;
 
+  /**
+   * Property unit
+   */
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $unit = null;

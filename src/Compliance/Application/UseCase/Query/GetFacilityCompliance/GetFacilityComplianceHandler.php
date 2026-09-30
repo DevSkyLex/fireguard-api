@@ -34,6 +34,15 @@ use function hash;
 final readonly class GetFacilityComplianceHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant DEFAULT_CACHE_TTL_SECONDS
+   *
+   * Default lifetime for a cached facility compliance result.
+   *
+   * @access private
+   *
+   * @var int
+   */
   private const int DEFAULT_CACHE_TTL_SECONDS = 60;
   // #endregion
 
@@ -105,6 +114,20 @@ final readonly class GetFacilityComplianceHandler implements QueryHandler
     throw ComplianceNotFoundException::facilityNotFound($facilityId);
   }
 
+  /**
+   * Method assertPermissions
+   *
+   * Requires the permissions needed to read compliance data.
+   *
+   * @access private
+   *
+   * @param string $userId requesting user identifier
+   * @param string $organizationId organization scope
+   *
+   * @return void
+   *
+   * @throws ComplianceAccessDeniedException when the authorization check denies access
+   */
   private function assertPermissions(string $userId, string $organizationId): void
   {
     try {
@@ -118,11 +141,34 @@ final readonly class GetFacilityComplianceHandler implements QueryHandler
     }
   }
 
+  /**
+   * Method buildCacheKey
+   *
+   * Builds a cache key scoped to the organization and facility identifiers.
+   *
+   * @access private
+   *
+   * @param string $organizationId organization scope
+   * @param string $facilityId facility identifier
+   *
+   * @return string cache key
+   */
   private function buildCacheKey(string $organizationId, string $facilityId): string
   {
     return 'compliance.facility.v2.' . hash('sha256', $organizationId . '|' . $facilityId);
   }
 
+  /**
+   * Method readCache
+   *
+   * Returns a cached result of the expected type when caching is enabled.
+   *
+   * @access private
+   *
+   * @param string $cacheKey facility compliance cache key
+   *
+   * @return ?GetFacilityComplianceResult cached result, if available
+   */
   private function readCache(string $cacheKey): ?GetFacilityComplianceResult
   {
     if (null === $this->cache || $this->cacheTtl <= 0) {
@@ -138,6 +184,18 @@ final readonly class GetFacilityComplianceHandler implements QueryHandler
     return $cached instanceof GetFacilityComplianceResult ? $cached : null;
   }
 
+  /**
+   * Method writeCache
+   *
+   * Stores the result when a cache is configured and its lifetime is positive.
+   *
+   * @access private
+   *
+   * @param string $cacheKey facility compliance cache key
+   * @param GetFacilityComplianceResult $result result to store
+   *
+   * @return void
+   */
   private function writeCache(string $cacheKey, GetFacilityComplianceResult $result): void
   {
     if (null === $this->cache || $this->cacheTtl <= 0) {
@@ -151,6 +209,17 @@ final readonly class GetFacilityComplianceHandler implements QueryHandler
     }
   }
 
+  /**
+   * Method formatIso8601
+   *
+   * Formats a timestamp with fractional seconds only when present.
+   *
+   * @access private
+   *
+   * @param DateTimeImmutable $value timestamp to format
+   *
+   * @return string ISO 8601 timestamp
+   */
   private function formatIso8601(DateTimeImmutable $value): string
   {
     return '000000' === $value->format('u') ? $value->format('Y-m-d\\TH:i:sP') : $value->format('Y-m-d\\TH:i:s.uP');

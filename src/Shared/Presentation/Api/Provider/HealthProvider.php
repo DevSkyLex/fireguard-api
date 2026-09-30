@@ -25,13 +25,37 @@ use Shared\Presentation\Api\Dto\Output\HealthOutput;
 final readonly class HealthProvider implements ProviderInterface
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the HealthProvider dependencies and state.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus the query bus
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method provide
+   *
+   * Provides the requested API resource from the supplied operation context.
+   *
+   * @access public
+   *
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return HealthOutput
+   */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): HealthOutput
   {
     $query = new HealthCheckQuery(includeDetails: true);

@@ -14,7 +14,19 @@ Write documentation in English. Start with a declaration title such as
 Use one or two sentences about ownership, intent, an invariant or a non-obvious
 caller constraint; keep the title separate instead of merging or deleting it.
 Do not narrate statements.
-Keep `// #region` markers. A short inline comment is appropriate for a deliberate
+Document properties, methods and functions at their actual declarations, before
+attributes when present. Keep existing `// #region` markers and add `Properties`,
+`Constructor` and `Methods` regions around the corresponding class member groups.
+Include the member's docblock inside its region. Omit empty groups, keep regions
+balanced and preserve declaration order; close and reopen a group when interleaved
+members require it. Promoted properties stay in the constructor group and are
+documented through its parameter tags. When a docblock uses `@description`, put
+that tag alone on its line and start the description on the following line.
+Separate documented members with one blank line before the next docblock; the
+first member after a class opening or a region marker needs no leading blank line.
+Remove duplicate or empty regions. Use one docblock per declaration and inspect
+the final source for misplaced blocks, redundant groups and inaccurate prose.
+A short inline comment is appropriate for a deliberate
 ordering constraint or workaround; move longer rationale to the declaration's
 PHPDoc or `MODULE.md`.
 
@@ -25,6 +37,10 @@ Preserve static-analysis annotations, templates, shapes, suppressions and exampl
 They can affect tooling even when PHP does not execute them.
 
 ## Declaration contract
+
+See [complete examples by declaration](code-comment-examples.md) for classes,
+properties, constructors, methods, constants, enums/cases, ports and generics.
+Use their applicable tags without copying unverified metadata.
 
 | Declaration | Required documentation |
 | --- | --- |

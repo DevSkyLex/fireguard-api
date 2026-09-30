@@ -56,8 +56,14 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
    */
   private const int TOP_N = 10;
 
+  /**
+   * Constant INTERVENTION_COUNT_EXPRESSION
+   */
   private const string INTERVENTION_COUNT_EXPRESSION = 'COUNT(intervention.id)';
 
+  /**
+   * Constant INTERVENTION_COUNT_PROJECTION
+   */
   private const string INTERVENTION_COUNT_PROJECTION = 'COUNT(intervention.id) AS count';
   // #endregion
 

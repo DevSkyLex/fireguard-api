@@ -31,6 +31,9 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 final readonly class CreateCalendarEventHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant WRITE_PERMISSION
+   */
   private const string WRITE_PERMISSION = 'organization.events.write';
   // #endregion
 

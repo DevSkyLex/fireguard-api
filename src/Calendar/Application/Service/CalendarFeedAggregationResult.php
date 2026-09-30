@@ -17,6 +17,15 @@ final readonly class CalendarFeedAggregationResult
   {
   }
 
+  /**
+   * Method isComplete.
+   *
+   * Reports whether every authorized source is available and untruncated.
+   *
+   * @access public
+   *
+   * @return bool whether the feed includes complete results from all sources
+   */
   public function isComplete(): bool
   {
     foreach ($this->sources as $source) {

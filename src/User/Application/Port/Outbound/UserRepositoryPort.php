@@ -125,6 +125,18 @@ interface UserRepositoryPort
    */
   public function findFiltered(?string $search, Sorting $sorting, int $limit, int $offset, ?string $tenantId = null): array;
 
+  /**
+   * Method countFiltered
+   *
+   * Counts filtered matching the supplied filters.
+   *
+   * @access public
+   *
+   * @param ?string $search the search
+   * @param ?string $tenantId the optional tenant identifier
+   *
+   * @return int
+   */
   public function countFiltered(?string $search, ?string $tenantId = null): int;
   // #endregion
 }

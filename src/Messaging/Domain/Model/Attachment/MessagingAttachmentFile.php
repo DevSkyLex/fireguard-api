@@ -9,6 +9,22 @@ namespace Messaging\Domain\Model\Attachment;
  */
 final readonly class MessagingAttachmentFile
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Captures file metadata independently of the owning message or conversation.
+   *
+   * @access public
+   *
+   * @param string $fileName original file name
+   * @param string $storagePath path used by the storage adapter
+   * @param string $mimeType declared media type
+   * @param int $size file size in bytes
+   * @param ?string $label optional display label
+   *
+   * @return void
+   */
   public function __construct(
     public string $fileName,
     public string $storagePath,
@@ -17,4 +33,5 @@ final readonly class MessagingAttachmentFile
     public ?string $label = null,
   ) {
   }
+  // #endregion
 }

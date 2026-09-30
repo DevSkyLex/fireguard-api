@@ -33,6 +33,19 @@ use Shared\Domain\Exception\InvalidValueException;
 final readonly class SetFacilityPlanGeometryHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility and attachment repositories plus the ancestry guard used to validate plan ownership.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to load and persist facility plan geometry
+   * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to find the selected plan attachment
+   * @param FacilityAttachmentAncestryGuard $ancestryGuard service that verifies the attachment belongs to this facility or an ancestor
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,

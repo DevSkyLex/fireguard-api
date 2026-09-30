@@ -154,6 +154,18 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     );
   }
 
+  /**
+   * Method applyChanges.
+   *
+   * Applies only the fields marked as provided in the update command.
+   *
+   * @access private
+   *
+   * @param Facility $facility the aggregate being updated
+   * @param UpdateFacilityCommand $command the supplied field values and presence flags
+   *
+   * @return void no return value
+   */
   private function applyChanges(Facility $facility, UpdateFacilityCommand $command): void
   {
     if ($command->hasType) {

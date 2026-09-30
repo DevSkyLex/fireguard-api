@@ -29,11 +29,35 @@ use function usort;
  */
 final readonly class NonConformityStatisticsAdapter implements NonConformityStatisticsPort
 {
+  /**
+   * Method __construct
+   *
+   * Initializes the non-conformity repository used for organization statistics.
+   *
+   * @access public
+   *
+   * @param NonConformityRepositoryPort $nonConformityRepository non-conformity repository
+   *
+   * @return void
+   */
   public function __construct(
     private NonConformityRepositoryPort $nonConformityRepository,
   ) {
   }
 
+  /**
+   * Method countNonConformities
+   *
+   * Counts non-conformities for an organization with optional severity/status filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param ?string $severity the optional finding severity filter
+   * @param ?string $status the optional lifecycle status filter
+   *
+   * @return int
+   */
   public function countNonConformities(string $organizationId, ?string $severity = null, ?string $status = null): int
   {
     return $this->nonConformityRepository->countByOrganizationId(
@@ -43,6 +67,20 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  /**
+   * Method countNonConformityOverview
+   *
+   * Returns aggregate non-conformity overview counts for dashboard cards and alerts.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $dueAtBefore the cutoff used to identify overdue findings
+   * @param ?string $severity the optional finding severity filter
+   * @param ?string $status the optional lifecycle status filter
+   *
+   * @return array{total: int, open: int, in_progress: int, done: int, waived: int, overdue: int, critical_open: int}
+   */
   public function countNonConformityOverview(
     string $organizationId,
     string $dueAtBefore,
@@ -67,6 +105,17 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     return $overview;
   }
 
+  /**
+   * Method countNonConformitiesByStatus
+   *
+   * Returns non-conformity counts grouped by status.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   *
+   * @return array<string, int> map of status => count
+   */
   public function countNonConformitiesByStatus(string $organizationId): array
   {
     $counts = $this->nonConformityRepository->countByStatusForOrganizationId(
@@ -81,6 +130,17 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     return $normalizedCounts;
   }
 
+  /**
+   * Method countNonConformitiesBySeverity
+   *
+   * Returns non-conformity counts grouped by severity.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   *
+   * @return array<string, int> map of severity => count
+   */
   public function countNonConformitiesBySeverity(string $organizationId): array
   {
     $counts = $this->nonConformityRepository->countBySeverityForOrganizationId(
@@ -95,6 +155,20 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     return $normalizedCounts;
   }
 
+  /**
+   * Method countOverdueNonConformities
+   *
+   * Counts overdue open non-conformities for an organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $dueAtBefore the cutoff used to identify overdue findings
+   * @param ?string $severity the optional finding severity filter
+   * @param ?string $status the optional lifecycle status filter
+   *
+   * @return int
+   */
   public function countOverdueNonConformities(
     string $organizationId,
     string $dueAtBefore,
@@ -109,6 +183,20 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  /**
+   * Method countActiveNonConformitiesAtDate
+   *
+   * Counts non-conformities that were active at a given instant.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $at the instant at which active findings are counted
+   * @param ?string $severity the optional finding severity filter
+   * @param ?string $status the optional lifecycle status filter
+   *
+   * @return int
+   */
   public function countActiveNonConformitiesAtDate(
     string $organizationId,
     string $at,
@@ -123,6 +211,22 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  /**
+   * Method countNonConformityPeriodMetrics
+   *
+   * Returns aggregate non-conformity counts for a bounded dashboard period.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $periodFrom the inclusive lower bound for the reporting period
+   * @param string $periodTo the inclusive upper bound for the reporting period
+   * @param string $activeAt the instant used to evaluate findings active in the period
+   * @param ?string $severity the optional finding severity filter
+   * @param ?string $status the optional lifecycle status filter
+   *
+   * @return array{opened: int, resolved: int, activeAtStart: int}
+   */
   public function countNonConformityPeriodMetrics(
     string $organizationId,
     string $periodFrom,
@@ -141,6 +245,22 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  /**
+   * Method countNonConformitiesCreatedByDay
+   *
+   * Returns non-conformity creation counts grouped by day for a period.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $createdAtFrom the inclusive lower bound for finding creation dates
+   * @param string $createdAtTo the inclusive upper bound for finding creation dates
+   * @param ?string $timeZone the timezone used to group performed dates
+   * @param ?string $severity the optional finding severity filter
+   * @param ?string $status the optional lifecycle status filter
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
   public function countNonConformitiesCreatedByDay(
     string $organizationId,
     string $createdAtFrom,
@@ -159,6 +279,22 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  /**
+   * Method countNonConformitiesResolvedByDay
+   *
+   * Returns non-conformity resolution counts grouped by day for a period.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param string $resolvedAtFrom the inclusive lower bound for resolution dates
+   * @param string $resolvedAtTo the inclusive upper bound for resolution dates
+   * @param ?string $timeZone the timezone used to group performed dates
+   * @param ?string $severity the optional finding severity filter
+   * @param ?string $status the optional lifecycle status filter
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
   public function countNonConformitiesResolvedByDay(
     string $organizationId,
     string $resolvedAtFrom,
@@ -177,6 +313,20 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  /**
+   * Method countSlaBreachedNonConformities
+   *
+   * Method countSlaBreachedNonConformities.
+   *
+   * Counts the organization's unresolved non-conformities whose resolution
+   * SLA breach has been signalled (the hourly SLA sweep stamped them).
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return int the unresolved SLA-breached non-conformity count
+   */
   public function countSlaBreachedNonConformities(string $organizationId): int
   {
     return $this->nonConformityRepository->countSlaBreachedByOrganizationId(
@@ -184,6 +334,21 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  /**
+   * Method findOpenNonConformities
+   *
+   * Method findOpenNonConformities.
+   *
+   * Lists the organization's unresolved non-conformities, oldest first.
+   * Backs the weekly digest detail lines.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param int $limit maximum number of summaries to return
+   *
+   * @return list<OpenNonConformitySummary> the unresolved non-conformity summaries
+   */
   public function findOpenNonConformities(string $organizationId, int $limit): array
   {
     $id = InspectionOrganizationId::fromString($organizationId);
@@ -215,6 +380,18 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  /**
+   * Method countOpenCriticalNonConformities
+   *
+   * Counts critical non-conformities that are still open or in progress.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose inspection or finding metrics are requested
+   * @param ?string $status the optional lifecycle status filter
+   *
+   * @return int
+   */
   public function countOpenCriticalNonConformities(string $organizationId, ?string $status = null): int
   {
     return $this->nonConformityRepository->countOpenCriticalByOrganizationId(

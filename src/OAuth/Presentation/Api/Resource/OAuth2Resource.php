@@ -602,12 +602,24 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class OAuth2Resource
 {
   // #region Constants
+  /**
+   * Constant DEFAULT_OIDC_SCOPE
+   */
   private const string DEFAULT_OIDC_SCOPE = 'openid profile email';
 
+  /**
+   * Constant CONTENT_TYPE_JSON_LD
+   */
   private const string CONTENT_TYPE_JSON_LD = 'application/ld+json';
 
+  /**
+   * Constant CONTENT_TYPE_JSON
+   */
   private const string CONTENT_TYPE_JSON = 'application/json';
 
+  /**
+   * Constant FORM_URLENCODED_MEDIA_TYPE
+   */
   private const string FORM_URLENCODED_MEDIA_TYPE = 'application/x-www-form-urlencoded';
   // #endregion
 }

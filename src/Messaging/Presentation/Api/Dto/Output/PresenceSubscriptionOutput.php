@@ -16,12 +16,23 @@ use Symfony\Component\Serializer\Annotation\Groups;
  */
 final class PresenceSubscriptionOutput
 {
+  // #region Properties
+  /**
+   * Property topic
+   */
   #[Groups(['presence:read'])]
   public string $topic = '';
 
+  /**
+   * Property token
+   */
   #[Groups(['presence:read'])]
   public string $token = '';
 
+  /**
+   * Property expiresAt
+   */
   #[Groups(['presence:read'])]
   public string $expiresAt = '';
+  // #endregion
 }

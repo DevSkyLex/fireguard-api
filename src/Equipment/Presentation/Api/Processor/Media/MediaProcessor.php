@@ -42,6 +42,13 @@ use function is_string;
 final readonly class MediaProcessor implements ProcessorInterface
 {
   // #region Constants
+  /**
+   * Constant MEDIA_NOT_FOUND_MESSAGE.
+   *
+   * Stable public message returned when an uploaded media item is unavailable.
+   *
+   * @access private
+   */
   private const string MEDIA_NOT_FOUND_MESSAGE = 'Media not found.';
   // #endregion
 
@@ -76,8 +83,9 @@ final readonly class MediaProcessor implements ProcessorInterface
   /**
    * Method process.
    *
-   * Executes the process operation.
+   * Runs attachment deletion or upload inside the entity manager transaction according to the HTTP method.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param mixed $data the data value
@@ -99,8 +107,9 @@ final readonly class MediaProcessor implements ProcessorInterface
   /**
    * Method upload.
    *
-   * Executes the upload operation.
+   * Validates multipart equipment scope and file data before dispatching the attachment upload command.
    *
+   * @access private
    * @since 1.0.0
    *
    * @return AttachmentOutput the upload result
@@ -185,6 +194,20 @@ final readonly class MediaProcessor implements ProcessorInterface
     return [$equipmentValue, $interventionValue, $clientId];
   }
 
+  /**
+   * Method replayedUpload.
+   *
+   * Resolves a previously stored upload for the same equipment or rejects reuse by another equipment.
+   *
+   * @access private
+   *
+   * @param string|null $clientId the idempotency identifier supplied by the upload client
+   * @param EquipmentRecord $equipment the equipment expected to own the uploaded media
+   *
+   * @return AttachmentOutput|null the existing attachment output when a matching upload exists
+   *
+   * @throws ConflictHttpException when the identifier belongs to another equipment
+   */
   private function replayedUpload(?string $clientId, EquipmentRecord $equipment): ?AttachmentOutput
   {
     if (null === $clientId || '' === $clientId) {
@@ -244,8 +267,6 @@ final readonly class MediaProcessor implements ProcessorInterface
   /**
    * Method assertWrite.
    *
-   * Executes the assert write operation.
-   *
    * `intervention` on the upload path (see {@see self::upload()}) is read
    * straight off the multipart request body — an attacker-controlled value,
    * independent of the `equipment` field's own organization. Resolving
@@ -260,10 +281,13 @@ final readonly class MediaProcessor implements ProcessorInterface
    * an intervention that legitimately belongs to the caller's own
    * organization but not to this equipment's assignment.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param EquipmentRecord $equipment the equipment value
    * @param ?string $interventionId the intervention authorizing the mutation
+   *
+   * @return void no return value
    */
   private function assertWrite(EquipmentRecord $equipment, ?string $interventionId): void
   {

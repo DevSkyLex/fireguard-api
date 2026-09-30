@@ -29,9 +29,21 @@ final readonly class SessionStatusService implements SessionStatusPort
     private GetSessionByAccessTokenHandler $getSessionByAccessTokenHandler,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method activeSessionId
+   *
+   * Returns the active session identifier for the access token and user, when one exists.
+   *
+   * @access public
+   *
+   * @param string $accessTokenId the access token identifier
+   * @param string $userId the user identifier
+   *
+   * @return ?string
+   */
   public function activeSessionId(string $accessTokenId, string $userId): ?string
   {
     $result = $this->getSessionByAccessTokenHandler->__invoke(new GetSessionByAccessTokenQuery($accessTokenId));
@@ -39,6 +51,17 @@ final readonly class SessionStatusService implements SessionStatusPort
     return $result->tracked && !$result->revoked && $result->userId === $userId ? $result->sessionId : null;
   }
 
+  /**
+   * Method isAccessTokenRevoked
+   *
+   * Reports whether access token revoked the requested condition.
+   *
+   * @access public
+   *
+   * @param string $accessTokenId the access token identifier
+   *
+   * @return bool
+   */
   public function isAccessTokenRevoked(string $accessTokenId): bool
   {
     if ('' === $accessTokenId) {
