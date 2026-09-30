@@ -20,7 +20,6 @@ use Throwable;
  * just the located exception.
  *
  * @category Trait
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

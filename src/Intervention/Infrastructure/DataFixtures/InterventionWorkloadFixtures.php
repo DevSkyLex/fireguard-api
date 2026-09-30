@@ -26,7 +26,6 @@ use function is_numeric;
  * their entire task/journal trees are left untouched, even after user edits.
  *
  * @category Fixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

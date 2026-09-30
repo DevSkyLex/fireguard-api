@@ -13,7 +13,6 @@ use Session\Application\UseCase\Command\Session\UpdateSessionTokens\{UpdateSessi
  * Service SessionTrackingService.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

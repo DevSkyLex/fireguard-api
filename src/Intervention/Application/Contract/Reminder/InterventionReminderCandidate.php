@@ -13,7 +13,6 @@ use DateTimeImmutable;
  * by {@see \Intervention\Application\Port\Outbound\InterventionReminderPort}.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -15,7 +15,6 @@ use Doctrine\ORM\Mapping as ORM;
  * (e.g. "lead"), explicitly NOT an RBAC role.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

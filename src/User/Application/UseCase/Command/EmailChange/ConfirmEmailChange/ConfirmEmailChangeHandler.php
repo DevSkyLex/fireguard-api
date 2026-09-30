@@ -40,7 +40,6 @@ use function array_values;
  * follows the same pattern, the 256-bit token being the credential.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

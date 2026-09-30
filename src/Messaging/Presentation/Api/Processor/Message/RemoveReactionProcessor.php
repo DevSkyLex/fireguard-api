@@ -26,7 +26,6 @@ use function is_string;
  * target another member's reaction through this endpoint.
  *
  * @category Processor
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

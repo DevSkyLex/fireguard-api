@@ -24,7 +24,6 @@ use function trim;
  * Represents a defect or non-conformity detected during an inspection.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -40,7 +40,6 @@ use function time;
  * stable client error codes and keeping provider details out of API responses.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

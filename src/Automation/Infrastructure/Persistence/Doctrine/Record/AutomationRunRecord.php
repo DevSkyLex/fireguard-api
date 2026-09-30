@@ -20,7 +20,6 @@ use Doctrine\ORM\Mapping as ORM;
  * foreign key).
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

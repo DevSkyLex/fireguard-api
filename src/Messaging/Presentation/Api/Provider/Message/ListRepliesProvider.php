@@ -29,7 +29,6 @@ use function min;
  * `{id}` is the PARENT (root) message.
  *
  * @category Provider
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

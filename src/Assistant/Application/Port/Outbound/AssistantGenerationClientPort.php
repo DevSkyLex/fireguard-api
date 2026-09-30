@@ -26,7 +26,6 @@ use Assistant\Application\Contract\Generation\AssistantGenerationOutcome;
  * same "replace, not append" guarantee at the persistence layer).
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

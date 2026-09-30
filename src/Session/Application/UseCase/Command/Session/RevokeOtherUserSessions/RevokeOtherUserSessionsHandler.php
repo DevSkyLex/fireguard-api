@@ -10,7 +10,6 @@ use Session\Application\Port\Outbound\SessionRepositoryPort;
  * Handler RevokeOtherUserSessionsHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

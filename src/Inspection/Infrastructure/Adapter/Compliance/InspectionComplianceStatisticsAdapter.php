@@ -20,7 +20,6 @@ use Inspection\Domain\ValueObject\NonConformitySeverity;
  * `NonConformityRepositoryPort`.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -16,7 +16,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * Read representation of an organization's AI-assistant policy.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

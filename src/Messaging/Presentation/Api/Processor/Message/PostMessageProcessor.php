@@ -29,7 +29,6 @@ use function trim;
  * Handles `POST /api/conversations/{conversationId}/messages`.
  *
  * @category Processor
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

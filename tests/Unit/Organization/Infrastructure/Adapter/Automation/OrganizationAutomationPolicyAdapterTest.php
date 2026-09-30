@@ -29,7 +29,6 @@ use PHPUnit\Framework\TestCase;
  * default SLA, because guessing "on" would create work nobody asked for.
  *
  * @category Adapter Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

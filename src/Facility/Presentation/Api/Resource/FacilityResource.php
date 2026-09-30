@@ -44,7 +44,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource FacilityResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -759,7 +758,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource FacilityResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

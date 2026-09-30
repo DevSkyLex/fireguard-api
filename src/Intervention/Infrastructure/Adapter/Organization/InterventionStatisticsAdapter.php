@@ -25,7 +25,6 @@ use function max;
  * intermediate repository indirection).
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

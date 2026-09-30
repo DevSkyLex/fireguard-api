@@ -12,7 +12,6 @@ use DateTimeImmutable;
  * Raised when a standalone organization calendar event is created.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

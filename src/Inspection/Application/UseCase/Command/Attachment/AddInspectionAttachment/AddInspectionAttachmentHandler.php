@@ -22,7 +22,6 @@ use Throwable;
  * `inspection_attachments` table (see `src/Inspection/MODULE.md`).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

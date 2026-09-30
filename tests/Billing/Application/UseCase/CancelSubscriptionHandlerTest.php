@@ -20,7 +20,6 @@ use Tests\Support\Billing\ImmediateBillingReconciliation;
  * Test CancelSubscriptionHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

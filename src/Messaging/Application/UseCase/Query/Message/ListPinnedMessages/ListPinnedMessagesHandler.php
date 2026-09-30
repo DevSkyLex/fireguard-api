@@ -21,7 +21,6 @@ use Shared\Application\Message\QueryHandler;
  * pinned set, unlike a saved message (private to one member).
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

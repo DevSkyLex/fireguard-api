@@ -14,7 +14,6 @@ use function is_int;
  * Value object CapacityWeek.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

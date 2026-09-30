@@ -20,7 +20,6 @@ use Shared\Application\Port\Inbound\CommandBusPort;
  * plan is applied through the same validated path as self-service changes.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

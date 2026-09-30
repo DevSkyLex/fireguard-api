@@ -15,7 +15,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * subscription panel (status badge, renewal date, scheduled cancellation).
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

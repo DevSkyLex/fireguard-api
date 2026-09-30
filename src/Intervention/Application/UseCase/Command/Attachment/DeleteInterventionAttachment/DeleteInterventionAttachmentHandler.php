@@ -20,7 +20,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * see {@see \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler}.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

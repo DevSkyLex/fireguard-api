@@ -10,7 +10,6 @@ namespace OAuth\Application\Port\Outbound\Token;
  * Port for parsing JWT tokens.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

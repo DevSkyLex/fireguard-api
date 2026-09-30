@@ -18,7 +18,6 @@ namespace Intervention\Application\Port\Outbound;
  * on Application use-case Result types.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

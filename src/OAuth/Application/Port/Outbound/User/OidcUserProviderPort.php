@@ -12,7 +12,6 @@ use OAuth\Domain\Model\Oidc\OidcUser;
  * Port for retrieving OIDC user identity data.
  *
  * @category Outbound Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

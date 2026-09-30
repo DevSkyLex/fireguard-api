@@ -13,7 +13,6 @@ use Tenant\Domain\ValueObject\TenantId;
  * Port for Tenant persistence.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

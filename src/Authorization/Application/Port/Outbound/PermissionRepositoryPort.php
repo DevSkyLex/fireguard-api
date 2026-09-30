@@ -13,7 +13,6 @@ use Authorization\Domain\ValueObject\{PermissionId, PermissionName};
  * Port for permission persistence operations.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

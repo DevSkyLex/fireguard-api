@@ -14,7 +14,6 @@ namespace Inspection\Application\Contract\Sla;
  * `Maintenance\Application\Contract\Compliance\MaintenanceCompliancePolicy`.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

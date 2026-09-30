@@ -24,7 +24,6 @@ use function json_encode;
  * settings, branding, and access policies.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @see \Tenant\Presentation\Api\Resource\TenantResource

@@ -24,7 +24,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * member id.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -65,9 +64,9 @@ final readonly class CreateCalendarEventHandler implements CommandHandler
    *
    * @param CreateCalendarEventCommand $command the command payload
    *
-   * @throws CalendarEventValidationException when the acting user has no active membership, or `endsAt` is before `startsAt`
-   *
    * @return CreateCalendarEventResult the use case result
+   *
+   * @throws CalendarEventValidationException when the acting user has no active membership, or `endsAt` is before `startsAt`
    */
   public function __invoke(CreateCalendarEventCommand $command): CreateCalendarEventResult
   {

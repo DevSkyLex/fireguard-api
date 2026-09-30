@@ -13,7 +13,6 @@ use Tenant\Domain\ValueObject\TenantId;
  * Handler DeleteTenantHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -44,9 +43,9 @@ final readonly class DeleteTenantHandler implements CommandHandler
    *
    * @param DeleteTenantCommand $command the command
    *
-   * @throws TenantNotFoundException if tenant is not found
-   *
    * @return DeleteTenantResult the result
+   *
+   * @throws TenantNotFoundException if tenant is not found
    */
   public function __invoke(DeleteTenantCommand $command): DeleteTenantResult
   {

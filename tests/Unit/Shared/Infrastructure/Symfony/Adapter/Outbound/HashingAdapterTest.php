@@ -18,7 +18,6 @@ use const PASSWORD_BCRYPT;
  * Test HashingAdapterTest.
  *
  * @category Unit Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

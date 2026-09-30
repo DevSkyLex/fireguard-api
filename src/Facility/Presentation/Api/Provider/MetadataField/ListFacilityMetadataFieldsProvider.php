@@ -31,7 +31,6 @@ use function is_string;
  * (403 vs 404) runs here rather than only at the resource level.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

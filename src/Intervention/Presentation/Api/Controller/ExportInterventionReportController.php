@@ -60,7 +60,6 @@ use function sprintf;
  * resource, needed for the applied/proposed changes summary.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use const FILTER_VALIDATE_BOOL;
  * proper security prefixes.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

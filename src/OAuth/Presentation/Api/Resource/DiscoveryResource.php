@@ -26,7 +26,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource DiscoveryResource.
  *
  * @category Resource
- *
  * @version 3.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

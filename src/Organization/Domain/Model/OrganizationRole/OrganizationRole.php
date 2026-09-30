@@ -12,7 +12,6 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, Organiz
  * Model OrganizationRole.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

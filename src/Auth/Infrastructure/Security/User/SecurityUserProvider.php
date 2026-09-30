@@ -29,7 +29,6 @@ use function strtoupper;
  * Provider SecurityUserProvider.
  *
  * @category User
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -60,9 +59,9 @@ final readonly class SecurityUserProvider implements UserProviderInterface
    * @param string $userId the user ID
    * @param list<string> $scopes optional OAuth2 scopes
    *
-   * @throws UserNotFoundException if the user is not found
-   *
    * @return SecurityUser the security user
+   *
+   * @throws UserNotFoundException if the user is not found
    */
   public function loadUserById(string $userId, array $scopes = []): SecurityUser
   {

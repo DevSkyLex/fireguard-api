@@ -8,7 +8,6 @@ namespace Session\Presentation\Api\Serialization;
  * Class SessionSerializationGroup.
  *
  * @category Serialization
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -15,7 +15,6 @@ use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
  * with OAuth token storage.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

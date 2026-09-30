@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * actor's own effective set.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

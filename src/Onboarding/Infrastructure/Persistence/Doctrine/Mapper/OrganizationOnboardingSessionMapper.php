@@ -15,7 +15,6 @@ use function array_map;
  * Mapper OrganizationOnboardingSessionMapper.
  *
  * @category Mapper
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

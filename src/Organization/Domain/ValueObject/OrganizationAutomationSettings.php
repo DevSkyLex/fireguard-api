@@ -12,7 +12,6 @@ namespace Organization\Domain\ValueObject;
  * defaults to "off": automations must always be opted into.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

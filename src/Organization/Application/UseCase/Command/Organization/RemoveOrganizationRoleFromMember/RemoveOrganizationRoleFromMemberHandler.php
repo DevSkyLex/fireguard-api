@@ -16,7 +16,6 @@ use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPor
  * UseCase RemoveOrganizationRoleFromMemberHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

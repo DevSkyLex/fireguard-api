@@ -15,7 +15,6 @@ use DateTimeImmutable;
  * in the audit ledger as `intervention.recurrence_materialized`.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

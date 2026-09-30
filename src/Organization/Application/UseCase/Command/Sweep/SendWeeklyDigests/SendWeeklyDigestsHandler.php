@@ -38,7 +38,6 @@ use function count;
  * organization must never starve the rest of the sweep.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

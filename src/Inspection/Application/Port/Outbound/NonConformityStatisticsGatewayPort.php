@@ -15,7 +15,6 @@ use Inspection\Application\Contract\Statistics\NonConformityStatisticsAggregate;
  * facility or per equipment type.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

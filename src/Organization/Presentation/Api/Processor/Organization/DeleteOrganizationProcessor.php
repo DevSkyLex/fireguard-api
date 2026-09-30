@@ -30,7 +30,6 @@ use function is_string;
  * domain failure to HTTP 422.
  *
  * @category Processor
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -32,7 +32,6 @@ use function min;
  * `api_platform.exception_to_status` configuration.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

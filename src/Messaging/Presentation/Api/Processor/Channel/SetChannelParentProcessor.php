@@ -26,7 +26,6 @@ use function is_string;
  * `parentChannelId` is present, detach when it is `null`).
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

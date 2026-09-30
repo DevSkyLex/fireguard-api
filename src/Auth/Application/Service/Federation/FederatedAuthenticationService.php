@@ -48,7 +48,6 @@ use const PHP_URL_SCHEME;
  * provisioning, explicit linking and unlinking invariants.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use Facility\Domain\ValueObject\FacilityOrganizationId;
  * another organization's attachment.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

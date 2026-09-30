@@ -29,7 +29,6 @@ use const JSON_THROW_ON_ERROR;
  * WorkloadApiTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

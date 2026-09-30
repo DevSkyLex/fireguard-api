@@ -20,7 +20,6 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * Verifies container-wired request cache invalidation against PostgreSQL.
  *
  * @category Test
- *
  * @version 1.0.0
  */
 final class OrganizationAccessFreshnessTest extends KernelTestCase

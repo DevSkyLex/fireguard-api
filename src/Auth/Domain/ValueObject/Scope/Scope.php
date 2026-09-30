@@ -13,7 +13,6 @@ use function array_column;
  * Scopes define the level of access granted to a client.
  *
  * @category ValueObject
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

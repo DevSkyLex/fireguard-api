@@ -17,7 +17,6 @@ use Symfony\Component\HttpFoundation\Response;
  * organization's due/overdue maintenance schedules.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

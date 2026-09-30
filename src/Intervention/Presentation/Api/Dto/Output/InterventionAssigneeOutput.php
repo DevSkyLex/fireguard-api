@@ -15,7 +15,6 @@ use ApiPlatform\Metadata\ApiProperty;
  * embedded on inspection outputs.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

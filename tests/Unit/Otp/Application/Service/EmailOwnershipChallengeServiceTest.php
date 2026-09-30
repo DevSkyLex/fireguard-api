@@ -15,7 +15,6 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
  * Test EmailOwnershipChallengeServiceTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

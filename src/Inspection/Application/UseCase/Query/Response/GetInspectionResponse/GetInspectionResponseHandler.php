@@ -14,7 +14,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * UseCase GetInspectionResponseHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ namespace Facility\Domain\ValueObject;
  * facility's primary plan (see `FacilityAttachment`).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

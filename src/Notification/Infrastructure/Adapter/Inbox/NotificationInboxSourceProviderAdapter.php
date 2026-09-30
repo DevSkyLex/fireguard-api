@@ -23,7 +23,6 @@ use function array_map;
  * duplicating a query.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -26,7 +26,6 @@ use function max;
  * only ever read their OWN assistant threads.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

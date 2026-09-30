@@ -15,7 +15,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * Handler ConfirmTotpHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -48,9 +47,9 @@ final readonly class ConfirmTotpHandler implements CommandHandler
    *
    * @param ConfirmTotpCommand $command the command
    *
-   * @throws TotpPendingEnrollmentNotFoundException if there is no pending enrollment
-   *
    * @return ConfirmTotpResult the result
+   *
+   * @throws TotpPendingEnrollmentNotFoundException if there is no pending enrollment
    */
   public function __invoke(ConfirmTotpCommand $command): ConfirmTotpResult
   {

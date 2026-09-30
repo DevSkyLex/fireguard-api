@@ -28,7 +28,6 @@ use Symfony\Component\HttpFoundation\Response;
  * max-depth invariants enforced before the write.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

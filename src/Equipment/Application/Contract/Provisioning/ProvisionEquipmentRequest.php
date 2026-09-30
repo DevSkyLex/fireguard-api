@@ -21,7 +21,6 @@ namespace Equipment\Application\Contract\Provisioning;
  * the same batch that would already have consumed the quota.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

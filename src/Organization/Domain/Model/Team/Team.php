@@ -16,7 +16,6 @@ use Organization\Domain\ValueObject\{OrganizationId, TeamId, TeamName};
  * not part of this aggregate's in-memory state.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

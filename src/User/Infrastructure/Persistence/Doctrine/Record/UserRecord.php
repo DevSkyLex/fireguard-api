@@ -15,7 +15,6 @@ use Doctrine\ORM\Mapping as ORM;
  * Doctrine entity for user persistence.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

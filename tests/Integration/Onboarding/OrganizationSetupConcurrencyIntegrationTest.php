@@ -21,7 +21,6 @@ use function is_string;
  * Durable organization setup recovery.
  *
  * @category IntegrationTest
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

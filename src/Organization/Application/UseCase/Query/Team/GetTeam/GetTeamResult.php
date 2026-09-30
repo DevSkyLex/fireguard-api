@@ -14,7 +14,6 @@ use Shared\Application\Message\ResultMessage;
  * (mirrors {@see \Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\GetOrganizationRoleResult}).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

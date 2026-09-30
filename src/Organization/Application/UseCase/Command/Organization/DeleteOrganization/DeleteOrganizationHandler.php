@@ -19,7 +19,6 @@ use function trim;
  * UseCase DeleteOrganizationHandler.
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -53,6 +52,8 @@ final readonly class DeleteOrganizationHandler implements CommandHandler
    *
    * @param DeleteOrganizationCommand $command the command payload
    *
+   * @return DeleteOrganizationResult the use case result
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationDeletionConfirmationMismatchException when the slug
    *                                                           confirmation is
@@ -60,8 +61,6 @@ final readonly class DeleteOrganizationHandler implements CommandHandler
    *                                                           not match the
    *                                                           organization's
    *                                                           current slug
-   *
-   * @return DeleteOrganizationResult the use case result
    */
   public function __invoke(DeleteOrganizationCommand $command): DeleteOrganizationResult
   {

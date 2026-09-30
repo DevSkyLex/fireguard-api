@@ -26,7 +26,6 @@ use const JSON_THROW_ON_ERROR;
  * be able to read an assistant generation stream.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

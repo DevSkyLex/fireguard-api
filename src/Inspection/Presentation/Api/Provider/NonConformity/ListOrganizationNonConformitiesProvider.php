@@ -38,7 +38,6 @@ use function max;
  * pagination/permission shape for an organization-scoped listing.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

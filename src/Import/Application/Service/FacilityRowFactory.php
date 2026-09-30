@@ -36,7 +36,6 @@ use function trim;
  * `Shared\Application\Factory\UuidFactory`.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -72,10 +71,10 @@ final readonly class FacilityRowFactory
    * @param string $organizationId the owning organization identifier
    * @param array<string, string> $row the associative CSV data row
    *
+   * @return ProvisionFacilityRequest the mapped provisioning request
+   *
    * @throws ImportRowValidationException when a required column is missing
    *                                      or `latitude`/`longitude` are invalid
-   *
-   * @return ProvisionFacilityRequest the mapped provisioning request
    */
   public function map(string $organizationId, array $row): ProvisionFacilityRequest
   {
@@ -111,9 +110,9 @@ final readonly class FacilityRowFactory
    * @param array<string, string> $row the associative CSV data row
    * @param string $column the required column name
    *
-   * @throws ImportRowValidationException when the column is missing or blank
-   *
    * @return string the trimmed required value
+   *
+   * @throws ImportRowValidationException when the column is missing or blank
    */
   private function requiredString(array $row, string $column): string
   {
@@ -152,9 +151,9 @@ final readonly class FacilityRowFactory
    * @param float $min the inclusive lower bound
    * @param float $max the inclusive upper bound
    *
-   * @throws ImportRowValidationException when the value is not numeric or out of range
-   *
    * @return ?float the parsed value, or null when blank/absent
+   *
+   * @throws ImportRowValidationException when the value is not numeric or out of range
    */
   private function optionalFloat(array $row, string $column, float $min, float $max): ?float
   {

@@ -24,7 +24,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * silently trigger an automation.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

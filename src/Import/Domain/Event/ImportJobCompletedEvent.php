@@ -15,7 +15,6 @@ use DateTimeImmutable;
  * `import.job_completed` (counts only, never row payloads).
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

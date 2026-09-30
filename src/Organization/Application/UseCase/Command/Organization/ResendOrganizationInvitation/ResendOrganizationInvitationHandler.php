@@ -21,7 +21,6 @@ use User\Application\Port\Outbound\UserRepositoryPort;
  * UseCase ResendOrganizationInvitationHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

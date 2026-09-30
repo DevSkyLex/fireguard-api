@@ -15,7 +15,6 @@ use Doctrine\ORM\Mapping as ORM;
  * is immutable once written; the feed is append-only.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

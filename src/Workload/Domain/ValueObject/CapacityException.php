@@ -10,7 +10,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * Value object CapacityException: actual daily availability over an inclusive period.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

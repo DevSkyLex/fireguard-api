@@ -15,7 +15,6 @@ use User\Domain\ValueObject\{UserId, Username};
  * Port for user repository operations.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

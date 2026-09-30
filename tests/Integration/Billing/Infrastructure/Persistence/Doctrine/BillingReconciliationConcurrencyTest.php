@@ -20,7 +20,6 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * Real PostgreSQL locks, rollback and receipt replay across independent workers.
  *
  * @category Integration Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

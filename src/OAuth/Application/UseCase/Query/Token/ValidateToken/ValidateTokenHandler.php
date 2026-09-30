@@ -14,7 +14,6 @@ use function is_string;
  * Handler ValidateTokenHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

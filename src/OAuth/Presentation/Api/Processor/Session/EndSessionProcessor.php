@@ -31,7 +31,6 @@ use function trim;
  * Handles OpenID Connect end-session requests.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

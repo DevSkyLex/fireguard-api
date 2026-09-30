@@ -16,7 +16,6 @@ use DateTimeImmutable;
  * are ever removed by the event-driven sync, never a manually added one.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

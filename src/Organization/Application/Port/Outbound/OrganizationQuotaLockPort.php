@@ -29,7 +29,6 @@ use Organization\Domain\ValueObject\OrganizationQuotaResource;
  * observes the committed state when it reads.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

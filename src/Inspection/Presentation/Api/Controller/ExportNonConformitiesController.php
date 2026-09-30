@@ -35,7 +35,6 @@ use function sprintf;
  * export's row cap), stream the CSV, and emit the export's own domain event.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

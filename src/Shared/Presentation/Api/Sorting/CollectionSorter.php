@@ -14,7 +14,6 @@ use function usort;
  * Sorts an array of output DTOs by a given field and direction.
  *
  * @category Sorting
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

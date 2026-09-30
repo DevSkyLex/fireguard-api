@@ -14,7 +14,6 @@ namespace Approval\Application\Contract\Policy;
  * `OrganizationApprovalSettings` overlaid on `OrganizationApprovalDefaults`.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

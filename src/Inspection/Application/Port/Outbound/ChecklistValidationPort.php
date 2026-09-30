@@ -14,7 +14,6 @@ use InvalidArgumentException;
  * creation flow without exposing the full checklist repository.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

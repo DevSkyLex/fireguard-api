@@ -15,7 +15,6 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
  * organization permissions without depending on Organization internals.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

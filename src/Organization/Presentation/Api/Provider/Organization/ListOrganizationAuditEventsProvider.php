@@ -33,7 +33,6 @@ use function trim;
  * Provider ListOrganizationAuditEventsProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -122,11 +121,11 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    *
+   * @return TraversablePaginator<OrganizationAuditEventOutput>
+   *
    * @throws AccessDeniedHttpException when the caller is unauthenticated or lacks the permission
    * @throws BadRequestHttpException when a date filter is malformed
    * @throws NotFoundHttpException when the organization does not exist or the caller is not a member
-   *
-   * @return TraversablePaginator<OrganizationAuditEventOutput>
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
@@ -276,9 +275,9 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
    * @param array<string, mixed> $filters the raw filters
    * @param string $name the filter name ('from' or 'to')
    *
-   * @throws BadRequestHttpException when the value is present but unparseable
-   *
    * @return DateTimeImmutable|null the parsed date or null when absent
+   *
+   * @throws BadRequestHttpException when the value is present but unparseable
    */
   private function parseDateFilter(array $filters, string $name): ?DateTimeImmutable
   {

@@ -12,7 +12,6 @@ use Shared\Domain\ValueObject\Uuid;
  * Event TenantCreatedEvent.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

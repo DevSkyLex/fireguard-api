@@ -10,7 +10,6 @@ use DateTimeImmutable;
  * Inspector, result and lifecycle for one deterministic seeded inspection.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

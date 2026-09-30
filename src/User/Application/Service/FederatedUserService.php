@@ -31,7 +31,6 @@ use const STR_PAD_RIGHT;
  * identity provider while publishing only an application-level contract.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

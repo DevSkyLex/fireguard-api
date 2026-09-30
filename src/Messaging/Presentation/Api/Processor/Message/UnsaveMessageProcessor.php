@@ -23,7 +23,6 @@ use function is_string;
  * unsaving a message that was never saved never errors).
  *
  * @category Processor
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

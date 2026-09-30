@@ -32,7 +32,6 @@ use function is_string;
  * Handles `GET /organizations/{organizationId}/facilities/{facilityId}/plan-overlay`.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

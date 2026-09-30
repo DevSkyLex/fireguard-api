@@ -23,7 +23,6 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
  * settings left every endpoint answering. The permission alone decided access.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -48,7 +48,6 @@ use function is_string;
  * there is a single source of truth for the permission decision.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

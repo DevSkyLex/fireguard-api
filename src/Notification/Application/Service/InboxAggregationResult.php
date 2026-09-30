@@ -14,7 +14,6 @@ use Notification\Application\Contract\Inbox\InboxItem;
  * available.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

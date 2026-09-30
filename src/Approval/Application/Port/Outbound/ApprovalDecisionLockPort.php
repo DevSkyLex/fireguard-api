@@ -12,7 +12,6 @@ namespace Approval\Application\Port\Outbound;
  * a committed business refusal must be returned and thrown by the caller.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

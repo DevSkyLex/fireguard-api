@@ -16,7 +16,6 @@ use Automation\Application\Contract\Policy\AutomationPolicy;
  * {@see \Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort}.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

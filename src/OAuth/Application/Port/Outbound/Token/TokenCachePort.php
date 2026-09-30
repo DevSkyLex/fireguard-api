@@ -10,7 +10,6 @@ namespace OAuth\Application\Port\Outbound\Token;
  * Port for caching token introspection results.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

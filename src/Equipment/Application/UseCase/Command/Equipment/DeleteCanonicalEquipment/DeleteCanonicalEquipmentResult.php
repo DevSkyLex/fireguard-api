@@ -16,7 +16,6 @@ use Shared\Application\Message\ResultMessage;
  * maintenance-log sync, no ledger row.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

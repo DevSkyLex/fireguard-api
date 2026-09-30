@@ -8,7 +8,6 @@ namespace Intervention\Application\Contract\Template;
  * Domain InterventionTemplatePage.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

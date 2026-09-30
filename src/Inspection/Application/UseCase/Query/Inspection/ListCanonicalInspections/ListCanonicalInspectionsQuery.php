@@ -15,7 +15,6 @@ use Shared\Application\Message\QueryMessage;
  * the endpoint's default, which depends on whether an intervention was named.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

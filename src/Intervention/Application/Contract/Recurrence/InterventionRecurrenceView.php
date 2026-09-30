@@ -12,7 +12,6 @@ use DateTimeImmutable;
  * Read model for a persisted intervention recurrence.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

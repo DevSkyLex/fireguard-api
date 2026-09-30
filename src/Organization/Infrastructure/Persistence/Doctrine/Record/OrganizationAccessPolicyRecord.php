@@ -10,7 +10,6 @@ use Doctrine\ORM\Mapping as ORM;
  * Record OrganizationAccessPolicyRecord.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

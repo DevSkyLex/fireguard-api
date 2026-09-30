@@ -10,7 +10,6 @@ use ApiPlatform\Metadata\ApiProperty;
  * DTO DisableTotpOutput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

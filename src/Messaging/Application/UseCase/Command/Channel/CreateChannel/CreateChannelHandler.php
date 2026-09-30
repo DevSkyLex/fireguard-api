@@ -23,7 +23,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * seeds their read marker so their own creation is never counted unread.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

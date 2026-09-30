@@ -15,7 +15,6 @@ use Shared\Application\Message\ResultMessage;
  * hides why an event fired is a Result nobody can test.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

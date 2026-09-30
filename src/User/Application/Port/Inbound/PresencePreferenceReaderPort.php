@@ -10,7 +10,6 @@ use User\Application\Contract\Presence\PresencePreference;
  * Published batch read; missing users have the default preference.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

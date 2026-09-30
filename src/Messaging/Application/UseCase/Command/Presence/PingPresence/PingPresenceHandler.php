@@ -36,7 +36,6 @@ use function is_string;
  * prevents a member from ever pinging presence as someone else.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

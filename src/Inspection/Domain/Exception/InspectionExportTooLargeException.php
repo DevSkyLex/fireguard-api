@@ -18,7 +18,6 @@ use function sprintf;
  * the message is generic enough ("the export") to cover either.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

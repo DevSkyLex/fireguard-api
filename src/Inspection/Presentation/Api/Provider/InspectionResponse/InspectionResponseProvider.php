@@ -51,7 +51,6 @@ use function min;
  * has always done.
  *
  * @category Provider
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

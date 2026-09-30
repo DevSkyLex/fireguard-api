@@ -18,7 +18,6 @@ use function array_map;
  * {@see \Equipment\Infrastructure\Adapter\Organization\EquipmentTypeCatalogAdapter}.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

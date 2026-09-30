@@ -10,7 +10,6 @@ use Webhook\Application\Contract\Http\WebhookHttpResponse;
  * Port WebhookHttpClientPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

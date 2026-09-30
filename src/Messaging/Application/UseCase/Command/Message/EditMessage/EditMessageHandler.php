@@ -40,7 +40,6 @@ use function sprintf;
  * contract.
  *
  * @category UseCase
- *
  * @version 1.3.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

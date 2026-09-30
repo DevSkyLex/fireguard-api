@@ -18,7 +18,6 @@ use function sprintf;
  * processor happened to catch it.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

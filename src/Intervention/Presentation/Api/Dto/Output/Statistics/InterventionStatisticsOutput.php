@@ -14,7 +14,6 @@ namespace Intervention\Presentation\Api\Dto\Output\Statistics;
  * checking for absence.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

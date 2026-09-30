@@ -20,7 +20,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * transient collisions — so nothing here asserts uniqueness.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -55,9 +54,9 @@ final class FacilityLevelIndex
    *
    * @param ?int $levelIndex the candidate stacking order, null clearing it
    *
-   * @throws InvalidValueException when the level index falls outside the range
-   *
    * @return ?int the accepted stacking order, null passing through untouched
+   *
+   * @throws InvalidValueException when the level index falls outside the range
    */
   public static function normalize(?int $levelIndex): ?int
   {

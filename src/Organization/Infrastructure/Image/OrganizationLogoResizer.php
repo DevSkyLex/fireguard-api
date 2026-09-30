@@ -17,7 +17,6 @@ use function sprintf;
  * aspect ratio, and stores it as WebP via the FileStoragePort.
  *
  * @category Infrastructure Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

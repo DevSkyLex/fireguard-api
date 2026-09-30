@@ -43,7 +43,6 @@ use const SORT_STRING;
  * (`visibility=PARTICIPANTS`), never from parsing this key.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

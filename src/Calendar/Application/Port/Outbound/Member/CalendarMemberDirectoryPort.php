@@ -13,7 +13,6 @@ namespace Calendar\Application\Port\Outbound\Member;
  * `Messaging\Application\Port\Outbound\MessagingMemberDirectoryPort`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

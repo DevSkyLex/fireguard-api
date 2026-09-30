@@ -15,7 +15,6 @@ use Shared\Application\Message\QueryMessage;
  * safe, and it answers 404 for a row outside the caller's scope.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

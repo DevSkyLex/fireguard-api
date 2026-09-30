@@ -18,7 +18,6 @@ use function trim;
  * `max`). Unique across the catalog and safe to reference in code.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

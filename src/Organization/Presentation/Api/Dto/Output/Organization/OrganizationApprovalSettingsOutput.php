@@ -19,7 +19,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * the full catalog.
  *
  * @category DTO
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

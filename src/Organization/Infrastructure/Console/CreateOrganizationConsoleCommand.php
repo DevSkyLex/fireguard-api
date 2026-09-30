@@ -26,7 +26,6 @@ use function trim;
  * Command CreateOrganizationConsoleCommand.
  *
  * @category Console Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -195,9 +194,9 @@ HELP
    *
    * @param string $identifier the user ID or email
    *
-   * @throws OrganizationConsoleUserNotFoundException if the user cannot be found
-   *
    * @return string the resolved user ID
+   *
+   * @throws OrganizationConsoleUserNotFoundException if the user cannot be found
    */
   private function resolveUserId(string $identifier): string
   {

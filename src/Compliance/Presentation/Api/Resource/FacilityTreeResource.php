@@ -20,7 +20,6 @@ use Compliance\Presentation\Api\Provider\GetFacilityTreeProvider;
  * Facility keeps depending on nothing but its own repository port.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

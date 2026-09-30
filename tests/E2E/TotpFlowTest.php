@@ -24,7 +24,6 @@ use Symfony\Component\HttpFoundation\Response;
  * 4. User enters generated code to verify setup (via /challenges/{token}/verify)
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @see \Otp\Presentation\Api\Resource\TotpResource

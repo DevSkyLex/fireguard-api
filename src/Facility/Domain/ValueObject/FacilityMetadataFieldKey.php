@@ -20,7 +20,6 @@ use function trim;
  * collides with a legacy free-form key entered by a human.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

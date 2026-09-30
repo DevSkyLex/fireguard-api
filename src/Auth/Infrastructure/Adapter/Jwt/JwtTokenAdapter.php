@@ -37,7 +37,6 @@ use const FILTER_VALIDATE_BOOL;
  * Adapter JwtTokenAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -52,6 +51,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
    * methods.
    *
    * @since 1.0.0
+   *
    * @see CryptTrait
    */
   use CryptTrait;

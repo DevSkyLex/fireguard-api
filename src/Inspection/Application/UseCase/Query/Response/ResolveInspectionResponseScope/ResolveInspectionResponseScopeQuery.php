@@ -17,7 +17,6 @@ use Shared\Application\Message\QueryMessage;
  * All three identifiers arrive already parsed: an IRI is transport.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -22,7 +22,6 @@ use function min;
  * Redirects are disabled and both idle and total delivery duration are bounded.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

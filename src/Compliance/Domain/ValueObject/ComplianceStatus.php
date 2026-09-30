@@ -19,7 +19,6 @@ use function array_column;
  * non-conformity to grade against.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

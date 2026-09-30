@@ -17,7 +17,6 @@ use Organization\Application\Contract\Maintenance\MaintenanceDueSummary;
  * A digest whose counters are all zero is never sent.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -16,7 +16,6 @@ use function array_map;
  * Repository NotificationPreferenceRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

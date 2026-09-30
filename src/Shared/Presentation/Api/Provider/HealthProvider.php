@@ -16,7 +16,6 @@ use Shared\Presentation\Api\Dto\Output\HealthOutput;
  * Provides health check data for the API.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

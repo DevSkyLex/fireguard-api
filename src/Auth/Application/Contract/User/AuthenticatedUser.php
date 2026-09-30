@@ -11,7 +11,6 @@ namespace Auth\Application\Contract\User;
  * their presentation code to Auth's security infrastructure implementation.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

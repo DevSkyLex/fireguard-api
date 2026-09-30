@@ -12,7 +12,6 @@ use Auth\Domain\ValueObject\Federation\FederatedProvider;
  * Normalized identity returned by a provider after the code exchange.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

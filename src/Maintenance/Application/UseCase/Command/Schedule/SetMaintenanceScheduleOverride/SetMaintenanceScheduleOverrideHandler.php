@@ -22,7 +22,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * override and recomputes its next due date and due status accordingly.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

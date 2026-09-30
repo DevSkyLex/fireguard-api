@@ -15,7 +15,6 @@ use Approval\Application\Contract\Policy\ApprovalPolicy;
  * {@see \Automation\Application\Port\Outbound\AutomationPolicyPort}.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

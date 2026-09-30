@@ -25,7 +25,6 @@ use function array_map;
  * (with `null` `x`/`y`) clears the position.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

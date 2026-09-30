@@ -24,7 +24,6 @@ use function round;
  * dimensions at all — `fromContents()` returns null rather than guessing.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use Auth\Application\Contract\User\UserAuthenticationResult;
  * Port for authenticating a user with credentials.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

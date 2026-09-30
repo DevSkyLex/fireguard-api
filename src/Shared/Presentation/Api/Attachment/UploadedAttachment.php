@@ -12,7 +12,6 @@ namespace Shared\Presentation\Api\Attachment;
  * module's `<Module>MediaProcessor`.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

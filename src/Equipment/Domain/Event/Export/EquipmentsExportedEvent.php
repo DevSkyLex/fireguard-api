@@ -17,7 +17,6 @@ use DateTimeImmutable;
  * Audit module's own subscriber, not here.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

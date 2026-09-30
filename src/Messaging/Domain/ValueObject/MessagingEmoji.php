@@ -31,7 +31,6 @@ use function trim;
  * character bound mirrors `messaging_reactions.emoji` (`varchar(32)`).
  *
  * @category ValueObject
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

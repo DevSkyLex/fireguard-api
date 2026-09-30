@@ -18,7 +18,6 @@ use User\Infrastructure\Persistence\Doctrine\Record\UserEmailChangeRequestRecord
  * Doctrine adapter for the email change request port (auth database).
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

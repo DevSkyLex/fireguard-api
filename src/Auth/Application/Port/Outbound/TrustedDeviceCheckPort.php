@@ -10,7 +10,6 @@ namespace Auth\Application\Port\Outbound;
  * Port for checking if a device is trusted, allowing MFA bypass.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

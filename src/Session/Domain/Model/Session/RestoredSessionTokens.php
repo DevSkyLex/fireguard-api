@@ -8,7 +8,6 @@ namespace Session\Domain\Model\Session;
  * Current token identifiers restored from a persisted session.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

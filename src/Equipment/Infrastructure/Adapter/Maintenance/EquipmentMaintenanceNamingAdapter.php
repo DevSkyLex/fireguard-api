@@ -16,7 +16,6 @@ use Maintenance\Application\Port\Outbound\Naming\MaintenanceEquipmentNamingPort;
  * Mirrors `Equipment\Infrastructure\Adapter\Inspection\EquipmentNamingAdapter`.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

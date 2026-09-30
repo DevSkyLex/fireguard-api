@@ -14,7 +14,6 @@ use Throwable;
  * Daily domain proof refresh; one failed domain never aborts the sweep.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

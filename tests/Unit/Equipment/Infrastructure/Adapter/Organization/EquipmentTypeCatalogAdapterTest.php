@@ -20,7 +20,6 @@ use function count;
  * than a hand-maintained copy that can silently fall behind.
  *
  * @category Adapter Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

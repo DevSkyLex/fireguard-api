@@ -23,7 +23,6 @@ use function sprintf;
  * requires the subject's own read permission.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

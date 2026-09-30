@@ -15,7 +15,6 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
  * UseCase UpdatePlanHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -49,7 +49,6 @@ use Throwable;
  * status so the client can tell "you may not" from "too late".
  *
  * @category Processor Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use Auth\Application\UseCase\Command\Session\Login\LoginResult;
  * Completed Fireguard login plus its validated local destination.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

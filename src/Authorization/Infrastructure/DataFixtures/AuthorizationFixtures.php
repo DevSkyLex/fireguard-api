@@ -18,7 +18,6 @@ use Symfony\Component\Uid\Uuid;
  * Creates default roles and permissions for the RBAC system.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

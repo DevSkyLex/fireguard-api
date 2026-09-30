@@ -19,7 +19,6 @@ use User\Domain\ValueObject\UserId;
  * an event, so a double-submit or a stale UI does not error.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

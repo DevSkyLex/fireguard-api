@@ -21,7 +21,6 @@ use function strtr;
  * Note: Some tests may be skipped if the authorize endpoint is not yet implemented.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

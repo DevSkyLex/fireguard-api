@@ -15,7 +15,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * smallest unit (e.g. cents); a null amount means the cadence is not offered.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -25,7 +25,6 @@ use function array_column;
  * either member's side, in either order, resolves to the SAME conversation.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

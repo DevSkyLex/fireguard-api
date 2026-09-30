@@ -14,7 +14,6 @@ namespace Organization\Application\Port\Inbound;
  * operation would remove the last administrator.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

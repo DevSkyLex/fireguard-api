@@ -16,7 +16,6 @@ use function array_map;
  * Repository MessagingReactionRepository.
  *
  * @category Repository
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

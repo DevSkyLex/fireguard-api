@@ -19,7 +19,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * team assignment) treat this as a read-only lookup.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

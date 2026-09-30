@@ -36,7 +36,6 @@ use function sprintf;
  * UseCase AddOrganizationMemberHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

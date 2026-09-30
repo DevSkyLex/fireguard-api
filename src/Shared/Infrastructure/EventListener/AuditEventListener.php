@@ -16,7 +16,6 @@ use function substr;
  * Listener AuditEventListener.
  *
  * @category Listener
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

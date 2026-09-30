@@ -29,7 +29,6 @@ use function time;
  * to one neutral 400.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -72,11 +71,11 @@ final readonly class ConfirmEmailChangeProcessor implements ProcessorInterface
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    *
+   * @return ConfirmEmailChangeOutput the output
+   *
    * @throws BadRequestHttpException when the token is unknown, expired or reused
    * @throws ConflictHttpException when the address was taken meanwhile (neutral)
    * @throws TooManyRequestsHttpException when rate limited
-   *
-   * @return ConfirmEmailChangeOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConfirmEmailChangeOutput
   {

@@ -39,7 +39,6 @@ use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
  * adapter. See `src/Assistant/MODULE.md` ("Deferred cross-module work").
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

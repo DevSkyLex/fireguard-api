@@ -14,7 +14,6 @@ use function array_map;
  * Factory ComplianceSummaryOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

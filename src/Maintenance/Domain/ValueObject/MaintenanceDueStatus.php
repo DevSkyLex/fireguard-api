@@ -17,7 +17,6 @@ use function array_column;
  * never been inspected while a periodicity applies).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

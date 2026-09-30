@@ -15,7 +15,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * must subscribe to in order to receive private notification updates.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

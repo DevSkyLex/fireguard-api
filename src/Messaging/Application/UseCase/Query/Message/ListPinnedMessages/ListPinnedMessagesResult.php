@@ -11,7 +11,6 @@ use Shared\Application\Message\ResultMessage;
  * UseCase ListPinnedMessagesResult.
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use function sprintf;
  * Thrown when an entity is not found.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

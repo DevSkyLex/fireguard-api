@@ -11,7 +11,6 @@ namespace Compliance\Presentation\Api\Dto\Output\Snapshot;
  * the dedicated `…/download` operation, never inlined here.
  *
  * @category Dto
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

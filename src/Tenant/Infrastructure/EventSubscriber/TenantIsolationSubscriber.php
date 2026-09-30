@@ -19,7 +19,6 @@ use Tenant\Application\Port\Inbound\TenantResolverPort;
  * based on the current request context.
  *
  * @category Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

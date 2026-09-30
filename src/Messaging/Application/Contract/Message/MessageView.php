@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * happens at the Presentation layer (`MessageOutputFactory`), never here.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

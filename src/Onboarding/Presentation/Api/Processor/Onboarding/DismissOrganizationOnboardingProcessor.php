@@ -19,7 +19,6 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * Voluntarily hides the non-blocking activation flow for the authenticated user.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

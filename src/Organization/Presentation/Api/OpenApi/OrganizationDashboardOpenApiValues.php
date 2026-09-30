@@ -8,7 +8,6 @@ namespace Organization\Presentation\Api\OpenApi;
  * Class OrganizationDashboardOpenApiValues.
  *
  * @category OpenApi
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

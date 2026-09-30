@@ -13,7 +13,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * Test PermissionIdTest.
  *
  * @category Value Object Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

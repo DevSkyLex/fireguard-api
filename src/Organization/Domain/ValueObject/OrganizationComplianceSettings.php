@@ -34,7 +34,6 @@ use function sprintf;
  * a removed equipment type are tolerated and simply ignored.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,7 +10,6 @@ namespace OAuth\Application\Port\Outbound\Token;
  * Port for issuing OpenID Connect ID tokens.
  *
  * @category Outbound Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

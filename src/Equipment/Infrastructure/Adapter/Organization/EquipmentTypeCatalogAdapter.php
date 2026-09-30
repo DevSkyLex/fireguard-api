@@ -16,7 +16,6 @@ use function array_map;
  * the Equipment domain enum, keeping the enum itself private to this module.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

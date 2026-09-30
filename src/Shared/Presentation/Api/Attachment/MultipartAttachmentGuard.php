@@ -23,7 +23,6 @@ use function sprintf;
  * module's `<Module>MediaProcessor` (Inspection, Intervention, Facility).
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -46,10 +45,10 @@ final readonly class MultipartAttachmentGuard
    *                                        applies) — for a kind-specific policy
    *                                        narrower or wider than {@see AttachmentConstraints::allowedMimeTypes()}
    *
+   * @return UploadedAttachment the validated upload
+   *
    * @throws BadRequestHttpException when no valid file is present
    * @throws UnprocessableEntityHttpException when the file violates the MIME/size policy
-   *
-   * @return UploadedAttachment the validated upload
    */
   public function fromRequest(Request $request, string $fileField = 'file', string $labelField = 'label', ?array $allowedMimeTypes = null): UploadedAttachment
   {

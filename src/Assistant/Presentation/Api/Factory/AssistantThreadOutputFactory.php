@@ -11,7 +11,6 @@ use Assistant\Presentation\Api\Dto\Output\AssistantThreadOutput;
  * Factory AssistantThreadOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -8,7 +8,6 @@ namespace Billing\Presentation\Api\Serialization;
  * Serialization BillingSerializationGroup.
  *
  * @category Serialization
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

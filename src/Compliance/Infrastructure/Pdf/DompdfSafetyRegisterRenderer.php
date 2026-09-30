@@ -21,7 +21,6 @@ use Twig\Environment;
  * execute code embedded in the template context.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

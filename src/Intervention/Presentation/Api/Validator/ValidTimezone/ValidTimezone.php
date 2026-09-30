@@ -11,7 +11,6 @@ use Symfony\Component\Validator\Constraint;
  * Constraint ValidTimezone.
  *
  * @category Validator
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -31,7 +31,6 @@ use const PHP_BINARY;
  * Test MergeCoverageTest.
  *
  * @category Tooling Tests
- *
  * @version 1.0.0
  *
  * @author FireGuard

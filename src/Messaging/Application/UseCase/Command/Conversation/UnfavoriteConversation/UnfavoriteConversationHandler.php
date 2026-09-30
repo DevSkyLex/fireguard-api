@@ -32,7 +32,6 @@ use Shared\Application\Message\CommandHandler;
  * un-removable favorite cluttering their sidebar forever.
  *
  * @category UseCase
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -15,7 +15,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * UseCase MarkNotificationAsReadHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -46,9 +45,9 @@ final readonly class MarkNotificationAsReadHandler implements CommandHandler
    *
    * @param MarkNotificationAsReadCommand $command the command payload
    *
-   * @throws NotificationNotFoundException when notification is not accessible for user
-   *
    * @return MarkNotificationAsReadResult the use case result
+   *
+   * @throws NotificationNotFoundException when notification is not accessible for user
    */
   public function __invoke(MarkNotificationAsReadCommand $command): MarkNotificationAsReadResult
   {

@@ -11,7 +11,6 @@ use Organization\Domain\Model\OrganizationJoin\{OrganizationDomain, Organization
  * Port OrganizationJoinAccessPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

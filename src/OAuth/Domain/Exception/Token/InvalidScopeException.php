@@ -10,7 +10,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * Exception InvalidScopeException.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

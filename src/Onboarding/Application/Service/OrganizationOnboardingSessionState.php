@@ -12,7 +12,6 @@ namespace Onboarding\Application\Service;
  * The Presentation layer maps this to an output DTO.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

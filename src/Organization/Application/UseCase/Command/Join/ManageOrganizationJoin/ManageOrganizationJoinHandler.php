@@ -36,7 +36,6 @@ use function strtolower;
  * notifications and events are emitted only after the outer durable transaction.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

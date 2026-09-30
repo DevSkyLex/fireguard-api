@@ -16,7 +16,6 @@ use function parse_url;
  * Validator ValidRedirectUriValidator.
  *
  * @category Validator
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

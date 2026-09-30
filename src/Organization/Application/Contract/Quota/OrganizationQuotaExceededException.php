@@ -19,7 +19,6 @@ use function sprintf;
  * and only `Application\Contract\` types may be imported by a sibling module.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

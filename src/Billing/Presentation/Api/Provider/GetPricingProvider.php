@@ -15,7 +15,6 @@ use Billing\Presentation\Api\Dto\Output\PlanPricingOutput;
  * Exposes the configured display pricing for every payable plan.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

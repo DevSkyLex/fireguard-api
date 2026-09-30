@@ -12,7 +12,6 @@ use Otp\Domain\ValueObject\TotpSecret;
  * Outbound port for TOTP operations.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -22,7 +22,6 @@ use Shared\Domain\ValueObject\Email;
  * Test ListOrganizationInvitationsHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

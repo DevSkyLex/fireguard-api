@@ -17,7 +17,6 @@ namespace Organization\Application\Contract\Provisioning;
  * an address already holding a pending invitation, and an unknown role name.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

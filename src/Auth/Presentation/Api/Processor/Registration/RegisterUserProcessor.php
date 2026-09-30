@@ -26,7 +26,6 @@ use function time;
  * Processor RegisterUserProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -67,9 +66,9 @@ final readonly class RegisterUserProcessor implements ProcessorInterface
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
-   * @throws ConflictHttpException when the email is already registered
-   *
    * @return RegisterOutput the output
+   *
+   * @throws ConflictHttpException when the email is already registered
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RegisterOutput
   {

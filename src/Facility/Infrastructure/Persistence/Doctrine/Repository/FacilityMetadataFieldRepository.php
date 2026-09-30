@@ -18,7 +18,6 @@ use function array_map;
  * Repository FacilityMetadataFieldRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

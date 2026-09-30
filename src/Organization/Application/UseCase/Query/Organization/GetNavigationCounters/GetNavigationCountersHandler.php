@@ -31,7 +31,6 @@ use Shared\Application\Message\QueryHandler;
  * request.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -115,10 +114,10 @@ final readonly class GetNavigationCountersHandler implements QueryHandler
    *
    * @param GetNavigationCountersQuery $query the query payload
    *
+   * @return GetNavigationCountersResult the resolved navigation counters
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationMemberNotFoundException when the user has no active membership
-   *
-   * @return GetNavigationCountersResult the resolved navigation counters
    */
   public function __invoke(GetNavigationCountersQuery $query): GetNavigationCountersResult
   {

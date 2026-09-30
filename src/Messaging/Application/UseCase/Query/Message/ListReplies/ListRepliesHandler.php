@@ -23,7 +23,6 @@ use Shared\Application\Message\QueryHandler;
  * `PostReplyHandler`).
  *
  * @category UseCase
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

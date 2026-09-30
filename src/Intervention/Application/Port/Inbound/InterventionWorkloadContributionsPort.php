@@ -10,7 +10,6 @@ use Intervention\Application\Contract\Workload\{InterventionTimeContribution, In
  * Port InterventionWorkloadContributionsPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

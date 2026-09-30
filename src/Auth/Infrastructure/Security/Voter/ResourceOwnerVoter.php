@@ -20,7 +20,6 @@ use function property_exists;
  * Voter ResourceOwnerVoter.
  *
  * @category Voter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

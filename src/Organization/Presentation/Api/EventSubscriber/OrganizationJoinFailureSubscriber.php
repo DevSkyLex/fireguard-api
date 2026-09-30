@@ -15,7 +15,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Adds a stable client error code after shared bus unwrapping, without exposing internals.
  *
  * @category EventSubscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

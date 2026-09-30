@@ -15,7 +15,6 @@ use function sprintf;
  * field definitions (50). Mapped to HTTP 422 at the API boundary.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

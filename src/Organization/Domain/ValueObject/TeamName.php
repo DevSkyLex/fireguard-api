@@ -19,7 +19,6 @@ use function trim;
  * only enforces a trimmed length bound and rejects control characters.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

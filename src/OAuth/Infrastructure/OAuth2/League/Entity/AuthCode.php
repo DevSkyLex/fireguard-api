@@ -11,7 +11,6 @@ use League\OAuth2\Server\Entities\Traits\{AuthCodeTrait, EntityTrait, TokenEntit
  * Entity AuthCode.
  *
  * @category Entity
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -30,7 +30,6 @@ use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPor
  * (TOCTOU) — see that port's docblock.
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -71,6 +70,8 @@ final readonly class ReactivateOrganizationMemberHandler implements CommandHandl
    *
    * @param ReactivateOrganizationMemberCommand $command the command payload
    *
+   * @return ReactivateOrganizationMemberResult the use case result
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationArchivedException when the organization is archived
    * @throws OrganizationMemberNotFoundException when the member does not
@@ -79,8 +80,6 @@ final readonly class ReactivateOrganizationMemberHandler implements CommandHandl
    *                                                currently inactive
    * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
    *                                                                                     when reactivating would exceed the plan's member cap
-   *
-   * @return ReactivateOrganizationMemberResult the use case result
    */
   public function __invoke(ReactivateOrganizationMemberCommand $command): ReactivateOrganizationMemberResult
   {

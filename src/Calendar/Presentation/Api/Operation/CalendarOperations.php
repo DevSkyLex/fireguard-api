@@ -8,7 +8,6 @@ namespace Calendar\Presentation\Api\Operation;
  * Operation CalendarOperations.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -21,7 +21,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * the Billing Portal, and read the current subscription state.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

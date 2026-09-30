@@ -19,7 +19,6 @@ namespace Organization\Domain\Catalog;
  * layer validates them against the Approval action-type catalog port.
  *
  * @category Catalog
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,7 +10,6 @@ use Billing\Application\Contract\Stripe\StripeEvent;
  * Serializes billing changes and journals successful webhook reconciliation in main.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

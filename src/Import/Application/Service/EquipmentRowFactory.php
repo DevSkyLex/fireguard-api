@@ -32,7 +32,6 @@ use function trim;
  * `Shared\Application\Factory\UuidFactory`.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -48,9 +47,9 @@ final readonly class EquipmentRowFactory
    * @param string $organizationId the owning organization identifier
    * @param array<string, string> $row the associative CSV data row
    *
-   * @throws ImportRowValidationException when a required column is missing
-   *
    * @return ProvisionEquipmentRequest the mapped provisioning request
+   *
+   * @throws ImportRowValidationException when a required column is missing
    */
   public function map(string $organizationId, array $row): ProvisionEquipmentRequest
   {
@@ -74,9 +73,9 @@ final readonly class EquipmentRowFactory
    * @param array<string, string> $row the associative CSV data row
    * @param string $column the required column name
    *
-   * @throws ImportRowValidationException when the column is missing or blank
-   *
    * @return string the trimmed required value
+   *
+   * @throws ImportRowValidationException when the column is missing or blank
    */
   private function requiredString(array $row, string $column): string
   {

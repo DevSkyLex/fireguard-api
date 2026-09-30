@@ -17,7 +17,6 @@ use Shared\Application\Message\{CommandHandler, VoidResult};
  * immediately. The reconciling webhook converges to the same state.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -54,9 +53,9 @@ final readonly class ResumeSubscriptionHandler implements CommandHandler
    *
    * @param ResumeSubscriptionCommand $command the command payload
    *
-   * @throws NoActiveSubscriptionException when the organization has no live subscription
-   *
    * @return VoidResult the neutral result
+   *
+   * @throws NoActiveSubscriptionException when the organization has no live subscription
    */
   public function __invoke(ResumeSubscriptionCommand $command): VoidResult
   {

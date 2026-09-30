@@ -17,7 +17,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * (raw id in, IRI out via `ChannelOutput::$parent`).
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,7 +10,6 @@ use Symfony\Component\Serializer\Attribute\SerializedName;
  * DTO FederatedStartOutput.
  *
  * @category Output DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

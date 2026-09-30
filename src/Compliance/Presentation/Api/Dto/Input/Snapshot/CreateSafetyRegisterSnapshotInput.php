@@ -14,7 +14,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * register; a `facilityId` archives that facility's register.
  *
  * @category Dto
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

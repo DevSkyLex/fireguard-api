@@ -13,7 +13,6 @@ namespace Shared\Domain\Attachment;
  * {@see AttachmentConstraints} — no module maintains its own MIME allow-list.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

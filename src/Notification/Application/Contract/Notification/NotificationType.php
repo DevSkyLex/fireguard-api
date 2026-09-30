@@ -19,7 +19,6 @@ use function in_array;
  * how the notification is rendered and grouped on the client side.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

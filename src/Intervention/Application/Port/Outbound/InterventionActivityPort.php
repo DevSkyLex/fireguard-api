@@ -16,7 +16,6 @@ use Intervention\Application\Contract\Workflow\{InterventionWorkflowPage, Interv
  * transaction.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -11,7 +11,6 @@ namespace Auth\Domain\ValueObject\Security;
  * session, including flows that still have to complete MFA.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

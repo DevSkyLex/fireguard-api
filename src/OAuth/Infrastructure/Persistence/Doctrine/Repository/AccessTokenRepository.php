@@ -15,7 +15,6 @@ use OAuth\Infrastructure\Persistence\Doctrine\Record\AccessTokenRecord;
  * Repository AccessTokenRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

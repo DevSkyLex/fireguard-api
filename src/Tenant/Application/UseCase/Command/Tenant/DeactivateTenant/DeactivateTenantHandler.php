@@ -18,7 +18,6 @@ use Tenant\Domain\ValueObject\TenantId;
  * Handler DeactivateTenantHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

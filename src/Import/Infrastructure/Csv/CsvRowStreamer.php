@@ -39,7 +39,6 @@ use function trim;
  * row count so a single import cannot run unbounded.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -110,10 +109,10 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
    *
    * @param string $contents the raw CSV file contents
    *
+   * @return Generator<int, array<string, string>> the streamed data rows
+   *
    * @throws InvalidArgumentException when the file is empty, has no header
    *                                  row, or exceeds the maximum row count
-   *
-   * @return Generator<int, array<string, string>> the streamed data rows
    */
   public function rows(string $contents): Generator
   {

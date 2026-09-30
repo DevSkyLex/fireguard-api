@@ -14,7 +14,6 @@ use Shared\Application\Message\ResultMessage;
  * at creation time; only its ciphertext is ever persisted.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

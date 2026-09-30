@@ -22,7 +22,6 @@ use function sprintf;
  * off AND unable to re-enroll around it — a dead end with no self-service exit.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

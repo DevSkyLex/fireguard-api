@@ -16,7 +16,6 @@ use Shared\Domain\Exception\DomainException;
  * oracle beyond what public registration already exposes.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use function is_int;
  * scoping, unread count, and mark-all-read endpoints (lot L1.6).
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

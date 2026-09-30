@@ -15,7 +15,6 @@ use Throwable;
  * delegating to the Otp module's TOTP status inbound port.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ namespace Billing\Domain\ValueObject;
  * not (incomplete, canceled, unpaid, …).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

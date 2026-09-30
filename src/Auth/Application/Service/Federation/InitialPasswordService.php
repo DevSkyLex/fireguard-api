@@ -16,7 +16,6 @@ use User\Application\Port\Inbound\FederatedUserPort;
  * a federated identity provider.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -59,9 +58,9 @@ final readonly class InitialPasswordService
    *
    * @since 1.0.0
    *
-   * @throws FederatedAuthException when the challenge or password transition is invalid
-   *
    * @return array{attemptsRemaining: int}
+   *
+   * @throws FederatedAuthException when the challenge or password transition is invalid
    */
   public function confirm(string $userId, string $token, string $code, string $password): array
   {

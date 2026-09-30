@@ -14,7 +14,6 @@ namespace Messaging\Application\Port\Outbound;
  * `Messaging\Infrastructure\Adapter\Realtime\MercureMessagingRealtimePublisherAdapter`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

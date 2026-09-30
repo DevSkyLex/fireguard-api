@@ -20,7 +20,6 @@ use Workload\Application\Port\Inbound\WorkloadCoordinationPort;
  * Actual work never mutates the operational task/intervention or published dossier.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

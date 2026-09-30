@@ -10,7 +10,6 @@ use function in_array;
  * ValueObject OrganizationOnboardingState.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

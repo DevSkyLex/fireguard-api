@@ -30,7 +30,6 @@ use function max;
  * are invisible here, the same visibility rule `findPublishedById` applies.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

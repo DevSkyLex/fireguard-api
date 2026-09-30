@@ -43,7 +43,6 @@ use function min;
  * where a non-numeric value falls back to the default rather than failing.
  *
  * @category Provider
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

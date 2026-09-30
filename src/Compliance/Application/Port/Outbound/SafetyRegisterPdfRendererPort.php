@@ -15,7 +15,6 @@ namespace Compliance\Application\Port\Outbound;
  * does not depend on Application use-case Result types.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

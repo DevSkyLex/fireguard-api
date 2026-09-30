@@ -26,7 +26,6 @@ use function max;
  * active secret (if any) stays usable until the new one is confirmed.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -295,10 +294,10 @@ final class TotpEnrollment
    *
    * @param bool $codeValid whether the submitted code matched the pending secret
    *
+   * @return bool true if confirmation succeeded
+   *
    * @throws TotpEnrollmentNoPendingSecretException if there is no pending secret
    * @throws TotpEnrollmentMaxAttemptsException if attempts are exhausted
-   *
-   * @return bool true if confirmation succeeded
    */
   public function confirmPending(bool $codeValid): bool
   {
@@ -345,10 +344,10 @@ final class TotpEnrollment
    * @param bool $codeValid whether the submitted code matched the active secret
    * @param DateTimeImmutable|null $now the current instant, injectable for tests
    *
+   * @return bool true if disabling succeeded
+   *
    * @throws TotpEnrollmentNotActiveException if there is no active secret
    * @throws TotpDisableTemporarilyLockedException if the cooldown has not elapsed
-   *
-   * @return bool true if disabling succeeded
    */
   public function disable(bool $codeValid, ?DateTimeImmutable $now = null): bool
   {

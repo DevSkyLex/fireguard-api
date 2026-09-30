@@ -18,7 +18,6 @@ use function is_string;
  * Adds OAuth2 cache-control headers on token operations.
  *
  * @category Event Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

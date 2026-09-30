@@ -14,7 +14,6 @@ use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, TrustedDeviceId};
  * Handler TrustDeviceHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

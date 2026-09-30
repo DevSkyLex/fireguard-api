@@ -48,7 +48,6 @@ use function trim;
  * failing an ownership transfer that has already been durably committed.
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -90,6 +89,8 @@ final readonly class TransferOrganizationOwnershipHandler implements CommandHand
    *
    * @param TransferOrganizationOwnershipCommand $command the command payload
    *
+   * @return TransferOrganizationOwnershipResult the use case result
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationMemberNotFoundException when the acting user is not
    *                                             an active member of the
@@ -105,8 +106,6 @@ final readonly class TransferOrganizationOwnershipHandler implements CommandHand
    *                                                           not match the
    *                                                           organization's
    *                                                           current slug
-   *
-   * @return TransferOrganizationOwnershipResult the use case result
    */
   public function __invoke(TransferOrganizationOwnershipCommand $command): TransferOrganizationOwnershipResult
   {

@@ -24,7 +24,6 @@ use Throwable;
  * Handles `POST /api/conversations` — idempotent get-or-create by subject.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

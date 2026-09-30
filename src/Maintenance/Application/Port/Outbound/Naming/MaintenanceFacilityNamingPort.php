@@ -12,7 +12,6 @@ namespace Maintenance\Application\Port\Outbound\Naming;
  * `Inspection\Application\Port\Outbound\FacilityNamingPort`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

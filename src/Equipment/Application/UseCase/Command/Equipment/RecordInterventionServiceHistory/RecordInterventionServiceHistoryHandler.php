@@ -25,7 +25,6 @@ use function hash;
  * re-reading an already-applied change) never blocks the rest.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

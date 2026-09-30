@@ -24,7 +24,6 @@ use function in_array;
  * authoritative business-rule gate.
  *
  * @category Validator
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

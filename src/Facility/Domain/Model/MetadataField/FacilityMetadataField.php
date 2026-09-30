@@ -32,7 +32,6 @@ use function trim;
  * itself; it does not presume any national fire-safety regime.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

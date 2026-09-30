@@ -17,7 +17,6 @@ use function array_map;
  * Adapter InterventionWorkloadContributionsAdapter. Unpaginated, organization-scoped projection.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

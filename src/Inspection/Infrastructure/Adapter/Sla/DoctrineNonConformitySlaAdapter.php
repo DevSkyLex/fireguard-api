@@ -24,7 +24,6 @@ use function max;
  * record, never from caller input.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

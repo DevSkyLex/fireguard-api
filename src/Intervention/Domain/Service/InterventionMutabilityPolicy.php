@@ -20,7 +20,6 @@ use function in_array;
  * same class, so enforcement and advertisement provably share one source.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

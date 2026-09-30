@@ -26,7 +26,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * apply — a published intervention's evidence must stay downloadable).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

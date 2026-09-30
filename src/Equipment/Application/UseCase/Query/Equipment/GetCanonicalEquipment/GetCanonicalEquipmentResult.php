@@ -14,7 +14,6 @@ use Shared\Application\Message\ResultMessage;
  * because "absent" and "outside your scope" must answer alike here.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

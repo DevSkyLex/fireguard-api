@@ -27,7 +27,6 @@ use Symfony\Contracts\Cache\CacheInterface;
  * worker.
  *
  * @category Scheduler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -22,7 +22,6 @@ use function trim;
  * managed in the database and editable without a redeploy.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

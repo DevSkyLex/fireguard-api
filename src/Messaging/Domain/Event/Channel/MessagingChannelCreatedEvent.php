@@ -13,7 +13,6 @@ use DateTimeImmutable;
  * Recorded in the audit ledger as `messaging.channel_created`.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -25,7 +25,6 @@ use function trim;
  * for an unresolved member.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

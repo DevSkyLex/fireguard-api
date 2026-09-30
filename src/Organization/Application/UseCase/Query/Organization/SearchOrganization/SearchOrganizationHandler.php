@@ -30,7 +30,6 @@ use function trim;
  * other surface of the Inspection module.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -139,11 +138,11 @@ final readonly class SearchOrganizationHandler implements QueryHandler
    *
    * @param SearchOrganizationQuery $query the query value
    *
+   * @return SearchOrganizationResult the grouped search hits
+   *
    * @throws InvalidArgumentException when the term is shorter than 2 or longer than 100 characters
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationMemberNotFoundException when the user has no active membership
-   *
-   * @return SearchOrganizationResult the grouped search hits
    */
   public function __invoke(SearchOrganizationQuery $query): SearchOrganizationResult
   {

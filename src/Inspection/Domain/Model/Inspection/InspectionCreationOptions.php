@@ -10,7 +10,6 @@ use Inspection\Domain\ValueObject\{InspectionChecklistId, InspectionFacilityId};
  * Optional references and text supplied when a draft inspection is created.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

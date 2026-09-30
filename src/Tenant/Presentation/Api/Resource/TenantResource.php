@@ -24,7 +24,6 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
  * Resource TenantResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

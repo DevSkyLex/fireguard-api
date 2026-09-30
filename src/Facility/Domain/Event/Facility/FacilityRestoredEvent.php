@@ -12,7 +12,6 @@ use DateTimeImmutable;
  * Raised when an archived facility is restored to active.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

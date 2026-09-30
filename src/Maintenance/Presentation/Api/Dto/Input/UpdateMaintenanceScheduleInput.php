@@ -16,7 +16,6 @@ use Maintenance\Presentation\Api\Validator\ValidPeriodicityOverride\ValidPeriodi
  * equipment type).
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

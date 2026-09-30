@@ -15,7 +15,6 @@ use function sprintf;
  * organization (e.g. scheduling or resuming a cancellation) but none exists.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

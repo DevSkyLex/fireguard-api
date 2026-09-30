@@ -12,7 +12,6 @@ use User\Domain\ValueObject\UserId;
  * Handler DeleteUserHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -47,9 +46,9 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
    *
    * @param DeleteUserCommand $command the command
    *
-   * @throws UserNotFoundException if the user is not found
-   *
    * @return DeleteUserResult the result
+   *
+   * @throws UserNotFoundException if the user is not found
    */
   public function __invoke(DeleteUserCommand $command): DeleteUserResult
   {

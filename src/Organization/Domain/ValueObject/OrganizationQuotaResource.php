@@ -15,7 +15,6 @@ use function sprintf;
  * creation is blocked once the plan limit is reached.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

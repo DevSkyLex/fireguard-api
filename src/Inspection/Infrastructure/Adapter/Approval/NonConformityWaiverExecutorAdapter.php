@@ -33,7 +33,6 @@ use function is_string;
  * existing) means the deferred action can no longer be applied.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

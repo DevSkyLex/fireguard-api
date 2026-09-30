@@ -18,7 +18,6 @@ use DateTimeImmutable;
  * ledger as `messaging.channel_parent_changed`.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

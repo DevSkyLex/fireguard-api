@@ -13,7 +13,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\PlanRecord;
  * Seeds the subscription plan catalog (Free, Pro, Max).
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -26,7 +26,6 @@ use function array_map;
  * contract identical whichever operation produced the payload.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

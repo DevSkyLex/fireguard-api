@@ -20,7 +20,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  * non-overlapping — set of columns.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

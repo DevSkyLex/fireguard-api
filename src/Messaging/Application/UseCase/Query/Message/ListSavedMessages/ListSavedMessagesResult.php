@@ -11,7 +11,6 @@ use Shared\Application\Message\ResultMessage;
  * UseCase ListSavedMessagesResult.
  *
  * @category UseCase
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

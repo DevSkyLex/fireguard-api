@@ -13,7 +13,6 @@ use Shared\Application\Message\QueryMessage;
  * and its dependencies.
  *
  * @category Query
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

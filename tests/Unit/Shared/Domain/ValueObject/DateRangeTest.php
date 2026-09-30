@@ -14,7 +14,6 @@ use Shared\Domain\ValueObject\DateRange;
  * Test DateRangeTest.
  *
  * @category Unit Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

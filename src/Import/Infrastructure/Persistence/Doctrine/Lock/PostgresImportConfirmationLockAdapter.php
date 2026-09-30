@@ -13,7 +13,6 @@ use Import\Infrastructure\Persistence\Doctrine\Record\ImportJobRecord;
  * Adapter PostgresImportConfirmationLockAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

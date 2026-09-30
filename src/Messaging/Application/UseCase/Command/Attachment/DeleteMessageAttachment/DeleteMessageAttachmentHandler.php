@@ -22,7 +22,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * the loaded attachment, not supplied by the caller.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

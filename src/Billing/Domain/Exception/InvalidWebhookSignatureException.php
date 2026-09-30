@@ -13,7 +13,6 @@ use Throwable;
  * Raised when an incoming Stripe webhook payload fails signature verification.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

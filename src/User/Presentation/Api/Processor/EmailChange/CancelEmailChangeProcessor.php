@@ -19,7 +19,6 @@ use User\Application\UseCase\Command\EmailChange\CancelEmailChange\CancelEmailCh
  * Idempotent: answers 204 whether or not a request was pending.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -59,9 +58,9 @@ final readonly class CancelEmailChangeProcessor implements ProcessorInterface
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    *
-   * @throws AccessDeniedHttpException when not authenticated
-   *
    * @return void No content (204)
+   *
+   * @throws AccessDeniedHttpException when not authenticated
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
   {

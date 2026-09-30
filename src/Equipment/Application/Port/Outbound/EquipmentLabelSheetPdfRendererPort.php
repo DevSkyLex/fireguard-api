@@ -16,7 +16,6 @@ namespace Equipment\Application\Port\Outbound;
  * `Equipment\Infrastructure\Pdf`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

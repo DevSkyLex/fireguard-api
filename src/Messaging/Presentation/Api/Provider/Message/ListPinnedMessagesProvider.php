@@ -29,7 +29,6 @@ use function min;
  * /conversations/{conversationId}/pinned-messages`).
  *
  * @category Provider
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

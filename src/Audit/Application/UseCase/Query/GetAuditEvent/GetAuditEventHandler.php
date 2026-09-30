@@ -14,7 +14,6 @@ use Shared\Domain\Exception\EntityNotFoundException;
  * Handler GetAuditEventHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -47,9 +46,9 @@ final readonly class GetAuditEventHandler implements QueryHandler
    *
    * @param GetAuditEventQuery $query the query to handle
    *
-   * @throws EntityNotFoundException
-   *
    * @return AuditEventView the event view
+   *
+   * @throws EntityNotFoundException
    */
   public function __invoke(GetAuditEventQuery $query): AuditEventView
   {

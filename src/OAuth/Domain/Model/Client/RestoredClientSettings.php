@@ -11,7 +11,6 @@ use OAuth\Domain\ValueObject\Security\GrantTypes;
  * Settings restored from a persisted OAuth client.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

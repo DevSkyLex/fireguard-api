@@ -20,7 +20,6 @@ use Symfony\Component\HttpFoundation\Response;
  * tags interventions can be assigned to (`Intervention.labelIds`).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

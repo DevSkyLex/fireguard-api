@@ -18,7 +18,6 @@ use Shared\Application\Message\CommandMessage;
  * the handler checks it belongs to the same organization.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

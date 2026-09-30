@@ -26,7 +26,6 @@ use function str_starts_with;
  * simulating the full Stripe object graph.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

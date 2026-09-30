@@ -23,7 +23,6 @@ use Webhook\Domain\ValueObject\WebhookDeliveryId;
  * cheap (list + reserve only).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

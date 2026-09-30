@@ -10,7 +10,6 @@ use Shared\Domain\ValueObject\Uuid;
  * ValueObject FacilityAttachmentId.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

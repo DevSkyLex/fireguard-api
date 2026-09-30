@@ -28,7 +28,6 @@ use function sprintf;
  * according to retention policy.
  *
  * @category Console
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

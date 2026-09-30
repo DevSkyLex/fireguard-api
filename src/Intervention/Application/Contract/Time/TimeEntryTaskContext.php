@@ -8,7 +8,6 @@ namespace Intervention\Application\Contract\Time;
  * TimeEntryTaskContext.
  *
  * @category Intervention
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

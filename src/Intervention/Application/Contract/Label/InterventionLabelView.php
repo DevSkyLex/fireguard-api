@@ -10,7 +10,6 @@ use DateTimeImmutable;
  * Domain InterventionLabelView.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -13,7 +13,6 @@ use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDev
  * Model TrustedDevice.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

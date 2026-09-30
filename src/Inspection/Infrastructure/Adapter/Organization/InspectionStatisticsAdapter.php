@@ -16,7 +16,6 @@ use Organization\Application\Port\Outbound\InspectionStatisticsPort;
  * using the Inspection module's repository.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -32,7 +32,6 @@ use function min;
  * `organization` query filter.
  *
  * @category Provider
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

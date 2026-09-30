@@ -15,7 +15,6 @@ use Shared\Application\Port\Inbound\CommandBusPort;
  * Processor CreatePermissionProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

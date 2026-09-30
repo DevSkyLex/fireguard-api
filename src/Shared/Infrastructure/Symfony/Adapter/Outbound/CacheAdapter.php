@@ -13,7 +13,6 @@ use Shared\Infrastructure\Exception\CacheOperationException;
  * Adapter CacheAdapter.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

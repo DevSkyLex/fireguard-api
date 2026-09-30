@@ -21,7 +21,6 @@ use function str_replace;
  * Repository UserRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

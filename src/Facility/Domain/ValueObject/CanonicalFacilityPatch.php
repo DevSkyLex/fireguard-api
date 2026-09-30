@@ -30,7 +30,6 @@ use Facility\Domain\Exception\CanonicalFacilityValidationException;
  * client sending several invalid fields at once observes.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

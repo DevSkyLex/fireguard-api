@@ -20,7 +20,6 @@ use Shared\Application\Port\Outbound\ClockPort;
  * maintenance schedule after an inspection closes.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

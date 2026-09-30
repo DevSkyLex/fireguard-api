@@ -15,7 +15,6 @@ namespace User\Domain\ValueObject;
  * absent-versus-null ambiguity.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

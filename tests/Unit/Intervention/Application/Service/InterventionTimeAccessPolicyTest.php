@@ -19,7 +19,6 @@ use PHPUnit\Framework\TestCase;
  * organization isolation, active membership, dedicated grants and contributor history.
  *
  * @category Unit Tests
- *
  * @version 1.0.0
  */
 #[CoversClass(InterventionTimeAccessPolicy::class)]

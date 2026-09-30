@@ -13,7 +13,6 @@ namespace Messaging\Application\Port\Outbound;
  * to validate `@{memberUuid}` mention tokens (which come from user input).
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -44,7 +44,6 @@ use function sprintf;
  * `tests/Integration/Inspection`).
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

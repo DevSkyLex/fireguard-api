@@ -13,7 +13,6 @@ namespace Onboarding\Domain\Model\OrganizationOnboardingSession;
  * by {@see \Onboarding\Application\Service\OrganizationOnboardingFlowService::synchronizeSessionFromCurrentState()}.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

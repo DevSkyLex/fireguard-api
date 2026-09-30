@@ -28,7 +28,6 @@ use Shared\Application\Port\Outbound\FileStoragePort;
  * the controller logs, not a normal not-found path.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

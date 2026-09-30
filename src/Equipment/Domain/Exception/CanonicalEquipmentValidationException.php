@@ -17,7 +17,6 @@ use function sprintf;
  * below before they moved into the domain.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

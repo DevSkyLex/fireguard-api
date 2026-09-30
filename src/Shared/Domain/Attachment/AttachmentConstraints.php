@@ -15,7 +15,6 @@ use function in_array;
  * through it (see `src/Shared/MODULE.md`), but new consumers must.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

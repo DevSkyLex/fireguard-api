@@ -45,7 +45,6 @@ use function urldecode;
  * Processor GrantConsentProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -16,7 +16,6 @@ use function sprintf;
  * active or does not exist at all in that state.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

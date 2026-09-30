@@ -11,7 +11,6 @@ use Messaging\Application\Contract\ReadMarker\ConversationReceiptPosition;
  * Port MessagingReadMarkerRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

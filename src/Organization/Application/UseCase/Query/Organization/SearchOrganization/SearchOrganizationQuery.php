@@ -10,7 +10,6 @@ use Shared\Application\Message\QueryMessage;
  * UseCase SearchOrganizationQuery.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -25,7 +25,6 @@ use const DIRECTORY_SEPARATOR;
  * Adapter FileStorageAdapter.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -62,9 +61,9 @@ final readonly class FileStorageAdapter implements FileStoragePort
    * @param string $path the path to the file
    * @param string $contents the data to write to the file
    *
-   * @throws FileStorageException if the file write fails
-   *
    * @return void no return value
+   *
+   * @throws FileStorageException if the file write fails
    */
   public function write(string $path, string $contents): void
   {
@@ -110,9 +109,9 @@ final readonly class FileStorageAdapter implements FileStoragePort
    *
    * @param string $path the path to the file
    *
-   * @throws FileStorageException if the file read fails
-   *
    * @return string the file contents
+   *
+   * @throws FileStorageException if the file read fails
    */
   public function read(string $path): string
   {
@@ -146,9 +145,9 @@ final readonly class FileStorageAdapter implements FileStoragePort
    *
    * @param string $path the path to the file
    *
-   * @throws FileStorageException if the file deletion fails
-   *
    * @return void no return value
+   *
+   * @throws FileStorageException if the file deletion fails
    */
   public function delete(string $path): void
   {

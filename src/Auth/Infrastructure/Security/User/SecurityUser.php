@@ -17,7 +17,6 @@ use function strtolower;
  * User SecurityUser.
  *
  * @category User
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

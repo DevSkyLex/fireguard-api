@@ -25,7 +25,6 @@ use function count;
  * invisible at runtime until they go wrong, so they are pinned here.
  *
  * @category Scheduler Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

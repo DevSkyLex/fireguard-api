@@ -32,7 +32,6 @@ use function in_array;
  * removals could still strand the organization with zero administrators.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

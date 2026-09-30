@@ -23,7 +23,6 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
  * Resource CurrentUserProfileResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

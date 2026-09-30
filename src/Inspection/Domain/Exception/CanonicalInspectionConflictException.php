@@ -18,7 +18,6 @@ use RuntimeException;
  * one are told different things.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

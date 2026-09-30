@@ -8,7 +8,6 @@ namespace Organization\Domain\Model\Plan;
  * Optional catalog values supplied when creating a plan.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

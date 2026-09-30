@@ -37,7 +37,6 @@ use function is_string;
  * that path and keeps its own permission check.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

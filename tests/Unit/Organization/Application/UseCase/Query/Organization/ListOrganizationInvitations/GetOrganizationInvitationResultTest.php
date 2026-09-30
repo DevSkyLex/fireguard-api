@@ -17,7 +17,6 @@ use PHPUnit\Framework\TestCase;
  * them into a single "resolved by" pair.
  *
  * @category UseCase Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

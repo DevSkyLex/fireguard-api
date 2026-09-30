@@ -16,7 +16,6 @@ use RuntimeException;
  * no isolation duty, it simply means "no coordinates for that text".
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

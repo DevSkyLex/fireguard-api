@@ -26,7 +26,6 @@ use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
  * no signature here through which an unreduced row can leave.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -80,9 +79,9 @@ interface OrganizationAuditFeedPort
    * @param DateTimeImmutable|null $from optional inclusive lower bound on the occurrence datetime
    * @param DateTimeImmutable|null $to optional inclusive upper bound on the occurrence datetime
    *
-   * @throws AuditExportTooLargeException when the filters match more rows than the export cap
-   *
    * @return iterable<OrganizationAuditEntry> every matching entry, streamed newest first
+   *
+   * @throws AuditExportTooLargeException when the filters match more rows than the export cap
    */
   public function exportForOrganization(
     string $organizationId,

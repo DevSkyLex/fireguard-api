@@ -8,7 +8,6 @@ namespace Billing\Application\Contract\Stripe;
  * Current Stripe subscription, retrieved independently of a webhook snapshot.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

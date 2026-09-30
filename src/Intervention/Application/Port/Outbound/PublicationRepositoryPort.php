@@ -10,7 +10,6 @@ use Intervention\Application\Contract\Publication\{InterventionPublicationContex
  * Interface PublicationRepositoryPort.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

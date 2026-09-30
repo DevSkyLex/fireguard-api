@@ -12,7 +12,6 @@ use DateTimeImmutable;
  * Raised when a user confirms a pending TOTP secret, activating TOTP MFA.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

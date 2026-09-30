@@ -14,7 +14,6 @@ namespace Facility\Application\Contract\Geocoding;
  * use case boundary never blur at a call site.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

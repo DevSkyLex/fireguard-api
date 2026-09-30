@@ -20,7 +20,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * permissions it already holds (wildcard-aware via the authorization port).
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

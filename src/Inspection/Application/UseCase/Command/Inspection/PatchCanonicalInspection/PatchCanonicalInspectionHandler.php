@@ -27,7 +27,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * events and flushing them outside `wrapInTransaction()`.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

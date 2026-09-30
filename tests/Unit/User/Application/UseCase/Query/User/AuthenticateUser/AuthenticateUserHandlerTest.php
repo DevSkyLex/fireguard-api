@@ -18,7 +18,6 @@ use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
  * Test AuthenticateUserHandlerTest.
  *
  * @category Handler Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

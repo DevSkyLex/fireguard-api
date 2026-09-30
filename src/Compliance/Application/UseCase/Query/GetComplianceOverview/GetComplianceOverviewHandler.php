@@ -28,7 +28,6 @@ use function hash;
  * permission-aware cached aggregate when available.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -67,9 +66,9 @@ final readonly class GetComplianceOverviewHandler implements QueryHandler
    *
    * @param GetComplianceOverviewQuery $query the compliance overview query
    *
-   * @throws ComplianceAccessDeniedException if the user lacks a required permission
-   *
    * @return GetComplianceOverviewResult the organization compliance register
+   *
+   * @throws ComplianceAccessDeniedException if the user lacks a required permission
    */
   public function __invoke(GetComplianceOverviewQuery $query): GetComplianceOverviewResult
   {

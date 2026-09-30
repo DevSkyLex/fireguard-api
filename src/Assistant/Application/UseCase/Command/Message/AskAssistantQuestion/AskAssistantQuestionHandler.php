@@ -32,7 +32,6 @@ use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, Transactio
  * `GetAssistantThreadHandler`'s docblock).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

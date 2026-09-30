@@ -28,7 +28,6 @@ use function strtoupper;
  * the infrastructure layer.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -272,9 +271,9 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
    *
    * @param string $customerId the Stripe customer identifier
    *
-   * @throws BillingGatewayUnavailableException when Stripe cannot be reached
-   *
    * @return ?array<array-key, mixed> the raw payment method payload, or null
+   *
+   * @throws BillingGatewayUnavailableException when Stripe cannot be reached
    */
   private function firstCardPaymentMethod(string $customerId): ?array
   {

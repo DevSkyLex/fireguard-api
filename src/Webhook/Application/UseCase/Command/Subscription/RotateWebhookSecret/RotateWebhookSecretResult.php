@@ -15,7 +15,6 @@ use Shared\Application\Message\ResultMessage;
  * `secret` carries the new PLAINTEXT signing secret, returned only once.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

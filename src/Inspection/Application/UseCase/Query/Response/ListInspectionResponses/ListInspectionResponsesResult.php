@@ -14,7 +14,6 @@ use Shared\Application\Message\ResultMessage;
  * paginator: a page without its total cannot say how many others there are.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -37,7 +37,6 @@ use function trim;
  * {@see \Organization\Application\Contract\Authorization\OrganizationAccessDecision}.
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

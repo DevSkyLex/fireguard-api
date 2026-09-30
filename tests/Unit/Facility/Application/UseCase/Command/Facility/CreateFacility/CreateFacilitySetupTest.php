@@ -21,7 +21,6 @@ use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPor
  * Durable organization setup recovery.
  *
  * @category UnitTest
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

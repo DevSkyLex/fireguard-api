@@ -17,7 +17,6 @@ use Compliance\Domain\ValueObject\SafetyRegisterSnapshotId;
  * into a plain "not found".
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

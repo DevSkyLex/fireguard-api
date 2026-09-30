@@ -23,7 +23,6 @@ use function mb_strimwidth;
  * the owning module rather than the consuming one.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,7 +10,6 @@ use DateTimeImmutable;
  * Committed join-policy and membership-request audit event, containing no email or DNS proof.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

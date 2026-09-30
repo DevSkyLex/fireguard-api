@@ -8,7 +8,6 @@ namespace Organization\Presentation\Api\Operation;
  * Operation OrganizationJoinOperations.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

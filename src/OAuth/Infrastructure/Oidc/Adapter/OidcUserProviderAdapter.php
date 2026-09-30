@@ -16,7 +16,6 @@ use function trim;
  * Adapter OidcUserProviderAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

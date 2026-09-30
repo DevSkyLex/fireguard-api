@@ -12,7 +12,6 @@ use User\Application\Contract\Federation\FederatedUser;
  * Published User-module boundary used by Auth for external identities.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

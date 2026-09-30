@@ -13,7 +13,6 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
  * DTO UserInput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

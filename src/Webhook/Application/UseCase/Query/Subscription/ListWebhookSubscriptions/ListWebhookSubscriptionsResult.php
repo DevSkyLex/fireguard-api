@@ -11,7 +11,6 @@ use Webhook\Application\UseCase\Query\Subscription\GetWebhookSubscription\GetWeb
  * UseCase ListWebhookSubscriptionsResult.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

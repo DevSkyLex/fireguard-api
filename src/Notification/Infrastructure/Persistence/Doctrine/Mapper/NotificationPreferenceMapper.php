@@ -11,7 +11,6 @@ use Notification\Infrastructure\Persistence\Doctrine\Record\NotificationPreferen
  * Mapper NotificationPreferenceMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

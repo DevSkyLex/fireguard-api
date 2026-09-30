@@ -8,7 +8,6 @@ namespace User\Application\Contract\Presence;
  * Persistent presence preference; revision zero is the default state.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

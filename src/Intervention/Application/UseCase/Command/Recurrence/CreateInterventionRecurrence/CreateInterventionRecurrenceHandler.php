@@ -25,7 +25,6 @@ use function trim;
  * starting point regardless of when the sweep next runs.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

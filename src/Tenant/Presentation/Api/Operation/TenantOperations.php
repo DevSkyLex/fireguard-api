@@ -8,7 +8,6 @@ namespace Tenant\Presentation\Api\Operation;
  * Tenant operation names.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

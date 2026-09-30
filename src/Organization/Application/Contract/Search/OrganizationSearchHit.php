@@ -12,7 +12,6 @@ namespace Organization\Application\Contract\Search;
  * asked, so the result type is the port's identity, never the row's claim.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

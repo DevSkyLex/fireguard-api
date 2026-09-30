@@ -24,7 +24,6 @@ use function sprintf;
  * including step descriptors, rollback metadata, skip metadata, and step history.
  *
  * @category Assembler
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use function sprintf;
  * Exception MessagingAttachmentNotFoundException.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

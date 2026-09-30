@@ -13,7 +13,6 @@ use Doctrine\ORM\Mapping as ORM;
  * Doctrine entity for TOTP enrollment persistence. One row per user.
  *
  * @category Entity
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

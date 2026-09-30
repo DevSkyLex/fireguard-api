@@ -17,7 +17,6 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * Provider OrganizationOnboardingProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

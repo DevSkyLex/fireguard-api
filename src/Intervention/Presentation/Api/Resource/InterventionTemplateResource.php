@@ -25,7 +25,6 @@ use Symfony\Component\HttpFoundation\Response;
  * drafts (without recurrence — see the module changelog for later lots).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

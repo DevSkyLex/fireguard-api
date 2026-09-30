@@ -12,7 +12,6 @@ use OAuth\Domain\Model\Token\RefreshToken;
  * Port for Refresh Token repository.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

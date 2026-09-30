@@ -13,7 +13,6 @@ use Shared\Domain\ValueObject\Uuid;
  * Test UuidTest.
  *
  * @category Unit Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

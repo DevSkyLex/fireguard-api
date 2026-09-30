@@ -26,7 +26,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * `attachmentId` (with `null` `points`) clears the geometry.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

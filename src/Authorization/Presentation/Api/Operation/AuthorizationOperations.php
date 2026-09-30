@@ -8,7 +8,6 @@ namespace Authorization\Presentation\Api\Operation;
  * Authorization operation names.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

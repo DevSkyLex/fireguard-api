@@ -17,7 +17,6 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
  * through the self-service API.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -11,7 +11,6 @@ use Workload\Application\Contract\Projection\WorkloadProjectionSnapshot;
  * Port WorkloadProjectionPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

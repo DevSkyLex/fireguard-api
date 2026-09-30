@@ -19,7 +19,6 @@ use function strtolower;
  * Expects the standard API Platform order format: ?order[field]=asc|desc.
  *
  * @category Sorting
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

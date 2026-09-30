@@ -16,7 +16,6 @@ use function trim;
  * A single point to verify within a checklist.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -17,7 +17,6 @@ use Doctrine\ORM\Mapping as ORM;
  * {@see \Messaging\Application\Service\MessagingChannelParticipantSynchronizer}.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

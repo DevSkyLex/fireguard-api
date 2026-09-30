@@ -12,7 +12,6 @@ use Otp\Domain\Model\Otp;
  * Outbound port for OTP delivery via notifications.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

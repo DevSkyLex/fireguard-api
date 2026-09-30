@@ -20,7 +20,6 @@ use const FILTER_VALIDATE_BOOL;
  * Uses __Host- prefix in production for enhanced security.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -28,7 +28,6 @@ use const JSON_THROW_ON_ERROR;
  * Handler for fetching organization dashboard data.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -136,9 +135,9 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    *
    * @param GetOrganizationDashboardQuery $query the dashboard query with filters and options
    *
-   * @throws OrganizationNotFoundException if the organization does not exist
-   *
    * @return GetOrganizationDashboardResult the computed dashboard data for the organization
+   *
+   * @throws OrganizationNotFoundException if the organization does not exist
    */
   public function __invoke(GetOrganizationDashboardQuery $query): GetOrganizationDashboardResult
   {
@@ -360,9 +359,9 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    * @param string $userId the ID of the user requesting the dashboard
    * @param string $organizationId the ID of the organization for which the dashboard is requested
    *
-   * @throws OrganizationAccessDeniedException if the user lacks any required permission
-   *
    * @return void No return value. Throws exception if access is denied.
+   *
+   * @throws OrganizationAccessDeniedException if the user lacks any required permission
    */
   private function assertDashboardPermissions(string $userId, string $organizationId): void
   {

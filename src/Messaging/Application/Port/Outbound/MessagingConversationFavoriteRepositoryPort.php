@@ -20,7 +20,6 @@ use DateTimeImmutable;
  * a raw idempotent insert and a plain delete, never a read-modify-write.
  *
  * @category Port
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

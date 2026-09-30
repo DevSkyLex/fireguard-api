@@ -15,7 +15,6 @@ use Shared\Application\Message\ResultMessage;
  * materializing it would defeat the streamed response it feeds.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

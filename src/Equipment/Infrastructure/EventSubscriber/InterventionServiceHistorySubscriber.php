@@ -28,7 +28,6 @@ use Throwable;
  * their best-effort error handling.
  *
  * @category Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

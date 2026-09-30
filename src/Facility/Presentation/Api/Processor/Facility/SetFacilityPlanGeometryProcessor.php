@@ -32,7 +32,6 @@ use function is_string;
  * Handles `PUT /organizations/{organizationId}/facilities/{facilityId}/plan-geometry`.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

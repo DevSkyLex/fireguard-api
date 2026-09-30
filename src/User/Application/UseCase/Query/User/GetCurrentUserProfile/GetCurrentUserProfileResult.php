@@ -11,7 +11,6 @@ use User\Application\Contract\User\UserView;
  * Result GetCurrentUserProfileResult.
  *
  * @category Result
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -14,7 +14,6 @@ use function in_array;
  * Model OAuthClient.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

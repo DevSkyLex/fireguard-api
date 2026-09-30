@@ -20,7 +20,6 @@ namespace Organization\Domain\Catalog;
  * that allowlist — the same split used for approval action types.
  *
  * @category Catalog
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

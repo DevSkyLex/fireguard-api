@@ -21,7 +21,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  * Mapper InterventionMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

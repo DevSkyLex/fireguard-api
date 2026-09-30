@@ -27,7 +27,6 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ServiceUn
  * Test GetPaymentMethodProviderTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

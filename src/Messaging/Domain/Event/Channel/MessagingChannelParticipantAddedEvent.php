@@ -16,7 +16,6 @@ use DateTimeImmutable;
  * `messaging.channel_participant_added`.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

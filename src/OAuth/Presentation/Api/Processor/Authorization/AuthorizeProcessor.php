@@ -47,7 +47,6 @@ use function trim;
  * Handles OAuth2 authorization requests (GET/POST /authorize).
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

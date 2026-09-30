@@ -16,7 +16,6 @@ use Shared\Domain\ValueObject\Uuid;
  * token sent to the new address is used.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

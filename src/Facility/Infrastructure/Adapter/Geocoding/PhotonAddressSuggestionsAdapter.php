@@ -33,7 +33,6 @@ use function trim;
  * International search-as-you-type through a configured Photon instance.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

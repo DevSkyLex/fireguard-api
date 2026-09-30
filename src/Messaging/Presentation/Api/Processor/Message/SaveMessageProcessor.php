@@ -24,7 +24,6 @@ use function is_string;
  * Handles `POST /api/messages/{id}/save` (`200 OK`, idempotent).
  *
  * @category Processor
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -35,7 +35,6 @@ use const DIRECTORY_SEPARATOR;
  * across every module at once.
  *
  * @category Architecture Unit Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

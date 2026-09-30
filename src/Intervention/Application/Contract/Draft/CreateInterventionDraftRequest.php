@@ -19,7 +19,6 @@ use DateTimeImmutable;
  * factory, and system callers (automations) act on behalf of the platform.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

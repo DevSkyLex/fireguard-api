@@ -13,7 +13,6 @@ use DateTimeImmutable;
  * One-time server-side state for a federated authorization-code flow.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

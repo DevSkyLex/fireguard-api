@@ -39,7 +39,6 @@ use function sprintf;
  * decommission cleanup.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

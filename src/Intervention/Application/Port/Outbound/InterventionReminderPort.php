@@ -19,7 +19,6 @@ use Intervention\Application\Contract\Reminder\InterventionReminderPage;
  * scheduled, and `submitted`/`published`/`abandoned` no longer need action.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

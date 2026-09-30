@@ -16,7 +16,6 @@ use PHPUnit\Framework\TestCase;
  * Deterministic security boundary coverage for domain eligibility and request transitions.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

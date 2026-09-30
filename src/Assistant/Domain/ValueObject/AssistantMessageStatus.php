@@ -29,7 +29,6 @@ use function in_array;
  * {@see \Assistant\Domain\Model\Message\AssistantMessage} instead.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

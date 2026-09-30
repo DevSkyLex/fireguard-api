@@ -12,7 +12,6 @@ use Symfony\Component\HttpFoundation\Response;
  * End-to-end tests for Session management API.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

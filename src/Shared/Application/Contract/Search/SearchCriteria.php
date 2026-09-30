@@ -15,7 +15,6 @@ use function trim;
  * repository-owned since it is a persistence/mapping concern.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

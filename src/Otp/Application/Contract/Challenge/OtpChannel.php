@@ -10,7 +10,6 @@ namespace Otp\Application\Contract\Challenge;
  * Contract enum for OTP delivery channels across modules.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

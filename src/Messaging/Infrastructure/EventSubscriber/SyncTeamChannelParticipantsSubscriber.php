@@ -37,7 +37,6 @@ use Throwable;
  * member from every channel (team-bound or manual) they participated in.
  *
  * @category Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

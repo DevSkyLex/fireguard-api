@@ -46,7 +46,6 @@ use const JSON_THROW_ON_ERROR;
  *    Failure to persist that outcome propagates to the transport for retry.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

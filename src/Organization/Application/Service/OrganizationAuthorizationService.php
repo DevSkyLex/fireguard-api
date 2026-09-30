@@ -20,7 +20,6 @@ use function explode;
  * Service OrganizationAuthorizationService.
  *
  * @category Service
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -191,9 +190,9 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    * @param string $organizationId the organization identifier
    * @param list<string> $permissions the permission names to assert
    *
-   * @throws OrganizationAccessDeniedException when one of the required permissions is missing
-   *
    * @return void Returns nothing. Throws when access must be denied.
+   *
+   * @throws OrganizationAccessDeniedException when one of the required permissions is missing
    */
   public function assertGrantedPermissions(string $userId, string $organizationId, array $permissions): void
   {

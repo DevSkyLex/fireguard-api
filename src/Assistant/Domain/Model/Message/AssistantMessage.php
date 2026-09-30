@@ -24,7 +24,6 @@ use function trim;
  * appended for the same turn.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -86,9 +85,9 @@ final class AssistantMessage
    * @param string $body the question body
    * @param DateTimeImmutable $now the current time
    *
-   * @throws AssistantValidationException when the body is blank
-   *
    * @return self the created user message
+   *
+   * @throws AssistantValidationException when the body is blank
    */
   public static function askUser(
     AssistantMessageId $id,

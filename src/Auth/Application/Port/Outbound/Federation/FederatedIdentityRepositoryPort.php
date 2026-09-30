@@ -13,7 +13,6 @@ use Auth\Domain\ValueObject\Federation\FederatedProvider;
  * Persists external identities in the auth database.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

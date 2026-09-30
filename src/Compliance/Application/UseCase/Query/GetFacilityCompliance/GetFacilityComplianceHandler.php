@@ -27,7 +27,6 @@ use function hash;
  * organization's facility directory.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -66,10 +65,10 @@ final readonly class GetFacilityComplianceHandler implements QueryHandler
    *
    * @param GetFacilityComplianceQuery $query the facility compliance query
    *
+   * @return GetFacilityComplianceResult the single-facility compliance view
+   *
    * @throws ComplianceAccessDeniedException if the user lacks a required permission
    * @throws ComplianceNotFoundException if the facility is not part of the organization's directory
-   *
-   * @return GetFacilityComplianceResult the single-facility compliance view
    */
   public function __invoke(GetFacilityComplianceQuery $query): GetFacilityComplianceResult
   {

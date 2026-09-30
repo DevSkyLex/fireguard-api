@@ -31,7 +31,6 @@ use function is_string;
  * `Audit\...\AuditEventExportCriteriaFactory`.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

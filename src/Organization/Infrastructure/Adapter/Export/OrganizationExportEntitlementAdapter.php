@@ -28,7 +28,6 @@ use function in_array;
  * added, this adapter must be updated — and it is the ONE place to update.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

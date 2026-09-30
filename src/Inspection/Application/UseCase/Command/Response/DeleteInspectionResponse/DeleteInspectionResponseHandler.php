@@ -19,7 +19,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * be removed — the aggregate refuses it, the endpoint answers 409.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

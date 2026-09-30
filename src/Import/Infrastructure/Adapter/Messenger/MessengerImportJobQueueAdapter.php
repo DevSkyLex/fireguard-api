@@ -18,7 +18,6 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * dispatch never produces.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

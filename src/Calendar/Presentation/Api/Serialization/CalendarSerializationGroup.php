@@ -8,7 +8,6 @@ namespace Calendar\Presentation\Api\Serialization;
  * Serialization CalendarSerializationGroup.
  *
  * @category Serialization
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -17,7 +17,6 @@ use TrustedDevice\Infrastructure\Persistence\Doctrine\Repository\TrustedDeviceRe
  * Test TrustedDeviceRepositoryIntegrationTest.
  *
  * @category Integration Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

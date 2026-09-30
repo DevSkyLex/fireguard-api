@@ -15,7 +15,6 @@ use Inspection\Application\Port\Outbound\EquipmentNamingPort;
  * resolves equipment identifiers into serial numbers in a single query.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

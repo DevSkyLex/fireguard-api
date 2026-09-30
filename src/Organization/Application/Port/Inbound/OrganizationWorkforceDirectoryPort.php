@@ -12,7 +12,6 @@ use Organization\Application\Contract\Workforce\{OrganizationWorkforceContext, O
  * Organization-owned scalar contracts; callers enforce their use-case permission.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -11,7 +11,6 @@ use Intervention\Presentation\Api\Dto\Output\InterventionRecurrenceOutput;
  * Factory InterventionRecurrenceOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

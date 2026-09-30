@@ -33,7 +33,6 @@ use Throwable;
  * throwable silently turns every 404 and 409 into a 500.
  *
  * @category Trait Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

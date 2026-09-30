@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * the Intervention module's Domain or Infrastructure layers.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

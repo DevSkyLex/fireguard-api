@@ -15,7 +15,6 @@ use function str_starts_with;
  * It represents a hashed secret.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

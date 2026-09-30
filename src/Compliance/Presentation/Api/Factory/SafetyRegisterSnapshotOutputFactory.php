@@ -11,7 +11,6 @@ use Compliance\Presentation\Api\Dto\Output\Snapshot\SafetyRegisterSnapshotOutput
  * Factory SafetyRegisterSnapshotOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

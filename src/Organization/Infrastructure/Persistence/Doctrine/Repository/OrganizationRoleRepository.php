@@ -22,7 +22,6 @@ use function is_array;
  * Repository OrganizationRoleRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

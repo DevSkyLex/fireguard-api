@@ -30,7 +30,6 @@ use const FILTER_VALIDATE_BOOLEAN;
  * are read into memory.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -75,10 +74,10 @@ final readonly class CsvUploadGuard
    * @param string $fileField the multipart field holding the file
    * @param string $kindField the multipart field holding the import kind
    *
+   * @return UploadedCsv the validated upload
+   *
    * @throws BadRequestHttpException when no valid file/kind is present
    * @throws UnprocessableEntityHttpException when the file violates the MIME/size/extension policy
-   *
-   * @return UploadedCsv the validated upload
    */
   public function fromRequest(Request $request, string $fileField = 'file', string $kindField = 'kind'): UploadedCsv
   {

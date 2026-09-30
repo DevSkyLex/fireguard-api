@@ -21,7 +21,6 @@ use Tests\Support\Billing\ImmediateBillingReconciliation;
  * Tests ordered, repeated and obsolete Stripe deliveries against fresh state.
  *
  * @category UseCase Tests
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

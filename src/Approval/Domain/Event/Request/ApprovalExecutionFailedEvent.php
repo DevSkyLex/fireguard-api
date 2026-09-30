@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * created; the request is transitioned to `cancelled` alongside this event.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

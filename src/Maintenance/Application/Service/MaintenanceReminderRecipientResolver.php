@@ -25,7 +25,6 @@ use function array_values;
  * precedent to the maintenance permission.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -18,7 +18,6 @@ use User\Presentation\Api\Processor\User\CreateUserProcessor;
  * Test CreateUserProcessorTest.
  *
  * @category Processor Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

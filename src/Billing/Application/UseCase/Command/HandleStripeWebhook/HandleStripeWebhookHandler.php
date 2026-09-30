@@ -23,7 +23,6 @@ use function usort;
  * Reconciles current Stripe state, never the possibly stale webhook snapshot.
  *
  * @category UseCase
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

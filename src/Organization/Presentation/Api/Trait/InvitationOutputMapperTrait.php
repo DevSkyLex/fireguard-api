@@ -16,7 +16,6 @@ use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitation
  * duplicating the identical field-by-field assignment.
  *
  * @category Trait
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

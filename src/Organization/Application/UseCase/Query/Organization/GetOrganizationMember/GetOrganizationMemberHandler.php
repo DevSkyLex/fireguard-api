@@ -13,7 +13,6 @@ use Shared\Application\Message\QueryHandler;
  * UseCase GetOrganizationMemberHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -46,9 +45,9 @@ final readonly class GetOrganizationMemberHandler implements QueryHandler
    *
    * @param GetOrganizationMemberQuery $query the query payload
    *
-   * @throws OrganizationMemberNotFoundException when the member does not exist
-   *
    * @return GetOrganizationMemberResult the resolved member
+   *
+   * @throws OrganizationMemberNotFoundException when the member does not exist
    */
   public function __invoke(GetOrganizationMemberQuery $query): GetOrganizationMemberResult
   {

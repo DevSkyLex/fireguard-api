@@ -8,7 +8,6 @@ namespace Shared\Application\Contract\Sorting;
  * ValueObject Sorting.
  *
  * @category Sorting
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

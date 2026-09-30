@@ -25,7 +25,6 @@ use Throwable;
  * the Organization port itself raises it — no Import handler does anymore.
  *
  * @category Trait
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

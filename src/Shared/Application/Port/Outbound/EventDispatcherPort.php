@@ -10,7 +10,6 @@ namespace Shared\Application\Port\Outbound;
  * Port for dispatching domain events.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

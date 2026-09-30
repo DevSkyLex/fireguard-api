@@ -11,7 +11,6 @@ namespace Authorization\Application\Port\Inbound;
  * Defines the contract for checking permissions and roles.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

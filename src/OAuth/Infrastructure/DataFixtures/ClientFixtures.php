@@ -25,7 +25,6 @@ use const PASSWORD_BCRYPT;
  * Loads sample OAuth2 clients into the database.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

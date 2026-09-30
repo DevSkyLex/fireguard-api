@@ -11,7 +11,6 @@ use Messaging\Presentation\Api\Dto\Output\MessagingLinkOutput;
  * Factory MessagingLinkOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

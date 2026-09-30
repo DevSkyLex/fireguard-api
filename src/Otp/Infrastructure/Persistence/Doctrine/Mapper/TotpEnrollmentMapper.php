@@ -13,7 +13,6 @@ use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
  * Mapper TotpEnrollmentMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

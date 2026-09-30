@@ -43,7 +43,6 @@ use function trim;
  * processor ran them, and hands the result in.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -127,9 +126,9 @@ final class CanonicalFacility
    * @param CanonicalFacilityPatch $patch the requested changes, already validated field by field
    * @param ?CanonicalFacilityParent $parent the resolved new parent, when `parent` was sent non-null
    *
-   * @throws CanonicalFacilityValidationException when a published facility is restored under an archived parent
-   *
    * @return CanonicalFacilityChange what changed — empty for a scratchpad row
+   *
+   * @throws CanonicalFacilityValidationException when a published facility is restored under an archived parent
    */
   public function applyPatch(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent = null): CanonicalFacilityChange
   {

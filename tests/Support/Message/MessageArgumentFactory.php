@@ -38,7 +38,6 @@ use function strtolower;
  * which is valid by construction.
  *
  * @category Test Support
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -80,9 +79,9 @@ final class MessageArgumentFactory
    *
    * @param class-string<T> $class the class to instantiate
    *
-   * @throws RuntimeException when the class cannot be built
-   *
    * @return T the constructed instance
+   *
+   * @throws RuntimeException when the class cannot be built
    */
   public function build(string $class): object
   {
@@ -235,9 +234,9 @@ final class MessageArgumentFactory
    * @param string $class the declared class name
    * @param int $depth the current nesting depth
    *
-   * @throws RuntimeException when the type cannot be constructed
-   *
    * @return object the synthesized object
+   *
+   * @throws RuntimeException when the type cannot be constructed
    */
   private function objectFor(string $class, int $depth): object
   {

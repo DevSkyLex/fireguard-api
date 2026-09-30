@@ -22,7 +22,6 @@ use PHPUnit\Framework\TestCase;
  * and the field-by-field round trip, are what this pins.
  *
  * @category Mapper Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

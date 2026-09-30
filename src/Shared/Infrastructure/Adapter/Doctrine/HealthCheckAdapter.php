@@ -18,7 +18,6 @@ use function random_bytes;
  * Implements health checks for database and cache dependencies.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

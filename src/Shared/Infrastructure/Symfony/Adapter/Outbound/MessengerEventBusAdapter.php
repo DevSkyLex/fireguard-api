@@ -15,7 +15,6 @@ use Throwable;
  * Adapter MessengerEventBus.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,9 +48,9 @@ final readonly class MessengerEventBusAdapter implements EventBusPort
    *
    * @param DomainEvent ...$events The events to publish.
    *
-   * @throws MessengerRuntimeException if the messenger fails to dispatch the event
-   *
    * @return void no return value
+   *
+   * @throws MessengerRuntimeException if the messenger fails to dispatch the event
    */
   public function publish(DomainEvent ...$events): void
   {

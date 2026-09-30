@@ -17,7 +17,6 @@ use Symfony\Component\HttpKernel\Exception\{NotFoundHttpException, TooManyReques
  * Processor ResendRegistrationProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -53,10 +52,10 @@ final readonly class ResendRegistrationProcessor implements ProcessorInterface
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
+   * @return RegisterOutput the output
+   *
    * @throws NotFoundHttpException when the challenge is unknown or expired
    * @throws TooManyRequestsHttpException when the resend cooldown is not elapsed
-   *
-   * @return RegisterOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RegisterOutput
   {

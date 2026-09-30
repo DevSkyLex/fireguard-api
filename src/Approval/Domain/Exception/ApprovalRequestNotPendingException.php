@@ -17,7 +17,6 @@ use function sprintf;
  * against a duplicate or racing attempt.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

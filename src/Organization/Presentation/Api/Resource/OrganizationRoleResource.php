@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource OrganizationRoleResource.
  *
  * @category Resource
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

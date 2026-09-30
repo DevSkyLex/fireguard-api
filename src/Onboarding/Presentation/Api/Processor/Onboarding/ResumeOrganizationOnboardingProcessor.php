@@ -19,7 +19,6 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * Clears a previous dismissal so the activation flow becomes visible again.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

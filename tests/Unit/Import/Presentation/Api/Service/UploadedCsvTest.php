@@ -16,7 +16,6 @@ use PHPUnit\Framework\TestCase;
  * them from the raw upload would defeat the validation.
  *
  * @category DTO Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

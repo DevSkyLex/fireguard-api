@@ -11,7 +11,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * Value object LocalDate, independent of UTC offsets and daylight saving.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

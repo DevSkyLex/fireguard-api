@@ -17,7 +17,6 @@ use Shared\Application\Message\QueryHandler;
  * Handler ExportOrganizationAuditEventsHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -74,10 +73,10 @@ final readonly class ExportOrganizationAuditEventsHandler implements QueryHandle
    *
    * @param ExportOrganizationAuditEventsQuery $query the query to handle
    *
+   * @return ExportOrganizationAuditEventsResult the streamable rows
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationMemberNotFoundException when the caller is not an active member
-   *
-   * @return ExportOrganizationAuditEventsResult the streamable rows
    */
   public function __invoke(ExportOrganizationAuditEventsQuery $query): ExportOrganizationAuditEventsResult
   {

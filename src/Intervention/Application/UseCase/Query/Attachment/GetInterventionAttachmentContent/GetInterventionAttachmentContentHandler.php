@@ -29,7 +29,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * signal (a persisted row whose bytes are gone) and maps it to 404.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

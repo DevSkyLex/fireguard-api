@@ -25,7 +25,6 @@ use const SORT_STRING;
  * Factory MessageOutputFactory.
  *
  * @category Factory
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

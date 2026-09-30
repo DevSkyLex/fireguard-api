@@ -16,7 +16,6 @@ namespace Inspection\Domain\ValueObject;
  * intervention, which is published on arrival.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

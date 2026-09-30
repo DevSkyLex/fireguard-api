@@ -11,7 +11,6 @@ use Otp\Application\Port\Outbound\Totp\TotpEnrollmentRepositoryPort;
  * Service TotpStatusService.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

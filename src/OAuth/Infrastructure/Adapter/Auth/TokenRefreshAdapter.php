@@ -15,7 +15,6 @@ use Shared\Application\Port\Inbound\QueryBusPort;
  * Bridges Auth refresh requests to OAuth refresh logic.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

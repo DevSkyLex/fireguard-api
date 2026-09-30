@@ -13,7 +13,6 @@ use Session\Application\Port\Inbound\Tracking\SessionStatusPort as SessionStatus
  * Bridges the Auth authenticator's revocation question to the Session module.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

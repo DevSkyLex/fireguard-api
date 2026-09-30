@@ -18,7 +18,6 @@ namespace Inspection\Domain\ValueObject;
  * audited, or treated as a free-form scratchpad edit.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

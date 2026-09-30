@@ -14,7 +14,6 @@ use Shared\Application\Message\CommandMessage;
  * Routed to the `async` transport (see `config/packages/messenger.yaml`).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -18,7 +18,6 @@ namespace Maintenance\Application\Contract\Export;
  * use case Results and from each other's intermediate shapes.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

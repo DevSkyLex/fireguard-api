@@ -15,7 +15,6 @@ use function is_int;
  * recording work cannot silently recalculate remaining effort.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

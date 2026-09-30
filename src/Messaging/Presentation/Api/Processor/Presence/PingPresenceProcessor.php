@@ -36,7 +36,6 @@ use function time;
  * ping would otherwise be a free DoS on the cache.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

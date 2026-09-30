@@ -13,7 +13,6 @@ use DateTimeImmutable;
  * returned to stock (canonical surface transition).
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -24,7 +24,6 @@ use const JSON_THROW_ON_ERROR;
  * persisted per-recipient notification.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

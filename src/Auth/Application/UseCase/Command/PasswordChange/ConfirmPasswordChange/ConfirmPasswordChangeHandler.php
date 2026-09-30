@@ -22,7 +22,6 @@ use User\Domain\ValueObject\{HashedPassword, UserId};
  * the password and revokes sessions and OAuth tokens.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

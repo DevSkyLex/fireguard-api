@@ -17,7 +17,6 @@ use Doctrine\ORM\Mapping as ORM;
  * requiring an inverse collection on `OrganizationRecord`.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

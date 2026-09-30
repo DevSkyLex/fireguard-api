@@ -13,7 +13,6 @@ use Auth\Domain\ValueObject\Federation\FederatedProvider;
  * Stores and atomically consumes short-lived OAuth flow state.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -35,7 +35,6 @@ use function substr;
  * Authenticator OAuth2Authenticator.
  *
  * @category Authenticator
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

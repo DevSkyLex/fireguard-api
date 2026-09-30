@@ -14,7 +14,6 @@ use function json_encode;
  * End-to-end tests for OAuth2 client management.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

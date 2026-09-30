@@ -10,7 +10,6 @@ use User\Application\Contract\Presence\PresencePreferenceSubscription;
  * Port PresencePreferenceRealtimePort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

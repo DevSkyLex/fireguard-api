@@ -31,7 +31,6 @@ use const OPENSSL_RAW_DATA;
  * failure is permitted, even while legacy plaintext rows remain readable.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

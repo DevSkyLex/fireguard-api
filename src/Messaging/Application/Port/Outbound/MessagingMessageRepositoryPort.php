@@ -13,7 +13,6 @@ use Messaging\Domain\Model\Message\Message;
  * Port MessagingMessageRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

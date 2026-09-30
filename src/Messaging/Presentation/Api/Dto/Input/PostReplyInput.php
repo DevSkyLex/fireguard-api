@@ -12,7 +12,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * `POST /api/messages/{id}/replies` request body (L2.5).
  *
  * @category DTO
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

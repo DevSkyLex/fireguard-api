@@ -22,7 +22,6 @@ use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
  * `published` and `abandoned` outright.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

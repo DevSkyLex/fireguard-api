@@ -22,7 +22,6 @@ use function array_map;
  * visible in the regulatory register.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

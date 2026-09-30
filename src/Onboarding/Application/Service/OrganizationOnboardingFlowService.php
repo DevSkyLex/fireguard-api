@@ -45,7 +45,6 @@ use function sprintf;
  * - rollback stack and rollback execution
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -253,10 +252,10 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    * @param string $userId the authenticated user identifier
    * @param string $stepKey the step to skip
    *
+   * @return OrganizationOnboardingSessionState the updated flow state
+   *
    * @throws InvalidArgumentException when the step key is invalid
    * @throws LogicException when the step is required, already completed, or not the current pending step
-   *
-   * @return OrganizationOnboardingSessionState the updated flow state
    */
   public function skipStep(string $userId, string $stepKey): OrganizationOnboardingSessionState
   {

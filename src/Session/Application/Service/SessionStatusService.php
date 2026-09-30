@@ -11,7 +11,6 @@ use Session\Application\UseCase\Query\Session\GetSessionByAccessToken\{GetSessio
  * Service SessionStatusService.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

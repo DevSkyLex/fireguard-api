@@ -21,7 +21,6 @@ use function count;
  * — a type missing here is a preference the user can never switch off.
  *
  * @category Provider Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

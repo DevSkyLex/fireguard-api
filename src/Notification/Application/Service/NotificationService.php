@@ -12,7 +12,6 @@ use Notification\Application\UseCase\Command\Notification\SendNotification\{Send
  * Service NotificationService.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

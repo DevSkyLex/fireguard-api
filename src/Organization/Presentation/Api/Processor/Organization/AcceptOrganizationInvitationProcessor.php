@@ -25,7 +25,6 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
  * Processor AcceptOrganizationInvitationProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

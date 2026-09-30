@@ -16,7 +16,6 @@ use DateTimeImmutable;
  * `messaging.message_moderated`.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

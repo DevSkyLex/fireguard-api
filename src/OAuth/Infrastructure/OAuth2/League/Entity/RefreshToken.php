@@ -11,7 +11,6 @@ use League\OAuth2\Server\Entities\Traits\{EntityTrait, RefreshTokenTrait};
  * Entity RefreshToken.
  *
  * @category Entity
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,6 +23,7 @@ final class RefreshToken implements RefreshTokenEntityInterface
    * Entity trait implementation.
    *
    * @since 1.0.0
+   *
    * @see EntityTrait
    */
   use EntityTrait;
@@ -35,6 +35,7 @@ final class RefreshToken implements RefreshTokenEntityInterface
    * Refresh token trait implementation.
    *
    * @since 1.0.0
+   *
    * @see RefreshTokenTrait
    */
   use RefreshTokenTrait;

@@ -13,7 +13,6 @@ use Messaging\Application\Port\Outbound\MessagingSavedMessageRepositoryPort;
  * Repository MessagingSavedMessageRepository.
  *
  * @category Repository
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

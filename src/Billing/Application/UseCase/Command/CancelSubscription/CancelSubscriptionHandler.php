@@ -18,7 +18,6 @@ use Shared\Application\Message\{CommandHandler, VoidResult};
  * webhook converges to the same state.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -55,9 +54,9 @@ final readonly class CancelSubscriptionHandler implements CommandHandler
    *
    * @param CancelSubscriptionCommand $command the command payload
    *
-   * @throws NoActiveSubscriptionException when the organization has no live subscription
-   *
    * @return VoidResult the neutral result
+   *
+   * @throws NoActiveSubscriptionException when the organization has no live subscription
    */
   public function __invoke(CancelSubscriptionCommand $command): VoidResult
   {

@@ -27,7 +27,6 @@ use function sprintf;
  * a webhook.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -70,9 +69,9 @@ final readonly class StartCheckoutHandler implements CommandHandler
    *
    * @param StartCheckoutCommand $command the command payload
    *
-   * @throws InvalidArgumentException when the cadence or plan is not payable
-   *
    * @return StartCheckoutResult the use case result
+   *
+   * @throws InvalidArgumentException when the cadence or plan is not payable
    */
   public function __invoke(StartCheckoutCommand $command): StartCheckoutResult
   {

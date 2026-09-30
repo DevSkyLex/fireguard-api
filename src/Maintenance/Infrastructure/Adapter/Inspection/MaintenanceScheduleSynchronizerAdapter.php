@@ -15,7 +15,6 @@ use Maintenance\Application\Port\Inbound\MaintenanceSchedulePort;
  * delegating to this module's own inbound {@see MaintenanceSchedulePort}.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

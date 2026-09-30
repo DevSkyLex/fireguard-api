@@ -16,7 +16,6 @@ use User\Application\UseCase\Command\Presence\UpdatePresencePreference\{UpdatePr
  * Test UpdatePresencePreferenceHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

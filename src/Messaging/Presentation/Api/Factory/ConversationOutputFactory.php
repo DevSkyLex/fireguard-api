@@ -11,7 +11,6 @@ use Messaging\Presentation\Api\Dto\Output\ConversationOutput;
  * Factory ConversationOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

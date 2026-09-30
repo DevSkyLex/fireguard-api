@@ -49,7 +49,6 @@ use function sprintf;
  * organization-wide only), and creating one would be new business logic.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

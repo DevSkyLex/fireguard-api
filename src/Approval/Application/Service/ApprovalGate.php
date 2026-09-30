@@ -31,7 +31,6 @@ use function max;
  * existing command directly), so no bypass flag is ever needed.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

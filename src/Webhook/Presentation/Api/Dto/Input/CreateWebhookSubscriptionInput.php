@@ -15,7 +15,6 @@ use Webhook\Presentation\Api\Validator\ValidWebhookUrl\ValidWebhookUrl;
  * DTO CreateWebhookSubscriptionInput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

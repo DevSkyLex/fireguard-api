@@ -20,7 +20,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * `rooms: []`) — none of them is an error.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

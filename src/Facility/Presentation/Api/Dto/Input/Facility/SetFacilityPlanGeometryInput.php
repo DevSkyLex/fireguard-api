@@ -22,7 +22,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * shape only.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

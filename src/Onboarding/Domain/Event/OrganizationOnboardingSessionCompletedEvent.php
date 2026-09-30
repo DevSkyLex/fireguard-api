@@ -15,7 +15,6 @@ use DateTimeImmutable;
  * analytics, etc.) can react to this event without coupling to the onboarding flow.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -32,7 +32,6 @@ use function is_string;
  * (never one query per row).
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -85,11 +84,11 @@ final readonly class ExportInspectionsHandler implements QueryHandler
    *
    * @param ExportInspectionsQuery $query the query to handle
    *
+   * @return ExportInspectionsResult the bounded, name-resolved export result
+   *
    * @throws InspectionNotFoundException when the caller is outside the organization's scope
    * @throws InspectionAccessDeniedException when the caller lacks `organization.inspection.read`
    * @throws InspectionExportTooLargeException when the filters match more than {@see self::MAX_EXPORT_ROWS} inspections
-   *
-   * @return ExportInspectionsResult the bounded, name-resolved export result
    */
   public function __invoke(ExportInspectionsQuery $query): ExportInspectionsResult
   {

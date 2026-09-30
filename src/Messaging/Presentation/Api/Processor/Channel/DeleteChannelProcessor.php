@@ -25,7 +25,6 @@ use function is_string;
  * intact for compliance, exactly like a v1 conversation.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

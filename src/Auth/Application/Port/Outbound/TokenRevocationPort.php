@@ -10,7 +10,6 @@ namespace Auth\Application\Port\Outbound;
  * Port for revoking access/refresh tokens.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

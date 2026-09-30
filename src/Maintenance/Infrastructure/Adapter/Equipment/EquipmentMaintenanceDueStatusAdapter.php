@@ -20,7 +20,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  * `unscheduled` so the caller never sees an absent entry or a null.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

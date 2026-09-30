@@ -20,7 +20,6 @@ use function trim;
  * a set of items to verify during an inspection.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

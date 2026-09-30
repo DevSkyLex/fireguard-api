@@ -16,7 +16,6 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * `Intervention\Infrastructure\Adapter\Publication\MessengerPublicationQueueAdapter`.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -21,7 +21,6 @@ use function json_encode;
  * exactly what the read endpoint refuses to show on screen.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

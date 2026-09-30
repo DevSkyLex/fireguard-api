@@ -16,7 +16,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * so the client can render rich plan cards without re-deriving the wording.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

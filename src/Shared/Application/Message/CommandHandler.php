@@ -12,7 +12,6 @@ namespace Shared\Application\Message;
  * __invoke(ConcreteCommand $cmd): ConcreteResult signature.
  *
  * @category Message
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

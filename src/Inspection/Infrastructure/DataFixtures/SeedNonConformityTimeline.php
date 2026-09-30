@@ -10,7 +10,6 @@ use DateTimeImmutable;
  * Creation, update and optional resolution dates for a seeded non-conformity.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

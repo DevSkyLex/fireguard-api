@@ -23,7 +23,6 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
  * transaction boundary and the atomic clear of the previous primary.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

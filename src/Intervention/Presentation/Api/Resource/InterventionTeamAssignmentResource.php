@@ -26,7 +26,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * the large {@see InterventionResource}.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

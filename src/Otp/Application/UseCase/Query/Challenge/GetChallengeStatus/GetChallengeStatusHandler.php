@@ -15,7 +15,6 @@ use Shared\Application\Message\QueryHandler;
  * Handler GetChallengeStatusHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,9 +48,9 @@ final readonly class GetChallengeStatusHandler implements QueryHandler
    *
    * @param GetChallengeStatusQuery $query the query
    *
-   * @throws OtpNotFoundException if OTP not found
-   *
    * @return GetChallengeStatusResult the result
+   *
+   * @throws OtpNotFoundException if OTP not found
    */
   public function __invoke(GetChallengeStatusQuery $query): GetChallengeStatusResult
   {

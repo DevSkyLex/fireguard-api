@@ -32,7 +32,6 @@ use function is_string;
  * mirroring how CLI/async actions already behave elsewhere.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

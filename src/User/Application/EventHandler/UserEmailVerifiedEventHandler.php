@@ -15,7 +15,6 @@ use User\Domain\Event\UserEmailVerifiedEvent;
  * Handler UserEmailVerifiedEventHandler.
  *
  * @category EventHandler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

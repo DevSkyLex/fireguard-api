@@ -8,7 +8,6 @@ namespace Assistant\Presentation\Api\Operation;
  * Operation AssistantOperations.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

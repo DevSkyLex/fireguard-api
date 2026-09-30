@@ -22,7 +22,6 @@ use User\Domain\ValueObject\UserId;
  * untouched by this use case.
  *
  * @category Handler
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

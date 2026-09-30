@@ -20,7 +20,6 @@ use function in_array;
  * Service InterventionResourceManager.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -23,7 +23,6 @@ use function sprintf;
  * Test ListInterventionLabelsHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

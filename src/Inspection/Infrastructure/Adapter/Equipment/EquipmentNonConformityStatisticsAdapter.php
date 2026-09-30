@@ -18,7 +18,6 @@ use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityStatus
  * for why this is an ORGANIZATION-WIDE counter, not a per-equipment one.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

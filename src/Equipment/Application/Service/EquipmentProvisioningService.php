@@ -30,7 +30,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * `CreateEquipmentCommand` or any Equipment Domain type directly.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

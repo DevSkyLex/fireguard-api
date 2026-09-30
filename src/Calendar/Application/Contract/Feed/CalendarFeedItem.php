@@ -23,7 +23,6 @@ use DateTimeImmutable;
  * {@see \Organization\Application\Contract\Intervention\RecentInterventionSummary}.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

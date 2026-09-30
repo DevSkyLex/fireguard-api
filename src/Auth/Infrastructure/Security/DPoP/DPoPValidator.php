@@ -48,7 +48,6 @@ use const OPENSSL_ALGO_SHA512;
  * Service DPoPValidator.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @see https://datatracker.ietf.org/doc/html/rfc9449

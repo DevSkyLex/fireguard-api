@@ -23,7 +23,6 @@ use const STR_PAD_RIGHT;
  * ValueObject TotpSecret.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

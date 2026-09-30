@@ -38,7 +38,6 @@ use function is_string;
  * probing URLs learns nothing about which case they hit.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

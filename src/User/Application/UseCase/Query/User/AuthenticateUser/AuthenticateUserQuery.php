@@ -12,7 +12,6 @@ namespace User\Application\UseCase\Query\User\AuthenticateUser;
  * Query to authenticate a user.
  *
  * @category Query
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -23,7 +22,6 @@ use Shared\Application\Message\QueryMessage;
  * Query AuthenticateUserQuery.
  *
  * @category Query
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

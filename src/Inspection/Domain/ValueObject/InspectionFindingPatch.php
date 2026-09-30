@@ -13,7 +13,6 @@ use DateTimeImmutable;
  * null for result or performedAt leaves their required stored value intact.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

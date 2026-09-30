@@ -18,7 +18,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * suppress delivery for an edge case.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

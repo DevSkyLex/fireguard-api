@@ -41,7 +41,6 @@ use function in_array;
  * `CreateFacilityCommand` or any Facility Domain type directly.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

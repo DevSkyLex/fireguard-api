@@ -30,7 +30,6 @@ use const FILTER_VALIDATE_INT;
  * No secret or account identifier is emitted to the console.
  *
  * @category Console Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -14,7 +14,6 @@ use Doctrine\ORM\Mapping as ORM;
  * (`conversation_id`, `member_id`), used to compute unread counts.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

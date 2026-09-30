@@ -35,7 +35,6 @@ use function in_array;
  * gateway to keep read-shaping separate from write orchestration.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

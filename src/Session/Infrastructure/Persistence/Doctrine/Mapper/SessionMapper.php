@@ -14,7 +14,6 @@ use Symfony\Component\Uid\Uuid;
  * Mapper SessionMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

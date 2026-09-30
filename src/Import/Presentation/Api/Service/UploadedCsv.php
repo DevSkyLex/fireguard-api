@@ -12,7 +12,6 @@ namespace Import\Presentation\Api\Service;
  * Mirrors `Shared\Presentation\Api\Attachment\UploadedAttachment`.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -13,7 +13,6 @@ use Billing\Application\Contract\Stripe\{StripeEvent, StripeInvoice, StripePayme
  * application layer so use cases depend only on this contract.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -88,9 +87,9 @@ interface StripeGatewayPort
    * @param string $payload the raw request body
    * @param string $signatureHeader the value of the Stripe-Signature header
    *
-   * @throws \Billing\Domain\Exception\InvalidWebhookSignatureException when the signature is invalid
-   *
    * @return StripeEvent the normalized event
+   *
+   * @throws \Billing\Domain\Exception\InvalidWebhookSignatureException when the signature is invalid
    */
   public function parseEvent(string $payload, string $signatureHeader): StripeEvent;
 
@@ -157,9 +156,9 @@ interface StripeGatewayPort
    *
    * @param string $customerId the Stripe customer identifier
    *
-   * @throws \Billing\Domain\Exception\BillingGatewayUnavailableException when Stripe cannot be reached
-   *
    * @return ?StripePaymentMethod the normalized payment method, or null when none is saved
+   *
+   * @throws \Billing\Domain\Exception\BillingGatewayUnavailableException when Stripe cannot be reached
    */
   public function getPaymentMethod(string $customerId): ?StripePaymentMethod;
   // #endregion

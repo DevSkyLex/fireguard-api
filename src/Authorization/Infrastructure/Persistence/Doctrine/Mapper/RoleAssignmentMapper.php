@@ -13,7 +13,6 @@ use Shared\Domain\ValueObject\TenantId;
  * Mapper RoleAssignmentMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

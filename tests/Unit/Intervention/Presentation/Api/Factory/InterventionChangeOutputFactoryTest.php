@@ -18,7 +18,6 @@ use PHPUnit\Framework\TestCase;
  * a missing or mistyped key must fail loudly rather than coerce.
  *
  * @category Factory Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

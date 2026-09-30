@@ -30,7 +30,6 @@ use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPor
  *    read "another administrator remains".
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -71,6 +70,8 @@ final readonly class LeaveOrganizationHandler implements CommandHandler
    *
    * @param LeaveOrganizationCommand $command the command payload
    *
+   * @return LeaveOrganizationResult the use case result
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationMemberNotFoundException when the acting user is not
    *                                             an active member of the
@@ -80,8 +81,6 @@ final readonly class LeaveOrganizationHandler implements CommandHandler
    * @throws OrganizationLastAdminException when leaving would strip the
    *                                        organization of its last active
    *                                        administrator
-   *
-   * @return LeaveOrganizationResult the use case result
    */
   public function __invoke(LeaveOrganizationCommand $command): LeaveOrganizationResult
   {

@@ -13,7 +13,6 @@ use Calendar\Presentation\Api\Dto\Output\Event\CalendarEventOutput;
  * Factory CalendarEventOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

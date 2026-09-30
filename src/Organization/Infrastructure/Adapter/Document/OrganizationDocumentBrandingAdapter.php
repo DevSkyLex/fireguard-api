@@ -26,7 +26,6 @@ use function base64_encode;
  * generation must never break on branding.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

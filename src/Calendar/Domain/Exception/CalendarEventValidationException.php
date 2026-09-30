@@ -14,7 +14,6 @@ use RuntimeException;
  * the Symfony Validator constraints on the Input DTOs already cover.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

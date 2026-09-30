@@ -16,7 +16,6 @@ use Doctrine\ORM\Mapping as ORM;
  * read that races before the new row exists.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

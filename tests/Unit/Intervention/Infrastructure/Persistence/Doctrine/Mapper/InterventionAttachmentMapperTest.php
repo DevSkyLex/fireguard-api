@@ -24,7 +24,6 @@ use PHPUnit\Framework\TestCase;
  * silently producing an orphaned attachment.
  *
  * @category Mapper Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

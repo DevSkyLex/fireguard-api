@@ -29,7 +29,6 @@ use function hash;
  * exactly one definition of "compliant".
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -68,9 +67,9 @@ final readonly class GetFacilityTreeHandler implements QueryHandler
    *
    * @param GetFacilityTreeQuery $query the facility tree query
    *
-   * @throws ComplianceAccessDeniedException if the user lacks a required permission
-   *
    * @return GetFacilityTreeResult the organization's enriched facility tree
+   *
+   * @throws ComplianceAccessDeniedException if the user lacks a required permission
    */
   public function __invoke(GetFacilityTreeQuery $query): GetFacilityTreeResult
   {

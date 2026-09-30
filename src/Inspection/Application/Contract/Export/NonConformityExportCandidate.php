@@ -17,7 +17,6 @@ namespace Inspection\Application\Contract\Export;
  * computed against the clock.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

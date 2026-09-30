@@ -16,7 +16,6 @@ use function random_bytes;
  * defined in exactly one place.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

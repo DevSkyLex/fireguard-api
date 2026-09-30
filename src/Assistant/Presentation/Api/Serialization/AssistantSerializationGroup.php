@@ -8,7 +8,6 @@ namespace Assistant\Presentation\Api\Serialization;
  * Serialization AssistantSerializationGroup.
  *
  * @category Serialization
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

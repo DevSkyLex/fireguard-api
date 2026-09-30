@@ -29,7 +29,6 @@ use function time;
  * Processor RefreshTokenProcessor.
  *
  * @category Processor
- *
  * @version 3.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

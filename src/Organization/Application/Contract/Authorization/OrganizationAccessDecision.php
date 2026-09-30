@@ -18,7 +18,6 @@ namespace Organization\Application\Contract\Authorization;
  * unknown identifier produces, and MISSING_PERMISSION to 403.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

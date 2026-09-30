@@ -23,7 +23,6 @@ use Symfony\Component\HttpFoundation\Response;
  * the organization's compliance periodicity (or a per-equipment override).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

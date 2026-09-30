@@ -13,7 +13,6 @@ use User\Domain\ValueObject\Username;
  * Test UsernameTest.
  *
  * @category ValueObject Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

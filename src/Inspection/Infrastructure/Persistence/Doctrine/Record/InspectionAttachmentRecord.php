@@ -15,7 +15,6 @@ use Doctrine\ORM\Mapping as ORM;
  * `src/Inspection/MODULE.md`).
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

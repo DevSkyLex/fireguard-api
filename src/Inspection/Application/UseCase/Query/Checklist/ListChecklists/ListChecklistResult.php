@@ -17,7 +17,6 @@ use Shared\Application\Message\ResultMessage;
  * so the list query does not have to hydrate every checklist's items.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

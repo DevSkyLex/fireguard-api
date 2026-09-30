@@ -11,7 +11,6 @@ namespace Equipment\Application\Contract\Provisioning;
  * {@see \Equipment\Application\Port\Inbound\EquipmentProvisioningPort}.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

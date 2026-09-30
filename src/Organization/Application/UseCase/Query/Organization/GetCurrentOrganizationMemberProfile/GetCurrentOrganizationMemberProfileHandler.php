@@ -20,7 +20,6 @@ use function array_map;
  * UseCase GetCurrentOrganizationMemberProfileHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -11,7 +11,6 @@ namespace Inspection\Domain\ValueObject;
  * facility or checklist, while an absent field keeps its persisted value.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

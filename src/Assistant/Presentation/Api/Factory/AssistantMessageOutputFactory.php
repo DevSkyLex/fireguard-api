@@ -11,7 +11,6 @@ use Assistant\Presentation\Api\Dto\Output\AssistantMessageOutput;
  * Factory AssistantMessageOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

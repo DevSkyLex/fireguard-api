@@ -13,7 +13,6 @@ namespace Billing\Application\Contract\Plan;
  * module's Domain or Infrastructure layers.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

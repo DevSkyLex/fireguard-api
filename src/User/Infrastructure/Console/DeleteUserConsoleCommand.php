@@ -26,7 +26,6 @@ use function trim;
  * Command DeleteUserConsoleCommand.
  *
  * @category Console Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

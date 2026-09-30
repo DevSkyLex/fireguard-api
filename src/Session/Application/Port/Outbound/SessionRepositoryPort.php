@@ -13,7 +13,6 @@ use Session\Domain\ValueObject\SessionId;
  * Port for Session persistence.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

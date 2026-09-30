@@ -23,7 +23,6 @@ use Attribute;
  * their repositories instead.
  *
  * @category Doctrine Attribute
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

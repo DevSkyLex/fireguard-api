@@ -13,7 +13,6 @@ use Notification\Application\Contract\Notification\{SendNotificationRequest, Sen
  * notifications through configured channels.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

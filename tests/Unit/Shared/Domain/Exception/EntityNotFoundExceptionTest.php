@@ -12,7 +12,6 @@ use Shared\Domain\Exception\EntityNotFoundException;
  * Test EntityNotFoundExceptionTest.
  *
  * @category Unit Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

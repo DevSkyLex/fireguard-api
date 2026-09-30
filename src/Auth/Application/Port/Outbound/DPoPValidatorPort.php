@@ -13,7 +13,6 @@ use Auth\Domain\ValueObject\Security\DPoPProof;
  * DPoP is a mechanism for sender-constraining OAuth tokens.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @see https://datatracker.ietf.org/doc/html/rfc9449

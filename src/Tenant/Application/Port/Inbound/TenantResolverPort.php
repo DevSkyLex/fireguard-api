@@ -11,7 +11,6 @@ namespace Tenant\Application\Port\Inbound;
  * from the execution context (request, token, etc.).
  *
  * @category Inbound Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

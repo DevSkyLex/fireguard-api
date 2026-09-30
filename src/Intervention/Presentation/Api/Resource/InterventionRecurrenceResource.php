@@ -22,7 +22,6 @@ use Symfony\Component\HttpFoundation\Response;
  * through the recurring sweep (`MaterializeDueRecurrencesHandler`).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

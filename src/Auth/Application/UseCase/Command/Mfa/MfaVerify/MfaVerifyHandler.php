@@ -27,7 +27,6 @@ use function is_string;
  * Handler MfaVerifyHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -67,9 +66,9 @@ final readonly class MfaVerifyHandler implements CommandHandler
    *
    * @param MfaVerifyCommand $command the command
    *
-   * @throws AuthorizationException if verification fails
-   *
    * @return MfaVerifyResult the result
+   *
+   * @throws AuthorizationException if verification fails
    */
   public function __invoke(MfaVerifyCommand $command): MfaVerifyResult
   {

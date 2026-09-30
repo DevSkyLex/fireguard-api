@@ -21,7 +21,6 @@ use Messaging\Domain\ValueObject\MessagingSubjectType;
  * subject regardless of its workflow status.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

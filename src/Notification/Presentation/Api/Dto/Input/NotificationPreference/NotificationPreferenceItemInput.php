@@ -18,7 +18,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * the row level, since categories not sent are left untouched).
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

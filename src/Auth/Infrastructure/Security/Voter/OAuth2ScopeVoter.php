@@ -18,7 +18,6 @@ use function substr;
  * Voter OAuth2ScopeVoter.
  *
  * @category Voter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

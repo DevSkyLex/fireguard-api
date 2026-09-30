@@ -18,7 +18,6 @@ use Shared\Application\Message\QueryMessage;
  * the row itself. The gate that follows the read is what makes it safe.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

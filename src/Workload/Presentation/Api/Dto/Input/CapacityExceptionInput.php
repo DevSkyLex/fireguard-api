@@ -10,7 +10,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * CapacityExceptionInput.
  *
  * @category Workload
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -43,7 +43,6 @@ use function time;
  * `api_platform.exception_to_status`.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

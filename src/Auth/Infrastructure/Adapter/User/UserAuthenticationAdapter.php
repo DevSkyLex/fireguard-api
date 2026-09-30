@@ -17,7 +17,6 @@ use User\Application\UseCase\Query\User\AuthenticateUser\{AuthenticateUserQuery,
  * Bridges the Auth module with the User module.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -21,7 +21,6 @@ use function array_map;
  * `doctrine.orm.main_entity_manager` in `config/modules/compliance.yaml`.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

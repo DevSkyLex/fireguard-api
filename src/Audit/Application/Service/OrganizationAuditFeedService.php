@@ -30,7 +30,6 @@ use function array_map;
  *    that returns an unreduced row.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

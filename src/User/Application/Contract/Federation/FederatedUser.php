@@ -10,7 +10,6 @@ namespace User\Application\Contract\Federation;
  * Safe user information exposed to the Auth module for federated sign-in.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -26,7 +26,6 @@ use function array_map;
  * vanishes" transparency guarantee.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

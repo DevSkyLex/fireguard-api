@@ -29,7 +29,6 @@ namespace Assistant\Application\Port\Outbound;
  * and `Webhook\Application\Port\Outbound\WebhookDeliveryQueuePort`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

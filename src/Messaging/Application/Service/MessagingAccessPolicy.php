@@ -18,7 +18,6 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
  * every assertion throws on the first missing permission.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

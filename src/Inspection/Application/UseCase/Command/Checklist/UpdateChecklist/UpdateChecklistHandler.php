@@ -32,7 +32,6 @@ use function strtolower;
  * item set requires creating a new checklist.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

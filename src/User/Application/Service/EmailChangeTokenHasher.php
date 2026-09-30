@@ -19,7 +19,6 @@ use function random_bytes;
  * a SHA-256 hex digest only.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

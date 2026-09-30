@@ -13,7 +13,6 @@ use Auth\Domain\ValueObject\Federation\FederatedProvider;
  * Exchanges data with configured Google and Microsoft OAuth clients.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

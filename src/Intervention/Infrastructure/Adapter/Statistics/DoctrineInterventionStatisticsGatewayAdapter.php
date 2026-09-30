@@ -24,7 +24,6 @@ use function sprintf;
  * per priority, per site or per responsible.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

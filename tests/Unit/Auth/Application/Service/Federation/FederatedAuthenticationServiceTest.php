@@ -23,7 +23,6 @@ use function hash;
  * Test FederatedAuthenticationServiceTest.
  *
  * @category Service Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

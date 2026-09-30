@@ -14,7 +14,6 @@ namespace Webhook\Application\Port\Outbound;
  * rather than hashed. See `Webhook\Infrastructure\Adapter\Crypto\OpensslWebhookSecretCipherAdapter`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

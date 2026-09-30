@@ -16,7 +16,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * (`GET /api/organizations`) membership info.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

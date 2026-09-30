@@ -15,7 +15,6 @@ use const PASSWORD_BCRYPT;
  * ValueObject HashedPassword.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

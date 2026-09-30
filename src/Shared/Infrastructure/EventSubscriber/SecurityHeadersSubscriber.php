@@ -18,7 +18,6 @@ use function sprintf;
  * to protect against common web vulnerabilities.
  *
  * @category EventSubscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

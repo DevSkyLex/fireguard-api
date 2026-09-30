@@ -37,7 +37,6 @@ use function strtolower;
  * for the cloning rules this handler enforces.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

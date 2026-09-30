@@ -13,7 +13,6 @@ use const DATE_ATOM;
  * DTO FederatedConnectionOutput.
  *
  * @category Output DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

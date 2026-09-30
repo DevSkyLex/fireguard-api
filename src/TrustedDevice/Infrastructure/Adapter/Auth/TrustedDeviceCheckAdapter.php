@@ -16,7 +16,6 @@ use TrustedDevice\Application\UseCase\Query\TrustedDevice\CheckDeviceTrusted\{Ch
  * delegating to the TrustedDevice module's query handler.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

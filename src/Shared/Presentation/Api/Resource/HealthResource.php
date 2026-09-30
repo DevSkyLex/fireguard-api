@@ -16,7 +16,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * API resource for health check endpoint.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

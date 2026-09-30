@@ -12,7 +12,6 @@ namespace Equipment\Application\Port\Inbound;
  * in step with a status transition without duplicating the log open/close rules.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

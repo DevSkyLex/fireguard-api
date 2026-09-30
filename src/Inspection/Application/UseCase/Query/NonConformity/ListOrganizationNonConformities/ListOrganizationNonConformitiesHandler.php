@@ -24,7 +24,6 @@ use function array_keys;
  * lists across an organization.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

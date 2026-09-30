@@ -14,7 +14,6 @@ use Doctrine\ORM\EntityManagerInterface;
  * Main-database lock and deduplication journal for Stripe reconciliation.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

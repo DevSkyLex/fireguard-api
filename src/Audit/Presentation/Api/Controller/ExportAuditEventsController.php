@@ -41,7 +41,6 @@ use function sprintf;
  * is kept for the OpenAPI contract; this check is what enforces it.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

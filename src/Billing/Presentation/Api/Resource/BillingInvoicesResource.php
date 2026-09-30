@@ -19,7 +19,6 @@ use Billing\Presentation\Api\Serialization\BillingSerializationGroup;
  * permission.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

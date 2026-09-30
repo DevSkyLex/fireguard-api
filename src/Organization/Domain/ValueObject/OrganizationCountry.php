@@ -21,7 +21,6 @@ use function trim;
  * ISO 3166-1 alpha-2 code set.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

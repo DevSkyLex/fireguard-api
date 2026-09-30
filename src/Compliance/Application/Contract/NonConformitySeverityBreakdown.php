@@ -11,7 +11,6 @@ namespace Compliance\Application\Contract;
  * `unassigned` bucket), as read from the Inspection module.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

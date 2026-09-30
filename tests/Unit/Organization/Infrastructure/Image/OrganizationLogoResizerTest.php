@@ -27,7 +27,6 @@ use function substr;
  * so one tenant can never overwrite another's logo.
  *
  * @category Infrastructure Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

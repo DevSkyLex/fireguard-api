@@ -22,7 +22,6 @@ use Shared\Application\Message\CommandHandler;
  * Challenge-level expiry and attempt bookkeeping still apply.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -58,10 +57,10 @@ final readonly class VerifyOtpHandler implements CommandHandler
    *
    * @param VerifyOtpCommand $command the command
    *
+   * @return VerifyOtpResult the result
+   *
    * @throws OtpNotFoundException if OTP not found
    * @throws InvalidArgumentException if a challenge token is malformed
-   *
-   * @return VerifyOtpResult the result
    */
   public function __invoke(VerifyOtpCommand $command): VerifyOtpResult
   {

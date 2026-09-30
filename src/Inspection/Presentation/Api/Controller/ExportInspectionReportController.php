@@ -55,7 +55,6 @@ use function sprintf;
  * here, before the query is dispatched.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

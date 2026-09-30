@@ -11,7 +11,6 @@ use Shared\Application\Port\Outbound\ClockPort;
  * Adapter SystemClock.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

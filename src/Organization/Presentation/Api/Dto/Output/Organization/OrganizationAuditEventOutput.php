@@ -17,7 +17,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * members are a lesser-trust audience than platform auditors.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

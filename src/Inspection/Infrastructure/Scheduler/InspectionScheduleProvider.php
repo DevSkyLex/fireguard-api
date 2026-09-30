@@ -25,7 +25,6 @@ use Symfony\Contracts\Cache\CacheInterface;
  * `async` worker.
  *
  * @category Scheduler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

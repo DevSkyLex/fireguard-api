@@ -33,7 +33,6 @@ use const OPENSSL_RAW_DATA;
  * every previously stored secret (see `MODULE.md`'s key-rotation runbook).
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

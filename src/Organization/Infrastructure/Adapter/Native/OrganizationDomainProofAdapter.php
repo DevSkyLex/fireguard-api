@@ -38,7 +38,6 @@ use const FILE_SKIP_EMPTY_LINES;
  * Adapter OrganizationDomainProofAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

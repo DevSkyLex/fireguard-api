@@ -15,7 +15,6 @@ use function str_ends_with;
  * These permissions are system-defined and cannot be created by users.
  *
  * @category Catalog
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -17,7 +17,6 @@ use function sprintf;
  * conflicts with the equipment's current assignment state.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

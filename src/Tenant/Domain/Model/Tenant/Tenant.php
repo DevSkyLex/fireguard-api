@@ -11,7 +11,6 @@ use Tenant\Domain\ValueObject\{TenantId, TenantName, TenantSettings};
  * Model Tenant.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -13,7 +13,6 @@ use DateTimeImmutable;
  * pending {@see \Approval\Domain\Model\ApprovalRequest\ApprovalRequest}.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

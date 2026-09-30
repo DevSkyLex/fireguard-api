@@ -39,7 +39,6 @@ use function is_string;
  * per row.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -84,11 +83,11 @@ final readonly class ExportFacilitiesHandler implements QueryHandler
    *
    * @param ExportFacilitiesQuery $query the query to handle
    *
+   * @return ExportFacilitiesResult the bounded, code-resolved export result
+   *
    * @throws FacilityNotFoundException when the caller is outside the organization's scope
    * @throws FacilityAccessDeniedException when the caller lacks `organization.facilities.read`
    * @throws FacilityExportTooLargeException when the filters match more than {@see self::MAX_EXPORT_ROWS} facilities
-   *
-   * @return ExportFacilitiesResult the bounded, code-resolved export result
    */
   public function __invoke(ExportFacilitiesQuery $query): ExportFacilitiesResult
   {

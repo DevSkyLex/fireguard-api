@@ -17,7 +17,6 @@ use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, Maintena
  * completed: `startedAt === completedAt`).
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

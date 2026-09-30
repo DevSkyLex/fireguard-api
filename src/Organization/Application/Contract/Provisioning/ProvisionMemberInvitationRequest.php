@@ -25,7 +25,6 @@ namespace Organization\Application\Contract\Provisioning;
  * run followed anyway (see `src/Import/MODULE.md`, "Dry-run mode").
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -64,7 +64,6 @@ use function is_string;
  * facility names this module's write path has no reason to carry.
  *
  * @category Processor
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

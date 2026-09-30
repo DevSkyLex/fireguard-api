@@ -26,7 +26,6 @@ use Throwable;
  * path raised it, without any processor mapping it locally.
  *
  * @category EventSubscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

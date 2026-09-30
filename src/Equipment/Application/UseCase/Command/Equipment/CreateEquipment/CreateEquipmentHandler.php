@@ -23,7 +23,6 @@ use ValueError;
  * UseCase CreateEquipmentHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

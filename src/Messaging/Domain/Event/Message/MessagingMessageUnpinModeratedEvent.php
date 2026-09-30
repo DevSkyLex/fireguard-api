@@ -17,7 +17,6 @@ use DateTimeImmutable;
  * Recorded in the audit ledger as `messaging.message_unpin_moderated`.
  *
  * @category Event
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

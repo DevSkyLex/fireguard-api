@@ -22,7 +22,6 @@ use Workload\Infrastructure\Persistence\Doctrine\Record\{CapacityExceptionRecord
  * and overlapping exceptions win over these examples, including cancelled ones.
  *
  * @category Fixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

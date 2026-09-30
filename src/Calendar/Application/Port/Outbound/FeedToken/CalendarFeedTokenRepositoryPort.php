@@ -10,7 +10,6 @@ use Calendar\Domain\Model\FeedToken\CalendarFeedToken;
  * Port CalendarFeedTokenRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

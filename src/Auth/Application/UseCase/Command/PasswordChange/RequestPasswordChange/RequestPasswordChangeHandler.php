@@ -19,7 +19,6 @@ use User\Domain\ValueObject\UserId;
  * password is actually changed.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

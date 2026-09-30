@@ -13,7 +13,6 @@ use SebastianBergmann\CodeCoverage\Report\Clover;
  * Native merging unions execution data, counting a line once across suites.
  *
  * @category Quality
- *
  * @version 1.0.0
  *
  * @author FireGuard

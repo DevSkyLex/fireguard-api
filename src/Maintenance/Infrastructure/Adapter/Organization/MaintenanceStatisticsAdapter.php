@@ -21,7 +21,6 @@ use function max;
  * `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter`.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

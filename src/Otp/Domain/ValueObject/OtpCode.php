@@ -19,7 +19,6 @@ use const PASSWORD_ARGON2ID;
  * ValueObject OtpCode.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -135,9 +134,9 @@ final readonly class OtpCode
    *
    * @since 1.0.0
    *
-   * @throws InvalidValueException if plain code is not available
-   *
    * @return string the plain code
+   *
+   * @throws InvalidValueException if plain code is not available
    */
   public function plain(): string
   {

@@ -18,7 +18,6 @@ use const PHP_URL_QUERY;
  * Test LeagueFederatedProviderAdapterTest.
  *
  * @category Adapter Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

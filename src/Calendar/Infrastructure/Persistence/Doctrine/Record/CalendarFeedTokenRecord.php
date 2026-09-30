@@ -18,7 +18,6 @@ use Doctrine\ORM\Mapping as ORM;
  * auth database anyway, and no key may cross that line.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

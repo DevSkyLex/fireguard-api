@@ -8,7 +8,6 @@ namespace Messaging\Application\Contract\Message;
  * Contract MessagePage.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

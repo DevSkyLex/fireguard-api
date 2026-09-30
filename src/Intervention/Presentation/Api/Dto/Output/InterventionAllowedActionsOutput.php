@@ -17,7 +17,6 @@ namespace Intervention\Presentation\Api\Dto\Output;
  * for a replan of a non-draft intervention) by hand.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

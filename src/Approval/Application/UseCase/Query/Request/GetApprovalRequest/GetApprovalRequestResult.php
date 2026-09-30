@@ -16,7 +16,6 @@ use Shared\Application\Message\ResultMessage;
  * is reused inside `ListWebhookSubscriptionsResult`.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

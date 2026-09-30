@@ -19,7 +19,6 @@ use DateTimeImmutable;
  * — this module never writes to the audit ledger directly.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

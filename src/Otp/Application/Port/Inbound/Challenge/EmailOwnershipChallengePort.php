@@ -10,7 +10,6 @@ use Otp\Application\Contract\Challenge\VerificationInfo;
  * Port EmailOwnershipChallengePort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

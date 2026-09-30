@@ -19,7 +19,6 @@ use DateTimeImmutable;
  * NEVER be visible to, or removable by, any other member.
  *
  * @category Port
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

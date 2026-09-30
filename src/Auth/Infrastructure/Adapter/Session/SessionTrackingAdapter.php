@@ -13,7 +13,6 @@ use Session\Application\Port\Inbound\Tracking\SessionTrackingPort as SessionTrac
  * Bridges Auth session lifecycle events to the Session module.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

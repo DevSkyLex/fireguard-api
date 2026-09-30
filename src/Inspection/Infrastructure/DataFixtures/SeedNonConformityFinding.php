@@ -10,7 +10,6 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
  * Identity and finding for one deterministic seeded non-conformity.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
  * DTO TenantOutput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -27,7 +27,6 @@ use Throwable;
  * Refuses to attach a file to an already-tombstoned message.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -16,7 +16,6 @@ use function trim;
  * The human-readable label shown in the organization's form schema.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

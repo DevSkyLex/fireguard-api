@@ -47,7 +47,6 @@ use function trim;
  * docblock and `src/Import/MODULE.md`).
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -177,9 +176,9 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
    *
    * @param ProvisionMemberInvitationRequest $request the provisioning request
    *
-   * @throws OrganizationRoleNotFoundException when a role name does not exist in the organization
-   *
    * @return list<string> the resolved role identifiers
+   *
+   * @throws OrganizationRoleNotFoundException when a role name does not exist in the organization
    */
   private function resolveRoleIds(ProvisionMemberInvitationRequest $request): array
   {

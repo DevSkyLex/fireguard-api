@@ -24,7 +24,6 @@ use function array_values;
  * ChangeCapacityHandler.
  *
  * @category Workload
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

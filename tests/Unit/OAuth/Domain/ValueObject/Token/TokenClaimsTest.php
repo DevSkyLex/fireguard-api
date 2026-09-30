@@ -13,7 +13,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * Test TokenClaimsTest.
  *
  * @category Unit Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

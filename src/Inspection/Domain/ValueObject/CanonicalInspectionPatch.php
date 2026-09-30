@@ -20,7 +20,6 @@ namespace Inspection\Domain\ValueObject;
  * distinction: both cases arrive as a null property.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

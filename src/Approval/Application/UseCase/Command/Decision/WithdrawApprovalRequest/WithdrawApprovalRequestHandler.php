@@ -24,7 +24,6 @@ use Throwable;
  * Only an active requester may withdraw. The deferred action is never executed.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

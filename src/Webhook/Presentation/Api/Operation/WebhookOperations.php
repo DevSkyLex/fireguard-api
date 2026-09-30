@@ -8,7 +8,6 @@ namespace Webhook\Presentation\Api\Operation;
  * Operation WebhookOperations.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

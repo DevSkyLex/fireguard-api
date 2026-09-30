@@ -18,7 +18,6 @@ use function trim;
  * Factory InspectionOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -19,7 +19,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * can build type selectors without hard-coding the list.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

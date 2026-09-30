@@ -55,7 +55,6 @@ use function is_string;
  * `config/packages/api_platform.yaml`.
  *
  * @category Processor
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

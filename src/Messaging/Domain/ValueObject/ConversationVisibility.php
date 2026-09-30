@@ -15,7 +15,6 @@ namespace Messaging\Domain\ValueObject;
  * exists so that migration is purely additive.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

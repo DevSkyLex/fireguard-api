@@ -13,7 +13,6 @@ use Doctrine\ORM\Mapping as ORM;
  * Doctrine persistence shape for a provider identity linked to a user.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -41,7 +41,6 @@ use function is_string;
  * be served `inline`. See `src/Facility/MODULE.md` next to the `kind` field.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

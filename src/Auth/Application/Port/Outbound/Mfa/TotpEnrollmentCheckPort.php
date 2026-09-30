@@ -12,7 +12,6 @@ namespace Auth\Application\Port\Outbound\Mfa;
  * Implemented by an adapter in the Otp module.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

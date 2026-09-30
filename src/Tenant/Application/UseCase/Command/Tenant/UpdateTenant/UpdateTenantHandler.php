@@ -18,7 +18,6 @@ use Tenant\Domain\ValueObject\{TenantId, TenantName};
  * Handler UpdateTenantHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -53,9 +52,9 @@ final readonly class UpdateTenantHandler implements CommandHandler
    *
    * @param UpdateTenantCommand $command the command to handle
    *
-   * @throws TenantNotFoundException if tenant is not found
-   *
    * @return UpdateTenantResult the result
+   *
+   * @throws TenantNotFoundException if tenant is not found
    */
   public function __invoke(UpdateTenantCommand $command): UpdateTenantResult
   {

@@ -32,7 +32,6 @@ use const PASSWORD_BCRYPT;
  * Loads sample users into the database.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

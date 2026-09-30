@@ -28,7 +28,6 @@ use ApiPlatform\Metadata\ApiProperty;
  * ARE part of the deleted message's own social surface.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

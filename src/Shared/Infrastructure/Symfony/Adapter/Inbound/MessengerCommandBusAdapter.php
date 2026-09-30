@@ -16,7 +16,6 @@ use Throwable;
  * Adapter MessengerCommandBus.
  *
  * @category Inbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -50,10 +49,10 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
    *
    * @param CommandMessage $command the command to dispatch
    *
+   * @return ResultMessage the result of the command
+   *
    * @throws MessengerRuntimeException if the command bus fails to dispatch the command
    * @throws NoHandlerResultException if the command has no handler result
-   *
-   * @return ResultMessage the result of the command
    */
   public function dispatch(CommandMessage $command): ResultMessage
   {
@@ -93,9 +92,9 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
    * @param Envelope $envelope the envelope to extract the handled stamp from
    * @param CommandMessage $command the command to extract the handled stamp from
    *
-   * @throws NoHandlerResultException if the command has no handler result
-   *
    * @return HandledStamp the handled stamp
+   *
+   * @throws NoHandlerResultException if the command has no handler result
    */
   private function extractHandledStamp(Envelope $envelope, CommandMessage $command): HandledStamp
   {

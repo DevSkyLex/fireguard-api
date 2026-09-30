@@ -16,7 +16,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * the provided flags are applied on top of the current settings.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -19,7 +19,6 @@ use function count;
  * ValueObject GrantTypes.
  *
  * @category ValueObject
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -79,9 +78,9 @@ final readonly class GrantTypes implements Countable, IteratorAggregate
    *
    * @param array<string> $grantTypes the grant types as strings
    *
-   * @throws ValueError if any string is not a valid grant type
-   *
    * @return self the GrantTypes collection
+   *
+   * @throws ValueError if any string is not a valid grant type
    */
   public static function fromArray(array $grantTypes): self
   {

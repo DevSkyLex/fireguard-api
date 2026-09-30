@@ -23,7 +23,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * one bad lookup.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

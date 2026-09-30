@@ -25,7 +25,6 @@ use function substr;
  * Processor LogoutProcessor.
  *
  * @category Processor
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

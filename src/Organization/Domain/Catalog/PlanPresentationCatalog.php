@@ -25,7 +25,6 @@ namespace Organization\Domain\Catalog;
  * versa) is expected and must stay that way.
  *
  * @category Catalog
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

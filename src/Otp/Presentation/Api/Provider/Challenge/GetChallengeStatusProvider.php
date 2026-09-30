@@ -19,7 +19,6 @@ use function max;
  * Provider GetChallengeStatusProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use Otp\Domain\Model\Totp\TotpEnrollment;
  * Outbound port for TOTP enrollment persistence.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

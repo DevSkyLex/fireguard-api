@@ -15,7 +15,6 @@ use Onboarding\Infrastructure\Persistence\Doctrine\Record\OrganizationOnboarding
  * Repository OrganizationOnboardingSessionRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -26,7 +26,6 @@ use function time;
  * Processor ConfirmPasswordResetProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -66,11 +65,11 @@ final readonly class ConfirmPasswordResetProcessor implements ProcessorInterface
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
+   * @return ConfirmPasswordResetOutput the output
+   *
    * @throws UnauthorizedHttpException when token/code is invalid
    * @throws TooManyRequestsHttpException when max attempts exceeded
    * @throws BadRequestHttpException when request is malformed
-   *
-   * @return ConfirmPasswordResetOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConfirmPasswordResetOutput
   {

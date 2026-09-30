@@ -10,7 +10,6 @@ use DateTimeImmutable;
  * Timestamps restored from a persisted session.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

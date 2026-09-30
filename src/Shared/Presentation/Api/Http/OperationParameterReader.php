@@ -21,7 +21,6 @@ use function preg_match_all;
  * keys. Existing providers retain their domain validation and pagination policy.
  *
  * @category HTTP
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

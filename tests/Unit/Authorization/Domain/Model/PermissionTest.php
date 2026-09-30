@@ -14,7 +14,6 @@ use PHPUnit\Framework\TestCase;
  * Test PermissionTest.
  *
  * @category Domain Model Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -8,7 +8,6 @@ namespace Authorization\Presentation\Api\Serialization;
  * Class RoleSerializationGroup.
  *
  * @category Serialization
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

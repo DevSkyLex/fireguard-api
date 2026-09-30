@@ -14,7 +14,6 @@ use User\Application\UseCase\Query\Presence\GetPresencePreference\{GetPresencePr
  * Test GetPresencePreferenceHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -8,7 +8,6 @@ namespace Onboarding\Application\Contract\Setup;
  * Durable organization setup recovery.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

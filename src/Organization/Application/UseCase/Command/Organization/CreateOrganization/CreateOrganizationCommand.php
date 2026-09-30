@@ -11,7 +11,6 @@ use Shared\Application\Message\CommandMessage;
  * UseCase CreateOrganizationCommand.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

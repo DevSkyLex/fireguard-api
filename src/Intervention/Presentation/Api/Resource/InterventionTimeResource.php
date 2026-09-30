@@ -15,7 +15,6 @@ use Intervention\Presentation\Api\Provider\InterventionTimeProvider;
  * InterventionTimeResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

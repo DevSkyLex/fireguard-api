@@ -15,7 +15,6 @@ use Organization\Domain\ValueObject\OrganizationNotificationSettings;
  * organization-level toggles actually gate delivery instead of being decorative.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

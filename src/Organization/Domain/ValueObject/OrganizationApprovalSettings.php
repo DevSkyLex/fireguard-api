@@ -30,7 +30,6 @@ use function sprintf;
  * layer validates them against the Approval action-type catalog port.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

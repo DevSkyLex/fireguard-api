@@ -17,7 +17,6 @@ use function uniqid;
  * End-to-end tests for the refresh token grant flow.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -23,7 +23,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * inspections + interventions + preventive-maintenance due dates).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

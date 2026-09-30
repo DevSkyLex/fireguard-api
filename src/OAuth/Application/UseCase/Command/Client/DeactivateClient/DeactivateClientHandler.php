@@ -15,7 +15,6 @@ use Shared\Domain\Service\EventIdProvider;
  * Handler DeactivateClientHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -51,9 +50,9 @@ final readonly class DeactivateClientHandler implements CommandHandler
    *
    * @param DeactivateClientCommand $command the command to handle
    *
-   * @throws InvalidClientException if the client is not found
-   *
    * @return void no return value
+   *
+   * @throws InvalidClientException if the client is not found
    */
   public function __invoke(DeactivateClientCommand $command): void
   {

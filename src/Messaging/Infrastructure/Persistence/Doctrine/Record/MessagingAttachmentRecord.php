@@ -23,7 +23,6 @@ use Doctrine\ORM\Mapping as ORM;
  * cascades correctly through the `message_id` foreign key.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

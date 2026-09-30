@@ -38,7 +38,6 @@ use function array_key_exists;
  * the request to one organization, so echoing it back is noise.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

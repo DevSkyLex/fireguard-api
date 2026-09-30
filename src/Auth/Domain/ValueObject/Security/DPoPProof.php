@@ -18,7 +18,6 @@ use function time;
  * ValueObject DPoPProof.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @see https://datatracker.ietf.org/doc/html/rfc9449
@@ -68,9 +67,9 @@ final readonly class DPoPProof
    * @param array<string, mixed> $payload the decoded JWT payload
    * @param string $thumbprint the JWK thumbprint
    *
-   * @throws InvalidValueException if the payload is invalid
-   *
    * @return self the DPoP proof
+   *
+   * @throws InvalidValueException if the payload is invalid
    */
   public static function fromJwt(array $payload, string $thumbprint): self
   {

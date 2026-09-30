@@ -25,7 +25,6 @@ use DateTimeImmutable;
  * belongs to `InspectorOutput`, which is transport.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

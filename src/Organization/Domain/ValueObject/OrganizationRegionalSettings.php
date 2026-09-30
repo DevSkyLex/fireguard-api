@@ -20,7 +20,6 @@ use function trim;
  * a fixed catalog so the rest of the application can rely on them.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

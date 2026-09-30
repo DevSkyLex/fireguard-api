@@ -16,7 +16,6 @@ use function in_array;
  * Localized recipient notification; no organization data leaks into delivery payloads.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -11,7 +11,6 @@ use Organization\Domain\Exception\OrganizationJoinException;
  * Domain OrganizationJoinRequest.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

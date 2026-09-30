@@ -13,7 +13,6 @@ use Shared\Application\Message\QueryHandler;
  * UseCase GetOrganizationRoleHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -52,12 +51,12 @@ final readonly class GetOrganizationRoleHandler implements QueryHandler
    *
    * @param GetOrganizationRoleQuery $query the query payload
    *
+   * @return GetOrganizationRoleResult the resolved role
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationRoleNotFoundException when the role does not exist or
    *                                           does not belong to the
    *                                           organization
-   *
-   * @return GetOrganizationRoleResult the resolved role
    */
   public function __invoke(GetOrganizationRoleQuery $query): GetOrganizationRoleResult
   {

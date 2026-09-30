@@ -11,7 +11,6 @@ use Webhook\Presentation\Api\Dto\Output\WebhookDeliveryOutput;
  * Factory WebhookDeliveryOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

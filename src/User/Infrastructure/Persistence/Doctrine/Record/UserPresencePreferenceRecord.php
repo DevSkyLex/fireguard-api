@@ -10,7 +10,6 @@ use Doctrine\ORM\Mapping as ORM;
  * Auth-owned account preference, independent from ephemeral organization presence.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

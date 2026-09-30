@@ -12,7 +12,6 @@ use OAuth\Domain\ValueObject\Token\TokenClaims;
  * Provides token encoding/signing services for OAuth tokens.
  *
  * @category Outbound Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -27,7 +27,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  * reactions with no data to exercise.
  *
  * @category Fixture
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

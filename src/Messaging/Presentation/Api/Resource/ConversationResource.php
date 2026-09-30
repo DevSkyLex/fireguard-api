@@ -26,7 +26,6 @@ use Symfony\Component\HttpFoundation\Response;
  * are enforced in the application layer (mirrors Maintenance/Intervention).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

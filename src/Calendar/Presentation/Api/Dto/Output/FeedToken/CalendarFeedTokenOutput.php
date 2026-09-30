@@ -14,7 +14,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * Feed token metadata — deliberately without the secret or its hash.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

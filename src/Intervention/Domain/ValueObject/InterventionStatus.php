@@ -13,7 +13,6 @@ use function in_array;
  * Enum InterventionStatus.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

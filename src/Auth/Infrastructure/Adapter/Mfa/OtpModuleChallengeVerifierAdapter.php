@@ -13,7 +13,6 @@ use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
  * Adapter OtpModuleChallengeVerifierAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

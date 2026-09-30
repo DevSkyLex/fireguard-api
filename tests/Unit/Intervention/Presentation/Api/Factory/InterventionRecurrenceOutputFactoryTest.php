@@ -18,7 +18,6 @@ use PHPUnit\Framework\TestCase;
  * the responsible IRI is organization-scoped — a flat member IRI would 404.
  *
  * @category Factory Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

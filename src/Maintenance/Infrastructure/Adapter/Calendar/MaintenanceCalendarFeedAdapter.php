@@ -35,7 +35,6 @@ use function max;
  * `dueStatus` value — the frontend owns labels/colors.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

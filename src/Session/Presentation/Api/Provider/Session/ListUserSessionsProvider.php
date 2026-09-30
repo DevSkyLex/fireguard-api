@@ -31,7 +31,6 @@ use function max;
  * Provider ListUserSessionsProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

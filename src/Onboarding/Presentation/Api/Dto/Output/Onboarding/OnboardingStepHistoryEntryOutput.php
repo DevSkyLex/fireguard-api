@@ -15,7 +15,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * output. Each entry records when a step was completed or voluntarily skipped.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -13,7 +13,6 @@ use Tenant\Domain\ValueObject\TenantId;
  * Handler GetTenantHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -44,9 +43,9 @@ final readonly class GetTenantHandler implements QueryHandler
    *
    * @param GetTenantQuery $query the query to handle
    *
-   * @throws TenantNotFoundException if tenant is not found
-   *
    * @return GetTenantResult the result
+   *
+   * @throws TenantNotFoundException if tenant is not found
    */
   public function __invoke(GetTenantQuery $query): GetTenantResult
   {

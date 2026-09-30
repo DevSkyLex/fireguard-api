@@ -36,7 +36,6 @@ use function time;
  * authenticated user.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -76,12 +75,12 @@ final readonly class ConfirmPasswordChangeProcessor implements ProcessorInterfac
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
+   * @return ConfirmPasswordChangeOutput the output
+   *
    * @throws AccessDeniedHttpException when not authenticated
    * @throws UnauthorizedHttpException when token/code is invalid
    * @throws TooManyRequestsHttpException when max attempts exceeded
    * @throws BadRequestHttpException when request is malformed
-   *
-   * @return ConfirmPasswordChangeOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConfirmPasswordChangeOutput
   {

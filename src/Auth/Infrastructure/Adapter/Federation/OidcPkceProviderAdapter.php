@@ -13,7 +13,6 @@ use League\OAuth2\Client\Provider\GenericProvider;
  * League's legacy `approval_prompt` authorization parameter.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

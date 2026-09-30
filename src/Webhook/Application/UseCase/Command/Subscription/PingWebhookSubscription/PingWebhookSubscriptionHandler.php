@@ -24,7 +24,6 @@ use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookSubscriptionId};
  * public type, which is excluded from the real allowlist.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

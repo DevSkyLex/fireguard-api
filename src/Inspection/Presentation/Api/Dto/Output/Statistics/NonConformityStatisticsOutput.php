@@ -11,7 +11,6 @@ namespace Inspection\Presentation\Api\Dto\Output\Statistics;
  * `open` or `in_progress`; "resolved" means `done` or `waived`.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

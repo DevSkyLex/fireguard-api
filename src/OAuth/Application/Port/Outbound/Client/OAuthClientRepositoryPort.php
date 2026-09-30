@@ -15,7 +15,6 @@ use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
  * to find clients by their OAuth identifier.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

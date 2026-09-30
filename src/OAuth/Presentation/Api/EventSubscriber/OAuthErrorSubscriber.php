@@ -37,7 +37,6 @@ use function trim;
  * OAuth2 error mapping for token endpoints.
  *
  * @category Event Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

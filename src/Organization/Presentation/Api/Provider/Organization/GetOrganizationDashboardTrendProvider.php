@@ -49,7 +49,6 @@ use const FILTER_VALIDATE_BOOLEAN;
  * Provider GetOrganizationDashboardTrendProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -272,9 +271,9 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
    *
    * @param array<string, mixed> $filters
    *
-   * @throws BadRequestHttpException when the primary metric does not support combining, or an unknown/duplicate value is requested
-   *
    * @return list<string>
+   *
+   * @throws BadRequestHttpException when the primary metric does not support combining, or an unknown/duplicate value is requested
    */
   private function extractMetricsFilter(array $filters, string $primaryMetric): array
   {

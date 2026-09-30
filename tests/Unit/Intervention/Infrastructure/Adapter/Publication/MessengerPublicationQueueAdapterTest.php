@@ -20,7 +20,6 @@ use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
  * record — or nothing at all.
  *
  * @category Adapter Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

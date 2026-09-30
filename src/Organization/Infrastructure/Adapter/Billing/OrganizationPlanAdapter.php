@@ -20,7 +20,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * assignment, falling back to the catalog default plan.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

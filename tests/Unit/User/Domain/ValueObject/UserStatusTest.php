@@ -12,7 +12,6 @@ use User\Domain\ValueObject\UserStatus;
  * Test UserStatusTest.
  *
  * @category ValueObject Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

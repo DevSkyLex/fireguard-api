@@ -34,7 +34,6 @@ use function usort;
  * for it (unlike Inspection's sibling adapter).
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

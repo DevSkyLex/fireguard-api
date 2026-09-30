@@ -30,7 +30,6 @@ use function is_numeric;
  * is included rather than omitted.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

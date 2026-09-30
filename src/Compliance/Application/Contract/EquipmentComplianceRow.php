@@ -14,7 +14,6 @@ namespace Compliance\Application\Contract;
  * on equipment creation).
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

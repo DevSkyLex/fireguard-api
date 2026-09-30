@@ -31,7 +31,6 @@ use function time;
  * the OTP challenge email for the password change confirmation step.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -71,11 +70,11 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
+   * @return RequestPasswordChangeOutput the output
+   *
    * @throws AccessDeniedHttpException when not authenticated
    * @throws UnprocessableEntityHttpException when the current password is incorrect
    * @throws TooManyRequestsHttpException when rate limited
-   *
-   * @return RequestPasswordChangeOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RequestPasswordChangeOutput
   {

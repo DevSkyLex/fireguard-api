@@ -15,7 +15,6 @@ use RuntimeException;
  * endpoint must answer a uniform 404 with no oracle about which case it was.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

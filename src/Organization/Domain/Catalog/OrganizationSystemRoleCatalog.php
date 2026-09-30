@@ -13,7 +13,6 @@ use function array_values;
  * Central list of system-managed organization role definitions.
  *
  * @category Catalog
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

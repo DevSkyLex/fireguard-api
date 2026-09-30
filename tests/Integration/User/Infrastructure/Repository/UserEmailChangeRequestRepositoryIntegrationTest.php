@@ -27,7 +27,6 @@ use function hash;
  * the WHERE clause of the UPDATE IS the concurrency contract.
  *
  * @category Integration Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

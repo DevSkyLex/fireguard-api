@@ -12,7 +12,6 @@ use OAuth\Domain\Model\Oidc\OidcUser;
  * Interface for building OIDC claims.
  *
  * @category Service Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

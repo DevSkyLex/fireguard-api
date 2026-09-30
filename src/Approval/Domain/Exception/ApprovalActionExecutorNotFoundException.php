@@ -16,7 +16,6 @@ use function sprintf;
  * was registered in the policy/catalog without a matching executor).
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

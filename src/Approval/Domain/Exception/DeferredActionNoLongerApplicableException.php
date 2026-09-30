@@ -18,7 +18,6 @@ use function sprintf;
  * the request to `cancelled`, and lets the processor map it to HTTP 409.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

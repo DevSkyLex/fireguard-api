@@ -13,7 +13,6 @@ use Shared\Domain\ValueObject\{TenantId, Uuid};
  * Test TenantIdTest.
  *
  * @category Unit Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

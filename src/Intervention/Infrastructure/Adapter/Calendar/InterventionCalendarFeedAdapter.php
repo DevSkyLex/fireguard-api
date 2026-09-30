@@ -33,7 +33,6 @@ use function max;
  * `status` is its raw status value — the frontend owns labels/colors.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

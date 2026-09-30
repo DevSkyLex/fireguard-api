@@ -17,7 +17,6 @@ use function sprintf;
  * UseCase ListOrganizationMembersHandler.
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

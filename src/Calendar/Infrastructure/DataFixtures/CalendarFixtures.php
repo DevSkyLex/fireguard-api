@@ -29,7 +29,6 @@ use function sprintf;
  * manually created events, which have no other source.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

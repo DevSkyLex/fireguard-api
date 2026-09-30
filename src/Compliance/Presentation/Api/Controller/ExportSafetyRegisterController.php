@@ -40,7 +40,6 @@ use function sprintf;
  * attribute on the facility-scoped route.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

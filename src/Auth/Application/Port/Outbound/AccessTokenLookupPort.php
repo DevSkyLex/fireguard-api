@@ -12,7 +12,6 @@ use Auth\Application\Contract\Token\AccessTokenStatus;
  * Port for retrieving access token status from an external store.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

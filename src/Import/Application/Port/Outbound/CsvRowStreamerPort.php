@@ -16,7 +16,6 @@ use InvalidArgumentException;
  * Infrastructure directly.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -33,10 +32,10 @@ interface CsvRowStreamerPort
    *
    * @param string $contents the raw CSV file contents
    *
+   * @return int the data row count
+   *
    * @throws InvalidArgumentException when the file is empty, has no header
    *                                  row, or exceeds the maximum row count
-   *
-   * @return int the data row count
    */
   public function countDataRows(string $contents): int;
 
@@ -50,10 +49,10 @@ interface CsvRowStreamerPort
    *
    * @param string $contents the raw CSV file contents
    *
+   * @return Generator<int, array<string, string>> the streamed data rows
+   *
    * @throws InvalidArgumentException when the file is empty, has no header
    *                                  row, or exceeds the maximum row count
-   *
-   * @return Generator<int, array<string, string>> the streamed data rows
    */
   public function rows(string $contents): Generator;
   // #endregion

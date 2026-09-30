@@ -8,7 +8,6 @@ namespace Workload\Application\Port\Inbound;
  * Port WorkloadCoordinationPort. Requires a main transaction owned by the caller.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -22,7 +22,6 @@ use function json_decode;
  * Repository AuthCodeRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

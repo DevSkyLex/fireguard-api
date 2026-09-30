@@ -16,7 +16,6 @@ use Facility\Application\Port\Outbound\FacilityEquipmentDependencyPort;
  * equipment assigned to it.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

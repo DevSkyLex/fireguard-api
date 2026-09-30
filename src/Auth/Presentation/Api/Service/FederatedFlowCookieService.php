@@ -19,7 +19,6 @@ use const FILTER_VALIDATE_BOOL;
  * Keeps the browser-binding secret outside OAuth state and server persistence.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

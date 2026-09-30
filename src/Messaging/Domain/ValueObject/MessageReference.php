@@ -30,7 +30,6 @@ use function trim;
  * `PostMessageHandler`/`EditMessageHandler`.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

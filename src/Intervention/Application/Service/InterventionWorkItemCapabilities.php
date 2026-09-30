@@ -15,7 +15,6 @@ use function in_array;
  * Caller-specific capabilities for independent time and operational work.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

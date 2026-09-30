@@ -17,7 +17,6 @@ use User\Presentation\Api\Provider\Presence\GetPresencePreferenceSubscriptionPro
  * Test GetPresencePreferenceSubscriptionProviderTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

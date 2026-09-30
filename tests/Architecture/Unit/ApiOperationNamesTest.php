@@ -26,7 +26,6 @@ use function substr;
  * hide an unrelated resource and now prevents API Platform from loading routes.
  *
  * @category Architecture Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

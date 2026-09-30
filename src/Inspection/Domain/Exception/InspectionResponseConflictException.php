@@ -17,7 +17,6 @@ use RuntimeException;
  * those strings are the published `hydra:description` of the endpoint.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

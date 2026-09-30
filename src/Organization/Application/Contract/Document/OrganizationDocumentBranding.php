@@ -16,7 +16,6 @@ use function substr;
  * optional — a consumer must degrade gracefully when it is null.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

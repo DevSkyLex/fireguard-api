@@ -15,7 +15,6 @@ use Onboarding\Application\Service\{ExecuteOnboardingStepPayload, OrganizationOn
  * and simplified testing.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

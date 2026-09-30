@@ -11,7 +11,6 @@ use Facility\Domain\ValueObject\{FacilityMetadataFieldId, FacilityOrganizationId
  * Port FacilityMetadataFieldRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
