@@ -13,7 +13,6 @@ use Shared\Application\Message\ResultMessage;
  * shape the download response (`Content-Type`, `Content-Disposition`).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

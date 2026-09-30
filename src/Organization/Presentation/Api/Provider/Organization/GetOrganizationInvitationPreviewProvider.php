@@ -20,7 +20,6 @@ use function is_string;
  * Provider GetOrganizationInvitationPreviewProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

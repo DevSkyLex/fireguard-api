@@ -32,7 +32,6 @@ use const STR_PAD_RIGHT;
  * email-verification OTP challenge. Mirrors the password-reset request handler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

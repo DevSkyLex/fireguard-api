@@ -12,7 +12,6 @@ use Shared\Application\Message\ResultMessage;
  * Carries the hosted Billing Portal URL the client must redirect to.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

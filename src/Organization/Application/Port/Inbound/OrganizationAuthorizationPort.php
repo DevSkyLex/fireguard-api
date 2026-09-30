@@ -10,7 +10,6 @@ use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
  * Port OrganizationAuthorizationPort.
  *
  * @category Port
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

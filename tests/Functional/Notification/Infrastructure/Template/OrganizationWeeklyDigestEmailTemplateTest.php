@@ -18,7 +18,6 @@ use Twig\Environment;
  * of in production the following Monday.
  *
  * @category Functional Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

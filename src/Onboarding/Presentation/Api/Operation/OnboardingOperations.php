@@ -8,7 +8,6 @@ namespace Onboarding\Presentation\Api\Operation;
  * Onboarding operation names.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

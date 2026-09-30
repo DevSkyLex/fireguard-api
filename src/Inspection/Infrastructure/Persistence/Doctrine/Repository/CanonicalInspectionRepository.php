@@ -27,7 +27,6 @@ use function array_map;
  * `src/Inspection/MODULE.md` rather than fixed as a side effect.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

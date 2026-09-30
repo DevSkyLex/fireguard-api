@@ -14,7 +14,6 @@ use ApiPlatform\Metadata\ApiProperty;
  * multi-get, never from a database row.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -39,8 +38,13 @@ final class PresenceOutput
    */
   public bool $online = false;
 
+  // #region Properties
+  /**
+   * Property status
+   */
   #[ApiProperty(openapiContext: ['type' => 'string', 'enum' => ['active', 'do_not_disturb', 'offline']])]
   public string $status = 'offline';
+  // #endregion
 
   /**
    * Property lastSeenAt.

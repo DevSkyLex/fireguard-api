@@ -19,12 +19,41 @@ use TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeAllDevices\Rev
  */
 final readonly class RevokeAllDevicesProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the RevokeAllDevicesProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param Security $security the security
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private Security $security,
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param mixed $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return void
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
   {
     $user = $this->security->getUser();
@@ -42,4 +71,5 @@ final readonly class RevokeAllDevicesProcessor implements ProcessorInterface
 
     $this->commandBus->dispatch($command);
   }
+  // #endregion
 }

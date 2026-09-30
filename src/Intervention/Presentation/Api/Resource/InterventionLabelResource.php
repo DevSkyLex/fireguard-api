@@ -20,7 +20,6 @@ use Symfony\Component\HttpFoundation\Response;
  * tags interventions can be assigned to (`Intervention.labelIds`).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -84,6 +83,9 @@ use Symfony\Component\HttpFoundation\Response;
 final class InterventionLabelResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
   // #endregion
 }

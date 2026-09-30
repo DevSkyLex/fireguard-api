@@ -13,7 +13,6 @@ namespace Inspection\Application\Port\Outbound;
  * the dompdf adapter lives in `Inspection\Infrastructure\Pdf`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

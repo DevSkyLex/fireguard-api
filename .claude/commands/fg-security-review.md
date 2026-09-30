@@ -3,7 +3,7 @@ description: Security-review changes touching auth, OAuth2/OIDC, sessions, trust
 argument-hint: '[area or diff scope — e.g. "OAuth token endpoint" or "organization permissions"]'
 ---
 
-Delegate to the **fg-security-auditor** subagent: $ARGUMENTS
+Delegate to the **fg-api-security-auditor** subagent: $ARGUMENTS
 
 If no scope is given, review the working-tree changes.
 

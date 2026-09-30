@@ -28,7 +28,6 @@ use function hash;
  * permission-aware cached aggregate when available.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -36,6 +35,11 @@ use function hash;
 final readonly class GetComplianceOverviewHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant DEFAULT_CACHE_TTL_SECONDS.
+   *
+   * Default lifetime for cached compliance overview results.
+   */
   private const int DEFAULT_CACHE_TTL_SECONDS = 60;
   // #endregion
 
@@ -67,9 +71,9 @@ final readonly class GetComplianceOverviewHandler implements QueryHandler
    *
    * @param GetComplianceOverviewQuery $query the compliance overview query
    *
-   * @throws ComplianceAccessDeniedException if the user lacks a required permission
-   *
    * @return GetComplianceOverviewResult the organization compliance register
+   *
+   * @throws ComplianceAccessDeniedException if the user lacks a required permission
    */
   public function __invoke(GetComplianceOverviewQuery $query): GetComplianceOverviewResult
   {
@@ -158,11 +162,33 @@ final readonly class GetComplianceOverviewHandler implements QueryHandler
     }
   }
 
+  /**
+   * Method buildCacheKey.
+   *
+   * Builds a cache key scoped to the requested organization.
+   *
+   * @access private
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return string the cache key
+   */
   private function buildCacheKey(string $organizationId): string
   {
     return 'compliance.overview.v2.' . hash('sha256', $organizationId);
   }
 
+  /**
+   * Method readCache.
+   *
+   * Returns a cached compliance result when available and ignores cache failures.
+   *
+   * @access private
+   *
+   * @param string $cacheKey the organization cache key
+   *
+   * @return ?GetComplianceOverviewResult cached result, or null when unavailable
+   */
   private function readCache(string $cacheKey): ?GetComplianceOverviewResult
   {
     if (null === $this->cache || $this->cacheTtl <= 0) {
@@ -178,6 +204,18 @@ final readonly class GetComplianceOverviewHandler implements QueryHandler
     return $cached instanceof GetComplianceOverviewResult ? $cached : null;
   }
 
+  /**
+   * Method writeCache.
+   *
+   * Stores the compliance result when caching is enabled and ignores cache failures.
+   *
+   * @access private
+   *
+   * @param string $cacheKey the organization cache key
+   * @param GetComplianceOverviewResult $result the result to cache
+   *
+   * @return void no return value
+   */
   private function writeCache(string $cacheKey, GetComplianceOverviewResult $result): void
   {
     if (null === $this->cache || $this->cacheTtl <= 0) {
@@ -191,6 +229,17 @@ final readonly class GetComplianceOverviewHandler implements QueryHandler
     }
   }
 
+  /**
+   * Method formatIso8601.
+   *
+   * Formats a date-time consistently, retaining microseconds when present.
+   *
+   * @access private
+   *
+   * @param DateTimeImmutable $value the date-time to format
+   *
+   * @return string ISO 8601 representation
+   */
   private function formatIso8601(DateTimeImmutable $value): string
   {
     return '000000' === $value->format('u') ? $value->format('Y-m-d\\TH:i:sP') : $value->format('Y-m-d\\TH:i:s.uP');

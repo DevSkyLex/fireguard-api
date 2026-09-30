@@ -21,7 +21,6 @@ use Symfony\Component\HttpFoundation\{Request, Response};
  * signature, and lets other failures surface as 5xx so Stripe retries.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

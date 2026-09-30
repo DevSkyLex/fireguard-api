@@ -12,7 +12,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  * Record FacilityMetadataFieldRecord.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,20 +23,35 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 class FacilityMetadataFieldRecord
 {
   // #region Properties
+  /**
+   * Property id
+   */
   #[ORM\Id]
   #[ORM\Column(type: 'string', length: 36)]
   public string $id;
 
+  /**
+   * Property organization
+   */
   #[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]
   #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationRecord $organization = null;
 
+  /**
+   * Property key
+   */
   #[ORM\Column(name: 'field_key', type: 'string', length: 64)]
   public string $key;
 
+  /**
+   * Property label
+   */
   #[ORM\Column(name: 'label', type: 'string', length: 80)]
   public string $label;
 
+  /**
+   * Property fieldType
+   */
   #[ORM\Column(name: 'field_type', type: 'string', length: 16)]
   public string $fieldType;
 
@@ -47,18 +61,33 @@ class FacilityMetadataFieldRecord
   #[ORM\Column(name: 'options', type: 'json')]
   public array $options = [];
 
+  /**
+   * Property facilityType
+   */
   #[ORM\Column(name: 'facility_type', type: 'string', length: 24, nullable: true)]
   public ?string $facilityType = null;
 
+  /**
+   * Property required
+   */
   #[ORM\Column(name: 'required', type: 'boolean', options: ['default' => false])]
   public bool $required = false;
 
+  /**
+   * Property unit
+   */
   #[ORM\Column(name: 'unit', type: 'string', length: 16, nullable: true)]
   public ?string $unit = null;
 
+  /**
+   * Property createdAt
+   */
   #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
   public DateTimeImmutable $createdAt;
 
+  /**
+   * Property updatedAt
+   */
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   public DateTimeImmutable $updatedAt;
   // #endregion

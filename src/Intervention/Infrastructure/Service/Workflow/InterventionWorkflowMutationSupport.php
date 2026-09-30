@@ -37,6 +37,21 @@ use function max;
  */
 final readonly class InterventionWorkflowMutationSupport
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Resolves locked workflow records and validates mutation scope and preconditions.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager for loading and locking workflow records
+   * @param InterventionMemberPolicy $memberPolicy policy for organization membership and intervention roles
+   * @param InterventionResourceGatewayPort $resources port used to resolve linked resource ownership
+   * @param OrganizationWorkforceDirectoryPort $workforce directory used to read organization and member context
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private InterventionMemberPolicy $memberPolicy,
@@ -44,12 +59,14 @@ final readonly class InterventionWorkflowMutationSupport
     private OrganizationWorkforceDirectoryPort $workforce,
   ) {
   }
+  // #endregion
 
   /**
    * Method intervention.
    *
-   * Executes the intervention operation.
+   * Loads and pessimistically locks an intervention, raising the domain not-found exception when absent.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ?string $id the id value
@@ -71,8 +88,9 @@ final readonly class InterventionWorkflowMutationSupport
   /**
    * Method workItem.
    *
-   * Executes the work item operation.
+   * Loads and pessimistically locks an intervention work item, raising not found when absent.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ?string $id the id value
@@ -94,8 +112,9 @@ final readonly class InterventionWorkflowMutationSupport
   /**
    * Method change.
    *
-   * Executes the change operation.
+   * Loads and pessimistically locks an intervention change, raising not found when absent.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ?string $id the id value
@@ -136,8 +155,9 @@ final readonly class InterventionWorkflowMutationSupport
   /**
    * Method organizationId.
    *
-   * Executes the organization id operation.
+   * Returns the owning organization identifier and rejects records whose organization relation is missing.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionRecord $intervention the intervention value
@@ -156,11 +176,14 @@ final readonly class InterventionWorkflowMutationSupport
   /**
    * Method assertInterventionWorkMutable.
    *
-   * Executes the assert intervention work mutable operation.
+   * Rejects work-item changes while an intervention is submitted, published or abandoned.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionRecord $intervention the intervention value
+   *
+   * @return void no return value
    */
   public function assertInterventionWorkMutable(InterventionRecord $intervention): void
   {
@@ -172,12 +195,15 @@ final readonly class InterventionWorkflowMutationSupport
   /**
    * Method assertRevision.
    *
-   * Executes the assert revision operation.
+   * Requires an If-Match revision and rejects it when it no longer matches the stored version.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param int $revision the revision value
    * @param ?int $expectedRevision the expected revision value
+   *
+   * @return void no return value
    */
   public function assertRevision(int $revision, ?int $expectedRevision): void
   {
@@ -211,12 +237,15 @@ final readonly class InterventionWorkflowMutationSupport
   /**
    * Method assertSiteBelongsToOrganization.
    *
-   * Executes the assert site belongs to organization operation.
+   * Validates a selected facility through the resource port against the intervention organization.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ?string $siteId the site id value
    * @param string $organizationId the organization id value
+   *
+   * @return void no return value
    */
   public function assertSiteBelongsToOrganization(?string $siteId, string $organizationId): void
   {
@@ -264,12 +293,15 @@ final readonly class InterventionWorkflowMutationSupport
   /**
    * Method touch.
    *
-   * Executes the touch operation.
+   * Increments the persisted intervention revision and stores the supplied update timestamp.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionRecord $intervention the intervention value
    * @param DateTimeImmutable $now the now value
+   *
+   * @return void no return value
    */
   public function touch(InterventionRecord $intervention, DateTimeImmutable $now): void
   {

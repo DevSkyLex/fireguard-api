@@ -15,7 +15,6 @@ use function property_exists;
  * Assembler OrganizationJoinOutputAssembler.
  *
  * @category Assembler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

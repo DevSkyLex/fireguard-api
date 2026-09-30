@@ -13,7 +13,6 @@ use Shared\Application\Message\QueryHandler;
  * UseCase GetFacilityHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -21,6 +20,18 @@ use Shared\Application\Message\QueryHandler;
 final readonly class GetFacilityHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the facility repository and equipment dependency capability used to assemble a facility detail view.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to load facility identity and hierarchy data
+   * @param FacilityEquipmentDependencyPort $equipmentDependency port used to include dependent-equipment information in the detail
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,

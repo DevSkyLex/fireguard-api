@@ -15,7 +15,6 @@ use DateTimeImmutable;
  * never need to reconcile assigned assets.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

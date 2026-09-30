@@ -10,16 +10,30 @@ use function array_column;
  * Enum NonConformityStatus.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum NonConformityStatus: string
 {
+  /**
+   * Case OPEN
+   */
   case OPEN = 'open';
+
+  /**
+   * Case IN_PROGRESS
+   */
   case IN_PROGRESS = 'in_progress';
+
+  /**
+   * Case DONE
+   */
   case DONE = 'done';
+
+  /**
+   * Case WAIVED
+   */
   case WAIVED = 'waived';
 
   // #region Methods

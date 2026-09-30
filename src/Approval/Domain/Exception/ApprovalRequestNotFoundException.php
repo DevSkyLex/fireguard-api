@@ -16,7 +16,6 @@ use function sprintf;
  * case (mirrors {@see \Webhook\Domain\Exception\WebhookSubscriptionNotFoundException}).
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

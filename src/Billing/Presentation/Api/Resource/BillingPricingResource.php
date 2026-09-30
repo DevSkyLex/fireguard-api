@@ -18,7 +18,6 @@ use Billing\Presentation\Api\Serialization\BillingSerializationGroup;
  * joined by the frontend with the plan catalog to render plan cards.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -18,7 +18,12 @@ use Throwable;
 /** Shared request context, actor resolution, PII policy and durable ledger dispatch. */
 abstract readonly class AbstractAuditEventSubscriber
 {
+  // #region Properties
+  /**
+   * Property actorResolver
+   */
   private AuditActorResolver $actorResolver;
+  // #endregion
 
   /**
    * Constructor.

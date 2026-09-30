@@ -11,20 +11,50 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Main-database lock and deduplication journal for Stripe reconciliation.
+ * Class PostgresBillingReconciliationAdapter
+ *
+ * Provides a main-database lock and deduplication journal for Stripe reconciliation.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class PostgresBillingReconciliationAdapter implements BillingReconciliationPort
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the entity manager used for reconciliation locks and event receipts.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager main-database manager for billing state
+   *
+   * @return void
+   */
   public function __construct(private EntityManagerInterface $entityManager)
   {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method synchronized
+   *
+   * Runs an operation under a transaction-scoped lock for the organization.
+   *
+   * @access public
+   *
+   * @template T
+   *
+   * @param string $organizationId organization used to derive the advisory lock key
+   * @param callable(): T $operation work protected by the lock
+   *
+   * @return T the operation result
+   */
   public function synchronized(string $organizationId, callable $operation): mixed
   {
     return $this->entityManager->wrapInTransaction(function () use ($organizationId, $operation): mixed {
@@ -37,6 +67,20 @@ final readonly class PostgresBillingReconciliationAdapter implements BillingReco
     });
   }
 
+  /**
+   * Method processEvent
+   *
+   * Skips a recorded Stripe event or runs its operation and records it atomically.
+   * The event identifier is scoped by live mode for deduplication.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose reconciliation is protected
+   * @param StripeEvent $event Stripe event to deduplicate and process
+   * @param callable(): void $operation reconciliation work to execute once
+   *
+   * @return void
+   */
   public function processEvent(string $organizationId, StripeEvent $event, callable $operation): void
   {
     $this->synchronized($organizationId, function () use ($organizationId, $event, $operation): void {
@@ -60,4 +104,5 @@ final readonly class PostgresBillingReconciliationAdapter implements BillingReco
       ], ['live_mode' => Types::BOOLEAN, 'processed_at' => Types::DATETIME_IMMUTABLE]);
     });
   }
+  // #endregion
 }

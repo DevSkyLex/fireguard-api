@@ -22,7 +22,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * lookup.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -41,9 +40,20 @@ final readonly class OrganizationNonConformitySlaPolicyAdapter implements NonCon
     private OrganizationRepositoryPort $organizationRepository,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method slaPolicy
+   *
+   * Builds the effective non-conformity SLA policy from organization settings, using the module default when the organization or settings are unavailable.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return NonConformitySlaPolicy
+   */
   public function slaPolicy(string $organizationId): NonConformitySlaPolicy
   {
     try {

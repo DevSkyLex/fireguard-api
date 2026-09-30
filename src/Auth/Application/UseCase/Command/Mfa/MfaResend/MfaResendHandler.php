@@ -27,7 +27,6 @@ use function is_string;
  * Handler MfaResendHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -65,9 +64,9 @@ final readonly class MfaResendHandler implements CommandHandler
    *
    * @param MfaResendCommand $command the command
    *
-   * @throws AuthorizationException if pre-auth token is invalid
-   *
    * @return MfaResendResult the result
+   *
+   * @throws AuthorizationException if pre-auth token is invalid
    */
   public function __invoke(MfaResendCommand $command): MfaResendResult
   {

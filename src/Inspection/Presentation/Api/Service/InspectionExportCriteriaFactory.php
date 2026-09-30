@@ -26,7 +26,6 @@ use function is_string;
  * filters only). Mirrors `Intervention\...\InterventionExportCriteriaFactory`.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -8,7 +8,6 @@ namespace Notification\Presentation\Api\Operation;
  * Operation names for notification API.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -8,7 +8,6 @@ namespace Otp\Application\UseCase\Query\Config\ListChannels;
  * ChannelResult.
  *
  * @category Query
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

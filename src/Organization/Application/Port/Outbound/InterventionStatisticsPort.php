@@ -14,7 +14,6 @@ use Organization\Application\Contract\Intervention\RecentInterventionSummary;
  * coupling the Organization module to the Intervention repository.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

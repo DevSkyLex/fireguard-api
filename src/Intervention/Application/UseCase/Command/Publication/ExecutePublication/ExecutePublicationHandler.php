@@ -22,7 +22,6 @@ use function in_array;
  * UseCase ExecutePublicationHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -51,8 +50,9 @@ final readonly class ExecutePublicationHandler implements CommandHandler
   /**
    * Method __invoke.
    *
-   * Executes the   invoke operation.
+   * Executes a pending or processing publication request and treats already-finished requests as no-ops.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ExecutePublicationCommand $command the command value
@@ -87,6 +87,21 @@ final readonly class ExecutePublicationHandler implements CommandHandler
     return new VoidResult();
   }
 
+  /**
+   * Method executePending
+   *
+   * Executes a pending publication after validating the intervention revision and publication blockers.
+   *
+   * @access private
+   *
+   * @param PublicationView $publication the pending publication record
+   * @param InterventionPublicationContext|null $context the current intervention context
+   *
+   * @return void no return value
+   *
+   * @throws PublicationNotFoundException when the intervention context is missing
+   * @throws PublicationExecutionException when the intervention changed or has blocking issues
+   */
   private function executePending(PublicationView $publication, ?InterventionPublicationContext $context): void
   {
     if (null === $context) {
@@ -116,6 +131,19 @@ final readonly class ExecutePublicationHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method recordFailure
+   *
+   * Marks the publication as failed and dispatches its failure event when context is available.
+   *
+   * @access private
+   *
+   * @param PublicationView $publication the publication whose execution failed
+   * @param InterventionPublicationContext|null $context the current intervention context
+   * @param Throwable $exception the execution failure to record
+   *
+   * @return void no return value
+   */
   private function recordFailure(PublicationView $publication, ?InterventionPublicationContext $context, Throwable $exception): void
   {
     $failed = $this->publications->markFailed($publication->id, $exception->getMessage());

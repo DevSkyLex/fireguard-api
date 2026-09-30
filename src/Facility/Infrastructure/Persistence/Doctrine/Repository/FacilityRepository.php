@@ -31,7 +31,6 @@ use const JSON_THROW_ON_ERROR;
  * Repository FacilityRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -109,6 +108,17 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
     return FacilityMapper::toDomain($record);
   }
 
+  /**
+   * Method findPublishedById
+   *
+   * Finds and maps a facility only when its record is published.
+   *
+   * @access public
+   *
+   * @param FacilityId $id identifier of the facility to look up
+   *
+   * @return Facility|null published facility, or null when missing or not published
+   */
   public function findPublishedById(FacilityId $id): ?Facility
   {
     $record = $this->repository->find((string) $id);
@@ -731,12 +741,35 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
   }
 
   // #region Methods
+  /**
+   * Method organizationReference
+   *
+   * Returns a Doctrine reference for the organization without loading its state.
+   *
+   * @access protected
+   *
+   * @param FacilityOrganizationId $organizationId identifier of the organization
+   *
+   * @return OrganizationRecord organization reference used by facility queries
+   */
   protected function organizationReference(FacilityOrganizationId $organizationId): OrganizationRecord
   {
     /** @var OrganizationRecord */
     return $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
   }
 
+  /**
+   * Method applyFacilitySearch
+   *
+   * Adds the supported trigram-search fields to a facility query.
+   *
+   * @access protected
+   *
+   * @param QueryBuilder $queryBuilder query to constrain
+   * @param string|null $search search term, or null when no search was requested
+   *
+   * @return void
+   */
   protected function applyFacilitySearch(QueryBuilder $queryBuilder, ?string $search): void
   {
     TrigramSearchExpression::apply(

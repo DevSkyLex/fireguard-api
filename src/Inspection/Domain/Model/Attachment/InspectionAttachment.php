@@ -16,7 +16,6 @@ use Inspection\Domain\ValueObject\{InspectionAttachmentFile, InspectionAttachmen
  * nullable `non_conformity_id` discriminator (see `src/Inspection/MODULE.md`).
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

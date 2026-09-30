@@ -20,7 +20,6 @@ use function min;
  * Repository MessagingAttachmentRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -35,6 +34,17 @@ final readonly class MessagingAttachmentRepository implements MessagingAttachmen
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Uses the configured Doctrine manager to persist and query messaging attachments.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager for the Messaging module database
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

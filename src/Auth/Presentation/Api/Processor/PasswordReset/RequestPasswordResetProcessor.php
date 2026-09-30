@@ -26,7 +26,6 @@ use function time;
  * Processor RequestPasswordResetProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -53,8 +52,8 @@ final readonly class RequestPasswordResetProcessor implements ProcessorInterface
     private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Process the password reset request.
@@ -96,6 +95,17 @@ final readonly class RequestPasswordResetProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Enforces the endpoint rate limit for the supplied recipient or request context.
+   *
+   * @access private
+   *
+   * @param string $ipAddress the client IP address
+   *
+   * @return void
+   */
   private function enforceRateLimit(string $ipAddress): void
   {
     if (null === $this->rateLimiter) {
@@ -116,6 +126,17 @@ final readonly class RequestPasswordResetProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds the stable rate-limit key for the current request.
+   *
+   * @access private
+   *
+   * @param string $ipAddress the client IP address
+   *
+   * @return string
+   */
   private function getRateLimitKey(string $ipAddress): string
   {
     $ipHash = hash('sha256', $ipAddress);

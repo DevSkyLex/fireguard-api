@@ -8,16 +8,30 @@ namespace Intervention\Domain\ValueObject;
  * Enum PublicationStatus.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum PublicationStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case PROCESSING
+   */
   case PROCESSING = 'processing';
+
+  /**
+   * Case COMPLETED
+   */
   case COMPLETED = 'completed';
+
+  /**
+   * Case FAILED
+   */
   case FAILED = 'failed';
 
   /**

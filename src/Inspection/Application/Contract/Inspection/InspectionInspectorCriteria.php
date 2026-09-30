@@ -9,9 +9,23 @@ namespace Inspection\Application\Contract\Inspection;
  */
 final readonly class InspectionInspectorCriteria
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Groups inspector identity and inspector-type filters for inspection reads.
+   *
+   * @access public
+   *
+   * @param ?string $userId optional inspector user identifier
+   * @param ?string $type optional inspector type filter
+   *
+   * @return void
+   */
   public function __construct(
     public ?string $userId = null,
     public ?string $type = null,
   ) {
   }
+  // #endregion
 }

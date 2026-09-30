@@ -27,7 +27,6 @@ use function time;
  * Processor ConfirmTotpProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -51,8 +50,8 @@ final readonly class ConfirmTotpProcessor implements ProcessorInterface
     private readonly ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * @param ConfirmTotpInput $data
@@ -88,6 +87,17 @@ final readonly class ConfirmTotpProcessor implements ProcessorInterface
     return $output;
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Enforces the endpoint rate limit for the supplied recipient or request context.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   *
+   * @return void
+   */
   private function enforceRateLimit(string $userId): void
   {
     if (null === $this->rateLimiter) {
@@ -108,6 +118,17 @@ final readonly class ConfirmTotpProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds the stable rate-limit key for the current request.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   *
+   * @return string
+   */
   private function getRateLimitKey(string $userId): string
   {
     return sprintf('otp_totp_confirm_%s', substr(hash('sha256', $userId), 0, 16));

@@ -26,7 +26,6 @@ use Shared\Application\Port\Inbound\CommandBusPort;
  * longer found) means the deferred action can no longer be applied.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -50,11 +49,33 @@ final readonly class EquipmentDecommissionExecutorAdapter implements ApprovalAct
   // #endregion
 
   // #region Methods
+  /**
+   * Method actionType.
+   *
+   * Returns the approval action type handled by this executor.
+   *
+   * @access public
+   *
+   * @return string the equipment decommission approval action type
+   */
   public function actionType(): string
   {
     return ApprovalActionTypes::EQUIPMENT_DECOMMISSION;
   }
 
+  /**
+   * Method execute.
+   *
+   * Dispatches equipment decommission and treats already completed or missing work as no longer applicable.
+   *
+   * @access public
+   *
+   * @param DeferredActionContext $context the organization and equipment identifiers for the deferred action
+   *
+   * @return void no return value
+   *
+   * @throws DeferredActionNoLongerApplicableException when the equipment is no longer available
+   */
   public function execute(DeferredActionContext $context): void
   {
     try {

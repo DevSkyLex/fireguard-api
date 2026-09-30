@@ -13,11 +13,33 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /** Stable public decision codes; preserves validation and scope errors handled by API Platform. */
 final readonly class ApprovalFailureSubscriber implements EventSubscriberInterface
 {
+  /**
+   * Method getSubscribedEvents.
+   *
+   * Registers the exception listener for stable approval error responses.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return array<string, array{string, int}> exception event mapped to its listener and priority
+   */
   public static function getSubscribedEvents(): array
   {
     return [KernelEvents::EXCEPTION => ['onException', 10]];
   }
 
+  /**
+   * Method onException.
+   *
+   * Maps approval domain failures to stable public error codes and HTTP statuses.
+   *
+   * @access public
+   *
+   * @param ExceptionEvent $event the kernel exception event
+   *
+   * @return void no return value
+   */
   public function onException(ExceptionEvent $event): void
   {
     $error = $event->getThrowable();

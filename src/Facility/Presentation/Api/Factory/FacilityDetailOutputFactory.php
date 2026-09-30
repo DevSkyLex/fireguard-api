@@ -13,10 +13,36 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /** Factory FacilityDetailOutputFactory. One complete post-mutation snapshot across HTTP entry points. */
 final readonly class FacilityDetailOutputFactory
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the FacilityDetailOutputFactory dependencies and state.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queries the queries
+   *
+   * @return void
+   */
   public function __construct(private QueryBusPort $queries)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method read
+   *
+   * Builds the equipment detail output from the canonical equipment view.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $id the identifier
+   *
+   * @return FacilityOutput
+   */
   public function read(string $organizationId, string $id): FacilityOutput
   {
     /** @var GetFacilityResult $result */
@@ -53,4 +79,5 @@ final readonly class FacilityDetailOutputFactory
 
     return $output;
   }
+  // #endregion
 }

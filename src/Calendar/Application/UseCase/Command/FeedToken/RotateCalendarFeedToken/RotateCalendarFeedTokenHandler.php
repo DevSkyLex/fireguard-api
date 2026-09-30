@@ -24,7 +24,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * exists only in the returned Result; the aggregate stores its SHA-256 hash.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,6 +31,9 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 final readonly class RotateCalendarFeedTokenHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   */
   private const string READ_PERMISSION = 'organization.events.read';
   // #endregion
 

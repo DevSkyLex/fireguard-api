@@ -12,7 +12,6 @@ use Shared\Domain\ValueObject\Uuid;
  * Service UuidEventIdProvider.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -31,9 +30,18 @@ final readonly class UuidEventIdProvider implements EventIdProvider
     private UuidGeneratorPort $uuidGenerator,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method nextEventId
+   *
+   * Creates the identifier used for the next domain event.
+   *
+   * @access public
+   *
+   * @return Uuid the next domain event identifier
+   */
   public function nextEventId(): Uuid
   {
     return new Uuid($this->uuidGenerator->generate());

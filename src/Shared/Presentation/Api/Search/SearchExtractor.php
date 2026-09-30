@@ -15,7 +15,6 @@ use function trim;
  * Expects the format: ?search=term.
  *
  * @category Search
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

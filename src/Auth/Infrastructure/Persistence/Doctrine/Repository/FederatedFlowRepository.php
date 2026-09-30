@@ -18,18 +18,35 @@ use function hash;
 use function hash_equals;
 
 /**
- * Repository FederatedFlowRepository.
+ * Class FederatedFlowRepository
+ *
+ * Persists federated flow state and consumes it once after validating its expiry, provider, intent and browser binding.
+ * The provider code verifier is encrypted at rest and the state row is locked during consumption.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class FederatedFlowRepository implements FederatedFlowRepositoryPort
 {
+  // #region Traits
   use CryptTrait;
+  // #endregion
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Configures the auth entity manager and encryption key used to protect provider PKCE verifiers at rest.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager the auth entity manager
+   * @param string $encryptionKey the key used to encrypt the provider code verifier
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     #[Autowire('%env(OAUTH_ENCRYPTION_KEY)%')]
@@ -37,7 +54,20 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
   ) {
     $this->setEncryptionKey($encryptionKey);
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method save
+   *
+   * Stores a federated authentication flow with its code verifier encrypted.
+   *
+   * @access public
+   *
+   * @param FederatedFlow $flow the flow state to persist
+   *
+   * @return void no return value
+   */
   public function save(FederatedFlow $flow): void
   {
     $record = new FederatedAuthFlowRecord();
@@ -54,6 +84,20 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method consume
+   *
+   * Loads and consumes a matching unexpired federated flow under a transaction lock.
+   *
+   * @access public
+   *
+   * @param string $rawState the state value returned by the provider
+   * @param string $browserBinding the browser binding value from the flow cookie
+   * @param FederatedProvider $provider the expected identity provider
+   * @param string $intent the expected sign-in or link intent
+   *
+   * @return FederatedFlow|null the consumed flow when all values match
+   */
   public function consume(string $rawState, string $browserBinding, FederatedProvider $provider, string $intent): ?FederatedFlow
   {
     return $this->entityManager->wrapInTransaction(function () use ($rawState, $browserBinding, $provider, $intent): ?FederatedFlow {
@@ -90,4 +134,5 @@ final class FederatedFlowRepository implements FederatedFlowRepositoryPort
       );
     });
   }
+  // #endregion
 }

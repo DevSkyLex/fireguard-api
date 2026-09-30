@@ -19,7 +19,6 @@ use Shared\Presentation\Api\Http\ResourceIriParser;
  * could smuggle one entity's id into another's slot.
  *
  * @category Http Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

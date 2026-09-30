@@ -23,7 +23,6 @@ use function time;
  * Processor IntrospectTokenProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -105,6 +104,19 @@ final readonly class IntrospectTokenProcessor implements ProcessorInterface
     return $output;
   }
 
+  /**
+   * Method enforceRateLimit.
+   *
+   * Consumes the token introspection rate limit for the client IP address.
+   *
+   * @access private
+   *
+   * @param string|null $ipAddress the client IP address, when available
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the introspection limit is exceeded
+   */
   private function enforceRateLimit(?string $ipAddress): void
   {
     $key = $ipAddress ?? 'unknown';

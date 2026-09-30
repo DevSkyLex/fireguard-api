@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * feeds the audit ledger (see `Audit\Infrastructure\EventSubscriber\GovernanceAuditEventSubscriber`).
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

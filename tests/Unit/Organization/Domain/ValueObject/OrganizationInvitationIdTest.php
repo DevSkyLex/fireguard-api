@@ -17,7 +17,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * accepting whatever string a URL happens to carry.
  *
  * @category ValueObject Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

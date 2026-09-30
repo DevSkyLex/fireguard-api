@@ -24,7 +24,6 @@ use function sprintf;
  * as the hardcoded month falls out of range.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

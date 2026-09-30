@@ -19,7 +19,6 @@ namespace Inspection\Application\Port\Outbound;
  * while a serial number is what is written on the device itself.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

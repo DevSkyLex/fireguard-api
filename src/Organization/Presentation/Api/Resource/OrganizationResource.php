@@ -39,7 +39,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource OrganizationResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -364,12 +363,24 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class OrganizationResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant ORGANIZATION_URI_TEMPLATE
+   */
   private const string ORGANIZATION_URI_TEMPLATE = '/{id}';
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant ORGANIZATION_NOT_FOUND_DESCRIPTION
+   */
   private const string ORGANIZATION_NOT_FOUND_DESCRIPTION = 'Organization not found';
   // #endregion
 }

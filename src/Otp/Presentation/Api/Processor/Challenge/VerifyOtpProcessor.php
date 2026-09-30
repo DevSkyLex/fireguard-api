@@ -27,7 +27,6 @@ use function time;
  * Processor VerifyOtpProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -87,11 +86,33 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
     return $output;
   }
 
+  /**
+   * Method isValidOtpCode
+   *
+   * Accepts only a digit string whose length matches the configured OTP code length.
+   *
+   * @access private
+   *
+   * @param string $code the submitted code
+   *
+   * @return bool true only when the code is numeric and has the configured length
+   */
   private function isValidOtpCode(string $code): bool
   {
     return strlen($code) === $this->otpCodeLength && ctype_digit($code);
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Consumes the verification rate-limit budget for the supplied challenge identifier; the key stores only a truncated SHA-256 digest.
+   *
+   * @access private
+   *
+   * @param ?string $identifier the challenge token or record identifier used to derive the rate-limit key
+   *
+   * @return void
+   */
   private function enforceRateLimit(?string $identifier): void
   {
     if (null === $this->rateLimiter || null === $identifier || '' === $identifier) {
@@ -112,6 +133,17 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds the stable rate-limit key for the current request.
+   *
+   * @access private
+   *
+   * @param string $identifier the identifier
+   *
+   * @return string a stable key containing a truncated hash of the challenge identifier
+   */
   private function getRateLimitKey(string $identifier): string
   {
     $identifierHash = hash('sha256', $identifier);

@@ -15,15 +15,25 @@ use function array_column;
  * kinds exist today.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum ImportKind: string
 {
+  /**
+   * Case EQUIPMENT
+   */
   case EQUIPMENT = 'equipment';
+
+  /**
+   * Case FACILITY
+   */
   case FACILITY = 'facility';
+
+  /**
+   * Case MEMBER
+   */
   case MEMBER = 'member';
 
   // #region Methods

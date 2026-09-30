@@ -20,7 +20,6 @@ use Shared\Infrastructure\Exception\FileStorageException;
  * so callers keep the write-then-persist rollback contract unchanged.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -51,9 +50,9 @@ final readonly class FlysystemFileStorageAdapter implements FileStoragePort
    * @param string $path the path to the file
    * @param string $contents the contents of the file
    *
-   * @throws FileStorageException if the file write fails
-   *
    * @return void no return value
+   *
+   * @throws FileStorageException if the file write fails
    */
   public function write(string $path, string $contents): void
   {
@@ -75,9 +74,9 @@ final readonly class FlysystemFileStorageAdapter implements FileStoragePort
    *
    * @param string $path the path to the file
    *
-   * @throws FileStorageException if the file read fails
-   *
    * @return string the contents of the file
+   *
+   * @throws FileStorageException if the file read fails
    */
   public function read(string $path): string
   {
@@ -103,9 +102,9 @@ final readonly class FlysystemFileStorageAdapter implements FileStoragePort
    *
    * @param string $path the path to the file
    *
-   * @throws FileStorageException if the file deletion fails
-   *
    * @return void no return value
+   *
+   * @throws FileStorageException if the file deletion fails
    */
   public function delete(string $path): void
   {
@@ -127,9 +126,9 @@ final readonly class FlysystemFileStorageAdapter implements FileStoragePort
    *
    * @param string $path the path to the file
    *
-   * @throws FileStorageException if the existence check fails
-   *
    * @return bool true if the file exists, false otherwise
+   *
+   * @throws FileStorageException if the existence check fails
    */
   public function exists(string $path): bool
   {

@@ -25,7 +25,6 @@ use function sprintf;
  * Command AssignRoleCommand.
  *
  * @category Console Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -140,6 +139,20 @@ HELP
     }
   }
 
+  /**
+   * Method executeAssignment
+   *
+   * Resolves the user and role, then applies the requested role assignment change.
+   *
+   * @access private
+   *
+   * @param string $email the account email used to find the user
+   * @param string $roleName the role name to assign or remove
+   * @param bool $remove whether the assignment should be removed
+   * @param SymfonyStyle $io the console output helper
+   *
+   * @return int the command exit status
+   */
   private function executeAssignment(string $email, string $roleName, bool $remove, SymfonyStyle $io): int
   {
     // Find the user before the role so missing users cannot enumerate roles.
@@ -179,6 +192,22 @@ HELP
     return Command::SUCCESS;
   }
 
+  /**
+   * Method applyRoleAssignment
+   *
+   * Creates or removes the user's role assignment and reports whether it changed.
+   *
+   * @access private
+   *
+   * @param UserRecord $user the user receiving the role change
+   * @param RoleRecord $role the role to assign or remove
+   * @param bool $remove whether the assignment should be removed
+   * @param string $email the account email shown in console output
+   * @param string $roleName the role name shown in console output
+   * @param SymfonyStyle $io the console output helper
+   *
+   * @return bool whether an assignment changed
+   */
   private function applyRoleAssignment(UserRecord $user, RoleRecord $role, bool $remove, string $email, string $roleName, SymfonyStyle $io): bool
   {
     $assignmentRepository = $this->entityManager->getRepository(RoleAssignmentRecord::class);
@@ -220,6 +249,18 @@ HELP
     return true;
   }
 
+  /**
+   * Method showCurrentRoles
+   *
+   * Prints the names of roles currently assigned to the user.
+   *
+   * @access private
+   *
+   * @param UserRecord $user the user whose roles are displayed
+   * @param SymfonyStyle $io the console output helper
+   *
+   * @return void no return value
+   */
   private function showCurrentRoles(UserRecord $user, SymfonyStyle $io): void
   {
     $assignmentRepository = $this->entityManager->getRepository(RoleAssignmentRecord::class);

@@ -11,7 +11,6 @@ use Assistant\Domain\ValueObject\AssistantMessageId;
  * Port AssistantMessageRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -13,7 +13,6 @@ use Shared\Application\Message\CommandMessage;
  * payload, mirroring `EscalateNonConformitySlaBreachesCommand`.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

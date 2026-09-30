@@ -24,7 +24,6 @@ use function is_string;
  * Provider ListEquipmentAttachmentsProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -36,6 +35,19 @@ final readonly class ListEquipmentAttachmentsProvider implements ProviderInterfa
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives query dispatch, organization authorization, and caller identity for an attachment listing.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus port used to dispatch the attachment-list query
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
+   * @param Security $security security context used to obtain the requesting member
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,

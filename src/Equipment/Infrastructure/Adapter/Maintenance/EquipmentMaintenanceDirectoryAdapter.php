@@ -30,7 +30,6 @@ use function max;
  * are invisible here, the same visibility rule `findPublishedById` applies.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,9 +48,20 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
     private EntityManagerInterface $entityManager,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method findEquipment
+   *
+   * Looks up published equipment by identifier and returns its trackable view; missing equipment produces null.
+   *
+   * @access public
+   *
+   * @param string $equipmentId the equipment identifier
+   *
+   * @return ?TrackableEquipment
+   */
   public function findEquipment(string $equipmentId): ?TrackableEquipment
   {
     /** @var ?EquipmentRecord $record */
@@ -67,6 +77,19 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
     return $record instanceof EquipmentRecord ? $this->view($record) : null;
   }
 
+  /**
+   * Method listEquipmentPage
+   *
+   * Lists published equipment in a stable, bounded page and optionally scopes it to an organization. Decommissioned equipment remains included so maintenance schedules can be reconciled.
+   *
+   * @access public
+   *
+   * @param int $limit the maximum number of results
+   * @param int $offset the result offset
+   * @param ?string $organizationId the optional organization identifier
+   *
+   * @return list<TrackableEquipment> the equipment page
+   */
   public function listEquipmentPage(int $limit, int $offset, ?string $organizationId = null): array
   {
     $qb = $this->entityManager->createQueryBuilder()

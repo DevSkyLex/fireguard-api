@@ -10,16 +10,30 @@ use function in_array;
  * Enum InterventionWorkItemStatus.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum InterventionWorkItemStatus: string
 {
+  /**
+   * Case PLANNED
+   */
   case PLANNED = 'planned';
+
+  /**
+   * Case IN_PROGRESS
+   */
   case IN_PROGRESS = 'in_progress';
+
+  /**
+   * Case COMPLETED
+   */
   case COMPLETED = 'completed';
+
+  /**
+   * Case SKIPPED
+   */
   case SKIPPED = 'skipped';
 
   /**

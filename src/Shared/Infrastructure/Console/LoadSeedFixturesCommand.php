@@ -20,6 +20,13 @@ use function count;
 use function in_array;
 use function sprintf;
 
+/**
+ * Class LoadSeedFixturesCommand
+ *
+ * Purges and reloads configured seed fixtures across the auth and main databases.
+ *
+ * @category Console
+ */
 #[AsCommand(
   name: 'app:fixtures:load',
   description: 'Load repository seed fixtures into the auth and main databases safely',
@@ -46,6 +53,16 @@ final class LoadSeedFixturesCommand extends Command
     parent::__construct();
   }
 
+  // #region Methods
+  /**
+   * Method configure.
+   *
+   * Describes the two-database seed-loading behavior and its supported environments.
+   *
+   * @access protected
+   *
+   * @return void no return value
+   */
   protected function configure(): void
   {
     $this
@@ -67,6 +84,18 @@ HELP
       );
   }
 
+  /**
+   * Method execute.
+   *
+   * Validates the environment and fixture sets before loading both database baselines.
+   *
+   * @access protected
+   *
+   * @param InputInterface $input command input
+   * @param OutputInterface $output command output stream
+   *
+   * @return int the Symfony command exit status
+   */
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
     $io = new SymfonyStyle($input, $output);
@@ -144,10 +173,22 @@ HELP
     return $collected;
   }
 
+  /**
+   * Method rollbackIfNeeded.
+   *
+   * Rolls back the connection only when it still has an active transaction.
+   *
+   * @access private
+   *
+   * @param Connection $connection the database connection to inspect
+   *
+   * @return void no return value
+   */
   private function rollbackIfNeeded(Connection $connection): void
   {
     if ($connection->isTransactionActive()) {
       $connection->rollBack();
     }
   }
+  // #endregion
 }

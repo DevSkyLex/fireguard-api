@@ -22,7 +22,6 @@ use function is_string;
  *   { month: { priceId: string, amount: int }, year: { priceId: string, amount: int } }
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

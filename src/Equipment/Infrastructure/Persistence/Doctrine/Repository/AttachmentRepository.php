@@ -17,7 +17,6 @@ use function array_map;
  * Repository AttachmentRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,6 +31,17 @@ final readonly class AttachmentRepository implements AttachmentRepositoryPort
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the entity manager used to access equipment attachment records.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager Doctrine entity manager used to access attachment persistence
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

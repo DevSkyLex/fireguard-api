@@ -11,15 +11,19 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * DTO OrganizationJoinRequestsOutput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class OrganizationJoinRequestsOutput
 {
+  // #region Properties
+  /**
+   * Property totalItems
+   */
   #[Groups([OrganizationSerializationGroup::READ])]
   public int $totalItems = 0;
+  // #endregion
 
   /**
    * @since 1.0.0

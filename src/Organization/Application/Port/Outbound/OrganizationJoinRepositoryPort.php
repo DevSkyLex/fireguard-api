@@ -11,7 +11,6 @@ use Organization\Domain\Model\OrganizationJoin\{OrganizationAccessPolicy, Organi
  * Port OrganizationJoinRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

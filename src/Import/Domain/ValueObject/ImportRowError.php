@@ -21,7 +21,6 @@ namespace Import\Domain\ValueObject;
  * appends a `would_create` entry: its report stays failures-only.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

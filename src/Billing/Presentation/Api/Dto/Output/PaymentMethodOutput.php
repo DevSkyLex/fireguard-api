@@ -18,7 +18,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * which is the normal state for a free-plan organization.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

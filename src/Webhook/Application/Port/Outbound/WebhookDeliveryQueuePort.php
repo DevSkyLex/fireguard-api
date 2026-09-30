@@ -11,7 +11,6 @@ namespace Webhook\Application\Port\Outbound;
  * `Import\Application\Port\Outbound\ImportJobQueuePort`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

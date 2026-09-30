@@ -18,7 +18,6 @@ use function is_string;
  * Trait InterventionWorkflowViewDataTrait.
  *
  * @category Trait
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -26,6 +25,9 @@ use function is_string;
 trait InterventionWorkflowViewDataTrait
 {
   // #region Constants
+  /**
+   * Constant INVALID_LIST_MESSAGE_SUFFIX
+   */
   private const string INVALID_LIST_MESSAGE_SUFFIX = ' must be a list of objects.';
   // #endregion
 

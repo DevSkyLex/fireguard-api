@@ -14,7 +14,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * Hosted Checkout URL the client must redirect the user to.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

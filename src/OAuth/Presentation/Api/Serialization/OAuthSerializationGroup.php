@@ -8,7 +8,6 @@ namespace OAuth\Presentation\Api\Serialization;
  * Class OAuthSerializationGroup.
  *
  * @category Serialization
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

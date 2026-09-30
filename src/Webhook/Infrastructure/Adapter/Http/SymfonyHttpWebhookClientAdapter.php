@@ -22,7 +22,6 @@ use function min;
  * Redirects are disabled and both idle and total delivery duration are bounded.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -46,6 +45,20 @@ final readonly class SymfonyHttpWebhookClientAdapter implements WebhookHttpClien
   // #endregion
 
   // #region Methods
+  /**
+   * Method post.
+   *
+   * Posts a webhook body without following redirects and returns transport failures as response data.
+   *
+   * @access public
+   *
+   * @param string $url the validated webhook target URL
+   * @param array<string, string> $headers the request headers
+   * @param string $body the serialized webhook payload
+   * @param int $timeoutSeconds the requested timeout, bounded by the adapter
+   *
+   * @return WebhookHttpResponse the HTTP status or a delivery failure
+   */
   public function post(string $url, array $headers, string $body, int $timeoutSeconds): WebhookHttpResponse
   {
     try {

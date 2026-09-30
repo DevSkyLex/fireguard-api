@@ -15,7 +15,6 @@ use Shared\Application\Message\ResultMessage;
  * `Response`; it performs no decision of its own beyond that translation.
  *
  * @category Result
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

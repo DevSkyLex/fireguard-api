@@ -12,7 +12,6 @@ use OAuth\Domain\ValueObject\Scope\Scopes;
  * Class AuthCode.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

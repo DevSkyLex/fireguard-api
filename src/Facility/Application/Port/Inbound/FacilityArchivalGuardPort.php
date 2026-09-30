@@ -13,7 +13,6 @@ namespace Facility\Application\Port\Inbound;
  * never silently orphans a live sub-tree, equipment, or inspection.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

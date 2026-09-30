@@ -12,7 +12,6 @@ use Shared\Application\Message\QueryMessage;
  * Backs a message's Thread panel (`GET /messages/{id}/replies`, L2.5).
  *
  * @category UseCase
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

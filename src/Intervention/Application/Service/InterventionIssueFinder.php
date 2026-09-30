@@ -14,7 +14,6 @@ use function sprintf;
  * Service InterventionIssueFinder.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

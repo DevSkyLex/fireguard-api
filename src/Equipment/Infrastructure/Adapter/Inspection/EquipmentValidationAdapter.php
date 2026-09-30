@@ -18,7 +18,6 @@ use function sprintf;
  * using the Equipment module's repository.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -26,6 +25,17 @@ use function sprintf;
 final readonly class EquipmentValidationAdapter implements EquipmentValidationPort
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the equipment repository used to validate equipment references for its consuming module.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to find equipment and validate its organization scope
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
   ) {

@@ -10,7 +10,7 @@ the affected `MODULE.md`. Review the requested scope without editing.
 
 Check layer direction, business logic placement, handler dependencies on ports, cross-module
 imports, auth/main entity-manager wiring, naming, endpoint completeness and documentation
-currency. `make deptrac` runs both `deptrac.yaml` for layers and `deptrac.modules.php` for
+currency. `make deptrac` runs both `deptrac.yaml` for layers and `tests/Architecture/deptrac/modules.php` for
 module boundaries. The latter allows only its exact legacy class-pair exceptions; passing
 the original layer gate alone is insufficient. Inspect business decisions and public API
 intent manually because a dependency graph cannot prove their correctness.

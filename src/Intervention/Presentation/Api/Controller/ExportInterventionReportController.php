@@ -60,7 +60,6 @@ use function sprintf;
  * resource, needed for the applied/proposed changes summary.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -70,6 +69,9 @@ final class ExportInterventionReportController extends AbstractController
   use InterventionWorkflowExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant MAX_ITEMS_PER_PAGE
+   */
   private const int MAX_ITEMS_PER_PAGE = 100;
   // #endregion
 

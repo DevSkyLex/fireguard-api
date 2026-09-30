@@ -12,7 +12,6 @@ use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose, V
  * Inbound port for OTP challenge generation and verification.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -42,11 +41,6 @@ interface OtpChallengePort
   ): ChallengeInfo;
 
   /**
-   * Verifies an OTP challenge.
-   *
-   * @return VerificationInfo the verification result
-   */
-  /**
    * Method generateDecoy.
    *
    * Builds a challenge that is indistinguishable from a real one, without
@@ -73,6 +67,18 @@ interface OtpChallengePort
     string $recipient,
   ): ChallengeInfo;
 
+  /**
+   * Method verify
+   *
+   * Verifies the submitted challenge token and code and returns the verification outcome.
+   *
+   * @access public
+   *
+   * @param string $challengeToken the public challenge token
+   * @param string $code the submitted code
+   *
+   * @return VerificationInfo the verification outcome
+   */
   public function verify(string $challengeToken, string $code): VerificationInfo;
 
   /**

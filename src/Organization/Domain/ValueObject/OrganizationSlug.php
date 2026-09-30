@@ -21,20 +21,31 @@ use function trim;
  * ValueObject OrganizationSlug.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class OrganizationSlug implements Stringable
 {
+  /**
+   * Constant MIN_LENGTH
+   */
   private const int MIN_LENGTH = 3;
 
+  /**
+   * Constant MAX_LENGTH
+   */
   private const int MAX_LENGTH = 120;
 
+  /**
+   * Constant PATTERN
+   */
   private const string PATTERN = '/^[a-z0-9]+(?:-[a-z0-9]+)*$/';
 
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

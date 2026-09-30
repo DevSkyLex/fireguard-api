@@ -29,7 +29,6 @@ use function is_string;
  * keeping the JSON summary and the PDF register aligned.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

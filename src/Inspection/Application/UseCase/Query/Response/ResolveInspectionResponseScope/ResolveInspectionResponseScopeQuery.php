@@ -17,7 +17,6 @@ use Shared\Application\Message\QueryMessage;
  * All three identifiers arrive already parsed: an IRI is transport.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -25,6 +24,19 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ResolveInspectionResponseScopeQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries available organization, intervention, and inspection identifiers for response-scope resolution.
+   *
+   * @access public
+   *
+   * @param ?string $organizationId optional organization scope supplied by the request
+   * @param ?string $interventionId optional linked intervention used to resolve scope
+   * @param ?string $inspectionId optional inspection used to resolve scope
+   *
+   * @return void
+   */
   public function __construct(
     public ?string $organizationId = null,
     public ?string $interventionId = null,

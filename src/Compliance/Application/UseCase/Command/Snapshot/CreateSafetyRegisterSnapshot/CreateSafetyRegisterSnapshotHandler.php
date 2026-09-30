@@ -43,7 +43,6 @@ use function strlen;
  * answers the distinct not-entitled 403.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -51,6 +50,9 @@ use function strlen;
 final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant EXPORT_PERMISSION
+   */
   private const string EXPORT_PERMISSION = 'organization.compliance.export';
   // #endregion
 
@@ -94,11 +96,11 @@ final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandl
    *
    * @param CreateSafetyRegisterSnapshotCommand $command the command payload
    *
+   * @return CreateSafetyRegisterSnapshotResult the archived snapshot metadata
+   *
    * @throws ComplianceNotFoundException if the organization is outside the caller's scope, or the facility is unknown
    * @throws ComplianceAccessDeniedException if the caller lacks the export permission
    * @throws ComplianceExportNotEntitledException if the organization's plan does not entitle it to the register
-   *
-   * @return CreateSafetyRegisterSnapshotResult the archived snapshot metadata
    */
   public function __invoke(CreateSafetyRegisterSnapshotCommand $command): CreateSafetyRegisterSnapshotResult
   {

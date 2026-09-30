@@ -31,7 +31,6 @@ use Symfony\Component\HttpFoundation\Response;
  * a participant of, through either list.
  *
  * @category Resource
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

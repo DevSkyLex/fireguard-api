@@ -18,7 +18,6 @@ namespace Facility\Application\Port\Outbound;
  * Sharing one would make any consumer's change breaking for the others.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -35,7 +35,6 @@ use function min;
  *   `null`.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -43,6 +42,17 @@ use function min;
 final readonly class GetFacilityBuildingModelHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the facility repository used to assemble the organization-scoped building model.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to load facility hierarchy and building-model data
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
   ) {

@@ -29,17 +29,32 @@ use function array_key_exists;
  */
 final readonly class InterventionWorkflowChangeWriter
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Applies authorized proposed-change writes using shared workflow runtime dependencies.
+   *
+   * @access public
+   *
+   * @param InterventionWorkflowWriterRuntime $runtime shared entity, mapping and authorization dependencies
+   * @param InterventionChangePolicy $changePolicy policy governing intervention change rules
+   *
+   * @return void
+   */
   public function __construct(
     private InterventionWorkflowWriterRuntime $runtime,
     private InterventionChangePolicy $changePolicy,
   ) {
   }
+  // #endregion
 
   /**
    * Method mutateChange.
    *
-   * Executes the mutate change operation.
+   * Routes change creation or validates and applies a mutation to the owning intervention change.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionWorkflowMutation $mutation the mutation value
@@ -115,8 +130,9 @@ final readonly class InterventionWorkflowChangeWriter
   /**
    * Method createChange.
    *
-   * Executes the create change operation.
+   * Creates a change record for the intervention and rejects a reused client UUID.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param InterventionWorkflowMutation $mutation the mutation value

@@ -29,7 +29,6 @@ use function is_string;
  * Degrades to a 503 rather than a raw 500 when Stripe cannot be reached.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

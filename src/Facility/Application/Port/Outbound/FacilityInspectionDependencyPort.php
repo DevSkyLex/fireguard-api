@@ -12,7 +12,6 @@ namespace Facility\Application\Port\Outbound;
  * a dependent that archiving the facility would orphan.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

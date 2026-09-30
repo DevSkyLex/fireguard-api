@@ -11,7 +11,6 @@ namespace Compliance\Application\Port\Outbound;
  * Implemented by an adapter hosted in the Inspection module.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

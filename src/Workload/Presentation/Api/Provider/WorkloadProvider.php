@@ -23,7 +23,6 @@ use const PHP_INT_MAX;
  * WorkloadProvider.
  *
  * @category Workload
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

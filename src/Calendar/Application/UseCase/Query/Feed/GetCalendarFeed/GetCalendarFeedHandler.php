@@ -27,7 +27,6 @@ use function substr;
  * see `Calendar\MODULE.md`.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -35,6 +34,9 @@ use function substr;
 final readonly class GetCalendarFeedHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   */
   private const string READ_PERMISSION = 'organization.events.read';
 
   /**
@@ -74,9 +76,9 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
    *
    * @param GetCalendarFeedQuery $query the query payload
    *
-   * @throws InvalidArgumentException when `from`/`to` are malformed, inverted, or span more than 366 days
-   *
    * @return GetCalendarFeedResult the query result
+   *
+   * @throws InvalidArgumentException when `from`/`to` are malformed, inverted, or span more than 366 days
    */
   public function __invoke(GetCalendarFeedQuery $query): GetCalendarFeedResult
   {
@@ -116,9 +118,9 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
    * @param string $value the raw filter value
    * @param string $filterName the filter name, for the error message
    *
-   * @throws InvalidArgumentException when the value is not a valid ISO-8601 datetime
-   *
    * @return DateTimeImmutable the parsed datetime
+   *
+   * @throws InvalidArgumentException when the value is not a valid ISO-8601 datetime
    */
   private static function parse(string $value, string $filterName): DateTimeImmutable
   {

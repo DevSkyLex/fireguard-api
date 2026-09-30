@@ -25,7 +25,6 @@ use function is_string;
  * member has no active token.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

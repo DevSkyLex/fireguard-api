@@ -19,7 +19,6 @@ use function method_exists;
  * Processor SetupTotpProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -43,6 +42,22 @@ final readonly class SetupTotpProcessor implements ProcessorInterface
   // #endregion
 
   // #region Methods
+  /**
+   * Method process.
+   *
+   * Starts TOTP enrollment for the authenticated user and maps the setup result.
+   *
+   * @access public
+   *
+   * @param mixed $data the processor input, unused for setup
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the route variables
+   * @param array<string, mixed> $context the processor context
+   *
+   * @return SetupTotpOutput the enrollment setup data
+   *
+   * @throws BadRequestHttpException when the user is not authenticated
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): SetupTotpOutput
   {
     $user = $this->security->getUser();

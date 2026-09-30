@@ -13,7 +13,6 @@ use function array_key_exists;
  * ValueObject TokenClaims.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * {@see \Messaging\Application\UseCase\Command\Channel\AddChannelParticipant\AddChannelParticipantHandler}.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

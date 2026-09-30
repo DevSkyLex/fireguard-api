@@ -23,7 +23,6 @@ use function array_map;
  * duplicating a query.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -53,11 +52,35 @@ final readonly class NotificationInboxSourceProviderAdapter implements InboxSour
   // #endregion
 
   // #region Methods
+  /**
+   * Method sourceKey.
+   *
+   * Returns the stable source identifier used by the unified inbox.
+   *
+   * @access public
+   *
+   * @return string the notification source key
+   */
   public function sourceKey(): string
   {
     return self::SOURCE_KEY;
   }
 
+  /**
+   * Method fetch.
+   *
+   * Loads the user's notifications with the supplied organization and cursor filters.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   * @param ?string $organizationId optional organization scope
+   * @param ?DateTimeImmutable $before optional timestamp boundary
+   * @param int $limit maximum number of inbox items to return
+   * @param ?InboxCursor $cursor optional continuation cursor
+   *
+   * @return list<InboxItem> mapped notification inbox items
+   */
   public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): array
   {
     // Reuse the notification list query with the inbox's organization scope
@@ -74,6 +97,18 @@ final readonly class NotificationInboxSourceProviderAdapter implements InboxSour
     return array_map($this->toInboxItem(...), $notifications);
   }
 
+  /**
+   * Method countUnread.
+   *
+   * Counts unread notifications within the optional organization scope.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   * @param ?string $organizationId optional organization scope
+   *
+   * @return int number of unread notifications
+   */
   public function countUnread(string $userId, ?string $organizationId): int
   {
     return $this->notificationRepository->countUnreadByUserId(

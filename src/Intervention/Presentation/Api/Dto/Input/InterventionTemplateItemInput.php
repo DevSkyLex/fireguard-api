@@ -11,7 +11,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * DTO InterventionTemplateItemInput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -19,7 +19,6 @@ use function is_bool;
  * @implements ProcessorInterface<mixed, PresencePreferenceOutput>
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

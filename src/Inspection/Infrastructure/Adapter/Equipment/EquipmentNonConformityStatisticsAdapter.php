@@ -18,7 +18,6 @@ use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityStatus
  * for why this is an ORGANIZATION-WIDE counter, not a per-equipment one.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -40,6 +39,17 @@ final readonly class EquipmentNonConformityStatisticsAdapter implements NonConfo
   // #endregion
 
   // #region Methods
+  /**
+   * Method countOpenNonConformities.
+   *
+   * Counts equipment non-conformities that are open or in progress for an organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return int the combined non-conformity count
+   */
   public function countOpenNonConformities(string $organizationId): int
   {
     $organization = InspectionOrganizationId::fromString($organizationId);

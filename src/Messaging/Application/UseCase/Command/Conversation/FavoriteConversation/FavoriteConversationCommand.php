@@ -10,7 +10,6 @@ use Shared\Application\Message\CommandMessage;
  * UseCase FavoriteConversationCommand.
  *
  * @category UseCase
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

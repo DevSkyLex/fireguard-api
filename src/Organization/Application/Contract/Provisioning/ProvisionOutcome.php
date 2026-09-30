@@ -17,17 +17,39 @@ namespace Organization\Application\Contract\Provisioning;
  * an address already holding a pending invitation, and an unknown role name.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum ProvisionOutcome
 {
+  /**
+   * Case CREATED
+   */
   case CREATED;
+
+  /**
+   * Case QUOTA_EXCEEDED
+   */
   case QUOTA_EXCEEDED;
+
+  /**
+   * Case ALREADY_MEMBER
+   */
   case ALREADY_MEMBER;
+
+  /**
+   * Case ALREADY_INVITED
+   */
   case ALREADY_INVITED;
+
+  /**
+   * Case UNKNOWN_ROLE
+   */
   case UNKNOWN_ROLE;
+
+  /**
+   * Case INVALID
+   */
   case INVALID;
 }

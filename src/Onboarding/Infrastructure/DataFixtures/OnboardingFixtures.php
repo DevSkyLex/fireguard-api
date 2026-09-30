@@ -12,22 +12,69 @@ use Onboarding\Infrastructure\Persistence\Doctrine\Record\OrganizationOnboarding
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Shared\Infrastructure\DataFixtures\SeedTimeline;
 
+/**
+ * Class OnboardingFixtures
+ *
+ * Seeds the sample organization onboarding session and its administrator identity.
+ *
+ * @category DataFixtures
+ */
 final class OnboardingFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
+  // #region Constants
+  /**
+   * Reference name for the administrator onboarding session fixture.
+   */
   public const string ADMIN_SESSION_REFERENCE = 'onboarding-seed-admin-session';
 
+  /**
+   * User identifier associated with the seeded administrator session.
+   */
   private const string ADMIN_USER_ID = 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890';
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method getGroups.
+   *
+   * Returns the fixture groups that include onboarding sample data.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return list<string> fixture group names
+   */
   public static function getGroups(): array
   {
     return ['onboarding', 'main-seed'];
   }
 
+  /**
+   * Method getDependencies.
+   *
+   * Declares the organization fixture required before onboarding records can load.
+   *
+   * @access public
+   *
+   * @return list<class-string> prerequisite fixture classes
+   */
   public function getDependencies(): array
   {
     return [OrganizationFixtures::class];
   }
 
+  /**
+   * Method load.
+   *
+   * Creates the sample onboarding session using its seeded administrator reference.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture object manager
+   *
+   * @return void no return value
+   */
   public function load(ObjectManager $manager): void
   {
     $allSteps = OrganizationOnboardingStep::all();
@@ -75,4 +122,5 @@ final class OnboardingFixtures extends Fixture implements DependentFixtureInterf
 
     $manager->flush();
   }
+  // #endregion
 }

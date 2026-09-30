@@ -15,7 +15,6 @@ namespace Organization\Application\Contract\Team;
  * layers.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -17,7 +17,6 @@ use function preg_match;
  * by UuidFactory in the Application layer to maintain hexagonal purity.
  *
  * @category ValueObject
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

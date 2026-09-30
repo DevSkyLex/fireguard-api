@@ -15,7 +15,6 @@ use DateTimeImmutable;
  * brute-force of the feed URL.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

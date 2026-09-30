@@ -13,7 +13,6 @@ use Symfony\Component\HttpFoundation\Request;
  * Test OperationParameterReaderTest.
  *
  * @category Unit Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -24,7 +24,6 @@ use function trim;
  * appended for the same turn.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -86,9 +85,9 @@ final class AssistantMessage
    * @param string $body the question body
    * @param DateTimeImmutable $now the current time
    *
-   * @throws AssistantValidationException when the body is blank
-   *
    * @return self the created user message
+   *
+   * @throws AssistantValidationException when the body is blank
    */
   public static function askUser(
     AssistantMessageId $id,
@@ -401,14 +400,17 @@ final class AssistantMessage
   }
 
   /**
-   * Method assertTransition.
+   * Method initializeAttempt.
    *
-   * @since 1.0.0
-   *
-   * @throws AssistantMessageIllegalStatusTransitionException when the transition is not legal
-   */
-  /**
    * Establishes the first attempt for a new or legacy queued reply.
+   *
+   * @access public
+   *
+   * @param string $questionMessageId the identifier of the user message that prompted this reply
+   * @param ?float $temperature the generation temperature when one was requested
+   * @param DateTimeImmutable $now the time used to start the attempt expiry window
+   *
+   * @return void
    */
   public function initializeAttempt(string $questionMessageId, ?float $temperature, DateTimeImmutable $now): void
   {
@@ -422,56 +424,156 @@ final class AssistantMessage
     $this->attemptExpiresAt = $now->modify('+5 minutes');
   }
 
+  /** Method attemptId
+   *
+   * Returns the identifier of the current generation attempt, when set.
+   *
+   * @access public
+   *
+   * @return ?string the attempt identifier
+   */
   public function attemptId(): ?string
   {
     return $this->attemptId;
   }
 
+  /** Method attemptNumber
+   *
+   * Returns the number assigned to the current generation attempt.
+   *
+   * @access public
+   *
+   * @return int the attempt number
+   */
   public function attemptNumber(): int
   {
     return $this->attemptNumber;
   }
 
+  /** Method attemptSequence
+   *
+   * Returns the sequence counter for state and fragment updates.
+   *
+   * @access public
+   *
+   * @return int the attempt sequence
+   */
   public function attemptSequence(): int
   {
     return $this->attemptSequence;
   }
 
+  /** Method attemptExpiresAt
+   *
+   * Returns the current attempt expiration time, when initialized.
+   *
+   * @access public
+   *
+   * @return ?DateTimeImmutable the expiration time
+   */
   public function attemptExpiresAt(): ?DateTimeImmutable
   {
     return $this->attemptExpiresAt;
   }
 
+  /** Method questionMessageId
+   *
+   * Returns the user question associated with this reply, when known.
+   *
+   * @access public
+   *
+   * @return ?string the question message identifier
+   */
   public function questionMessageId(): ?string
   {
     return $this->questionMessageId;
   }
 
+  /** Method temperature
+   *
+   * Returns the generation temperature captured for this attempt.
+   *
+   * @access public
+   *
+   * @return ?float the generation temperature
+   */
   public function temperature(): ?float
   {
     return $this->temperature;
   }
 
+  /**
+   * Method isExpired
+   *
+   * Checks whether the initialized attempt expiration has passed.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $now time used for the comparison
+   *
+   * @return bool whether the attempt has expired
+   */
   public function isExpired(DateTimeImmutable $now): bool
   {
     return null !== $this->attemptExpiresAt && $this->attemptExpiresAt <= $now;
   }
 
+  /**
+   * Method matchesAttempt
+   *
+   * Checks the supplied attempt identifier against the current or legacy message identifier.
+   *
+   * @access public
+   *
+   * @param string $attemptId identifier to check
+   *
+   * @return bool whether the identifier matches
+   */
   public function matchesAttempt(string $attemptId): bool
   {
     return ($this->attemptId ?? (string) $this->id) === $attemptId;
   }
 
+  /** Method canCancel
+   *
+   * Reports whether this assistant reply is not in a terminal state.
+   *
+   * @access public
+   *
+   * @return bool whether cancellation is currently allowed
+   */
   public function canCancel(): bool
   {
     return AssistantMessageRole::ASSISTANT === $this->role && !$this->status->isTerminal();
   }
 
+  /** Method canRetry
+   *
+   * Reports whether a failed or cancelled reply has an associated question.
+   *
+   * @access public
+   *
+   * @return bool whether retry is currently allowed
+   */
   public function canRetry(): bool
   {
     return null !== $this->questionMessageId && (AssistantMessageStatus::FAILED === $this->status || AssistantMessageStatus::CANCELLED === $this->status);
   }
 
+  /**
+   * Method cancel
+   *
+   * Cancels the matching non-terminal attempt and records its completion time.
+   *
+   * @access public
+   *
+   * @param string $expectedAttemptId expected current attempt identifier
+   * @param DateTimeImmutable $now cancellation time
+   *
+   * @return void
+   *
+   * @throws AssistantAttemptConflictException when the attempt is stale or cannot be cancelled
+   */
   public function cancel(string $expectedAttemptId, DateTimeImmutable $now): void
   {
     if (!$this->matchesAttempt($expectedAttemptId)) {
@@ -489,6 +591,21 @@ final class AssistantMessage
     ++$this->attemptSequence;
   }
 
+  /**
+   * Method retry
+   *
+   * Resets this message for a new attempt when the expected attempt remains eligible.
+   *
+   * @access public
+   *
+   * @param string $expectedAttemptId expected current attempt identifier
+   * @param string $newAttemptId identifier for the next attempt
+   * @param DateTimeImmutable $now retry time
+   *
+   * @return void
+   *
+   * @throws AssistantAttemptConflictException when the attempt is stale or not retryable
+   */
   public function retry(string $expectedAttemptId, string $newAttemptId, DateTimeImmutable $now): void
   {
     if (!$this->matchesAttempt($expectedAttemptId)) {
@@ -508,6 +625,19 @@ final class AssistantMessage
     $this->completedAt = null;
   }
 
+  /**
+   * Method recordFragment
+   *
+   * Replaces the streaming body and advances its sequence counter.
+   *
+   * @access public
+   *
+   * @param string $body latest generated body fragment
+   *
+   * @return void
+   *
+   * @throws AssistantAttemptConflictException when the message is not streaming
+   */
   public function recordFragment(string $body): void
   {
     if (AssistantMessageStatus::STREAMING !== $this->status) {
@@ -517,6 +647,20 @@ final class AssistantMessage
     ++$this->attemptSequence;
   }
 
+  /**
+   * Method assertTransition
+   *
+   * Requires the current status to permit the requested transition.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param AssistantMessageStatus $target target status
+   *
+   * @return void
+   *
+   * @throws AssistantMessageIllegalStatusTransitionException when the transition is disallowed
+   */
   private function assertTransition(AssistantMessageStatus $target): void
   {
     if (!$this->status->canTransitionTo($target)) {

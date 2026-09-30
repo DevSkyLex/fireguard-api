@@ -30,7 +30,6 @@ use function is_string;
  * choice so both directions of the transition agree.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

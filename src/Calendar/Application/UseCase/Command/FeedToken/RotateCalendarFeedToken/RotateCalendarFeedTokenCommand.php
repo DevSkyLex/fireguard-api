@@ -13,7 +13,6 @@ use Shared\Application\Message\CommandMessage;
  * previously active one (create and regenerate are the same operation).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

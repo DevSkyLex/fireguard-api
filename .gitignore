@@ -63,3 +63,5 @@ phpstan.neon
 ###> Serena MCP (index cache + memories, machine-local) ###
 /.serena/
 ###< Serena MCP ###
+# Codex MCP configuration contains checkout paths; share config.example.toml instead.
+/.codex/config.toml

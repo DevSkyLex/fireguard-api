@@ -30,7 +30,6 @@ use function strlen;
  * line folding of RFC 5545 §3.1, folding on UTF-8 character boundaries.
  *
  * @category Ical
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

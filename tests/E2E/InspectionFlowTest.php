@@ -21,7 +21,6 @@ use function uniqid;
  * non-conformity management, state-machine guards, and auth checks.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -18,7 +18,6 @@ use RuntimeException;
  * It answered 400 until 2026-08-26.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

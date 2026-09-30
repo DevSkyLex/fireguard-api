@@ -17,7 +17,6 @@ use Compliance\Domain\ValueObject\ComplianceStatus;
  * never recomputed, only reshaped into a nested structure.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -29,7 +29,6 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
  * of the emailed secret is the credential.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -3,7 +3,7 @@ description: Add a port and its adapter — the Application/Port interface, the 
 argument-hint: '<Module> <Capability> [inbound|outbound] — e.g. "Facility FacilityArchivalGuard inbound"'
 ---
 
-Delegate to the **fg-port-builder** subagent: $ARGUMENTS
+Delegate to the **fg-api-port-builder** subagent: $ARGUMENTS
 
 Require it to:
 

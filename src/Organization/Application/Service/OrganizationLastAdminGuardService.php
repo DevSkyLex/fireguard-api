@@ -15,7 +15,9 @@ use function array_intersect;
 use function in_array;
 
 /**
- * Service OrganizationLastAdminGuardService.
+ * Class OrganizationLastAdminGuardService
+ *
+ * Prevents member and role changes from removing an organization's last active administrator.
  *
  * Enforces the "an organization always keeps at least one active administrator"
  * invariant across member removal and role unassignment. An administrator is an
@@ -32,7 +34,6 @@ use function in_array;
  * removals could still strand the organization with zero administrators.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -40,6 +41,8 @@ use function in_array;
 final readonly class OrganizationLastAdminGuardService implements OrganizationLastAdminGuardPort
 {
   /**
+   * Constant ADMIN_GRANTING_PERMISSIONS
+   *
    * Granted permission patterns that satisfy organization.members.manage.
    *
    * Mirrors {@see OrganizationAuthorizationService::permissionMatches()} for the
@@ -59,10 +62,11 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
-   * Initializes a new instance of the OrganizationLastAdminGuardService class.
+   * Supplies member, role, authorization, event and transaction-scoped lock capabilities.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param OrganizationMemberRepositoryPort $memberRepository the member repository port
@@ -70,6 +74,8 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
    * @param OrganizationAuthorizationPort $authorization the authorization port (effective permission resolution)
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port (audit trail of prevented lockouts)
    * @param OrganizationQuotaLockPort $memberLock the advisory lock serializing check+write on the member set
+   *
+   * @return void
    */
   public function __construct(
     private OrganizationMemberRepositoryPort $memberRepository,
@@ -82,6 +88,21 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
   // #endregion
 
   // #region Methods
+  /**
+   * Method assertCanRemoveMember
+   *
+   * Locks the member set and ensures removing this member leaves another active administrator.
+   * The caller must hold the write transaction that performs the removal.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose member set is locked
+   * @param string $memberId member scheduled for removal
+   *
+   * @return void
+   *
+   * @throws OrganizationLastAdminException when the change would remove the last administrator
+   */
   public function assertCanRemoveMember(string $organizationId, string $memberId): void
   {
     $this->lockMemberSet($organizationId);
@@ -110,6 +131,22 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
     }
   }
 
+  /**
+   * Method assertCanUnassignRole
+   *
+   * Locks the member set and ensures removing this role leaves an active administrator.
+   * The caller must hold the write transaction that performs the unassignment.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose member set is locked
+   * @param string $memberId member scheduled to lose the role
+   * @param string $roleId role scheduled for unassignment
+   *
+   * @return void
+   *
+   * @throws OrganizationLastAdminException when the change would remove the last administrator
+   */
   public function assertCanUnassignRole(string $organizationId, string $memberId, string $roleId): void
   {
     $this->lockMemberSet($organizationId);
@@ -143,6 +180,21 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
     }
   }
 
+  /**
+   * Method assertCanRemoveMembers
+   *
+   * Performs an early batch check that at least one active administrator survives the request.
+   * Each individual removal must still call assertCanRemoveMember inside its transaction.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose members are checked
+   * @param list<string> $memberIds member identifiers scheduled for removal
+   *
+   * @return void
+   *
+   * @throws OrganizationLastAdminException when the batch would remove every administrator
+   */
   public function assertCanRemoveMembers(string $organizationId, array $memberIds): void
   {
     // Deliberately unlocked: a batch is executed as one independent removal per
@@ -179,11 +231,40 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
     }
   }
 
+  /**
+   * Method assertCanUpdateRolePermissions
+   *
+   * Guards a permission change that would remove an administrator grant from a role.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose role is changed
+   * @param string $roleId role identifier being updated
+   * @param list<string> $newPermissions permissions that will remain on the role
+   *
+   * @return void
+   *
+   * @throws OrganizationLastAdminException when no active administrator would remain
+   */
   public function assertCanUpdateRolePermissions(string $organizationId, string $roleId, array $newPermissions): void
   {
     $this->assertRoleChangeKeepsAdmin($organizationId, $roleId, $newPermissions, 'update_role_permissions');
   }
 
+  /**
+   * Method assertCanDeleteRole
+   *
+   * Guards deletion of a role that currently supplies the last administrator grant.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose role is deleted
+   * @param string $roleId role identifier being deleted
+   *
+   * @return void
+   *
+   * @throws OrganizationLastAdminException when no active administrator would remain
+   */
   public function assertCanDeleteRole(string $organizationId, string $roleId): void
   {
     $this->assertRoleChangeKeepsAdmin($organizationId, $roleId, null, 'delete_role');

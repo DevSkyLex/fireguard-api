@@ -10,14 +10,20 @@ use function array_column;
  * Enum AssistantMessageRole.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum AssistantMessageRole: string
 {
+  /**
+   * Case USER
+   */
   case USER = 'user';
+
+  /**
+   * Case ASSISTANT
+   */
   case ASSISTANT = 'assistant';
 
   // #region Methods

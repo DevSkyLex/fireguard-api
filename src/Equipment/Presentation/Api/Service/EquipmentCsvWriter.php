@@ -30,7 +30,6 @@ use function fputcsv;
  * `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest.php`.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

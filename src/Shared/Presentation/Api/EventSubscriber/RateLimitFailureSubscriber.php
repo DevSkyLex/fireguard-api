@@ -17,14 +17,42 @@ use function max;
 use function strtotime;
 use function time;
 
-/** Publishes rate-limit recovery data independently of translated human-readable copy. */
+/**
+ * Class RateLimitFailureSubscriber
+ *
+ * Publishes rate-limit recovery data independently of translated human-readable copy.
+ *
+ * @category EventSubscriber
+ */
 final readonly class RateLimitFailureSubscriber implements EventSubscriberInterface
 {
+  // #region Methods
+  /**
+   * Method getSubscribedEvents
+   *
+   * Registers the exception listener before lower-priority HTTP error handlers.
+   *
+   * @access public
+   *
+   * @return array<string, array{string, int}> exception event mapped to its listener and priority
+   */
   public static function getSubscribedEvents(): array
   {
     return [KernelEvents::EXCEPTION => ['onException', 10]];
   }
 
+  /**
+   * Method onException
+   *
+   * Finds a wrapped HTTP 429 and emits a problem response while retaining its retry headers.
+   * Other exceptions leave the response unchanged.
+   *
+   * @access public
+   *
+   * @param ExceptionEvent $event kernel failure whose causal chain may contain a rate-limit error
+   *
+   * @return void
+   */
   public function onException(ExceptionEvent $event): void
   {
     $error = $event->getThrowable();
@@ -50,6 +78,17 @@ final readonly class RateLimitFailureSubscriber implements EventSubscriberInterf
     } while (null !== $error);
   }
 
+  /**
+   * Method retryAfterSeconds
+   *
+   * Converts integer seconds or a parseable date into a delay, clamping expired dates to zero.
+   *
+   * @access private
+   *
+   * @param mixed $rawDelay retry header value; unsupported types and unparseable dates yield null
+   *
+   * @return ?int seconds before retrying, or null when the deadline is unknown
+   */
   private static function retryAfterSeconds(mixed $rawDelay): ?int
   {
     if (is_int($rawDelay)) {
@@ -66,4 +105,5 @@ final readonly class RateLimitFailureSubscriber implements EventSubscriberInterf
 
     return false === $deadline ? null : max(0, $deadline - time());
   }
+  // #endregion
 }

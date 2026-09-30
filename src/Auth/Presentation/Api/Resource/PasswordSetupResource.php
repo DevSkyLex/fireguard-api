@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response;
  * Declares OTP-protected first password setup for federated-only users.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

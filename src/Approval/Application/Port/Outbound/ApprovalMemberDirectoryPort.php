@@ -14,7 +14,6 @@ namespace Approval\Application\Port\Outbound;
  * never bypass the four-eyes check.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

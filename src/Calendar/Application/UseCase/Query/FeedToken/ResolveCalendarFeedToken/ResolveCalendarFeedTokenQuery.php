@@ -13,7 +13,6 @@ use Shared\Application\Message\QueryMessage;
  * immediately in the handler and never persisted or logged.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

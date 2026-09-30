@@ -17,7 +17,6 @@ use User\Domain\ValueObject\UserId;
  * account's email address without the calling module knowing about users.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

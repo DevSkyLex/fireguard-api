@@ -16,7 +16,6 @@ use Organization\Application\Port\Outbound\FacilityStatisticsPort;
  * using the Facility module's repository.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,12 +23,23 @@ use Organization\Application\Port\Outbound\FacilityStatisticsPort;
 final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the FacilityStatisticsAdapter dependencies and state.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository the facility repository
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * {@inheritDoc}
@@ -55,6 +65,18 @@ final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
     );
   }
 
+  /**
+   * Method countFacilityOverview
+   *
+   * Returns aggregate active and total facility counts for dashboard cards.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $type the optional type
+   *
+   * @return array{total: int, active: int} the facility overview counts
+   */
   public function countFacilityOverview(string $organizationId, ?string $type = null): array
   {
     return $this->facilityRepository->countOverviewByOrganizationId(

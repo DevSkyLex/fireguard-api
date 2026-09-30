@@ -16,7 +16,6 @@ use Shared\Application\Message\QueryHandler;
  * (same rule as reading the channel itself).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

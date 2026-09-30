@@ -21,7 +21,6 @@ use function array_map;
  * the kanban never has to guess a column is empty versus absent.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

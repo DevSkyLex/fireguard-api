@@ -13,7 +13,6 @@ use Intervention\Presentation\Api\Provider\InterventionIssueProvider;
  * Resource InterventionIssueResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

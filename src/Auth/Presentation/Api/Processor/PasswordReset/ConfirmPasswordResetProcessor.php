@@ -26,7 +26,6 @@ use function time;
  * Processor ConfirmPasswordResetProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -66,11 +65,11 @@ final readonly class ConfirmPasswordResetProcessor implements ProcessorInterface
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
+   * @return ConfirmPasswordResetOutput the output
+   *
    * @throws UnauthorizedHttpException when token/code is invalid
    * @throws TooManyRequestsHttpException when max attempts exceeded
    * @throws BadRequestHttpException when request is malformed
-   *
-   * @return ConfirmPasswordResetOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConfirmPasswordResetOutput
   {
@@ -132,6 +131,20 @@ final readonly class ConfirmPasswordResetProcessor implements ProcessorInterface
     };
   }
 
+  /**
+   * Method enforceRateLimit.
+   *
+   * Consumes the password reset confirmation limit when a limiter is configured.
+   *
+   * @access private
+   *
+   * @param string $token the reset token used to derive the rate limit key
+   * @param string $ipAddress the client IP used to derive the rate limit key
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the confirmation limit is exceeded
+   */
   private function enforceRateLimit(string $token, string $ipAddress): void
   {
     if (null === $this->rateLimiter) {
@@ -152,6 +165,18 @@ final readonly class ConfirmPasswordResetProcessor implements ProcessorInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey.
+   *
+   * Builds a rate limit key from hashes of the reset token and client IP.
+   *
+   * @access private
+   *
+   * @param string $token the reset token
+   * @param string $ipAddress the client IP address
+   *
+   * @return string the rate limiter key
+   */
   private function getRateLimitKey(string $token, string $ipAddress): string
   {
     $tokenHash = hash('sha256', $token);

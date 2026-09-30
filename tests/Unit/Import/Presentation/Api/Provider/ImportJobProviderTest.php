@@ -34,7 +34,6 @@ use Throwable;
  * missing job as a 404 rather than leaking a stack trace.
  *
  * @category Provider Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -19,7 +19,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * organization-specific so provenance never has to be guessed.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

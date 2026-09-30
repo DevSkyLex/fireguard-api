@@ -10,16 +10,30 @@ use function array_column;
  * Enum InspectionStatus.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum InspectionStatus: string
 {
+  /**
+   * Case DRAFT
+   */
   case DRAFT = 'draft';
+
+  /**
+   * Case SUBMITTED
+   */
   case SUBMITTED = 'submitted';
+
+  /**
+   * Case CLOSED
+   */
   case CLOSED = 'closed';
+
+  /**
+   * Case CANCELLED
+   */
   case CANCELLED = 'cancelled';
 
   // #region Methods

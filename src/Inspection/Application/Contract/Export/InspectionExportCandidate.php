@@ -17,7 +17,6 @@ namespace Inspection\Application\Contract\Export;
  * resolved in bulk.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

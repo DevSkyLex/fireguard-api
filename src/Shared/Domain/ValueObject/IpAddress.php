@@ -19,7 +19,6 @@ use const FILTER_VALIDATE_IP;
  * ValueObject IpAddress.
  *
  * @category ValueObject
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

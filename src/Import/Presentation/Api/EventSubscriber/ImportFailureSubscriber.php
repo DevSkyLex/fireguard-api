@@ -13,11 +13,33 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /** Stable public import codes; preserves validation and scope errors handled by API Platform. */
 final readonly class ImportFailureSubscriber implements EventSubscriberInterface
 {
+  /**
+   * Method getSubscribedEvents.
+   *
+   * Registers the exception listener for stable import error responses.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return array<string, array{string, int}> exception event mapped to its listener and priority
+   */
   public static function getSubscribedEvents(): array
   {
     return [KernelEvents::EXCEPTION => ['onException', 10]];
   }
 
+  /**
+   * Method onException.
+   *
+   * Maps recognized import failures to stable public error codes and statuses.
+   *
+   * @access public
+   *
+   * @param ExceptionEvent $event the kernel exception event
+   *
+   * @return void no return value
+   */
   public function onException(ExceptionEvent $event): void
   {
     $error = $event->getThrowable();

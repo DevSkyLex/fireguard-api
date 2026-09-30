@@ -29,7 +29,6 @@ use function sprintf;
  * manually created events, which have no other source.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -70,11 +69,31 @@ final class CalendarFixtures extends Fixture implements DependentFixtureInterfac
   // #endregion
 
   // #region Methods
+  /**
+   * Method getGroups.
+   *
+   * Returns the fixture groups that load calendar seed data.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return list<string> the fixture group names
+   */
   public static function getGroups(): array
   {
     return ['calendar', 'main-seed'];
   }
 
+  /**
+   * Method getDependencies.
+   *
+   * Declares the organization and facility fixtures required by calendar seeds.
+   *
+   * @access public
+   *
+   * @return list<class-string> fixture classes that must load first
+   */
   public function getDependencies(): array
   {
     return [
@@ -83,6 +102,17 @@ final class CalendarFixtures extends Fixture implements DependentFixtureInterfac
     ];
   }
 
+  /**
+   * Method load.
+   *
+   * Loads the calendar seed events using references created by prerequisite fixtures.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager the fixture entity manager
+   *
+   * @return void no return value
+   */
   public function load(ObjectManager $manager): void
   {
     /** @var OrganizationMemberRecord $ownerMember */

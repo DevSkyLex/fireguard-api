@@ -31,7 +31,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * code; the confirm step verifies the code and applies the change.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

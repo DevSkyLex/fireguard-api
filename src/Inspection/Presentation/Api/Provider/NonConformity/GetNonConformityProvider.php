@@ -25,13 +25,42 @@ final readonly class GetNonConformityProvider implements ProviderInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the query bus, organization access check, and authenticated actor for one finding.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus loads the requested non-conformity
+   * @param OrganizationAuthorizationPort $authorization checks organization permissions
+   * @param Security $security resolves the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
   ) {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method provide.
+   *
+   * Checks read access and retrieves one non-conformity for the API response.
+   *
+   * @access public
+   *
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the route variables
+   * @param array<string, mixed> $context the provider context
+   *
+   * @return NonConformityOutput the requested non-conformity
+   */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): NonConformityOutput
   {
     $user = $this->security->getUser();
@@ -85,6 +114,17 @@ final readonly class GetNonConformityProvider implements ProviderInterface
     return $this->mapResult($result);
   }
 
+  /**
+   * Method mapResult.
+   *
+   * Copies the query result fields into the API output DTO.
+   *
+   * @access private
+   *
+   * @param GetNonConformityResult $result the requested non-conformity data
+   *
+   * @return NonConformityOutput the serialized API representation
+   */
   private function mapResult(GetNonConformityResult $result): NonConformityOutput
   {
     $output = new NonConformityOutput();
@@ -101,4 +141,5 @@ final readonly class GetNonConformityProvider implements ProviderInterface
 
     return $output;
   }
+  // #endregion
 }

@@ -19,7 +19,6 @@ use Shared\Application\Message\QueryHandler;
  * conversation's content.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -27,6 +26,20 @@ use Shared\Application\Message\QueryHandler;
 final readonly class ListConversationAttachmentsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Checks conversation access and returns a page of attachment metadata.
+   *
+   * @access public
+   *
+   * @param MessagingConversationRepositoryPort $conversations repository used to load and authorize the conversation context
+   * @param MessagingAttachmentRepositoryPort $attachments repository used to list its attachment metadata
+   * @param MessagingSubjectResolverRegistry $resolvers registry resolving permissions for subject conversations
+   * @param MessagingAccessPolicy $accessPolicy policy enforcing organization and participant access
+   *
+   * @return void
+   */
   public function __construct(
     private MessagingConversationRepositoryPort $conversations,
     private MessagingAttachmentRepositoryPort $attachments,

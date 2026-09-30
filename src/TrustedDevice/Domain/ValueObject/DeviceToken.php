@@ -15,7 +15,6 @@ use function random_bytes;
  * ValueObject DeviceToken.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -23,10 +22,16 @@ use function random_bytes;
 final readonly class DeviceToken
 {
   // #region Constants
+  /**
+   * Constant TOKEN_BYTES
+   */
   private const int TOKEN_BYTES = 32;
   // #endregion
 
   // #region Properties
+  /**
+   * Property plainToken
+   */
   private ?string $plainToken;
   // #endregion
 

@@ -48,7 +48,6 @@ use function is_string;
  * there is a single source of truth for the permission decision.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -61,6 +60,23 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the persistence, command, identity, request and validation services used to process
+   * intervention attachment uploads and removals.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager loads existing attachments
+   * @param CommandBusPort $commandBus dispatches attachment commands
+   * @param Security $security resolves the authenticated user
+   * @param RequestStack $requestStack provides the current multipart request
+   * @param MultipartAttachmentGuard $attachmentGuard validates uploaded content
+   * @param RevisionGuard $revisionGuard checks optimistic revision headers
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,
@@ -147,6 +163,19 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
     return $this->outputFor($result->attachmentId);
   }
 
+  /**
+   * Method validatedClientId.
+   *
+   * Validates an optional multipart client UUID used to make uploads retry-safe.
+   *
+   * @access private
+   *
+   * @param mixed $clientId the submitted multipart field
+   *
+   * @return ?string the normalized UUID, or null when omitted
+   *
+   * @throws BadRequestHttpException when the field is not a valid UUID
+   */
   private static function validatedClientId(mixed $clientId): ?string
   {
     if (null !== $clientId && !is_string($clientId)) {
@@ -163,6 +192,20 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
     }
   }
 
+  /**
+   * Method existingAttachment.
+   *
+   * Returns an earlier upload for this intervention or rejects cross-intervention reuse.
+   *
+   * @access private
+   *
+   * @param string $clientId the client-supplied attachment UUID
+   * @param string $interventionId the owning intervention identifier
+   *
+   * @return ?InterventionAttachmentOutput the existing output, or null when absent
+   *
+   * @throws ConflictHttpException when the UUID belongs to another intervention
+   */
   private function existingAttachment(string $clientId, string $interventionId): ?InterventionAttachmentOutput
   {
     $existing = $this->entityManager->find(InterventionAttachmentRecord::class, $clientId);

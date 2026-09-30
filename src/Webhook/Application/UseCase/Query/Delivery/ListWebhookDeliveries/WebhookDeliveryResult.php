@@ -15,7 +15,6 @@ use Webhook\Domain\Model\Delivery\WebhookDelivery;
  * subscription's signing secret.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

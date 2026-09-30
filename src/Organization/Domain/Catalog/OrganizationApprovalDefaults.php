@@ -19,7 +19,6 @@ namespace Organization\Domain\Catalog;
  * layer validates them against the Approval action-type catalog port.
  *
  * @category Catalog
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -55,6 +54,9 @@ final class OrganizationApprovalDefaults
    */
   public const int MIN_APPROVAL_TTL_DAYS = 1;
 
+  /**
+   * Constant MAX_APPROVAL_TTL_DAYS
+   */
   public const int MAX_APPROVAL_TTL_DAYS = 90;
   // #endregion
 

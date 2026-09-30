@@ -13,7 +13,6 @@ use Shared\Domain\ValueObject\Uuid;
  * Event for domain events.
  *
  * @category Domain Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -44,6 +44,21 @@ use function trim;
  */
 final readonly class DoctrineInterventionWorkflowReader
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Builds workflow reads from main-database records and application projections.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager for the Intervention module database
+   * @param InterventionViewMapper $views mapper for intervention workflow views
+   * @param InterventionResourceGatewayPort $resources port used to resolve resource ownership context
+   * @param InterventionWorkflowMutationSupport $support shared record and policy operations for workflow mutations
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private InterventionViewMapper $views,
@@ -51,12 +66,14 @@ final readonly class DoctrineInterventionWorkflowReader
     private InterventionWorkflowMutationSupport $support,
   ) {
   }
+  // #endregion
 
   /**
    * Method interventionContext.
    *
-   * Executes the intervention context operation.
+   * Loads one intervention and projects its workflow context, returning null when it is absent.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
@@ -73,8 +90,9 @@ final readonly class DoctrineInterventionWorkflowReader
   /**
    * Method resourceContext.
    *
-   * Executes the resource context operation.
+   * Resolves workflow context for an intervention, work item or change identifier.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resource the resource value
@@ -102,8 +120,9 @@ final readonly class DoctrineInterventionWorkflowReader
   /**
    * Method get.
    *
-   * Executes the get operation.
+   * Loads one workflow resource and maps the matching record to its workflow view.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resource the resource value
@@ -130,8 +149,9 @@ final readonly class DoctrineInterventionWorkflowReader
   /**
    * Method list.
    *
-   * Executes the list operation.
+   * Returns a paginated, sorted workflow-resource page using the resource-specific query and filters.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resource the resource value
@@ -139,6 +159,7 @@ final readonly class DoctrineInterventionWorkflowReader
    * @param array<string, mixed> $filters the filters value
    * @param int $page the page value
    * @param int $itemsPerPage the items per page value
+   * @param Sorting $sorting the requested field and direction for intervention ordering
    *
    * @return InterventionWorkflowPage the list result
    */
@@ -206,8 +227,9 @@ final readonly class DoctrineInterventionWorkflowReader
   /**
    * Method countInterventions.
    *
-   * Executes the count interventions operation.
+   * Counts organization-scoped interventions matching the supplied list filters.
    *
+   * @access public
    * @since 1.5.0
    *
    * @param string $organizationId the organization id value
@@ -225,8 +247,9 @@ final readonly class DoctrineInterventionWorkflowReader
   /**
    * Method listInterventionExportCandidates.
    *
-   * Executes the list intervention export candidates operation.
+   * Returns filtered interventions in stable update-time and identifier order for export.
    *
+   * @access public
    * @since 1.5.0
    *
    * @param string $organizationId the organization id value
@@ -517,8 +540,9 @@ final readonly class DoctrineInterventionWorkflowReader
   /**
    * Method context.
    *
-   * Executes the context operation.
+   * Projects the intervention identifier, owning organization, status, responsible member and participants.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param InterventionRecord $intervention the intervention value

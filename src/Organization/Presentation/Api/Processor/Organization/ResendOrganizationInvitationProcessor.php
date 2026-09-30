@@ -27,7 +27,6 @@ use function is_string;
  * Processor ResendOrganizationInvitationProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -39,8 +38,13 @@ final readonly class ResendOrganizationInvitationProcessor implements ProcessorI
   use InvitationOutputMapperTrait;
   use UnwrapsOrganizationBusFailures;
 
+  // #region Constants
+  /**
+   * Constant HTTP_BAD_GATEWAY
+   */
   private const int HTTP_BAD_GATEWAY = 502;
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -63,20 +67,23 @@ final readonly class ResendOrganizationInvitationProcessor implements ProcessorI
     private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method process.
    *
    * Processes API input and dispatches the corresponding command.
    *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param mixed $data unused payload; the operation has no input
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return OrganizationInvitationOutput the resent invitation
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationInvitationOutput
   {
@@ -122,6 +129,17 @@ final readonly class ResendOrganizationInvitationProcessor implements ProcessorI
     return $this->buildInvitationOutput($result);
   }
 
+  /**
+   * Method rethrowWrappedFailure
+   *
+   * Maps known wrapped application failures to their corresponding HTTP exceptions and rethrows unrecognized failures.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the exception to inspect
+   *
+   * @return never this method never returns normally
+   */
   private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
   {
     $notFound = $this->findWrappedException($exception, OrganizationInvitationNotFoundException::class)

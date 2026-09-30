@@ -19,7 +19,6 @@ use function array_map;
  * organization-wide open non-conformities.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -39,6 +38,19 @@ final readonly class GetEquipmentKpisHandler implements QueryHandler
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment, maintenance-status, and non-conformity statistics capabilities used to assemble equipment KPIs.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to count equipment and read equipment state
+   * @param MaintenanceDueStatusPort $maintenanceDueStatusPort port used to resolve maintenance due counts
+   * @param NonConformityStatisticsPort $nonConformityStatistics port used to read open non-conformity counts
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private MaintenanceDueStatusPort $maintenanceDueStatusPort,

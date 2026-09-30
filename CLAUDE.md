@@ -16,7 +16,7 @@ the operational digest below.
 1. **Read before writing.** `ARCHITECTURE.md` (the Module Architecture Standard) for any
    structural decision, and the touched `src/<Module>/MODULE.md` before editing a module.
 2. **Business logic lives in use-case handlers.** Not in processors, not in providers, not
-   in controllers. *"Use cases are the single entry point for business logic."*
+   in controllers. _"Use cases are the single entry point for business logic."_
 3. **Dependencies are one-way.** Presentation → Application → Domain · Infrastructure →
    Application (it implements the ports) · Domain depends on nothing but `SharedDomain`.
    Two caveats worth knowing before you lean on the tooling: `deptrac.yaml` permits
@@ -102,14 +102,14 @@ test pass.
 
 ## Tooling — this app ships its own `.claude/`
 
-Open **`fireguard-sso-api/`** as the workspace root to activate it. Full guide in
+Open **`fireguard-api/`** as the workspace root to activate it. Full guide in
 [.claude/README.md](.claude/README.md).
 
-**Builders:** `fg-usecase-builder` · `fg-endpoint-builder` · `fg-port-builder` ·
-`fg-domain-builder` · `fg-module-builder` · `fg-migration-builder`.
+**Builders:** `fg-api-usecase-builder` · `fg-api-endpoint-builder` · `fg-api-port-builder` ·
+`fg-api-domain-builder` · `fg-api-module-builder` · `fg-api-migration-builder`.
 
-**Specialists:** `fg-test-writer` (writes) · `fg-architecture-reviewer`,
-`fg-security-auditor`, `fg-contract-reviewer`, `fg-module-explorer`, `fg-workflow-reviewer`
+**Specialists:** `fg-api-test-writer` (writes) · `fg-api-architecture-reviewer`,
+`fg-api-security-auditor`, `fg-api-contract-reviewer`, `fg-api-module-explorer`, `fg-api-workflow-reviewer`
 (all read-only).
 
 **Commands:** `/fg-usecase` `/fg-endpoint` `/fg-port` `/fg-domain` `/fg-module` `/fg-migrate`
@@ -128,7 +128,7 @@ them repeat the dual-database warning from different angles, on purpose.
 frontend's angular/spartan documentation servers. Code intelligence comes from **`serena-api`**,
 registered at user scope rather than here, and declared on every `fg-*` agent.
 
-Cross-app tooling stays at the monorepo root (`G:\Projets\fireguard\.claude\`): `/fg-map`
+Cross-app tooling stays at the monorepo root (`../.claude/`, relative to this repository): `/fg-map`
 and `/fg-contract-check`. This `.claude/` is also packaged as the **`fireguard-api`
 plugin** (manifest `.claude/.claude-plugin/plugin.json`), installed at the monorepo root —
 root sessions load the agents, the commands as `/fireguard-api:fg-…`, the skills, and the

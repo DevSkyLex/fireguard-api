@@ -25,7 +25,6 @@ use const SORT_STRING;
  * Factory MessageOutputFactory.
  *
  * @category Factory
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -33,12 +32,41 @@ use const SORT_STRING;
 final class MessageOutputFactory
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_IRI_PREFIX
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
 
+  /**
+   * Constant MEMBER_IRI_SEGMENT
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string MEMBER_IRI_SEGMENT = '/members/';
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the batched lookups and mappers needed to assemble message outputs with related data.
+   *
+   * @access public
+   *
+   * @param MessagingAttachmentRepositoryPort $attachments batch-loads message attachments
+   * @param MessageAttachmentOutputFactory $attachmentMapper maps attachment outputs
+   * @param MessagingReactionRepositoryPort $reactions batch-loads message reactions
+   * @param MessagingSavedMessageRepositoryPort $savedMessages resolves the current member's saved messages
+   * @param MessagingMemberDirectoryPort $memberDirectory resolves display names for message participants
+   *
+   * @return void
+   */
   public function __construct(
     private readonly MessagingAttachmentRepositoryPort $attachments,
     private readonly MessageAttachmentOutputFactory $attachmentMapper,

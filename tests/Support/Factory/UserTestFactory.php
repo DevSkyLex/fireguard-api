@@ -20,7 +20,6 @@ use const PASSWORD_BCRYPT;
  * Avoids mocking final readonly classes.
  *
  * @category Test Support
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

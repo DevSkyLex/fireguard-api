@@ -14,7 +14,6 @@ use Shared\Application\Message\QueryHandler;
  * UseCase GetCalendarEventHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -22,6 +21,9 @@ use Shared\Application\Message\QueryHandler;
 final readonly class GetCalendarEventHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   */
   private const string READ_PERMISSION = 'organization.events.read';
   // #endregion
 
@@ -49,9 +51,9 @@ final readonly class GetCalendarEventHandler implements QueryHandler
    *
    * @param GetCalendarEventQuery $query the query payload
    *
-   * @throws CalendarEventNotFoundException when the event does not exist in this organization
-   *
    * @return GetCalendarEventResult the query result
+   *
+   * @throws CalendarEventNotFoundException when the event does not exist in this organization
    */
   public function __invoke(GetCalendarEventQuery $query): GetCalendarEventResult
   {

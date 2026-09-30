@@ -17,7 +17,6 @@ use DateTimeImmutable;
  * returns a flat list grouped by the caller.
  *
  * @category Contract
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

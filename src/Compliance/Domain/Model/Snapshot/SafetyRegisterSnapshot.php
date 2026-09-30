@@ -18,7 +18,6 @@ use DateTimeImmutable;
  * database. A snapshot is never updated: the archive history is append-only.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

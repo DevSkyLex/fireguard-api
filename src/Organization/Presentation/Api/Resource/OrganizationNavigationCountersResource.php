@@ -22,7 +22,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * persistent UI chrome element.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,7 +10,6 @@ namespace Messaging\Presentation\Api\Dto\Input;
  * `PATCH /api/conversations/{id}` request body.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

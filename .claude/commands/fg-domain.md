@@ -3,7 +3,7 @@ description: Add Domain-layer code — an aggregate, a value object, a domain ev
 argument-hint: '<Module> <kind> <Name> — e.g. "Facility value-object FacilityCode"'
 ---
 
-Delegate to the **fg-domain-builder** subagent: $ARGUMENTS
+Delegate to the **fg-api-domain-builder** subagent: $ARGUMENTS
 
 Require it to:
 

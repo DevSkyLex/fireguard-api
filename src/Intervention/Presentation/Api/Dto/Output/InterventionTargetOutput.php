@@ -14,7 +14,6 @@ use ApiPlatform\Metadata\ApiProperty;
  * label and an icon by kind without loading the full target option lists.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

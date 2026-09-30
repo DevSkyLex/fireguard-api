@@ -16,7 +16,6 @@ use Shared\Presentation\Api\Attachment\UploadedAttachment;
  * survive construction exactly as the guard produced them.
  *
  * @category DTO Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

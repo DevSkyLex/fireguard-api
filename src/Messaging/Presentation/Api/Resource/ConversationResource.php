@@ -26,7 +26,6 @@ use Symfony\Component\HttpFoundation\Response;
  * are enforced in the application layer (mirrors Maintenance/Intervention).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -209,6 +208,9 @@ use Symfony\Component\HttpFoundation\Response;
 final class ConversationResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
   // #endregion
 }

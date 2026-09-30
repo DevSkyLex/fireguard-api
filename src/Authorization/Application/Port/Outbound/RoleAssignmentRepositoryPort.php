@@ -14,7 +14,6 @@ use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleId, SubjectType};
  * Port for role assignment persistence operations.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

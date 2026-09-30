@@ -19,7 +19,6 @@ use Facility\Application\Contract\Geocoding\GeocodingResult;
  * geocoding is an input aid and must never block facility management.
  *
  * @category Outbound Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

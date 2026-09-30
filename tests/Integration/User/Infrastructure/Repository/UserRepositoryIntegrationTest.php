@@ -27,7 +27,6 @@ use const PASSWORD_BCRYPT;
  * Test UserRepositoryIntegrationTest.
  *
  * @category Integration Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

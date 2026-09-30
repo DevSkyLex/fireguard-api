@@ -10,7 +10,6 @@ use ApiPlatform\Metadata\ApiProperty;
  * DTO ImportJobOutput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -145,7 +144,15 @@ final class ImportJobOutput
    */
   public string $updatedAt = '';
 
+  // #region Properties
+  /**
+   * Property canConfirm
+   */
   public bool $canConfirm = false;
 
+  /**
+   * Property confirmedJobId
+   */
   public ?string $confirmedJobId = null;
+  // #endregion
 }

@@ -12,7 +12,6 @@ namespace Compliance\Application\Contract;
  * the two never blur at a call site.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

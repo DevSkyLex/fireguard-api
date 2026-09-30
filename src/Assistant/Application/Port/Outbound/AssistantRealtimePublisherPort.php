@@ -21,7 +21,6 @@ use Assistant\Domain\Model\Message\AssistantMessage;
  * `Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherAdapter`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

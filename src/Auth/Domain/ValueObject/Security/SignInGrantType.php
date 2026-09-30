@@ -11,17 +11,25 @@ namespace Auth\Domain\ValueObject\Security;
  * session, including flows that still have to complete MFA.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum SignInGrantType: string
 {
+  /**
+   * Case PASSWORD
+   */
   case PASSWORD = 'password';
 
+  /**
+   * Case GOOGLE
+   */
   case GOOGLE = 'federated_google';
 
+  /**
+   * Case MICROSOFT
+   */
   case MICROSOFT = 'federated_microsoft';
 
   /**

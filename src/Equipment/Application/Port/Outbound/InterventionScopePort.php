@@ -19,7 +19,6 @@ namespace Equipment\Application\Port\Outbound;
  * change a breaking change for the other.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -14,7 +14,6 @@ namespace Inspection\Application\Port\Outbound;
  * counterpart is: validation throws, naming reads.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

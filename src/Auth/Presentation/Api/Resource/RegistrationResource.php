@@ -36,7 +36,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * and log in automatically. Mirrors the password-reset resource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

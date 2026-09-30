@@ -19,7 +19,6 @@ use function trim;
  * Domain Intervention.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -27,6 +26,9 @@ use function trim;
 final class Intervention
 {
   // #region Constants
+  /**
+   * Constant IMMUTABLE_INTERVENTION_MESSAGE
+   */
   private const string IMMUTABLE_INTERVENTION_MESSAGE = 'Published or abandoned interventions are immutable.';
   // #endregion
 
@@ -140,11 +142,14 @@ final class Intervention
   /**
    * Method rename.
    *
-   * Executes the rename operation.
+   * Normalizes and stores a new name while the intervention remains mutable.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $name the name value
+   *
+   * @return void no return value
    */
   public function rename(string $name): void
   {
@@ -173,11 +178,14 @@ final class Intervention
   /**
    * Method changeReviewNote.
    *
-   * Executes the change review note operation.
+   * Normalizes and stores the review note while the intervention remains mutable.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ?string $reviewNote the review note value
+   *
+   * @return void no return value
    */
   public function changeReviewNote(?string $reviewNote): void
   {
@@ -189,12 +197,15 @@ final class Intervention
   /**
    * Method transitionTo.
    *
-   * Executes the transition to operation.
+   * Checks mutability, applies transition policy and required-field rules, then advances the revision.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionStatus $status the status value
    * @param InterventionTransitionPolicy $policy the policy value
+   *
+   * @return void no return value
    */
   public function transitionTo(InterventionStatus $status, InterventionTransitionPolicy $policy): void
   {
@@ -263,8 +274,9 @@ final class Intervention
   /**
    * Method id.
    *
-   * Executes the id operation.
+   * Returns the stable identifier assigned to this intervention aggregate.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return string the id result
@@ -277,8 +289,9 @@ final class Intervention
   /**
    * Method organizationId.
    *
-   * Executes the organization id operation.
+   * Returns the identifier of the organization that owns this intervention.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return string the organization id result
@@ -291,8 +304,9 @@ final class Intervention
   /**
    * Method type.
    *
-   * Executes the type operation.
+   * Returns the intervention’s domain type.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return InterventionType the type result
@@ -305,8 +319,9 @@ final class Intervention
   /**
    * Method name.
    *
-   * Executes the name operation.
+   * Returns the normalized intervention name.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return string the name result
@@ -319,8 +334,9 @@ final class Intervention
   /**
    * Method description.
    *
-   * Executes the description operation.
+   * Returns the optional intervention description.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return ?string the description result
@@ -333,8 +349,9 @@ final class Intervention
   /**
    * Method status.
    *
-   * Executes the status operation.
+   * Returns the current workflow status used by transition and mutability rules.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return InterventionStatus the status result
@@ -347,8 +364,9 @@ final class Intervention
   /**
    * Method siteId.
    *
-   * Executes the site id operation.
+   * Returns the optional facility identifier that scopes the intervention work.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return ?string the site id result
@@ -361,8 +379,9 @@ final class Intervention
   /**
    * Method responsibleId.
    *
-   * Executes the responsible id operation.
+   * Returns the optional organization-member identifier responsible for the intervention.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return ?string the responsible id result
@@ -387,8 +406,9 @@ final class Intervention
   /**
    * Method priority.
    *
-   * Executes the priority operation.
+   * Returns the priority assigned to the intervention schedule.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return InterventionPriority the priority result
@@ -401,8 +421,9 @@ final class Intervention
   /**
    * Method plannedStartAt.
    *
-   * Executes the planned start at operation.
+   * Returns the optional planned start timestamp for the intervention.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return ?DateTimeImmutable the planned start at result
@@ -415,8 +436,9 @@ final class Intervention
   /**
    * Method dueAt.
    *
-   * Executes the due at operation.
+   * Returns the optional due timestamp for the intervention.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return ?DateTimeImmutable the due at result
@@ -429,8 +451,9 @@ final class Intervention
   /**
    * Method reviewNote.
    *
-   * Executes the review note operation.
+   * Returns the optional note recorded by the reviewer.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return ?string the review note result
@@ -443,8 +466,9 @@ final class Intervention
   /**
    * Method revision.
    *
-   * Executes the revision operation.
+   * Returns the optimistic-concurrency revision incremented after each aggregate change.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return int the revision result
@@ -457,8 +481,9 @@ final class Intervention
   /**
    * Method createdAt.
    *
-   * Executes the created at operation.
+   * Returns the timestamp at which this intervention was created.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return DateTimeImmutable the created at result
@@ -471,8 +496,9 @@ final class Intervention
   /**
    * Method updatedAt.
    *
-   * Executes the updated at operation.
+   * Returns the timestamp of the most recent aggregate change.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return DateTimeImmutable the updated at result
@@ -485,12 +511,15 @@ final class Intervention
   /**
    * Method applyTransition.
    *
-   * Executes the apply transition operation.
+   * Enforces transition policy, planning prerequisites, schedule validity and the required review note.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param InterventionStatus $status the status value
    * @param InterventionTransitionPolicy $policy the policy value
+   *
+   * @return void no return value
    */
   private function applyTransition(InterventionStatus $status, InterventionTransitionPolicy $policy): void
   {
@@ -513,9 +542,12 @@ final class Intervention
   /**
    * Method assertMutable.
    *
-   * Executes the assert mutable operation.
+   * Rejects mutation after the intervention reaches a terminal status.
    *
+   * @access private
    * @since 1.0.0
+   *
+   * @return void no return value
    */
   private function assertMutable(): void
   {
@@ -618,9 +650,12 @@ final class Intervention
   /**
    * Method assertSchedule.
    *
-   * Executes the assert schedule operation.
+   * Rejects schedules whose due date is not later than the planned start.
    *
+   * @access private
    * @since 1.0.0
+   *
+   * @return void no return value
    */
   private function assertSchedule(): void
   {
@@ -632,9 +667,12 @@ final class Intervention
   /**
    * Method touch.
    *
-   * Executes the touch operation.
+   * Advances the aggregate revision and records the current update time.
    *
+   * @access private
    * @since 1.0.0
+   *
+   * @return void no return value
    */
   private function touch(): void
   {
@@ -645,8 +683,9 @@ final class Intervention
   /**
    * Method required.
    *
-   * Executes the required operation.
+   * Trims a required value and raises a conflict when no content remains.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $value the value value
@@ -667,8 +706,9 @@ final class Intervention
   /**
    * Method normalizeName.
    *
-   * Executes the normalize name operation.
+   * Trims and validates an intervention name against its required and 160-character constraints.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $name the name value
@@ -688,8 +728,9 @@ final class Intervention
   /**
    * Method nullable.
    *
-   * Executes the nullable operation.
+   * Trims an optional text value and converts empty content to null.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param ?string $value the value value

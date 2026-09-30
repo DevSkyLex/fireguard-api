@@ -14,7 +14,6 @@ use Webhook\Presentation\Api\Dto\Output\{WebhookSecretOutput, WebhookSubscriptio
  * Factory WebhookSubscriptionOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

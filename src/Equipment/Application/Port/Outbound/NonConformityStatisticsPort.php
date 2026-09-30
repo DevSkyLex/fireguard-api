@@ -28,7 +28,6 @@ namespace Equipment\Application\Port\Outbound;
  * organization, not "how many belong to the equipment currently listed".
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

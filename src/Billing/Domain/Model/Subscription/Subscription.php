@@ -17,7 +17,6 @@ use DateTimeImmutable;
  * sync by webhooks; Stripe remains the source of truth.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

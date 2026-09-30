@@ -10,7 +10,6 @@ use Intervention\Application\Port\Outbound\InterventionDraftPublisherPort;
  * Service InterventionDraftPublisher.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

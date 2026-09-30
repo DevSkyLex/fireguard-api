@@ -47,7 +47,6 @@ use const FILTER_VALIDATE_BOOLEAN;
  * Provider GetOrganizationDashboardProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @implements ProviderInterface<OrganizationDashboardOutput>
@@ -68,6 +67,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    */
   use UnwrapsOrganizationBusFailures;
 
+  /**
+   * Constant INVALID_BOOLEAN_FILTER_MESSAGE
+   */
   private const string INVALID_BOOLEAN_FILTER_MESSAGE = 'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.';
   // #endregion
 
@@ -103,11 +105,11 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    * @param array<string, mixed> $uriVariables API Platform route variables, expected to include 'organizationId'
    * @param array<string, mixed> $context API Platform context, expected to include 'filters' with dashboard filter values
    *
+   * @return OrganizationDashboardOutput|null OrganizationDashboardOutput on success, null on invalid input
+   *
    * @throws AccessDeniedHttpException when the user is not authenticated or misses a required permission
    * @throws BadRequestHttpException when one of the dashboard filters is invalid
    * @throws NotFoundHttpException when the target organization does not exist
-   *
-   * @return OrganizationDashboardOutput|null OrganizationDashboardOutput on success, null on invalid input
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?OrganizationDashboardOutput
   {
@@ -271,10 +273,10 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    * @param array<string, mixed> $filters the normalized filters array
    * @param string $name The name of the date filter to extract (e.g., 'from' or 'to').
    *
-   * @throws BadRequestHttpException if the filter value is present but invalid (e.g., not a valid date string).
-   *
    * @return DateTimeImmutable|null the parsed DateTimeImmutable object if the filter is valid,
    *                                or null if the filter is not set or empty
+   *
+   * @throws BadRequestHttpException if the filter value is present but invalid (e.g., not a valid date string).
    */
   private function extractDateFilter(array $filters, string $name): ?DateTimeImmutable
   {
@@ -353,9 +355,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    * @param array<string, mixed> $filters the normalized filters array
    * @param list<string> $allowedValues the list of allowed string values for the filter
    *
-   * @throws BadRequestHttpException if the provided filter value is not in the list of allowed values
-   *
    * @return string|null the validated filter value if present and valid, or null if not set or empty
+   *
+   * @throws BadRequestHttpException if the provided filter value is not in the list of allowed values
    */
   private function extractOptionalEnumFilter(array $filters, string $name, array $allowedValues): ?string
   {

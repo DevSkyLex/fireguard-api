@@ -14,17 +14,35 @@ use function array_column;
  * quarters). See {@see RecurrenceRule} for how a step is derived.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum RecurrenceFrequency: string
 {
+  /**
+   * Case WEEKLY
+   */
   case WEEKLY = 'weekly';
+
+  /**
+   * Case MONTHLY
+   */
   case MONTHLY = 'monthly';
+
+  /**
+   * Case QUARTERLY
+   */
   case QUARTERLY = 'quarterly';
+
+  /**
+   * Case SEMIANNUAL
+   */
   case SEMIANNUAL = 'semiannual';
+
+  /**
+   * Case ANNUAL
+   */
   case ANNUAL = 'annual';
 
   // #region Methods

@@ -25,7 +25,6 @@ use function in_array;
  * per-message Messaging events (volume/PII), and Audit's own events.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
  * Port ChecklistRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -65,6 +64,19 @@ interface ChecklistRepositoryPort
     int $offset = 0,
   ): array;
 
+  /**
+   * Method countByOrganizationId.
+   *
+   * Counts checklists matching an organization's optional filters.
+   *
+   * @access public
+   *
+   * @param ChecklistOrganizationId $organizationId the organization identifier
+   * @param string|null $status the optional checklist status filter
+   * @param string|null $search the optional name search value
+   *
+   * @return int the number of matching checklists
+   */
   public function countByOrganizationId(
     ChecklistOrganizationId $organizationId,
     ?string $status = null,

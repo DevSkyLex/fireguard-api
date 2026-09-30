@@ -11,7 +11,6 @@ use Billing\Application\Port\Outbound\BillingReconciliationPort;
  * In-memory receipt journal for handler tests; PostgreSQL tests cover locking.
  *
  * @category Test Support
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

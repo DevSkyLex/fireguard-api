@@ -8,7 +8,6 @@ namespace Auth\Presentation\Api\Operation;
  * Class PasswordResetOperations.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

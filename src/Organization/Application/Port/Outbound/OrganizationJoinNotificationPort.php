@@ -8,7 +8,6 @@ namespace Organization\Application\Port\Outbound;
  * Port for localized post-commit organization access notifications.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

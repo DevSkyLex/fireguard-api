@@ -13,7 +13,6 @@ namespace Onboarding\Application\Service;
  * then this payload signals the onboarding engine to validate the step.
  *
  * @category ValueObject
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

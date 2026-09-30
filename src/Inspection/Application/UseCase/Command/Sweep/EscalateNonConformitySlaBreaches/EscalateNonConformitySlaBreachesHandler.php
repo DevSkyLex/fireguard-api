@@ -41,7 +41,6 @@ use function sprintf;
  * has no SLA (unknown severity) is skipped and left unstamped.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -16,7 +16,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * A field is only applied when present in the merge-patch request body.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use function trim;
  * control characters.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -28,10 +27,16 @@ use function trim;
 final readonly class ChannelName implements Stringable
 {
   // #region Constants
+  /**
+   * Constant CONTROL_CHARS_PATTERN
+   */
   private const string CONTROL_CHARS_PATTERN = '/[\x00-\x1F\x7F]/';
   // #endregion
 
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

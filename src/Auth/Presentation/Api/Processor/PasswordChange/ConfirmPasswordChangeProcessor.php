@@ -36,7 +36,6 @@ use function time;
  * authenticated user.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -76,12 +75,12 @@ final readonly class ConfirmPasswordChangeProcessor implements ProcessorInterfac
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
+   * @return ConfirmPasswordChangeOutput the output
+   *
    * @throws AccessDeniedHttpException when not authenticated
    * @throws UnauthorizedHttpException when token/code is invalid
    * @throws TooManyRequestsHttpException when max attempts exceeded
    * @throws BadRequestHttpException when request is malformed
-   *
-   * @return ConfirmPasswordChangeOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConfirmPasswordChangeOutput
   {
@@ -146,6 +145,20 @@ final readonly class ConfirmPasswordChangeProcessor implements ProcessorInterfac
     };
   }
 
+  /**
+   * Method enforceRateLimit.
+   *
+   * Consumes the password change confirmation limit when a limiter is configured.
+   *
+   * @access private
+   *
+   * @param string $userId the account identifier used to derive the rate limit key
+   * @param string $token the confirmation token used to derive the rate limit key
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the confirmation limit is exceeded
+   */
   private function enforceRateLimit(string $userId, string $token): void
   {
     if (null === $this->rateLimiter) {
@@ -166,6 +179,18 @@ final readonly class ConfirmPasswordChangeProcessor implements ProcessorInterfac
     );
   }
 
+  /**
+   * Method getRateLimitKey.
+   *
+   * Builds a rate limit key from hashes of the account and confirmation token.
+   *
+   * @access private
+   *
+   * @param string $userId the account identifier
+   * @param string $token the confirmation token
+   *
+   * @return string the rate limiter key
+   */
   private function getRateLimitKey(string $userId, string $token): string
   {
     $userHash = hash('sha256', $userId);

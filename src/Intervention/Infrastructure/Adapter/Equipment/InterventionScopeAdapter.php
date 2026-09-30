@@ -24,7 +24,6 @@ use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
  * those seven cases.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

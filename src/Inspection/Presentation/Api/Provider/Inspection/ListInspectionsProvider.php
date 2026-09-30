@@ -147,6 +147,19 @@ final readonly class ListInspectionsProvider implements ProviderInterface
     );
   }
 
+  /**
+   * Method optionalString.
+   *
+   * Returns a non-empty string query value, or null for other values.
+   *
+   * @access private
+   *
+   * @static
+   *
+   * @param mixed $value the query parameter value
+   *
+   * @return string|null the non-empty string value
+   */
   private static function optionalString(mixed $value): ?string
   {
     return is_string($value) && '' !== $value ? $value : null;
@@ -155,8 +168,9 @@ final readonly class ListInspectionsProvider implements ProviderInterface
   /**
    * Method mapResult.
    *
-   * Executes the map result operation.
+   * Maps one inspection query result to its API output DTO.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param GetInspectionResult $result the result value

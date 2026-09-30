@@ -17,7 +17,6 @@ namespace Maintenance\Application\Port\Outbound\Naming;
  * label lookup scoped to a batch of identifiers already known.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -1,6 +1,6 @@
 ---
 name: dual-database
-description: The auth/main two-database split in fireguard-sso-api — which modules live where, the explicit $entityManager wiring every repository needs, the migration commands per database, and the test-database setup. Use before wiring a repository, generating a migration, or debugging data that went to the wrong place.
+description: The auth/main two-database split in fireguard-api — which modules live where, the explicit $entityManager wiring every repository needs, the migration commands per database, and the test-database setup. Use before wiring a repository, generating a migration, or debugging data that went to the wrong place.
 ---
 
 # Two databases, two entity managers, two migration histories
@@ -16,7 +16,7 @@ This is the single most expensive thing to get wrong in this codebase, because *
 | Migrations folder | `migrations/auth/` | `migrations/main/` |
 | Version table | `doctrine_migration_versions_auth` | `doctrine_migration_versions_main` |
 | Apply target | `make migrate-auth` | `make migrate-main` |
-| Docker container | `fireguard-sso-api-auth_database-1` | `fireguard-sso-api-main_database-1` |
+| Docker container | `fireguard-api-auth_database-1` | `fireguard-api-main_database-1` |
 | Owns | OAuth · User · Otp · Authorization · Session · Tenant · TrustedDevice · Audit | Organization · Facility · Equipment · Inspection · Intervention · Notification and the other business modules |
 
 **`config/packages/doctrine.yaml` is the authority.** Find the `dir:`/`prefix:` pair that maps your module's `…\Infrastructure\Persistence\Doctrine\Record` namespace, and read which `entity_managers:` block it sits under. The table above is a summary that will drift; the config will not.

@@ -24,7 +24,6 @@ use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateU
  * Test RegisterUserHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

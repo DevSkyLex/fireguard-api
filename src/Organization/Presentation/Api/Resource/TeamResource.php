@@ -21,7 +21,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * {@see OrganizationRoleResource}'s endpoint/permission shape.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -185,10 +184,19 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class TeamResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant TEAM_URI_TEMPLATE
+   */
   private const string TEAM_URI_TEMPLATE = '/{organizationId}/teams/{teamId}';
   // #endregion
 }

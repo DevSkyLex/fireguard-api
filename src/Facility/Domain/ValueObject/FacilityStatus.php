@@ -8,14 +8,20 @@ namespace Facility\Domain\ValueObject;
  * Enum FacilityStatus.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum FacilityStatus: string
 {
+  /**
+   * Case ACTIVE
+   */
   case ACTIVE = 'active';
+
+  /**
+   * Case ARCHIVED
+   */
   case ARCHIVED = 'archived';
 
   // #region Methods

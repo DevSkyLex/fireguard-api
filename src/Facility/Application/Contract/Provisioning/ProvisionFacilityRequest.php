@@ -28,7 +28,6 @@ namespace Facility\Application\Contract\Provisioning;
  * path lets a file order its parents before its children.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

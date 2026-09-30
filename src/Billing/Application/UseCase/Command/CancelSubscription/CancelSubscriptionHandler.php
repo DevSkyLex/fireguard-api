@@ -18,7 +18,6 @@ use Shared\Application\Message\{CommandHandler, VoidResult};
  * webhook converges to the same state.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -55,15 +54,28 @@ final readonly class CancelSubscriptionHandler implements CommandHandler
    *
    * @param CancelSubscriptionCommand $command the command payload
    *
-   * @throws NoActiveSubscriptionException when the organization has no live subscription
-   *
    * @return VoidResult the neutral result
+   *
+   * @throws NoActiveSubscriptionException when the organization has no live subscription
    */
   public function __invoke(CancelSubscriptionCommand $command): VoidResult
   {
     return $this->reconciliation->synchronized($command->organizationId, fn (): VoidResult => $this->execute($command));
   }
 
+  /**
+   * Method execute.
+   *
+   * Schedules cancellation with Stripe and saves the refreshed local subscription.
+   *
+   * @access private
+   *
+   * @param CancelSubscriptionCommand $command the organization subscription command
+   *
+   * @return VoidResult the neutral handler result
+   *
+   * @throws NoActiveSubscriptionException when no Stripe-backed subscription exists
+   */
   private function execute(CancelSubscriptionCommand $command): VoidResult
   {
     $subscription = $this->subscriptions->findByOrganizationId($command->organizationId, refresh: true);

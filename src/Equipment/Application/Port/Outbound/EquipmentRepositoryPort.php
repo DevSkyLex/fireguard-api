@@ -14,7 +14,6 @@ use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
  * Port EquipmentRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

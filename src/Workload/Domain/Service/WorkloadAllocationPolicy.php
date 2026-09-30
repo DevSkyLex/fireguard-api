@@ -22,7 +22,6 @@ use const SORT_NUMERIC;
  * is deliberately not an input: subtracting it would hide oversubscription.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

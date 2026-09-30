@@ -1,6 +1,6 @@
 ---
 name: module-testing
-description: How to test fireguard-sso-api — which level covers what, the test path mirroring src/, the denial paths a functional test must assert, the PostgreSQL test databases, and the exact PHPUnit commands. Use before writing or running any test.
+description: How to test fireguard-api — which level covers what, the test path mirroring src/, the denial paths a functional test must assert, the PostgreSQL test databases, and the exact PHPUnit commands. Use before writing or running any test.
 ---
 
 # Testing

@@ -45,7 +45,6 @@ use function sprintf;
  * - rollback stack and rollback execution
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -55,10 +54,34 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constants
+  /**
+   * Constant FLOW_KEY
+   *
+   * Stable key identifying the organization onboarding flow in session results.
+   *
+   * @access private
+   */
   private const string FLOW_KEY = 'organization';
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies session persistence, buses, transaction handling, identifier creation, and event dispatch.
+   *
+   * @access public
+   *
+   * @param OrganizationOnboardingSessionRepositoryPort $sessionRepository session lookup and persistence
+   * @param QueryBusPort $queryBus queries authoritative organization and setup state
+   * @param CommandBusPort $commandBus dispatches organization commands during rollback
+   * @param UuidFactory $uuidFactory creates onboarding session identifiers
+   * @param TransactionManagerPort $transactionManager transaction boundary for session changes
+   * @param EventDispatcherInterface $eventDispatcher publishes completed-flow events
+   * @param \Onboarding\Application\Port\Outbound\OrganizationSetupRepositoryPort|null $setupRepository optional setup journal access
+   *
+   * @return void
+   */
   public function __construct(
     private OrganizationOnboardingSessionRepositoryPort $sessionRepository,
     private QueryBusPort $queryBus,
@@ -253,10 +276,10 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    * @param string $userId the authenticated user identifier
    * @param string $stepKey the step to skip
    *
+   * @return OrganizationOnboardingSessionState the updated flow state
+   *
    * @throws InvalidArgumentException when the step key is invalid
    * @throws LogicException when the step is required, already completed, or not the current pending step
-   *
-   * @return OrganizationOnboardingSessionState the updated flow state
    */
   public function skipStep(string $userId, string $stepKey): OrganizationOnboardingSessionState
   {
@@ -368,6 +391,18 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     });
   }
 
+  /**
+   * Method isConfirmedStep
+   *
+   * Checks whether a creation-flow step has completed explicitly rather than by being skipped.
+   *
+   * @access private
+   *
+   * @param OrganizationOnboardingSession $session onboarding session to inspect
+   * @param string $stepKey step identifier to check
+   *
+   * @return bool whether the step has a non-skipped completion entry
+   */
   private function isConfirmedStep(OrganizationOnboardingSession $session, string $stepKey): bool
   {
     if (!$session->creationIntent() || !in_array($stepKey, $session->completedSteps(), true)) {
@@ -382,6 +417,20 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     return false;
   }
 
+  /**
+   * Method assertNoPreparedSetupOperation
+   *
+   * Prevents confirmation while a setup operation for the step has no recorded resource identifier.
+   *
+   * @access private
+   *
+   * @param OrganizationOnboardingSession $session onboarding session whose journal is checked
+   * @param string $stepKey step identifier being confirmed
+   *
+   * @return void
+   *
+   * @throws OrganizationSetupConflict when the step still has an incomplete prepared operation
+   */
   private function assertNoPreparedSetupOperation(OrganizationOnboardingSession $session, string $stepKey): void
   {
     foreach ($this->setupRepository?->listOperations($session->id()) ?? [] as $setupOperation) {
@@ -491,6 +540,17 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     );
   }
 
+  /**
+   * Method resetSessionWithoutTarget
+   *
+   * Clears target-dependent progress and resets the flow to organization creation.
+   *
+   * @access private
+   *
+   * @param OrganizationOnboardingSession $session session to reset
+   *
+   * @return ComputedOnboardingState in-progress state with no target organization
+   */
   private function resetSessionWithoutTarget(OrganizationOnboardingSession $session): ComputedOnboardingState
   {
     if (null !== $session->targetOrganizationId() && !($this->setupRepository?->hasJournal($session->id()) ?? false)) {
@@ -514,6 +574,17 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     );
   }
 
+  /**
+   * Method nextPendingStep
+   *
+   * Finds the first canonical step that is neither completed nor skippable as already skipped.
+   *
+   * @access private
+   *
+   * @param OrganizationOnboardingSession $session onboarding session to inspect
+   *
+   * @return string|null next pending step key, or null when all steps are complete
+   */
   private function nextPendingStep(OrganizationOnboardingSession $session): ?string
   {
     $completedSteps = $session->completedSteps();

@@ -28,7 +28,6 @@ use function time;
  * Provider CheckConsentProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -58,8 +57,8 @@ final readonly class CheckConsentProvider implements ProviderInterface
     private readonly ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method provide
@@ -128,6 +127,18 @@ final readonly class CheckConsentProvider implements ProviderInterface
     );
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Enforces the endpoint rate limit for the supplied recipient or request context.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   * @param string $clientId the client identifier
+   *
+   * @return void
+   */
   private function enforceRateLimit(string $userId, string $clientId): void
   {
     if (null === $this->rateLimiter) {
@@ -148,6 +159,18 @@ final readonly class CheckConsentProvider implements ProviderInterface
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds the stable rate-limit key for the current request.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   * @param string $clientId the client identifier
+   *
+   * @return string
+   */
   private function getRateLimitKey(string $userId, string $clientId): string
   {
     $userHash = hash('sha256', $userId);
@@ -155,4 +178,5 @@ final readonly class CheckConsentProvider implements ProviderInterface
 
     return sprintf('oauth_consent_check_%s_%s', substr($userHash, 0, 16), substr($clientHash, 0, 16));
   }
+  // #endregion
 }

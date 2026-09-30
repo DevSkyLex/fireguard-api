@@ -17,7 +17,6 @@ use Messaging\Application\Contract\Channel\ParticipantView;
  * only `team`-sourced rows are ever pruned by the event-driven sync.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

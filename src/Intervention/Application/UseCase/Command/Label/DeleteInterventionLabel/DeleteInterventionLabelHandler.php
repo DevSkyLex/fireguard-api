@@ -17,7 +17,6 @@ use Shared\Application\Message\{CommandHandler, VoidResult};
  * never deletes the interventions it was attached to.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

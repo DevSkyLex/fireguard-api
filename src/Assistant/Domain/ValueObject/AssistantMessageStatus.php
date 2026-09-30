@@ -29,17 +29,35 @@ use function in_array;
  * {@see \Assistant\Domain\Model\Message\AssistantMessage} instead.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum AssistantMessageStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case STREAMING
+   */
   case STREAMING = 'streaming';
+
+  /**
+   * Case COMPLETE
+   */
   case COMPLETE = 'complete';
+
+  /**
+   * Case FAILED
+   */
   case FAILED = 'failed';
+
+  /**
+   * Case CANCELLED
+   */
   case CANCELLED = 'cancelled';
 
   // #region Methods

@@ -31,7 +31,6 @@ use function min;
  * Handles `GET /imports` (org-scoped list, optional `kind` filter).
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

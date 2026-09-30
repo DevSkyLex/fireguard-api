@@ -22,7 +22,6 @@ use function max;
  * two handles a user actually quotes when hunting for an inspection.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

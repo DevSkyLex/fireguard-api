@@ -13,13 +13,15 @@ use function preg_match;
  * ValueObject OrganizationRoleName.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class OrganizationRoleName implements Stringable
 {
+  /**
+   * Constant PATTERN
+   */
   private const string PATTERN = '/^[a-z0-9_]{3,50}$/';
 
   // #region Constructor

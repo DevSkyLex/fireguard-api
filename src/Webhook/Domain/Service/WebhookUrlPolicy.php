@@ -34,7 +34,6 @@ use const PHP_URL_SCHEME;
  * once resolved — see {@see isPrivateOrReservedIp()}.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

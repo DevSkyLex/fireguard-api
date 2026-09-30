@@ -26,7 +26,6 @@ use function str_starts_with;
  * simulating the full Stripe object graph.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -85,11 +84,31 @@ final class FakeStripeGatewayAdapter implements StripeGatewayPort
     return new StripeEvent(type: 'fake.event');
   }
 
+  /**
+   * Method isLiveMode
+   *
+   * Reports whether live mode the requested condition.
+   *
+   * @access public
+   *
+   * @return bool
+   */
   public function isLiveMode(): bool
   {
     return false;
   }
 
+  /**
+   * Method listSubscriptions
+   *
+   * Lists all Stripe subscriptions associated with a customer.
+   *
+   * @access public
+   *
+   * @param string $customerId the customer identifier
+   *
+   * @return list<\Billing\Application\Contract\Stripe\StripeSubscription> the customer subscription snapshots
+   */
   public function listSubscriptions(string $customerId): array
   {
     return [];

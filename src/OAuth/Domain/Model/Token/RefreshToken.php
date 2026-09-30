@@ -11,7 +11,6 @@ use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
  * Class RefreshToken.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use function in_array;
  * Model Client.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -35,6 +34,7 @@ final class Client
    * for the Client entity.
    *
    * @since 1.0.0
+   *
    * @see RecordsDomainEvents
    */
   use RecordsDomainEvents;

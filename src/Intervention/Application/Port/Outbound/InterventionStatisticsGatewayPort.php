@@ -22,7 +22,6 @@ use Intervention\Application\Contract\Statistics\InterventionStatisticsAggregate
  * queries, never N+1), without either port depending on the other.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

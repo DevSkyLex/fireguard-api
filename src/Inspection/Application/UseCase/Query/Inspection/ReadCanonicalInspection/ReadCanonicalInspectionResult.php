@@ -13,7 +13,6 @@ use Shared\Application\Message\ResultMessage;
  * `view` is null when nothing matches — the caller decides the status.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -21,6 +20,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class ReadCanonicalInspectionResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the canonical inspection read view when a record is available.
+   *
+   * @access public
+   *
+   * @param ?CanonicalInspectionReadView $view canonical inspection view, or null when no record is available
+   *
+   * @return void
+   */
   public function __construct(
     public ?CanonicalInspectionReadView $view = null,
   ) {

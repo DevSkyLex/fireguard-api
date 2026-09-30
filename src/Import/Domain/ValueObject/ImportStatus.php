@@ -14,16 +14,30 @@ use function array_column;
  * (`completed` | `failed`). A job is terminal once `completed` or `failed`.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum ImportStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case PROCESSING
+   */
   case PROCESSING = 'processing';
+
+  /**
+   * Case COMPLETED
+   */
   case COMPLETED = 'completed';
+
+  /**
+   * Case FAILED
+   */
   case FAILED = 'failed';
 
   // #region Methods

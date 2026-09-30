@@ -16,7 +16,6 @@ use Intervention\Application\Contract\Template\{InterventionTemplateCreateReques
  * aggregate — the same treatment as `InterventionLabelPort`.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

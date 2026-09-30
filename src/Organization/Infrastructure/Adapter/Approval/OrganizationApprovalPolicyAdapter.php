@@ -23,7 +23,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * silently trigger the approval gate.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -45,6 +44,17 @@ final readonly class OrganizationApprovalPolicyAdapter implements ApprovalPolicy
   // #endregion
 
   // #region Methods
+  /**
+   * Method policyFor.
+   *
+   * Maps an organization's approval settings to the policy consumed by the Approval module.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return ApprovalPolicy the effective approval policy, disabled when settings are unavailable
+   */
   public function policyFor(string $organizationId): ApprovalPolicy
   {
     try {

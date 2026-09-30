@@ -23,7 +23,6 @@ use function is_string;
  * unpinning a message that is not currently pinned never errors).
  *
  * @category Processor
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -36,7 +36,6 @@ use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
  * Test AddOrganizationAdminConsoleCommand.
  *
  * @category Unit Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

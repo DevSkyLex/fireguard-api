@@ -29,7 +29,6 @@ use const STR_PAD_LEFT;
  * HTTP contracts and denial paths with local DNS/email fakes and real main persistence.
  *
  * @category FunctionalTest
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,7 +10,6 @@ declare(strict_types=1);
  * metrics and inconsistent totals fail closed instead of yielding a false pass.
  *
  * @category Quality
- *
  * @version 1.0.0
  *
  * @author FireGuard

@@ -14,7 +14,6 @@ use Shared\Application\Message\QueryHandler;
  * UseCase GetInspectionHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -22,6 +21,21 @@ use Shared\Application\Message\QueryHandler;
 final readonly class GetInspectionHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives inspection and non-conformity repositories plus naming and checklist capabilities used to build the detail view.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to load the inspection and its core fields
+   * @param NonConformityRepositoryPort $nonConformityRepository port used to load findings recorded for the inspection
+   * @param EquipmentNamingPort $equipmentNaming port used to resolve equipment display data
+   * @param FacilityNamingPort $facilityNaming port used to resolve facility display data
+   * @param ChecklistRepositoryPort $checklistRepository port used to retrieve the checklist detail
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,

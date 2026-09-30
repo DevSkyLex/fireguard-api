@@ -20,7 +20,6 @@ use function assert;
  * Provides the list of permissions.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -21,7 +21,6 @@ use Messaging\Domain\ValueObject\MessagingSubjectType;
  * subject regardless of its workflow status.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -29,6 +28,15 @@ use Messaging\Domain\ValueObject\MessagingSubjectType;
 final readonly class InterventionMessagingSubjectResolverAdapter implements MessagingSubjectResolverPort
 {
   // #region Constants
+  /**
+   * Constant REQUIRED_READ_PERMISSION
+   *
+   * Permission required to view an intervention messaging subject.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string REQUIRED_READ_PERMISSION = 'organization.interventions.read';
   // #endregion
 
@@ -47,11 +55,36 @@ final readonly class InterventionMessagingSubjectResolverAdapter implements Mess
   // #endregion
 
   // #region Methods
+  /**
+   * Method supports
+   *
+   * Handles intervention subject references.
+   *
+   * @access public
+   * @access public
+   *
+   * @param MessagingSubjectType $type subject type to check
+   *
+   * @return bool whether this adapter supports the type
+   */
   public function supports(MessagingSubjectType $type): bool
   {
     return MessagingSubjectType::INTERVENTION === $type;
   }
 
+  /**
+   * Method resolve
+   *
+   * Resolves an organization's intervention and its read permission requirement.
+   *
+   * @access public
+   * @access public
+   *
+   * @param string $organizationId organization scope
+   * @param string $subjectId intervention identifier
+   *
+   * @return MessagingSubjectResolution existence, label and permission projection
+   */
   public function resolve(string $organizationId, string $subjectId): MessagingSubjectResolution
   {
     $record = $this->entityManager->find(InterventionRecord::class, $subjectId);

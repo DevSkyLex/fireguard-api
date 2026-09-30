@@ -20,7 +20,6 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
  * Test DeletePlanHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

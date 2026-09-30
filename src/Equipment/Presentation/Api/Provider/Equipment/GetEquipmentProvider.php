@@ -22,7 +22,6 @@ use function is_string;
  * Provider GetEquipmentProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -34,6 +33,19 @@ final readonly class GetEquipmentProvider implements ProviderInterface
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives organization authorization, caller identity, and equipment response assembly for a detail read.
+   *
+   * @access public
+   *
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
+   * @param Security $security security context used to obtain the requesting member
+   * @param \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail factory used to assemble the equipment detail response
+   *
+   * @return void
+   */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
     private Security $security,

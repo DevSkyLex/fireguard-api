@@ -25,7 +25,6 @@ use const JSON_UNESCAPED_UNICODE;
  * contract.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

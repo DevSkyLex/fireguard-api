@@ -12,7 +12,6 @@ namespace Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction;
  * associative array and how to be reconstructed from it.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

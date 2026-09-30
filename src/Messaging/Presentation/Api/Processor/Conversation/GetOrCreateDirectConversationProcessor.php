@@ -25,7 +25,6 @@ use Throwable;
  * 1-to-1 direct conversation with another organization member (L2.4).
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

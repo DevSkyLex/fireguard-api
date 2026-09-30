@@ -8,17 +8,35 @@ namespace Facility\Domain\ValueObject;
  * Enum FacilityType.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum FacilityType: string
 {
+  /**
+   * Case SITE
+   */
   case SITE = 'site';
+
+  /**
+   * Case BUILDING
+   */
   case BUILDING = 'building';
+
+  /**
+   * Case FLOOR
+   */
   case FLOOR = 'floor';
+
+  /**
+   * Case ZONE
+   */
   case ZONE = 'zone';
+
+  /**
+   * Case AREA
+   */
   case AREA = 'area';
 
   // #region Methods

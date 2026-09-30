@@ -24,7 +24,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource OrganizationMemberResource.
  *
  * @category Resource
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -169,12 +168,24 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class OrganizationMemberResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant OPENAPI_TAG_MEMBERS
+   */
   private const string OPENAPI_TAG_MEMBERS = 'Organization Members';
 
+  /**
+   * Constant UUID_PATTERN
+   */
   private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
   // #endregion
 }

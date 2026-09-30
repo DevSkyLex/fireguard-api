@@ -16,7 +16,6 @@ use ValueError;
  * UseCase ListNonConformitiesHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,6 +23,18 @@ use ValueError;
 final readonly class ListNonConformitiesHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives inspection and non-conformity repositories used to validate scope and list findings.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to validate the inspection and organization scope
+   * @param NonConformityRepositoryPort $nonConformityRepository port used to retrieve matching findings
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,

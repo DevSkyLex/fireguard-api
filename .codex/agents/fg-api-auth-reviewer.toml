@@ -1,4 +1,7 @@
 name = "fg-api-auth-reviewer"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
 description = "Review OAuth/OIDC, token verification, sessions, MFA, signatures, rotation, revocation and replay boundaries."
 sandbox_mode = "read-only"
 developer_instructions = """
@@ -17,3 +20,6 @@ secrets. Report concrete attacker paths and missing regression tests; do not wid
 Do not start nested agents unless the parent explicitly assigns further delegation.
 Report prioritized findings with exact file/line evidence, actual checks, limitations and blockers.
 """
+
+[features]
+fast_mode = false

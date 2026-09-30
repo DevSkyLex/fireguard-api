@@ -26,7 +26,6 @@ use User\Application\Port\Outbound\UserRepositoryPort;
  * Prevent stale invitation commands from overwriting concurrently accepted invitations.
  *
  * @category UnitTest
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

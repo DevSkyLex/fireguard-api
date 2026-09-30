@@ -19,7 +19,6 @@ use function trim;
  * ValueObject TenantSettings.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,12 +48,24 @@ final readonly class TenantSettings
   // #endregion
 
   // #region Properties
+  /**
+   * Property accessTokenTtl
+   */
   public int $accessTokenTtl;
 
+  /**
+   * Property refreshTokenTtl
+   */
   public int $refreshTokenTtl;
 
+  /**
+   * Property requirePkce
+   */
   public bool $requirePkce;
 
+  /**
+   * Property allowPublicClients
+   */
   public bool $allowPublicClients;
 
   /**
@@ -62,6 +73,9 @@ final readonly class TenantSettings
    */
   public array $allowedScopes;
 
+  /**
+   * Property customIssuer
+   */
   public ?string $customIssuer;
   // #endregion
 

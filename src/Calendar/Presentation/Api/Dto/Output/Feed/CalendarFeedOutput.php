@@ -12,7 +12,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * DTO CalendarFeedOutput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -56,6 +55,9 @@ final class CalendarFeedOutput
   #[ApiProperty(readable: true, writable: false)]
   public array $sources = [];
 
+  /**
+   * Property complete
+   */
   #[Groups([CalendarSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public bool $complete = true;

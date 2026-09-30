@@ -14,7 +14,6 @@ use Shared\Application\Message\ResultMessage;
  * when the organization has no Stripe customer yet.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

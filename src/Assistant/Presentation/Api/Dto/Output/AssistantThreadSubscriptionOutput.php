@@ -18,7 +18,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * `Messaging\Presentation\Api\Dto\Output\MessagingSubscriptionOutput`).
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

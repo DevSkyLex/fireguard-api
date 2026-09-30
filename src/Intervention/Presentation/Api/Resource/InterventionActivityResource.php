@@ -20,7 +20,6 @@ use Symfony\Component\HttpFoundation\Response;
  * system-recorded lifecycle events (creation, status transitions).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

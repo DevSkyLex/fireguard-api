@@ -18,7 +18,6 @@ use User\Presentation\Api\Processor\Presence\UpdatePresencePreferenceProcessor;
  * Test UpdatePresencePreferenceProcessorTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

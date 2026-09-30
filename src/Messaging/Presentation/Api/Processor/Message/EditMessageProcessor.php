@@ -29,7 +29,6 @@ use function trim;
  * Handles `PATCH /api/messages/{id}`.
  *
  * @category Processor
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

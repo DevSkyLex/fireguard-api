@@ -24,7 +24,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * lives on {@see CalendarFeedIcsResource}.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -96,8 +95,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class CalendarFeedTokenResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FEED_TOKEN_URI_TEMPLATE
+   */
   private const string FEED_TOKEN_URI_TEMPLATE = '/{organizationId}/calendar/feed-token';
   // #endregion
 }

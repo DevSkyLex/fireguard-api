@@ -16,7 +16,6 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
  * published) inspection targeting it.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

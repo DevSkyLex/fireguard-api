@@ -20,7 +20,6 @@ use function trim;
  * a fixed catalog so the rest of the application can rely on them.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -71,14 +70,29 @@ final readonly class OrganizationRegionalSettings
    */
   public const array ALLOWED_MEASUREMENT_SYSTEMS = ['metric', 'imperial'];
 
+  /**
+   * Constant DEFAULT_TIMEZONE
+   */
   private const string DEFAULT_TIMEZONE = 'UTC';
 
+  /**
+   * Constant DEFAULT_LOCALE
+   */
   private const string DEFAULT_LOCALE = 'en-US';
 
+  /**
+   * Constant DEFAULT_DATE_FORMAT
+   */
   private const string DEFAULT_DATE_FORMAT = 'yyyy-MM-dd';
 
+  /**
+   * Constant DEFAULT_FIRST_DAY
+   */
   private const string DEFAULT_FIRST_DAY = 'monday';
 
+  /**
+   * Constant DEFAULT_MEASUREMENT_SYSTEM
+   */
   private const string DEFAULT_MEASUREMENT_SYSTEM = 'metric';
   // #endregion
 

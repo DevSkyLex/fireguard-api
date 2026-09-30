@@ -19,7 +19,6 @@ use function preg_match;
  * Prevents an empty collector or a permissive module rule from making the gate vacuous.
  *
  * @category Architecture Unit Tests
- *
  * @version 1.0.0
  */
 final class ModuleBoundaryConfigurationTest extends TestCase
@@ -30,7 +29,7 @@ final class ModuleBoundaryConfigurationTest extends TestCase
     $root = dirname(__DIR__, 3);
     $config = new DeptracConfig();
     /** @var callable(DeptracConfig): void $configure */
-    $configure = require $root . '/deptrac.modules.php';
+    $configure = require $root . '/tests/Architecture/deptrac/modules.php';
     $configure($config);
     /** @var array{layers: array<string, array{collectors: list<array{value: string}>}>, ruleset: array<string, array<int|string, string>>} $definition */
     $definition = $config->toArray();

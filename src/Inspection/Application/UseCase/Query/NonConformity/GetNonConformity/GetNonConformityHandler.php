@@ -9,14 +9,51 @@ use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFo
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityId};
 use Shared\Application\Message\QueryHandler;
 
+/**
+ * Class GetNonConformityHandler
+ *
+ * Loads one non-conformity after confirming its inspection belongs to the requested organization.
+ *
+ * @category Handler
+ */
 final readonly class GetNonConformityHandler implements QueryHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides repositories for validating the inspection and loading its non-conformity.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository reads the inspection aggregate
+   * @param NonConformityRepositoryPort $nonConformityRepository reads the non-conformity aggregate
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Returns non-conformity details only when both the inspection and item match the request.
+   *
+   * @access public
+   *
+   * @param GetNonConformityQuery $query identifies the organization, inspection and item
+   *
+   * @return GetNonConformityResult requested non-conformity details
+   *
+   * @throws InspectionNotFoundException when the inspection is missing or outside the organization
+   * @throws NonConformityNotFoundException when the item is missing or belongs to another inspection
+   */
   public function __invoke(GetNonConformityQuery $query): GetNonConformityResult
   {
     $organizationId = InspectionOrganizationId::fromString($query->organizationId);
@@ -48,4 +85,5 @@ final readonly class GetNonConformityHandler implements QueryHandler
       updatedAt: $nonConformity->updatedAt(),
     );
   }
+  // #endregion
 }

@@ -24,7 +24,6 @@ use function sprintf;
  * per priority, per site or per responsible.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -57,8 +56,14 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
    */
   private const int TOP_N = 10;
 
+  /**
+   * Constant INTERVENTION_COUNT_EXPRESSION
+   */
   private const string INTERVENTION_COUNT_EXPRESSION = 'COUNT(intervention.id)';
 
+  /**
+   * Constant INTERVENTION_COUNT_PROJECTION
+   */
   private const string INTERVENTION_COUNT_PROJECTION = 'COUNT(intervention.id) AS count';
   // #endregion
 

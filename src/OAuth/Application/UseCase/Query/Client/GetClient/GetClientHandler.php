@@ -13,7 +13,6 @@ use Shared\Domain\Exception\EntityNotFoundException;
  * Handler GetClientHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -47,9 +46,9 @@ final readonly class GetClientHandler implements QueryHandler
    *
    * @param GetClientQuery $query the query to handle
    *
-   * @throws EntityNotFoundException if the client is not found
-   *
    * @return GetClientResult the result message
+   *
+   * @throws EntityNotFoundException if the client is not found
    */
   public function __invoke(GetClientQuery $query): GetClientResult
   {

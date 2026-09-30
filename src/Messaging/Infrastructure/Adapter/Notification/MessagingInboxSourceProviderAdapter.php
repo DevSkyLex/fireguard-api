@@ -63,7 +63,6 @@ use const ENT_QUOTES;
  * never one query per conversation.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -85,8 +84,22 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    */
   private const string KIND_MENTION = 'mention';
 
+  /**
+   * Constant TARGET_TYPE_CONVERSATION.
+   *
+   * Target type assigned to inbox items that point to a conversation.
+   *
+   * @access private
+   */
   private const string TARGET_TYPE_CONVERSATION = 'conversation';
 
+  /**
+   * Constant SNIPPET_MAX_LENGTH.
+   *
+   * Maximum number of characters retained in a message preview.
+   *
+   * @access private
+   */
   private const int SNIPPET_MAX_LENGTH = 160;
 
   /**
@@ -164,11 +177,35 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
   // #endregion
 
   // #region Methods
+  /**
+   * Method sourceKey.
+   *
+   * Returns this adapter's stable unified-inbox source identifier.
+   *
+   * @access public
+   *
+   * @return string the messaging source key
+   */
   public function sourceKey(): string
   {
     return self::SOURCE_KEY;
   }
 
+  /**
+   * Method fetch.
+   *
+   * Loads accessible message mentions for the user's organization-scoped member identity.
+   *
+   * @access public
+   *
+   * @param string $userId the local user identifier
+   * @param ?string $organizationId optional organization scope
+   * @param ?DateTimeImmutable $before optional timestamp boundary
+   * @param int $limit maximum number of inbox items to return
+   * @param ?InboxCursor $cursor optional continuation cursor
+   *
+   * @return list<InboxItem> accessible mention inbox items
+   */
   public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): array
   {
     // Messaging member identity is per-organization
@@ -189,6 +226,18 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     return $this->fetchMentions($userId, $organizationId, $memberId, $before, $limit, $cursor);
   }
 
+  /**
+   * Method countUnread.
+   *
+   * Counts unread accessible mentions within the adapter's bounded scan window.
+   *
+   * @access public
+   *
+   * @param string $userId the local user identifier
+   * @param ?string $organizationId optional organization scope
+   *
+   * @return int unread mention count within the configured scan limit
+   */
   public function countUnread(string $userId, ?string $organizationId): int
   {
     // Same organization-scoping rationale as fetch(): mention identity is
@@ -360,6 +409,17 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     return $accessible;
   }
 
+  /**
+   * Method isParticipantConversation.
+   *
+   * Identifies direct and channel conversations whose access follows participation.
+   *
+   * @access private
+   *
+   * @param string $subjectType conversation subject type
+   *
+   * @return bool whether access is determined by participant membership
+   */
   private static function isParticipantConversation(string $subjectType): bool
   {
     return MessagingSubjectType::CHANNEL->value === $subjectType || MessagingSubjectType::DIRECT->value === $subjectType;

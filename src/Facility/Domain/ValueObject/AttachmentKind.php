@@ -12,15 +12,20 @@ namespace Facility\Domain\ValueObject;
  * facility's primary plan (see `FacilityAttachment`).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum AttachmentKind: string
 {
+  /**
+   * Case DOCUMENT
+   */
   case DOCUMENT = 'document';
 
+  /**
+   * Case FLOOR_PLAN
+   */
   case FLOOR_PLAN = 'floor_plan';
 
   // #region Methods

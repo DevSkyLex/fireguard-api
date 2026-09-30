@@ -26,7 +26,6 @@ use function is_string;
  * Processor AddOrganizationMemberProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -78,12 +77,15 @@ final readonly class AddOrganizationMemberProcessor implements ProcessorInterfac
    *
    * Processes API input and dispatches the corresponding command.
    *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param AddOrganizationMemberInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return OrganizationMemberOutput the added organization member
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationMemberOutput
   {
@@ -136,6 +138,17 @@ final readonly class AddOrganizationMemberProcessor implements ProcessorInterfac
     return $output;
   }
 
+  /**
+   * Method rethrowWrappedFailure.
+   *
+   * Maps recognized wrapped handler failures to their HTTP exceptions and rethrows unrecognized failures.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the message bus failure to inspect
+   *
+   * @return never this method always throws
+   */
   private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
   {
     // The bus wraps handler failures; preserve the direct-catch status mapping.

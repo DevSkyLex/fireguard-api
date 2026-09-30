@@ -11,7 +11,6 @@ namespace Organization\Application\Port\Outbound;
  * coupling the Organization module to the Facility repository.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -15,7 +15,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * history (date, amount, status, and links to the hosted invoice and PDF).
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

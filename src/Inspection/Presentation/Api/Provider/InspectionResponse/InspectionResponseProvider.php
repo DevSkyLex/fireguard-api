@@ -51,7 +51,6 @@ use function min;
  * has always done.
  *
  * @category Provider
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -68,6 +67,9 @@ final readonly class InspectionResponseProvider implements ProviderInterface
    */
   private const int DEFAULT_ITEMS_PER_PAGE = 50;
 
+  /**
+   * Constant MAX_ITEMS_PER_PAGE
+   */
   private const int MAX_ITEMS_PER_PAGE = 100;
   // #endregion
 

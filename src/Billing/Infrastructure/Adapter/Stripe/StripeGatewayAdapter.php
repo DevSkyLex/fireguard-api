@@ -28,7 +28,6 @@ use function strtoupper;
  * the infrastructure layer.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -43,6 +42,13 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
    */
   private StripeClient $stripe;
 
+  /**
+   * Property liveMode.
+   *
+   * Whether the configured Stripe key targets live mode.
+   *
+   * @access private
+   */
   private bool $liveMode;
   // #endregion
 
@@ -160,11 +166,31 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
     );
   }
 
+  /**
+   * Method isLiveMode.
+   *
+   * Reports whether the adapter was configured with a live Stripe key.
+   *
+   * @access public
+   *
+   * @return bool whether Stripe live mode is active
+   */
   public function isLiveMode(): bool
   {
     return $this->liveMode;
   }
 
+  /**
+   * Method listSubscriptions.
+   *
+   * Lists all Stripe subscriptions associated with a customer.
+   *
+   * @access public
+   *
+   * @param string $customerId the Stripe customer identifier
+   *
+   * @return list<StripeSubscription> the customer's subscription snapshots
+   */
   public function listSubscriptions(string $customerId): array
   {
     try {
@@ -272,9 +298,9 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
    *
    * @param string $customerId the Stripe customer identifier
    *
-   * @throws BillingGatewayUnavailableException when Stripe cannot be reached
-   *
    * @return ?array<array-key, mixed> the raw payment method payload, or null
+   *
+   * @throws BillingGatewayUnavailableException when Stripe cannot be reached
    */
   private function firstCardPaymentMethod(string $customerId): ?array
   {

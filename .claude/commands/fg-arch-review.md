@@ -3,7 +3,7 @@ description: Review backend changes against the hexagonal Module Architecture St
 argument-hint: '[path, module, or diff scope — defaults to the working-tree changes]'
 ---
 
-Delegate to the **fg-architecture-reviewer** subagent: $ARGUMENTS
+Delegate to the **fg-api-architecture-reviewer** subagent: $ARGUMENTS
 
 If no scope is given, review the working-tree changes (`git status` + `git diff`).
 
@@ -18,6 +18,6 @@ Require it to check, worst first:
 7. **Endpoint completeness** — the six-item checklist, security included.
 8. **`MODULE.md` currency** — updated in the same change that added an endpoint, flow, error code, or configuration requirement.
 
-It must substantiate with `make deptrac`, `make phpstan`, and `make lint`, and defer security to **fg-security-auditor**, contract questions to **fg-contract-reviewer**, and test adequacy to **fg-test-writer**.
+It must substantiate with `make deptrac`, `make phpstan`, and `make lint`, and defer security to **fg-api-security-auditor**, contract questions to **fg-api-contract-reviewer**, and test adequacy to **fg-api-test-writer**.
 
 Ask for findings ranked **blocker → should-fix → nit**, each citing its section, and a one-line verdict: conforms, or changes required.

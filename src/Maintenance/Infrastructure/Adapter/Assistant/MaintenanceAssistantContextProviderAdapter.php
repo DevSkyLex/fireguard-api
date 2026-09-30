@@ -34,7 +34,6 @@ use function usort;
  * for it (unlike Inspection's sibling adapter).
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -42,10 +41,31 @@ use function usort;
 final readonly class MaintenanceAssistantContextProviderAdapter implements AssistantContextProviderPort
 {
   // #region Constants
+  /**
+   * Constant SOURCE_KEY.
+   *
+   * Identifies the maintenance due-date fragment in assistant context.
+   *
+   * @access private
+   */
   private const string SOURCE_KEY = 'maintenance.upcoming_due_dates';
 
+  /**
+   * Constant REQUIRED_READ_PERMISSION.
+   *
+   * Organization permission required to include maintenance context.
+   *
+   * @access private
+   */
   private const string REQUIRED_READ_PERMISSION = 'organization.maintenance.read';
 
+  /**
+   * Constant MAX_ITEMS_PER_STATUS.
+   *
+   * Bounds each maintenance status list included in the context fragment.
+   *
+   * @access private
+   */
   private const int MAX_ITEMS_PER_STATUS = 5;
   // #endregion
 
@@ -66,11 +86,36 @@ final readonly class MaintenanceAssistantContextProviderAdapter implements Assis
   // #endregion
 
   // #region Methods
+  /**
+   * Method supports.
+   *
+   * Checks whether the actor has permission to read maintenance schedules.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param AssistantContextScope $scope the actor and requested context scope
+   *
+   * @return bool whether maintenance context may be included
+   */
   public function supports(string $organizationId, AssistantContextScope $scope): bool
   {
     return $this->authorization->hasPermission($scope->actorUserId, $organizationId, self::REQUIRED_READ_PERMISSION);
   }
 
+  /**
+   * Method provide.
+   *
+   * Builds a bounded context fragment from overdue and due-soon maintenance schedules.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param AssistantContextScope $scope the actor and requested context scope
+   * @param AssistantContextBudget $budget the remaining context size budget
+   *
+   * @return AssistantContextFragment the schedule summary or an empty fragment
+   */
   public function provide(string $organizationId, AssistantContextScope $scope, AssistantContextBudget $budget): AssistantContextFragment
   {
     try {

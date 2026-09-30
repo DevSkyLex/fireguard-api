@@ -7,8 +7,16 @@ namespace Facility\Application\UseCase\Query\Facility\GetFacilityDescendants;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Shared\Application\Message\ResultMessage;
 
+/**
+ * Class GetFacilityDescendantsResult
+ *
+ * Carries the descendant facilities returned by the query.
+ *
+ * @category Result
+ */
 final readonly class GetFacilityDescendantsResult implements ResultMessage
 {
+  // #region Constructor
   /**
    * @param list<GetFacilityResult> $items
    */
@@ -16,4 +24,5 @@ final readonly class GetFacilityDescendantsResult implements ResultMessage
     public array $items,
   ) {
   }
+  // #endregion
 }

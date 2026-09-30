@@ -27,7 +27,6 @@ use function sprintf;
  * case as-is.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -82,9 +81,9 @@ final readonly class ResolveCalendarFeedTokenHandler implements QueryHandler
    *
    * @param ResolveCalendarFeedTokenQuery $query the query payload
    *
-   * @throws CalendarFeedTokenNotFoundException when the secret matches no active token
-   *
    * @return ResolveCalendarFeedTokenResult the resolved member identity and window bounds
+   *
+   * @throws CalendarFeedTokenNotFoundException when the secret matches no active token
    */
   public function __invoke(ResolveCalendarFeedTokenQuery $query): ResolveCalendarFeedTokenResult
   {

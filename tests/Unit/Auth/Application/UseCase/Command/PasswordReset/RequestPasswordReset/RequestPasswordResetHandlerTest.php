@@ -27,7 +27,6 @@ use function str_repeat;
  * Test RequestPasswordResetHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

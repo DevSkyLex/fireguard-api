@@ -8,7 +8,6 @@ namespace Intervention\Application\Contract\Recurrence;
  * Contract InterventionRecurrencePage.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

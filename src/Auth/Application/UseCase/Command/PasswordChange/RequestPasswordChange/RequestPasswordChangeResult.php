@@ -11,7 +11,6 @@ use Shared\Application\Message\ResultMessage;
  * Class RequestPasswordChangeResult.
  *
  * @category Result
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -19,8 +18,14 @@ use Shared\Application\Message\ResultMessage;
 final readonly class RequestPasswordChangeResult implements ResultMessage
 {
   // #region Constants
+  /**
+   * Constant ERROR_INVALID_PASSWORD
+   */
   public const string ERROR_INVALID_PASSWORD = 'invalid_password';
 
+  /**
+   * Constant ERROR_USER_NOT_FOUND
+   */
   public const string ERROR_USER_NOT_FOUND = 'user_not_found';
   // #endregion
 

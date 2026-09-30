@@ -21,7 +21,6 @@ use function max;
  * organization-wide assistant thread in this design.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

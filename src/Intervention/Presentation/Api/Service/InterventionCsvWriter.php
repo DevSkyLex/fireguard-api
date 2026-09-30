@@ -18,7 +18,6 @@ use function fputcsv;
  * it reaches this writer: it formats, it never resolves anything itself.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

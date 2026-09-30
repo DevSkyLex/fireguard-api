@@ -17,7 +17,6 @@ use Shared\Application\Message\{CommandHandler, VoidResult};
  * immediately. The reconciling webhook converges to the same state.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -54,15 +53,28 @@ final readonly class ResumeSubscriptionHandler implements CommandHandler
    *
    * @param ResumeSubscriptionCommand $command the command payload
    *
-   * @throws NoActiveSubscriptionException when the organization has no live subscription
-   *
    * @return VoidResult the neutral result
+   *
+   * @throws NoActiveSubscriptionException when the organization has no live subscription
    */
   public function __invoke(ResumeSubscriptionCommand $command): VoidResult
   {
     return $this->reconciliation->synchronized($command->organizationId, fn (): VoidResult => $this->execute($command));
   }
 
+  /**
+   * Method execute.
+   *
+   * Resumes cancellation with Stripe and saves the refreshed local subscription.
+   *
+   * @access private
+   *
+   * @param ResumeSubscriptionCommand $command the organization subscription command
+   *
+   * @return VoidResult the neutral handler result
+   *
+   * @throws NoActiveSubscriptionException when no Stripe-backed subscription exists
+   */
   private function execute(ResumeSubscriptionCommand $command): VoidResult
   {
     $subscription = $this->subscriptions->findByOrganizationId($command->organizationId, refresh: true);

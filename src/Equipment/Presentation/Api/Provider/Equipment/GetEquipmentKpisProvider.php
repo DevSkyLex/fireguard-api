@@ -23,7 +23,6 @@ use function is_string;
  * Provider GetEquipmentKpisProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -35,6 +34,19 @@ final readonly class GetEquipmentKpisProvider implements ProviderInterface
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives query dispatch, organization authorization, and caller identity for the equipment KPI read.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus port used to dispatch the equipment KPI query
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
+   * @param Security $security security context used to obtain the requesting member
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,

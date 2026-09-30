@@ -10,7 +10,6 @@ use User\Application\Contract\EmailOwnershipResult;
  * Port EmailOwnershipPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

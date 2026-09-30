@@ -17,7 +17,6 @@ use User\Infrastructure\Persistence\Doctrine\Repository\UserPresencePreferenceRe
 
 /** PostgreSQL proves atomic revisions and independent-connection visibility before delivery.
  * @category Integration Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

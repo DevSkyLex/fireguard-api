@@ -13,13 +13,19 @@ namespace Equipment\Domain\ValueObject;
  * published intervention (`recordInterventionService()`, always completed).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum MaintenanceLogSource: string
 {
+  /**
+   * Case STATUS_TRANSITION
+   */
   case STATUS_TRANSITION = 'status_transition';
+
+  /**
+   * Case INTERVENTION
+   */
   case INTERVENTION = 'intervention';
 }

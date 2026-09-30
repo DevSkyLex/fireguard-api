@@ -22,7 +22,6 @@ use function array_map;
  * visible in the regulatory register.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -58,6 +57,17 @@ final readonly class FacilityComplianceDirectoryAdapter implements ComplianceFac
   // #endregion
 
   // #region Methods
+  /**
+   * Method listFacilities.
+   *
+   * Lists an organization's facilities in the compact shape used by compliance queries.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return list<array{id: string, name: string, type: string, status: string, parentFacilityId: ?string}> facility summaries
+   */
   public function listFacilities(string $organizationId): array
   {
     $facilities = $this->facilityRepository->findByOrganizationId(

@@ -18,7 +18,6 @@ namespace Organization\Domain\Catalog;
  * Organization module never depends on the Equipment domain enum.
  *
  * @category Catalog
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

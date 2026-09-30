@@ -37,7 +37,6 @@ use function is_string;
  * that path and keeps its own permission check.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,10 +48,32 @@ final readonly class InterventionMediaProvider implements ProviderInterface
   use InterventionWorkflowExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant ATTACHMENT_NOT_FOUND_MESSAGE.
+   *
+   * Stable public message returned when an intervention attachment is unavailable.
+   *
+   * @access private
+   */
   private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides query-bus reads and scoped persistence and authorization services for attachments.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager the main entity manager
+   * @param QueryBusPort $queryBus dispatches attachment queries
+   * @param OrganizationAuthorizationPort $authorization enforces organization access
+   * @param Security $security resolves the authenticated user
+   * @param RequestStack $requestStack provides the current request
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private QueryBusPort $queryBus,

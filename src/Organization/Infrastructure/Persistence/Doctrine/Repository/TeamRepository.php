@@ -19,7 +19,6 @@ use function is_array;
  * Repository TeamRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -57,6 +56,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method save
+   *
+   * Persists the team aggregate and synchronizes its record fields.
+   *
+   * @access public
+   *
+   * @param Team $team team aggregate to persist
+   *
+   * @return void
+   */
   public function save(Team $team): void
   {
     $record = TeamMapper::toRecord($team);
@@ -79,6 +89,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method remove
+   *
+   * Deletes the team record when it exists.
+   *
+   * @access public
+   *
+   * @param Team $team team aggregate to delete
+   *
+   * @return void
+   */
   public function remove(Team $team): void
   {
     $record = $this->repository->find((string) $team->id());
@@ -89,6 +110,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
     }
   }
 
+  /**
+   * Method findById
+   *
+   * Loads and maps a team by identifier.
+   *
+   * @access public
+   *
+   * @param TeamId $id team identifier
+   *
+   * @return ?Team matching team, if found
+   */
   public function findById(TeamId $id): ?Team
   {
     $record = $this->repository->find((string) $id);
@@ -100,6 +132,18 @@ final readonly class TeamRepository implements TeamRepositoryPort
     return TeamMapper::toDomain($record);
   }
 
+  /**
+   * Method findByOrganizationAndName
+   *
+   * Loads a team by organization and name.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId organization identifier
+   * @param TeamName $name team name
+   *
+   * @return ?Team matching team, if found
+   */
   public function findByOrganizationAndName(OrganizationId $organizationId, TeamName $name): ?Team
   {
     /**
@@ -118,6 +162,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
     return TeamMapper::toDomain($record);
   }
 
+  /**
+   * Method findByOrganizationId
+   *
+   * Lists organization teams ordered by name.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId organization identifier
+   *
+   * @return list<Team> mapped team aggregates
+   */
   public function findByOrganizationId(OrganizationId $organizationId): array
   {
     /**
@@ -136,6 +191,19 @@ final readonly class TeamRepository implements TeamRepositoryPort
     );
   }
 
+  /**
+   * Method addMember
+   *
+   * Adds a membership when both records exist and the assignment is new.
+   *
+   * @access public
+   *
+   * @param TeamId $teamId team identifier
+   * @param OrganizationMemberId $memberId organization member identifier
+   * @param ?string $role optional membership label
+   *
+   * @return void
+   */
   public function addMember(TeamId $teamId, OrganizationMemberId $memberId, ?string $role = null): void
   {
     /**
@@ -170,6 +238,18 @@ final readonly class TeamRepository implements TeamRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method removeMember
+   *
+   * Deletes the membership when the team, member and assignment exist.
+   *
+   * @access public
+   *
+   * @param TeamId $teamId team identifier
+   * @param OrganizationMemberId $memberId organization member identifier
+   *
+   * @return void
+   */
   public function removeMember(TeamId $teamId, OrganizationMemberId $memberId): void
   {
     /**
@@ -198,6 +278,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findMemberIds
+   *
+   * Lists identifiers assigned to a team regardless of active status.
+   *
+   * @access public
+   *
+   * @param TeamId $teamId team identifier
+   *
+   * @return list<string> member identifiers
+   */
   public function findMemberIds(TeamId $teamId): array
   {
     /**
@@ -220,6 +311,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
     );
   }
 
+  /**
+   * Method findActiveMemberIds
+   *
+   * Lists assigned identifiers whose organization member is active.
+   *
+   * @access public
+   *
+   * @param TeamId $teamId team identifier
+   *
+   * @return list<string> active member identifiers
+   */
   public function findActiveMemberIds(TeamId $teamId): array
   {
     $records = $this->membershipRepository->createQueryBuilder('tm')
@@ -248,6 +350,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
     return $memberIds;
   }
 
+  /**
+   * Method countMembers
+   *
+   * Counts team assignments without filtering member status.
+   *
+   * @access public
+   *
+   * @param TeamId $teamId team identifier
+   *
+   * @return int membership count
+   */
   public function countMembers(TeamId $teamId): int
   {
     /**
@@ -262,6 +375,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
     return (int) $this->membershipRepository->count(['team' => $teamRecord]);
   }
 
+  /**
+   * Method findMemberships
+   *
+   * Lists membership data used to render a team's members.
+   *
+   * @access public
+   *
+   * @param TeamId $teamId team identifier
+   *
+   * @return list<array{memberId: string, role: ?string, addedAt: DateTimeImmutable}> membership rows
+   */
   public function findMemberships(TeamId $teamId): array
   {
     /**
@@ -288,6 +412,17 @@ final readonly class TeamRepository implements TeamRepositoryPort
     );
   }
 
+  /**
+   * Method deleteMembershipsForMember
+   *
+   * Deletes a member's team assignments across all teams.
+   *
+   * @access public
+   *
+   * @param OrganizationMemberId $memberId organization member identifier
+   *
+   * @return void
+   */
   public function deleteMembershipsForMember(OrganizationMemberId $memberId): void
   {
     /**

@@ -25,7 +25,6 @@ use function implode;
  * login success path.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -65,11 +64,11 @@ final readonly class ConfirmRegistrationProcessor implements ProcessorInterface
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
+   * @return LoginOutput the auto-login output
+   *
    * @throws UnauthorizedHttpException when token/code is invalid
    * @throws TooManyRequestsHttpException when max attempts exceeded
    * @throws BadRequestHttpException when the request is malformed
-   *
-   * @return LoginOutput the auto-login output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): LoginOutput
   {

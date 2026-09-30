@@ -11,7 +11,6 @@ namespace Session\Application\Port\Inbound\Tracking;
  * live. Kept separate from SessionTrackingPort, which only mutates.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,13 +20,16 @@ use function explode;
  * Service OrganizationAuthorizationService.
  *
  * @category Service
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class OrganizationAuthorizationService implements OrganizationAuthorizationPort, ResetInterface
 {
+  // #region Properties
+  /**
+   * Property observedRevision
+   */
   private int $observedRevision = -1;
 
   /**
@@ -53,6 +56,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   private array $statusCache = [];
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -70,8 +74,8 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
     private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method hasPermission.
@@ -191,9 +195,9 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    * @param string $organizationId the organization identifier
    * @param list<string> $permissions the permission names to assert
    *
-   * @throws OrganizationAccessDeniedException when one of the required permissions is missing
-   *
    * @return void Returns nothing. Throws when access must be denied.
+   *
+   * @throws OrganizationAccessDeniedException when one of the required permissions is missing
    */
   public function assertGrantedPermissions(string $userId, string $organizationId, array $permissions): void
   {
@@ -220,6 +224,15 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
     }
   }
 
+  /**
+   * Method reset
+   *
+   * Clears cached organization permissions and membership decisions.
+   *
+   * @access public
+   *
+   * @return void
+   */
   public function reset(): void
   {
     $this->permissionCache = [];

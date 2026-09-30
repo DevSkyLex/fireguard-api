@@ -16,13 +16,19 @@ namespace Inspection\Domain\ValueObject;
  * intervention, which is published on arrival.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum InspectionResponseStatus: string
 {
+  /**
+   * Case DRAFT
+   */
   case DRAFT = 'draft';
+
+  /**
+   * Case PUBLISHED
+   */
   case PUBLISHED = 'published';
 }

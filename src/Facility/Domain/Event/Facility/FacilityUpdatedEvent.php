@@ -18,7 +18,6 @@ use DateTimeImmutable;
  * (address, metadata) nor grow noisy with every partial patch's payload.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use RuntimeException;
  * Only the requester can withdraw their pending request.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

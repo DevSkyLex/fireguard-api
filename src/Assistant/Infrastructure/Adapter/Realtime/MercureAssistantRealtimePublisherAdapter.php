@@ -26,7 +26,6 @@ use const JSON_THROW_ON_ERROR;
  * be able to read an assistant generation stream.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -48,6 +47,17 @@ final readonly class MercureAssistantRealtimePublisherAdapter implements Assista
   // #endregion
 
   // #region Methods
+  /**
+   * Method publishGenerationEvent.
+   *
+   * Publishes the assistant message state to its private organization thread topic.
+   *
+   * @access public
+   *
+   * @param AssistantMessage $message the generation message whose state is published
+   *
+   * @return void no return value
+   */
   public function publishGenerationEvent(AssistantMessage $message): void
   {
     $messageId = (string) $message->id();

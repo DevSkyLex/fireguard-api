@@ -12,7 +12,6 @@ namespace Organization\Domain\ValueObject;
  * is a simple boolean with a sensible "on" default.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

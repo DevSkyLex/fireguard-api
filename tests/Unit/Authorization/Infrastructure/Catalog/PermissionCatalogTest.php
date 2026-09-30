@@ -27,7 +27,6 @@ use function substr;
  * to review.
  *
  * @category Catalog Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

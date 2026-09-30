@@ -24,7 +24,6 @@ use function is_string;
  * Handles `POST /api/messages/{id}/pin` (`200 OK`, idempotent).
  *
  * @category Processor
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

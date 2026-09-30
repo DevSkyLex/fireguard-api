@@ -25,7 +25,6 @@ use function sprintf;
  * decision, not a side effect. See `src/Inspection/MODULE.md`.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -22,7 +22,6 @@ use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
  * {@see CanonicalInspection} for why the two models coexist.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

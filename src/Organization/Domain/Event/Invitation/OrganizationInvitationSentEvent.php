@@ -13,7 +13,6 @@ use DateTimeImmutable;
  * to an email address (initial send or resend).
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

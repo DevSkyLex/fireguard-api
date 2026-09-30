@@ -31,7 +31,6 @@ use function array_values;
  * resolves its `bySite`/`byResponsible` breakdown names.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -90,11 +89,11 @@ final readonly class ExportInterventionsHandler implements QueryHandler
    *
    * @param ExportInterventionsQuery $query the query to handle
    *
+   * @return ExportInterventionsResult the bounded, name-resolved export result
+   *
    * @throws InterventionNotFoundException when the caller is outside the organization's scope
    * @throws InterventionAccessDeniedException when the caller lacks `organization.interventions.read`
    * @throws InterventionExportTooLargeException when the filters match more than {@see self::MAX_EXPORT_ROWS} interventions
-   *
-   * @return ExportInterventionsResult the bounded, name-resolved export result
    */
   public function __invoke(ExportInterventionsQuery $query): ExportInterventionsResult
   {

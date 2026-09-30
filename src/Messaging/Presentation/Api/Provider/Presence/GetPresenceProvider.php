@@ -38,7 +38,6 @@ use function trim;
  * {@see self::MAX_MEMBER_IDS} ids per request.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -50,6 +49,9 @@ final readonly class GetPresenceProvider implements ProviderInterface
   use MessagingExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant MAX_MEMBER_IDS
+   */
   private const int MAX_MEMBER_IDS = 100;
   // #endregion
 

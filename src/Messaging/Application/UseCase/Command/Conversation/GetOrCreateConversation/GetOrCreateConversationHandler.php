@@ -22,7 +22,6 @@ use function sprintf;
  * to the repository's atomic get-or-create.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

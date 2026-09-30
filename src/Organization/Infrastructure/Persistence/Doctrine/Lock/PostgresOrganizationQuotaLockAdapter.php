@@ -22,7 +22,6 @@ use Organization\Domain\ValueObject\OrganizationQuotaResource;
  * only cause harmless extra serialization, never an incorrect result.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

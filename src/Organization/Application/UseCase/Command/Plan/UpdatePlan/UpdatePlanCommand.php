@@ -13,7 +13,6 @@ use Shared\Application\Message\CommandMessage;
  * value means "leave unchanged". The plan key is immutable and not updatable.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

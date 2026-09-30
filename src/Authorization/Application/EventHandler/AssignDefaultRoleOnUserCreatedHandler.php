@@ -23,7 +23,6 @@ use User\Domain\Event\UserCreatedEvent;
  * endpoint such as POST /api/trusted-devices.
  *
  * @category EventHandler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

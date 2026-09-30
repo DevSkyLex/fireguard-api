@@ -21,7 +21,6 @@ use function preg_match;
  * @implements ProviderInterface<PresenceSubscriptionOutput>
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

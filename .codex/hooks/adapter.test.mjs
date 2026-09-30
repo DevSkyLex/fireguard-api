@@ -7,9 +7,9 @@ import test from 'node:test';
 import { editsFromPatch } from './adapter.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const workspace = !/fireguard-sso-(api|web)$/.test(root);
-const api = workspace ? path.join(root, 'fireguard-sso-api') : root.endsWith('api') ? root : null;
-const web = workspace ? path.join(root, 'fireguard-sso-web') : root.endsWith('web') ? root : null;
+const workspace = !existsSync(path.join(root, 'bin/console')) && !existsSync(path.join(root, 'angular.json'));
+const api = workspace ? path.join(root, 'fireguard-api') : root.endsWith('api') ? root : null;
+const web = workspace ? path.join(root, 'fireguard-web') : root.endsWith('web') ? root : null;
 function invoke(tool_name, tool_input, phase = 'pre', cwd = root) {
   return spawnSync(process.execPath, [path.join(root, '.codex/hooks/adapter.mjs'), phase], {
     cwd, input: JSON.stringify({ cwd, tool_name, tool_input }), encoding: 'utf8', windowsHide: true,
@@ -52,15 +52,40 @@ test('blocks generated dependency files', () => blocked('*** Add File: node_modu
 test('allows ordinary read-only Git commands', () => assert.equal(invoke('Bash', { command: 'git status --short' }).status, 0));
 test('blocks destructive Git command', () => assert.equal(invoke('Bash', { command: 'git reset --hard' }).status, 2));
 test('accepts exec command cmd alias', () => assert.equal(invoke('exec_command', { cmd: 'git status --short' }).status, 0));
-test('enforces commit naming', () => assert.equal(invoke('Bash', { command: 'git commit -m "Bad message"' }).status, 2));
-test('allows the Codex branch prefix', () => assert.equal(invoke('Bash', { command: 'git switch -c codex/api-tooling' }).status, 0));
+for (const [command, status] of [
+  ["git switch -c feat/ui-cleanup", 0],
+  ["git switch -c fix/otp-expiry", 0],
+  ["git switch -c docs/git-naming", 0],
+  ["git switch -c hotfix/session-rotation", 0],
+  ["git switch -c codex/ui-cleanup", 2],
+  ["git checkout -b codex/ui-cleanup", 2],
+  ["git branch codex/ui-cleanup", 2],
+  ["git branch -m feat/old-name codex/ui-cleanup", 2],
+  ["git worktree add ../example -b codex/ui-cleanup", 2],
+  ["git switch -c feat/Uppercase", 2],
+  ["git switch -c feat/has_underscore", 2],
+  ["git switch -c feat/double--dash", 2],
+  ["git switch -c feat/trailing-", 2],
+  ["git switch -c feat/nested/path", 2],
+  ["git commit -m \"Bad message\"", 2],
+  ["git commit -m \"chore: enforce git naming\"", 0],
+  ["git commit -m \"fix(session): correct token rotation\"", 0],
+  ["git commit -m \"feat(session)!: change token contract\"", 0],
+  ["git commit -m \"codex: enforce git naming\"", 2],
+  ["git commit -m \"hotfix: correct token rotation\"", 2],
+  ["git commit -m \"fix(session): Correct token rotation\"", 2],
+  ["git commit -m \"fix(session): correct token rotation.\"", 2],
+  ["git commit -m \"docs: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"", 0],
+  ["git commit -m \"docs: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"", 2],
+]) {
+  test(`git naming: ${command}`, () => {
+    const result = invoke('Bash', { command });
+    assert.equal(result.status, status, result.stderr);
+  });
+}
 
-test('applies kebab-case validation to Codex branch descriptions', () => {
-  for (const branch of ['codex/', 'codex/Uppercase', 'codex/has_underscore', 'codex/-leading', 'codex/trailing-', 'codex/double--dash', 'codex/nested/path']) {
-    const result = invoke('Bash', { command: `git switch -c ${branch}` });
-    assert.equal(result.status, 2, branch);
-  }
-});
+test('rejects the Codex branch prefix through unified exec input', () =>
+  assert.equal(invoke('exec_command', { cmd: 'git switch -c codex/ui-cleanup' }).status, 2));
 test('post hook skips removed files', () => assert.equal(invoke('apply_patch', patch('*** Delete File: docs/not-present.xyz'), 'post').status, 0));
 test('manifest hook resolves from a nested working directory', () => {
   const manifest = JSON.parse(readFileSync(path.join(root, '.codex/hooks.json'), 'utf8'));
@@ -95,4 +120,15 @@ if (web) {
   test('blocks component CSS in the theme file', () => blocked('*** Update File: ' + prefix + 'src/styles.css\n@@\n+.example { color: red; }'));
   test('blocks runtime services in models', () => blocked('*** Add File: ' + prefix + 'src/app/features/example/models/example.service.ts\n+export class Example {}'));
   test('blocks environment source files', () => blocked('*** Add File: ' + prefix + 'src/environments/environment.example.ts\n+export const environment = {};'));
+}
+
+for (const app of ['fireguard-api', 'fireguard-web']) {
+  test(`protects the whole ${app} directory after relocation`, () => {
+    const result = invoke('Bash', { command: `rm -rf ${app}` });
+    assert.equal(result.status, 2, result.stderr);
+  });
+  test(`allows disposable dependencies inside ${app}`, () => {
+    const result = invoke('Bash', { command: `rm -rf ${app}/node_modules` });
+    assert.equal(result.status, 0, result.stderr);
+  });
 }

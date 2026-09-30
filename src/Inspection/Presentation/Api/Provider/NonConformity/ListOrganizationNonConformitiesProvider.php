@@ -38,7 +38,6 @@ use function max;
  * pagination/permission shape for an organization-scoped listing.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,6 +48,21 @@ final readonly class ListOrganizationNonConformitiesProvider implements Provider
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the ListOrganizationNonConformitiesProvider dependencies and state.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus the query bus
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   * @param Security $security the security
+   * @param RequestStack $requestStack the request stack
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -57,6 +71,8 @@ final readonly class ListOrganizationNonConformitiesProvider implements Provider
   ) {
   }
 
+  // #endregion
+  // #region Methods
   /**
    * @return TraversablePaginator<NonConformityOutput>
    */
@@ -131,6 +147,17 @@ final readonly class ListOrganizationNonConformitiesProvider implements Provider
     );
   }
 
+  /**
+   * Method mapResult
+   *
+   * Maps result the supplied values.
+   *
+   * @access private
+   *
+   * @param OrganizationNonConformityResult $result the use-case result
+   *
+   * @return NonConformityOutput
+   */
   private function mapResult(OrganizationNonConformityResult $result): NonConformityOutput
   {
     $output = new NonConformityOutput();
@@ -149,4 +176,5 @@ final readonly class ListOrganizationNonConformitiesProvider implements Provider
 
     return $output;
   }
+  // #endregion
 }

@@ -17,7 +17,6 @@ use function array_map;
  * Repository MaintenanceLogRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,6 +31,17 @@ final readonly class MaintenanceLogRepository implements MaintenanceLogRepositor
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the entity manager used to access equipment maintenance-log records.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager Doctrine entity manager used to access maintenance-log persistence
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
   ) {

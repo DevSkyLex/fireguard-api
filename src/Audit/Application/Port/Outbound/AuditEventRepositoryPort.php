@@ -12,7 +12,6 @@ use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
  * Port AuditEventRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

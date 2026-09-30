@@ -19,7 +19,6 @@ use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMembershi
  * caller-membership fix made once here is shared by every one of them.
  *
  * @category Trait
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

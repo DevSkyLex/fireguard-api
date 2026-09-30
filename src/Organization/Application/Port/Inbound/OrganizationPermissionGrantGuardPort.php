@@ -16,7 +16,6 @@ namespace Organization\Application\Port\Inbound;
  * not wrapped by the message bus and maps cleanly to HTTP 403.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

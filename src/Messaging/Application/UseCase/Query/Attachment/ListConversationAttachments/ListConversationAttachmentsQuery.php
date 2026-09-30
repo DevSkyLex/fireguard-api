@@ -12,7 +12,6 @@ use Shared\Application\Message\QueryMessage;
  * Backs the conversation Files tab (`GET /conversations/{id}/attachments`).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use Facility\Domain\ValueObject\FacilityOrganizationId;
  * another organization's attachment.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -28,6 +27,17 @@ use Facility\Domain\ValueObject\FacilityOrganizationId;
 final readonly class FacilityAttachmentAncestryGuard
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the facility repository used to walk a facility hierarchy when validating floor-plan attachments.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to load parent facilities while checking ancestry
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
   ) {

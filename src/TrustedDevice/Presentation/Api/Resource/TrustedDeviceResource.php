@@ -139,10 +139,19 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
 final class TrustedDeviceResource
 {
   // #region Constants
+  /**
+   * Constant OPENAPI_TAG_TRUSTED_DEVICES
+   */
   private const string OPENAPI_TAG_TRUSTED_DEVICES = 'Trusted Devices';
 
+  /**
+   * Constant AUTHENTICATION_REQUIRED_DESCRIPTION
+   */
   private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
   // #endregion
 }

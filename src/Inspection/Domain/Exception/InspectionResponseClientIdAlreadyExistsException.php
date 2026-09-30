@@ -19,7 +19,6 @@ use RuntimeException;
  * request shape calls for — the only catch left in that processor.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

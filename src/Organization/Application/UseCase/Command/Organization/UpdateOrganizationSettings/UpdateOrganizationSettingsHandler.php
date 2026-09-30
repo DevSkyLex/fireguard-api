@@ -41,7 +41,6 @@ use function strtolower;
  * UseCase UpdateOrganizationSettingsHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -192,6 +191,18 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
     return $fields;
   }
 
+  /**
+   * Method applyLegalChanges
+   *
+   * Applies supplied legal profile fields and reports whether any legal value changed.
+   *
+   * @access private
+   *
+   * @param Organization $organization the organization aggregate being updated
+   * @param UpdateOrganizationSettingsCommand $command the requested settings changes
+   *
+   * @return bool whether a legal field changed
+   */
   private function applyLegalChanges(Organization $organization, UpdateOrganizationSettingsCommand $command): bool
   {
     $changed = false;
@@ -219,6 +230,18 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
     return $changed;
   }
 
+  /**
+   * Method dispatchStatusChange
+   *
+   * Dispatches the restored or suspended event when the requested status differs from the current status.
+   *
+   * @access private
+   *
+   * @param UpdateOrganizationSettingsCommand $command the requested organization settings
+   * @param OrganizationStatus $previousStatus the status before the update
+   *
+   * @return void no return value
+   */
   private function dispatchStatusChange(UpdateOrganizationSettingsCommand $command, OrganizationStatus $previousStatus): void
   {
     if (null === $command->isActive) {

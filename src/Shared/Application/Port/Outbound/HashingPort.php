@@ -13,7 +13,6 @@ use Shared\Domain\ValueObject\HashedSecret;
  * capabilities for secrets.
  *
  * @category Outbound Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

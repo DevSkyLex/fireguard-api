@@ -36,7 +36,6 @@ use const DIRECTORY_SEPARATOR;
  * object storage in staging/prod.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -87,9 +86,9 @@ final readonly class FlysystemFactory
    *
    * @param string $dsn the storage DSN (`local://...` or `s3://...`)
    *
-   * @throws InvalidArgumentException if the DSN is malformed or the scheme is unsupported
-   *
    * @return FilesystemOperator the configured filesystem operator
+   *
+   * @throws InvalidArgumentException if the DSN is malformed or the scheme is unsupported
    */
   public function create(string $dsn): FilesystemOperator
   {
@@ -121,9 +120,9 @@ final readonly class FlysystemFactory
    *
    * @param string $rawPath the path segment following `local://`
    *
-   * @throws InvalidArgumentException if the path segment is empty
-   *
    * @return FilesystemOperator the local filesystem operator
+   *
+   * @throws InvalidArgumentException if the path segment is empty
    */
   private function createLocal(string $rawPath): FilesystemOperator
   {
@@ -189,9 +188,9 @@ final readonly class FlysystemFactory
    *
    * @param string $dsn the full `s3://` DSN
    *
-   * @throws InvalidArgumentException if a required DSN component is missing
-   *
    * @return FilesystemOperator the S3 filesystem operator
+   *
+   * @throws InvalidArgumentException if a required DSN component is missing
    */
   private function createS3(string $dsn): FilesystemOperator
   {

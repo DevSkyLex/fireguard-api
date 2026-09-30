@@ -11,7 +11,6 @@ use User\Domain\Event\UserCreatedEvent;
  * Handler UserCreatedEventHandler.
  *
  * @category EventHandler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

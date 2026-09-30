@@ -13,10 +13,35 @@ use Shared\Application\Message\QueryHandler;
 /** Handler GetImportTemplateHandler. Empty templates never provision example resources. */
 final readonly class GetImportTemplateHandler implements QueryHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the GetImportTemplateHandler dependencies and state.
+   *
+   * @access public
+   *
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   *
+   * @return void
+   */
   public function __construct(private OrganizationAuthorizationPort $authorization)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Executes the use case represented by GetImportTemplateHandler and returns its result.
+   *
+   * @access public
+   *
+   * @param GetImportTemplateQuery $query the query to execute
+   *
+   * @return GetImportTemplateResult
+   */
   public function __invoke(GetImportTemplateQuery $query): GetImportTemplateResult
   {
     $kind = ImportKind::tryFrom($query->kind) ?? throw ImportJobNotFoundException::forOrganizationScope($query->organizationId);
@@ -36,4 +61,5 @@ final readonly class GetImportTemplateHandler implements QueryHandler
 
     return new GetImportTemplateResult('fireguard-' . $kind->value . '-template.csv', $header . "\r\n");
   }
+  // #endregion
 }

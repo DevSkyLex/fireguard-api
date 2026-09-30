@@ -13,7 +13,6 @@ use User\Application\Port\Inbound\EmailOwnershipPort;
  * Handler ConfirmEmailOwnershipHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

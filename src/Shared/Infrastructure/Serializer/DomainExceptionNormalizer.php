@@ -19,7 +19,6 @@ use function substr;
  * Normalizer DomainExceptionNormalizer.
  *
  * @category Normalizer
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

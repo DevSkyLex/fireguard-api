@@ -34,7 +34,6 @@ use Shared\Application\Message\CommandHandler;
  * member's private sidebar ordering to every other participant.
  *
  * @category UseCase
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

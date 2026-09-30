@@ -17,7 +17,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * pagination (`nextCursor`/`hasMore`) is stable.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

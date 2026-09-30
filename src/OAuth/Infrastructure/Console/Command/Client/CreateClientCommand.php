@@ -33,7 +33,6 @@ use const PASSWORD_BCRYPT;
  * Command CreateClientCommand.
  *
  * @category Console Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

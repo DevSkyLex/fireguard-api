@@ -31,7 +31,6 @@ use function max;
  * Model Otp.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -413,10 +412,10 @@ final class Otp
    *
    * @param string $inputCode the code to verify
    *
+   * @return bool true if verification succeeded
+   *
    * @throws OtpExpiredException if OTP is expired
    * @throws OtpMaxAttemptsException if max attempts exceeded
-   *
-   * @return bool true if verification succeeded
    */
   public function verify(string $inputCode): bool
   {
@@ -472,10 +471,10 @@ final class Otp
    *
    * @param bool $isValid whether the submitted code was valid
    *
+   * @return bool true if verification succeeded
+   *
    * @throws OtpExpiredException if OTP is expired
    * @throws OtpMaxAttemptsException if max attempts exceeded
-   *
-   * @return bool true if verification succeeded
    */
   public function verifyExternal(bool $isValid): bool
   {

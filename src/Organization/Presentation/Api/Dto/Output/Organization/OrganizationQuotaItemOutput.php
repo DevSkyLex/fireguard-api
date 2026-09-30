@@ -15,7 +15,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * resource is unlimited under the current plan.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

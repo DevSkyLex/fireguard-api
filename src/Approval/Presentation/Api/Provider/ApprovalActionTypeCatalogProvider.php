@@ -19,7 +19,6 @@ use function array_map;
  * registry, per ARCHITECTURE.md's reference-catalog guideline.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

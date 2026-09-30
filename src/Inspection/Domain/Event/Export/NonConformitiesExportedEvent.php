@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * applied filter *names* travel in `filterKeys`, never their raw values.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

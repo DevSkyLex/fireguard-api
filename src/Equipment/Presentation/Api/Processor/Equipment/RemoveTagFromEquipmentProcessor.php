@@ -23,7 +23,6 @@ use function is_string;
  * Processor RemoveTagFromEquipmentProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -35,6 +34,19 @@ final readonly class RemoveTagFromEquipmentProcessor implements ProcessorInterfa
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives command dispatch, organization authorization, and caller identity for tag removal.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus port used to dispatch the tag-removal command
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
+   * @param Security $security security context used to obtain the acting member
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,

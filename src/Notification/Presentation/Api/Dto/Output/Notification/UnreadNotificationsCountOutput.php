@@ -12,7 +12,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * DTO UnreadNotificationsCountOutput.
  *
  * @category DTO
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

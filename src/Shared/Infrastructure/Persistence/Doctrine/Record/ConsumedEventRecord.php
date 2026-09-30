@@ -12,10 +12,18 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'consumed_events')]
 class ConsumedEventRecord
 {
+  // #region Properties
+  /**
+   * Property id
+   */
   #[ORM\Id]
   #[ORM\Column(type: 'string', length: 64)]
   public string $id;
 
+  /**
+   * Property consumedAt
+   */
   #[ORM\Column(type: 'datetime_immutable')]
   public DateTimeImmutable $consumedAt;
+  // #endregion
 }

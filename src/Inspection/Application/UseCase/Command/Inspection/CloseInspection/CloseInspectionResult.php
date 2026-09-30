@@ -11,7 +11,6 @@ use Shared\Application\Message\ResultMessage;
  * UseCase CloseInspectionResult.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -19,6 +18,19 @@ use Shared\Application\Message\ResultMessage;
 final readonly class CloseInspectionResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Returns the inspection identity, resulting lifecycle status, and update time.
+   *
+   * @access public
+   *
+   * @param string $inspectionId identifier of the closed inspection
+   * @param string $status lifecycle status after closure
+   * @param DateTimeImmutable $updatedAt time the inspection was updated
+   *
+   * @return void
+   */
   public function __construct(
     public string $inspectionId,
     public string $status,

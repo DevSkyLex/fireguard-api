@@ -11,7 +11,6 @@ use Shared\Application\Message\QueryHandler;
  * Handler ListPurposesHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -19,6 +18,17 @@ use Shared\Application\Message\QueryHandler;
 final readonly class ListPurposesHandler implements QueryHandler
 {
   // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Executes the use case represented by ListPurposesHandler and returns its result.
+   *
+   * @access public
+   *
+   * @param ListPurposesQuery $query the query to execute
+   *
+   * @return ListPurposesResult
+   */
   public function __invoke(ListPurposesQuery $query): ListPurposesResult
   {
     $items = [];

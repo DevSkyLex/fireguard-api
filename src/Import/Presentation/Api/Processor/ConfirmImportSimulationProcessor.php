@@ -19,10 +19,40 @@ use function is_string;
 /** @implements ProcessorInterface<mixed, ImportJobOutput> */
 final readonly class ConfirmImportSimulationProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the ConfirmImportSimulationProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commands the commands
+   * @param CurrentActorPort $actor the actor
+   * @param ImportJobOutputFactory $output the output being built
+   *
+   * @return void
+   */
   public function __construct(private CommandBusPort $commands, private CurrentActorPort $actor, private ImportJobOutputFactory $output)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param mixed $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return ImportJobOutput
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ImportJobOutput
   {
     $userId = $this->actor->userId();
@@ -39,4 +69,5 @@ final readonly class ConfirmImportSimulationProcessor implements ProcessorInterf
 
     return $this->output->fromView($result);
   }
+  // #endregion
 }

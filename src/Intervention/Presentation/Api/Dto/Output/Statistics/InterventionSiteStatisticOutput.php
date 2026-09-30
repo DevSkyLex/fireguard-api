@@ -10,7 +10,6 @@ namespace Intervention\Presentation\Api\Dto\Output\Statistics;
  * One row of the `bySite` top-10 breakdown.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

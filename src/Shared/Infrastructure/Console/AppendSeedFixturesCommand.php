@@ -25,7 +25,6 @@ use function in_array;
  * Only append-safe fixtures may carry the app.seed_fixture.append tag.
  *
  * @category Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

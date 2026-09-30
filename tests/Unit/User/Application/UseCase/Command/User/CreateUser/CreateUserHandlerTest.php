@@ -20,7 +20,6 @@ use User\Domain\ValueObject\UserId;
  * Test CreateUserHandlerTest.
  *
  * @category Handler Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

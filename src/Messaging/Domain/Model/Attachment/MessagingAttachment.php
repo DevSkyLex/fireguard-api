@@ -17,7 +17,6 @@ use Messaging\Domain\ValueObject\MessagingAttachmentId;
  * requires joining through every message.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

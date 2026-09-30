@@ -21,11 +21,33 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use function count;
 use function is_string;
 
-/** @implements ProviderInterface<ChecklistOutput> */
+/**
+ * Class GetChecklistProvider
+ *
+ * Reads an authorized checklist and shapes its result for the API response.
+ *
+ * @category Provider
+ *
+ * @implements ProviderInterface<ChecklistOutput>
+ */
 final readonly class GetChecklistProvider implements ProviderInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the query bus, organization authorization service and authenticated user context.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus dispatches checklist reads
+   * @param OrganizationAuthorizationPort $authorization checks read and write permissions
+   * @param Security $security provides the current authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -33,6 +55,22 @@ final readonly class GetChecklistProvider implements ProviderInterface
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method provide
+   *
+   * Validates route access, queries the checklist and returns its API representation.
+   *
+   * @access public
+   *
+   * @param Operation $operation API Platform operation being provided
+   * @param array<string, mixed> $uriVariables route variables, including organizationId and checklistId
+   * @param array<string, mixed> $context API Platform provider context
+   *
+   * @return ChecklistOutput checklist response with permissions projected for the user
+   */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ChecklistOutput
   {
     $user = $this->security->getUser();
@@ -77,6 +115,18 @@ final readonly class GetChecklistProvider implements ProviderInterface
     return $this->mapResult($result, $this->authorization->hasPermission($user->getId(), $organizationId, 'organization.inspection.write'));
   }
 
+  /**
+   * Method mapResult
+   *
+   * Maps query data to output DTOs and derives edit capabilities from access and checklist state.
+   *
+   * @access private
+   *
+   * @param GetChecklistResult $result checklist data returned by the query handler
+   * @param bool $canManage whether the current user has organization write permission
+   *
+   * @return ChecklistOutput mapped checklist response
+   */
   private function mapResult(GetChecklistResult $result, bool $canManage): ChecklistOutput
   {
     $output = new ChecklistOutput();
@@ -108,4 +158,5 @@ final readonly class GetChecklistProvider implements ProviderInterface
 
     return $output;
   }
+  // #endregion
 }

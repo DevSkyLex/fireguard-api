@@ -12,7 +12,6 @@ use Intervention\Presentation\Api\Mapper\InterventionWorkflowViewDataTrait;
  * Factory InterventionActivityOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

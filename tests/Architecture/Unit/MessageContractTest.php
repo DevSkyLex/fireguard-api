@@ -36,7 +36,6 @@ use const DIRECTORY_SEPARATOR;
  * handed — is caught in the module that introduced it.
  *
  * @category Architecture Unit Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

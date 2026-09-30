@@ -35,7 +35,6 @@ use function max;
  * `dueStatus` value — the frontend owns labels/colors.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -43,10 +42,31 @@ use function max;
 final readonly class MaintenanceCalendarFeedAdapter implements MaintenanceCalendarFeedPort
 {
   // #region Constants
+  /**
+   * Constant SOURCE_KEY.
+   *
+   * Identifies maintenance schedule items in the calendar feed.
+   *
+   * @access private
+   */
   private const string SOURCE_KEY = 'maintenance';
 
+  /**
+   * Constant TARGET_TYPE.
+   *
+   * Identifies the target type used by maintenance calendar links.
+   *
+   * @access private
+   */
   private const string TARGET_TYPE = 'maintenance_schedule';
 
+  /**
+   * Constant TITLE.
+   *
+   * Source-neutral title used for maintenance due-date calendar items.
+   *
+   * @access private
+   */
   private const string TITLE = 'Preventive maintenance due';
   // #endregion
 
@@ -65,6 +85,20 @@ final readonly class MaintenanceCalendarFeedAdapter implements MaintenanceCalend
   // #endregion
 
   // #region Methods
+  /**
+   * Method findBetween.
+   *
+   * Lists schedules due in the requested time range and maps them to calendar items.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param DateTimeImmutable $from inclusive range start
+   * @param DateTimeImmutable $to inclusive range end
+   * @param int $limit maximum number of schedules to return
+   *
+   * @return list<CalendarFeedItem> matching maintenance calendar items
+   */
   public function findBetween(string $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, int $limit): array
   {
     /** @var OrganizationRecord $organization */

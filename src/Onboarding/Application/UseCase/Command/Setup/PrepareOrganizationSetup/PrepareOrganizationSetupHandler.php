@@ -11,7 +11,6 @@ use Shared\Application\Message\CommandHandler;
  * Durable organization setup recovery.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

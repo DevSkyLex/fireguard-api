@@ -12,7 +12,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * DTO ApprovalRequestOutput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -170,6 +169,9 @@ final class ApprovalRequestOutput
   #[Groups([ApprovalSerializationGroup::READ])]
   public array $allowedActions = [];
 
+  /**
+   * Property decisionBlockReason
+   */
   #[Groups([ApprovalSerializationGroup::READ])]
   public ?string $decisionBlockReason = null;
   // #endregion

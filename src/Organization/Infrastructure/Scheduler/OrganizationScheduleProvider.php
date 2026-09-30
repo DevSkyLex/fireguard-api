@@ -33,7 +33,6 @@ use Symfony\Contracts\Cache\CacheInterface;
  * `async` worker.
  *
  * @category Scheduler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -50,8 +49,8 @@ final readonly class OrganizationScheduleProvider implements ScheduleProviderInt
    * dependency of this app.
    */
   private const string WEEKLY_DIGEST_ANCHOR = '2026-08-31 06:00:00';
-  // #endregion
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -66,9 +65,18 @@ final readonly class OrganizationScheduleProvider implements ScheduleProviderInt
     private LockFactory $lockFactory,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method getSchedule
+   *
+   * Builds the recurring organization maintenance and weekly digest schedule.
+   *
+   * @access public
+   *
+   * @return Schedule
+   */
   public function getSchedule(): Schedule
   {
     return new Schedule()

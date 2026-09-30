@@ -33,7 +33,6 @@ use function max;
  * Provider ListEquipmentsProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -45,6 +44,21 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the query, authorization, request and mapping services for organization equipment lists.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus dispatches equipment list queries
+   * @param OrganizationAuthorizationPort $authorization enforces organization access
+   * @param Security $security resolves the authenticated user
+   * @param RequestStack $requestStack provides the current request filters
+   * @param EquipmentOutputFactory $outputFactory maps equipment results to API output
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -142,6 +156,19 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     );
   }
 
+  /**
+   * Method optionalFilter.
+   *
+   * Returns a non-empty string filter value, or null for other values.
+   *
+   * @access private
+   *
+   * @static
+   *
+   * @param mixed $value the extracted filter value
+   *
+   * @return string|null the non-empty filter string
+   */
   private static function optionalFilter(mixed $value): ?string
   {
     return is_string($value) && '' !== $value ? $value : null;

@@ -25,7 +25,6 @@ use function trim;
  * Factory InterventionWorkItemOutputFactory.
  *
  * @category Factory
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

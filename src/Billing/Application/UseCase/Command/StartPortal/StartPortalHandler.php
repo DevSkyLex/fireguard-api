@@ -17,7 +17,6 @@ use function sprintf;
  * Opens a hosted Billing Portal session for the organization's Stripe customer.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -54,9 +53,9 @@ final readonly class StartPortalHandler implements CommandHandler
    *
    * @param StartPortalCommand $command the command payload
    *
-   * @throws BillingCustomerNotFoundException when the organization has no Stripe customer
-   *
    * @return StartPortalResult the use case result
+   *
+   * @throws BillingCustomerNotFoundException when the organization has no Stripe customer
    */
   public function __invoke(StartPortalCommand $command): StartPortalResult
   {

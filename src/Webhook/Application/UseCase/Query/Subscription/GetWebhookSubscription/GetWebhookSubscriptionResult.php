@@ -16,7 +16,6 @@ use Webhook\Domain\Model\Subscription\WebhookSubscription;
  * is reused inside `ListImportJobsResult`.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

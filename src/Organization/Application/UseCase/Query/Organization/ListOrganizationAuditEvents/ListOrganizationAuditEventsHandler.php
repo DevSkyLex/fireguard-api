@@ -23,7 +23,6 @@ use Shared\Application\Message\QueryHandler;
  * authorization ordering and the membership-scoped actor resolution.
  *
  * @category Handler
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -81,11 +80,11 @@ final readonly class ListOrganizationAuditEventsHandler implements QueryHandler
    *
    * @param ListOrganizationAuditEventsQuery $query the query to handle
    *
+   * @return PaginatedResult<OrganizationAuditEventResult> the paginated, reduced events
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationMemberNotFoundException when the caller has no active membership
    * @throws OrganizationAccessDeniedException when the member lacks the audit read permission
-   *
-   * @return PaginatedResult<OrganizationAuditEventResult> the paginated, reduced events
    */
   public function __invoke(ListOrganizationAuditEventsQuery $query): PaginatedResult
   {

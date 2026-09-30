@@ -10,7 +10,6 @@ use Workload\Application\Contract\Capacity\{CapacityExceptionView, CapacityWeekV
  * Port CapacityRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

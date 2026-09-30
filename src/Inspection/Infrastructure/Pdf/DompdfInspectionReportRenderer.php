@@ -21,7 +21,6 @@ use Twig\Environment;
  * execute code embedded in the template context.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -29,10 +28,31 @@ use Twig\Environment;
 final readonly class DompdfInspectionReportRenderer implements InspectionReportPdfRendererPort
 {
   // #region Constants
+  /**
+   * Constant TEMPLATE.
+   *
+   * Twig template used to render an inspection report.
+   *
+   * @access private
+   */
   private const string TEMPLATE = 'inspection/report.html.twig';
 
+  /**
+   * Constant PAPER_SIZE.
+   *
+   * Page size used for the generated report.
+   *
+   * @access private
+   */
   private const string PAPER_SIZE = 'A4';
 
+  /**
+   * Constant PAPER_ORIENTATION.
+   *
+   * Page orientation used for the generated report.
+   *
+   * @access private
+   */
   private const string PAPER_ORIENTATION = 'portrait';
   // #endregion
 
@@ -51,6 +71,17 @@ final readonly class DompdfInspectionReportRenderer implements InspectionReportP
   // #endregion
 
   // #region Methods
+  /**
+   * Method render.
+   *
+   * Renders the inspection report template as PDF bytes with remote loading and PHP disabled.
+   *
+   * @access public
+   *
+   * @param array<string, mixed> $context values used by the inspection report template
+   *
+   * @return string generated PDF bytes
+   */
   public function render(array $context): string
   {
     $html = $this->twig->render(self::TEMPLATE, $context);

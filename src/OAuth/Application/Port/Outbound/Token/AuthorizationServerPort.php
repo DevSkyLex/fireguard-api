@@ -16,7 +16,6 @@ use OAuth\Domain\Exception\Token\AuthorizationException;
  * (e.g., League OAuth2 Server) from the Application layer.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -34,9 +33,9 @@ interface AuthorizationServerPort
    *
    * @param AccessTokenRequest $tokenRequest the client credentials and grant parameters
    *
-   * @throws AuthorizationException if token issuance fails
-   *
    * @return IssueTokenResult the token result
+   *
+   * @throws AuthorizationException if token issuance fails
    */
   public function issueAccessToken(AccessTokenRequest $tokenRequest): IssueTokenResult;
   // #endregion

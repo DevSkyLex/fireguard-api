@@ -10,11 +10,23 @@ use Inspection\Presentation\Api\Serialization\InspectionSerializationGroup;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
+/**
+ * Class UpdateNonConformityStatusInput
+ *
+ * Defines the input accepted by the UpdateNonConformityStatusInput API operation.
+ *
+ * @category Api
+ */
 final class UpdateNonConformityStatusInput
 {
+  // #region Properties
+  /**
+   * Property status
+   */
   #[Assert\NotBlank(message: 'Status is required.')]
   #[Assert\Choice(callback: [NonConformityStatus::class, 'values'])]
   #[Groups([InspectionSerializationGroup::WRITE])]
   #[ApiProperty(description: 'New non-conformity status', required: true, example: 'done')]
   public string $status = '';
+  // #endregion
 }

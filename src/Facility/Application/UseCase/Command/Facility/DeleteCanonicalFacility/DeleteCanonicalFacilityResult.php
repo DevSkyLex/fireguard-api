@@ -15,7 +15,6 @@ use Shared\Application\Message\ResultMessage;
  * — neither flag set, no revision bump, no ledger row.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -23,6 +22,19 @@ use Shared\Application\Message\ResultMessage;
 final readonly class DeleteCanonicalFacilityResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Reports whether the canonical facility was hard-deleted or archived.
+   *
+   * @access public
+   *
+   * @param string $facilityId identifier of the processed facility
+   * @param bool $hardDeleted whether the facility row was physically removed
+   * @param bool $archived whether the facility was archived instead of hard-deleted
+   *
+   * @return void
+   */
   public function __construct(
     public string $facilityId,
     public bool $hardDeleted = false,

@@ -45,7 +45,6 @@ use function str_starts_with;
  * its own `environment:` blocks — and demands the workflow declare exactly that.
  *
  * @category Architecture Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

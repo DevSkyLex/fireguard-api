@@ -16,7 +16,6 @@ namespace Maintenance\Presentation\Api\Operation;
  * `Intervention\...\InterventionOperations::EXPORT_INTERVENTIONS`.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

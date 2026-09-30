@@ -15,7 +15,6 @@ use Shared\Application\Message\QueryHandler;
  * the acting user id, so no cross-member disclosure is possible.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -44,9 +43,9 @@ final readonly class GetCalendarFeedTokenMetadataHandler implements QueryHandler
    *
    * @param GetCalendarFeedTokenMetadataQuery $query the query payload
    *
-   * @throws CalendarFeedTokenNotFoundException when the member has no active token
-   *
    * @return GetCalendarFeedTokenMetadataResult the query result
+   *
+   * @throws CalendarFeedTokenNotFoundException when the member has no active token
    */
   public function __invoke(GetCalendarFeedTokenMetadataQuery $query): GetCalendarFeedTokenMetadataResult
   {

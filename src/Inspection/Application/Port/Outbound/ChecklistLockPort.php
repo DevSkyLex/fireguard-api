@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Inspection\Application\Port\Outbound;
 
+/**
+ * Interface ChecklistLockPort
+ *
+ * Serializes checklist operations that must not overlap for the same organization and checklist.
+ *
+ * @category Port
+ */
 interface ChecklistLockPort
 {
   /**

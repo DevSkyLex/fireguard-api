@@ -10,7 +10,6 @@ namespace Facility\Application\UseCase\Query\MetadataField\ListMetadataFields;
  * One row of {@see ListMetadataFieldsResult}.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

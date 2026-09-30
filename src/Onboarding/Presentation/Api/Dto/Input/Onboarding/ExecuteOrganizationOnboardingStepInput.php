@@ -14,7 +14,6 @@ namespace Onboarding\Presentation\Api\Dto\Input\Onboarding;
  * then calls executeStep to validate the step in the onboarding flow.
  *
  * @category DTO
- *
  * @version 3.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

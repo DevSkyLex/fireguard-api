@@ -20,7 +20,6 @@ use function trim;
  * a set of items to verify during an inspection.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -58,6 +57,15 @@ final class Checklist
   }
   // #endregion
 
+  /**
+   * Method previousChecklistId.
+   *
+   * Returns the identifier of the checklist this revision supersedes, when present.
+   *
+   * @access public
+   *
+   * @return ChecklistId|null the previous checklist identifier
+   */
   public function previousChecklistId(): ?ChecklistId
   {
     return $this->previousChecklistId;

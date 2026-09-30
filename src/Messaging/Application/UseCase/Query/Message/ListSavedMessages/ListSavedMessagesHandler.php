@@ -25,7 +25,6 @@ use Shared\Application\Message\QueryHandler;
  * leak to a DIFFERENT member.
  *
  * @category UseCase
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

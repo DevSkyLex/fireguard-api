@@ -25,7 +25,6 @@ use function strtoupper;
  * Repository OrganizationRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -231,6 +230,19 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     return $organizations;
   }
 
+  /**
+   * Method countByIds
+   *
+   * Counts the supplied organizations that match the optional status and search filters.
+   *
+   * @access public
+   *
+   * @param list<OrganizationId> $ids the organization identifiers to count
+   * @param string|null $status the optional status filter
+   * @param string|null $search the optional name search value
+   *
+   * @return int the number of matching organizations
+   */
   public function countByIds(array $ids, ?string $status = null, ?string $search = null): int
   {
     if ([] === $ids) {
@@ -351,6 +363,17 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     return $queryBuilder;
   }
 
+  /**
+   * Method resolveSortField
+   *
+   * Maps supported organization sort keys to record fields and defaults to name.
+   *
+   * @access private
+   *
+   * @param string $field the requested sort key
+   *
+   * @return string the corresponding record field
+   */
   private function resolveSortField(string $field): string
   {
     return match ($field) {

@@ -16,7 +16,6 @@ namespace Maintenance\Application\Contract\Export;
  * equipment serial number and the facility name have been resolved in bulk.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

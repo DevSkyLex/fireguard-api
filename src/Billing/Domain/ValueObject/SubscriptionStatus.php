@@ -12,20 +12,50 @@ namespace Billing\Domain\ValueObject;
  * not (incomplete, canceled, unpaid, …).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum SubscriptionStatus: string
 {
+  /**
+   * Case INCOMPLETE
+   */
   case INCOMPLETE = 'incomplete';
+
+  /**
+   * Case INCOMPLETE_EXPIRED
+   */
   case INCOMPLETE_EXPIRED = 'incomplete_expired';
+
+  /**
+   * Case TRIALING
+   */
   case TRIALING = 'trialing';
+
+  /**
+   * Case ACTIVE
+   */
   case ACTIVE = 'active';
+
+  /**
+   * Case PAST_DUE
+   */
   case PAST_DUE = 'past_due';
+
+  /**
+   * Case CANCELED
+   */
   case CANCELED = 'canceled';
+
+  /**
+   * Case UNPAID
+   */
   case UNPAID = 'unpaid';
+
+  /**
+   * Case PAUSED
+   */
   case PAUSED = 'paused';
 
   // #region Methods

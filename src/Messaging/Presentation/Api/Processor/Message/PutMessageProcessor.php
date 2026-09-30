@@ -43,7 +43,6 @@ use function trim;
  * so this route can never be mistaken for an edit.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

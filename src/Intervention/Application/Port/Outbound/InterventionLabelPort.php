@@ -14,7 +14,6 @@ use Intervention\Application\Contract\Label\{InterventionLabelPage, Intervention
  * record-level metadata, not part of the `Intervention` domain aggregate.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

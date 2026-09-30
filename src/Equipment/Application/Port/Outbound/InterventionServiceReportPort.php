@@ -18,7 +18,6 @@ use Equipment\Application\Contract\Intervention\InterventionServiceReport;
  * mirroring `Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

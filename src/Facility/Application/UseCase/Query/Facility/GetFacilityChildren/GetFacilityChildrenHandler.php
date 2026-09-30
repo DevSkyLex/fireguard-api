@@ -14,13 +14,34 @@ use Shared\Application\Message\QueryHandler;
 
 use function array_map;
 
+/**
+ * Class GetFacilityChildrenHandler
+ *
+ * Lists direct children for a facility after checking organization ownership.
+ *
+ * @category Handler
+ */
 final readonly class GetFacilityChildrenHandler implements QueryHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Loads a facility’s direct children and maps their equipment counts.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository loads facilities and their children
+   * @param FacilityEquipmentDependencyPort $equipmentDependency supplies child equipment counts
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,
   ) {
   }
+  // #endregion
 
   /**
    * @return PaginatedResult<GetFacilityResult>

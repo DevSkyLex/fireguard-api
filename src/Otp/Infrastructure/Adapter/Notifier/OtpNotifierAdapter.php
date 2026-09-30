@@ -25,13 +25,15 @@ use function time;
  * Adapter OtpNotifierAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class OtpNotifierAdapter implements OtpNotifierPort
 {
+  /**
+   * Constant EMAIL_TEMPLATE
+   */
   private const string EMAIL_TEMPLATE = 'otp/email/code.html.twig';
 
   // #region Constructor

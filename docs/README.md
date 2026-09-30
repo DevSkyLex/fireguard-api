@@ -13,6 +13,8 @@ contracts from explanations and environment-specific operational information.
 
 ## Guides and operations
 
+- [Code comments and PHPDoc](guides/code-comments.md)
+
 - [System overview](architecture/system-overview.md)
 - [Patterns and examples](architecture/patterns-and-examples.md)
 - [Local development](guides/local-development.md)

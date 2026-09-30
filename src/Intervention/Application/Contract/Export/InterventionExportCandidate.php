@@ -15,7 +15,6 @@ namespace Intervention\Application\Contract\Export;
  * responsible names have been resolved in bulk.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

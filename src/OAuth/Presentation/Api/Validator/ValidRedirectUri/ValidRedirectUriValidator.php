@@ -16,13 +16,15 @@ use function parse_url;
  * Validator ValidRedirectUriValidator.
  *
  * @category Validator
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class ValidRedirectUriValidator extends ConstraintValidator
 {
+  /**
+   * Constant URI_PLACEHOLDER
+   */
   private const string URI_PLACEHOLDER = '{{ uri }}';
 
   // #region Methods

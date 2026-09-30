@@ -18,7 +18,6 @@ use Exception;
  * returned unchanged — a document must never lose data over formatting.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -45,8 +44,14 @@ final readonly class DocumentDateFormatter
     'dd-MM-yyyy' => 'd-m-Y',
   ];
 
+  /**
+   * Constant FALLBACK_DATE_FORMAT
+   */
   private const string FALLBACK_DATE_FORMAT = 'Y-m-d';
 
+  /**
+   * Constant TIME_FORMAT
+   */
   private const string TIME_FORMAT = 'H:i';
   // #endregion
 

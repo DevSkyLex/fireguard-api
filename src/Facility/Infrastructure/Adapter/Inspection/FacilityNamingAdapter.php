@@ -20,7 +20,6 @@ use Inspection\Application\Port\Outbound\FacilityNamingPort;
  * far more than the answer is worth.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -39,7 +39,6 @@ use const PHP_INT_MAX;
  * subsequent fragment and completion. Each attempt has its own deadline.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

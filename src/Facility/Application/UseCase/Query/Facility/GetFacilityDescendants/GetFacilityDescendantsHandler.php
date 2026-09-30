@@ -13,14 +13,49 @@ use Shared\Application\Message\QueryHandler;
 
 use function array_map;
 
+/**
+ * Class GetFacilityDescendantsHandler
+ *
+ * Lists descendants after verifying organization ownership and maps equipment counts.
+ *
+ * @category Handler
+ */
 final readonly class GetFacilityDescendantsHandler implements QueryHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Loads facility hierarchy and associated equipment counts through their owning ports.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository loads the facility and descendants
+   * @param FacilityEquipmentDependencyPort $equipmentDependency supplies equipment counts
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Lists sorted descendants of a facility and maps their equipment counts.
+   *
+   * @access public
+   *
+   * @param GetFacilityDescendantsQuery $query the organization, facility, and list filters
+   *
+   * @return GetFacilityDescendantsResult the descendant facility results
+   *
+   * @throws FacilityNotFoundException when the facility is missing or outside the organization
+   */
   public function __invoke(GetFacilityDescendantsQuery $query): GetFacilityDescendantsResult
   {
     $organizationId = FacilityOrganizationId::fromString($query->organizationId);
@@ -88,4 +123,5 @@ final readonly class GetFacilityDescendantsHandler implements QueryHandler
 
     return $ids;
   }
+  // #endregion
 }

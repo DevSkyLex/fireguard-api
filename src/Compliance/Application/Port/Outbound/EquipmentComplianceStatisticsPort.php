@@ -12,7 +12,6 @@ namespace Compliance\Application\Port\Outbound;
  * adapter hosted in the Equipment module.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

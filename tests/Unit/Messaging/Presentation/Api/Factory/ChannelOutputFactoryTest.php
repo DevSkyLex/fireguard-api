@@ -19,7 +19,6 @@ use PHPUnit\Framework\TestCase;
  * following, so both the populated and the detached shapes are pinned here.
  *
  * @category Factory Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

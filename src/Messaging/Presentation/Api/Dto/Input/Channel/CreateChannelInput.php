@@ -12,7 +12,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * `POST /api/channels` request body.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

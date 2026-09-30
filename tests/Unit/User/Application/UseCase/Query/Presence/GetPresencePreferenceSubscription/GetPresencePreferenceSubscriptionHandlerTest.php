@@ -14,7 +14,6 @@ use User\Application\UseCase\Query\Presence\GetPresencePreferenceSubscription\{G
  * Test GetPresencePreferenceSubscriptionHandlerTest.
  *
  * @category Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

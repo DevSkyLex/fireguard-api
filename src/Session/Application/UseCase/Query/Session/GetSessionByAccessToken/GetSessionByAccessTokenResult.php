@@ -13,7 +13,6 @@ namespace Session\Application\UseCase\Query\Session\GetSessionByAccessToken;
  * able to tell them apart.
  *
  * @category Result
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

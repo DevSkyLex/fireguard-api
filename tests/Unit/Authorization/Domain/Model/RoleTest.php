@@ -18,7 +18,6 @@ use function substr;
  * Test RoleTest.
  *
  * @category Domain Model Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

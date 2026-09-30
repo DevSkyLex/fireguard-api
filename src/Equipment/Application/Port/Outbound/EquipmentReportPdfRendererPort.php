@@ -12,7 +12,6 @@ namespace Equipment\Application\Port\Outbound;
  * the dompdf adapter lives in `Equipment\Infrastructure\Pdf`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

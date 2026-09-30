@@ -20,7 +20,6 @@ use function is_string;
  * Processor ReactivateOrganizationMemberProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

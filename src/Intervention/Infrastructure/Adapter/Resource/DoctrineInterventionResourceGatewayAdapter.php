@@ -29,7 +29,6 @@ use function iterator_to_array;
  * Resource DoctrineInterventionResourceGatewayAdapter.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

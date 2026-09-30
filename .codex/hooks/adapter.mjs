@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const apps = ['fireguard-sso-api', 'fireguard-sso-web'];
+const apps = ['fireguard-api', 'fireguard-web'];
 const inside = (parent, file) => {
   const relative = path.relative(parent, file);
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
@@ -66,7 +66,7 @@ function canonicalTarget(file) {
 
 export function handle(payload, phase) {
   const cwd = path.resolve(payload.cwd || root);
-  const isWorkspace = !apps.includes(path.basename(root));
+  const isWorkspace = !existsSync(path.join(root, 'bin/console')) && !existsSync(path.join(root, 'angular.json'));
   // Parent and child config layers may both load: the child owns nested sessions.
   if (isWorkspace && apps.some(app => inside(path.join(root, app), cwd))) return;
   const input = payload.tool_input;

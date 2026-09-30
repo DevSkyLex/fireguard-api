@@ -16,7 +16,6 @@ use function is_string;
  * the {@see OrganizationOnboardingStep::CREATE_ORGANIZATION} step.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,6 +23,9 @@ use function is_string;
 final readonly class DeleteOrganizationRollbackAction implements RollbackActionInterface
 {
   // #region Constants
+  /**
+   * Constant ACTION_TYPE
+   */
   public const string ACTION_TYPE = 'delete_organization';
   // #endregion
 

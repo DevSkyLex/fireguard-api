@@ -36,7 +36,6 @@ use Shared\Application\Message\CommandHandler;
  * "now" just for reopening an existing conversation.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

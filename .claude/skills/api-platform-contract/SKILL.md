@@ -1,6 +1,6 @@
 ---
 name: api-platform-contract
-description: The API Platform surface in fireguard-sso-api — the six-item endpoint checklist, Resource/Operation/DTO/Processor/Provider layout, the reference-catalog decision, security placement, error mapping, and which status codes carry meaning. Use when adding or changing an endpoint.
+description: The API Platform surface in fireguard-api — the six-item endpoint checklist, Resource/Operation/DTO/Processor/Provider layout, the reference-catalog decision, security placement, error mapping, and which status codes carry meaning. Use when adding or changing an endpoint.
 ---
 
 # API Platform contract

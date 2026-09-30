@@ -19,10 +19,43 @@ use function is_string;
 /** @implements ProcessorInterface<ControlAssistantAttemptInput, AssistantMessageOutput> */
 final readonly class ControlAssistantAttemptProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides authenticated assistant-attempt control requests to the application command bus.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commands dispatches the assistant attempt command
+   * @param CurrentActorPort $actor resolves the authenticated actor
+   * @param AssistantMessageOutputFactory $factory maps the message view to API output
+   *
+   * @return void
+   */
   public function __construct(private CommandBusPort $commands, private CurrentActorPort $actor, private AssistantMessageOutputFactory $factory)
   {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Dispatches a retry or cancellation for the authenticated actor and maps the resulting message.
+   *
+   * @access public
+   *
+   * @param ControlAssistantAttemptInput $data the control input containing the attempt identifier
+   * @param Operation $operation the API operation selecting retry or cancellation
+   * @param array<string, mixed> $uriVariables the organization, thread, and message route identifiers
+   * @param array<string, mixed> $context the processor context
+   *
+   * @return AssistantMessageOutput the updated message output
+   *
+   * @throws AccessDeniedHttpException when no authenticated actor is available
+   * @throws BadRequestHttpException when a required route identifier is missing
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): AssistantMessageOutput
   {
     $actor = $this->actor->userId() ?? throw new AccessDeniedHttpException('Authentication required.');
@@ -38,4 +71,5 @@ final readonly class ControlAssistantAttemptProcessor implements ProcessorInterf
 
     return $this->factory->fromView($result->message);
   }
+  // #endregion
 }

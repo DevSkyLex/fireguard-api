@@ -26,7 +26,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * mutates nor re-dispatches the event.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -59,10 +58,10 @@ final readonly class SuspendOrganizationHandler implements CommandHandler
    *
    * @param SuspendOrganizationCommand $command the command payload
    *
+   * @return SuspendOrganizationResult the use case result
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationArchivedException when the organization is archived
-   *
-   * @return SuspendOrganizationResult the use case result
    */
   public function __invoke(SuspendOrganizationCommand $command): SuspendOrganizationResult
   {

@@ -43,7 +43,6 @@ use function in_array;
  * one patch can produce three of them.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

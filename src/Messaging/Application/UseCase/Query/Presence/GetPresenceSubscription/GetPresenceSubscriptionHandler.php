@@ -12,7 +12,6 @@ use Shared\Application\Message\QueryHandler;
  * UseCase GetPresenceSubscriptionHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

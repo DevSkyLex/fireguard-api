@@ -13,6 +13,18 @@ use TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord
  */
 final readonly class TrustedDeviceMapper
 {
+  /**
+   * Method toRecord
+   *
+   * Maps trusted device state into its Doctrine record, reusing a supplied record when present.
+   *
+   * @access public
+   *
+   * @param TrustedDevice $device the trusted device aggregate
+   * @param TrustedDeviceRecord|null $record the record to update, when supplied
+   *
+   * @return TrustedDeviceRecord the mapped persistence record
+   */
   public function toRecord(TrustedDevice $device, ?TrustedDeviceRecord $record = null): TrustedDeviceRecord
   {
     $record = $record ?? new TrustedDeviceRecord();
@@ -31,6 +43,17 @@ final readonly class TrustedDeviceMapper
       ->setRevoked($device->isRevoked());
   }
 
+  /**
+   * Method toDomain
+   *
+   * Reconstitutes a trusted device aggregate from its persistence record.
+   *
+   * @access public
+   *
+   * @param TrustedDeviceRecord $record the persistence record
+   *
+   * @return TrustedDevice the reconstructed aggregate
+   */
   public function toDomain(TrustedDeviceRecord $record): TrustedDevice
   {
     $fingerprint = DeviceFingerprint::fromHash(

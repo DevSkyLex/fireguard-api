@@ -13,7 +13,6 @@ use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingAttachmentRec
  * Mapper MessagingAttachmentMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

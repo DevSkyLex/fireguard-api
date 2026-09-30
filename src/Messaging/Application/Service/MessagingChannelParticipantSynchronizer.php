@@ -35,7 +35,6 @@ use function array_values;
  * `RemoveChannelParticipantHandler`) dispatch audited domain events.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

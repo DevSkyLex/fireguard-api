@@ -24,7 +24,6 @@ use const JSON_THROW_ON_ERROR;
  * persisted per-recipient notification.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -46,6 +45,19 @@ final readonly class MercureMessagingRealtimePublisherAdapter implements Messagi
   // #endregion
 
   // #region Methods
+  /**
+   * Method publishMessage.
+   *
+   * Publishes a message payload to the private topic for its organization conversation.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $conversationId the conversation identifier
+   * @param array<string, mixed> $payload the event data encoded for Mercure
+   *
+   * @return void no return value
+   */
   public function publishMessage(string $organizationId, string $conversationId, array $payload): void
   {
     $update = new Update(

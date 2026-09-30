@@ -17,6 +17,24 @@ use Shared\Application\Port\Outbound\{ClockPort, FileStoragePort, UuidGeneratorP
 /** Handler ConfirmImportSimulationHandler. Reuses immutable stored bytes and the ordinary row-processing rules. */
 final readonly class ConfirmImportSimulationHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the ConfirmImportSimulationHandler dependencies and state.
+   *
+   * @access public
+   *
+   * @param ImportJobRepositoryPort $jobs the jobs
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   * @param ImportConfirmationLockPort $lock the lock
+   * @param ImportJobQueuePort $queue the queue
+   * @param FileStoragePort $files the files
+   * @param UuidGeneratorPort $ids the identifiers
+   * @param ClockPort $clock the clock
+   *
+   * @return void
+   */
   public function __construct(
     private ImportJobRepositoryPort $jobs,
     private OrganizationAuthorizationPort $authorization,
@@ -28,6 +46,19 @@ final readonly class ConfirmImportSimulationHandler implements CommandHandler
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Executes the use case represented by ConfirmImportSimulationHandler and returns its result.
+   *
+   * @access public
+   *
+   * @param ConfirmImportSimulationCommand $command the command to handle
+   *
+   * @return GetImportJobResult
+   */
   public function __invoke(ConfirmImportSimulationCommand $command): GetImportJobResult
   {
     return $this->lock->synchronized($command->simulationId, function () use ($command): GetImportJobResult {
@@ -61,4 +92,5 @@ final readonly class ConfirmImportSimulationHandler implements CommandHandler
       return GetImportJobResult::fromDomain($job);
     });
   }
+  // #endregion
 }

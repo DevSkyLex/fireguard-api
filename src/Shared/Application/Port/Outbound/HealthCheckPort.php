@@ -11,7 +11,6 @@ namespace Shared\Application\Port\Outbound;
  * on external dependencies (database, cache, etc.).
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

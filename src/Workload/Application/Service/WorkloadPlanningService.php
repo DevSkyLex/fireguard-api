@@ -34,7 +34,6 @@ use const SORT_STRING;
  * daily totals. Random creation identifiers do not invalidate an identical retry.
  *
  * @category Workload
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

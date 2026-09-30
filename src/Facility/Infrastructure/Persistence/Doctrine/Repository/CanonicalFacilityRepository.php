@@ -17,7 +17,6 @@ use function in_array;
  * Repository CanonicalFacilityRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

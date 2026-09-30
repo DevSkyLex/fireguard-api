@@ -29,7 +29,6 @@ use function array_values;
  * one query per row).
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -78,11 +77,11 @@ final readonly class ExportMaintenanceSchedulesHandler implements QueryHandler
    *
    * @param ExportMaintenanceSchedulesQuery $query the query to handle
    *
+   * @return ExportMaintenanceSchedulesResult the bounded, name-resolved export result
+   *
    * @throws MaintenanceNotFoundException when the caller is outside the organization's scope
    * @throws MaintenanceAccessDeniedException when the caller lacks `organization.maintenance.read`
    * @throws MaintenanceExportTooLargeException when the filters match more than {@see self::MAX_EXPORT_ROWS} schedules
-   *
-   * @return ExportMaintenanceSchedulesResult the bounded, name-resolved export result
    */
   public function __invoke(ExportMaintenanceSchedulesQuery $query): ExportMaintenanceSchedulesResult
   {

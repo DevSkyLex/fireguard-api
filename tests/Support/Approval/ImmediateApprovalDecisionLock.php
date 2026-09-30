@@ -12,7 +12,6 @@ use Approval\Application\Port\Outbound\ApprovalDecisionLockPort;
  * Executes unit-test callbacks; PostgreSQL integration tests cover locking.
  *
  * @category Test Support
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

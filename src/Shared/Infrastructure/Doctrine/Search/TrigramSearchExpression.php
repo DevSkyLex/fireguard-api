@@ -26,7 +26,6 @@ use function trim;
  * predicate at all when the term is null/blank.
  *
  * @category Search
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

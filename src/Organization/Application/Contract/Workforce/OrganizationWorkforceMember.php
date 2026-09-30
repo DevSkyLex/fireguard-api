@@ -8,7 +8,6 @@ namespace Organization\Application\Contract\Workforce;
  * Contract OrganizationWorkforceMember.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use Equipment\Domain\ValueObject\EquipmentId;
  * See {@see CanonicalEquipment} for why the two models coexist.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

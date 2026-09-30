@@ -15,7 +15,6 @@ namespace Facility\Application\Contract\Export;
  * {@see \Intervention\Application\Contract\Export\InterventionExportCandidate}.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

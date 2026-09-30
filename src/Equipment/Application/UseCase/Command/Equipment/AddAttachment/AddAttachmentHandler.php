@@ -21,7 +21,6 @@ use function sprintf;
  * UseCase AddAttachmentHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -29,6 +28,20 @@ use function sprintf;
 final readonly class AddAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment and attachment repositories, file storage, and an identifier factory to persist an attachment.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load and validate the organization-scoped equipment
+   * @param AttachmentRepositoryPort $attachmentRepository port used to check attachment identity and persist the attachment record
+   * @param FileStoragePort $fileStorage port used to write the file and remove it if persistence fails
+   * @param UuidFactory $uuidFactory factory used to create an attachment identifier when the caller supplied none
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private AttachmentRepositoryPort $attachmentRepository,

@@ -11,7 +11,6 @@ use Messaging\Presentation\Api\Dto\Output\MessageAttachmentOutput;
  * Factory MessageAttachmentOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

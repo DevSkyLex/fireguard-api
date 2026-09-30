@@ -34,7 +34,6 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * (acceptable, documented in `MODULE.md`).
  *
  * @category Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

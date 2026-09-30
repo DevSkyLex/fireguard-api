@@ -20,7 +20,6 @@ use Facility\Domain\ValueObject\FacilityId;
  * See {@see CanonicalFacility} for why the two models coexist.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

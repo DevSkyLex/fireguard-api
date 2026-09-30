@@ -31,7 +31,6 @@ use Shared\Application\Message\QueryHandler;
  * storage directly).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -39,6 +38,20 @@ use Shared\Application\Message\QueryHandler;
 final readonly class GetFacilityPlanOverlayHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility, attachment, ancestry, and equipment-position capabilities used to assemble a plan overlay.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to load the requested facility and ancestors
+   * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to find plan attachment metadata
+   * @param FacilityAttachmentAncestryGuard $ancestryGuard service that validates selected attachment ancestry
+   * @param FacilityEquipmentPlanPositionPort $equipmentPlanPosition port used to retrieve equipment positions for the overlay
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,

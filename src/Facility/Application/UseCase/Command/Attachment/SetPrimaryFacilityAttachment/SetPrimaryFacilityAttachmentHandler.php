@@ -23,7 +23,6 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
  * transaction boundary and the atomic clear of the previous primary.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -31,6 +30,19 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
 final readonly class SetPrimaryFacilityAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility and attachment repositories plus a transaction manager for the primary-plan update.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to validate the facility and its organization scope
+   * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to update the primary-plan attachment
+   * @param TransactionManagerPort $transactionManager port used to commit the related state changes atomically
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,

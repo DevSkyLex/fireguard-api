@@ -26,7 +26,6 @@ use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, Inspe
  * a read that cannot fail today.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

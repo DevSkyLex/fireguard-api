@@ -19,7 +19,6 @@ use function sprintf;
  * new one. Callers should treat it as success — the message is already there.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

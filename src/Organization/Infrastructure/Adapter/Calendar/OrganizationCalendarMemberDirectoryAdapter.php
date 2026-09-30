@@ -16,7 +16,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * `OrganizationMessagingMemberDirectoryAdapter`.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -35,9 +34,21 @@ final readonly class OrganizationCalendarMemberDirectoryAdapter implements Calen
     private OrganizationMemberRepositoryPort $members,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method resolveActiveMemberId
+   *
+   * Resolves the active member identifier for the organization and user; returns null for an invalid identifier or inactive membership.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $userId the user identifier
+   *
+   * @return ?string the active member identifier, or null when no active membership can be resolved
+   */
   public function resolveActiveMemberId(string $organizationId, string $userId): ?string
   {
     try {

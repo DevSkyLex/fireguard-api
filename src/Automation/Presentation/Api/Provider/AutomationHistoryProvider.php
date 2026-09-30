@@ -22,10 +22,41 @@ use function is_string;
 /** @implements ProviderInterface<object> */
 final readonly class AutomationHistoryProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides history queries with the authenticated actor identity.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queries dispatches the automation history query
+   * @param CurrentActorPort $actor resolves the authenticated actor
+   *
+   * @return void
+   */
   public function __construct(private QueryBusPort $queries, private CurrentActorPort $actor)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method provide.
+   *
+   * Provides automation policy, attempt history, or one attempt for the organization.
+   *
+   * @access public
+   *
+   * @param Operation $operation the API operation selecting the requested view
+   * @param array<string, mixed> $uriVariables the organization and optional attempt route variables
+   * @param array<string, mixed> $context the provider context
+   *
+   * @return object the policy, attempt, or paginated attempt output
+   *
+   * @throws AccessDeniedHttpException when no authenticated actor is available
+   * @throws BadRequestHttpException when the organization route variable is missing
+   */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $actor = $this->actor->userId() ?? throw new AccessDeniedHttpException('Authentication required.');
@@ -50,4 +81,5 @@ final readonly class AutomationHistoryProvider implements ProviderInterface
 
     return new TraversablePaginator(new ArrayIterator(array_map(AutomationAttemptOutput::fromView(...), $result->attempts)), $page, $size, $result->total);
   }
+  // #endregion
 }

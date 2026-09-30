@@ -26,7 +26,6 @@ use function is_string;
  * is `intervalOverride` (a present `null` clears it).
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

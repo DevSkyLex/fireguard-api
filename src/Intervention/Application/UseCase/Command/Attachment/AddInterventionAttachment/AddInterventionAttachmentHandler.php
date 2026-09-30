@@ -22,7 +22,9 @@ use function in_array;
 use function sprintf;
 
 /**
- * UseCase AddInterventionAttachmentHandler.
+ * Class AddInterventionAttachmentHandler
+ *
+ * Adds intervention attachments with phase-based authorization and persisted-state capacity checks.
  *
  * The single source of truth for the phase-based write authorization of
  * intervention attachments: resolves the intervention's organization,
@@ -64,7 +66,6 @@ use function sprintf;
  *   `UniqueConstraintViolationException`.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -72,6 +73,21 @@ use function sprintf;
 final readonly class AddInterventionAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the intervention, authorization, storage and identifier capabilities for uploads.
+   *
+   * @access public
+   *
+   * @param InterventionResourceManager $interventionResourceManager reads intervention context and permissions
+   * @param OrganizationAuthorizationPort $authorization checks membership and permission grants
+   * @param InterventionAttachmentRepositoryPort $attachmentRepository reads and persists attachments
+   * @param FileStoragePort $fileStorage writes and removes attachment files
+   * @param UuidFactory $uuidFactory creates attachment identifiers when none is supplied
+   *
+   * @return void
+   */
   public function __construct(
     private InterventionResourceManager $interventionResourceManager,
     private OrganizationAuthorizationPort $authorization,
@@ -84,9 +100,16 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
 
   // #region Methods
   /**
-   * Method __invoke.
+   * Method __invoke
    *
+   * Authorizes an upload, stores its file and persists the attachment with signature replacement rules.
+   *
+   * @access public
    * @since 1.0.0
+   *
+   * @param AddInterventionAttachmentCommand $command upload data and requesting actor
+   *
+   * @return AddInterventionAttachmentResult persisted attachment details
    */
   public function __invoke(AddInterventionAttachmentCommand $command): AddInterventionAttachmentResult
   {
@@ -178,6 +201,22 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
     );
   }
 
+  /**
+   * Method authorizeAttachment
+   *
+   * Checks organization membership, mutation permission and any referenced work item's ownership.
+   *
+   * @access private
+   *
+   * @param AddInterventionAttachmentCommand $command upload request and actor identifier
+   * @param InterventionAssignmentContext $context intervention organization, status and assignment data
+   *
+   * @return void
+   *
+   * @throws InterventionNotFoundException when the actor is outside the intervention's organization
+   * @throws InterventionAccessDeniedException when the actor lacks the derived mutation permission
+   * @throws InterventionValidationException when the referenced work item belongs to another intervention
+   */
   private function authorizeAttachment(AddInterventionAttachmentCommand $command, InterventionAssignmentContext $context): void
   {
     // Scope gate BEFORE mutationPermission(): its phase check can reveal
@@ -196,6 +235,22 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method assertSignatureAllowed
+   *
+   * Restricts completion signatures to submission phases and image MIME types.
+   *
+   * @access private
+   *
+   * @param AddInterventionAttachmentCommand $command upload metadata to validate
+   * @param InterventionAssignmentContext $context intervention phase data
+   * @param InterventionAttachmentKind $kind attachment kind being uploaded
+   *
+   * @return void
+   *
+   * @throws InterventionConflictException when the intervention is outside a signature phase
+   * @throws InterventionValidationException when the signature MIME type is not an allowed image
+   */
   private static function assertSignatureAllowed(AddInterventionAttachmentCommand $command, InterventionAssignmentContext $context, InterventionAttachmentKind $kind): void
   {
     if (InterventionAttachmentKind::SIGNATURE !== $kind) {
@@ -209,6 +264,19 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
     }
   }
 
+  /**
+   * Method assertAttachmentCapacity
+   *
+   * Checks the stored attachment count while accounting for retries and the signature being replaced.
+   *
+   * @access private
+   *
+   * @param string $interventionId intervention whose attachment count is checked
+   * @param InterventionAttachmentId $attachmentId identifier used by the incoming attachment
+   * @param InterventionAttachment|null $previousSignature signature row that will be replaced, if any
+   *
+   * @return void
+   */
   private function assertAttachmentCapacity(string $interventionId, InterventionAttachmentId $attachmentId, ?InterventionAttachment $previousSignature): void
   {
     // A retry overwrites its own row, while a replaced signature frees one slot.

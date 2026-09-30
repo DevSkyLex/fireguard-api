@@ -14,7 +14,6 @@ use Shared\Application\Message\QueryHandler;
  * no billing customer yet, an empty list is returned rather than an error.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -25,7 +25,6 @@ use Symfony\Contracts\Cache\CacheInterface;
  * `async` worker.
  *
  * @category Scheduler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -50,6 +49,15 @@ final readonly class InspectionScheduleProvider implements ScheduleProviderInter
   // #endregion
 
   // #region Methods
+  /**
+   * Method getSchedule.
+   *
+   * Provides the hourly SLA breach escalation schedule with shared state and a lock.
+   *
+   * @access public
+   *
+   * @return Schedule the configured inspection schedule
+   */
   public function getSchedule(): Schedule
   {
     return new Schedule()

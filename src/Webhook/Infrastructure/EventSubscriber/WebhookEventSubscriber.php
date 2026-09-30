@@ -42,7 +42,6 @@ use Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWe
  * retain their best-effort behavior.
  *
  * @category Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

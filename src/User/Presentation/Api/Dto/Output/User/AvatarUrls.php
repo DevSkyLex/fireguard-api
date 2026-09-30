@@ -16,7 +16,6 @@ use function sprintf;
  * stored on the user (e.g. ".../avatar/256.webp").
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

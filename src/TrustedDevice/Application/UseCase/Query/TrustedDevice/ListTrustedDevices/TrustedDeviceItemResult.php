@@ -11,6 +11,23 @@ use DateTimeImmutable;
  */
 final readonly class TrustedDeviceItemResult
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Projects the trusted-device details shown in a user’s device list.
+   *
+   * @access public
+   *
+   * @param string $id trusted-device identifier
+   * @param string $name user-facing device name
+   * @param DateTimeImmutable $lastUsedAt most recent use timestamp
+   * @param DateTimeImmutable $expiresAt time when the trusted-device grant expires
+   * @param DateTimeImmutable $createdAt device trust creation timestamp
+   * @param bool $isCurrentDevice whether this is the session’s current device
+   *
+   * @return void
+   */
   public function __construct(
     public string $id,
     public string $name,
@@ -20,4 +37,5 @@ final readonly class TrustedDeviceItemResult
     public bool $isCurrentDevice = false,
   ) {
   }
+  // #endregion
 }

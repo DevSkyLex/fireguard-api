@@ -40,7 +40,6 @@ use function is_string;
  * permission.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,7 +48,6 @@ use function is_string;
  */
 final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterface
 {
-  // #region Traits
   /**
    * Trait UnwrapsOrganizationBusFailures.
    *
@@ -61,7 +59,6 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
    * @see UnwrapsOrganizationBusFailures
    */
   use UnwrapsOrganizationBusFailures;
-  // #endregion
 
   // #region Constructor
   /**
@@ -85,20 +82,23 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
     private Security $security,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method process.
    *
    * Processes API input and dispatches the change-plan command.
    *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param ChangeOrganizationPlanInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return OrganizationOutput the organization with its updated plan
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOutput
   {
@@ -150,6 +150,17 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
     return $this->buildOutput($result->organizationId);
   }
 
+  /**
+   * Method rethrowWrappedFailure
+   *
+   * Maps known wrapped application failures to their corresponding HTTP exceptions and rethrows unrecognized failures.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the exception to inspect
+   *
+   * @return never this method never returns normally
+   */
   private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
   {
     $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)

@@ -37,7 +37,6 @@ use function in_array;
  * contract change, not a refactor's side effect.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -170,9 +169,9 @@ final class CanonicalEquipment
    *
    * @param CanonicalEquipmentPatch $patch the requested changes
    *
-   * @throws CanonicalEquipmentValidationException on an in-service row left without a facility, or an illegal transition
-   *
    * @return ?string the previous status when a PUBLISHED record's status changed — the audit and maintenance-log trigger — null otherwise
+   *
+   * @throws CanonicalEquipmentValidationException on an in-service row left without a facility, or an illegal transition
    */
   public function applyPatch(CanonicalEquipmentPatch $patch): ?string
   {

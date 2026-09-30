@@ -49,7 +49,6 @@ use function sprintf;
  * organization-wide only), and creating one would be new business logic.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -59,8 +58,14 @@ final class ExportEquipmentReportController extends AbstractController
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constants
+  /**
+   * Constant READ_PERMISSION
+   */
   private const string READ_PERMISSION = 'organization.equipment.read';
 
+  /**
+   * Constant MAX_ITEMS_PER_SECTION
+   */
   private const int MAX_ITEMS_PER_SECTION = 100;
   // #endregion
 

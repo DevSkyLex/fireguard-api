@@ -14,7 +14,6 @@ use Shared\Application\Message\ResultMessage;
  * login token fields.
  *
  * @category Result
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -22,12 +21,24 @@ use Shared\Application\Message\ResultMessage;
 final readonly class ConfirmRegistrationResult implements ResultMessage
 {
   // #region Constants
+  /**
+   * Constant ERROR_INVALID_CODE
+   */
   public const string ERROR_INVALID_CODE = 'invalid_code';
 
+  /**
+   * Constant ERROR_EXPIRED
+   */
   public const string ERROR_EXPIRED = 'expired';
 
+  /**
+   * Constant ERROR_MAX_ATTEMPTS
+   */
   public const string ERROR_MAX_ATTEMPTS = 'max_attempts_exceeded';
 
+  /**
+   * Constant ERROR_INVALID_TOKEN
+   */
   public const string ERROR_INVALID_TOKEN = 'invalid_token';
   // #endregion
 

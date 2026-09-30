@@ -13,7 +13,6 @@ use Throwable;
  * Adapter ClientValidationAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -11,14 +11,20 @@ namespace Billing\Domain\ValueObject;
  * price `recurring.interval` values.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum BillingInterval: string
 {
+  /**
+   * Case MONTH
+   */
   case MONTH = 'month';
+
+  /**
+   * Case YEAR
+   */
   case YEAR = 'year';
 
   // #region Methods

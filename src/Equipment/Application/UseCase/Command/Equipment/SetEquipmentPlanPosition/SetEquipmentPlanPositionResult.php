@@ -15,7 +15,6 @@ use Shared\Application\Message\ResultMessage;
  * endpoint's result onto the same `EquipmentOutput` shape.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -49,6 +49,22 @@ use function in_array;
  */
 final readonly class InterventionWorkflowInterventionWriter
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Combines persistence runtime, transition rules, draft publication and deferred event dispatch
+   * for intervention workflow mutations.
+   *
+   * @access public
+   *
+   * @param InterventionWorkflowWriterRuntime $runtime provides persistence and workflow collaborators
+   * @param InterventionTransitionPolicy $transitionPolicy enforces valid status transitions
+   * @param InterventionDraftPublisher $draftPublisher manages draft resources
+   * @param EventDispatcherPort $eventDispatcher publishes post-commit status events
+   *
+   * @return void
+   */
   public function __construct(
     private InterventionWorkflowWriterRuntime $runtime,
     private InterventionTransitionPolicy $transitionPolicy,
@@ -56,12 +72,14 @@ final readonly class InterventionWorkflowInterventionWriter
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
+  // #endregion
 
   /**
    * Method mutateIntervention.
    *
-   * Executes the mutate intervention operation.
+   * Routes create versus existing-intervention mutations and applies revision checks before writes.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionWorkflowMutation $mutation the mutation value
@@ -96,8 +114,9 @@ final readonly class InterventionWorkflowInterventionWriter
   /**
    * Method createIntervention.
    *
-   * Executes the create intervention operation.
+   * Creates the intervention record and initial workflow state, rejecting a reused client UUID.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param InterventionWorkflowMutation $mutation the mutation value
@@ -158,8 +177,9 @@ final readonly class InterventionWorkflowInterventionWriter
   /**
    * Method updateIntervention.
    *
-   * Executes the update intervention operation.
+   * Applies a validated workflow mutation to the persisted intervention and collects deferred status notifications.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param InterventionRecord $intervention the intervention value
@@ -271,6 +291,21 @@ final readonly class InterventionWorkflowInterventionWriter
     return $siteId;
   }
 
+  /**
+   * Method resolveNextStatus.
+   *
+   * Validates a requested transition and returns its next status when supplied.
+   *
+   * @access private
+   *
+   * @param InterventionAggregate $aggregate the current intervention state
+   * @param InterventionWorkflowMutation $mutation the requested workflow changes
+   * @param string $organizationId the owning organization identifier
+   * @param string $previousStatus the persisted status before the mutation
+   * @param ?string $responsibleId the responsible member after applying ownership changes
+   *
+   * @return ?InterventionStatus the requested next status, or null when unchanged
+   */
   private function resolveNextStatus(InterventionAggregate $aggregate, InterventionWorkflowMutation $mutation, string $organizationId, string $previousStatus, ?string $responsibleId): ?InterventionStatus
   {
     if (!array_key_exists('status', $mutation->payload)) {
@@ -297,6 +332,21 @@ final readonly class InterventionWorkflowInterventionWriter
     return $nextStatus;
   }
 
+  /**
+   * Method assertTaskPeriodsFit.
+   *
+   * Rejects schedule changes that no longer contain existing work-item periods.
+   *
+   * @access private
+   *
+   * @param InterventionRecord $intervention the persisted intervention and its work items
+   * @param InterventionAggregate $aggregate the proposed intervention schedule
+   * @param string $organizationId the organization whose timezone defines calendar days
+   *
+   * @return void no return value
+   *
+   * @throws InterventionValidationException when any work item falls outside the proposed dates
+   */
   private function assertTaskPeriodsFit(InterventionRecord $intervention, InterventionAggregate $aggregate, string $organizationId): void
   {
     $timezone = $this->runtime->support->organizationTimezone($organizationId);

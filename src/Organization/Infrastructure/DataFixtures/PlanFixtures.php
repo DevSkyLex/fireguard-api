@@ -13,24 +13,57 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\PlanRecord;
  * Seeds the subscription plan catalog (Free, Pro, Max).
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class PlanFixtures extends Fixture implements FixtureGroupInterface
 {
+  // #region Constants
+  /**
+   * Free subscription plan fixture identifier.
+   */
   public const string FREE_PLAN_ID = '22222222-2222-4222-8222-222222222221';
 
+  /**
+   * Pro subscription plan fixture identifier.
+   */
   public const string PRO_PLAN_ID = '22222222-2222-4222-8222-222222222222';
 
+  /**
+   * Max subscription plan fixture identifier.
+   */
   public const string MAX_PLAN_ID = '22222222-2222-4222-8222-222222222223';
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method getGroups.
+   *
+   * Returns the fixture groups used to load the plan catalog.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return list<string> fixture group names
+   */
   public static function getGroups(): array
   {
     return ['plan', 'main-seed'];
   }
 
+  /**
+   * Method load.
+   *
+   * Seeds the Free, Pro, and Max plans with their configured limits.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager the fixture object manager
+   *
+   * @return void no return value
+   */
   public function load(ObjectManager $manager): void
   {
     $createdAt = new DateTimeImmutable('2026-06-19T12:00:00+00:00');
@@ -63,4 +96,5 @@ final class PlanFixtures extends Fixture implements FixtureGroupInterface
 
     $manager->flush();
   }
+  // #endregion
 }

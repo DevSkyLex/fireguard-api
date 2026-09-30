@@ -34,6 +34,22 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides the update command bus, organization access check, and authenticated actor.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus dispatches status-change commands
+   * @param QueryBusPort $queryBus loads the non-conformity for approval checks
+   * @param OrganizationAuthorizationPort $authorization checks organization permissions
+   * @param ApprovalGatePort $approvalGate evaluates deferred waiver requests
+   * @param Security $security resolves the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
@@ -42,7 +58,23 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
     private Security $security,
   ) {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method process.
+   *
+   * Validates access and status changes, deferring waivers when approval is required.
+   *
+   * @access public
+   *
+   * @param UpdateNonConformityStatusInput $data the update input, narrowed to UpdateNonConformityStatusInput
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the route variables
+   * @param array<string, mixed> $context the processor context
+   *
+   * @return NonConformityOutput|HttpResponse the updated record or deferred approval response
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): NonConformityOutput|HttpResponse
   {
     /** @var UpdateNonConformityStatusInput $data */
@@ -107,6 +139,17 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
     return $output;
   }
 
+  /**
+   * Method mapMessengerException.
+   *
+   * Maps wrapped inspection and non-conformity failures to HTTP exceptions.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the wrapped message failure
+   *
+   * @return Throwable the mapped HTTP exception or original failure
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     return match (true) {
@@ -192,4 +235,5 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
       'expiresAt' => $decision->expiresAt?->format('c'),
     ], HttpResponse::HTTP_ACCEPTED);
   }
+  // #endregion
 }

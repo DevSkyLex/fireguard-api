@@ -37,7 +37,6 @@ use function time;
  * URL through the settings command, then returns the refreshed organization.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -112,9 +111,9 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
    * @param array<string, mixed> $uriVariables route variables (expects "organizationId")
    * @param array<string, mixed> $context request context
    *
-   * @throws UnprocessableEntityHttpException if the file is missing, too large, or has an invalid MIME type
-   *
    * @return OrganizationOutput the refreshed organization output
+   *
+   * @throws UnprocessableEntityHttpException if the file is missing, too large, or has an invalid MIME type
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOutput
   {

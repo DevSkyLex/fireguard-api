@@ -12,7 +12,6 @@ namespace Approval\Application\Contract\Gate;
  * be deferred behind a four-eyes approval request.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

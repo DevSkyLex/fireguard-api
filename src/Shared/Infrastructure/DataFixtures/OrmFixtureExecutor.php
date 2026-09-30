@@ -7,6 +7,13 @@ namespace Shared\Infrastructure\DataFixtures;
 use Doctrine\Common\DataFixtures\{Executor\ORMExecutor, FixtureInterface, Loader, Purger\ORMPurger};
 use Doctrine\ORM\EntityManagerInterface;
 
+/**
+ * Class OrmFixtureExecutor
+ *
+ * Loads the supplied fixtures through Doctrine and clears the entity manager afterward.
+ *
+ * @category Fixture
+ */
 class OrmFixtureExecutor
 {
   /**

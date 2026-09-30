@@ -21,7 +21,6 @@ namespace Audit\Application\Contract;
  * consumer never sees a raw producer payload.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

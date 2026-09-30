@@ -19,7 +19,6 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * Clears a previous dismissal so the activation flow becomes visible again.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -29,6 +28,18 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 final readonly class ResumeOrganizationOnboardingProcessor implements ProcessorInterface
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Dispatches the authenticated user’s request to resume organization onboarding.
+   *
+   * @access public
+   *
+   * @param OrganizationOnboardingServicePort $flowService service port for organization onboarding state transitions
+   * @param Security $security security context used to identify the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private OrganizationOnboardingServicePort $flowService,
     private Security $security,
@@ -40,12 +51,17 @@ final readonly class ResumeOrganizationOnboardingProcessor implements ProcessorI
   /**
    * Method process.
    *
+   * Checks the authenticated actor and resumes the organization onboarding flow.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param null $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return OrganizationOnboardingOutput the resumed onboarding state
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOnboardingOutput
   {

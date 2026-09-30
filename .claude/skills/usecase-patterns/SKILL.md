@@ -1,6 +1,6 @@
 ---
 name: usecase-patterns
-description: The Command/Query/Handler/Result shape in fireguard-sso-api — the handler template, port-only injection, domain events dispatched after the durable save, cross-module contract types, and the handler unit test. Use when adding or changing anything under Application/UseCase/.
+description: The Command/Query/Handler/Result shape in fireguard-api — the handler template, port-only injection, domain events dispatched after the durable save, cross-module contract types, and the handler unit test. Use when adding or changing anything under Application/UseCase/.
 ---
 
 # Use case patterns

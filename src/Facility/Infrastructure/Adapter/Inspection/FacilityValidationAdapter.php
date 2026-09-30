@@ -18,7 +18,6 @@ use function sprintf;
  * using the Facility module's repository.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -26,6 +25,17 @@ use function sprintf;
 final readonly class FacilityValidationAdapter implements FacilityValidationPort
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the facility repository used to validate facility references for Inspection.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to find and validate facility references
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
   ) {

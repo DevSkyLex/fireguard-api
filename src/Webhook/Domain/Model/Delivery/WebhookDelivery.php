@@ -23,7 +23,6 @@ use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, Webhoo
  * `failed` (terminal).
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

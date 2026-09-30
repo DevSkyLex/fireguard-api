@@ -13,7 +13,6 @@ use OAuth\Domain\ValueObject\Consent\ConsentId;
  * Port for Consent persistence.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -14,7 +14,6 @@ use function is_array;
  * regional). New sections are added as further nested value objects.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

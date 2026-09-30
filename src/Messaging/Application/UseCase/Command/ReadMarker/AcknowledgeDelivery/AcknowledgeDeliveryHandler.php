@@ -16,6 +16,23 @@ use Throwable;
 /** Persists a delivery acknowledgement after checking participant and message ownership. */
 final readonly class AcknowledgeDeliveryHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the repositories, access policy and realtime/logging ports for delivery acknowledgements.
+   *
+   * @access public
+   *
+   * @param MessagingConversationRepositoryPort $conversations loads conversation state
+   * @param MessagingMessageRepositoryPort $messages loads the delivered message
+   * @param MessagingReadMarkerRepositoryPort $readMarkers records member read positions
+   * @param MessagingRealtimePublisherPort $realtime publishes read marker updates
+   * @param MessagingAccessPolicy $accessPolicy checks conversation membership and visibility
+   * @param LoggerPort $logger records rejected delivery acknowledgements
+   *
+   * @return void
+   */
   public function __construct(
     private MessagingConversationRepositoryPort $conversations,
     private MessagingMessageRepositoryPort $messages,
@@ -26,6 +43,22 @@ final readonly class AcknowledgeDeliveryHandler implements CommandHandler
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Records a delivery receipt for a participant conversation after checking the user's access.
+   *
+   * @access public
+   *
+   * @param AcknowledgeDeliveryCommand $command the user and delivered message context
+   *
+   * @return AcknowledgeDeliveryResult the acknowledged delivery position
+   *
+   * @throws MessagingNotFoundException when the conversation or message is unavailable
+   * @throws MessagingValidationException when delivery receipts are not supported for the conversation
+   */
   public function __invoke(AcknowledgeDeliveryCommand $command): AcknowledgeDeliveryResult
   {
     $conversation = $this->conversations->findById($command->conversationId);
@@ -57,4 +90,5 @@ final readonly class AcknowledgeDeliveryHandler implements CommandHandler
 
     return new AcknowledgeDeliveryResult($message->id);
   }
+  // #endregion
 }

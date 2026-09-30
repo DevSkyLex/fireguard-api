@@ -1,57 +1,68 @@
 # FireGuard API — Claude Code tooling
 
-This app ships its own `.claude/`. Open **`fireguard-sso-api/`** as the workspace root to
-activate it: 12 agents, 13 commands, 7 skills, 8 rules, 1 MCP server, and 2 hooks. Code
-intelligence comes from the user-scope `serena-api` MCP server, not from a plugin.
+This checkout ships **22 native agents**, with the same names and responsibilities as
+its Codex catalog. Claude definitions are standalone Markdown files: they do not import,
+link to or depend on Codex agent definitions. Existing slash-command names are preserved.
 
-> **This directory is also a plugin.** The monorepo root installs it as
-> `fireguard-api@fireguard` (project scope, via the root `.claude-plugin/marketplace.json`),
-> so root sessions load the 12 agents, the commands namespaced as `/fireguard-api:fg-usecase`
-> and friends, the skills, and the hooks. It carries neither `.mcp.json` — a plugin reads it
-> from the plugin root, standalone needs it at the app root — nor `rules/`, which is not a
-> plugin component. Opening this directory as the workspace root remains the only way to get
-> everything. The manifest is `.claude-plugin/plugin.json`; plugin-mode hook wiring is
-> `hooks/hooks.json`. Nothing is duplicated between the two modes — but the install is a
-> **cached copy**: after changing tooling here, bump `version` in
-> `.claude-plugin/plugin.json` and run
-> `claude plugin update fireguard-api@fireguard --scope project` from the monorepo root.
+## Shared API + web catalog
 
-Cross-cutting and monorepo-level tooling stays at `G:\Projets\fireguard\.claude\` —
-`/fg-map` and `/fg-contract-check` (the API↔frontend drift check, the one agent that spans
-both apps).
+Start from this checkout and attach the intended peer:
+
+```powershell
+claude --add-dir ../fireguard-web
+```
+
+Current Claude versions discover `.claude/agents/` in added directories, giving the same
+**47 roles** from API or web. Agent prompts resolve their owning checkout explicitly;
+read its AGENTS.md, CLAUDE.md, rules and module/feature contract. Additional-directory agent
+discovery does not imply every skill, hook or setting of the peer is loaded: use the owning
+skill file directly when registration is unavailable.
+
+Both project settings disable Fast (`fastMode: false` and
+`CLAUDE_CODE_DISABLE_FAST_MODE=1`), including the main session. Models and efforts are
+explicit native frontmatter; verify client/provider support and the actually selected model.
+Do not silently lower effort or substitute a model when unavailable.
+
+Local source discovery is the shared-catalog mode. Do not load the same agents again through
+cached plugins. The existing plugin manifest remains available for plugin-only use, with a
+patch version bump after catalog changes; root marketplace/cache activation is separate.
+The absent parent marketplace is not recreated by this migration. Do not modify personal settings.
 
 ## Agents
 
-Every agent is granted the `Skill` tool and opens with a **Skills to load** table naming which
-skills it must load and on what trigger. That is deliberate: the agent prompt states the
-_judgment_ (what to decide, in what order, what to hand off), the skill carries the
-_operational_ detail (commands, harnesses, decision tables). Neither restates the other, so
-neither drifts. From the monorepo root the skill names are namespaced `fireguard-api:<name>`.
+Each agent has assigned ownership, conditional local skills, explicit model/effort and a
+bounded report. Reviewers, auditors and explorers exclude editing/delegation tools and request
+parent evidence for checks that write files, caches or state. Writers inherit permissions and
+preserve concurrent work. No agent automatically spawns a challenge or extra specialist.
 
-**Builders — they create code.** One per kind of unit in the hexagonal standard.
+| Agent | Responsibility | Model | Effort | Mode |
+| --- | --- | --- | --- | --- |
+| `fg-api-architecture-reviewer` | Use to review fireguard-api PHP changes against the hexagonal Module Architecture Standard — layer direction, business logic in handlers not processors, ports vs concrete infrastructure, cross-module boundaries, naming, the dual-database wiring, and MODULE.md currency. Invoke after writing or modifying module code. Read-only — reports findings, does not edit. | opus | xhigh | Read-only |
+| `fg-api-async-builder` | Implement assigned Messenger/Scheduler flows with transactional outbox, bounded retry, idempotence, leases and recovery. | opus | xhigh | Assigned writes |
+| `fg-api-auth-reviewer` | Review OAuth/OIDC, token verification, sessions, MFA, signatures, rotation, revocation and replay boundaries. | opus | high | Read-only |
+| `fg-api-authorization-reviewer` | Review RBAC and tenant, organization and object authorization across routes, handlers, repositories and async paths. | opus | high | Read-only |
+| `fg-api-comment-maintainer` | Define or maintain assigned comment conventions, correct source docblocks and run scoped documentation formatting and lint without changing behavior. | sonnet | medium | Assigned writes |
+| `fg-api-contract-reviewer` | Use to review the API Platform contract in fireguard-api — resource metadata, operation constants, Input/Output DTOs, serialization groups, status codes, filters, pagination, OpenAPI output, and exception-to-HTTP mapping — for regressions and drift. Invoke after changing an endpoint or a DTO. Read-only — reports findings, does not edit. | opus | high | Read-only |
+| `fg-api-domain-builder` | Use to add Domain-layer code in fireguard-api — an aggregate or model under Domain/Model/, a value object, a domain event, or a domain exception — with the invariants enforced inside the model rather than in a handler. Invoke for "add an aggregate / value object / domain event / domain exception to <Module>". Writes code. | sonnet | high | Assigned writes |
+| `fg-api-endpoint-builder` | Build an API Platform endpoint with Resource, Operation, DTOs, Processor or Provider, validation, security, error mapping and functional tests. Business handlers belong to fg-api-usecase-builder when separately delegated. | sonnet | high | Assigned writes |
+| `fg-api-integration-builder` | Implement external service adapters and webhooks behind Application ports with bounded timeouts, errors and tests using doubles. | sonnet | high | Assigned writes |
+| `fg-api-migration-builder` | Generate or validate new Doctrine schema/data migrations on the explicit auth or main history. Repository-only changes do not automatically require a migration. | opus | high | Assigned writes |
+| `fg-api-module-builder` | Scaffold a backend bounded context with its first vertical slice, four-layer ownership, ports, wiring, persistence when needed, security, MODULE.md and baseline tests. | opus | high | Assigned writes |
+| `fg-api-module-documenter` | Update assigned MODULE.md contracts from verified source and configuration evidence, preserving their normative scope. | sonnet | medium | Assigned writes |
+| `fg-api-module-explorer` | Use to map an existing module in fireguard-api before changing it — its use cases, ports and adapters, Doctrine records and which database they live on, API resources and routes, config wiring, tests, and the closest implementation anchors to mirror. Invoke before implementing in unfamiliar territory. Read-only — produces a map, not edits. | sonnet | high | Read-only |
+| `fg-api-observability-reviewer` | Review assigned logs, correlation, health checks and failure visibility for API and worker flows. | sonnet | high | Read-only |
+| `fg-api-persistence-builder` | Implement assigned Doctrine Records, repositories, mappers and locking through Application ports; schema migrations remain with the migration specialist. | sonnet | high | Assigned writes |
+| `fg-api-port-builder` | Use to add a port and its adapter in fireguard-api — an Application/Port/Outbound (or Inbound) interface, the Infrastructure adapter or Doctrine repository that fulfils it, the config/modules alias, the explicit entity-manager wiring, and the adapter unit test. Invoke when a use case needs an external dependency, or when a module must publish a capability. Writes code. | sonnet | high | Assigned writes |
+| `fg-api-query-performance-reviewer` | Review Doctrine query cost, N+1, pagination, volumes, index coverage and supplied plans without applying changes. | sonnet | high | Read-only |
+| `fg-api-security-auditor` | Use to security-review changes touching authentication, OAuth2/OIDC, sessions, trusted devices, OTP/MFA, RBAC permissions, the audit ledger, multi-tenant/organization scoping, secrets handling, or the Stripe billing webhook. FireGuard is an identity + fire-safety platform, so these paths are its crown jewels. Read-only — reports risks and fixes, does not edit. | opus | xhigh | Read-only |
+| `fg-api-service-wiring-reviewer` | Review aliases, dependency injection, tags, handler registration and explicit entity and transaction managers. | sonnet | medium | Read-only |
+| `fg-api-test-writer` | Use to author or repair PHPUnit tests in fireguard-api — unit tests for handlers, adapters, and domain models; integration tests for Doctrine repositories; functional tests for API endpoint contracts including denial paths; E2E for full flows. Invoke when a change needs coverage. Writes tests; never changes production code to make one pass. | sonnet | high | Assigned writes |
+| `fg-api-usecase-builder` | Build a command or query use case with typed message, Handler, Result, ports, wiring and unit tests. HTTP work belongs to fg-api-endpoint-builder when separately delegated. | sonnet | high | Assigned writes |
+| `fg-api-workflow-reviewer` | Use to review GitHub Actions changes in fireguard-api — triggers, permissions, secret exposure, pull_request_target risks, caching, matrix and job dependencies, and deployment gating. Invoke when .github/workflows or the composite actions change. Read-only — reports findings, does not edit. | sonnet | high | Read-only |
 
-| Agent                  | Creates                                                                                                        |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `fg-usecase-builder`   | a command or query: Command/Query, Handler, Result, wiring, handler test                                       |
-| `fg-endpoint-builder`  | an API Platform endpoint: Resource, Operation, DTOs, Processor/Provider, validators, security, functional test |
-| `fg-port-builder`      | a port and its adapter, the alias, and the entity-manager wiring                                               |
-| `fg-domain-builder`    | aggregates, value objects, domain events, domain exceptions                                                    |
-| `fg-module-builder`    | a whole bounded context, wired across all four config files                                                    |
-| `fg-migration-builder` | migrations, routed to the correct database                                                                     |
-
-**Specialists — they enrich or judge.** Called after a builder, or on existing code.
-
-| Agent                      | Does                                                                       | Writes?       |
-| -------------------------- | -------------------------------------------------------------------------- | ------------- |
-| `fg-test-writer`           | PHPUnit at the right level, denial paths included                          | yes           |
-| `fg-architecture-reviewer` | layer direction, logic placement, ports, dual-DB wiring, `MODULE.md`       | **read-only** |
-| `fg-security-auditor`      | auth, OAuth, sessions, OTP, RBAC, audit, tenant isolation, secrets, Stripe | **read-only** |
-| `fg-contract-reviewer`     | DTOs, status codes, serialization, pagination, OpenAPI drift               | **read-only** |
-| `fg-module-explorer`       | maps a module before you change it                                         | **read-only** |
-| `fg-workflow-reviewer`     | CI triggers, permissions, `pull_request_target`, action pinning            | **read-only** |
-
-Create ≠ enrich ≠ review. A builder that ships a finished test suite or a security verdict
-has taken a specialist's job; each is told to hand those off by name.
+Forms, overlays and collections have separate owners. Routing/SSR, access and offline sync
+use their dedicated roles; ordinary component/service builders retain their narrower scope.
+Security, performance, workflows and observability report findings rather than applying fixes.
 
 ## Commands
 
@@ -74,10 +85,10 @@ commands, templates, decision tables, exemplar paths — and cites `ARCHITECTURE
 _rule_. That split keeps `ARCHITECTURE.md` the single source of truth instead of creating a
 second one that drifts.
 
-### Where repetition *is* allowed, and the rule that keeps it honest
+### Where repetition _is_ allowed, and the rule that keeps it honest
 
 The agent/skill split above holds. The layer **below** it does repeat: `rules/` are
-path-scoped, so they fire *without* the skill, and a rule that only pointed at one would carry
+path-scoped, so they fire _without_ the skill, and a rule that only pointed at one would carry
 nothing at the moment it is needed. Five of the eight therefore abridge a skill —
 `tests.md`→`module-testing`, `application.md`→`usecase-patterns`,
 `presentation.md`→`api-platform-contract`, `domain.md`→`hexagonal-layout`,
@@ -108,15 +119,15 @@ Path-scoped instructions. Unlike a skill, a rule loads **automatically** wheneve
 file matching its `paths:` glob — so it carries the few things that must never be got wrong on
 that kind of file, not the how-to.
 
-| Rule                | Loads when you touch                    | Carries                                                                                   |
-| ------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `domain.md`         | `src/*/Domain/**`                       | depends on nothing but `SharedDomain`, invariants inside the model, no ORM attribute      |
-| `application.md`    | `src/*/Application/**`                  | logic in handlers, **ports only** in the constructor, events after the save               |
-| `infrastructure.md` | `src/*/Infrastructure/**`               | vendor types behind the adapter, no rules in repositories, **the `$entityManager` trap**  |
-| `presentation.md`   | `src/*/Presentation/**`                 | the six-item checklist, translate-never-decide, the 403/404 distinction                   |
-| `migrations.md`     | `migrations/**`                         | name the database on every command, `-d memory_limit=1G`, never edit an applied migration |
-| `tests.md`          | `tests/**`                              | which level covers what, the denial paths, PostgreSQL not SQLite                          |
-| `module-config.md`  | `config/modules/*` `config/packages/**` | the explicit `$entityManager`, the port `alias:`, first-match-wins access control         |
+| Rule                | Loads when you touch                    | Carries                                                                                                      |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `domain.md`         | `src/*/Domain/**`                       | depends on nothing but `SharedDomain`, invariants inside the model, no ORM attribute                         |
+| `application.md`    | `src/*/Application/**`                  | logic in handlers, **ports only** in the constructor, events after the save                                  |
+| `infrastructure.md` | `src/*/Infrastructure/**`               | vendor types behind the adapter, no rules in repositories, **the `$entityManager` trap**                     |
+| `presentation.md`   | `src/*/Presentation/**`                 | the six-item checklist, translate-never-decide, the 403/404 distinction                                      |
+| `migrations.md`     | `migrations/**`                         | name the database on every command, `-d memory_limit=1G`, never edit an applied migration                    |
+| `tests.md`          | `tests/**`                              | which level covers what, the denial paths, PostgreSQL not SQLite                                             |
+| `module-config.md`  | `config/modules/*` `config/packages/**` | the explicit `$entityManager`, the port `alias:`, first-match-wins access control                            |
 | `lsp-usage.md`      | `src/**/*.php` `tests/**/*.php`         | Serena for symbols / grep for text, the cold index that answers short, the operations Intelephense withholds |
 
 Three of them repeat the **dual-database** warning from a different angle, on purpose: it is the
@@ -134,7 +145,13 @@ not to document Symfony, and the PHPStan MCP servers are unofficial and redundan
 `make phpstan`. Context7 covers Symfony 7.4, Doctrine, API Platform, and PHPUnit
 generically, which is honestly the whole of what is available and reliable.
 
-## Code intelligence (Serena, user scope)
+## Code intelligence (Serena, local scope, optional)
+
+`serena-api` is configured privately for this checkout in `~/.claude.json`,
+using the current `fireguard-api` path. It is disabled by default through the
+project's `disabledMcpServers` list. Enable it from `/mcp` for symbol navigation,
+reference analysis or refactoring, then disable it again after the task; the
+toggle is saved per project. Routine text and documentation work uses `rg`.
 
 [Intelephense](https://intelephense.com) on `.php`, reached through the **`serena-api`** MCP
 server rather than a language-server plugin, giving `find_declaration` /
@@ -194,3 +211,9 @@ passes `lint:container` — and queries the wrong database. See the `dual-databa
 and instructions. It is deliberately left untouched: the two are independent, and this
 `.claude/` was written fresh against `ARCHITECTURE.md` rather than converted. If a rule
 changes in one, it does not propagate to the other.
+
+## Comment maintenance
+
+`fg-api-comment-maintainer` uses Sonnet with medium effort for assigned PHP comments,
+docblocks and scoped checks. Both clients read the [shared convention](../docs/guides/code-comments.md).
+This role does not change behavior or launch another agent.

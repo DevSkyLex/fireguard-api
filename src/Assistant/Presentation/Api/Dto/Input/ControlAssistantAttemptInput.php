@@ -11,8 +11,13 @@ use Symfony\Component\Validator\Constraints as Assert;
 /** Input ControlAssistantAttemptInput. Expected identity prevents a stale action from affecting the next attempt. */
 final class ControlAssistantAttemptInput
 {
+  // #region Properties
+  /**
+   * Property attemptId
+   */
   #[Groups([AssistantSerializationGroup::WRITE])]
   #[Assert\NotBlank]
   #[Assert\Uuid]
   public string $attemptId = '';
+  // #endregion
 }

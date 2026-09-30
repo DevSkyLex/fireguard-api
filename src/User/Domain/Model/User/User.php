@@ -19,7 +19,6 @@ use function in_array;
  * Aggregate User.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -330,10 +329,10 @@ final class User
    *
    * @param string $plainPassword the plain text password
    *
+   * @return bool true if authentication successful
+   *
    * @throws InvalidUserException if the user cannot login
    * @throws InvalidPasswordException if the password is incorrect
-   *
-   * @return bool true if authentication successful
    */
   public function authenticate(string $plainPassword): bool
   {

@@ -16,7 +16,6 @@ use User\Presentation\Api\Dto\Output\Presence\PresencePreferenceSubscriptionOutp
  * @implements ProviderInterface<PresencePreferenceSubscriptionOutput>
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -16,7 +16,6 @@ use function sprintf;
  * requested — information hiding, not a distinct access-denied case.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

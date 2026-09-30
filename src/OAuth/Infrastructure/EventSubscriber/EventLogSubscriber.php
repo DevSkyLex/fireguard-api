@@ -15,7 +15,6 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * Logs OAuth-related events for audit/tracing.
  *
  * @category Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -64,9 +63,9 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
    *
    * Handles TokenIssuedEvent.
    *
-   * @param TokenIssuedEvent $event the event
-   *
    * @since 1.0.0
+   *
+   * @param TokenIssuedEvent $event the event
    *
    * @return void no return value
    */
@@ -88,9 +87,9 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
    *
    * Handles TokenIssueFailedEvent.
    *
-   * @param TokenIssueFailedEvent $event the event
-   *
    * @since 1.0.0
+   *
+   * @param TokenIssueFailedEvent $event the event
    *
    * @return void no return value
    */
@@ -112,9 +111,9 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
    *
    * Handles TokenRefreshedEvent.
    *
-   * @param TokenRefreshedEvent $event the event
-   *
    * @since 1.0.0
+   *
+   * @param TokenRefreshedEvent $event the event
    *
    * @return void no return value
    */
@@ -134,9 +133,9 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
    *
    * Handles TokenRefreshFailedEvent.
    *
-   * @param TokenRefreshFailedEvent $event the event
-   *
    * @since 1.0.0
+   *
+   * @param TokenRefreshFailedEvent $event the event
    *
    * @return void no return value
    */

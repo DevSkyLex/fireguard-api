@@ -16,7 +16,6 @@ use Shared\Application\Message\ResultMessage;
  * — the window policy stays in the Application layer, not in the controller.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

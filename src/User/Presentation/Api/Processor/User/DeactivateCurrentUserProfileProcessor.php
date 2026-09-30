@@ -27,7 +27,6 @@ use User\Presentation\Api\Dto\Output\User\CurrentUserProfileOutput;
  * Reactivation stays admin-only — there is no self-service counterpart.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -78,6 +78,8 @@ area:config:
       - any-glob-to-any-file:
           - 'config/**'
           - 'phpunit*.xml'
+          - 'tests/E2E/phpunit.xml'
+          - 'tests/Architecture/deptrac/**'
           - '*.neon'
           - '*.dist'
           - 'deptrac.yaml'

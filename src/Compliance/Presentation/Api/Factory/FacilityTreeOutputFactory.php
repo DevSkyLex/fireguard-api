@@ -13,7 +13,6 @@ use function array_map;
  * Factory FacilityTreeOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

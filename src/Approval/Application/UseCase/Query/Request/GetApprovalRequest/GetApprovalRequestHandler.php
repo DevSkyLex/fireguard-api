@@ -19,7 +19,6 @@ use Shared\Application\Message\QueryHandler;
  * {@see \Organization\Application\Contract\Authorization\OrganizationAccessDecision}.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

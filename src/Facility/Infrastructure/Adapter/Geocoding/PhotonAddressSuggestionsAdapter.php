@@ -33,7 +33,6 @@ use function trim;
  * International search-as-you-type through a configured Photon instance.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -158,6 +157,17 @@ final readonly class PhotonAddressSuggestionsAdapter implements AddressSuggestio
     return $results;
   }
 
+  /**
+   * Method parseFeature.
+   *
+   * Converts a Photon feature with point coordinates and address fields into a suggestion.
+   *
+   * @access private
+   *
+   * @param mixed $feature the decoded feature value to inspect
+   *
+   * @return AddressSuggestion|null the suggestion when required address data is valid
+   */
   private function parseFeature(mixed $feature): ?AddressSuggestion
   {
     $properties = is_array($feature) ? ($feature['properties'] ?? null) : null;

@@ -12,13 +12,16 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * DTO AuditEventOutput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class AuditEventOutput
 {
+  // #region Properties
+  /**
+   * Property id
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Audit event identifier (UUID).',
@@ -35,6 +38,9 @@ final class AuditEventOutput
   )]
   public string $id = '';
 
+  /**
+   * Property action
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Audit action key.',
@@ -49,6 +55,9 @@ final class AuditEventOutput
   )]
   public string $action = '';
 
+  /**
+   * Property actorType
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Actor type (user, client, system, anonymous).',
@@ -63,6 +72,9 @@ final class AuditEventOutput
   )]
   public string $actorType = '';
 
+  /**
+   * Property actorId
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Actor identifier (UUID or external ID).',
@@ -78,6 +90,9 @@ final class AuditEventOutput
   )]
   public ?string $actorId = null;
 
+  /**
+   * Property actorEmail
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Actor email (optional, depending on PII settings).',
@@ -93,6 +108,9 @@ final class AuditEventOutput
   )]
   public ?string $actorEmail = null;
 
+  /**
+   * Property actorEmailHash
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Actor email hash (SHA-256).',
@@ -108,6 +126,9 @@ final class AuditEventOutput
   )]
   public ?string $actorEmailHash = null;
 
+  /**
+   * Property subjectType
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Subject type (token, user, client, etc.).',
@@ -123,6 +144,9 @@ final class AuditEventOutput
   )]
   public ?string $subjectType = null;
 
+  /**
+   * Property subjectId
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Subject identifier (UUID or token ID).',
@@ -138,6 +162,9 @@ final class AuditEventOutput
   )]
   public ?string $subjectId = null;
 
+  /**
+   * Property clientId
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Client identifier (UUID).',
@@ -153,6 +180,9 @@ final class AuditEventOutput
   )]
   public ?string $clientId = null;
 
+  /**
+   * Property tenantId
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Tenant identifier (UUID).',
@@ -168,6 +198,9 @@ final class AuditEventOutput
   )]
   public ?string $tenantId = null;
 
+  /**
+   * Property ipAddress
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Client IP address (optional, depending on PII settings).',
@@ -183,6 +216,9 @@ final class AuditEventOutput
   )]
   public ?string $ipAddress = null;
 
+  /**
+   * Property ipHash
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'IP hash (SHA-256).',
@@ -198,6 +234,9 @@ final class AuditEventOutput
   )]
   public ?string $ipHash = null;
 
+  /**
+   * Property userAgent
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'User agent string (if available).',
@@ -235,6 +274,9 @@ final class AuditEventOutput
   )]
   public array $metadata = [];
 
+  /**
+   * Property occurredAt
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'ISO 8601 datetime when the event occurred.',
@@ -250,6 +292,9 @@ final class AuditEventOutput
   )]
   public string $occurredAt = '';
 
+  /**
+   * Property recordedAt
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'ISO 8601 datetime when the event was recorded.',
@@ -265,6 +310,9 @@ final class AuditEventOutput
   )]
   public string $recordedAt = '';
 
+  /**
+   * Property chainId
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Audit chain identifier.',
@@ -279,6 +327,9 @@ final class AuditEventOutput
   )]
   public string $chainId = '';
 
+  /**
+   * Property sequence
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Monotonic sequence number within the chain.',
@@ -293,6 +344,9 @@ final class AuditEventOutput
   )]
   public int $sequence = 0;
 
+  /**
+   * Property prevHash
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Previous event hash in the chain.',
@@ -308,6 +362,9 @@ final class AuditEventOutput
   )]
   public ?string $prevHash = null;
 
+  /**
+   * Property eventHash
+   */
   #[Groups(groups: [AuditSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Hash of the event payload (SHA-256).',
@@ -321,4 +378,6 @@ final class AuditEventOutput
     ],
   )]
   public string $eventHash = '';
+  // #endregion
+
 }

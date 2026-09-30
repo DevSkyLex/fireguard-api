@@ -18,7 +18,6 @@ use function sprintf;
  * mirrors `Intervention\Domain\Exception\InterventionExportTooLargeException`.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

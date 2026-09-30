@@ -35,7 +35,6 @@ use function is_string;
  * Processor ExecuteOrganizationOnboardingStepProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -47,6 +46,18 @@ final readonly class ExecuteOrganizationOnboardingStepProcessor implements Proce
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Connects authenticated onboarding-step requests to the onboarding application service.
+   *
+   * @access public
+   *
+   * @param OrganizationOnboardingServicePort $flowService executes organization onboarding steps
+   * @param Security $security resolves the authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private OrganizationOnboardingServicePort $flowService,
     private Security $security,
@@ -58,12 +69,17 @@ final readonly class ExecuteOrganizationOnboardingStepProcessor implements Proce
   /**
    * Method process.
    *
+   * Checks the authenticated actor and executes the requested organization onboarding step.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param ExecuteOrganizationOnboardingStepInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return OrganizationOnboardingOutput the updated onboarding state
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOnboardingOutput
   {
@@ -102,6 +118,17 @@ final readonly class ExecuteOrganizationOnboardingStepProcessor implements Proce
     }
   }
 
+  /**
+   * Method rethrowMessengerFailure
+   *
+   * Maps recognized organization setup failures to HTTP exceptions and rethrows unrecognized failures.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the message bus failure to inspect
+   *
+   * @return never this method always throws
+   */
   private function rethrowMessengerFailure(MessengerRuntimeException $exception): never
   {
     $slugConflict = $this->findException($exception, OrganizationSlugAlreadyExistsException::class);

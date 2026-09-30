@@ -31,7 +31,6 @@ use function trim;
  * UseCase AcceptOrganizationInvitationHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -178,6 +177,20 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     return $result;
   }
 
+  /**
+   * Method acceptLockedInvitation
+   *
+   * Rechecks and accepts a pending invitation while its organization membership changes are locked.
+   *
+   * @access private
+   *
+   * @param OrganizationInvitation $invitation the invitation initially loaded for acceptance
+   * @param AcceptOrganizationInvitationCommand $command the authenticated user's acceptance request
+   * @param DateTimeImmutable $now the current time used for expiry checks
+   * @param bool &$memberWasAdded whether acceptance created a new organization member
+   *
+   * @return AcceptOrganizationInvitationResult the accepted invitation result
+   */
   private function acceptLockedInvitation(OrganizationInvitation $invitation, AcceptOrganizationInvitationCommand $command, DateTimeImmutable $now, bool &$memberWasAdded): AcceptOrganizationInvitationResult
   {
     // Keep the quota, invitation lock, membership and request close inside one transaction.
@@ -231,6 +244,20 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     );
   }
 
+  /**
+   * Method notifyOwnerOfMemberJoin
+   *
+   * Notifies the organization owner when a different invited member joins.
+   *
+   * @access private
+   *
+   * @param OrganizationInvitation $invitation the accepted invitation
+   * @param AcceptOrganizationInvitationCommand $command the acceptance request
+   * @param AcceptOrganizationInvitationResult $result the accepted member details
+   * @param string $authenticatedEmail the verified email of the joining user
+   *
+   * @return void no return value
+   */
   private function notifyOwnerOfMemberJoin(OrganizationInvitation $invitation, AcceptOrganizationInvitationCommand $command, AcceptOrganizationInvitationResult $result, string $authenticatedEmail): void
   {
     $organization = $this->organizationRepository->findById(new OrganizationId((string) $invitation->organizationId()));

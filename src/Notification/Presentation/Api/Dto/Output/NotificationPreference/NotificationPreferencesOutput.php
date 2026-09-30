@@ -16,7 +16,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * of a row is the "everything enabled" default, never backfilled.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

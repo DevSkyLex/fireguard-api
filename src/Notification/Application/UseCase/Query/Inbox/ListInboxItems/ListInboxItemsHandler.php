@@ -16,15 +16,20 @@ use function min;
  * UseCase ListInboxItemsHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class ListInboxItemsHandler implements QueryHandler
 {
+  /**
+   * Constant MIN_LIMIT
+   */
   private const int MIN_LIMIT = 1;
 
+  /**
+   * Constant MAX_LIMIT
+   */
   private const int MAX_LIMIT = 50;
 
   // #region Constructor

@@ -26,7 +26,6 @@ use const PHP_BINARY;
  * Test CheckCoverageTest.
  *
  * @category Tooling Tests
- *
  * @version 1.0.0
  *
  * @author FireGuard

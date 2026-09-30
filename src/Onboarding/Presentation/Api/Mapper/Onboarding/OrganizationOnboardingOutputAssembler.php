@@ -24,7 +24,6 @@ use function sprintf;
  * including step descriptors, rollback metadata, skip metadata, and step history.
  *
  * @category Assembler
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,8 +31,22 @@ use function sprintf;
 final class OrganizationOnboardingOutputAssembler
 {
   // #region Constants
+  /**
+   * Constant ROLLBACK_PATH.
+   *
+   * API route advertised when the onboarding flow can be rolled back.
+   *
+   * @access private
+   */
   private const string ROLLBACK_PATH = '/api/onboarding/organization/rollback';
 
+  /**
+   * Constant SKIP_PATH_TEMPLATE.
+   *
+   * API route template used to skip an optional onboarding step.
+   *
+   * @access private
+   */
   private const string SKIP_PATH_TEMPLATE = '/api/onboarding/organization/steps/%s/skip';
   // #endregion
 
@@ -181,6 +194,20 @@ final class OrganizationOnboardingOutputAssembler
     return $output;
   }
 
+  /**
+   * Method hydrateStepState.
+   *
+   * Applies completion, skip, blocking, and availability state to one step output.
+   *
+   * @access private
+   *
+   * @param OrganizationOnboardingStepOutput $step the step being assembled
+   * @param bool $required whether the current step is required by the flow
+   * @param OrganizationOnboardingSessionState $state the persisted flow state
+   * @param bool $isCreateCompleted whether organization creation is confirmed
+   *
+   * @return bool whether the step is already complete or skipped
+   */
   private static function hydrateStepState(
     OrganizationOnboardingStepOutput $step,
     bool $required,

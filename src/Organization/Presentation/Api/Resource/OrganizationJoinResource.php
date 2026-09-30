@@ -17,7 +17,6 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
  * Resource OrganizationJoinResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -41,8 +40,14 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
 final class OrganizationJoinResource
 {
   // #region Constants
+  /**
+   * Constant OPENAPI_TAG_ACCESS
+   */
   private const string OPENAPI_TAG_ACCESS = 'Organization access';
 
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
   // #endregion
 }

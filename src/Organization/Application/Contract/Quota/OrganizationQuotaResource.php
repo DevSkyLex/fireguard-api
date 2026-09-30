@@ -15,15 +15,29 @@ namespace Organization\Application\Contract\Quota;
  * internally.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum OrganizationQuotaResource: string
 {
+  /**
+   * Case MEMBERS
+   */
   case MEMBERS = 'members';
+
+  /**
+   * Case FACILITIES
+   */
   case FACILITIES = 'facilities';
+
+  /**
+   * Case EQUIPMENT
+   */
   case EQUIPMENT = 'equipment';
+
+  /**
+   * Case INSPECTIONS
+   */
   case INSPECTIONS = 'inspections';
 }

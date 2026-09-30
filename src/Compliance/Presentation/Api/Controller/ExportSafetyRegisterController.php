@@ -40,7 +40,6 @@ use function sprintf;
  * attribute on the facility-scoped route.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -50,6 +49,9 @@ final class ExportSafetyRegisterController extends AbstractController
   use ComplianceExceptionMapperTrait;
 
   // #region Constants
+  /**
+   * Constant EXPORT_PERMISSION
+   */
   private const string EXPORT_PERMISSION = 'organization.compliance.export';
   // #endregion
 

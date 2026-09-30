@@ -18,7 +18,6 @@ use PHPUnit\Framework\TestCase;
  * count — an empty page can still legitimately advertise more.
  *
  * @category Service Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

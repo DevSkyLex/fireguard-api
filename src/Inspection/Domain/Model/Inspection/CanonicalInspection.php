@@ -49,7 +49,6 @@ use function in_array;
  * records it as debt.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -162,10 +161,10 @@ final class CanonicalInspection
    *
    * @param CanonicalInspectionPatch $patch the requested changes
    *
+   * @return ?string the previous status when a PUBLISHED record's status changed — the audit trigger — null otherwise
+   *
    * @throws CanonicalInspectionConflictException when the inspection is closed or cancelled
    * @throws CanonicalInspectionValidationException on a null non-nullable field or an illegal transition
-   *
-   * @return ?string the previous status when a PUBLISHED record's status changed — the audit trigger — null otherwise
    */
   public function applyPatch(CanonicalInspectionPatch $patch): ?string
   {
@@ -217,9 +216,9 @@ final class CanonicalInspection
    *
    * @since 1.0.0
    *
-   * @throws CanonicalInspectionConflictException when the inspection is closed
-   *
    * @return ?string the previous status when the inspection was cancelled, null when it already was
+   *
+   * @throws CanonicalInspectionConflictException when the inspection is closed
    */
   public function cancel(): ?string
   {

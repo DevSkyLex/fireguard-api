@@ -14,10 +14,36 @@ use function is_string;
 /** Closed inspections are immutable; updated_at is the closure instant exposed by CloseInspection. */
 final readonly class InspectionMaintenanceHistoryAdapter implements MaintenanceInspectionHistoryPort
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Uses the main database connection to read inspection closure history for maintenance calculations.
+   *
+   * @access public
+   *
+   * @param Connection $connection the main database connection
+   *
+   * @return void
+   */
   public function __construct(private Connection $connection)
   {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method latestClosedAt.
+   *
+   * Reads the latest closure timestamp from published closed inspections for the equipment.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $equipmentId the equipment identifier
+   *
+   * @return DateTimeImmutable|null the latest closure time when a matching inspection exists
+   */
   public function latestClosedAt(string $organizationId, string $equipmentId): ?DateTimeImmutable
   {
     $value = $this->connection->fetchOne(
@@ -27,4 +53,5 @@ final readonly class InspectionMaintenanceHistoryAdapter implements MaintenanceI
 
     return is_string($value) ? new DateTimeImmutable($value, new DateTimeZone('UTC')) : null;
   }
+  // #endregion
 }

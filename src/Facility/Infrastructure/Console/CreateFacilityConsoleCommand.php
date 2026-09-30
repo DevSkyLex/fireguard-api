@@ -27,7 +27,6 @@ use function trim;
  * Command CreateFacilityConsoleCommand.
  *
  * @category Console Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -146,6 +145,18 @@ HELP
     return $this->createFacility($command, $io);
   }
 
+  /**
+   * Method validatedCommand.
+   *
+   * Validates command arguments and options, returning no command after reporting invalid input.
+   *
+   * @access private
+   *
+   * @param InputInterface $input supplied command arguments and options
+   * @param SymfonyStyle $io styled command output for validation errors
+   *
+   * @return ?CreateFacilityCommand the validated command, or null when invalid
+   */
   private function validatedCommand(InputInterface $input, SymfonyStyle $io): ?CreateFacilityCommand
   {
 
@@ -195,6 +206,18 @@ HELP
     );
   }
 
+  /**
+   * Method createFacility.
+   *
+   * Dispatches facility creation and reports its result or failure to the console.
+   *
+   * @access private
+   *
+   * @param CreateFacilityCommand $command the validated facility details
+   * @param SymfonyStyle $io styled command output
+   *
+   * @return int the Symfony command exit status
+   */
   private function createFacility(CreateFacilityCommand $command, SymfonyStyle $io): int
   {
     try {
@@ -230,6 +253,18 @@ HELP
     }
   }
 
+  /**
+   * Method organizationExists.
+   *
+   * Verifies the organization identifier and checks that the organization can be loaded.
+   *
+   * @access private
+   *
+   * @param string $organizationId the organization identifier supplied to the command
+   * @param SymfonyStyle $io styled command output for validation errors
+   *
+   * @return bool whether the organization exists
+   */
   private function organizationExists(string $organizationId, SymfonyStyle $io): bool
   {
     try {
@@ -248,6 +283,17 @@ HELP
     return true;
   }
 
+  /**
+   * Method nonEmptyOption.
+   *
+   * Trims a string option and treats empty or non-string values as absent.
+   *
+   * @access private
+   *
+   * @param mixed $value raw command option value
+   *
+   * @return ?string trimmed option value, or null when empty or not a string
+   */
   private static function nonEmptyOption(mixed $value): ?string
   {
     return is_string($value) && '' !== trim($value) ? trim($value) : null;

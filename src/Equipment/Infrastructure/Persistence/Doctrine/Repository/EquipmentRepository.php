@@ -34,7 +34,6 @@ use function strtoupper;
  * Repository EquipmentRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -42,10 +41,31 @@ use function strtoupper;
 final readonly class EquipmentRepository implements EquipmentRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant EQUIPMENT_COUNT_EXPRESSION.
+   *
+   * DQL aggregate expression used to count equipment results.
+   *
+   * @access private
+   */
   private const string EQUIPMENT_COUNT_EXPRESSION = 'COUNT(e.id)';
 
+  /**
+   * Constant ORGANIZATION_PREDICATE.
+   *
+   * DQL predicate that scopes equipment queries to an organization.
+   *
+   * @access private
+   */
   private const string ORGANIZATION_PREDICATE = 'e.organization = :organization';
 
+  /**
+   * Constant PUBLISHED_RECORD_PREDICATE.
+   *
+   * DQL predicate that limits reads to published equipment records.
+   *
+   * @access private
+   */
   private const string PUBLISHED_RECORD_PREDICATE = 'e.recordStatus = :publishedRecordStatus';
   // #endregion
 
@@ -132,6 +152,17 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     return EquipmentMapper::toDomain($record);
   }
 
+  /**
+   * Method findPublishedById.
+   *
+   * Loads an equipment aggregate only when its record is published.
+   *
+   * @access public
+   *
+   * @param EquipmentId $id the equipment identifier
+   *
+   * @return ?Equipment the published aggregate, or null when absent or unpublished
+   */
   public function findPublishedById(EquipmentId $id): ?Equipment
   {
     $record = $this->repository->find((string) $id);
@@ -199,8 +230,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method countOverviewByOrganizationId.
    *
-   * Executes the count overview by organization id operation.
+   * Returns organization-scoped totals for all equipment and the status buckets used by the dashboard.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param EquipmentOrganizationId $organizationId the organization id value
@@ -252,8 +284,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method countByStatusForOrganizationId.
    *
-   * Executes the count by status for organization id operation.
+   * Counts published equipment by stored status for an organization.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param EquipmentOrganizationId $organizationId the organization id value
@@ -283,8 +316,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method countByTypeForOrganizationId.
    *
-   * Executes the count by type for organization id operation.
+   * Counts published equipment by type for an organization.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param EquipmentOrganizationId $organizationId the organization id value
@@ -314,8 +348,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method countByCreatedDayForOrganizationId.
    *
-   * Executes the count by created day for organization id operation.
+   * Buckets matching equipment creation timestamps by calendar day in the requested timezone.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param EquipmentOrganizationId $organizationId the organization id value
@@ -544,8 +579,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method createListQueryBuilder.
    *
-   * Executes the create list query builder operation.
+   * Builds the shared organization-scoped published-equipment query with caller criteria.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param EquipmentOrganizationId $organizationId the organization id value
@@ -623,8 +659,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method resolveBucketTimeZone.
    *
-   * Executes the resolve bucket time zone operation.
+   * Uses the requested bucket timezone or the timezone embedded in the lower-bound timestamp.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param ?string $timeZone the time zone value
@@ -644,8 +681,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method resolveStorageTimeZone.
    *
-   * Executes the resolve storage time zone operation.
+   * Parses the configured database storage timezone and reports invalid configuration explicitly.
    *
+   * @access private
    * @since 1.0.0
    *
    * @return DateTimeZone the resolve storage time zone result
@@ -662,8 +700,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method normalizeTimestampForStorageTimeZone.
    *
-   * Executes the normalize timestamp for storage time zone operation.
+   * Converts an input timestamp to the database storage timezone and preserves microsecond precision.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $value the value value
@@ -681,8 +720,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   /**
    * Method isDuplicateSerialNumberViolation.
    *
-   * Executes the is duplicate serial number violation operation.
+   * Recognizes the equipment organization-and-serial unique constraint in a nested database exception chain.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param Throwable $exception the exception value

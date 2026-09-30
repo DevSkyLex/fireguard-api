@@ -16,7 +16,6 @@ use function in_array;
  * Localized recipient notification; no organization data leaks into delivery payloads.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -34,6 +33,20 @@ final readonly class OrganizationJoinNotificationAdapter implements Organization
   {
   }
 
+  /**
+   * Method send.
+   *
+   * Sends the localized join-request status notification to its user by email and Mercure.
+   *
+   * @access public
+   *
+   * @param string $recipientUserId the user receiving the notification
+   * @param string $organizationId the organization associated with the request
+   * @param string $requestId the join-request identifier
+   * @param string $status the status used to select the notification copy
+   *
+   * @return void no return value
+   */
   public function send(string $recipientUserId, string $organizationId, string $requestId, string $status): void
   {
     $recipient = $this->emails->get($recipientUserId);

@@ -26,7 +26,6 @@ use function sprintf;
  * identifier — answers the same 404.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -34,6 +33,9 @@ use function sprintf;
 final readonly class GetSafetyRegisterSnapshotContentHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant EXPORT_PERMISSION
+   */
   private const string EXPORT_PERMISSION = 'organization.compliance.export';
   // #endregion
 
@@ -65,11 +67,11 @@ final readonly class GetSafetyRegisterSnapshotContentHandler implements QueryHan
    *
    * @param GetSafetyRegisterSnapshotContentQuery $query the query payload
    *
+   * @return GetSafetyRegisterSnapshotContentResult the archived PDF bytes and their metadata
+   *
    * @throws ComplianceNotFoundException if the organization is outside the caller's scope, or the snapshot is unknown within it
    * @throws ComplianceAccessDeniedException if the caller lacks the export permission
    * @throws ComplianceExportNotEntitledException if the organization's plan does not entitle it to the register
-   *
-   * @return GetSafetyRegisterSnapshotContentResult the archived PDF bytes and their metadata
    */
   public function __invoke(GetSafetyRegisterSnapshotContentQuery $query): GetSafetyRegisterSnapshotContentResult
   {
@@ -105,9 +107,9 @@ final readonly class GetSafetyRegisterSnapshotContentHandler implements QueryHan
    *
    * @param GetSafetyRegisterSnapshotContentQuery $query the query payload
    *
-   * @throws ComplianceNotFoundException if the snapshot is unknown within the organization
-   *
    * @return SafetyRegisterSnapshot the organization-scoped snapshot
+   *
+   * @throws ComplianceNotFoundException if the snapshot is unknown within the organization
    */
   private function findSnapshot(GetSafetyRegisterSnapshotContentQuery $query): SafetyRegisterSnapshot
   {

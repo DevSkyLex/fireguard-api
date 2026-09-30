@@ -38,7 +38,6 @@ use function array_map;
  * organization are filtered out for the same reason.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -13,7 +13,6 @@ use function preg_match;
  * Domain RevisionGuard.
  *
  * @category Domain
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

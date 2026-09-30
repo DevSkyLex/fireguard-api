@@ -27,10 +27,11 @@ use function is_array;
 use function strtoupper;
 
 /**
- * Repository OrganizationMemberRepository.
+ * Class OrganizationMemberRepository
+ *
+ * Persists organization memberships and reads member records for organization-scoped capabilities.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -38,6 +39,13 @@ use function strtoupper;
 final readonly class OrganizationMemberRepository implements OrganizationMemberRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant ORGANIZATION_PREDICATE
+   *
+   * Scopes member queries to the organization reference parameter.
+   *
+   * @access private
+   */
   private const string ORGANIZATION_PREDICATE = 'organizationMember.organization = :organization';
   // #endregion
 
@@ -57,20 +65,30 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   private EntityRepository $roleRepository;
 
+  /**
+   * Property support
+   *
+   * Shared query, timezone and cache invalidation operations for member persistence.
+   *
+   * @access private
+   */
   private OrganizationMemberPersistenceSupport $support;
   // #endregion
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
-   * Initializes a new instance of the OrganizationMemberRepository class.
+   * Initializes Doctrine repositories and shared persistence support for the main database.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the Doctrine entity manager
    * @param ?OrganizationCacheInvalidator $cacheInvalidator the cache invalidator
    * @param string $storageTimeZone the persistence timezone for timestamp-without-timezone columns (e.g. `joined_at`)
+   *
+   * @return void
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
@@ -511,6 +529,17 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     return $counts;
   }
 
+  /**
+   * Method countActiveByOrganizationId
+   *
+   * Counts active memberships in the organization.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId organization whose active members are counted
+   *
+   * @return int number of active memberships
+   */
   public function countActiveByOrganizationId(OrganizationId $organizationId): int
   {
     /**
@@ -524,6 +553,19 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     ]);
   }
 
+  /**
+   * Method countJoinedBetween
+   *
+   * Counts memberships joined within the inclusive date-time bounds.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId organization whose membership joins are counted
+   * @param DateTimeImmutable $joinedAtFrom inclusive lower date-time bound
+   * @param DateTimeImmutable $joinedAtTo inclusive upper date-time bound
+   *
+   * @return int number of matching joins
+   */
   public function countJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int
   {
     /**
@@ -754,6 +796,17 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     return $counts;
   }
 
+  /**
+   * Method findActiveMembershipIdentitiesForUser
+   *
+   * Returns active organization and member identifiers for the user as scalar rows.
+   *
+   * @access public
+   *
+   * @param string $userId user whose active memberships are listed
+   *
+   * @return list<array{organizationId: string, memberId: string}> active membership identity pairs
+   */
   public function findActiveMembershipIdentitiesForUser(string $userId): array
   {
     /** @var list<array{organizationId: string, memberId: string}> */

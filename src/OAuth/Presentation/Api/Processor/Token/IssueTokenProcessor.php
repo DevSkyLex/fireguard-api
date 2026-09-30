@@ -27,7 +27,6 @@ use function time;
  * Processor IssueTokenProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -138,6 +137,19 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
     }
   }
 
+  /**
+   * Method rethrowNestedOAuthException
+   *
+   * Rethrows a nested authorization or OAuth protocol failure from the message bus exception chain.
+   *
+   * @access private
+   *
+   * @param Throwable $exception the wrapped failure to inspect
+   *
+   * @return void no return value
+   *
+   * @throws AuthorizationException|OAuthServerException when a nested protocol failure is found
+   */
   private function rethrowNestedOAuthException(Throwable $exception): void
   {
     $previous = $exception->getPrevious();
@@ -157,6 +169,20 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
     }
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Consumes the token issuance limit for the client IP and optional client identifier.
+   *
+   * @access private
+   *
+   * @param string|null $ipAddress the client IP address, when available
+   * @param string|null $clientId the OAuth client identifier, when available
+   *
+   * @return void no return value
+   *
+   * @throws TooManyRequestsHttpException when the issuance limit is exceeded
+   */
   private function enforceRateLimit(?string $ipAddress, ?string $clientId): void
   {
     $key = $ipAddress ?? 'unknown';

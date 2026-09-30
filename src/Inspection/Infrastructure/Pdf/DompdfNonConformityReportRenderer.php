@@ -21,7 +21,6 @@ use Twig\Environment;
  * execute code embedded in the template context.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -29,10 +28,37 @@ use Twig\Environment;
 final readonly class DompdfNonConformityReportRenderer implements NonConformityReportPdfRendererPort
 {
   // #region Constants
+  /**
+   * Constant TEMPLATE
+   *
+   * Twig template used to render non-conformity reports.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string TEMPLATE = 'inspection/non_conformities_report.html.twig';
 
+  /**
+   * Constant PAPER_SIZE
+   *
+   * Paper size configured for report output.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PAPER_SIZE = 'A4';
 
+  /**
+   * Constant PAPER_ORIENTATION
+   *
+   * Page orientation configured for report output.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PAPER_ORIENTATION = 'portrait';
   // #endregion
 
@@ -51,6 +77,17 @@ final readonly class DompdfNonConformityReportRenderer implements NonConformityR
   // #endregion
 
   // #region Methods
+  /**
+   * Method render
+   *
+   * Renders the report template to PDF bytes with remote resources and PHP disabled.
+   *
+   * @access public
+   *
+   * @param array<string, mixed> $context template context
+   *
+   * @return string generated PDF bytes
+   */
   public function render(array $context): string
   {
     $html = $this->twig->render(self::TEMPLATE, $context);

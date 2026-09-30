@@ -11,7 +11,6 @@ use League\OAuth2\Server\Entities\Traits\{AccessTokenTrait, EntityTrait, TokenEn
  * Entity AccessToken.
  *
  * @category Entity
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

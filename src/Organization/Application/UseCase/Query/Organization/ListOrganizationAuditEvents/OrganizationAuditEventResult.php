@@ -17,7 +17,6 @@ namespace Organization\Application\UseCase\Query\Organization\ListOrganizationAu
  * {@see \Audit\Application\Contract\OrganizationAuditEntry}.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

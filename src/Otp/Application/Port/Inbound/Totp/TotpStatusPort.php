@@ -11,7 +11,6 @@ namespace Otp\Application\Port\Inbound\Totp;
  * modules (e.g. User for `/api/me`, Auth for login MFA channel selection).
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

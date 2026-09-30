@@ -21,7 +21,6 @@ use Doctrine\ORM\Mapping as ORM;
  * resolves its origin through it.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

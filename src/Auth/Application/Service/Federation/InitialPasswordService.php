@@ -16,18 +16,33 @@ use User\Application\Port\Inbound\FederatedUserPort;
  * a federated identity provider.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class InitialPasswordService
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the user capability and OTP challenge capability used to add a local password to a federated-only account.
+   *
+   * @access public
+   *
+   * @param FederatedUserPort $users user capability used to inspect and configure the account password
+   * @param OtpChallengePort $otpChallenge OTP capability used to verify ownership before password setup
+   *
+   * @return void
+   */
   public function __construct(
     private FederatedUserPort $users,
     private OtpChallengePort $otpChallenge,
   ) {
   }
+  // #endregion
+
+  // #region Methods
 
   /**
    * Creates an email challenge for the authenticated federated-only user.
@@ -59,9 +74,9 @@ final readonly class InitialPasswordService
    *
    * @since 1.0.0
    *
-   * @throws FederatedAuthException when the challenge or password transition is invalid
-   *
    * @return array{attemptsRemaining: int}
+   *
+   * @throws FederatedAuthException when the challenge or password transition is invalid
    */
   public function confirm(string $userId, string $token, string $code, string $password): array
   {
@@ -89,4 +104,5 @@ final readonly class InitialPasswordService
 
     return ['attemptsRemaining' => $verification->attemptsRemaining];
   }
+  // #endregion
 }

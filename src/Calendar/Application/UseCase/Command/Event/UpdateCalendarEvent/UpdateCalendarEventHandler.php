@@ -16,7 +16,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * UseCase UpdateCalendarEventHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,6 +23,9 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 final readonly class UpdateCalendarEventHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant WRITE_PERMISSION
+   */
   private const string WRITE_PERMISSION = 'organization.events.write';
   // #endregion
 
@@ -53,9 +55,9 @@ final readonly class UpdateCalendarEventHandler implements CommandHandler
    *
    * @param UpdateCalendarEventCommand $command the command payload
    *
-   * @throws CalendarEventNotFoundException when the event does not exist in this organization
-   *
    * @return UpdateCalendarEventResult the use case result
+   *
+   * @throws CalendarEventNotFoundException when the event does not exist in this organization
    */
   public function __invoke(UpdateCalendarEventCommand $command): UpdateCalendarEventResult
   {

@@ -16,7 +16,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * provided fields are applied. Send an empty `description` to clear it.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

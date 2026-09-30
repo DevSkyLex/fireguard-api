@@ -14,7 +14,6 @@ use Shared\Domain\ValueObject\Uuid;
  * without depending on Infrastructure.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

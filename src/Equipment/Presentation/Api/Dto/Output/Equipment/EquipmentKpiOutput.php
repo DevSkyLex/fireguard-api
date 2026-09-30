@@ -14,7 +14,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * The four headline counters shown together on the equipment overview page.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

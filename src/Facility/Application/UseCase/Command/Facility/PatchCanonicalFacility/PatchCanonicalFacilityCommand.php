@@ -18,7 +18,6 @@ use Shared\Application\Message\CommandMessage;
  * and the handler resolves and validates it.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -18,7 +18,6 @@ use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Us
  * Test UserTest.
  *
  * @category Model Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

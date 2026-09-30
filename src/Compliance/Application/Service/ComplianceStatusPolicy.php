@@ -25,7 +25,6 @@ use function max;
  *   open high/critical non-conformity to grade against (nothing to assess).
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -18,15 +18,25 @@ namespace Organization\Application\Contract\Authorization;
  * unknown identifier produces, and MISSING_PERMISSION to 403.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum OrganizationAccessDecision: string
 {
+  /**
+   * Case GRANTED
+   */
   case GRANTED = 'granted';
+
+  /**
+   * Case MISSING_PERMISSION
+   */
   case MISSING_PERMISSION = 'missing_permission';
+
+  /**
+   * Case OUTSIDE_SCOPE
+   */
   case OUTSIDE_SCOPE = 'outside_scope';
 
   // #region Methods

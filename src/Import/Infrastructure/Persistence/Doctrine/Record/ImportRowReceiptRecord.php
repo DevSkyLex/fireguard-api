@@ -12,20 +12,37 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'import_row_receipts')]
 class ImportRowReceiptRecord
 {
+  // #region Properties
+  /**
+   * Property importJobId
+   */
   #[ORM\Id]
   #[ORM\Column(name: 'import_job_id', type: 'string', length: 36)]
   public string $importJobId;
 
+  /**
+   * Property rowNumber
+   */
   #[ORM\Id]
   #[ORM\Column(name: 'row_number', type: 'integer')]
   public int $rowNumber;
 
+  /**
+   * Property outcome
+   */
   #[ORM\Column(type: 'string', length: 32)]
   public string $outcome;
 
+  /**
+   * Property resourceId
+   */
   #[ORM\Column(name: 'resource_id', type: 'string', length: 36, nullable: true)]
   public ?string $resourceId = null;
 
+  /**
+   * Property confirmedAt
+   */
   #[ORM\Column(name: 'confirmed_at', type: 'datetime_immutable')]
   public DateTimeImmutable $confirmedAt;
+  // #endregion
 }

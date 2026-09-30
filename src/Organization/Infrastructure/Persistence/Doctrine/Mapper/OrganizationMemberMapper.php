@@ -13,7 +13,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberR
  * Mapper OrganizationMemberMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

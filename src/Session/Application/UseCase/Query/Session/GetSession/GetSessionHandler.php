@@ -12,7 +12,6 @@ use Session\Domain\ValueObject\SessionId;
  * Handler GetSessionHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -43,9 +42,9 @@ final readonly class GetSessionHandler implements \Shared\Application\Message\Qu
    *
    * @param GetSessionQuery $query the query to handle
    *
-   * @throws SessionNotFoundException if session is not found
-   *
    * @return GetSessionResult the result
+   *
+   * @throws SessionNotFoundException if session is not found
    */
   public function __invoke(GetSessionQuery $query): GetSessionResult
   {

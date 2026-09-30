@@ -15,7 +15,6 @@ use Organization\Application\Contract\Search\OrganizationSearchHit;
  * lives here, its adapter lives in the owning module.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

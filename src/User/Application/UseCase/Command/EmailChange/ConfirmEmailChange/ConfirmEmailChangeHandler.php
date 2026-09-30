@@ -40,13 +40,15 @@ use function array_values;
  * follows the same pattern, the 256-bit token being the credential.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class ConfirmEmailChangeHandler implements CommandHandler
 {
+  /**
+   * Constant INVALID_TOKEN_MESSAGE
+   */
   private const string INVALID_TOKEN_MESSAGE = 'Invalid or expired email change token.';
 
   // #region Constructor

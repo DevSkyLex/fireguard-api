@@ -10,7 +10,6 @@ namespace OAuth\Application\Port\Outbound\Token;
  * Port for token revocation operations.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -15,7 +15,6 @@ use DateTimeImmutable;
  * `(organizationId, equipmentId)`; otherwise it updates the row by id.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

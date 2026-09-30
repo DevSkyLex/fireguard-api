@@ -16,7 +16,6 @@ use Shared\Domain\ValueObject\Uuid;
  * Uses UuidGeneratorPort to maintain hexagonal architecture purity.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

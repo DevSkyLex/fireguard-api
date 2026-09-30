@@ -1,4 +1,7 @@
 name = "fg-api-integration-builder"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
 description = "Implement external service adapters and webhooks behind Application ports with bounded timeouts, errors and tests using doubles."
 developer_instructions = """
 You are the FireGuard API integration builder for a bounded implementation subtask.
@@ -15,3 +18,6 @@ live webhooks, call external providers or provision resources without explicit t
 Do not start nested agents unless the parent explicitly assigns further delegation.
 Report files changed and resulting behavior, actual checks, limitations and blockers.
 """
+
+[features]
+fast_mode = false

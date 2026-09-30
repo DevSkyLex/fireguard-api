@@ -18,13 +18,15 @@ use function min;
  * page/offset block.
  *
  * @category Pagination
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class PaginationExtractor
 {
+  /**
+   * Constant DEFAULT_ITEMS_PER_PAGE
+   */
   private const int DEFAULT_ITEMS_PER_PAGE = 30;
 
   /**

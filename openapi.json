@@ -2414,10 +2414,61 @@
                         "links": {}
                     },
                     "401": {
-                        "description": "Invalid credentials - email or password incorrect"
+                        "description": "Invalid credentials - email or password incorrect",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
                     },
                     "429": {
-                        "description": "Too many authentication attempts"
+                        "description": "Too many authentication attempts",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/Error"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "code",
+                                                "retryAfterSeconds"
+                                            ],
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "rate_limit_exceeded"
+                                                    ]
+                                                },
+                                                "retryAfterSeconds": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 0,
+                                                    "description": "Seconds until retry is allowed; null when the delay is unknown."
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "An error occurred",
@@ -2552,13 +2603,81 @@
                         "links": {}
                     },
                     "401": {
-                        "description": "Invalid or expired pre-auth token"
+                        "description": "Invalid or expired pre-auth token",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "MFA challenge not found or no longer valid"
+                        "description": "MFA challenge not found or no longer valid",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
                     },
                     "429": {
-                        "description": "Resend cooldown not yet elapsed"
+                        "description": "Resend cooldown not yet elapsed",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/Error"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "code",
+                                                "retryAfterSeconds"
+                                            ],
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "rate_limit_exceeded"
+                                                    ]
+                                                },
+                                                "retryAfterSeconds": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 0,
+                                                    "description": "Seconds until retry is allowed; null when the delay is unknown."
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "400": {
                         "description": "Invalid input",
@@ -2659,7 +2778,24 @@
                         }
                     },
                     "401": {
-                        "description": "Invalid or expired pre-auth token"
+                        "description": "Invalid or expired pre-auth token",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
                     },
                     "400": {
                         "description": "Invalid OTP code",
@@ -2683,7 +2819,41 @@
                         "links": {}
                     },
                     "429": {
-                        "description": "Too many MFA verification attempts"
+                        "description": "Too many MFA verification attempts",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/Error"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "code",
+                                                "retryAfterSeconds"
+                                            ],
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "rate_limit_exceeded"
+                                                    ]
+                                                },
+                                                "retryAfterSeconds": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 0,
+                                                    "description": "Seconds until retry is allowed; null when the delay is unknown."
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "An error occurred",
@@ -2759,10 +2929,61 @@
                         }
                     },
                     "401": {
-                        "description": "Invalid or expired refresh token"
+                        "description": "Invalid or expired refresh token",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
                     },
                     "429": {
-                        "description": "Too many refresh requests"
+                        "description": "Too many refresh requests",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/Error"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "code",
+                                                "retryAfterSeconds"
+                                            ],
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "rate_limit_exceeded"
+                                                    ]
+                                                },
+                                                "retryAfterSeconds": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 0,
+                                                    "description": "Seconds until retry is allowed; null when the delay is unknown."
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "400": {
                         "description": "Invalid input",

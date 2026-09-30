@@ -16,7 +16,6 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
  * Resource OrganizationDashboardTrendResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -671,28 +670,64 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
 final class OrganizationDashboardTrendResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant EXAMPLE_FROM_DATE
+   */
   private const string EXAMPLE_FROM_DATE = '2026-03-01T00:00:00Z';
 
+  /**
+   * Constant FROM_FILTER_DESCRIPTION
+   */
   private const string FROM_FILTER_DESCRIPTION = 'Inclusive ISO 8601 datetime lower bound for the trend period, with an explicit timezone offset. Optional microseconds are preserved.';
 
+  /**
+   * Constant EXAMPLE_TO_DATE
+   */
   private const string EXAMPLE_TO_DATE = '2026-03-29T23:59:59Z';
 
+  /**
+   * Constant TO_FILTER_DESCRIPTION
+   */
   private const string TO_FILTER_DESCRIPTION = 'Inclusive ISO 8601 datetime upper bound for the trend period, with an explicit timezone offset. Optional microseconds are preserved.';
 
+  /**
+   * Constant COMPARE_FILTER_DESCRIPTION
+   */
   private const string COMPARE_FILTER_DESCRIPTION = 'Whether to include previous-period comparison series. Defaults to true.';
 
+  /**
+   * Constant GRANULARITY_FILTER_DESCRIPTION
+   */
   private const string GRANULARITY_FILTER_DESCRIPTION = 'Trend aggregation granularity. Allowed values: day, week, month, auto. Defaults to day.';
 
+  /**
+   * Constant EXAMPLE_TIMEZONE
+   */
   private const string EXAMPLE_TIMEZONE = 'Europe/Paris';
 
+  /**
+   * Constant TIMEZONE_FILTER_DESCRIPTION
+   */
   private const string TIMEZONE_FILTER_DESCRIPTION = 'IANA timezone used for bucket boundaries and rendered period values. Required when the requested period spans DST, mixes offsets, or uses non-UTC numeric offsets.';
 
+  /**
+   * Constant NON_CONFORMITY_STATUS_FILTER_DESCRIPTION
+   */
   private const string NON_CONFORMITY_STATUS_FILTER_DESCRIPTION = 'Optional non-conformity status filter applied to the non-conformity trend only.';
 
+  /**
+   * Constant NON_CONFORMITY_SEVERITY_FILTER_DESCRIPTION
+   */
   private const string NON_CONFORMITY_SEVERITY_FILTER_DESCRIPTION = 'Optional non-conformity severity filter applied to the non-conformity trend only.';
 
+  /**
+   * Constant METRICS_FILTER_DESCRIPTION
+   */
   private const string METRICS_FILTER_DESCRIPTION = 'Optional comma-separated list of additional non-conformity metric identifiers to combine into `seriesByMetric`, sharing this call\'s resolved period, timezone and granularity so a two-series (opened vs resolved) chart can render from one request instead of two independently-bucketed calls. Allowed values: non_conformities_opened, non_conformities_resolved.';
   // #endregion
 }

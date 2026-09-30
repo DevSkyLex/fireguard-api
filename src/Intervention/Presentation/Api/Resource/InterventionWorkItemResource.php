@@ -17,7 +17,6 @@ use Symfony\Component\HttpFoundation\Response;
  * Resource InterventionWorkItemResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -112,8 +111,14 @@ use Symfony\Component\HttpFoundation\Response;
 final class InterventionWorkItemResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant WORK_ITEM_URI_TEMPLATE
+   */
   private const string WORK_ITEM_URI_TEMPLATE = '/intervention-work-items/{id}';
   // #endregion
 }

@@ -22,7 +22,6 @@ use function is_array;
  * Repository OrganizationRoleRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -197,6 +196,17 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
     ]);
   }
 
+  /**
+   * Method countSystemByOrganizationId.
+   *
+   * Counts system roles assigned to an organization.
+   *
+   * @access public
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the number of system roles
+   */
   public function countSystemByOrganizationId(OrganizationId $organizationId): int
   {
     /**

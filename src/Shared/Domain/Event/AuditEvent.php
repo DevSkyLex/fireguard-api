@@ -11,7 +11,6 @@ use Shared\Domain\ValueObject\Uuid;
  * Event AuditEvent.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -19,28 +18,64 @@ use Shared\Domain\ValueObject\Uuid;
 final readonly class AuditEvent implements DomainEvent
 {
   // #region Constants
+  /**
+   * Constant ACTION_LOGIN_SUCCESS
+   */
   public const string ACTION_LOGIN_SUCCESS = 'login_success';
 
+  /**
+   * Constant ACTION_LOGIN_FAILED
+   */
   public const string ACTION_LOGIN_FAILED = 'login_failed';
 
+  /**
+   * Constant ACTION_LOGOUT
+   */
   public const string ACTION_LOGOUT = 'logout';
 
+  /**
+   * Constant ACTION_TOKEN_ISSUED
+   */
   public const string ACTION_TOKEN_ISSUED = 'token_issued';
 
+  /**
+   * Constant ACTION_TOKEN_REVOKED
+   */
   public const string ACTION_TOKEN_REVOKED = 'token_revoked';
 
+  /**
+   * Constant ACTION_TOKEN_REFRESHED
+   */
   public const string ACTION_TOKEN_REFRESHED = 'token_refreshed';
 
+  /**
+   * Constant ACTION_PASSWORD_CHANGED
+   */
   public const string ACTION_PASSWORD_CHANGED = 'password_changed';
 
+  /**
+   * Constant ACTION_PASSWORD_RESET_REQUESTED
+   */
   public const string ACTION_PASSWORD_RESET_REQUESTED = 'password_reset_requested';
 
+  /**
+   * Constant ACTION_CLIENT_CREATED
+   */
   public const string ACTION_CLIENT_CREATED = 'client_created';
 
+  /**
+   * Constant ACTION_CLIENT_DELETED
+   */
   public const string ACTION_CLIENT_DELETED = 'client_deleted';
 
+  /**
+   * Constant ACTION_USER_CREATED
+   */
   public const string ACTION_USER_CREATED = 'user_created';
 
+  /**
+   * Constant ACTION_PERMISSION_DENIED
+   */
   public const string ACTION_PERMISSION_DENIED = 'permission_denied';
   // #endregion
 

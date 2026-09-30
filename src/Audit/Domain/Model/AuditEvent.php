@@ -14,7 +14,6 @@ use Shared\Domain\ValueObject\Uuid;
  * to be persisted in the audit log.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

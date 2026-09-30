@@ -14,7 +14,6 @@ namespace OAuth\Domain\ValueObject\Security;
  * and have been removed for security reasons.
  *
  * @category ValueObject
- *
  * @version 3.0.0
  *
  * @see https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-07

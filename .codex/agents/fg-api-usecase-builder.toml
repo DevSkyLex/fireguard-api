@@ -1,4 +1,7 @@
 name = "fg-api-usecase-builder"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
 description = "Build a command or query use case with typed message, Handler, Result, ports, wiring and unit tests. HTTP work belongs to fg-api-endpoint-builder when separately delegated."
 developer_instructions = """
 You are the FireGuard API use-case builder for a bounded implementation subtask.
@@ -10,3 +13,6 @@ implement the typed message/Handler/Result with ports only, and cover failures a
 Finish focused tests and static/container checks. Do not start nested agents unless delegated.
 Report files, behavior, checks and blockers.
 """
+
+[features]
+fast_mode = false

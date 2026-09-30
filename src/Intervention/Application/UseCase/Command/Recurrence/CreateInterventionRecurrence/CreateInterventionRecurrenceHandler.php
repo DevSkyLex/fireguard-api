@@ -25,7 +25,6 @@ use function trim;
  * starting point regardless of when the sweep next runs.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -38,6 +37,9 @@ final readonly class CreateInterventionRecurrenceHandler implements CommandHandl
    */
   public const int MIN_LEAD_TIME_DAYS = 0;
 
+  /**
+   * Constant MAX_LEAD_TIME_DAYS
+   */
   public const int MAX_LEAD_TIME_DAYS = 90;
   // #endregion
 

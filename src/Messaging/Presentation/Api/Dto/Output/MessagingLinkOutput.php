@@ -13,7 +13,6 @@ use ApiPlatform\Metadata\ApiProperty;
  * Links tab (`GET /conversations/{conversationId}/links`).
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

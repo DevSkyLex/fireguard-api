@@ -26,7 +26,6 @@ use function trim;
  * outside-scope callers get the indistinguishable organization 404.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -72,12 +71,12 @@ final readonly class SuggestAddressesHandler implements QueryHandler
    *
    * @param SuggestAddressesQuery $query the query to handle
    *
+   * @return SuggestAddressesResult the matching addresses
+   *
    * @throws FacilityNotFoundException when the caller is outside the organization's scope
    * @throws FacilityAccessDeniedException when the caller lacks `organization.facilities.write`
    * @throws InvalidValueException when the address is shorter than three or longer than {@see self::MAX_ADDRESS_LENGTH} characters
    * @throws FacilityAddressSuggestionsUnavailableException when the provider cannot answer reliably
-   *
-   * @return SuggestAddressesResult the matching addresses
    */
   public function __invoke(SuggestAddressesQuery $query): SuggestAddressesResult
   {

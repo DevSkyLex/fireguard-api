@@ -8,7 +8,6 @@ namespace OAuth\Domain\Service;
  * Class TokenValidationResult.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

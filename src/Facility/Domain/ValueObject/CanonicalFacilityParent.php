@@ -17,7 +17,6 @@ namespace Facility\Domain\ValueObject;
  * old one.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,7 +10,6 @@ use Workload\Application\Contract\Projection\WorkloadProjectionView;
  * GetWorkloadResult.
  *
  * @category Workload
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

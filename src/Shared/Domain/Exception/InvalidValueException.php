@@ -12,7 +12,6 @@ use Throwable;
  * It is thrown when an invalid value is provided.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

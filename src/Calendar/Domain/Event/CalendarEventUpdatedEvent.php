@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * event's *current* (post-update) values, not a diff.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

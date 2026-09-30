@@ -19,7 +19,6 @@ use PHPUnit\Framework\TestCase;
  * never leak into the payload.
  *
  * @category Factory Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

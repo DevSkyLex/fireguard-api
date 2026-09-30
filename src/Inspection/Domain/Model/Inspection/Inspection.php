@@ -32,30 +32,58 @@ use function trim;
  * and tracks associated non-conformities.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class Inspection
 {
+  // #region Properties
+  /**
+   * Property equipmentId
+   */
   private InspectionEquipmentId $equipmentId;
 
+  /**
+   * Property inspector
+   */
   private Inspector $inspector;
 
+  /**
+   * Property result
+   */
   private InspectionResult $result;
 
+  /**
+   * Property status
+   */
   private InspectionStatus $status;
 
+  /**
+   * Property performedAt
+   */
   private DateTimeImmutable $performedAt;
 
+  /**
+   * Property facilityId
+   */
   private ?InspectionFacilityId $facilityId;
 
+  /**
+   * Property checklistId
+   */
   private ?InspectionChecklistId $checklistId;
 
+  /**
+   * Property notes
+   */
   private ?string $notes;
 
+  /**
+   * Property signature
+   */
   private ?string $signature;
+  // #endregion
 
   // #region Constructor
   /**

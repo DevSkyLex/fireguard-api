@@ -31,13 +31,15 @@ use function trim;
  * Durable organization setup recovery.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class OrganizationSetupService implements OrganizationSetupPort
 {
+  /**
+   * Constant FIELDS
+   */
   private const array FIELDS = [
     'create_organization' => ['name' => '', 'slug' => null],
     'invite_members' => ['email' => '', 'roleIds' => []],

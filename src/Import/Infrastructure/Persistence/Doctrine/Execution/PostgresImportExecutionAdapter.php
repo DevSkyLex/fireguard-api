@@ -18,9 +18,30 @@ use Throwable;
 
 use function array_key_last;
 
-/** Lease fencing, row locks and receipts share the main business connection. */
+/**
+ * Class PostgresImportExecutionAdapter
+ *
+ * Fences import worker operations with main-database leases, row locks, and per-row receipts.
+ *
+ * @category Adapter
+ */
 final readonly class PostgresImportExecutionAdapter implements ImportExecutionPort
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the main connection, entity manager, manager registry, and import job repository.
+   *
+   * @access public
+   *
+   * @param Connection $connection main business database connection
+   * @param EntityManagerInterface $entityManager main entity manager used by the repository
+   * @param ManagerRegistry $registry manager registry used to reset a closed manager
+   * @param ImportJobRepositoryPort $repository import job lookup and persistence
+   *
+   * @return void
+   */
   public function __construct(
     private Connection $connection,
     private EntityManagerInterface $entityManager,
@@ -29,6 +50,23 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method claim
+   *
+   * Claims an expired or pending job lease and returns its latest persisted state.
+   *
+   * @access public
+   *
+   * @param ImportJobId $id import job identifier
+   * @param string $owner worker lease owner token
+   *
+   * @return ImportJob|null claimed job, or null when no claim was made
+   *
+   * @throws ImportLeaseUnavailable when another worker still owns the lease
+   */
   public function claim(ImportJobId $id, string $owner): ?ImportJob
   {
     $claimed = $this->connection->executeStatement(
@@ -48,7 +86,21 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
   }
 
   /**
-   * @param callable(ImportJob):?string $operation
+   * Method run
+   *
+   * Runs one leased operation under a row lock, saves progress, records an optional row receipt, and renews the lease.
+   *
+   * @access public
+   *
+   * @param ImportJobId $id import job identifier
+   * @param string $owner worker lease owner token
+   * @param callable(ImportJob): ?string $operation operation returning an optional created resource identifier
+   * @param int|null $rowNumber optional row number to confirm after the operation
+   *
+   * @return ImportJob updated job after the operation
+   *
+   * @throws ImportLeaseUnavailable when the job is not held by this unexpired lease
+   * @throws LogicException when the locked job is missing or row order is invalid
    */
   public function run(ImportJobId $id, string $owner, callable $operation, ?int $rowNumber = null): ImportJob
   {
@@ -96,6 +148,18 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
     }
   }
 
+  /**
+   * Method release
+   *
+   * Clears the lease only when the supplied worker still owns it.
+   *
+   * @access public
+   *
+   * @param ImportJobId $id import job identifier
+   * @param string $owner worker lease owner token
+   *
+   * @return void
+   */
   public function release(ImportJobId $id, string $owner): void
   {
     $this->connection->executeStatement(
@@ -104,6 +168,17 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
     );
   }
 
+  /**
+   * Method canResume
+   *
+   * Checks whether a non-completed job has no active lease.
+   *
+   * @access public
+   *
+   * @param ImportJobId $id import job identifier
+   *
+   * @return bool whether the job can be resumed
+   */
   public function canResume(ImportJobId $id): bool
   {
     return false !== $this->connection->fetchOne(
@@ -113,6 +188,21 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
     );
   }
 
+  /**
+   * Method resume
+   *
+   * Locks and resumes a job without an active lease, persists it, clears lease fields, and enqueues it.
+   *
+   * @access public
+   *
+   * @param ImportJobId $id import job identifier
+   * @param callable(ImportJob): void $enqueue callback that schedules the resumed job
+   *
+   * @return ImportJob resumed job
+   *
+   * @throws ImportJobNotFoundException when the job does not exist
+   * @throws ImportLeaseUnavailable when the job still has an active lease
+   */
   public function resume(ImportJobId $id, callable $enqueue): ImportJob
   {
     return $this->connection->transactional(function () use ($id, $enqueue): ImportJob {
@@ -133,6 +223,23 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
     });
   }
 
+  /**
+   * Method confirmRow
+   *
+   * Records the durable outcome for a processed row after verifying its sequence and result.
+   *
+   * @access private
+   *
+   * @param ImportJobId $id import job identifier
+   * @param ImportJob $job updated import job
+   * @param int $rowNumber row number being confirmed
+   * @param int $previousFailures failure count before the operation
+   * @param string|null $resourceId created resource identifier, when available
+   *
+   * @return void
+   *
+   * @throws LogicException when the operation did not report exactly this row
+   */
   private function confirmRow(ImportJobId $id, ImportJob $job, int $rowNumber, int $previousFailures, ?string $resourceId): void
   {
     if ($job->processedRows() !== $rowNumber) {
@@ -151,10 +258,20 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
     );
   }
 
+  /**
+   * Method resetClosedManager
+   *
+   * Resets the main entity manager only when Doctrine has closed it.
+   *
+   * @access private
+   *
+   * @return void
+   */
   private function resetClosedManager(): void
   {
     if (!$this->entityManager->isOpen()) {
       $this->registry->resetManager('main');
     }
   }
+  // #endregion
 }

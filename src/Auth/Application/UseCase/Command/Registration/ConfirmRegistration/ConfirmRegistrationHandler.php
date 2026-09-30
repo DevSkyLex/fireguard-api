@@ -32,7 +32,6 @@ use function is_string;
  * password-reset confirm handler plus the login token-issuance path.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -124,6 +123,19 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
     return $this->activateAndLogIn(new UserId($otp->userId()), $otp->recipient(), $command);
   }
 
+  /**
+   * Method activateAndLogIn.
+   *
+   * Confirms the OTP recipient against the account, activates it, and starts a session.
+   *
+   * @access private
+   *
+   * @param UserId $userId the pending account identifier
+   * @param string $recipient the recipient verified by the OTP
+   * @param ConfirmRegistrationCommand $command the request context used to record the session
+   *
+   * @return ConfirmRegistrationResult the account confirmation outcome
+   */
   private function activateAndLogIn(UserId $userId, string $recipient, ConfirmRegistrationCommand $command): ConfirmRegistrationResult
   {
     $user = $this->userRepository->findById($userId);

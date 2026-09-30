@@ -24,11 +24,33 @@ use Throwable;
 use function count;
 use function is_string;
 
-/** @implements ProcessorInterface<CreateChecklistInput, ChecklistOutput> */
+/**
+ * Class CreateChecklistProcessor
+ *
+ * Translates checklist creation input and organization access into a command dispatch.
+ *
+ * @category Processor
+ *
+ * @implements ProcessorInterface<CreateChecklistInput, ChecklistOutput>
+ */
 final readonly class CreateChecklistProcessor implements ProcessorInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies the command bus, organization authorization service and authenticated user context.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus dispatches checklist creation
+   * @param OrganizationAuthorizationPort $authorization checks organization write access
+   * @param Security $security provides the current authenticated user
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -36,6 +58,23 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Validates request access, dispatches checklist creation and maps the result to its API output.
+   *
+   * @access public
+   *
+   * @param CreateChecklistInput $data processor input expected to be a CreateChecklistInput
+   * @param Operation $operation API Platform operation being processed
+   * @param array<string, mixed> $uriVariables route variables, including organizationId
+   * @param array<string, mixed> $context API Platform processor context
+   *
+   * @return ChecklistOutput created checklist response
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ChecklistOutput
   {
     /** @var CreateChecklistInput $data */
@@ -113,6 +152,17 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
     return $output;
   }
 
+  /**
+   * Method mapMessengerException
+   *
+   * Converts known checklist failures wrapped by Messenger to their HTTP exceptions.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception failure raised while dispatching the command
+   *
+   * @return Throwable mapped HTTP exception, or the original wrapper for unknown failures
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     return match (true) {
@@ -122,4 +172,5 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
       default => $exception,
     };
   }
+  // #endregion
 }

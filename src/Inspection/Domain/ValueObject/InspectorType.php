@@ -10,14 +10,20 @@ use function array_column;
  * Enum InspectorType.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum InspectorType: string
 {
+  /**
+   * Case USER
+   */
   case USER = 'user';
+
+  /**
+   * Case EXTERNAL
+   */
   case EXTERNAL = 'external';
 
   // #region Methods

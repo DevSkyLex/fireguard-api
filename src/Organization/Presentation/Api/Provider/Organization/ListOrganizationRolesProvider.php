@@ -43,7 +43,6 @@ use function is_string;
  * deliberate and bounded, not a scalability compromise.
  *
  * @category Provider
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

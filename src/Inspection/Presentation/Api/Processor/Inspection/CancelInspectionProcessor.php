@@ -25,6 +25,20 @@ final readonly class CancelInspectionProcessor implements ProcessorInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the CancelInspectionProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   * @param Security $security the security
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -32,6 +46,22 @@ final readonly class CancelInspectionProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param mixed $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return mixed
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): mixed
   {
     $user = $this->security->getUser();
@@ -90,4 +120,5 @@ final readonly class CancelInspectionProcessor implements ProcessorInterface
       default => $exception,
     };
   }
+  // #endregion
 }

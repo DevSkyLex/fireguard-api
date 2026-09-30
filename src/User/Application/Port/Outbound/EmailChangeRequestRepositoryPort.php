@@ -14,7 +14,6 @@ use User\Domain\ValueObject\UserId;
  * Persistence port for pending email change requests (auth database).
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

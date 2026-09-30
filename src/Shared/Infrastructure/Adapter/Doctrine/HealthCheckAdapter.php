@@ -18,7 +18,6 @@ use function random_bytes;
  * Implements health checks for database and cache dependencies.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -26,6 +25,19 @@ use function random_bytes;
 final readonly class HealthCheckAdapter implements HealthCheckPort
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Checks both database connections and the cache for application health.
+   *
+   * @access public
+   *
+   * @param Connection $authConnection connection to the auth database
+   * @param Connection $mainConnection connection to the main database
+   * @param CacheItemPoolInterface $cache cache pool included in the health check
+   *
+   * @return void
+   */
   public function __construct(
     private Connection $authConnection,
     private Connection $mainConnection,

@@ -39,7 +39,6 @@ use function sprintf;
  * creations while usage stays above the caps.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

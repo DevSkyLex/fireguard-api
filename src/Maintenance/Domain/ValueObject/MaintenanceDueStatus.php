@@ -17,16 +17,30 @@ use function array_column;
  * never been inspected while a periodicity applies).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum MaintenanceDueStatus: string
 {
+  /**
+   * Case UNSCHEDULED
+   */
   case UNSCHEDULED = 'unscheduled';
+
+  /**
+   * Case UP_TO_DATE
+   */
   case UP_TO_DATE = 'up_to_date';
+
+  /**
+   * Case DUE_SOON
+   */
   case DUE_SOON = 'due_soon';
+
+  /**
+   * Case OVERDUE
+   */
   case OVERDUE = 'overdue';
 
   // #region Methods

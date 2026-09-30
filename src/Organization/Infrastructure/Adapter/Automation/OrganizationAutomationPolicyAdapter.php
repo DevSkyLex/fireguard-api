@@ -24,7 +24,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * silently trigger an automation.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -46,6 +45,17 @@ final readonly class OrganizationAutomationPolicyAdapter implements AutomationPo
   // #endregion
 
   // #region Methods
+  /**
+   * Method policyFor.
+   *
+   * Maps organization automation and compliance settings to the automation policy.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return AutomationPolicy the effective policy, disabled when settings are unavailable
+   */
   public function policyFor(string $organizationId): AutomationPolicy
   {
     try {

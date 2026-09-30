@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource EquipmentAttachmentResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -94,8 +93,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class EquipmentAttachmentResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant FORBIDDEN_DESCRIPTION
+   */
   private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
   // #endregion
 }

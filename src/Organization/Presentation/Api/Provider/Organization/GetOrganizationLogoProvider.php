@@ -22,7 +22,6 @@ use function is_string;
  * authentication required).
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -57,9 +56,9 @@ final readonly class GetOrganizationLogoProvider implements ProviderInterface
    * @param array<string, mixed> $uriVariables route variables (expects "organizationId")
    * @param array<string, mixed> $context request context
    *
-   * @throws NotFoundHttpException if the logo is not found
-   *
    * @return Response a WebP image response with appropriate cache headers
+   *
+   * @throws NotFoundHttpException if the logo is not found
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): Response
   {

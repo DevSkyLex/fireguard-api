@@ -21,7 +21,6 @@ use function is_string;
  * `Webhook\Presentation\Api\Validator\ValidWebhookUrl\ValidWebhookUrlValidator`).
  *
  * @category Validator
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

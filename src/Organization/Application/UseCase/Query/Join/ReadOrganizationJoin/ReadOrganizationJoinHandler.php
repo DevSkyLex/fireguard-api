@@ -26,7 +26,6 @@ use function substr;
  * UseCase ReadOrganizationJoinHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -74,6 +73,17 @@ final readonly class ReadOrganizationJoinHandler implements QueryHandler
     return new ReadOrganizationJoinResult($result);
   }
 
+  /**
+   * Method readManagedOperation.
+   *
+   * Reads organization join policy or managed requests after checking the corresponding permission.
+   *
+   * @access private
+   *
+   * @param ReadOrganizationJoinQuery $query the requested operation and organization context
+   *
+   * @return ReadOrganizationJoinResult the managed operation result
+   */
   private function readManagedOperation(ReadOrganizationJoinQuery $query): ReadOrganizationJoinResult
   {
     $organizationId = $query->organizationId ?? '';

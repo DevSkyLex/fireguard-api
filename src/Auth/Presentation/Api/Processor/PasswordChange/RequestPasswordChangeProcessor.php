@@ -31,7 +31,6 @@ use function time;
  * the OTP challenge email for the password change confirmation step.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -60,8 +59,8 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
     private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Process the password change request.
@@ -71,11 +70,11 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
    * @param array<mixed> $uriVariables URI variables
    * @param array<mixed> $context processing context
    *
+   * @return RequestPasswordChangeOutput the output
+   *
    * @throws AccessDeniedHttpException when not authenticated
    * @throws UnprocessableEntityHttpException when the current password is incorrect
    * @throws TooManyRequestsHttpException when rate limited
-   *
-   * @return RequestPasswordChangeOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RequestPasswordChangeOutput
   {
@@ -115,6 +114,17 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
     );
   }
 
+  /**
+   * Method enforceRateLimit
+   *
+   * Enforces the endpoint rate limit for the supplied recipient or request context.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   *
+   * @return void
+   */
   private function enforceRateLimit(string $userId): void
   {
     if (null === $this->rateLimiter) {
@@ -135,6 +145,17 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
     );
   }
 
+  /**
+   * Method getRateLimitKey
+   *
+   * Builds the stable rate-limit key for the current request.
+   *
+   * @access private
+   *
+   * @param string $userId the user identifier
+   *
+   * @return string
+   */
   private function getRateLimitKey(string $userId): string
   {
     $userHash = hash('sha256', $userId);

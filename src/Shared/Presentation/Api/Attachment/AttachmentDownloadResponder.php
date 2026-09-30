@@ -30,7 +30,6 @@ use function trim;
  * keeps an authorized private file out of shared caches.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

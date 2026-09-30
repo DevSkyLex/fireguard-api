@@ -12,7 +12,6 @@ use Session\Domain\ValueObject\SessionId;
  * Handler RevokeSessionHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -43,9 +42,9 @@ final readonly class RevokeSessionHandler implements \Shared\Application\Message
    *
    * @param RevokeSessionCommand $command the command to handle
    *
-   * @throws SessionNotFoundException if session is not found
-   *
    * @return RevokeSessionResult the result
+   *
+   * @throws SessionNotFoundException if session is not found
    */
   public function __invoke(RevokeSessionCommand $command): RevokeSessionResult
   {

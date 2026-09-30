@@ -32,7 +32,6 @@ use function is_string;
  * and `DELETE /inspection-attachments/{id}`.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -42,12 +41,43 @@ use function is_string;
 final readonly class InspectionMediaProcessor implements ProcessorInterface
 {
   // #region Constants
+  /**
+   * Constant MISSING_WRITE_PERMISSION_MESSAGE.
+   *
+   * Public message returned when organization inspection write permission is missing.
+   *
+   * @access private
+   */
   private const string MISSING_WRITE_PERMISSION_MESSAGE = 'Missing organization.inspection.write permission.';
 
+  /**
+   * Constant NON_CONFORMITY_NOT_FOUND_MESSAGE.
+   *
+   * Stable public message returned when a non-conformity attachment target is unavailable.
+   *
+   * @access private
+   */
   private const string NON_CONFORMITY_NOT_FOUND_MESSAGE = 'Non-conformity not found.';
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides upload and removal dependencies for authorized inspection attachments.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager the main entity manager
+   * @param CommandBusPort $commandBus dispatches attachment commands
+   * @param OrganizationAuthorizationPort $authorization enforces organization permissions
+   * @param Security $security resolves the authenticated user
+   * @param RequestStack $requestStack provides the current request
+   * @param MultipartAttachmentGuard $attachmentGuard validates uploaded file type and size
+   * @param RevisionGuard $revisionGuard checks inspection revision constraints
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,

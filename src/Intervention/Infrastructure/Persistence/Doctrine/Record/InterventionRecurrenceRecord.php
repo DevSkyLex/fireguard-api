@@ -20,7 +20,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  * expression syntax and is never read by this module today.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

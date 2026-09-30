@@ -18,7 +18,6 @@ use Shared\Application\Message\CommandHandler;
  * is confirmed via {@see \Otp\Application\UseCase\Command\Totp\ConfirmTotp\ConfirmTotpHandler}.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -8,7 +8,6 @@ namespace Intervention\Application\UseCase\Query\Time\ListTimeEntries;
  * ListTimeEntriesQuery.
  *
  * @category Intervention
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

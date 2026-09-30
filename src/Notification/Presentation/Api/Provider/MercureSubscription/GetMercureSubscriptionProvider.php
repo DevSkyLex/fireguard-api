@@ -24,7 +24,6 @@ use function sprintf;
  * Server-Sent Events connection and receive private updates.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

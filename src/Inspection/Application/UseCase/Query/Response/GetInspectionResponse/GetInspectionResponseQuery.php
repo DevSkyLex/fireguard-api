@@ -16,7 +16,6 @@ use Shared\Application\Message\QueryMessage;
  * caller's scope.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,6 +23,17 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetInspectionResponseQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the checklist response selected for retrieval.
+   *
+   * @access public
+   *
+   * @param string $responseId identifier of the checklist response to retrieve
+   *
+   * @return void
+   */
   public function __construct(
     public string $responseId,
   ) {

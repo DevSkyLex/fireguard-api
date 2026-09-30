@@ -1,5 +1,34 @@
 # Agent Instructions
 
+## Planning and explanations
+
+Choose the presentation that makes the subject easier to understand, with detail proportional
+to the task. Plans should make the intended result, decisions, changes and validation clear;
+these are useful information, not mandatory headings. Use Mermaid, tables and other Markdown
+when they help explain a relationship, comparison or sequence. There is no required format,
+quota or need to justify the absence of a visual. Follow the user's language and explicit
+format or brevity requests. See the [planning guide](docs/guides/planning.md) for guidance
+and examples when preparing a plan or clarifying a complex change.
+
+## Git naming
+
+Apply these conventions before creating or renaming a branch, including a worktree branch,
+and before preparing a commit or pull request. They also apply to native agents and secondary checkouts.
+
+- Branches use `<type>/<description-kebab>`, with a type that describes the change:
+  `feat`, `fix`, `chore`, `refactor`, `docs`, `test`, `perf`, `ci`, `build`, `style`, `revert`, or `hotfix`.
+  Descriptions use lowercase English words and digits separated by single hyphens;
+  for example `fix/otp-expiry`. Do not use `codex/` or another agent name as a branch prefix.
+  Choose a creation tool that accepts the intended name; use Git with an explicit branch name
+  when a worktree tool would force an agent prefix.
+- Commit headers and PR titles use `<type>(<scope>): <subject>`. Use the same types except `hotfix`;
+  the scope is optional and names the module or feature in lowercase. Use `!` before `:` only for a breaking change.
+  Write an English imperative subject starting lowercase, without a trailing period; the header is at most 100 characters.
+- Validate the proposed branch against these conventions and `git check-ref-format --branch <name>` before creation.
+  Check the actual first line of each commit message, including messages supplied through a file or an amend.
+  Correct rejected names or headers instead of bypassing hooks with `--no-verify` or a `core.hooksPath` override.
+  Preserve existing branches unless their rename is requested; stage only changes authorized for the commit.
+
 ## Codex tooling
 
 For Codex, read [.codex/workflow.md](.codex/workflow.md) and the matching entries in
@@ -11,11 +40,10 @@ For SonarQube issue triage or remediation, load
 [fg-api-sonarqube](.agents/skills/fg-api-sonarqube/SKILL.md). Record issue-specific
 False Positive and Accepted evidence in SonarQube and the PR, not in a repository issue ledger.
 
-Before delegating, resolve the assigned role's category and effort from
-`.codex/agent-profiles.toml` using `.codex/scripts/resolve_agent.py` and the current
-callable model catalog, as described in the workflow. Profiles are a FireGuard
-convention, not native model aliases. Native agent files intentionally inherit unless
-the parent supplies the resolved values. Setup and migration procedures live in
+Native agents define their model, effort and service tier directly. Invoke the actual
+custom role and check current model/effort availability; task names alone do not load it.
+Read [.codex/workflow.md](.codex/workflow.md) for delegation and the shared 47-role catalog.
+Readers remain read-only; writers inherit session permissions. Setup and validation live in
 [.codex/maintenance.md](.codex/maintenance.md).
 
 Do not read or write secret environment files (except `.env.example`/`.env.dist`),
@@ -88,7 +116,7 @@ The single most expensive thing to get wrong here, because **it fails silently**
 - **Cross-module access is through `Application\Port\` and `Application\Contract\` only** —
   never a sibling module's `Domain\`, `Infrastructure\`, or `Record`.
 - Do not trust the tooling to catch a boundary break. `deptrac.yaml` permits
-  `Presentation → Infrastructure` outright. `deptrac.modules.php` adds module boundaries
+  `Presentation → Infrastructure` outright. `tests/Architecture/deptrac/modules.php` adds module boundaries
   with exact legacy class-pair exceptions; both configurations must pass.
 
 ## Module Structure
@@ -178,6 +206,8 @@ The single most expensive thing to get wrong here, because **it fails silently**
 - Keep it normative. Do not turn it into a file catalog.
 
 ## Code Style
+
+- Comments and PHPDoc follow [the shared convention](docs/guides/code-comments.md).
 
 - `declare(strict_types=1);` · **two-space indentation** (the PHP-CS-Fixer config sets
   `setIndent('  ')`, not PSR-12's four) · `// #region` blocks · `final readonly class` for

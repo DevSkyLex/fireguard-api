@@ -25,7 +25,6 @@ use Equipment\Domain\Exception\CanonicalEquipmentValidationException;
  * before the patch reaches the model.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

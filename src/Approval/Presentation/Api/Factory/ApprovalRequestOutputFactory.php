@@ -14,7 +14,6 @@ use Approval\Presentation\Api\Dto\Output\ApprovalRequestOutput;
  * Factory ApprovalRequestOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

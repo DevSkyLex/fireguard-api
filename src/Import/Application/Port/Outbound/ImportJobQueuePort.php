@@ -16,7 +16,6 @@ namespace Import\Application\Port\Outbound;
  * what happens for every async-routed command.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

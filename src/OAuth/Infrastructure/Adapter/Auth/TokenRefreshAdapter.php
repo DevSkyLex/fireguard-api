@@ -15,7 +15,6 @@ use Shared\Application\Port\Inbound\QueryBusPort;
  * Bridges Auth refresh requests to OAuth refresh logic.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -37,6 +36,18 @@ final readonly class TokenRefreshAdapter implements TokenRefreshPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method refresh.
+   *
+   * Dispatches refresh-token rotation and maps the OAuth result to the Auth contract.
+   *
+   * @access public
+   *
+   * @param string $refreshToken the refresh token presented for rotation
+   * @param string|null $ipAddress the client IP address, when available
+   *
+   * @return AuthRefreshTokenResult the mapped token refresh outcome
+   */
   public function refresh(string $refreshToken, ?string $ipAddress = null): AuthRefreshTokenResult
   {
     /** @var OAuthRefreshTokenResult $result */

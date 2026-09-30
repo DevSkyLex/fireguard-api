@@ -8,13 +8,19 @@ namespace Notification\Application\Contract\Notification;
  * Enum NotificationChannel.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum NotificationChannel: string
 {
+  /**
+   * Case EMAIL
+   */
   case EMAIL = 'email';
+
+  /**
+   * Case MERCURE
+   */
   case MERCURE = 'mercure';
 }

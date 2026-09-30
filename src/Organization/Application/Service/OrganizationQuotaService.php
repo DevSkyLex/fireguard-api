@@ -21,7 +21,9 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationQuotaResource a
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * Service OrganizationQuotaService.
+ * Class OrganizationQuotaService
+ *
+ * Resolves organization plan caps, resource usage and quota enforcement through module ports.
  *
  * Resolves the quantity caps defined by an organization's current plan, the
  * current usage of each capped resource, and enforces the caps at creation
@@ -36,7 +38,6 @@ use Symfony\Contracts\Service\ResetInterface;
  * consulted.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -44,8 +45,11 @@ use Symfony\Contracts\Service\ResetInterface;
 final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInterface
 {
   /**
-   * In-memory per-request cache of the resolved plan, keyed by organization id.
-   * `false` marks a resolved-but-absent plan to avoid repeated lookups.
+   * Property planCache
+   *
+   * Caches each organization's resolved plan for this request; false marks an absent plan.
+   *
+   * @access private
    *
    * @var array<string, Plan|false>
    */
@@ -53,10 +57,11 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
 
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
-   * Initializes a new instance of the OrganizationQuotaService class.
+   * Supplies plan, usage, invitation and transaction-scoped quota-lock ports.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
@@ -67,6 +72,8 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
    * @param EquipmentStatisticsPort $equipmentStatistics the equipment statistics port
    * @param InspectionStatisticsPort $inspectionStatistics the inspection statistics port
    * @param OrganizationQuotaLockPort $quotaLock the advisory lock serializing check+insert
+   *
+   * @return void
    */
   public function __construct(
     private readonly OrganizationRepositoryPort $organizationRepository,
@@ -82,16 +89,54 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
   // #endregion
 
   // #region Methods
+  /**
+   * Method getLimit
+   *
+   * Resolves the plan cap for a resource, returning null when the plan has no cap.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose plan is read
+   * @param OrganizationQuotaResource $resource resource whose cap is requested
+   *
+   * @return int|null configured limit, or null when unlimited
+   */
   public function getLimit(string $organizationId, OrganizationQuotaResource $resource): ?int
   {
     return $this->limitFor($organizationId, $this->toDomainResource($resource));
   }
 
+  /**
+   * Method getUsage
+   *
+   * Returns the current quota usage for the organization and resource.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose resources are counted
+   * @param OrganizationQuotaResource $resource resource to count
+   *
+   * @return int current occupied resource slots
+   */
   public function getUsage(string $organizationId, OrganizationQuotaResource $resource): int
   {
     return $this->usageFor($organizationId, $this->toDomainResource($resource));
   }
 
+  /**
+   * Method assertCanAcceptMember
+   *
+   * Checks the active member cap while holding its transaction-scoped advisory lock.
+   * The caller must run this inside the transaction that creates the membership.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization receiving the member
+   *
+   * @return void
+   *
+   * @throws OrganizationQuotaExceededException when the active member cap is reached
+   */
   public function assertCanAcceptMember(string $organizationId): void
   {
     $limit = $this->limitFor($organizationId, DomainQuotaResource::MEMBERS);
@@ -115,6 +160,21 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     }
   }
 
+  /**
+   * Method assertCanAdd
+   *
+   * Checks capacity for one resource while holding a transaction-scoped advisory lock.
+   * The caller must run this inside the transaction that inserts the resource.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization receiving the resource
+   * @param OrganizationQuotaResource $resource resource to add
+   *
+   * @return void
+   *
+   * @throws OrganizationQuotaExceededException when the plan cap has been reached
+   */
   public function assertCanAdd(string $organizationId, OrganizationQuotaResource $resource): void
   {
     $domainResource = $this->toDomainResource($resource);
@@ -135,6 +195,22 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     }
   }
 
+  /**
+   * Method assertCanAddMultiple
+   *
+   * Checks capacity for a batch while holding the same lock used for single additions.
+   * The caller must run this inside the transaction that inserts the batch.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization receiving the resources
+   * @param OrganizationQuotaResource $resource resource to add
+   * @param int $count number to add; non-positive values are a no-op
+   *
+   * @return void
+   *
+   * @throws OrganizationQuotaExceededException when the batch would exceed the plan cap
+   */
   public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource $resource, int $count): void
   {
     if ($count <= 0) {
@@ -158,6 +234,22 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     }
   }
 
+  /**
+   * Method assertProjectedCanAdd
+   *
+   * Projects the quota after provisional additions without acquiring a lock or reserving capacity.
+   * This result is advisory and may become stale before a later write.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose quota is projected
+   * @param OrganizationQuotaResource $resource resource to add
+   * @param int $additionalOffset provisional resources already counted in the same batch
+   *
+   * @return void
+   *
+   * @throws OrganizationQuotaExceededException when the projected count reaches the cap
+   */
   public function assertProjectedCanAdd(string $organizationId, OrganizationQuotaResource $resource, int $additionalOffset = 0): void
   {
     $domainResource = $this->toDomainResource($resource);
@@ -176,6 +268,14 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
   }
 
   /**
+   * Method getQuotaSummary
+   *
+   * Returns current usage and plan limits for each resource in the contract enum.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose quotas are summarized
+   *
    * @return list<array{resource: string, used: int, limit: int|null}>
    */
   public function getQuotaSummary(string $organizationId): array
@@ -193,18 +293,28 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     return $summary;
   }
 
+  /**
+   * Method reset
+   *
+   * Clears the per-request plan cache so the next read resolves current plan state.
+   *
+   * @access public
+   *
+   * @return void
+   */
   public function reset(): void
   {
     $this->planCache = [];
   }
 
   /**
-   * Method toDomainResource.
+   * Method toDomainResource
    *
    * Maps a contract resource case to its Domain counterpart — the single
    * point where the contract surface meets the Domain enum the plan, lock,
    * and statistics internals are typed with.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param OrganizationQuotaResource $resource the contract resource
@@ -222,11 +332,12 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
   }
 
   /**
-   * Method limitFor.
+   * Method limitFor
    *
    * Returns the cap for a resource under the organization's plan, or null
    * when the resource is unlimited.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
@@ -242,10 +353,11 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
   }
 
   /**
-   * Method usageFor.
+   * Method usageFor
    *
    * Returns the current quantity of a resource owned by the organization.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
@@ -268,12 +380,13 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
   }
 
   /**
-   * Method countMemberUsage.
+   * Method countMemberUsage
    *
    * Counts the member slots occupied by an organization: its active members
    * plus its pending invitations, each of which reserves a slot until it is
    * accepted, revoked, or expired.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
@@ -289,11 +402,12 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
   }
 
   /**
-   * Method resolvePlan.
+   * Method resolvePlan
    *
    * Resolves the organization's plan, falling back to the catalog default plan
    * when none is assigned. Caches the result per request.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier

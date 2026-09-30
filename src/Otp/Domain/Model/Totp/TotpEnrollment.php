@@ -26,7 +26,6 @@ use function max;
  * active secret (if any) stays usable until the new one is confirmed.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -162,46 +161,127 @@ final class TotpEnrollment
   // #endregion
 
   // #region Accessors
+  /**
+   * Method userId
+   *
+   * Returns the identifier of the user who owns this enrollment.
+   *
+   * @access public
+   *
+   * @return string the owning user identifier
+   */
   public function userId(): string
   {
     return $this->userId;
   }
 
+  /**
+   * Method activeSecret
+   *
+   * Returns the confirmed secret used for login MFA, or null before enrollment is active.
+   *
+   * @access public
+   *
+   * @return ?TotpSecret
+   */
   public function activeSecret(): ?TotpSecret
   {
     return $this->activeSecret;
   }
 
+  /**
+   * Method activeConfirmedAt
+   *
+   * Returns when the active secret was confirmed, or null when no active secret exists.
+   *
+   * @access public
+   *
+   * @return ?DateTimeImmutable
+   */
   public function activeConfirmedAt(): ?DateTimeImmutable
   {
     return $this->activeConfirmedAt;
   }
 
+  /**
+   * Method pendingSecret
+   *
+   * Returns the unconfirmed secret awaiting possession verification, or null when none is pending.
+   *
+   * @access public
+   *
+   * @return ?TotpSecret
+   */
   public function pendingSecret(): ?TotpSecret
   {
     return $this->pendingSecret;
   }
 
+  /**
+   * Method pendingCreatedAt
+   *
+   * Returns when the current pending secret was generated, or null when none is pending.
+   *
+   * @access public
+   *
+   * @return ?DateTimeImmutable
+   */
   public function pendingCreatedAt(): ?DateTimeImmutable
   {
     return $this->pendingCreatedAt;
   }
 
+  /**
+   * Method disableAttempts
+   *
+   * Returns the failed code attempts accumulated by the TOTP disable flow.
+   *
+   * @access public
+   *
+   * @return int
+   */
   public function disableAttempts(): int
   {
     return $this->disableAttempts;
   }
 
+  /**
+   * Method disableLockedUntil
+   *
+   * Returns the end of the temporary disable lock, or null when the flow is unlocked.
+   *
+   * @access public
+   *
+   * @return ?DateTimeImmutable
+   */
   public function disableLockedUntil(): ?DateTimeImmutable
   {
     return $this->disableLockedUntil;
   }
 
+  /**
+   * Method attempts
+   *
+   * Returns the failed confirmation attempts against the pending secret.
+   *
+   * @access public
+   *
+   * @return int
+   */
   public function attempts(): int
   {
     return $this->attempts;
   }
 
+  /**
+   * Method maxAttempts
+   *
+   * Returns the maximum confirmation attempts allowed for the pending secret.
+   *
+   * @access public
+   *
+   * @return int
+   */
   public function maxAttempts(): int
   {
     return $this->maxAttempts;
@@ -221,11 +301,29 @@ final class TotpEnrollment
     return max(0, $this->maxAttempts - $this->attempts);
   }
 
+  /**
+   * Method createdAt
+   *
+   * Returns when this enrollment aggregate was created.
+   *
+   * @access public
+   *
+   * @return DateTimeImmutable
+   */
   public function createdAt(): DateTimeImmutable
   {
     return $this->createdAt;
   }
 
+  /**
+   * Method updatedAt
+   *
+   * Returns when this enrollment aggregate was last changed.
+   *
+   * @access public
+   *
+   * @return DateTimeImmutable
+   */
   public function updatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
@@ -295,10 +393,10 @@ final class TotpEnrollment
    *
    * @param bool $codeValid whether the submitted code matched the pending secret
    *
+   * @return bool true if confirmation succeeded
+   *
    * @throws TotpEnrollmentNoPendingSecretException if there is no pending secret
    * @throws TotpEnrollmentMaxAttemptsException if attempts are exhausted
-   *
-   * @return bool true if confirmation succeeded
    */
   public function confirmPending(bool $codeValid): bool
   {
@@ -345,10 +443,10 @@ final class TotpEnrollment
    * @param bool $codeValid whether the submitted code matched the active secret
    * @param DateTimeImmutable|null $now the current instant, injectable for tests
    *
+   * @return bool true if disabling succeeded
+   *
    * @throws TotpEnrollmentNotActiveException if there is no active secret
    * @throws TotpDisableTemporarilyLockedException if the cooldown has not elapsed
-   *
-   * @return bool true if disabling succeeded
    */
   public function disable(bool $codeValid, ?DateTimeImmutable $now = null): bool
   {

@@ -12,7 +12,6 @@ use Billing\Infrastructure\Persistence\Doctrine\Record\SubscriptionRecord;
  * Mapper SubscriptionMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

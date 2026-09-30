@@ -12,7 +12,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * Durable organization setup recovery.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

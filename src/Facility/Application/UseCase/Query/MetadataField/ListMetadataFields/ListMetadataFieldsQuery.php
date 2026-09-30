@@ -10,7 +10,6 @@ use Shared\Application\Message\QueryMessage;
  * UseCase ListMetadataFieldsQuery.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -18,6 +17,17 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ListMetadataFieldsQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Identifies the organization whose metadata-field definitions are requested.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose field definitions are requested
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
   ) {

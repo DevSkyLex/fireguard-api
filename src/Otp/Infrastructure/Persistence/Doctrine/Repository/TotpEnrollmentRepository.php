@@ -14,7 +14,6 @@ use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
  * Repository TotpEnrollmentRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -33,9 +32,20 @@ final readonly class TotpEnrollmentRepository implements TotpEnrollmentRepositor
     private TotpEnrollmentMapper $mapper,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method save
+   *
+   * Persists the federated flow under its state hash.
+   *
+   * @access public
+   *
+   * @param TotpEnrollment $enrollment the enrollment
+   *
+   * @return void
+   */
   public function save(TotpEnrollment $enrollment): void
   {
     $repository = $this->entityManager->getRepository(TotpEnrollmentRecord::class);
@@ -50,6 +60,17 @@ final readonly class TotpEnrollmentRepository implements TotpEnrollmentRepositor
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findByUserId
+   *
+   * Finds by user id using the supplied criteria.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   *
+   * @return ?TotpEnrollment
+   */
   public function findByUserId(string $userId): ?TotpEnrollment
   {
     $repository = $this->entityManager->getRepository(TotpEnrollmentRecord::class);

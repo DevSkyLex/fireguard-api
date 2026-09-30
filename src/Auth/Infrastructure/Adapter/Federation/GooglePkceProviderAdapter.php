@@ -13,7 +13,6 @@ use League\OAuth2\Client\Provider\{AbstractProvider, Google};
  * of Google's obsolete and conflicting `approval_prompt` parameter.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

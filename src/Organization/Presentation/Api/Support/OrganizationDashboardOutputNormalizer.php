@@ -19,6 +19,7 @@ use function ucfirst;
 final class OrganizationDashboardOutputNormalizer
 {
   // region Constants
+
   /**
    * @var list<array{source: string, metric: string, key: string, label: string}>
    */
@@ -77,8 +78,22 @@ final class OrganizationDashboardOutputNormalizer
     'interventions' => 'open',
   ];
 
+  /**
+   * Constant HEALTH_UNIT_PERCENT.
+   *
+   * Unit label used to render percentage health metrics.
+   *
+   * @access private
+   */
   private const string HEALTH_UNIT_PERCENT = 'percent';
 
+  /**
+   * Constant HEALTH_PERCENT_MAX.
+   *
+   * Upper bound used when normalizing health percentages.
+   *
+   * @access private
+   */
   private const float HEALTH_PERCENT_MAX = 100.0;
   // endregion
 
@@ -318,6 +333,17 @@ final class OrganizationDashboardOutputNormalizer
     return $summary[0] ?? null;
   }
 
+  /**
+   * Method camelizeOverviewMetricKey.
+   *
+   * Converts underscore-separated metric keys to camel case.
+   *
+   * @access private
+   *
+   * @param string $value metric key to normalize
+   *
+   * @return string camel-cased metric key
+   */
   private static function camelizeOverviewMetricKey(string $value): string
   {
     if (!str_contains($value, '_')) {
@@ -334,6 +360,17 @@ final class OrganizationDashboardOutputNormalizer
     return $normalized;
   }
 
+  /**
+   * Method resolveDirection.
+   *
+   * Maps a signed metric difference to its direction, retaining null when unavailable.
+   *
+   * @access private
+   *
+   * @param ?float $delta signed metric difference
+   *
+   * @return ?string direction label (up, down, stable), or null without a difference
+   */
   private static function resolveDirection(?float $delta): ?string
   {
     return match (true) {
@@ -344,6 +381,17 @@ final class OrganizationDashboardOutputNormalizer
     };
   }
 
+  /**
+   * Method formatSignedMetricDifference.
+   *
+   * Formats a signed integer difference with an explicit plus sign for positive values.
+   *
+   * @access private
+   *
+   * @param ?int $difference the metric difference
+   *
+   * @return ?string formatted difference, or null when unavailable
+   */
   private static function formatSignedMetricDifference(?int $difference): ?string
   {
     if (null === $difference) {

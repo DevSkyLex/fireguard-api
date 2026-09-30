@@ -17,7 +17,6 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
  * targeting it as its site.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

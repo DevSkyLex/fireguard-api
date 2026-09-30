@@ -12,7 +12,6 @@ namespace User\Application\UseCase\Query\User\AuthenticateUser;
  * Result of user authentication.
  *
  * @category Result
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -23,7 +22,6 @@ use Shared\Application\Message\ResultMessage;
  * Result AuthenticateUserResult.
  *
  * @category Result
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

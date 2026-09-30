@@ -11,7 +11,6 @@ namespace Shared\Presentation\Api\Pagination;
  * Platform provider context by {@link PaginationExtractor}.
  *
  * @category Pagination
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

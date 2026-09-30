@@ -11,7 +11,6 @@ use Shared\Application\Message\QueryMessage;
  * UseCase ListOrganizationRolesQuery.
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

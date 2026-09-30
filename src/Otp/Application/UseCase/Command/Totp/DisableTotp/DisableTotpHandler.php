@@ -14,7 +14,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * Handler DisableTotpHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -47,9 +46,9 @@ final readonly class DisableTotpHandler implements CommandHandler
    *
    * @param DisableTotpCommand $command the command
    *
-   * @throws TotpEnrollmentNotEnabledException if TOTP is not currently enabled
-   *
    * @return DisableTotpResult the result
+   *
+   * @throws TotpEnrollmentNotEnabledException if TOTP is not currently enabled
    */
   public function __invoke(DisableTotpCommand $command): DisableTotpResult
   {

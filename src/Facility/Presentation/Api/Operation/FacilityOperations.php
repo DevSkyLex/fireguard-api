@@ -8,7 +8,6 @@ namespace Facility\Presentation\Api\Operation;
  * Facility operation names.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

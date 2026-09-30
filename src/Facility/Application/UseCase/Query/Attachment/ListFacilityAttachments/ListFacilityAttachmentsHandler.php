@@ -15,7 +15,6 @@ use ValueError;
  * UseCase ListFacilityAttachmentsHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -23,6 +22,18 @@ use ValueError;
 final readonly class ListFacilityAttachmentsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility and attachment repositories used to validate scope and list attachments.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to validate the facility and organization scope
+   * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to retrieve matching attachment metadata
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,

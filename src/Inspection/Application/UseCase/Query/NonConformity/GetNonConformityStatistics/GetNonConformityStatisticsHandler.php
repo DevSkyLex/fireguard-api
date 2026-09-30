@@ -28,7 +28,6 @@ use function array_map;
  * organization's scope, 403 for an unentitled member.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -72,11 +71,11 @@ final readonly class GetNonConformityStatisticsHandler implements QueryHandler
    *
    * @param GetNonConformityStatisticsQuery $query the query value
    *
+   * @return GetNonConformityStatisticsResult the statistics snapshot
+   *
    * @throws InvalidArgumentException when the window bounds are inverted
    * @throws InspectionNotFoundException when the caller is outside the organization's scope
    * @throws InspectionAccessDeniedException when the caller lacks `organization.inspection.read`
-   *
-   * @return GetNonConformityStatisticsResult the statistics snapshot
    */
   public function __invoke(GetNonConformityStatisticsQuery $query): GetNonConformityStatisticsResult
   {

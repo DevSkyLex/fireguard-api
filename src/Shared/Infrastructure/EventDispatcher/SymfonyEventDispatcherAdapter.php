@@ -18,7 +18,6 @@ use function strtolower;
  * Adapter SymfonyEventDispatcherAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -43,9 +42,20 @@ final readonly class SymfonyEventDispatcherAdapter implements EventDispatcherPor
     private LoggerInterface $logger,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method dispatch
+   *
+   * Dispatches the domain event through Symfony’s event dispatcher.
+   *
+   * @access public
+   *
+   * @param object $event the event to handle
+   *
+   * @return void
+   */
   public function dispatch(object $event): void
   {
     $eventName = $this->getEventName($event);
@@ -57,6 +67,17 @@ final readonly class SymfonyEventDispatcherAdapter implements EventDispatcherPor
     $this->eventDispatcher->dispatch($event, $eventName);
   }
 
+  /**
+   * Method dispatchAll
+   *
+   * Dispatches all the supplied values.
+   *
+   * @access public
+   *
+   * @param list<object> $events domain events to dispatch
+   *
+   * @return void
+   */
   public function dispatchAll(array $events): void
   {
     foreach ($events as $event) {

@@ -13,7 +13,6 @@ namespace Compliance\Application\Port\Outbound;
  * same plan-resolution logic as `OrganizationQuotaService::resolvePlan()`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

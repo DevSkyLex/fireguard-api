@@ -14,7 +14,6 @@ use Shared\Application\Message\ResultMessage;
  * because "absent" and "outside your scope" must answer alike here.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -22,6 +21,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class GetCanonicalFacilityResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the canonical facility view when a matching facility was found.
+   *
+   * @access public
+   *
+   * @param ?CanonicalFacilityView $view canonical facility projection when found, or null when absent
+   *
+   * @return void
+   */
   public function __construct(
     public ?CanonicalFacilityView $view = null,
   ) {

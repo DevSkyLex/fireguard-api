@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deploymentContext, isDocumentationOnly } from './deployment-context.mjs';
 
-const repo = 'example/fireguard-sso-web';
+const repo = 'example/fireguard-web';
 const sha = 'a'.repeat(40);
 const env = { GITHUB_REPOSITORY: repo, GITHUB_REF: 'refs/heads/main', GITHUB_SHA: sha };
 const workflowEvent = {

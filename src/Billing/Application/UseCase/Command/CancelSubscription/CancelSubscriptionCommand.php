@@ -13,7 +13,6 @@ use Shared\Application\Message\CommandMessage;
  * current billing period (access is retained until then).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

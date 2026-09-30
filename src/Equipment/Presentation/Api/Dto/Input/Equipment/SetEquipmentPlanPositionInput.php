@@ -18,7 +18,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * is a handler concern — this DTO validates shape only.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

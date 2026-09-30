@@ -17,7 +17,6 @@ namespace Inspection\Application\Port\Outbound;
  * `Intervention\…\Record\InterventionRecord`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

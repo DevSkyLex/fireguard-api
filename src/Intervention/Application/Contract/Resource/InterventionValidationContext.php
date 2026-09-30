@@ -8,7 +8,6 @@ namespace Intervention\Application\Contract\Resource;
  * Resource InterventionValidationContext.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

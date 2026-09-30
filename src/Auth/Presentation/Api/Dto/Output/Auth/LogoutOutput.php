@@ -12,13 +12,15 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * DTO LogoutOutput.
  *
  * @category Output DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class LogoutOutput
 {
+  /**
+   * Constant SUCCESS_MESSAGE
+   */
   private const string SUCCESS_MESSAGE = 'Logged out successfully';
 
   // #region Properties

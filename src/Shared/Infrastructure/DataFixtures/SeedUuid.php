@@ -33,7 +33,6 @@ use function substr;
  * assert against.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

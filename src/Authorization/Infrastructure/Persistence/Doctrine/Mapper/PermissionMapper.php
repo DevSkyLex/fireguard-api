@@ -12,7 +12,6 @@ use Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord;
  * Mapper PermissionMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

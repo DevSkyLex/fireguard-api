@@ -23,7 +23,6 @@ use function time;
  * Handler IntrospectTokenHandler.
  *
  * @category Handler
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -150,6 +149,17 @@ final readonly class IntrospectTokenHandler implements QueryHandler
     return $result;
   }
 
+  /**
+   * Method audience.
+   *
+   * Normalizes a string or scalar audience list from token claims.
+   *
+   * @access private
+   *
+   * @param mixed $value the decoded audience claim
+   *
+   * @return string|null the normalized audience value
+   */
   private function audience(mixed $value): ?string
   {
     if (is_array($value)) {

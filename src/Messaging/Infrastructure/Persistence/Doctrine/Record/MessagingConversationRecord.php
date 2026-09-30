@@ -18,7 +18,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  * rows leave them null).
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -25,7 +25,6 @@ use function is_string;
  * channel too, since a channel id IS a conversation id).
  *
  * @category Processor
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

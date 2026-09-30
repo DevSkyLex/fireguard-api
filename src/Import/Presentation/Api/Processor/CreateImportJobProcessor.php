@@ -31,7 +31,6 @@ use function is_string;
  * kind, persists the `pending` job, and enqueues its async processing.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

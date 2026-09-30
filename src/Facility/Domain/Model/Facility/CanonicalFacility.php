@@ -43,7 +43,6 @@ use function trim;
  * processor ran them, and hands the result in.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -127,9 +126,9 @@ final class CanonicalFacility
    * @param CanonicalFacilityPatch $patch the requested changes, already validated field by field
    * @param ?CanonicalFacilityParent $parent the resolved new parent, when `parent` was sent non-null
    *
-   * @throws CanonicalFacilityValidationException when a published facility is restored under an archived parent
-   *
    * @return CanonicalFacilityChange what changed — empty for a scratchpad row
+   *
+   * @throws CanonicalFacilityValidationException when a published facility is restored under an archived parent
    */
   public function applyPatch(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent = null): CanonicalFacilityChange
   {
@@ -459,12 +458,35 @@ final class CanonicalFacility
     return $this->updatedAt;
   }
 
+  /**
+   * Method applyFields
+   *
+   * Applies the descriptive and structural fields selected by the patch.
+   *
+   * @access private
+   *
+   * @param CanonicalFacilityPatch $patch fields and presence flags from the update request
+   * @param CanonicalFacilityParent|null $parent resolved parent, when the patch changes it
+   *
+   * @return void
+   */
   private function applyFields(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent): void
   {
     $this->applyDescriptiveFields($patch);
     $this->applyOtherFields($patch, $parent);
   }
 
+  /**
+   * Method applyDescriptiveFields
+   *
+   * Applies changed descriptive values while retaining fields absent from the patch.
+   *
+   * @access private
+   *
+   * @param CanonicalFacilityPatch $patch fields and presence flags from the update request
+   *
+   * @return void
+   */
   private function applyDescriptiveFields(CanonicalFacilityPatch $patch): void
   {
     if ($patch->hasType && null !== $patch->type) {
@@ -489,6 +511,18 @@ final class CanonicalFacility
     }
   }
 
+  /**
+   * Method applyOtherFields
+   *
+   * Applies level, status and parent values selected by the patch.
+   *
+   * @access private
+   *
+   * @param CanonicalFacilityPatch $patch fields and presence flags from the update request
+   * @param CanonicalFacilityParent|null $parent resolved parent, when the patch changes it
+   *
+   * @return void
+   */
   private function applyOtherFields(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent): void
   {
     if ($patch->hasLevelIndex) {
@@ -504,9 +538,15 @@ final class CanonicalFacility
   }
 
   /**
+   * Method changedFields
+   *
+   * Lists persisted attributes whose current values differ from the pre-update snapshot.
+   *
+   * @access private
+   *
    * @param array<string, mixed> $previous
    *
-   * @return list<string>
+   * @return list<string> names of changed attributes
    */
   private function changedFields(array $previous): array
   {

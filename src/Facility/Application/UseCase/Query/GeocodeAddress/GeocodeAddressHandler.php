@@ -26,7 +26,6 @@ use function trim;
  * outside-scope callers get the indistinguishable organization 404.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -72,12 +71,12 @@ final readonly class GeocodeAddressHandler implements QueryHandler
    *
    * @param GeocodeAddressQuery $query the query to handle
    *
+   * @return GeocodeAddressResult the best-match coordinates
+   *
    * @throws FacilityNotFoundException when the caller is outside the organization's scope
    * @throws FacilityAccessDeniedException when the caller lacks `organization.facilities.write`
    * @throws InvalidValueException when the address is empty or longer than {@see self::MAX_ADDRESS_LENGTH} characters
    * @throws FacilityAddressNotFoundException when the provider knows no match for the address
-   *
-   * @return GeocodeAddressResult the best-match coordinates
    */
   public function __invoke(GeocodeAddressQuery $query): GeocodeAddressResult
   {

@@ -13,7 +13,6 @@ use Assistant\Infrastructure\Persistence\Doctrine\Record\{AssistantMessageRecord
  * Mapper AssistantMessageMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

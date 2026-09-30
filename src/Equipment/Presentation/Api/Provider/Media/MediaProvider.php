@@ -20,7 +20,6 @@ use function is_string;
  * Provider MediaProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -30,6 +29,9 @@ use function is_string;
 final readonly class MediaProvider implements ProviderInterface
 {
   // #region Constants
+  /**
+   * Constant MEDIA_NOT_FOUND_MESSAGE
+   */
   private const string MEDIA_NOT_FOUND_MESSAGE = 'Media not found.';
   // #endregion
 
@@ -54,8 +56,9 @@ final readonly class MediaProvider implements ProviderInterface
   /**
    * Method provide.
    *
-   * Executes the provide operation.
+   * Loads one attachment, verifies its owning organization is readable, and returns the attachment output.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param Operation $operation the operation value
@@ -93,8 +96,9 @@ final readonly class MediaProvider implements ProviderInterface
   /**
    * Method output.
    *
-   * Executes the output operation.
+   * Projects an equipment attachment record and its owning equipment identifier into API output.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param EquipmentAttachmentRecord $record the record value

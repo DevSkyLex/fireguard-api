@@ -44,7 +44,6 @@ use function sprintf;
  * `tests/Integration/Inspection`).
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -52,17 +51,59 @@ use function sprintf;
 final readonly class InspectionAssistantContextProviderAdapter implements AssistantContextProviderPort
 {
   // #region Constants
+  /**
+   * Constant SOURCE_KEY
+   *
+   * Key used to label the supplied assistant context fragment.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string SOURCE_KEY = 'inspection.open_non_conformities';
 
+  /**
+   * Constant REQUIRED_READ_PERMISSION
+   *
+   * Permission required before inspection context can be supplied.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string REQUIRED_READ_PERMISSION = 'organization.inspection.read';
 
   /**
+   * Constant OPEN_STATUSES
+   *
+   * Non-conformity statuses included in assistant context.
+   *
+   * @access private
+   *
    * @var list<string>
    */
   private const array OPEN_STATUSES = ['open', 'in_progress'];
 
+  /**
+   * Constant MAX_ITEMS
+   *
+   * Maximum number of non-conformities included in the fragment.
+   *
+   * @access private
+   *
+   * @var int
+   */
   private const int MAX_ITEMS = 8;
 
+  /**
+   * Constant DESCRIPTION_MAX_LENGTH
+   *
+   * Maximum width of each description in assistant context.
+   *
+   * @access private
+   *
+   * @var int
+   */
   private const int DESCRIPTION_MAX_LENGTH = 100;
   // #endregion
 
@@ -85,11 +126,36 @@ final readonly class InspectionAssistantContextProviderAdapter implements Assist
   // #endregion
 
   // #region Methods
+  /**
+   * Method supports
+   *
+   * Checks whether the actor may read inspection context for this organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope
+   * @param AssistantContextScope $scope requesting actor context
+   *
+   * @return bool whether context may be provided
+   */
   public function supports(string $organizationId, AssistantContextScope $scope): bool
   {
     return $this->authorization->hasPermission($scope->actorUserId, $organizationId, self::REQUIRED_READ_PERMISSION);
   }
 
+  /**
+   * Method provide
+   *
+   * Builds a bounded context fragment from the organization's open non-conformities.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope
+   * @param AssistantContextScope $scope requesting actor context
+   * @param AssistantContextBudget $budget context budget
+   *
+   * @return AssistantContextFragment generated context or an empty fragment on read failure
+   */
   public function provide(string $organizationId, AssistantContextScope $scope, AssistantContextBudget $budget): AssistantContextFragment
   {
     try {
@@ -123,13 +189,16 @@ final readonly class InspectionAssistantContextProviderAdapter implements Assist
   }
 
   /**
-   * Method countOpen.
+   * Method countOpen
    *
+   * Counts open and in-progress non-conformities in the organization.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param string $organizationId the organization identifier
+   * @param string $organizationId organization scope
    *
-   * @return int the total open + in-progress non-conformity count
+   * @return int matching non-conformity count
    */
   private function countOpen(string $organizationId): int
   {
@@ -142,11 +211,14 @@ final readonly class InspectionAssistantContextProviderAdapter implements Assist
   }
 
   /**
-   * Method fetchOpenNonConformities.
+   * Method fetchOpenNonConformities
    *
+   * Fetches the most severe open non-conformities up to the configured item limit.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param string $organizationId the organization identifier
+   * @param string $organizationId organization scope
    *
    * @return list<array{description: string, severity: string, status: string, dueAt: ?DateTimeImmutable}> the matching rows, capped at {@see self::MAX_ITEMS}
    */

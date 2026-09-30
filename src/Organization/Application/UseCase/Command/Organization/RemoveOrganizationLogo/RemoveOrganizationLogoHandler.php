@@ -23,7 +23,6 @@ use function sprintf;
  * re-dispatches an event.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -75,10 +74,10 @@ final readonly class RemoveOrganizationLogoHandler implements CommandHandler
    *
    * @param RemoveOrganizationLogoCommand $command the command payload
    *
+   * @return RemoveOrganizationLogoResult the use case result
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationArchivedException when the organization is archived
-   *
-   * @return RemoveOrganizationLogoResult the use case result
    */
   public function __invoke(RemoveOrganizationLogoCommand $command): RemoveOrganizationLogoResult
   {

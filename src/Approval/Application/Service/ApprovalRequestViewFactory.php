@@ -13,6 +13,21 @@ use Shared\Application\Port\Outbound\ClockPort;
 /** Advisory capabilities for the current reader; commands recheck under the decision lock. */
 final readonly class ApprovalRequestViewFactory
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the ApprovalRequestViewFactory dependencies and state.
+   *
+   * @access public
+   *
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   * @param ApprovalPolicyPort $policies the policies
+   * @param ApprovalMemberDirectoryPort $members the members
+   * @param ClockPort $clock the clock
+   *
+   * @return void
+   */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
     private ApprovalPolicyPort $policies,
@@ -21,6 +36,20 @@ final readonly class ApprovalRequestViewFactory
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method forUser
+   *
+   * Builds the approval request view for the specified user.
+   *
+   * @access public
+   *
+   * @param ApprovalRequest $request the request
+   * @param string $userId the user identifier
+   *
+   * @return GetApprovalRequestResult
+   */
   public function forUser(ApprovalRequest $request, string $userId): GetApprovalRequestResult
   {
     $reason = $this->blockedReason($request, $userId);
@@ -36,6 +65,18 @@ final readonly class ApprovalRequestViewFactory
     return GetApprovalRequestResult::fromDomain($request, $actions, $reason);
   }
 
+  /**
+   * Method blockedReason
+   *
+   * Returns the reason the user cannot act on the request, or null when no block applies.
+   *
+   * @access private
+   *
+   * @param ApprovalRequest $request the request
+   * @param string $userId the user identifier
+   *
+   * @return ?string
+   */
   private function blockedReason(ApprovalRequest $request, string $userId): ?string
   {
     if (!$request->isPending()) {
@@ -62,4 +103,5 @@ final readonly class ApprovalRequestViewFactory
 
     return null;
   }
+  // #endregion
 }

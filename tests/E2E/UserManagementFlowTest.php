@@ -16,7 +16,6 @@ use function uniqid;
  * with OAuth2 authentication.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

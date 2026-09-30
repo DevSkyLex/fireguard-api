@@ -25,20 +25,36 @@ use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Uuid;
 use ValueError;
 
+use function array_keys;
+
 /**
- * UseCase ListInspectionsHandler.
+ * Class ListInspectionsHandler
+ *
+ * Lists inspections with their related non-conformity counts and display names.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-use function array_keys;
-
 final readonly class ListInspectionsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Combines inspection and finding data with equipment, facility, and checklist display names.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository loads organization inspections
+   * @param NonConformityRepositoryPort $nonConformityRepository counts related non-conformities
+   * @param EquipmentNamingPort $equipmentNaming resolves equipment display names
+   * @param FacilityNamingPort $facilityNaming resolves facility display names
+   * @param ChecklistRepositoryPort $checklistRepository loads checklist names
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,

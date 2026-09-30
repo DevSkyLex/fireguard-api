@@ -35,7 +35,6 @@ use const STR_PAD_LEFT;
  * processors and their success branches.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @see \Otp\Presentation\Api\Processor\Totp\ConfirmTotpProcessor

@@ -27,7 +27,6 @@ use function uniqid;
  * rolled back on teardown, and a best-effort raw DELETE guards against leftovers.
  *
  * @category Functional Test
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

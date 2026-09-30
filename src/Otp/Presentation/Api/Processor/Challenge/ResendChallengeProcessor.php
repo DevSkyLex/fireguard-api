@@ -24,7 +24,6 @@ use function max;
  * Processor ResendChallengeProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -45,9 +44,23 @@ final readonly class ResendChallengeProcessor implements ProcessorInterface
     private Security $security,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method process
+   *
+   * Processes the API operation by translating the request into the corresponding application action.
+   *
+   * @access public
+   *
+   * @param mixed $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the optional uri variables
+   * @param array<string, mixed> $context the optional context
+   *
+   * @return ChallengeOutput
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ChallengeOutput
   {
     $token = $uriVariables['token'] ?? null;

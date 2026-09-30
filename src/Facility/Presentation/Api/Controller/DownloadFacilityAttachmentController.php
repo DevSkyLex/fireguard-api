@@ -41,7 +41,6 @@ use function is_string;
  * be served `inline`. See `src/Facility/MODULE.md` next to the `kind` field.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,6 +48,9 @@ use function is_string;
 final class DownloadFacilityAttachmentController extends AbstractController
 {
   // #region Constants
+  /**
+   * Constant ATTACHMENT_NOT_FOUND_MESSAGE
+   */
   private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
   // #endregion
 

@@ -10,7 +10,6 @@ use Shared\Application\Message\ResultMessage;
  * UseCase GetUnreadNotificationsCountResult.
  *
  * @category UseCase
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

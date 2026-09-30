@@ -34,7 +34,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * contract type.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -42,6 +41,19 @@ use Shared\Domain\Exception\InvalidValueException;
 final readonly class EquipmentFloorPlanValidationAdapter implements EquipmentFloorPlanValidationPort
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility and attachment repositories plus the ancestry guard used to validate equipment floor-plan references.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to resolve facility ownership and hierarchy
+   * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to find the selected facility plan attachment
+   * @param FacilityAttachmentAncestryGuard $ancestryGuard service that checks that the plan belongs to the target facility or an ancestor
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,

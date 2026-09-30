@@ -25,6 +25,22 @@ use function array_key_exists;
  */
 final readonly class InterventionWorkflowWorkloadCoordinator
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Coordinates workload locks and overload checks around workflow mutations.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager used to lock and refresh affected records
+   * @param WorkloadCoordinationPort $workloadCoordination port used to serialize workload coordination for members
+   * @param WorkloadPlanningPort $workloadPlanning port used to capture demand and validate planning changes
+   * @param DoctrineInterventionWorkflowReader $reader reader for resolving the affected intervention context
+   * @param InterventionWorkflowMutationSupport $support support service for locked workflow records and organization scope
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private WorkloadCoordinationPort $workloadCoordination,
@@ -33,6 +49,7 @@ final readonly class InterventionWorkflowWorkloadCoordinator
     private InterventionWorkflowMutationSupport $support,
   ) {
   }
+  // #endregion
 
   /**
    * Coordinates affected members and captures their demand before an operational mutation.

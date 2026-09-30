@@ -14,7 +14,6 @@ use Shared\Application\Port\Outbound\FileStoragePort;
  * UseCase DeleteFacilityAttachmentHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -22,6 +21,19 @@ use Shared\Application\Port\Outbound\FileStoragePort;
 final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility and attachment repositories plus file storage to remove attachment metadata and bytes.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to validate the facility and its organization scope
+   * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to load and remove attachment metadata
+   * @param FileStoragePort $fileStorage port used to delete the attachment bytes
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,

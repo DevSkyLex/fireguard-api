@@ -14,7 +14,6 @@ use Shared\Application\Message\ResultMessage;
  * because "absent" and "outside your scope" must answer alike here.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -22,6 +21,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class GetCanonicalEquipmentResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the canonical equipment view when the requested equipment was found.
+   *
+   * @access public
+   *
+   * @param ?CanonicalEquipmentView $view canonical equipment projection when found, or null when absent
+   *
+   * @return void
+   */
   public function __construct(
     public ?CanonicalEquipmentView $view = null,
   ) {

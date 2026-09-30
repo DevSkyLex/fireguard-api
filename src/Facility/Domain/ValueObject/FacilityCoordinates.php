@@ -10,7 +10,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * ValueObject FacilityCoordinates.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -18,8 +17,14 @@ use Shared\Domain\Exception\InvalidValueException;
 final readonly class FacilityCoordinates
 {
   // #region Properties
+  /**
+   * Property latitude
+   */
   private float $latitude;
 
+  /**
+   * Property longitude
+   */
   private float $longitude;
   // #endregion
 

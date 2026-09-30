@@ -24,7 +24,6 @@ use function sprintf;
  * intervention apply path) that must all resolve to the same status.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

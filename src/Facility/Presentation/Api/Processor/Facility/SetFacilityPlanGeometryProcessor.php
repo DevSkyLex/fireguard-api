@@ -32,7 +32,6 @@ use function is_string;
  * Handles `PUT /organizations/{organizationId}/facilities/{facilityId}/plan-geometry`.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -44,6 +43,20 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
   use MessengerExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the SetFacilityPlanGeometryProcessor dependencies and state.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param OrganizationAuthorizationPort $authorization the authorization
+   * @param Security $security the security
+   * @param \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail the facility detail reader
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -51,18 +64,23 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
     private \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method process.
    *
+   * Checks write access and floor-plan attachment constraints before updating facility plan geometry.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $data the input data
+   * @param SetFacilityPlanGeometryInput $data the input data
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
+   *
+   * @return FacilityOutput the updated facility plan
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
@@ -107,6 +125,17 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
     return $this->detail->read($organizationId, $facilityId);
   }
 
+  /**
+   * Method mapMessengerException
+   *
+   * Maps messenger exception the supplied values.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the exception to inspect
+   *
+   * @return Throwable
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $notFound = $this->findException($exception, FacilityNotFoundException::class);

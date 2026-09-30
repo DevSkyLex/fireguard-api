@@ -30,7 +30,6 @@ use function trim;
  * Provider ListNotificationsProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -39,6 +38,9 @@ use function trim;
  */
 final readonly class ListNotificationsProvider implements ProviderInterface
 {
+  /**
+   * Constant DEFAULT_ITEMS_PER_PAGE
+   */
   private const int DEFAULT_ITEMS_PER_PAGE = 20;
 
   // #region Constructor

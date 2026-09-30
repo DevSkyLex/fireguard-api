@@ -13,7 +13,6 @@ use Shared\Domain\Event\DomainEvent;
  * from aggregate roots.
  *
  * @category Trait
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

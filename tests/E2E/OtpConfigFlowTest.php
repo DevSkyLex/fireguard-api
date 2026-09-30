@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response;
  * to dynamically configure their OTP UI based on server capabilities.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @see \Otp\Presentation\Api\Resource\ConfigResource

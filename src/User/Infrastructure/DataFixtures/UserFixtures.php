@@ -32,7 +32,6 @@ use const PASSWORD_BCRYPT;
  * Loads sample users into the database.
  *
  * @category DataFixtures
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -40,16 +39,64 @@ use const PASSWORD_BCRYPT;
 class UserFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
   // #region Constants
+  /** Constant ADMIN_USER_REFERENCE
+   *
+   * Fixture reference for the administrator account.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string ADMIN_USER_REFERENCE = 'admin-user';
 
+  /** Constant TEST_USER_REFERENCE
+   *
+   * Fixture reference for the baseline test account.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string TEST_USER_REFERENCE = 'test-user';
 
+  /** Constant NOVA_OWNER_REFERENCE
+   *
+   * Fixture reference used by the Nova organization owner seed.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string NOVA_OWNER_REFERENCE = 'user-seed-nova-owner';
 
+  /** Constant VIGILANCE_OWNER_REFERENCE
+   *
+   * Fixture reference used by the Vigilance organization owner seed.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string VIGILANCE_OWNER_REFERENCE = 'user-seed-vigilance-owner';
 
+  /** Constant SAFEGUARD_OWNER_REFERENCE
+   *
+   * Fixture reference used by the Safeguard organization owner seed.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string SAFEGUARD_OWNER_REFERENCE = 'user-seed-safeguard-owner';
 
+  /** Constant PREVENTION_OWNER_REFERENCE
+   *
+   * Fixture reference used by the Prevention organization owner seed.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string PREVENTION_OWNER_REFERENCE = 'user-seed-prevention-owner';
 
   /**
@@ -222,6 +269,14 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
    */
   public const int BULK_STAFF_COUNT = 40;
 
+  /** Constant ADMIN_USER_ID
+   *
+   * Stable identifier assigned to the administrator fixture.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ADMIN_USER_ID = 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890';
 
   /**
@@ -244,6 +299,18 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Creates user fixtures with the configured mapper and password source.
+   *
+   * @access public
+   *
+   * @param UserMapper $userMapper maps user aggregates to persistence records
+   * @param FixtureUserPasswords $passwords supplies fixture passwords
+   *
+   * @return void
+   */
   public function __construct(
     private readonly UserMapper $userMapper,
     private readonly FixtureUserPasswords $passwords,
@@ -252,6 +319,17 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
   // #endregion
 
   // #region Methods
+  /**
+   * Method getGroups
+   *
+   * Returns the fixture groups used for user and auth seed loading.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @return list<string> fixture group names
+   */
   public static function getGroups(): array
   {
     return ['user', 'auth-seed'];
@@ -267,6 +345,17 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
     ];
   }
 
+  /**
+   * Method load
+   *
+   * Creates the configured user and staff seed records.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture persistence manager
+   *
+   * @return void
+   */
   public function load(ObjectManager $manager): void
   {
     // Create Admin User
@@ -475,6 +564,22 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
     return self::BULK_LAST_NAMES[($index * 3) % count(self::BULK_LAST_NAMES)];
   }
 
+  /**
+   * Method createUser
+   *
+   * Registers and persists a user from the supplied fixture identity and password.
+   *
+   * @access private
+   *
+   * @param string $id user identifier
+   * @param string $username account username
+   * @param string $email email address
+   * @param string $firstName given name
+   * @param string $lastName family name
+   * @param string $password password input to hash
+   *
+   * @return User created user aggregate
+   */
   private function createUser(
     string $id,
     string $username,

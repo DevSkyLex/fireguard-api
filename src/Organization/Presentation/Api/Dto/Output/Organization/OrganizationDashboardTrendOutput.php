@@ -16,13 +16,21 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class OrganizationDashboardTrendOutput
 {
+  // #region Properties
+  /**
+   * Property generatedAt
+   */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $generatedAt = '';
 
+  /**
+   * Property metric
+   */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $metric = '';
+  // #endregion
 
   /**
    * @var array{from?: string, to?: string, granularity?: string, comparison?: string, timezone?: string}

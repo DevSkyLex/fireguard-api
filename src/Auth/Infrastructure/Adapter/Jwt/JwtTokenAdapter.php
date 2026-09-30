@@ -37,7 +37,6 @@ use const FILTER_VALIDATE_BOOL;
  * Adapter JwtTokenAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -52,10 +51,18 @@ final class JwtTokenAdapter implements JwtTokenServicePort
    * methods.
    *
    * @since 1.0.0
+   *
    * @see CryptTrait
    */
   use CryptTrait;
 
+  /**
+   * Constant ACCESS_TOKEN_USE_AUTH_SESSION.
+   *
+   * Claim value marking access tokens backed by an authenticated session.
+   *
+   * @access private
+   */
   private const ACCESS_TOKEN_USE_AUTH_SESSION = 'auth_session';
   // #endregion
 
@@ -155,6 +162,20 @@ final class JwtTokenAdapter implements JwtTokenServicePort
   // #endregion
 
   // #region Methods
+  /**
+   * Method generateTokens.
+   *
+   * Signs an access token and encrypts the refresh-token payload for session creation.
+   *
+   * @access public
+   *
+   * @param non-empty-string $userId the user identifier
+   * @param string $email the user email
+   * @param array<string> $scopes the granted scopes
+   * @param bool $rememberMe whether to use the long-lived refresh token TTL
+   *
+   * @return array{access_token: string, refresh_token: string, token_type: string, expires_in: int, access_token_id?: string, refresh_token_id?: string, refresh_token_expires_at?: int, remember_me?: bool} token values under the published service contract
+   */
   public function generateTokens(string $userId, string $email, array $scopes = [], bool $rememberMe = true): array
   {
     $now = new DateTimeImmutable();
@@ -211,6 +232,23 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     ];
   }
 
+  /**
+   * Method generatePreAuthToken.
+   *
+   * Signs a short-lived token carrying the MFA challenge context for the sign-in flow.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   * @param string $challengeToken the associated OTP challenge token
+   * @param string $email the user email
+   * @param array<string> $scopes the granted scopes
+   * @param int $ttl token lifetime in seconds
+   * @param bool $rememberMe whether the resulting session should be persistent
+   * @param SignInGrantType $grantType the primary authentication method
+   *
+   * @return string signed pre-auth JWT
+   */
   public function generatePreAuthToken(
     string $userId,
     string $challengeToken,
@@ -246,6 +284,17 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     return $token->toString();
   }
 
+  /**
+   * Method decodePreAuthToken.
+   *
+   * Parses a pre-auth token and accepts it only when signature and expiry checks pass.
+   *
+   * @access public
+   *
+   * @param string $token the JWT token string
+   *
+   * @return array<string, mixed>|null the payload if valid, null otherwise
+   */
   public function decodePreAuthToken(string $token): ?array
   {
     if ('' === $token) {
@@ -279,6 +328,17 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     return $claims;
   }
 
+  /**
+   * Method decodeRefreshToken.
+   *
+   * Decrypts and validates the required identifiers, scopes, and expiry in a refresh token.
+   *
+   * @access public
+   *
+   * @param string $refreshToken the encrypted refresh token
+   *
+   * @return array{refresh_token_id: string, access_token_id: string, user_id: string, scopes: array<string>, expires_at: int, remember_me?: bool}|null parsed refresh payload, or null when invalid
+   */
   public function decodeRefreshToken(string $refreshToken): ?array
   {
     try {
@@ -320,11 +380,29 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     }
   }
 
+  /**
+   * Method getAccessTokenTtl.
+   *
+   * Returns the configured access token lifetime.
+   *
+   * @access public
+   *
+   * @return int access token lifetime in seconds
+   */
   public function getAccessTokenTtl(): int
   {
     return $this->accessTokenTtl;
   }
 
+  /**
+   * Method getRefreshTokenTtl.
+   *
+   * Returns the configured long refresh token lifetime.
+   *
+   * @access public
+   *
+   * @return int refresh token lifetime in seconds
+   */
   public function getRefreshTokenTtl(): int
   {
     return $this->refreshTokenTtl;

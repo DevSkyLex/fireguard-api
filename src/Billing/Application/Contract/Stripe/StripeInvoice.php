@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * the application and presentation layers stay decoupled from the Stripe SDK.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

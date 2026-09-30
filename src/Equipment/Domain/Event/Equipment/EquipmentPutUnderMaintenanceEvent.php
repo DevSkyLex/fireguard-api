@@ -12,7 +12,6 @@ use DateTimeImmutable;
  * Raised when equipment is placed under maintenance.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,7 +10,6 @@ namespace Session\Application\Port\Inbound\Tracking;
  * Inbound port for session lifecycle tracking.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

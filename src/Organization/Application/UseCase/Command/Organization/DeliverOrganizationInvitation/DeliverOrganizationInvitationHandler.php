@@ -18,6 +18,22 @@ use function hash_equals;
 /** Runs only after the invitation and its import receipt have committed. */
 final readonly class DeliverOrganizationInvitationHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the DeliverOrganizationInvitationHandler dependencies and state.
+   *
+   * @access public
+   *
+   * @param OrganizationInvitationRepositoryPort $invitations the invitations
+   * @param OrganizationRepositoryPort $organizations the organizations
+   * @param UserRepositoryPort $users the users
+   * @param OrganizationInvitationNotifier $notifier the notifier
+   * @param IdempotentConsumerPort $consumer the consumer
+   *
+   * @return void
+   */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitations,
     private OrganizationRepositoryPort $organizations,
@@ -27,6 +43,19 @@ final readonly class DeliverOrganizationInvitationHandler implements CommandHand
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Executes the use case represented by DeliverOrganizationInvitationHandler and returns its result.
+   *
+   * @access public
+   *
+   * @param DeliverOrganizationInvitationCommand $command the command to handle
+   *
+   * @return VoidResult
+   */
   public function __invoke(DeliverOrganizationInvitationCommand $command): VoidResult
   {
     $this->consumer->consume($command->invitationId, 'invitation.delivery:' . $command->tokenHash, function () use ($command): void {
@@ -58,4 +87,5 @@ final readonly class DeliverOrganizationInvitationHandler implements CommandHand
 
     return new VoidResult();
   }
+  // #endregion
 }

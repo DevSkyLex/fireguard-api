@@ -20,7 +20,6 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
  * Organization-scoped outbound webhook subscription management.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -161,8 +160,14 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
 final class WebhookSubscriptionResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant WEBHOOK_URI_TEMPLATE
+   */
   private const string WEBHOOK_URI_TEMPLATE = '/{organizationId}/webhooks/{webhookId}';
   // #endregion
 }

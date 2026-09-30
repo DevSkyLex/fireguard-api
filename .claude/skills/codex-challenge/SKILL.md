@@ -1,7 +1,10 @@
 ---
 name: codex-challenge
-description: Get a second opinion from OpenAI Codex (gpt-5.6-luna) on work you have just done or are about to do — the exact read-only command, when a challenge is worth its cost, how to write the prompt, and how to treat the answer. Use before reporting a review's findings, or before committing to a non-trivial design.
+description: Obtain a bounded read-only Codex second opinion only when the user explicitly requests an independent challenge; never an automatic step in an agent report.
 ---
+
+Use this skill only for an explicit user-requested independent opinion in the parent.
+Do not invoke it recursively from a specialist or as a mandatory report step.
 
 # Challenging your own work with Codex
 
@@ -15,12 +18,12 @@ confident noise.
 ## The command
 
 ```bash
-cd fireguard-sso-api && OUT=$(mktemp) && codex exec -m gpt-5.6-luna --sandbox read-only -o "$OUT" "<prompt>" </dev/null >/dev/null 2>&1; echo "exit=$?"; cat "$OUT"
+cd fireguard-api && OUT=$(mktemp) && codex exec -m gpt-5.6-luna --sandbox read-only -o "$OUT" "<prompt>" </dev/null >/dev/null 2>&1; echo "exit=$?"; cat "$OUT"
 ```
 
 - `cd` into the **app repo**, never the monorepo root — the root is not a git repo, and only the
   two app directories are `trust_level = "trusted"` in `~/.codex/config.toml`. Use
-  `fireguard-sso-web` for frontend work.
+  `fireguard-web` for frontend work.
 - `-m gpt-5.6-luna` is the model for every challenge, whichever model you are yourself.
 - `--sandbox read-only` is **non-negotiable**. Codex must not edit: you own the working tree, its
   edits would bypass this repo's guard and format hooks, and a critique is what you asked for.

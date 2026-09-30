@@ -27,7 +27,6 @@ use function sprintf;
  * a webhook.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -70,15 +69,28 @@ final readonly class StartCheckoutHandler implements CommandHandler
    *
    * @param StartCheckoutCommand $command the command payload
    *
-   * @throws InvalidArgumentException when the cadence or plan is not payable
-   *
    * @return StartCheckoutResult the use case result
+   *
+   * @throws InvalidArgumentException when the cadence or plan is not payable
    */
   public function __invoke(StartCheckoutCommand $command): StartCheckoutResult
   {
     return $this->reconciliation->synchronized($command->organizationId, fn (): StartCheckoutResult => $this->execute($command));
   }
 
+  /**
+   * Method execute.
+   *
+   * Resolves the payable plan, ensures its Stripe customer, and creates a Checkout session.
+   *
+   * @access private
+   *
+   * @param StartCheckoutCommand $command the organization and requested plan details
+   *
+   * @return StartCheckoutResult the Checkout session URL
+   *
+   * @throws InvalidArgumentException when the cadence or plan is not payable
+   */
   private function execute(StartCheckoutCommand $command): StartCheckoutResult
   {
     $interval = BillingInterval::fromString($command->interval);

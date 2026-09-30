@@ -29,7 +29,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * signal (a persisted row whose bytes are gone) and maps it to 404.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -37,6 +36,20 @@ use Shared\Domain\Exception\InvalidValueException;
 final readonly class GetInterventionAttachmentContentHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Authorizes an attachment read and retrieves its stored bytes.
+   *
+   * @access public
+   *
+   * @param InterventionAttachmentRepositoryPort $attachmentRepository repository used to find attachment metadata
+   * @param InterventionResourceGatewayPort $resources port used to resolve intervention context
+   * @param OrganizationAuthorizationPort $authorization port used to authorize organization-scoped reads
+   * @param FileStoragePort $fileStorage storage port used to read the attachment bytes
+   *
+   * @return void
+   */
   public function __construct(
     private InterventionAttachmentRepositoryPort $attachmentRepository,
     private InterventionResourceGatewayPort $resources,

@@ -18,7 +18,6 @@ use function in_array;
  * Repository WebhookSubscriptionRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -48,6 +47,17 @@ final readonly class WebhookSubscriptionRepository implements WebhookSubscriptio
   // #endregion
 
   // #region Methods
+  /**
+   * Method save.
+   *
+   * Creates or updates the persisted record from the aggregate state.
+   *
+   * @access public
+   *
+   * @param WebhookSubscription $subscription the subscription aggregate
+   *
+   * @return void
+   */
   public function save(WebhookSubscription $subscription): void
   {
     $record = $this->repository->find((string) $subscription->id());
@@ -67,6 +77,17 @@ final readonly class WebhookSubscriptionRepository implements WebhookSubscriptio
     $this->entityManager->flush();
   }
 
+  /**
+   * Method remove.
+   *
+   * Deletes the persisted subscription when it still exists.
+   *
+   * @access public
+   *
+   * @param WebhookSubscription $subscription the subscription to remove
+   *
+   * @return void
+   */
   public function remove(WebhookSubscription $subscription): void
   {
     $record = $this->repository->find((string) $subscription->id());
@@ -77,6 +98,17 @@ final readonly class WebhookSubscriptionRepository implements WebhookSubscriptio
     }
   }
 
+  /**
+   * Method findById
+   *
+   * Looks up a webhook subscription by its domain identifier and maps a matching record.
+   *
+   * @access public
+   *
+   * @param WebhookSubscriptionId $id the subscription identifier
+   *
+   * @return ?WebhookSubscription the subscription, or null when absent
+   */
   public function findById(WebhookSubscriptionId $id): ?WebhookSubscription
   {
     $record = $this->repository->find((string) $id);
@@ -84,6 +116,19 @@ final readonly class WebhookSubscriptionRepository implements WebhookSubscriptio
     return $record instanceof WebhookSubscriptionRecord ? WebhookSubscriptionMapper::toDomain($record) : null;
   }
 
+  /**
+   * Method listByOrganization.
+   *
+   * Returns a stable newest-first page for one organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param int $limit maximum number of results
+   * @param int $offset result offset
+   *
+   * @return list<WebhookSubscription> the subscriptions on this page
+   */
   public function listByOrganization(string $organizationId, int $limit, int $offset): array
   {
     /** @var list<WebhookSubscriptionRecord> $records */
@@ -100,16 +145,50 @@ final readonly class WebhookSubscriptionRepository implements WebhookSubscriptio
     return array_map(WebhookSubscriptionMapper::toDomain(...), $records);
   }
 
+  /**
+   * Method countByOrganization
+   *
+   * Counts all webhook subscriptions registered by one organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   *
+   * @return int the organization's subscription count
+   */
   public function countByOrganization(string $organizationId): int
   {
     return (int) $this->repository->count(['organizationId' => $organizationId]);
   }
 
+  /**
+   * Method countActiveByOrganization
+   *
+   * Counts only active webhook subscriptions for one organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   *
+   * @return int the organization's active subscription count
+   */
   public function countActiveByOrganization(string $organizationId): int
   {
     return (int) $this->repository->count(['organizationId' => $organizationId, 'isActive' => true]);
   }
 
+  /**
+   * Method findActiveByOrganizationAndEventType.
+   *
+   * Selects active subscriptions that include the exact event type.
+   *
+   * @access public
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $eventType the public event type
+   *
+   * @return list<WebhookSubscription> the matching subscriptions
+   */
   public function findActiveByOrganizationAndEventType(string $organizationId, string $eventType): array
   {
     /** @var list<WebhookSubscriptionRecord> $records */

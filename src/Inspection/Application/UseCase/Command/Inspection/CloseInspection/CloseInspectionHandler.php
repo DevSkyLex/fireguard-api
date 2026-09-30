@@ -17,7 +17,6 @@ use Throwable;
  * UseCase CloseInspectionHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -25,6 +24,20 @@ use Throwable;
 final readonly class CloseInspectionHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the inspection repository, event dispatcher, maintenance synchronizer, and logger for inspection closure.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to load and persist the inspection lifecycle
+   * @param EventDispatcherPort $eventDispatcher port used to publish the committed inspection event
+   * @param InspectionMaintenanceSynchronizerPort $maintenanceSynchronizer port used to reconcile maintenance state after closure
+   * @param LoggerInterface $logger logger used to record synchronization failures
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private EventDispatcherPort $eventDispatcher,

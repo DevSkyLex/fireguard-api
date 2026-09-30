@@ -12,7 +12,6 @@ use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult;
  * Port for refreshing tokens.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -18,7 +18,6 @@ use function random_bytes;
  * Handler RegenerateClientSecretHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -56,9 +55,9 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
    *
    * @param RegenerateClientSecretCommand $command the command to handle
    *
-   * @throws InvalidClientException if the client is not found
-   *
    * @return RegenerateClientSecretResult the result message with the new plain secret
+   *
+   * @throws InvalidClientException if the client is not found
    */
   public function __invoke(RegenerateClientSecretCommand $command): RegenerateClientSecretResult
   {

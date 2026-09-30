@@ -13,7 +13,6 @@ use Doctrine\ORM\EntityManagerInterface;
  * Adapter PostgresApprovalDecisionLockAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -31,6 +30,18 @@ final readonly class PostgresApprovalDecisionLockAdapter implements ApprovalDeci
   {
   }
 
+  /**
+   * Method synchronized.
+   *
+   * Runs the decision callback while holding a pessimistic lock on the approval request.
+   *
+   * @access public
+   *
+   * @param string $requestId the approval request identifier
+   * @param callable(): mixed $decision the decision operation to run under the lock
+   *
+   * @return mixed the decision operation result
+   */
   public function synchronized(string $requestId, callable $decision): mixed
   {
     return $this->entityManager->wrapInTransaction(function () use ($requestId, $decision): mixed {

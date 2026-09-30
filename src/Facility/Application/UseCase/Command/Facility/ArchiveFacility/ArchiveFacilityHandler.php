@@ -25,7 +25,6 @@ use function sprintf;
  * UseCase ArchiveFacilityHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -33,6 +32,22 @@ use function sprintf;
 final readonly class ArchiveFacilityHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility, organization, notification, logging, archival-guard, and event capabilities for facility archival.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to load and persist the facility state
+   * @param OrganizationRepositoryPort $organizationRepository port used to load notification recipient context
+   * @param NotificationPort $notificationPort port used to notify relevant members about archival
+   * @param LoggerPort $logger port used to record operational delivery failures
+   * @param FacilityArchivalGuardPort $archivalGuard port used to validate whether the facility can be archived
+   * @param EventDispatcherPort $eventDispatcher port used to publish the committed facility event
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private OrganizationRepositoryPort $organizationRepository,

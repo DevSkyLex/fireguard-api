@@ -34,7 +34,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * facility id that would no longer resolve.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

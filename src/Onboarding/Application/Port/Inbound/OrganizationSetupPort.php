@@ -10,7 +10,6 @@ use Onboarding\Application\Contract\Setup\{OrganizationSetupContext, Organizatio
  * Durable organization setup recovery.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

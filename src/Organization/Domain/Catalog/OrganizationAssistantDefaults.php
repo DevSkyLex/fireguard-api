@@ -20,7 +20,6 @@ namespace Organization\Domain\Catalog;
  * that allowlist — the same split used for approval action types.
  *
  * @category Catalog
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -50,6 +49,9 @@ final class OrganizationAssistantDefaults
    */
   public const float MIN_TEMPERATURE = 0.0;
 
+  /**
+   * Constant MAX_TEMPERATURE
+   */
   public const float MAX_TEMPERATURE = 2.0;
 
   /**

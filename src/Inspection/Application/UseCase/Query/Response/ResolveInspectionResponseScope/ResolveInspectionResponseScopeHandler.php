@@ -27,7 +27,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * not in. Looking it up here would buy a second query and no answer.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

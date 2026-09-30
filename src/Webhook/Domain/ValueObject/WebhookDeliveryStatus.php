@@ -15,15 +15,25 @@ use function array_column;
  * exhausted (terminal).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum WebhookDeliveryStatus: string
 {
+  /**
+   * Case PENDING
+   */
   case PENDING = 'pending';
+
+  /**
+   * Case DELIVERED
+   */
   case DELIVERED = 'delivered';
+
+  /**
+   * Case FAILED
+   */
   case FAILED = 'failed';
 
   // #region Methods

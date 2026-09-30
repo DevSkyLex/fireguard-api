@@ -31,7 +31,6 @@ use function is_string;
  * `Audit\...\AuditEventExportCriteriaFactory`.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -131,6 +130,21 @@ final class InterventionExportCriteriaFactory
     return $filters;
   }
 
+  /**
+   * Method validatedDue.
+   *
+   * Accepts the supported overdue filter and rejects other non-empty values.
+   *
+   * @access private
+   *
+   * @static
+   *
+   * @param mixed $due the raw due filter value
+   *
+   * @return string|null the supported overdue value, or null when absent
+   *
+   * @throws BadRequestHttpException when the value is not supported
+   */
   private static function validatedDue(mixed $due): ?string
   {
     if (!is_string($due) || '' === $due) {

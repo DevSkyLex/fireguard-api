@@ -10,7 +10,6 @@ use Shared\Application\Message\CommandMessage;
  * UseCase UpdateEquipmentCommand.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -18,6 +17,24 @@ use Shared\Application\Message\CommandMessage;
 final readonly class UpdateEquipmentCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Carries the equipment fields submitted for an organization-scoped update.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization scope used to validate the equipment
+   * @param string $equipmentId equipment to update
+   * @param string $type new equipment type
+   * @param ?string $subType optional subtype value
+   * @param ?string $brand optional manufacturer or brand value
+   * @param ?string $model optional model value
+   * @param ?string $serialNumber optional serial number
+   * @param ?string $locationLabel optional location description
+   *
+   * @return void
+   */
   public function __construct(
     public string $organizationId,
     public string $equipmentId,

@@ -12,7 +12,6 @@ use Calendar\Infrastructure\Persistence\Doctrine\Record\CalendarFeedTokenRecord;
  * Mapper CalendarFeedTokenMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

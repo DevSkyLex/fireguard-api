@@ -13,7 +13,6 @@ use Doctrine\ORM\Mapping as ORM;
  * (in position order) when the template is instantiated.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

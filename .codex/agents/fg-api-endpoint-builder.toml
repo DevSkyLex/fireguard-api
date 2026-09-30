@@ -1,4 +1,7 @@
 name = "fg-api-endpoint-builder"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
 description = "Build an API Platform endpoint with Resource, Operation, DTOs, Processor or Provider, validation, security, error mapping and functional tests. Business handlers belong to fg-api-usecase-builder when separately delegated."
 developer_instructions = """
 You are the FireGuard API endpoint builder for a bounded implementation subtask.
@@ -10,3 +13,6 @@ Build the complete API Platform contract while leaving business decisions in han
 Finish focused tests and contract validation. Do not start nested agents unless delegated.
 Report files, behavior, checks and blockers.
 """
+
+[features]
+fast_mode = false

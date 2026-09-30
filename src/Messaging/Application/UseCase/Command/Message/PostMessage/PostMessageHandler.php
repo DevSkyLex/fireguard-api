@@ -49,7 +49,6 @@ use function sprintf;
  * inline in this same handler, not through a domain event/subscriber).
  *
  * @category UseCase
- *
  * @version 1.3.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -19,7 +19,6 @@ use function trim;
  * only enforces a trimmed length bound and rejects control characters.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -27,10 +26,16 @@ use function trim;
 final readonly class TeamName implements Stringable
 {
   // #region Constants
+  /**
+   * Constant CONTROL_CHARS_PATTERN
+   */
   private const string CONTROL_CHARS_PATTERN = '/[\x00-\x1F\x7F]/';
   // #endregion
 
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

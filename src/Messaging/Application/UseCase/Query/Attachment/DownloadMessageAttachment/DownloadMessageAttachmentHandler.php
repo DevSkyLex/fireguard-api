@@ -24,7 +24,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * attachment, never supplied by the caller.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,6 +31,21 @@ use Shared\Domain\Exception\InvalidValueException;
 final readonly class DownloadMessageAttachmentHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Authorizes conversation access before reading an attachment from storage.
+   *
+   * @access public
+   *
+   * @param MessagingAttachmentRepositoryPort $attachments repository used to load attachment metadata
+   * @param MessagingConversationRepositoryPort $conversations repository used to load the owning conversation
+   * @param MessagingSubjectResolverRegistry $resolvers registry resolving permissions for subject conversations
+   * @param MessagingAccessPolicy $accessPolicy policy enforcing organization and participant access
+   * @param FileStoragePort $fileStorage storage port used to retrieve attachment bytes
+   *
+   * @return void
+   */
   public function __construct(
     private MessagingAttachmentRepositoryPort $attachments,
     private MessagingConversationRepositoryPort $conversations,

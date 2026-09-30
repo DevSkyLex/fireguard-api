@@ -8,7 +8,6 @@ namespace Audit\Presentation\Api\Serialization;
  * Serialization groups for audit API.
  *
  * @category Serialization
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

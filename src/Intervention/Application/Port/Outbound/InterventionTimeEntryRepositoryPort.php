@@ -8,7 +8,6 @@ namespace Intervention\Application\Port\Outbound;
  * InterventionTimeEntryRepositoryPort.
  *
  * @category Intervention
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

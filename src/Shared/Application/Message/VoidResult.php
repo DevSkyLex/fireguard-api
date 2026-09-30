@@ -11,7 +11,6 @@ namespace Shared\Application\Message;
  * commands handled without a payload.
  *
  * @category Message
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

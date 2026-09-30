@@ -19,7 +19,6 @@ use function is_string;
  * Provides the permission output.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

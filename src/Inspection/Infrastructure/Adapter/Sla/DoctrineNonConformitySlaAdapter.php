@@ -24,7 +24,6 @@ use function max;
  * record, never from caller input.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -38,8 +37,8 @@ final readonly class DoctrineNonConformitySlaAdapter implements NonConformitySla
    * @var list<string>
    */
   private const array UNRESOLVED_STATUSES = ['open', 'in_progress'];
-  // #endregion
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -52,9 +51,21 @@ final readonly class DoctrineNonConformitySlaAdapter implements NonConformitySla
     private EntityManagerInterface $entityManager,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method pageOpenUnnotified
+   *
+   * Returns a bounded page of open non-conformities whose SLA notifications are still pending.
+   *
+   * @access public
+   *
+   * @param int $limit the maximum number of results
+   * @param int $offset the result offset
+   *
+   * @return NonConformitySlaPage
+   */
   public function pageOpenUnnotified(int $limit, int $offset): NonConformitySlaPage
   {
     /** @var list<array{id: string, inspectionId: string, organizationId: string, severity: string, createdAt: DateTimeImmutable}> $rows */
@@ -83,6 +94,18 @@ final readonly class DoctrineNonConformitySlaAdapter implements NonConformitySla
     ));
   }
 
+  /**
+   * Method markSlaBreachNotified
+   *
+   * Marks sla breach notified the supplied values.
+   *
+   * @access public
+   *
+   * @param string $nonConformityId the non conformity identifier
+   * @param DateTimeImmutable $at the at
+   *
+   * @return void
+   */
   public function markSlaBreachNotified(string $nonConformityId, DateTimeImmutable $at): void
   {
     $record = $this->entityManager->find(NonConformityRecord::class, $nonConformityId);

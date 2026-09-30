@@ -21,7 +21,7 @@ import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const APP_MARKER = join('bin', 'console');
-const APP_DIRNAME = 'fireguard-sso-api';
+const APP_DIRNAME = 'fireguard-api';
 const ENTRY = join('intelephense', 'lib', 'intelephense.js');
 
 /** Candidate roots, most specific first; the first one holding APP_MARKER wins. */

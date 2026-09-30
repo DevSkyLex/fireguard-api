@@ -10,7 +10,6 @@ use Messaging\Application\Contract\Presence\PresenceSubscription;
  * Port PresenceRealtimePort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

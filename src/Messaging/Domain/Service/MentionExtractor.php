@@ -30,7 +30,6 @@ use function preg_match_all;
  * are checked downstream by {@see \Messaging\Application\Service\MessagingNotificationService}).
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

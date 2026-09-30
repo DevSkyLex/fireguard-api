@@ -13,7 +13,6 @@ use Shared\Application\Message\CommandMessage;
  * field except `description`, which may be cleared with an empty string.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

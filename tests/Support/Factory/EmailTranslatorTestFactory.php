@@ -16,7 +16,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * strings production emails render, instead of a hand-maintained duplicate.
  *
  * @category Test Support
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

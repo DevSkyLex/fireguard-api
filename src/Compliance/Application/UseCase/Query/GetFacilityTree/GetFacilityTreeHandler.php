@@ -29,7 +29,6 @@ use function hash;
  * exactly one definition of "compliant".
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -37,6 +36,13 @@ use function hash;
 final readonly class GetFacilityTreeHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant DEFAULT_CACHE_TTL_SECONDS
+   *
+   * Cache lifetime used when no alternate value is injected.
+   *
+   * @access private
+   */
   private const int DEFAULT_CACHE_TTL_SECONDS = 60;
   // #endregion
 
@@ -68,9 +74,9 @@ final readonly class GetFacilityTreeHandler implements QueryHandler
    *
    * @param GetFacilityTreeQuery $query the facility tree query
    *
-   * @throws ComplianceAccessDeniedException if the user lacks a required permission
-   *
    * @return GetFacilityTreeResult the organization's enriched facility tree
+   *
+   * @throws ComplianceAccessDeniedException if the user lacks a required permission
    */
   public function __invoke(GetFacilityTreeQuery $query): GetFacilityTreeResult
   {
@@ -117,11 +123,33 @@ final readonly class GetFacilityTreeHandler implements QueryHandler
     }
   }
 
+  /**
+   * Method buildCacheKey
+   *
+   * Builds the organization-scoped key for a facility-tree result.
+   *
+   * @access private
+   *
+   * @param string $organizationId organization identifier
+   *
+   * @return string cache key for the organization tree
+   */
   private function buildCacheKey(string $organizationId): string
   {
     return 'compliance.facility-tree.' . hash('sha256', $organizationId);
   }
 
+  /**
+   * Method readCache
+   *
+   * Returns a cached tree result when enabled and correctly typed; cache failures are treated as misses.
+   *
+   * @access private
+   *
+   * @param string $cacheKey cache entry to read
+   *
+   * @return GetFacilityTreeResult|null cached tree result, or null on a miss
+   */
   private function readCache(string $cacheKey): ?GetFacilityTreeResult
   {
     if (null === $this->cache || $this->cacheTtl <= 0) {
@@ -137,6 +165,18 @@ final readonly class GetFacilityTreeHandler implements QueryHandler
     return $cached instanceof GetFacilityTreeResult ? $cached : null;
   }
 
+  /**
+   * Method writeCache
+   *
+   * Stores a facility-tree result when caching is enabled; cache failures do not block the query.
+   *
+   * @access private
+   *
+   * @param string $cacheKey cache entry to write
+   * @param GetFacilityTreeResult $result generated tree result
+   *
+   * @return void
+   */
   private function writeCache(string $cacheKey, GetFacilityTreeResult $result): void
   {
     if (null === $this->cache || $this->cacheTtl <= 0) {
@@ -150,6 +190,17 @@ final readonly class GetFacilityTreeHandler implements QueryHandler
     }
   }
 
+  /**
+   * Method formatIso8601
+   *
+   * Formats an instant with microseconds only when the value contains them.
+   *
+   * @access private
+   *
+   * @param DateTimeImmutable $value instant to format
+   *
+   * @return string ISO 8601 timestamp
+   */
   private function formatIso8601(DateTimeImmutable $value): string
   {
     return '000000' === $value->format('u') ? $value->format('Y-m-d\\TH:i:sP') : $value->format('Y-m-d\\TH:i:s.uP');

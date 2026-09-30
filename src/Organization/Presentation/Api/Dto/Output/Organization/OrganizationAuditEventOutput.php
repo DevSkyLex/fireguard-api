@@ -17,13 +17,16 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * members are a lesser-trust audience than platform auditors.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class OrganizationAuditEventOutput
 {
+  // #region Properties
+  /**
+   * Property id
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Audit event identifier (UUID).',
@@ -40,6 +43,9 @@ final class OrganizationAuditEventOutput
   )]
   public string $id = '';
 
+  /**
+   * Property action
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Audit action key.',
@@ -54,6 +60,9 @@ final class OrganizationAuditEventOutput
   )]
   public string $action = '';
 
+  /**
+   * Property actorType
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Actor type (user, client, system, anonymous).',
@@ -68,6 +77,9 @@ final class OrganizationAuditEventOutput
   )]
   public string $actorType = '';
 
+  /**
+   * Property actorId
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Actor identifier (user UUID, if any).',
@@ -83,6 +95,9 @@ final class OrganizationAuditEventOutput
   )]
   public ?string $actorId = null;
 
+  /**
+   * Property actorDisplayName
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Actor display name, resolved ONLY when the actor holds a membership in this organization (active or deactivated). Null for a system/client actor, for a user with no membership here — a platform operator acting on the organization, whose identity is not this audience\'s to know — and for a member whose user record is unavailable. Render a neutral, localized placeholder when null; the backend deliberately returns no label so the string stays translatable in the frontend.',
@@ -98,6 +113,9 @@ final class OrganizationAuditEventOutput
   )]
   public ?string $actorDisplayName = null;
 
+  /**
+   * Property subjectType
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Audited subject type (organization, organization_member, team, etc.).',
@@ -113,6 +131,9 @@ final class OrganizationAuditEventOutput
   )]
   public ?string $subjectType = null;
 
+  /**
+   * Property subjectId
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'Audited subject identifier.',
@@ -149,6 +170,9 @@ final class OrganizationAuditEventOutput
   )]
   public array $metadata = [];
 
+  /**
+   * Property occurredAt
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'ISO 8601 datetime when the event occurred.',
@@ -164,6 +188,9 @@ final class OrganizationAuditEventOutput
   )]
   public string $occurredAt = '';
 
+  /**
+   * Property recordedAt
+   */
   #[Groups(groups: [OrganizationSerializationGroup::READ])]
   #[ApiProperty(
     description: 'ISO 8601 datetime when the event was recorded.',
@@ -178,4 +205,6 @@ final class OrganizationAuditEventOutput
     ],
   )]
   public string $recordedAt = '';
+  // #endregion
+
 }

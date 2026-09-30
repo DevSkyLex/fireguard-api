@@ -26,7 +26,6 @@ use function array_values;
  * permission that governs intervention recurrences.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -19,7 +19,6 @@ use const SORT_STRING;
  * capacity edit; sorted member locks serialize all writes affecting their demand.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

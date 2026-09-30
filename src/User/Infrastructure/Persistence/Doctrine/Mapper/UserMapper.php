@@ -13,7 +13,6 @@ use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
  * Mapper UserMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

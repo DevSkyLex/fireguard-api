@@ -16,7 +16,6 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
  * curated allowlist, and the value list may evolve without a redeploy).
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

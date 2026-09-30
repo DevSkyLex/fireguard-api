@@ -14,7 +14,6 @@ use Webhook\Domain\ValueObject\WebhookSubscriptionId;
  * UseCase GetWebhookSubscriptionHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

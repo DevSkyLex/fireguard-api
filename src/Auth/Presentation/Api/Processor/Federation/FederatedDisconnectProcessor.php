@@ -17,6 +17,12 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use function is_string;
 
 /**
+ * Class FederatedDisconnectProcessor.
+ *
+ * Removes one federated identity connection for the authenticated user while preserving the remaining connections.
+ *
+ * @category Processor
+ *
  * @implements ProcessorInterface<void, FederatedConnectionsOutput>
  *
  * @version 1.0.0
@@ -25,12 +31,44 @@ use function is_string;
  */
 final readonly class FederatedDisconnectProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the federation service and security context used to remove only the current user's provider connection.
+   *
+   * @access public
+   *
+   * @param FederatedAuthenticationService $federation removes the current user's provider connection
+   * @param Security $security resolves the authenticated security user
+   *
+   * @return void
+   */
   public function __construct(
     private FederatedAuthenticationService $federation,
     private Security $security,
   ) {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Removes the authenticated user's connection to the requested identity provider.
+   *
+   * @access public
+   *
+   * @param mixed $data the processor input
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the route variables containing the provider
+   * @param array<string, mixed> $context the processor context
+   *
+   * @return FederatedConnectionsOutput the remaining provider connections
+   *
+   * @throws AccessDeniedHttpException when no authenticated security user is available
+   * @throws BadRequestHttpException when the provider identifier is unknown
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FederatedConnectionsOutput
   {
     $user = $this->security->getUser();
@@ -54,4 +92,5 @@ final readonly class FederatedDisconnectProcessor implements ProcessorInterface
       throw new BadRequestHttpException($exception->errorCode, $exception);
     }
   }
+  // #endregion
 }

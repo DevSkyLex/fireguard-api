@@ -18,14 +18,18 @@ namespace Messaging\Application\Contract\Presence;
  * no last-seen timestamp. The invisible preference is never part of this read model.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class MemberPresenceView
 {
+  // #region Properties
+  /**
+   * Property status
+   */
   public string $status;
+  // #endregion
 
   // #region Constructor
   /**

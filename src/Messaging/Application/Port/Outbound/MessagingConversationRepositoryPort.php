@@ -14,7 +14,6 @@ use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
  * Port MessagingConversationRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

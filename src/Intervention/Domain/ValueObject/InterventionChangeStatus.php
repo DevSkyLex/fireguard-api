@@ -8,15 +8,25 @@ namespace Intervention\Domain\ValueObject;
  * Enum InterventionChangeStatus.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum InterventionChangeStatus: string
 {
+  /**
+   * Case PROPOSED
+   */
   case PROPOSED = 'proposed';
+
+  /**
+   * Case REJECTED
+   */
   case REJECTED = 'rejected';
+
+  /**
+   * Case APPLIED
+   */
   case APPLIED = 'applied';
 
   /**

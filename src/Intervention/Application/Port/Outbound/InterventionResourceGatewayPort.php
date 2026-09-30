@@ -19,7 +19,6 @@ use Intervention\Domain\ValueObject\InterventionResourceType;
  * Interface InterventionResourceGatewayPort.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

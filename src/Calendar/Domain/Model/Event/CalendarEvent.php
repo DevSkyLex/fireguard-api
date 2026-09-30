@@ -22,7 +22,6 @@ use DateTimeImmutable;
  * Organization or Facility ORM mappings (see `Calendar\MODULE.md`).
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -78,9 +77,9 @@ final class CalendarEvent
    * @param CalendarEventIdentity $identity organization-scoped identity and author
    * @param CalendarEventContent $content event details and schedule
    *
-   * @throws CalendarEventValidationException when `$endsAt` is before `$startsAt`
-   *
    * @return self the created calendar event
+   *
+   * @throws CalendarEventValidationException when `$endsAt` is before `$startsAt`
    */
   public static function create(
     CalendarEventIdentity $identity,

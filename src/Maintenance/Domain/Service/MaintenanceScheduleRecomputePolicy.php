@@ -31,7 +31,6 @@ use Maintenance\Domain\ValueObject\{MaintenanceDueStatus, PeriodicityInterval};
  *   (e.g. after a fresh inspection) can be reminded again.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

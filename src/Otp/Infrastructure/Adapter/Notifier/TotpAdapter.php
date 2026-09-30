@@ -32,7 +32,6 @@ use const STR_PAD_LEFT;
  * Adapter TotpAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -62,8 +61,8 @@ final readonly class TotpAdapter implements TotpServicePort
    * @var int
    */
   private const int WINDOW = 1;
-  // #endregion
 
+  // #endregion
   // #region Properties
   /**
    * Property digits.
@@ -73,8 +72,8 @@ final readonly class TotpAdapter implements TotpServicePort
    * @since 1.0.0
    */
   private int $digits;
-  // #endregion
 
+  // #endregion
   // #region Constructor
   /**
    * Constructor.
@@ -87,8 +86,8 @@ final readonly class TotpAdapter implements TotpServicePort
   ) {
     $this->digits = max(1, $digits);
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method generateSecret
@@ -99,6 +98,18 @@ final readonly class TotpAdapter implements TotpServicePort
     return TotpSecret::generate();
   }
 
+  /**
+   * Method verify
+   *
+   * Verifies the submitted challenge token and code and returns the verification outcome.
+   *
+   * @access public
+   *
+   * @param string $code the submitted code
+   * @param TotpSecret $secret the secret
+   *
+   * @return bool the verification outcome
+   */
   public function verify(string $code, TotpSecret $secret): bool
   {
     // Validate code format
@@ -122,6 +133,19 @@ final readonly class TotpAdapter implements TotpServicePort
     return false;
   }
 
+  /**
+   * Method getProvisioningUri
+   *
+   * Builds the authenticator-app URI for a secret, account label, and optional issuer.
+   *
+   * @access public
+   *
+   * @param TotpSecret $secret the secret
+   * @param string $accountName the account name
+   * @param string $issuer the optional issuer
+   *
+   * @return string
+   */
   public function getProvisioningUri(
     TotpSecret $secret,
     string $accountName,

@@ -33,15 +33,33 @@ use function sprintf;
  * Adapter EquipmentInterventionResourceAdapter.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class EquipmentInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionEquipmentDraftProviderPort, InterventionResourceOwnerPort
 {
+  // #region Constants
+  /**
+   * Constant PATCHABLE_FIELDS.
+   *
+   * Equipment fields that an intervention draft may update.
+   *
+   * @access private
+   *
+   * @var list<string>
+   */
   private const PATCHABLE_FIELDS = ['type', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel', 'status', 'facility', 'planPosition'];
 
+  /**
+   * Constant STATUSES.
+   *
+   * Equipment statuses accepted by the intervention resource adapter.
+   *
+   * @access private
+   *
+   * @var list<string>
+   */
   private const STATUSES = ['in_stock', 'operational', 'decommissioned', 'under_maintenance'];
 
   /**
@@ -56,6 +74,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     'under_maintenance' => ['in_stock', 'operational', 'decommissioned'],
     'decommissioned' => [],
   ];
+  // #endregion
 
   /**
    * Constructor.
@@ -79,8 +98,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method supports.
    *
-   * Executes the supports operation.
+   * Recognizes canonical equipment IRIs so Intervention can route resource operations to this adapter.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resource the resource value
@@ -95,8 +115,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method supportsResourceType.
    *
-   * Executes the supports resource type operation.
+   * Claims Intervention resource assignments whose type is equipment.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param InterventionResourceType $type the type value
@@ -111,8 +132,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method resourceExists.
    *
-   * Executes the resource exists operation.
+   * Checks whether the supplied identifier resolves to an equipment record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -127,8 +149,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method resourceBelongsToOrganization.
    *
-   * Executes the resource belongs to organization operation.
+   * Confirms the equipment record is owned by the organization before assignment or mutation.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -146,8 +169,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method clientIdExists.
    *
-   * Executes the client id exists operation.
+   * Detects an existing equipment idempotency key before Intervention creates another resource.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $clientId the client id value
@@ -162,8 +186,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method assign.
    *
-   * Executes the assign operation.
+   * Links equipment to an intervention and marks it draft until publication, or restores it to published when detached.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $resourceId the resource id value
@@ -189,8 +214,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method countForIntervention.
    *
-   * Executes the count for intervention operation.
+   * Counts equipment records currently linked to the supplied intervention.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
@@ -233,8 +259,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method equipmentDrafts.
    *
-   * Executes the equipment drafts operation.
+   * Projects intervention-linked equipment records into the draft summary consumed by publication checks.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
@@ -259,13 +286,16 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method apply.
    *
-   * Executes the apply operation.
+   * Applies an intervention patch to published equipment after validating organization, facility, plan and status constraints.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $organizationId the organization id value
    * @param string $resource the resource value
    * @param array<string, mixed> $patch the patch value
+   *
+   * @return void no return value
    */
   public function apply(string $organizationId, string $resource, array $patch): void
   {
@@ -306,11 +336,14 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method publishDrafts.
    *
-   * Executes the publish drafts operation.
+   * Publishes an intervention’s equipment drafts after validating plan placement and materializing status side effects.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
+   *
+   * @return void no return value
    */
   public function publishDrafts(string $interventionId): void
   {
@@ -471,6 +504,19 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     }
   }
 
+  /**
+   * Method completeStatusChange.
+   *
+   * Applies status-transition checks and synchronizes maintenance history for a published change.
+   *
+   * @access private
+   *
+   * @param EquipmentRecord $record the equipment record after applying the draft
+   * @param string $organizationId the owning organization identifier
+   * @param string $previousStatus the stored status before the change
+   *
+   * @return void no return value
+   */
   private function completeStatusChange(EquipmentRecord $record, string $organizationId, string $previousStatus): void
   {
     // A published equipment change follows the domain status machine even on the
@@ -500,6 +546,20 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     }
   }
 
+  /**
+   * Method assertPlanUsable.
+   *
+   * Ensures the selected floor-plan attachment is usable for the equipment facility.
+   *
+   * @access private
+   *
+   * @param string $attachmentId the proposed floor-plan attachment identifier
+   * @param string $facilityId the equipment facility identifier
+   *
+   * @return void no return value
+   *
+   * @throws InterventionConflictException when the attachment is unavailable for this facility
+   */
   private function assertPlanUsable(string $attachmentId, string $facilityId): void
   {
     try {
@@ -533,8 +593,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method id.
    *
-   * Executes the id operation.
+   * Extracts the equipment identifier from a canonical equipment IRI.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $resource the resource value
@@ -564,8 +625,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   /**
    * Method resourceId.
    *
-   * Executes the resource id operation.
+   * Extracts one identifier only when the IRI matches the requested API collection route.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $resource the resource value

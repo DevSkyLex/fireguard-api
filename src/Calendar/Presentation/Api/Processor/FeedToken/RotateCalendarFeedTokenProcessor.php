@@ -27,7 +27,6 @@ use function sprintf;
  * subscribable `.ics` URL (scheme and host taken from the current request).
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

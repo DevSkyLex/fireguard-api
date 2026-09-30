@@ -12,7 +12,6 @@ use User\Domain\ValueObject\{Locale, UserId, UserProfile};
  * Handler UpdateUserHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -46,9 +45,9 @@ final readonly class UpdateUserHandler implements \Shared\Application\Message\Co
    *
    * @param UpdateUserCommand $command the command
    *
-   * @throws UserNotFoundException if the user is not found
-   *
    * @return UpdateUserResult the result
+   *
+   * @throws UserNotFoundException if the user is not found
    */
   public function __invoke(UpdateUserCommand $command): UpdateUserResult
   {

@@ -24,7 +24,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * it keeps a model identifier from carrying path or URL syntax.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -12,7 +12,6 @@ use function sprintf;
  * Exception TotpEnrollmentNotEnabledException.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -31,14 +30,34 @@ final class TotpEnrollmentNotEnabledException extends ApplicationException
       message: sprintf('TOTP is not enabled for user "%s".', $userId),
     );
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method forUser
+   *
+   * Creates the exception indicating that TOTP enrollment is unavailable to the user.
+   *
+   * @access public
+   *
+   * @param string $userId the user identifier
+   *
+   * @return self the created instance
+   */
   public static function forUser(string $userId): self
   {
     return new self(userId: $userId);
   }
 
+  /**
+   * Method context
+   *
+   * Returns the structured context associated with this exception.
+   *
+   * @access public
+   *
+   * @return array{userId: string} exception context map
+   */
   public function context(): array
   {
     return [

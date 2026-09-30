@@ -20,7 +20,6 @@ use Doctrine\ORM\Mapping as ORM;
  * foreign key).
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -102,9 +101,17 @@ class AutomationRunRecord
   #[ORM\Column(name: 'trigger_payload', type: 'json', nullable: true, options: ['jsonb' => true])]
   public ?array $triggerPayload = null;
 
+  // #region Properties
+  /**
+   * Property currentAttemptId
+   */
   #[ORM\Column(name: 'current_attempt_id', type: 'string', length: 36, nullable: true)]
   public ?string $currentAttemptId = null;
 
+  /**
+   * Property attemptCount
+   */
   #[ORM\Column(name: 'attempt_count', type: 'integer', options: ['default' => 1])]
   public int $attemptCount = 1;
+  // #endregion
 }

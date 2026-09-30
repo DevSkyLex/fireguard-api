@@ -32,6 +32,21 @@ final readonly class ListChecklistsProvider implements ProviderInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Coordinates authorization, query dispatch and pagination for checklist lists.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus bus used to dispatch the checklist-list query
+   * @param OrganizationAuthorizationPort $authorization organization permission checks for the requesting user
+   * @param Security $security security context used to identify the current user
+   * @param RequestStack $requestStack current request used to read query parameters
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -39,6 +54,7 @@ final readonly class ListChecklistsProvider implements ProviderInterface
     private RequestStack $requestStack,
   ) {
   }
+  // #endregion
 
   /**
    * @return TraversablePaginator<ChecklistOutput>

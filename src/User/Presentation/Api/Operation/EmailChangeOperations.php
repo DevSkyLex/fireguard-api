@@ -10,7 +10,6 @@ namespace User\Presentation\Api\Operation;
  * Operation name constants for the sign-in email change endpoints.
  *
  * @category Operation
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

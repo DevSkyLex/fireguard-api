@@ -18,7 +18,6 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
  * event type allowlist a subscription may register for.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

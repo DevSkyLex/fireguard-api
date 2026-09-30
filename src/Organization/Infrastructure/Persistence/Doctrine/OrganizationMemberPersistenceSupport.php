@@ -16,13 +16,40 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberR
 use function addcslashes;
 use function mb_strtolower;
 
-/** Shared storage conversion, query construction and invalidation for members. */
+/**
+ * Class OrganizationMemberPersistenceSupport
+ *
+ * Shares organization member query construction, timestamp conversion and cache invalidation.
+ *
+ * @category Persistence
+ */
 final readonly class OrganizationMemberPersistenceSupport
 {
-  private const string ORGANIZATION_PREDICATE = 'organizationMember.organization = :organization';
-
+  // #region Constants
   /**
+   * Constant ORGANIZATION_PREDICATE
+   *
+   * Restricts shared member queries to the organization reference parameter.
+   *
+   * @access private
+   */
+  private const string ORGANIZATION_PREDICATE = 'organizationMember.organization = :organization';
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies persistence, member query, cache and timestamp storage configuration.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager used to resolve organization references
    * @param EntityRepository<OrganizationMemberRecord> $memberRepository
+   * @param OrganizationCacheInvalidator|null $cacheInvalidator optional legacy cache invalidator
+   * @param string $storageTimeZone configured timezone for stored timestamps
+   *
+   * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -32,6 +59,20 @@ final readonly class OrganizationMemberPersistenceSupport
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method invalidateMemberRecordProfile
+   *
+   * Invalidates the member's profile when its organization relation is available.
+   *
+   * @access public
+   *
+   * @param OrganizationMemberRecord $memberRecord persisted member record that changed
+   *
+   * @return void
+   */
   public function invalidateMemberRecordProfile(OrganizationMemberRecord $memberRecord): void
   {
     $organizationId = $memberRecord->organization?->id;
@@ -42,11 +83,37 @@ final readonly class OrganizationMemberPersistenceSupport
     $this->invalidateMemberProfile($organizationId, $memberRecord->userId);
   }
 
+  /**
+   * Method invalidateMemberProfile
+   *
+   * Delegates invalidation of one organization member's legacy profile and permissions.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization identifier
+   * @param string $userId user identifier
+   *
+   * @return void
+   */
   public function invalidateMemberProfile(string $organizationId, string $userId): void
   {
     $this->cacheInvalidator?->invalidateCurrentMemberProfile($organizationId, $userId);
   }
 
+  /**
+   * Method resolveBucketTimeZone
+   *
+   * Uses the requested timezone when present, otherwise preserves the lower bound's timezone.
+   *
+   * @access public
+   *
+   * @param string|null $timeZone requested timezone name, or null to use the lower bound timezone
+   * @param DateTimeImmutable $lowerBound date-time whose timezone is the fallback
+   *
+   * @return DateTimeZone timezone used to bucket the interval
+   *
+   * @throws Exception when a supplied timezone name is invalid
+   */
   public function resolveBucketTimeZone(?string $timeZone, DateTimeImmutable $lowerBound): DateTimeZone
   {
     if (null !== $timeZone && '' !== $timeZone) {
@@ -56,6 +123,17 @@ final readonly class OrganizationMemberPersistenceSupport
     return $lowerBound->getTimezone();
   }
 
+  /**
+   * Method resolveStorageTimeZone
+   *
+   * Resolves the configured timezone used when normalizing stored timestamps.
+   *
+   * @access public
+   *
+   * @return DateTimeZone configured storage timezone
+   *
+   * @throws InvalidStorageTimeZoneException when the configured timezone is invalid
+   */
   public function resolveStorageTimeZone(): DateTimeZone
   {
     try {
@@ -65,21 +143,34 @@ final readonly class OrganizationMemberPersistenceSupport
     }
   }
 
+  /**
+   * Method normalizeTimestampForStorageTimeZone
+   *
+   * Converts a date-time to the storage timezone and formats it with microsecond precision.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $value date-time to normalize
+   * @param DateTimeZone $storageTimeZone timezone used for storage
+   *
+   * @return string local timestamp formatted as Y-m-d H:i:s.u
+   */
   public function normalizeTimestampForStorageTimeZone(DateTimeImmutable $value, DateTimeZone $storageTimeZone): string
   {
     return $value->setTimezone($storageTimeZone)->format('Y-m-d H:i:s.u');
   }
 
   /**
-   * Method getOrganizationReference.
+   * Method getOrganizationReference
    *
    * Resolves a lazy organization reference without a round-trip query.
    *
+   * @access public
    * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
    *
-   * @return OrganizationRecord the organization reference
+   * @return OrganizationRecord lazy organization reference
    */
   public function getOrganizationReference(OrganizationId $organizationId): OrganizationRecord
   {
@@ -88,13 +179,14 @@ final readonly class OrganizationMemberPersistenceSupport
   }
 
   /**
-   * Method createFilteredMemberQueryBuilder.
+   * Method createFilteredMemberQueryBuilder
    *
    * Builds the shared query base for {@see Repository\OrganizationMemberRepository::findByOrganizationId()} and
    * {@see Repository\OrganizationMemberRepository::countByOrganizationId()}. The `$search` filter matches only
    * `user_id`: display name, first/last name and email are owned by the
    * User module's database (auth) and cannot be joined from here.
    *
+   * @access public
    * @since 1.1.0
    *
    * @param OrganizationRecord $organization the organization reference
@@ -139,18 +231,19 @@ final readonly class OrganizationMemberPersistenceSupport
   }
 
   /**
-   * Method resolveMemberSortField.
+   * Method resolveMemberSortField
    *
    * Maps a sort field name to its DQL path. `displayName` has no column on
    * this table — display name lives in the User module's database — so it
    * falls back to `userId`, a stable-enough proxy until a materialized
    * member-directory read model exists.
    *
+   * @access public
    * @since 1.1.0
    *
    * @param string $field the requested sort field
    *
-   * @return string the DQL sort path
+   * @return string DQL path for the requested field or user identifier fallback
    */
   public function resolveMemberSortField(string $field): string
   {
@@ -159,4 +252,5 @@ final readonly class OrganizationMemberPersistenceSupport
       default => 'organizationMember.userId',
     };
   }
+  // #endregion
 }

@@ -13,7 +13,6 @@ use Shared\Application\Message\QueryHandler;
  * UseCase ListEquipmentAttachmentsHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -21,6 +20,18 @@ use Shared\Application\Message\QueryHandler;
 final readonly class ListEquipmentAttachmentsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives repositories used to validate equipment scope and list its attachments.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to validate the equipment and organization scope
+   * @param AttachmentRepositoryPort $attachmentRepository port used to retrieve attachment metadata
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private AttachmentRepositoryPort $attachmentRepository,

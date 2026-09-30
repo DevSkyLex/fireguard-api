@@ -8,17 +8,35 @@ namespace Facility\Domain\ValueObject;
  * Enum FacilityMetadataFieldType.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum FacilityMetadataFieldType: string
 {
+  /**
+   * Case TEXT
+   */
   case TEXT = 'text';
+
+  /**
+   * Case NUMBER
+   */
   case NUMBER = 'number';
+
+  /**
+   * Case DATE
+   */
   case DATE = 'date';
+
+  /**
+   * Case BOOLEAN
+   */
   case BOOLEAN = 'boolean';
+
+  /**
+   * Case SELECT
+   */
   case SELECT = 'select';
 
   // #region Methods

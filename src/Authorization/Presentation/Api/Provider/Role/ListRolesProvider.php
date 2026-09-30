@@ -28,7 +28,6 @@ use const FILTER_VALIDATE_BOOLEAN;
  * Provides the list of roles.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

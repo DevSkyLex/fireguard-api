@@ -17,27 +17,59 @@ use function array_map;
  * Repository OrganizationJoinRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class OrganizationJoinRepository implements OrganizationJoinRepositoryPort
 {
+  // #region Constructor
   /**
+   * Method __construct
+   *
+   * Creates the repository with the explicitly wired main entity manager.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager explicit main manager
+   *
+   * @return void
    */
   public function __construct(private EntityManagerInterface $entityManager)
   {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method lock
+   *
+   * Takes a transaction-scoped advisory lock for changes to one organization’s join state.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose join state is being changed
+   *
+   * @return void
+   */
   public function lock(string $organizationId): void
   {
     $this->entityManager->getConnection()->executeQuery('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', ['key' => 'organization.join.' . $organizationId]);
   }
 
+  /**
+   * Method policy
+   *
+   * Loads the current access policy, returning the default policy when no record exists.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose join policy is requested
+   *
+   * @return OrganizationAccessPolicy current or default policy
+   */
   public function policy(string $organizationId): OrganizationAccessPolicy
   {
     $record = $this->entityManager->find(OrganizationAccessPolicyRecord::class, $organizationId);
@@ -49,6 +81,17 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
     return new OrganizationAccessPolicy($record->organizationId, OrganizationJoinMode::from($record->mode), $record->roleId);
   }
 
+  /**
+   * Method savePolicy
+   *
+   * Persists the organization’s current join access policy.
+   *
+   * @access public
+   *
+   * @param OrganizationAccessPolicy $policy policy to persist
+   *
+   * @return void
+   */
   public function savePolicy(OrganizationAccessPolicy $policy): void
   {
     $record = $this->entityManager->find(OrganizationAccessPolicyRecord::class, $policy->organizationId) ?? new OrganizationAccessPolicyRecord();
@@ -59,16 +102,49 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
     $this->entityManager->flush();
   }
 
+  /**
+   * Method domains
+   *
+   * Lists an organization’s verified-domain records in domain order.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose domains are listed
+   *
+   * @return list<OrganizationDomain> domain aggregates
+   */
   public function domains(string $organizationId): array
   {
     return array_map($this->domain(...), $this->entityManager->getRepository(OrganizationDomainRecord::class)->findBy(['organizationId' => $organizationId], ['domain' => 'ASC']));
   }
 
+  /**
+   * Method domainsForName
+   *
+   * Finds verified-domain records matching the supplied domain name.
+   *
+   * @access public
+   *
+   * @param string $domain domain name to match
+   *
+   * @return list<OrganizationDomain> matching domain aggregates
+   */
   public function domainsForName(string $domain): array
   {
     return array_map($this->domain(...), $this->entityManager->getRepository(OrganizationDomainRecord::class)->findBy(['domain' => $domain]));
   }
 
+  /**
+   * Method domainsDue
+   *
+   * Lists domains that have never been checked or were checked before the supplied time.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $before cutoff for the last DNS check
+   *
+   * @return list<OrganizationDomain> domain aggregates due for checking
+   */
   public function domainsDue(DateTimeImmutable $before): array
   {
     /** @var list<OrganizationDomainRecord> $records */
@@ -77,6 +153,17 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
     return array_map($this->domain(...), $records);
   }
 
+  /**
+   * Method saveDomain
+   *
+   * Inserts or updates the persisted record for a domain aggregate.
+   *
+   * @access public
+   *
+   * @param OrganizationDomain $domain domain aggregate to persist
+   *
+   * @return void
+   */
   public function saveDomain(OrganizationDomain $domain): void
   {
     $record = $this->entityManager->find(OrganizationDomainRecord::class, $domain->id) ?? new OrganizationDomainRecord();
@@ -91,6 +178,17 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
     $this->entityManager->flush();
   }
 
+  /**
+   * Method removeDomain
+   *
+   * Removes the persisted record for a domain aggregate when it exists.
+   *
+   * @access public
+   *
+   * @param OrganizationDomain $domain domain aggregate identifying the record
+   *
+   * @return void
+   */
   public function removeDomain(OrganizationDomain $domain): void
   {
     $record = $this->entityManager->find(OrganizationDomainRecord::class, $domain->id);
@@ -100,6 +198,17 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
     }
   }
 
+  /**
+   * Method request
+   *
+   * Loads and refreshes a join request by identifier.
+   *
+   * @access public
+   *
+   * @param string $id join request identifier
+   *
+   * @return OrganizationJoinRequest|null request aggregate, or null when absent
+   */
   public function request(string $id): ?OrganizationJoinRequest
   {
     $record = $this->entityManager->find(OrganizationJoinRequestRecord::class, $id);
@@ -111,6 +220,18 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
     return $this->requestModel($record);
   }
 
+  /**
+   * Method requests
+   *
+   * Lists join requests filtered by the supplied user and organization criteria.
+   *
+   * @access public
+   *
+   * @param string|null $userId optional requesting user identifier
+   * @param string|null $organizationId optional organization identifier
+   *
+   * @return list<OrganizationJoinRequest> matching request aggregates, newest first
+   */
   public function requests(?string $userId, ?string $organizationId = null): array
   {
     $criteria = [];
@@ -124,6 +245,17 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
     return array_map($this->requestModel(...), $this->entityManager->getRepository(OrganizationJoinRequestRecord::class)->findBy($criteria, ['createdAt' => 'DESC']));
   }
 
+  /**
+   * Method saveRequest
+   *
+   * Inserts or updates the persisted record for a join request.
+   *
+   * @access public
+   *
+   * @param OrganizationJoinRequest $request request aggregate to persist
+   *
+   * @return void
+   */
   public function saveRequest(OrganizationJoinRequest $request): void
   {
     $record = $this->entityManager->find(OrganizationJoinRequestRecord::class, $request->id) ?? new OrganizationJoinRequestRecord();
@@ -140,6 +272,17 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
     $this->entityManager->flush();
   }
 
+  /**
+   * Method invitationIds
+   *
+   * Returns pending invitation IDs for the email when their organizations are active and unexpired.
+   *
+   * @access public
+   *
+   * @param string $email invitee email address to match case-insensitively
+   *
+   * @return list<string> matching invitation identifiers
+   */
   public function invitationIds(string $email): array
   {
     /** @var list<string> */
@@ -147,6 +290,11 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
   }
 
   /**
+   * Method domain
+   *
+   * Refreshes a persisted domain record and maps it to its domain aggregate.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param OrganizationDomainRecord $record persisted proof
@@ -161,6 +309,11 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
   }
 
   /**
+   * Method requestModel
+   *
+   * Refreshes a persisted join-request record and maps it to its domain aggregate.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param OrganizationJoinRequestRecord $record persisted request
@@ -173,4 +326,5 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
 
     return new OrganizationJoinRequest($record->id, $record->organizationId, $record->userId, $record->email, $record->domainId, $record->createdAt, $record->expiresAt, $record->status, $record->decidedAt);
   }
+  // #endregion
 }

@@ -19,7 +19,6 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * "Legal profile" settings tab select.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -57,9 +56,9 @@ final readonly class ListOrganizationLegalTypesProvider implements ProviderInter
    * @param array<string, mixed> $uriVariables the URI variables from the request
    * @param array<string, mixed> $context additional context for the provider
    *
-   * @throws AccessDeniedHttpException if the user is not authenticated
-   *
    * @return list<OrganizationLegalTypeOptionOutput> a list of organization legal type options
+   *
+   * @throws AccessDeniedHttpException if the user is not authenticated
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {

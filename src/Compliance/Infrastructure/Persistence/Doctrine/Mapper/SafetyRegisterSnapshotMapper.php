@@ -12,7 +12,6 @@ use Compliance\Infrastructure\Persistence\Doctrine\Record\SafetyRegisterSnapshot
  * Mapper SafetyRegisterSnapshotMapper.
  *
  * @category Mapper
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

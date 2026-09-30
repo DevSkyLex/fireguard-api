@@ -24,7 +24,6 @@ use Symfony\Component\Scheduler\Trigger\{PeriodicalTrigger, StaticMessageProvide
  * runtime until it fails.
  *
  * @category Scheduler Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

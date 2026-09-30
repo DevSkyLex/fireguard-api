@@ -19,7 +19,6 @@ use function array_column;
  * stay aligned with the shared contract rather than drift into its own list.
  *
  * @category Adapter Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

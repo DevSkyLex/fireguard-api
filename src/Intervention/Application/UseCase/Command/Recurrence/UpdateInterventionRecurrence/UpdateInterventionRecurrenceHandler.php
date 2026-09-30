@@ -24,7 +24,6 @@ use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
  * schedule computed under the previous rule never survives the edit.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

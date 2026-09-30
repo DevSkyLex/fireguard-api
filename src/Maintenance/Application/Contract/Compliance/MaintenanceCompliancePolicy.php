@@ -14,7 +14,6 @@ namespace Maintenance\Application\Contract\Compliance;
  * whose adapter lives in the Organization module.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

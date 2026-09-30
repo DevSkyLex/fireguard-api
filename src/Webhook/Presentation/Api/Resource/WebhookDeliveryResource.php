@@ -20,7 +20,6 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
  * redelivery action.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

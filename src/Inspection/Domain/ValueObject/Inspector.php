@@ -17,7 +17,6 @@ use function trim;
  * Supports both system users (USER) and external parties (EXTERNAL).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

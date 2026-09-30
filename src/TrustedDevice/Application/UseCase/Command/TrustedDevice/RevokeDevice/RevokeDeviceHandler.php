@@ -13,7 +13,6 @@ use TrustedDevice\Domain\ValueObject\TrustedDeviceId;
  * Handler RevokeDeviceHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -47,9 +46,9 @@ final readonly class RevokeDeviceHandler implements CommandHandler
    *
    * @param RevokeDeviceCommand $command the command
    *
-   * @throws TrustedDeviceNotFoundException if device not found or not owned by user
-   *
    * @return RevokeDeviceResult the result
+   *
+   * @throws TrustedDeviceNotFoundException if device not found or not owned by user
    */
   public function __invoke(RevokeDeviceCommand $command): RevokeDeviceResult
   {

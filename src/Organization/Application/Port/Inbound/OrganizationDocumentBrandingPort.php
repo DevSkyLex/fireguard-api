@@ -16,7 +16,6 @@ use Organization\Application\Contract\Document\OrganizationDocumentBranding;
  * so document generation cannot fail on branding.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

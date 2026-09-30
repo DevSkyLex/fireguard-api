@@ -20,7 +20,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * token by construction (the lookup key is the acting user id).
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -51,9 +50,9 @@ final readonly class RevokeCalendarFeedTokenHandler implements CommandHandler
    *
    * @param RevokeCalendarFeedTokenCommand $command the command payload
    *
-   * @throws CalendarFeedTokenNotFoundException when the member has no active token
-   *
    * @return RevokeCalendarFeedTokenResult the use case result
+   *
+   * @throws CalendarFeedTokenNotFoundException when the member has no active token
    */
   public function __invoke(RevokeCalendarFeedTokenCommand $command): RevokeCalendarFeedTokenResult
   {

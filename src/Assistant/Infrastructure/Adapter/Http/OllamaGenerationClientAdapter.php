@@ -38,7 +38,6 @@ use function trim;
  * returned {@see AssistantGenerationOutcome}.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -63,6 +62,21 @@ final readonly class OllamaGenerationClientAdapter implements AssistantGeneratio
   // #endregion
 
   // #region Methods
+  /**
+   * Method streamChat
+   *
+   * Streams a chat completion from Ollama and reports transport or HTTP failures in the outcome.
+   *
+   * @access public
+   *
+   * @param string $model the configured Ollama model name
+   * @param list<array{role: string, content: string}> $messages the chat messages sent to Ollama
+   * @param float $temperature the generation temperature
+   * @param int $timeoutSeconds the request and stream timeout in seconds
+   * @param callable(string): void $onFragment receives each cumulative response fragment
+   *
+   * @return AssistantGenerationOutcome the generated response or a reported failure
+   */
   public function streamChat(string $model, array $messages, float $temperature, int $timeoutSeconds, callable $onFragment): AssistantGenerationOutcome
   {
     try {

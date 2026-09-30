@@ -18,7 +18,6 @@ use function trim;
  * Resolves tenant ID from the current HTTP request.
  *
  * @category Resolver
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

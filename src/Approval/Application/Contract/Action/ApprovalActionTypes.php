@@ -14,7 +14,6 @@ namespace Approval\Application\Contract\Action;
  * gate, and the tagged `approval.deferred_action_executor` adapters.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

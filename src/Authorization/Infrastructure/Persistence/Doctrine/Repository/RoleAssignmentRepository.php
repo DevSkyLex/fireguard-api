@@ -23,7 +23,6 @@ use function is_array;
  * Repository RoleAssignmentRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -262,6 +261,18 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
     $this->invalidateSubjectCache($subjectType, $subjectId);
   }
 
+  /**
+   * Method invalidateSubjectCache.
+   *
+   * Invalidates the cache entry for the affected role assignment subject.
+   *
+   * @access private
+   *
+   * @param SubjectType $subjectType the role assignment subject type
+   * @param string $subjectId the role assignment subject identifier
+   *
+   * @return void no return value
+   */
   private function invalidateSubjectCache(SubjectType $subjectType, string $subjectId): void
   {
     match ($subjectType) {

@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource AuditEventResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -315,23 +314,53 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class AuditEventResource
 {
+  /**
+   * Constant FILTER_BY_ACTION
+   */
   private const FILTER_BY_ACTION = 'Filter by action';
 
+  /**
+   * Constant FILTER_BY_ACTOR_TYPE
+   */
   private const FILTER_BY_ACTOR_TYPE = 'Filter by actor type';
 
+  /**
+   * Constant FILTER_BY_ACTOR_ID
+   */
   private const FILTER_BY_ACTOR_ID = 'Filter by actor id';
 
+  /**
+   * Constant FILTER_BY_SUBJECT_TYPE
+   */
   private const FILTER_BY_SUBJECT_TYPE = 'Filter by subject type';
 
+  /**
+   * Constant FILTER_BY_SUBJECT_ID
+   */
   private const FILTER_BY_SUBJECT_ID = 'Filter by subject id';
 
+  /**
+   * Constant FILTER_BY_CLIENT_ID
+   */
   private const FILTER_BY_CLIENT_ID = 'Filter by client id';
 
+  /**
+   * Constant FILTER_BY_TENANT_ID
+   */
   private const FILTER_BY_TENANT_ID = 'Filter by tenant id';
 
+  /**
+   * Constant FILTER_BY_IP_HASH
+   */
   private const FILTER_BY_IP_HASH = 'Filter by IP hash';
 
+  /**
+   * Constant START_DATETIME
+   */
   private const START_DATETIME = 'Start datetime (ISO 8601)';
 
+  /**
+   * Constant END_DATETIME
+   */
   private const END_DATETIME = 'End datetime (ISO 8601)';
 }

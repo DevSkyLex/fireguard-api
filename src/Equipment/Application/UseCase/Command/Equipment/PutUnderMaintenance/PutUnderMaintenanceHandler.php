@@ -27,7 +27,6 @@ use function sprintf;
  * UseCase PutUnderMaintenanceHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -35,6 +34,25 @@ use function sprintf;
 final readonly class PutUnderMaintenanceHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment, organization, notification, logging, identifier, and event capabilities needed to record the maintenance transition.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load and persist equipment state
+   * @param TagRepositoryPort $tagRepository port used by equipment status handling
+   * @param MaintenanceLogRepositoryPort $maintenanceLogRepository port used to record the maintenance lifecycle change
+   * @param FacilityNamingPort $facilityNaming port used to resolve the facility label for the change
+   * @param OrganizationRepositoryPort $organizationRepository port used to load organization notification context
+   * @param NotificationPort $notificationPort port used to notify relevant users about the transition
+   * @param LoggerPort $logger port used to record operational failures
+   * @param UuidFactory $uuidFactory factory used to identify generated maintenance records
+   * @param EventDispatcherPort $eventDispatcher port used to publish the committed equipment event
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,

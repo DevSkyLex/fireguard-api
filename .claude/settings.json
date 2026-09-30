@@ -70,5 +70,9 @@
       }
     ]
   },
-  "enabledPlugins": {}
+  "enabledPlugins": {},
+  "fastMode": false,
+  "env": {
+    "CLAUDE_CODE_DISABLE_FAST_MODE": "1"
+  }
 }

@@ -32,7 +32,6 @@ use function trim;
  * UseCase CreateOrganizationHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -40,6 +39,13 @@ use function trim;
 final readonly class CreateOrganizationHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant SETUP_JOURNAL_UNAVAILABLE_MESSAGE.
+   *
+   * Explains that organization setup journaling is required to replay this setup operation.
+   *
+   * @access private
+   */
   private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
   // #endregion
 
@@ -193,6 +199,22 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     return $result;
   }
 
+  /**
+   * Method createWithinTransaction
+   *
+   * Creates the organization and initial owner/member roles within the setup transaction.
+   *
+   * @access private
+   *
+   * @param CreateOrganizationCommand $command the organization creation request
+   * @param Organization $organization the prepared organization aggregate
+   * @param OrganizationRole $ownerRole the initial owner role
+   * @param OrganizationRole $memberRole the initial member role
+   * @param OrganizationMember $ownerMember the initial owner membership
+   * @param bool &$replayed whether the setup operation was already completed
+   *
+   * @return CreateOrganizationResult the created or replayed organization result
+   */
   private function createWithinTransaction(CreateOrganizationCommand $command, Organization $organization, OrganizationRole $ownerRole, OrganizationRole $memberRole, OrganizationMember $ownerMember, bool &$replayed): CreateOrganizationResult
   {
     if (null !== $command->setupContext) {

@@ -20,16 +20,35 @@ use function strcmp;
 use function usort;
 
 /**
- * Reconciles current Stripe state, never the possibly stale webhook snapshot.
+ * Class HandleStripeWebhookHandler
+ *
+ * Reconciles subscription webhook events against current Stripe state before updating local access.
  *
  * @category UseCase
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class HandleStripeWebhookHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies Stripe, subscription, plan, reconciliation, identifier, and logging dependencies.
+   *
+   * @access public
+   *
+   * @param StripeGatewayPort $stripe Stripe event parsing and current-state lookup
+   * @param SubscriptionRepositoryPort $subscriptions local subscription lookup and persistence
+   * @param BillingPriceCatalog $priceCatalog configured Stripe-price mapping
+   * @param OrganizationPlanAssignmentPort $planAssignment organization plan updates
+   * @param UuidFactory $uuidFactory subscription identifier creation
+   * @param BillingReconciliationPort $reconciliation event serialization and transaction boundary
+   * @param LoggerPort $logger warnings for ignored mismatched events
+   *
+   * @return void
+   */
   public function __construct(
     private StripeGatewayPort $stripe,
     private SubscriptionRepositoryPort $subscriptions,
@@ -41,6 +60,20 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
   ) {
   }
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Parses the signed webhook input and handles subscription lifecycle events.
+   *
+   * @access public
+   *
+   * @param HandleStripeWebhookCommand $command webhook payload and signature input
+   *
+   * @return VoidResult empty command result after event handling
+   */
   public function __invoke(HandleStripeWebhookCommand $command): VoidResult
   {
     $event = $this->stripe->parseEvent($command->payload, $command->signature);
@@ -51,6 +84,17 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     return new VoidResult();
   }
 
+  /**
+   * Method handleSubscriptionEvent
+   *
+   * Rejects environment or mapping mismatches, then reconciles under the customer-scoped lock.
+   *
+   * @access private
+   *
+   * @param StripeEvent $event parsed Stripe event
+   *
+   * @return void
+   */
   private function handleSubscriptionEvent(StripeEvent $event): void
   {
     if ($event->liveMode !== $this->stripe->isLiveMode()) {
@@ -83,6 +127,21 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     });
   }
 
+  /**
+   * Method reconcile
+   *
+   * Applies current Stripe subscription state to local subscription and organization plan records.
+   *
+   * @access private
+   *
+   * @param string $organizationId organization mapped to the Stripe customer
+   * @param StripeEvent $event parsed event used as reconciliation context
+   * @param Subscription|null $subscription existing local subscription, when present
+   *
+   * @return void
+   *
+   * @throws StripeSubscriptionReconciliationException when remote state cannot be safely reconciled
+   */
   private function reconcile(string $organizationId, StripeEvent $event, ?Subscription $subscription): void
   {
     $customerId = $event->customerId ?? throw new StripeSubscriptionReconciliationException('Missing Stripe customer.');
@@ -123,6 +182,21 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     $this->planAssignment->assignPlanByKey($organizationId, $status->grantsAccess() ? $mapping['planKey'] : 'free');
   }
 
+  /**
+   * Method currentSubscription
+   *
+   * Selects current subscription state after verifying every returned record belongs to the requested scope.
+   *
+   * @access private
+   *
+   * @param string $organizationId expected organization scope
+   * @param string $customerId Stripe customer identifier
+   * @param bool $liveMode expected Stripe environment
+   *
+   * @return StripeSubscription|null selected subscription, or null when none exists
+   *
+   * @throws StripeSubscriptionReconciliationException when remote subscription scope does not match
+   */
   private function currentSubscription(string $organizationId, string $customerId, bool $liveMode): ?StripeSubscription
   {
     $subscriptions = $this->stripe->listSubscriptions($customerId);
@@ -144,6 +218,17 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     return $subscriptions[0] ?? null;
   }
 
+  /**
+   * Method resolveOrganizationId
+   *
+   * Resolves the organization from its customer mapping and rejects conflicting event metadata.
+   *
+   * @access private
+   *
+   * @param StripeEvent $event parsed event whose customer mapping is resolved
+   *
+   * @return string|null mapped organization identifier, or null when mappings conflict
+   */
   private function resolveOrganizationId(StripeEvent $event): ?string
   {
     $mapped = null !== $event->customerId ? $this->subscriptions->findByStripeCustomerId($event->customerId)?->organizationId() : null;
@@ -155,4 +240,5 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
 
     return $mapped ?? $event->organizationId;
   }
+  // #endregion
 }

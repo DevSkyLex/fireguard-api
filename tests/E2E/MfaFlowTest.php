@@ -6,7 +6,6 @@ namespace App\Tests\E2E;
 
 use Symfony\Component\HttpFoundation\Response;
 
-use function file_put_contents;
 use function is_string;
 use function json_encode;
 use function password_hash;
@@ -122,14 +121,6 @@ class MfaFlowTest extends OAuth2WebTestCase
     );
 
     $verifyResponse = $client->getResponse();
-
-    if (200 !== $verifyResponse->getStatusCode() && 201 !== $verifyResponse->getStatusCode()) {
-      file_put_contents('g:\Projets\fireguard\fireguard-auth\mfa_error.json', $verifyResponse->getContent());
-    }
-
-    if (200 !== $verifyResponse->getStatusCode() && 201 !== $verifyResponse->getStatusCode()) {
-      file_put_contents('g:\Projets\fireguard\fireguard-auth\mfa_error.json', $verifyResponse->getContent());
-    }
 
     if (500 === $verifyResponse->getStatusCode()) {
       echo "\n=== 500 ERROR RESPONSE VERIFY ===\n";

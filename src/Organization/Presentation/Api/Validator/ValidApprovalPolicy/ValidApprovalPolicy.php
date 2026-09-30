@@ -16,7 +16,6 @@ use Symfony\Component\Validator\Constraint;
  * domain value object cannot: it never depends on the Approval module.
  *
  * @category Validator
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

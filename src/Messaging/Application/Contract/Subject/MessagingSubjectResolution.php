@@ -14,7 +14,6 @@ namespace Messaging\Application\Contract\Subject;
  * `organization.messaging.read`).
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

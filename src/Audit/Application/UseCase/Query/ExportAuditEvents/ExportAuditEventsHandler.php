@@ -20,7 +20,6 @@ use Shared\Application\Message\QueryHandler;
  * be able to exhaust memory.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -69,9 +68,9 @@ final readonly class ExportAuditEventsHandler implements QueryHandler
    *
    * @param ExportAuditEventsQuery $query the query to handle
    *
-   * @throws AuditExportTooLargeException when the filters match more than {@see self::MAX_EXPORT_ROWS} events
-   *
    * @return ExportAuditEventsResult the bounded, streamable result
+   *
+   * @throws AuditExportTooLargeException when the filters match more than {@see self::MAX_EXPORT_ROWS} events
    */
   public function __invoke(ExportAuditEventsQuery $query): ExportAuditEventsResult
   {

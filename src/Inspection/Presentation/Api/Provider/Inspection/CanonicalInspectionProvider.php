@@ -43,7 +43,6 @@ use function min;
  * where a non-numeric value falls back to the default rather than failing.
  *
  * @category Provider
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -60,6 +59,9 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
    */
   private const int DEFAULT_ITEMS_PER_PAGE = 50;
 
+  /**
+   * Constant MAX_ITEMS_PER_PAGE
+   */
   private const int MAX_ITEMS_PER_PAGE = 100;
   // #endregion
 

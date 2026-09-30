@@ -23,7 +23,6 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
  * Resource CurrentUserProfileResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -176,12 +175,24 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
 final class CurrentUserProfileResource
 {
   // #region Constants
+  /**
+   * Constant AUTHENTICATION_REQUIRED_DESCRIPTION
+   */
   private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
 
+  /**
+   * Constant USER_NOT_FOUND_DESCRIPTION
+   */
   private const string USER_NOT_FOUND_DESCRIPTION = 'Authenticated user not found';
 
+  /**
+   * Constant SECURITY_PROFILE_UPDATE
+   */
   private const string SECURITY_PROFILE_UPDATE = "is_granted('profile.update')";
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
   // #endregion
 }

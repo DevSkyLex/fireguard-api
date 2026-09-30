@@ -18,7 +18,6 @@ use PHPUnit\Framework\TestCase;
  * well-meaning "consistency" change does not silently break the client.
  *
  * @category Factory Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

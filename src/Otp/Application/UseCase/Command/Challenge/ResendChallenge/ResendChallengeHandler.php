@@ -17,7 +17,6 @@ use Shared\Application\Message\CommandHandler;
  * Handler ResendChallengeHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -36,9 +35,20 @@ final readonly class ResendChallengeHandler implements CommandHandler
     private GenerateOtpHandler $generateHandler,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Executes the use case represented by ResendChallengeHandler and returns its result.
+   *
+   * @access public
+   *
+   * @param ResendChallengeCommand $command the command to handle
+   *
+   * @return ResendChallengeResult
+   */
   public function __invoke(ResendChallengeCommand $command): ResendChallengeResult
   {
     $otp = $this->otpRepository->findByChallengeToken(

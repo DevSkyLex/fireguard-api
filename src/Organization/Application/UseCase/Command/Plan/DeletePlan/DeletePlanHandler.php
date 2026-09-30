@@ -14,7 +14,6 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
  * UseCase DeletePlanHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -10,6 +10,7 @@ use Import\Domain\ValueObject\ImportJobId;
 /** Owns exclusive processing leases and atomic row receipts in main. */
 interface ImportExecutionPort
 {
+  // #region Methods
   /**
    * Returns null for an absent/terminal job; a live competing lease is retryable.
    */
@@ -23,12 +24,36 @@ interface ImportExecutionPort
    */
   public function run(ImportJobId $id, string $owner, callable $operation, ?int $rowNumber = null): ImportJob;
 
+  /**
+   * Method release
+   *
+   * Releases the import execution claim held by the supplied owner.
+   *
+   * @access public
+   *
+   * @param ImportJobId $id the identifier
+   * @param string $owner the owner
+   *
+   * @return void
+   */
   public function release(ImportJobId $id, string $owner): void;
 
+  /**
+   * Method canResume
+   *
+   * Reports whether resume the requested condition.
+   *
+   * @access public
+   *
+   * @param ImportJobId $id the identifier
+   *
+   * @return bool
+   */
   public function canResume(ImportJobId $id): bool;
 
   /**
    * @param callable(ImportJob):void $enqueue recorded in the same transaction
    */
   public function resume(ImportJobId $id, callable $enqueue): ImportJob;
+  // #endregion
 }

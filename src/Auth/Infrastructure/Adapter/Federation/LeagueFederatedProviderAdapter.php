@@ -21,19 +21,35 @@ use function trim;
 use const FILTER_VALIDATE_EMAIL;
 
 /**
- * Adapter LeagueFederatedProviderAdapter.
+ * Class LeagueFederatedProviderAdapter
  *
  * Wraps the League OAuth client for Google and the Microsoft common OIDC
  * endpoints. Provider tokens are kept only for the current request.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class LeagueFederatedProviderAdapter implements FederatedProviderClientPort
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the enablement flags and credentials used to configure Google and Microsoft OIDC clients.
+   *
+   * @access public
+   *
+   * @param bool $googleEnabled whether Google sign-in is enabled
+   * @param string $googleClientId the Google OAuth client identifier
+   * @param string $googleClientSecret the Google OAuth client secret
+   * @param bool $microsoftEnabled whether Microsoft sign-in is enabled
+   * @param string $microsoftClientId the Microsoft OAuth client identifier
+   * @param string $microsoftClientSecret the Microsoft OAuth client secret
+   *
+   * @return void
+   */
   public function __construct(
     #[Autowire('%env(bool:GOOGLE_OIDC_ENABLED)%')]
     private bool $googleEnabled,
@@ -49,7 +65,20 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
     private string $microsoftClientSecret,
   ) {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method isEnabled
+   *
+   * Reports a provider as usable only when its feature flag and both credentials are configured.
+   *
+   * @access public
+   *
+   * @param FederatedProvider $provider the identity provider to check
+   *
+   * @return bool whether the provider has complete enabled configuration
+   */
   public function isEnabled(FederatedProvider $provider): bool
   {
     return match ($provider) {
@@ -62,6 +91,21 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
     };
   }
 
+  /**
+   * Method start
+   *
+   * Builds the provider authorization URL and returns the PKCE verifier required to complete the same flow.
+   *
+   * @access public
+   *
+   * @param FederatedProvider $provider the identity provider
+   * @param string $redirectUri the registered callback URI for this flow
+   * @param string $state the caller-generated CSRF state value
+   *
+   * @return FederatedAuthorization the authorization URL and PKCE verifier
+   *
+   * @throws FederatedProviderFailureException when the provider is disabled or cannot create a verifier
+   */
   public function start(
     FederatedProvider $provider,
     string $redirectUri,
@@ -82,6 +126,23 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
     return new FederatedAuthorization($authorizationUrl, $codeVerifier);
   }
 
+  /**
+   * Method complete
+   *
+   * Exchanges the authorization code with its PKCE verifier and maps verified provider claims to a local profile.
+   *
+   * @access public
+   *
+   * @param FederatedProvider $provider the identity provider used for authorization
+   * @param string $redirectUri the callback URI used to obtain the authorization code
+   * @param string $code the provider-issued authorization code
+   * @param string $codeVerifier the PKCE verifier returned by start
+   *
+   * @return FederatedProfile the stable external identity and profile details
+   *
+   * @throws FederatedProviderFailureException when the provider returns an unsupported token
+   * @throws FederatedAuthException when the provider identity or email is unusable
+   */
   public function complete(
     FederatedProvider $provider,
     string $redirectUri,
@@ -121,6 +182,20 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
     );
   }
 
+  /**
+   * Method client
+   *
+   * Creates the provider-specific PKCE client with bounded HTTP timeouts and the callback URI for this flow.
+   *
+   * @access private
+   *
+   * @param FederatedProvider $provider the provider client to create
+   * @param string $redirectUri the callback URI registered for the authorization flow
+   *
+   * @return AbstractProvider the configured League OAuth client
+   *
+   * @throws FederatedProviderFailureException when the provider is not enabled
+   */
   private function client(FederatedProvider $provider, string $redirectUri): AbstractProvider
   {
     if (!$this->isEnabled($provider)) {
@@ -147,9 +222,19 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
       ], ['httpClient' => new Client(['connect_timeout' => 5.0, 'timeout' => 10.0])]),
     };
   }
+  // #endregion
 
   /**
-   * @param array<string, mixed> $claims
+   * Method claim
+   *
+   * Reads a non-empty string claim and trims whitespace before returning it.
+   *
+   * @access private
+   *
+   * @param array<string, mixed> $claims provider claims returned by the user-info endpoint
+   * @param string $key claim name
+   *
+   * @return string trimmed claim value, or an empty string when absent or non-string
    */
   private function claim(array $claims, string $key): string
   {

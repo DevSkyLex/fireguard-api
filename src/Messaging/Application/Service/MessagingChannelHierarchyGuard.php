@@ -42,7 +42,6 @@ use function sprintf;
  * {@see MessagingValidationException} (`422`).
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

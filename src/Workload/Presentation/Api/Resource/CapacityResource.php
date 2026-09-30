@@ -15,7 +15,6 @@ use Workload\Presentation\Api\Provider\CapacityProvider;
  * CapacityResource.
  *
  * @category Workload
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,6 +31,9 @@ use Workload\Presentation\Api\Provider\CapacityProvider;
 final class CapacityResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
   // #endregion
 }

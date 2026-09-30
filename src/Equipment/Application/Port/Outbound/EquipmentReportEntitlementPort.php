@@ -16,7 +16,6 @@ namespace Equipment\Application\Port\Outbound;
  * so the `pro`/`max` allow-list lives in exactly one place.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

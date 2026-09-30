@@ -13,7 +13,6 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
  * DTO TenantInput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

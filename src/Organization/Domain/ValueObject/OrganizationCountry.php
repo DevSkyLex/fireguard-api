@@ -21,7 +21,6 @@ use function trim;
  * ISO 3166-1 alpha-2 code set.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -29,6 +28,9 @@ use function trim;
 final readonly class OrganizationCountry implements Stringable
 {
   // #region Constants
+  /**
+   * Constant PATTERN
+   */
   private const string PATTERN = '/^[A-Z]{2}$/';
 
   /**
@@ -66,6 +68,9 @@ final readonly class OrganizationCountry implements Stringable
   // #endregion
 
   // #region Properties
+  /**
+   * Property value
+   */
   private string $value;
   // #endregion
 

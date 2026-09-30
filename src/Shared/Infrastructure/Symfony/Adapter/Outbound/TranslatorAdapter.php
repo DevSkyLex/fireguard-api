@@ -14,7 +14,6 @@ use Throwable;
  * Adapter TranslatorAdapter.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -51,9 +50,9 @@ final readonly class TranslatorAdapter implements TranslationPort
    * @param ?string $domain the translation domain
    * @param ?string $locale the locale to use for translation
    *
-   * @throws TranslationException if the translation fails
-   *
    * @return string the translated message
+   *
+   * @throws TranslationException if the translation fails
    */
   public function translate(
     string $id,

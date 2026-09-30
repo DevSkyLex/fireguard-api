@@ -13,7 +13,6 @@ namespace Billing\Application\Service;
  * matching cadence is not offered.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

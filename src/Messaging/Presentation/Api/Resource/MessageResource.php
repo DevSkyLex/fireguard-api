@@ -16,7 +16,6 @@ use Symfony\Component\HttpFoundation\Response;
  * Resource MessageResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -267,6 +266,9 @@ use Symfony\Component\HttpFoundation\Response;
 final class MessageResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
   // #endregion
 }

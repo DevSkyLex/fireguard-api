@@ -17,7 +17,6 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  * draft through the workflow gateway.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -22,7 +22,6 @@ use PHPUnit\Framework\TestCase;
  * produce a team belonging to nobody, so that case must fail loudly.
  *
  * @category Mapper Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

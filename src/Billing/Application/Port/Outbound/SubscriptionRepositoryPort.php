@@ -13,7 +13,6 @@ use Billing\Domain\Model\Subscription\Subscription;
  * one subscription per organization.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -34,24 +34,57 @@ use function rtrim;
 use function trim;
 
 /**
- * OAuth2 error mapping for token endpoints.
+ * Class OAuthErrorSubscriber
+ *
+ * Maps failures from OAuth token operations to protocol-compatible error responses.
  *
  * @category Event Subscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class OAuthErrorSubscriber implements EventSubscriberInterface
 {
+  // #region Constants
+  /**
+   * Constant CACHE_HEADERS
+   *
+   * Prevents OAuth error payloads from being cached by clients or intermediaries.
+   *
+   * @access private
+   *
+   * @var array<string, string>
+   */
   private const array CACHE_HEADERS = [
     'Cache-Control' => 'no-store',
     'Pragma' => 'no-cache',
   ];
+  // #endregion
 
+  // #region Properties
+  /**
+   * Property errorUriBase
+   *
+   * Optional configured base used to construct OAuth error documentation links.
+   *
+   * @access private
+   */
   private readonly string $errorUriBase;
+  // #endregion
 
-  // #region Methods
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Stores the current authentication token source and optional OAuth error-documentation URI base.
+   *
+   * @access public
+   *
+   * @param TokenStorageInterface $tokenStorage supplies the current authenticated token for security error mapping
+   * @param ?string $errorUriBase optional base URI for RFC error links
+   *
+   * @return void
+   */
   public function __construct(
     private readonly TokenStorageInterface $tokenStorage,
     #[Autowire('%env(default::OAUTH_ERROR_URI_BASE)%')]
@@ -59,8 +92,16 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
   ) {
     $this->errorUriBase = $errorUriBase ?? '';
   }
+  // #endregion
 
+  // #region Methods
   /**
+   * Method getSubscribedEvents
+   *
+   * Runs OAuth exception mapping before Symfony's security exception listener can serialize token-operation failures.
+   *
+   * @access public
+   *
    * @return array<string, array{0: string, 1: int}>
    */
   public static function getSubscribedEvents(): array
@@ -71,6 +112,14 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onKernelException
+   *
+   * Replaces exceptions from configured token operations with OAuth-shaped JSON and stops later exception listeners.
+   *
+   * @access public
+   *
+   * @param ExceptionEvent $event kernel exception event for the failed request
+   *
    * @return void no return value
    */
   public function onKernelException(ExceptionEvent $event): void
@@ -96,6 +145,17 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
     $event->stopPropagation();
   }
 
+  /**
+   * Method isOAuthOperation
+   *
+   * Restricts OAuth error mapping to API operations listed in the token-operation contract.
+   *
+   * @access private
+   *
+   * @param Request $request current HTTP request
+   *
+   * @return bool whether the request targets an OAuth token operation
+   */
   private function isOAuthOperation(Request $request): bool
   {
     $operationName = $request->attributes->get('_api_operation_name');
@@ -105,6 +165,15 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method resolveOAuthError
+   *
+   * Maps validation, OAuth, security and HTTP failures to their protocol error code, status and headers.
+   *
+   * @access private
+   *
+   * @param Throwable $exception exception raised by request processing
+   * @param ?string $operationName matched OAuth operation, when available
+   *
    * @return array{body: array<string, string>, status: int, headers: array<string, string>}
    */
   private function resolveOAuthError(Throwable $exception, ?string $operationName): array
@@ -141,6 +210,17 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
     };
   }
 
+  /**
+   * Method unwrapMessengerException
+   *
+   * Finds nested OAuth protocol failures inside Messenger wrappers while preserving unrelated exceptions.
+   *
+   * @access private
+   *
+   * @param Throwable $exception exception raised by the operation
+   *
+   * @return Throwable OAuth failure when found, otherwise the original exception
+   */
   private function unwrapMessengerException(Throwable $exception): Throwable
   {
     $unwrapped = null;
@@ -169,6 +249,17 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
     return $unwrapped ?? $exception;
   }
 
+  /**
+   * Method oauthWrappedException
+   *
+   * Returns the first wrapped authorization failure recognized by the OAuth error mapper.
+   *
+   * @access private
+   *
+   * @param HandlerFailedException $exception Messenger failure containing handler exceptions
+   *
+   * @return ?Throwable the first OAuth exception, or null
+   */
   private function oauthWrappedException(HandlerFailedException $exception): ?Throwable
   {
     foreach ($exception->getWrappedExceptions() as $nestedException) {
@@ -181,9 +272,8 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
   }
 
   /**
-   * @return array{body: array<string, string>, status: int, headers: array<string, string>}
-   */
-  /**
+   * Method buildSecurityError
+   *
    * Maps a Symfony security failure to its RFC 6749 §5.2 shape.
    *
    * This subscriber runs at priority 10, ahead of Symfony's own security
@@ -191,6 +281,11 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
    * `AccessDeniedException` never reaches the listener that would turn it into
    * a 401. Without this branch it falls through to `server_error`, and an
    * anonymous caller reads a 500 where the endpoint in fact rejected them.
+   *
+   * @access private
+   *
+   * @param Throwable $exception authentication or authorization failure
+   * @param ?string $operationName matched OAuth operation, when available
    *
    * @return array{body: array<string, string>, status: int, headers: array<string, string>}
    */
@@ -204,6 +299,15 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method buildHttpExceptionError
+   *
+   * Maps Symfony HTTP status codes to OAuth errors and carries through representable exception headers.
+   *
+   * @access private
+   *
+   * @param HttpExceptionInterface $exception HTTP failure to map
+   * @param ?string $operationName matched OAuth operation, when available
+   *
    * @return array{body: array<string, string>, status: int, headers: array<string, string>}
    */
   private function buildHttpExceptionError(HttpExceptionInterface $exception, ?string $operationName): array
@@ -242,6 +346,17 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method buildError
+   *
+   * Creates the error body, protocol status, no-cache headers and client-authentication challenge when applicable.
+   *
+   * @access private
+   *
+   * @param string $error OAuth error code
+   * @param ?string $description candidate public description
+   * @param int $status HTTP status to return
+   * @param ?string $operationName matched OAuth operation, when available
+   *
    * @return array{body: array<string, string>, status: int, headers: array<string, string>}
    */
   private function buildError(string $error, ?string $description, int $status, ?string $operationName): array
@@ -268,6 +383,18 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
     ];
   }
 
+  /**
+   * Method normalizeDescription
+   *
+   * Replaces sensitive client/server details with stable public text and supplies protocol defaults when descriptions are blank.
+   *
+   * @access private
+   *
+   * @param string $error OAuth error code
+   * @param ?string $description exception description to expose when allowed
+   *
+   * @return string normalized public error description
+   */
   private function normalizeDescription(string $error, ?string $description): string
   {
     $normalized = trim((string) $description);
@@ -288,6 +415,18 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
     };
   }
 
+  /**
+   * Method buildErrorUri
+   *
+   * Builds a configured fragment link or selects the RFC section for the current token endpoint.
+   *
+   * @access private
+   *
+   * @param string $error OAuth error code used as the URI fragment
+   * @param ?string $operationName operation that produced the error
+   *
+   * @return string documentation URI for the error
+   */
   private function buildErrorUri(string $error, ?string $operationName): string
   {
     $base = trim($this->errorUriBase);
@@ -302,6 +441,17 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
     };
   }
 
+  /**
+   * Method buildViolationDescription
+   *
+   * Joins constraint paths and messages into the invalid-request description, or returns null when no usable violations exist.
+   *
+   * @access private
+   *
+   * @param Throwable $exception exception that may expose validation violations
+   *
+   * @return ?string formatted violation text, or null when none is available
+   */
   private function buildViolationDescription(Throwable $exception): ?string
   {
     if (!method_exists($exception, 'getViolations')) {

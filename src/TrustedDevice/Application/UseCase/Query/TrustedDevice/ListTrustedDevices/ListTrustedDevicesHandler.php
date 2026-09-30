@@ -15,10 +15,23 @@ use function count;
  */
 final readonly class ListTrustedDevicesHandler implements QueryHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Returns the caller’s trusted devices using the repository port.
+   *
+   * @access public
+   *
+   * @param TrustedDeviceRepositoryPort $repository port used to list trusted-device records for the user
+   *
+   * @return void
+   */
   public function __construct(
     private TrustedDeviceRepositoryPort $repository,
   ) {
   }
+  // #endregion
 
   /**
    * @return PaginatedResult<TrustedDeviceItemResult>

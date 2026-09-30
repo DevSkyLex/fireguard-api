@@ -21,7 +21,6 @@ use function sprintf;
  * published contract, and changing one belongs in its own decision.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

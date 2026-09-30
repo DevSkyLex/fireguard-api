@@ -17,7 +17,6 @@ use User\Application\UseCase\Query\User\AuthenticateUser\{AuthenticateUserQuery,
  * Bridges the Auth module with the User module.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -41,6 +40,18 @@ final readonly class UserAuthenticationAdapter implements UserAuthenticationPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method authenticate.
+   *
+   * Dispatches credential verification and returns a failed result when it cannot complete.
+   *
+   * @access public
+   *
+   * @param string $email the account email used for authentication
+   * @param string $password the submitted password
+   *
+   * @return UserAuthenticationResult the authentication outcome
+   */
   public function authenticate(string $email, string $password): UserAuthenticationResult
   {
     try {

@@ -21,7 +21,6 @@ use Symfony\Component\HttpFoundation\Response;
  * Declares the Google and Microsoft sign-in, callback and connection API.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -109,5 +108,8 @@ use Symfony\Component\HttpFoundation\Response;
 )]
 final class FederatedAuthResource
 {
+  /**
+   * Constant USER_SECURITY
+   */
   private const USER_SECURITY = "is_granted('ROLE_USER')";
 }

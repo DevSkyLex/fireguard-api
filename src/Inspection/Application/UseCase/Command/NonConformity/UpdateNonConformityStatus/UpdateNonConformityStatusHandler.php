@@ -17,7 +17,6 @@ use ValueError;
  * UseCase UpdateNonConformityStatusHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -25,6 +24,19 @@ use ValueError;
 final readonly class UpdateNonConformityStatusHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives inspection and non-conformity repositories plus event dispatch for status changes.
+   *
+   * @access public
+   *
+   * @param InspectionRepositoryPort $inspectionRepository port used to validate the inspection scope
+   * @param NonConformityRepositoryPort $nonConformityRepository port used to load and persist finding state
+   * @param EventDispatcherPort $eventDispatcher port used to publish the committed status-change event
+   *
+   * @return void
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,

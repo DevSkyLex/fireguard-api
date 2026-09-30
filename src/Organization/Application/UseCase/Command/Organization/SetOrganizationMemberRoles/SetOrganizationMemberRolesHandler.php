@@ -37,7 +37,6 @@ use function count;
  * event — a no-op diff dispatches nothing.
  *
  * @category UseCase
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -82,14 +81,14 @@ final readonly class SetOrganizationMemberRolesHandler implements CommandHandler
    *
    * @param SetOrganizationMemberRolesCommand $command the command payload
    *
+   * @return SetOrganizationMemberRolesResult the use case result
+   *
    * @throws OrganizationNotFoundException when the organization does not exist
    * @throws OrganizationMemberNotFoundException when the member does not
    *                                             belong to the organization
    *                                             or is not active
    * @throws OrganizationRoleNotFoundException when a requested role id does
    *                                           not exist in this organization
-   *
-   * @return SetOrganizationMemberRolesResult the use case result
    */
   public function __invoke(SetOrganizationMemberRolesCommand $command): SetOrganizationMemberRolesResult
   {

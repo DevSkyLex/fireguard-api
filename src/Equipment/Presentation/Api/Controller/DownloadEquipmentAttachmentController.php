@@ -46,7 +46,6 @@ use function is_string;
  * See `src/Equipment/MODULE.md`.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

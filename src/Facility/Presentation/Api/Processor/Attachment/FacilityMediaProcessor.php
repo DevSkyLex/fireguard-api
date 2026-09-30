@@ -32,7 +32,6 @@ use function is_string;
  * `DELETE /facility-attachments/{id}`.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -42,10 +41,34 @@ use function is_string;
 final readonly class FacilityMediaProcessor implements ProcessorInterface
 {
   // #region Constants
+  /**
+   * Constant ATTACHMENT_NOT_FOUND_MESSAGE.
+   *
+   * Stable public message returned when a facility attachment is unavailable.
+   *
+   * @access private
+   */
   private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides authorized facility attachment processing, upload, and removal dependencies.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager the main entity manager
+   * @param CommandBusPort $commandBus dispatches attachment commands
+   * @param OrganizationAuthorizationPort $authorization enforces organization access
+   * @param Security $security resolves the authenticated user
+   * @param RequestStack $requestStack provides the current request
+   * @param MultipartAttachmentGuard $attachmentGuard validates uploaded file type and size
+   * @param RevisionGuard $revisionGuard checks facility revision constraints
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,

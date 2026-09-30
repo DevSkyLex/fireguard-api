@@ -33,6 +33,32 @@ env:
   MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
 
 jobs:
+  agent-tooling:
+    name: Agent Tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Validate local tooling and declarations
+        run: |
+          python -B .codex/scripts/validate.py --local-only
+          python -B .github/scripts/check_agent_parity.py --local-only
+      - name: Test tooling failure paths and hooks
+        run: |
+          python -B -m unittest discover -s .codex/scripts -p 'test_*.py'
+          python -B -m unittest discover -s .github/scripts -p 'test_agent_parity.py'
+          node --test .codex/hooks/adapter.test.mjs
+
   documentation:
     name: Documentation
     runs-on: ubuntu-latest
@@ -121,7 +147,7 @@ jobs:
       - name: Run Deptrac
         run: |
           vendor/bin/deptrac analyse --config-file=deptrac.yaml
-          vendor/bin/deptrac analyse --config-file=deptrac.modules.php
+          vendor/bin/deptrac analyse --config-file=tests/Architecture/deptrac/modules.php
 
   # ==========================================================================
   # PHPUnit Test Suites
@@ -301,7 +327,7 @@ jobs:
           auth-database-url: ${{ env.AUTH_DATABASE_URL }}
           main-database-url: ${{ env.MAIN_DATABASE_URL }}
 
-      # This suite runs against its own seeded databases — see phpunit.e2e.xml.
+      # This suite runs against its own seeded databases — see tests/E2E/phpunit.xml.
       # The other suites need those same tables empty, which is why the two
       # halves cannot share a config.
       - name: Create and seed the end-to-end databases
@@ -321,13 +347,13 @@ jobs:
       # do because POSTGRES_USER is a superuser.
       - name: Run end-to-end flow tests with coverage
         env:
-          # Overrides the workflow-level URLs and phpunit.e2e.xml's local
+          # Overrides the workflow-level URLs and tests/E2E/phpunit.xml's local
           # defaults: a real environment variable wins over both.
           AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_e2e?serverVersion=16
           MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_e2e?serverVersion=16
         run: |
           vendor/bin/paratest \
-            -c phpunit.e2e.xml \
+            -c tests/E2E/phpunit.xml \
             --processes="$(nproc)" \
             --coverage-clover=var/coverage/e2e.xml \
             --coverage-php=var/coverage/e2e.php \
@@ -603,7 +629,7 @@ jobs:
           docker compose -f compose.prod.yaml -f compose.dev.yaml config --quiet
 
       - name: Verify Mercure client compatibility and denial paths
-        run: python3 scripts/check-mercure-contract.py
+        run: python3 .github/scripts/check-mercure-contract.py
 
   # ==========================================================================
   # Mutation Testing (manual opt-in only)

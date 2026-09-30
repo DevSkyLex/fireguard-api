@@ -26,6 +26,20 @@ use function time;
  */
 final readonly class PublishTypingProcessor implements ProcessorInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides command dispatch, authenticated actor resolution and the typing rate limiter.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus dispatches conversation signal commands
+   * @param CurrentActorPort $actor resolves the authenticated user
+   * @param RateLimiterFactory $rateLimiter limits typing signal frequency
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private CurrentActorPort $actor,
@@ -34,6 +48,25 @@ final readonly class PublishTypingProcessor implements ProcessorInterface
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method process
+   *
+   * Publishes the authenticated user's typing state after validating the conversation and rate limit.
+   *
+   * @access public
+   *
+   * @param mixed $data the input containing the typing state
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables the route variables containing the conversation identifier
+   * @param array<string, mixed> $context the processor context
+   *
+   * @return ConversationSignalOutput the accepted signal output
+   *
+   * @throws AccessDeniedHttpException when no authenticated actor is available
+   * @throws BadRequestHttpException when the conversation id or typing state is invalid
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConversationSignalOutput
   {
     $userId = $this->actor->userId();
@@ -54,4 +87,5 @@ final readonly class PublishTypingProcessor implements ProcessorInterface
 
     return new ConversationSignalOutput();
   }
+  // #endregion
 }

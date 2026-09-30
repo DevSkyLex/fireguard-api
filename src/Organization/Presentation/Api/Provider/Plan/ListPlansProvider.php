@@ -23,7 +23,6 @@ use function array_map;
  * users see only selectable plans for self-service.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

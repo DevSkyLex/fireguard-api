@@ -28,7 +28,6 @@ use function strlen;
  * Processor AddAttachmentProcessor.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -40,6 +39,19 @@ final readonly class AddAttachmentProcessor implements ProcessorInterface
   use EquipmentExceptionUnwrapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives the command bus, organization authorization, and security context used by attachment creation.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus port used to dispatch the attachment command
+   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
+   * @param Security $security security context used to obtain the acting member
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,

@@ -10,7 +10,6 @@ namespace Otp\Domain\ValueObject;
  * Represents the purpose/context for OTP verification.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

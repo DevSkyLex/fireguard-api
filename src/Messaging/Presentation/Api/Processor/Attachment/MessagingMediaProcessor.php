@@ -35,7 +35,6 @@ use function is_string;
  * delete, and the HTTP-facing output.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -47,6 +46,22 @@ final readonly class MessagingMediaProcessor implements ProcessorInterface
   use MessagingExceptionMapperTrait;
 
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Translates upload and deletion requests into attachment commands and HTTP responses.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager entity manager used to reload persisted attachment output and revisions
+   * @param CommandBusPort $commandBus bus used to dispatch attachment commands
+   * @param Security $security security context used to identify the authenticated user
+   * @param RequestStack $requestStack current request used to read multipart data and HTTP method
+   * @param MultipartAttachmentGuard $attachmentGuard guard that validates multipart attachment uploads
+   * @param RevisionGuard $revisionGuard guard that checks the attachment revision precondition
+   *
+   * @return void
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,

@@ -19,7 +19,6 @@ use function is_string;
  * Shares the list date parsing and applies every list filter to the CSV export.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

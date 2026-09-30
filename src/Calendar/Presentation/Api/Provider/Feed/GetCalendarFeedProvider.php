@@ -28,7 +28,6 @@ use function is_string;
  * and {@see \Calendar\Application\Service\CalendarFeedAggregator}.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

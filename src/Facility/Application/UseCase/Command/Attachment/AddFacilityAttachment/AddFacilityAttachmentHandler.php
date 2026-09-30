@@ -20,7 +20,6 @@ use ValueError;
  * UseCase AddFacilityAttachmentHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -28,6 +27,20 @@ use ValueError;
 final readonly class AddFacilityAttachmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives facility and attachment repositories, file storage, and an identifier factory for attachment creation.
+   *
+   * @access public
+   *
+   * @param FacilityRepositoryPort $facilityRepository port used to validate the facility and its organization scope
+   * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to check attachment identity and persist metadata
+   * @param FileStoragePort $fileStorage port used to write the file and remove it if persistence fails
+   * @param UuidFactory $uuidFactory factory used to create an attachment identifier when none is supplied
+   *
+   * @return void
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,

@@ -12,7 +12,6 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
  * Model OrganizationMember.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -20,6 +19,21 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 final class OrganizationMember
 {
   // #region Constructor
+  /**
+   * Method __construct.
+   *
+   * Initializes membership identity, organization scope and active lifecycle state.
+   *
+   * @access private
+   *
+   * @param OrganizationMemberId $id organization member identifier
+   * @param OrganizationId $organizationId organization identifier for this membership
+   * @param string $userId user account linked to the membership
+   * @param bool $isActive whether the membership is active
+   * @param DateTimeImmutable $joinedAt timestamp when the membership began
+   *
+   * @return void
+   */
   private function __construct(
     private OrganizationMemberId $id,
     private OrganizationId $organizationId,
@@ -35,13 +49,16 @@ final class OrganizationMember
   /**
    * Method join.
    *
-   * Executes the join operation.
+   * Creates a new membership in the supplied organization for the identified user.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param OrganizationMemberId $id the id value
    * @param OrganizationId $organizationId the organization identifier
    * @param string $userId the user identifier
+   *
+   * @return self the new active membership
    */
   public static function join(OrganizationMemberId $id, OrganizationId $organizationId, string $userId): self
   {

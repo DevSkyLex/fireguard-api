@@ -21,7 +21,6 @@ use function sprintf;
  * most one pending request — a new request replaces the previous one.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -88,9 +87,9 @@ final class EmailChangeRequest
    * @param string $tokenHash the SHA-256 hash of the confirmation token
    * @param DateTimeImmutable $requestedAt when the request is created
    *
-   * @throws EmailChangeNotAllowedException when the new address equals the current one
-   *
    * @return self the pending request
+   *
+   * @throws EmailChangeNotAllowedException when the new address equals the current one
    */
   public static function request(
     string $id,
@@ -168,9 +167,9 @@ final class EmailChangeRequest
    *
    * @param DateTimeImmutable $now the current time
    *
-   * @throws EmailChangeRequestNotFoundException when the request is expired or already confirmed
-   *
    * @return void No return value
+   *
+   * @throws EmailChangeRequestNotFoundException when the request is expired or already confirmed
    */
   public function confirm(DateTimeImmutable $now): void
   {

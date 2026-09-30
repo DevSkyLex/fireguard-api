@@ -22,7 +22,6 @@ use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
  * those seven cases. Widening that enum would break the equivalence.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

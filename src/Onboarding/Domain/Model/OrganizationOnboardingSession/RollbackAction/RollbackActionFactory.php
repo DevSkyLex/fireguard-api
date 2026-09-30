@@ -17,7 +17,6 @@ use function sprintf;
  * the domain model from JSON serialization details.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,9 +31,9 @@ final class RollbackActionFactory
    *
    * @param array<string, mixed> $data the raw persisted rollback action payload
    *
-   * @throws LogicException when the action type is unrecognised
-   *
    * @return RollbackActionInterface the reconstituted typed rollback action
+   *
+   * @throws LogicException when the action type is unrecognised
    */
   public static function fromArray(array $data): RollbackActionInterface
   {

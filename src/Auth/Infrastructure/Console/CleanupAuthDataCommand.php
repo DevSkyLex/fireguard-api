@@ -22,13 +22,12 @@ use function is_numeric;
 use function sprintf;
 
 /**
- * Command CleanupAuthDataCommand.
+ * Class CleanupAuthDataCommand
  *
  * Purges expired or revoked auth data
  * according to retention policy.
  *
  * @category Console
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -41,10 +40,29 @@ use function sprintf;
 final class CleanupAuthDataCommand extends Command
 {
   // #region Properties
+  /**
+   * Property defaultRetentionDays
+   *
+   * Default retention period for auth data cleanup when --days is omitted.
+   *
+   * @access private
+   */
   private int $defaultRetentionDays;
   // #endregion
 
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Configures the auth entity manager and fallback retention window used when running the cleanup command.
+   *
+   * @access public
+   *
+   * @param EntityManagerInterface $entityManager deletes or counts auth records
+   * @param int $defaultRetentionDays configured default cleanup retention
+   *
+   * @return void
+   */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
     #[Autowire('%env(int:DATA_RETENTION_DAYS)%')]
@@ -56,6 +74,15 @@ final class CleanupAuthDataCommand extends Command
   // #endregion
 
   // #region Methods
+  /**
+   * Method configure
+   *
+   * Defines retention-period and dry-run options for the cleanup command.
+   *
+   * @access protected
+   *
+   * @return void no return value
+   */
   protected function configure(): void
   {
     $this
@@ -73,6 +100,18 @@ final class CleanupAuthDataCommand extends Command
       );
   }
 
+  /**
+   * Method execute
+   *
+   * Counts or purges expired and revoked authentication records by retention rule.
+   *
+   * @access protected
+   *
+   * @param InputInterface $input command options and arguments
+   * @param OutputInterface $output command output stream
+   *
+   * @return int the Symfony command exit status
+   */
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
     $io = new SymfonyStyle($input, $output);
@@ -166,7 +205,18 @@ final class CleanupAuthDataCommand extends Command
   }
 
   /**
-   * @param class-string $entityClass
+   * Method countWhere
+   *
+   * Counts records matching a DQL predicate without deleting them.
+   *
+   * @access private
+   *
+   * @param class-string $entityClass Doctrine entity class to count
+   * @param string $alias DQL alias for the entity
+   * @param string $where DQL predicate applied to the query
+   * @param DateTimeImmutable $cutoff retention cutoff bound to the query
+   *
+   * @return int matching record count
    */
   private function countWhere(string $entityClass, string $alias, string $where, DateTimeImmutable $cutoff): int
   {
@@ -182,7 +232,18 @@ final class CleanupAuthDataCommand extends Command
   }
 
   /**
-   * @param class-string $entityClass
+   * Method deleteWhere
+   *
+   * Deletes records matching a DQL predicate and returns the affected row count.
+   *
+   * @access private
+   *
+   * @param class-string $entityClass Doctrine entity class to delete
+   * @param string $alias DQL alias for the entity
+   * @param string $where DQL predicate applied to the delete query
+   * @param DateTimeImmutable $cutoff retention cutoff bound to the query
+   *
+   * @return int deleted row count
    */
   private function deleteWhere(string $entityClass, string $alias, string $where, DateTimeImmutable $cutoff): int
   {

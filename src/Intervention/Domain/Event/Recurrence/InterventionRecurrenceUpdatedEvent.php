@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * toggle). Recorded in the audit ledger as `intervention.recurrence_updated`.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

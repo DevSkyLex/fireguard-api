@@ -11,7 +11,6 @@ use Symfony\Component\Validator\Constraint;
  * Constraint GrantTypeRequirements.
  *
  * @category Validation
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

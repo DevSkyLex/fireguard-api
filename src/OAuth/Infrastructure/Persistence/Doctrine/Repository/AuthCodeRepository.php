@@ -22,7 +22,6 @@ use function json_decode;
  * Repository AuthCodeRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -49,8 +48,8 @@ final class AuthCodeRepository implements AuthCodeRepositoryPort
   ) {
     $this->setEncryptionKey($encryptionKey);
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method save
@@ -119,6 +118,17 @@ final class AuthCodeRepository implements AuthCodeRepositoryPort
     );
   }
 
+  /**
+   * Method findByEncryptedCode
+   *
+   * Finds by encrypted code using the supplied criteria.
+   *
+   * @access public
+   *
+   * @param string $encryptedCode the encrypted code
+   *
+   * @return ?AuthCode
+   */
   public function findByEncryptedCode(string $encryptedCode): ?AuthCode
   {
     try {
@@ -170,6 +180,17 @@ final class AuthCodeRepository implements AuthCodeRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method resolveEncryptedIdentifier
+   *
+   * Resolves encrypted identifier from the supplied context.
+   *
+   * @access private
+   *
+   * @param string $encryptedCode the encrypted code
+   *
+   * @return ?string
+   */
   private function resolveEncryptedIdentifier(string $encryptedCode): ?string
   {
     try {

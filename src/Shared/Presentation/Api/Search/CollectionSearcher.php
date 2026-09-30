@@ -16,7 +16,6 @@ use function mb_stripos;
  * against specified string fields (case-insensitive).
  *
  * @category Search
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

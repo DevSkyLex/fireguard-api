@@ -15,7 +15,6 @@ use Shared\Domain\ValueObject\Uuid;
  * Handler RecordAuditEventHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

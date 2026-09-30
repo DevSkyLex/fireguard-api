@@ -22,7 +22,6 @@ use User\Domain\ValueObject\{HashedPassword, UserId};
  * the password and revokes sessions and OAuth tokens.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -119,6 +118,18 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
     return $this->changePassword(new UserId($command->userId), $command->newPassword);
   }
 
+  /**
+   * Method changePassword.
+   *
+   * Saves the new password and revokes the user's active sessions and OAuth tokens.
+   *
+   * @access private
+   *
+   * @param UserId $userId the account identifier
+   * @param string $newPassword the new plain password to hash and store
+   *
+   * @return ConfirmPasswordChangeResult the password change outcome
+   */
   private function changePassword(UserId $userId, string $newPassword): ConfirmPasswordChangeResult
   {
     $user = $this->userRepository->findById($userId);

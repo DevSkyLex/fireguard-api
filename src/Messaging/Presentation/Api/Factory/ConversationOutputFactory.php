@@ -11,7 +11,6 @@ use Messaging\Presentation\Api\Dto\Output\ConversationOutput;
  * Factory ConversationOutputFactory.
  *
  * @category Factory
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -38,6 +37,9 @@ final class ConversationOutputFactory
     'channel' => 'channels',
   ];
 
+  /**
+   * Constant ORGANIZATION_IRI_PREFIX
+   */
   private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
   // #endregion
 

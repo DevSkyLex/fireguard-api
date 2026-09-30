@@ -15,7 +15,6 @@ use Organization\Application\Contract\Maintenance\MaintenanceDueSummary;
  * implemented by `Maintenance\Infrastructure\Adapter\Organization\MaintenanceStatisticsAdapter`.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -19,13 +19,15 @@ use function min;
  * UseCase ListUserNotificationsHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class ListUserNotificationsHandler implements QueryHandler
 {
+  /**
+   * Constant HIDE_READ_AFTER_DAYS
+   */
   private const int HIDE_READ_AFTER_DAYS = 30;
 
   /**

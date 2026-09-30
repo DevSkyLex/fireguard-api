@@ -20,7 +20,6 @@ use Inspection\Domain\ValueObject\NonConformitySeverity;
  * `NonConformityRepositoryPort`.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -64,6 +63,17 @@ final readonly class InspectionComplianceStatisticsAdapter implements Inspection
   // #endregion
 
   // #region Methods
+  /**
+   * Method openNonConformitiesBySeverityByFacility.
+   *
+   * Counts open inspection non-conformities by severity and facility for an organization.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return array<string, array<string, int>> counts keyed by facility and severity
+   */
   public function openNonConformitiesBySeverityByFacility(string $organizationId): array
   {
     $sql = <<<'SQL'

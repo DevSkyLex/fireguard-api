@@ -32,7 +32,6 @@ use function time;
  * authenticated surface adds no second enumeration channel).
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -80,12 +79,12 @@ final readonly class RequestEmailChangeProcessor implements ProcessorInterface
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    *
+   * @return RequestEmailChangeOutput the output
+   *
    * @throws AccessDeniedHttpException when not authenticated
    * @throws ConflictHttpException when the address cannot be used (neutral)
    * @throws UnprocessableEntityHttpException when the current password is incorrect
    * @throws TooManyRequestsHttpException when rate limited
-   *
-   * @return RequestEmailChangeOutput the output
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RequestEmailChangeOutput
   {

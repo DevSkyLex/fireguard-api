@@ -27,7 +27,6 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
  * Resource UserResource.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -409,16 +408,34 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
 final class UserResource
 {
   // #region Constants
+  /**
+   * Constant VALIDATION_FAILED_DESCRIPTION
+   */
   private const string VALIDATION_FAILED_DESCRIPTION = 'Invalid request - validation failed';
 
+  /**
+   * Constant AUTHENTICATION_REQUIRED_DESCRIPTION
+   */
   private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
 
+  /**
+   * Constant USER_URI_TEMPLATE
+   */
   private const string USER_URI_TEMPLATE = '/users/{id}';
 
+  /**
+   * Constant USER_NOT_FOUND_DESCRIPTION
+   */
   private const string USER_NOT_FOUND_DESCRIPTION = 'User not found';
 
+  /**
+   * Constant SECURITY_USERS_UPDATE
+   */
   private const string SECURITY_USERS_UPDATE = "is_granted('users.update')";
   // #endregion
 }

@@ -22,7 +22,6 @@ use function in_array;
  * carries this state.
  *
  * @category Support
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

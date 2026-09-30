@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource OrganizationRoleResource.
  *
  * @category Resource
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -196,12 +195,24 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class OrganizationRoleResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant OPENAPI_TAG_ROLES
+   */
   private const string OPENAPI_TAG_ROLES = 'Organization Roles';
 
+  /**
+   * Constant ROLE_URI_TEMPLATE
+   */
   private const string ROLE_URI_TEMPLATE = '/{organizationId}/roles/{roleId}';
 
+  /**
+   * Constant INSUFFICIENT_PERMISSIONS_DESCRIPTION
+   */
   private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
   // #endregion
 }

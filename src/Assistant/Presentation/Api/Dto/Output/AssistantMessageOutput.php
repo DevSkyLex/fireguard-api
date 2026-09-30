@@ -12,7 +12,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * DTO AssistantMessageOutput.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -111,26 +110,45 @@ final class AssistantMessageOutput
   public ?string $completedAt = null;
 
   // #endregion
+
+  /**
+   * Property attemptId
+   */
   #[Groups([AssistantSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $attemptId = null;
 
+  /**
+   * Property attemptNumber
+   */
   #[Groups([AssistantSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public int $attemptNumber = 0;
 
+  /**
+   * Property attemptSequence
+   */
   #[Groups([AssistantSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public int $attemptSequence = 0;
 
+  /**
+   * Property attemptExpiresAt
+   */
   #[Groups([AssistantSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $attemptExpiresAt = null;
 
+  /**
+   * Property canCancel
+   */
   #[Groups([AssistantSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public bool $canCancel = false;
 
+  /**
+   * Property canRetry
+   */
   #[Groups([AssistantSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public bool $canRetry = false;

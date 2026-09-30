@@ -8,15 +8,25 @@ namespace Organization\Domain\ValueObject;
  * Enum OrganizationStatus.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum OrganizationStatus: string
 {
+  /**
+   * Case ACTIVE
+   */
   case ACTIVE = 'active';
+
+  /**
+   * Case SUSPENDED
+   */
   case SUSPENDED = 'suspended';
+
+  /**
+   * Case ARCHIVED
+   */
   case ARCHIVED = 'archived';
   // #region Methods
 

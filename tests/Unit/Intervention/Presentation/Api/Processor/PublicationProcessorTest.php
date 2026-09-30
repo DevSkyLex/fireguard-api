@@ -48,7 +48,6 @@ use Throwable;
  * messenger-wrapped form are exercised.
  *
  * @category Processor Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

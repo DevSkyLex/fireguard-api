@@ -28,7 +28,6 @@ use function trim;
  * 403.
  *
  * @category Doctrine Filter
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

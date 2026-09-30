@@ -13,7 +13,6 @@ use DateTimeImmutable;
  * duplicated into a new, independent branch of the location hierarchy.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

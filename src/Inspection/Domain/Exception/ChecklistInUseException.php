@@ -18,7 +18,6 @@ use function sprintf;
  * data). Only the name and reference code remain editable in that case.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

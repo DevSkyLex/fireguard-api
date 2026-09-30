@@ -26,7 +26,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * idempotence: the second call neither mutates nor re-dispatches the event.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -59,9 +58,9 @@ final readonly class RestoreOrganizationHandler implements CommandHandler
    *
    * @param RestoreOrganizationCommand $command the command payload
    *
-   * @throws OrganizationNotFoundException when the organization does not exist
-   *
    * @return RestoreOrganizationResult the use case result
+   *
+   * @throws OrganizationNotFoundException when the organization does not exist
    */
   public function __invoke(RestoreOrganizationCommand $command): RestoreOrganizationResult
   {

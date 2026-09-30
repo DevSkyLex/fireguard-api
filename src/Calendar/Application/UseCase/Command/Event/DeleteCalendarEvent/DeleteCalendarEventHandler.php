@@ -16,7 +16,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * UseCase DeleteCalendarEventHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,6 +23,9 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 final readonly class DeleteCalendarEventHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant WRITE_PERMISSION
+   */
   private const string WRITE_PERMISSION = 'organization.events.write';
   // #endregion
 
@@ -53,9 +55,9 @@ final readonly class DeleteCalendarEventHandler implements CommandHandler
    *
    * @param DeleteCalendarEventCommand $command the command payload
    *
-   * @throws CalendarEventNotFoundException when the event does not exist in this organization
-   *
    * @return DeleteCalendarEventResult the use case result
+   *
+   * @throws CalendarEventNotFoundException when the event does not exist in this organization
    */
   public function __invoke(DeleteCalendarEventCommand $command): DeleteCalendarEventResult
   {

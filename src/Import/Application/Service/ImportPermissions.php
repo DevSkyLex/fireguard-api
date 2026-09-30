@@ -9,6 +9,19 @@ use Import\Domain\ValueObject\ImportKind;
 /** Permission names are part of the Organization public authorization contract. */
 final class ImportPermissions
 {
+  /**
+   * Method read.
+   *
+   * Returns the read permission associated with an import kind.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @param ImportKind $kind the import kind
+   *
+   * @return string the permission identifier
+   */
   public static function read(ImportKind $kind): string
   {
     return match ($kind) {
@@ -18,6 +31,19 @@ final class ImportPermissions
     };
   }
 
+  /**
+   * Method write.
+   *
+   * Returns the write or management permission associated with an import kind.
+   *
+   * @access public
+   *
+   * @static
+   *
+   * @param ImportKind $kind the import kind
+   *
+   * @return string the permission identifier
+   */
   public static function write(ImportKind $kind): string
   {
     return match ($kind) {

@@ -18,7 +18,6 @@ use Doctrine\ORM\Mapping as ORM;
  * the owning records. Rows are append-only: a snapshot is never updated.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

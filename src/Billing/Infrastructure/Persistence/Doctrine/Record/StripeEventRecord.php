@@ -11,7 +11,6 @@ use Doctrine\ORM\Mapping as ORM;
  * Receipt of a committed reconciliation; no raw Stripe payload or payment data.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -21,23 +20,43 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_billing_event_org_processed', columns: ['organization_id', 'processed_at'])]
 class StripeEventRecord
 {
+  // #region Properties
+  /**
+   * Property eventId
+   */
   #[ORM\Id]
   #[ORM\Column(name: 'event_id', length: 255)]
   public string $eventId;
 
+  /**
+   * Property liveMode
+   */
   #[ORM\Id]
   #[ORM\Column(name: 'live_mode', type: 'boolean')]
   public bool $liveMode;
 
+  /**
+   * Property organizationId
+   */
   #[ORM\Column(name: 'organization_id', length: 36)]
   public string $organizationId;
 
+  /**
+   * Property eventType
+   */
   #[ORM\Column(name: 'event_type', length: 128)]
   public string $eventType;
 
+  /**
+   * Property eventCreated
+   */
   #[ORM\Column(name: 'event_created', type: 'integer')]
   public int $eventCreated;
 
+  /**
+   * Property processedAt
+   */
   #[ORM\Column(name: 'processed_at', type: 'datetime_immutable')]
   public DateTimeImmutable $processedAt;
+  // #endregion
 }

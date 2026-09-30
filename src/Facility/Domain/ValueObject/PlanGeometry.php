@@ -22,7 +22,6 @@ use function is_string;
  * the plan being re-rendered at a different resolution.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -41,6 +40,9 @@ final readonly class PlanGeometry
   // #endregion
 
   // #region Properties
+  /**
+   * Property attachmentId
+   */
   private string $attachmentId;
 
   /**

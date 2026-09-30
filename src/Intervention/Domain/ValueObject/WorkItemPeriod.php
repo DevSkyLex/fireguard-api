@@ -11,7 +11,6 @@ use Intervention\Domain\Exception\InterventionValidationException;
  * Value object WorkItemPeriod, expressed as inclusive organization-local dates.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

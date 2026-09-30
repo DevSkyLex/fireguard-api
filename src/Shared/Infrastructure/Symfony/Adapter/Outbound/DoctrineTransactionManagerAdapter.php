@@ -14,7 +14,6 @@ use Throwable;
  * Adapter DoctrineTransactionManagerAdapter.
  *
  * @category Outbound Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -51,9 +50,9 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
    *
    * @param callable():T $operation the operation to execute within a transaction
    *
-   * @throws TransactionExecutionException if an exception occurs during the transaction
-   *
    * @return T the result of the operation
+   *
+   * @throws TransactionExecutionException if an exception occurs during the transaction
    */
   public function transactional(callable $operation): mixed
   {

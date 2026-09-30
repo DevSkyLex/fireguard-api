@@ -17,7 +17,6 @@ use function sprintf;
  * Presentation layer can surface a dedicated "upgrade required" 403 message.
  *
  * @category Exception
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

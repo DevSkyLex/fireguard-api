@@ -11,7 +11,6 @@ namespace Inspection\Application\Contract\Statistics;
  * resolution (the handler resolves names through the naming port).
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

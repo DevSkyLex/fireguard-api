@@ -31,7 +31,6 @@ use function trim;
  * `Infrastructure/Persistence/` Doctrine record mappers in this codebase.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -48,9 +47,9 @@ final readonly class MemberRowFactory
    * @param string $invitedByUserId the inviting user identifier (the import job's creator)
    * @param array<string, string> $row the associative CSV data row
    *
-   * @throws ImportRowValidationException when the required `email` column is missing or blank
-   *
    * @return ProvisionMemberInvitationRequest the mapped provisioning request
+   *
+   * @throws ImportRowValidationException when the required `email` column is missing or blank
    */
   public function map(string $organizationId, string $invitedByUserId, array $row): ProvisionMemberInvitationRequest
   {

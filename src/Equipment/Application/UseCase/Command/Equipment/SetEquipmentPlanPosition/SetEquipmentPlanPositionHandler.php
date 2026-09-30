@@ -25,7 +25,6 @@ use function array_map;
  * (with `null` `x`/`y`) clears the position.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -33,6 +32,19 @@ use function array_map;
 final readonly class SetEquipmentPlanPositionHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Receives equipment, floor-plan validation, and tag capabilities used to validate and persist a position change.
+   *
+   * @access public
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository port used to load and persist equipment position
+   * @param EquipmentFloorPlanValidationPort $floorPlanValidation port used to validate the referenced floor-plan attachment and coordinates
+   * @param TagRepositoryPort $tagRepository port used by equipment status handling
+   *
+   * @return void
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private EquipmentFloorPlanValidationPort $floorPlanValidation,

@@ -23,7 +23,6 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
  * settings left every endpoint answering. The permission alone decided access.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -31,6 +30,9 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 final readonly class AssistantAccessPolicy
 {
   // #region Constants
+  /**
+   * Constant USE_PERMISSION
+   */
   private const string USE_PERMISSION = 'organization.assistant.use';
   // #endregion
 

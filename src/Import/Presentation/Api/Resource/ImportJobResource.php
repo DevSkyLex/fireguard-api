@@ -20,7 +20,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * organization's imports (`GET /imports`).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -159,8 +158,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class ImportJobResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant ORGANIZATION_IRI_DESCRIPTION
+   */
   private const string ORGANIZATION_IRI_DESCRIPTION = 'Organization IRI.';
   // #endregion
 }

@@ -21,7 +21,6 @@ use function trim;
  * Provider GetUnreadNotificationsCountProvider.
  *
  * @category Provider
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

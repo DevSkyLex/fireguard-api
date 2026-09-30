@@ -13,7 +13,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * UseCase ReadCanonicalInspectionHandler.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

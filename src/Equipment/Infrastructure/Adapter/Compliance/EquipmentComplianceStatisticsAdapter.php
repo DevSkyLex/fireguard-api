@@ -21,7 +21,6 @@ use Equipment\Domain\ValueObject\EquipmentStatus;
  * invisible).
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -56,6 +55,17 @@ final readonly class EquipmentComplianceStatisticsAdapter implements EquipmentCo
   // #endregion
 
   // #region Methods
+  /**
+   * Method equipmentInventoryByFacility.
+   *
+   * Counts published equipment by facility, including active and total assets.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization whose equipment is counted
+   *
+   * @return array<string, array{total: int, active: int}> counts keyed by facility identifier
+   */
   public function equipmentInventoryByFacility(string $organizationId): array
   {
     $sql = <<<'SQL'

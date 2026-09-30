@@ -10,7 +10,6 @@ use Doctrine\ORM\Mapping as ORM;
  * Record OrganizationAccessPolicyRecord.
  *
  * @category Record
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -19,13 +18,24 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'organization_access_policies')]
 class OrganizationAccessPolicyRecord
 {
+  // #region Properties
+  /**
+   * Property organizationId
+   */
   #[ORM\Id]
   #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
   public string $organizationId;
 
+  /**
+   * Property mode
+   */
   #[ORM\Column(name: 'mode', type: 'string', length: 24)]
   public string $mode;
 
+  /**
+   * Property roleId
+   */
   #[ORM\Column(name: 'role_id', type: 'string', length: 36, nullable: true)]
   public ?string $roleId = null;
+  // #endregion
 }

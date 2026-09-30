@@ -13,7 +13,6 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * Subscriber RefreshTokenCookieSubscriber.
  *
  * @category EventSubscriber
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -44,6 +43,15 @@ final readonly class RefreshTokenCookieSubscriber implements EventSubscriberInte
     }
   }
 
+  /**
+   * Method getSubscribedEvents.
+   *
+   * Registers the response listener that attaches a refresh token cookie when present.
+   *
+   * @access public
+   *
+   * @return array<string, string> event names mapped to listener methods
+   */
   public static function getSubscribedEvents(): array
   {
     return [

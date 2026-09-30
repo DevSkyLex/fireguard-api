@@ -14,7 +14,6 @@ namespace Intervention\Application\Port\Outbound;
  * `Messaging\Application\Port\Outbound\MessagingMemberDirectoryPort::displayNamesFor`.
  *
  * @category Interface
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

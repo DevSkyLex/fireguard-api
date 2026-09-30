@@ -13,7 +13,13 @@ namespace Auth\Presentation\Api\Operation;
  */
 final readonly class PasswordSetupOperations
 {
+  /**
+   * Constant REQUEST
+   */
   public const string REQUEST = 'request_initial_password';
 
+  /**
+   * Constant CONFIRM
+   */
   public const string CONFIRM = 'confirm_initial_password';
 }

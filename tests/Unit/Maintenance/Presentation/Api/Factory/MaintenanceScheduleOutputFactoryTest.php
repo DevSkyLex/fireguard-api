@@ -18,7 +18,6 @@ use PHPUnit\Framework\TestCase;
  * deliberately internal — it never reaches the payload.
  *
  * @category Factory Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

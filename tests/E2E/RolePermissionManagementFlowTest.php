@@ -22,7 +22,6 @@ use function uniqid;
  * End-to-end tests for Role and Permission management with OAuth2 authentication.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

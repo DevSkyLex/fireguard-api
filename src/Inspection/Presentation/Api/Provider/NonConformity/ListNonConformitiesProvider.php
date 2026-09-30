@@ -28,11 +28,34 @@ use function is_numeric;
 use function is_string;
 use function max;
 
-/** @implements ProviderInterface<NonConformityOutput> */
+/**
+ * Class ListNonConformitiesProvider
+ *
+ * Applies organization access, filters and pagination to the non-conformity collection response.
+ *
+ * @category Provider
+ *
+ * @implements ProviderInterface<NonConformityOutput>
+ */
 final readonly class ListNonConformitiesProvider implements ProviderInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Supplies query, authorization, user and request context services for collection reads.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus dispatches non-conformity queries
+   * @param OrganizationAuthorizationPort $authorization checks organization read access
+   * @param Security $security provides the current authenticated user
+   * @param RequestStack $requestStack provides the current request for query parameters
+   *
+   * @return void
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -40,9 +63,21 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
     private RequestStack $requestStack,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
-   * @return TraversablePaginator<NonConformityOutput>
+   * Method provide
+   *
+   * Validates collection access, dispatches a paginated query and maps its results.
+   *
+   * @access public
+   *
+   * @param Operation $operation API Platform operation being provided
+   * @param array<string, mixed> $uriVariables route variables, including organizationId and inspectionId
+   * @param array<string, mixed> $context API Platform provider context
+   *
+   * @return TraversablePaginator<NonConformityOutput> paginated non-conformity response
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
@@ -110,7 +145,20 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
   }
 
   /**
+   * Method listQuery
+   *
+   * Builds the query from route identifiers, filters, pagination, search and sorting context.
+   *
+   * @access private
+   *
    * @param array<string, mixed> $context
+   * @param Operation $operation API Platform operation that defines query parameters
+   * @param string $organizationId organization that owns the inspection
+   * @param string $inspectionId inspection whose non-conformities are listed
+   * @param int $offset number of matching records to skip
+   * @param int $itemsPerPage maximum number of matching records to request
+   *
+   * @return ListNonConformitiesQuery collection query with normalized criteria
    */
   private function listQuery(
     Operation $operation,
@@ -133,11 +181,33 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
     );
   }
 
+  /**
+   * Method optionalString
+   *
+   * Converts a non-empty string filter value to a query criterion.
+   *
+   * @access private
+   *
+   * @param mixed $value filter value to normalize
+   *
+   * @return string|null non-empty string, or null for other values and empty strings
+   */
   private static function optionalString(mixed $value): ?string
   {
     return is_string($value) && '' !== $value ? $value : null;
   }
 
+  /**
+   * Method mapResult
+   *
+   * Copies a query result into the API output DTO.
+   *
+   * @access private
+   *
+   * @param NonConformityResult $result non-conformity query data
+   *
+   * @return NonConformityOutput mapped response object
+   */
   private function mapResult(NonConformityResult $result): NonConformityOutput
   {
     $output = new NonConformityOutput();
@@ -154,4 +224,5 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
 
     return $output;
   }
+  // #endregion
 }

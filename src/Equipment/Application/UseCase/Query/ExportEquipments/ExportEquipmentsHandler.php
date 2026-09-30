@@ -35,7 +35,6 @@ use function array_values;
  * caller currently has filtered on the list page.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -82,11 +81,11 @@ final readonly class ExportEquipmentsHandler implements QueryHandler
    *
    * @param ExportEquipmentsQuery $query the query to handle
    *
+   * @return ExportEquipmentsResult the bounded, name-resolved export result
+   *
    * @throws EquipmentNotFoundException when the caller is outside the organization's scope
    * @throws EquipmentAccessDeniedException when the caller lacks `organization.equipment.read`
    * @throws EquipmentExportTooLargeException when the organization has more than {@see self::MAX_EXPORT_ROWS} equipment items
-   *
-   * @return ExportEquipmentsResult the bounded, name-resolved export result
    */
   public function __invoke(ExportEquipmentsQuery $query): ExportEquipmentsResult
   {

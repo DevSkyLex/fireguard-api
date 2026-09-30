@@ -23,7 +23,6 @@ use function is_string;
  * {@see \Approval\Application\UseCase\Command\Decision\WithdrawApprovalRequest\WithdrawApprovalRequestHandler}.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

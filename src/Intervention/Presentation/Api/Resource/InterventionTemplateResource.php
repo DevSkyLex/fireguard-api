@@ -25,7 +25,6 @@ use Symfony\Component\HttpFoundation\Response;
  * drafts (without recurrence — see the module changelog for later lots).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -115,8 +114,14 @@ use Symfony\Component\HttpFoundation\Response;
 final class InterventionTemplateResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant TEMPLATE_URI_TEMPLATE
+   */
   private const string TEMPLATE_URI_TEMPLATE = '/intervention-templates/{id}';
   // #endregion
 }

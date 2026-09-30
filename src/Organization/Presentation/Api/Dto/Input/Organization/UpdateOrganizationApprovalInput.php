@@ -19,7 +19,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * action type to "disabled").
  *
  * @category DTO
- *
  * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

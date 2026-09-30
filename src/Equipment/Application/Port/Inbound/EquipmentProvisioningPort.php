@@ -23,7 +23,6 @@ use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, Prov
  * (e.g. a CSV import) can continue past a single failed row.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

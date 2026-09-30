@@ -21,7 +21,6 @@ use function trim;
  * Processor MarkAllNotificationsAsReadProcessor.
  *
  * @category Processor
- *
  * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

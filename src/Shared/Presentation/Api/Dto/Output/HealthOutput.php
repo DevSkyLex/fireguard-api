@@ -13,7 +13,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * Health check response payload.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

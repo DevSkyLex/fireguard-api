@@ -33,7 +33,6 @@ use const PHP_URL_HOST;
  * `whsec_`-prefixed signing secret — returned in plaintext only once, here.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

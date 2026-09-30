@@ -34,7 +34,6 @@ use function sprintf;
  * holders of the platform `audit.export` permission and this one is not.
  *
  * @category Controller
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

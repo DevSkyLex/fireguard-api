@@ -24,7 +24,6 @@ use function sprintf;
  * the pro/max plan entitlement.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,6 +31,9 @@ use function sprintf;
 final readonly class ListSafetyRegisterSnapshotsHandler implements QueryHandler
 {
   // #region Constants
+  /**
+   * Constant EXPORT_PERMISSION
+   */
   private const string EXPORT_PERMISSION = 'organization.compliance.export';
   // #endregion
 
@@ -61,11 +63,11 @@ final readonly class ListSafetyRegisterSnapshotsHandler implements QueryHandler
    *
    * @param ListSafetyRegisterSnapshotsQuery $query the query payload
    *
+   * @return ListSafetyRegisterSnapshotsResult the page of snapshot metadata
+   *
    * @throws ComplianceNotFoundException if the organization is outside the caller's scope
    * @throws ComplianceAccessDeniedException if the caller lacks the export permission
    * @throws ComplianceExportNotEntitledException if the organization's plan does not entitle it to the register
-   *
-   * @return ListSafetyRegisterSnapshotsResult the page of snapshot metadata
    */
   public function __invoke(ListSafetyRegisterSnapshotsQuery $query): ListSafetyRegisterSnapshotsResult
   {

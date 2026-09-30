@@ -10,16 +10,30 @@ use function array_column;
  * Enum NonConformitySeverity.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum NonConformitySeverity: string
 {
+  /**
+   * Case LOW
+   */
   case LOW = 'low';
+
+  /**
+   * Case MEDIUM
+   */
   case MEDIUM = 'medium';
+
+  /**
+   * Case HIGH
+   */
   case HIGH = 'high';
+
+  /**
+   * Case CRITICAL
+   */
   case CRITICAL = 'critical';
 
   // #region Methods

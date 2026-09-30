@@ -19,7 +19,6 @@ use function min;
  * Repository MessagingLinkRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -40,9 +39,23 @@ final readonly class MessagingLinkRepository implements MessagingLinkRepositoryP
     private UuidFactory $uuidFactory,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method replaceForMessage
+   *
+   * Replaces the extracted links stored for the message with the supplied set.
+   *
+   * @access public
+   *
+   * @param string $messageId the message identifier
+   * @param string $conversationId the conversation identifier
+   * @param list<string> $urls deduplicated message URLs to persist
+   * @param DateTimeImmutable $extractedAt the extracted time
+   *
+   * @return void
+   */
   public function replaceForMessage(string $messageId, string $conversationId, array $urls, DateTimeImmutable $extractedAt): void
   {
     // A plain DELETE scoped to the message, never a load-then-remove cycle —
@@ -76,6 +89,19 @@ final readonly class MessagingLinkRepository implements MessagingLinkRepositoryP
     $this->entityManager->flush();
   }
 
+  /**
+   * Method listByConversation
+   *
+   * Lists by conversation matching the supplied filters.
+   *
+   * @access public
+   *
+   * @param string $conversationId the conversation identifier
+   * @param int $page the page
+   * @param int $itemsPerPage the items per page
+   *
+   * @return MessagingLinkPage
+   */
   public function listByConversation(string $conversationId, int $page, int $itemsPerPage): MessagingLinkPage
   {
     $page = max(1, $page);

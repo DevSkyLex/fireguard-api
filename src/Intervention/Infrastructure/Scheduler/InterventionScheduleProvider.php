@@ -27,7 +27,6 @@ use Symfony\Contracts\Cache\CacheInterface;
  * worker.
  *
  * @category Scheduler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -52,6 +51,15 @@ final readonly class InterventionScheduleProvider implements ScheduleProviderInt
   // #endregion
 
   // #region Methods
+  /**
+   * Method getSchedule.
+   *
+   * Provides the hourly recurrence and reminder jobs with shared state and a lock.
+   *
+   * @access public
+   *
+   * @return Schedule the configured intervention schedule
+   */
   public function getSchedule(): Schedule
   {
     return new Schedule()

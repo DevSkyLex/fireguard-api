@@ -14,7 +14,6 @@ namespace Facility\Application\Port\Outbound;
  * Equipment's data, Equipment's Infrastructure supplies it.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

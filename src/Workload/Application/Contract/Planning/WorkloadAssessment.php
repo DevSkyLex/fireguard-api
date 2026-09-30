@@ -8,7 +8,6 @@ namespace Workload\Application\Contract\Planning;
  * WorkloadAssessment.
  *
  * @category Workload
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

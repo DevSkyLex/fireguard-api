@@ -10,7 +10,6 @@ use Shared\Application\Message\ResultMessage;
  * ChangeCapacityResult.
  *
  * @category Workload
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

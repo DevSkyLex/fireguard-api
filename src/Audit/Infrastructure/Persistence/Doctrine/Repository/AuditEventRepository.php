@@ -26,7 +26,6 @@ use function str_replace;
  * Repository AuditEventRepository.
  *
  * @category Repository
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -34,6 +33,13 @@ use function str_replace;
 final class AuditEventRepository implements AuditEventRepositoryPort
 {
   // #region Constants
+  /**
+   * Constant SEARCH_PLACEHOLDER.
+   *
+   * Names the query parameter used for audit event search predicates.
+   *
+   * @access private
+   */
   private const string SEARCH_PLACEHOLDER = ':search';
   // #endregion
 
@@ -448,6 +454,17 @@ final class AuditEventRepository implements AuditEventRepositoryPort
     }
   }
 
+  /**
+   * Method resolveSortField.
+   *
+   * Maps supported audit sort keys to record fields and defaults to occurrence time.
+   *
+   * @access private
+   *
+   * @param string $field the requested sort key
+   *
+   * @return string the corresponding record field
+   */
   private function resolveSortField(string $field): string
   {
     return match ($field) {

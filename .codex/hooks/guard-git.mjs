@@ -13,7 +13,7 @@
  *     what the history of both repos already does, and what git-cliff reads to
  *     build the release notes.
  *
- * Codex work uses `codex/<description-kebab>` with the same shape as other work branches.
+ * Codex work uses the same `<type>/<description-kebab>` names as other work branches.
  * Long-lived branch exemptions are load-bearing:
  *  - `main`, `develop` and `release/x.y.z` are the long-lived branches; `git checkout
  *    -b develop origin/develop` is a legitimate local re-creation, not a new feature.
@@ -22,8 +22,7 @@
  * extracted with confidence, the hook exits 0. A guard with false positives is a
  * guard people disable.
  *
- * Bypass: run the command yourself, or `git commit --no-verify` for the git-side
- * twin in .githooks/.
+ * Correct rejected names or headers; do not bypass the naming checks.
  */
 
 // Null for the checkout-local configuration: the guard runs for this repository.
@@ -37,7 +36,7 @@ if (OWNER) {
 const TYPES = 'feat|fix|chore|refactor|docs|test|perf|ci|build|style|revert';
 
 /** `<type>/<description-kebab>` — lowercase, digits, single hyphens, no trailing hyphen. */
-const BRANCH_OK = new RegExp(`^(?:${TYPES}|hotfix|codex)/[a-z0-9]+(?:-[a-z0-9]+)*$`);
+const BRANCH_OK = new RegExp(`^(?:${TYPES}|hotfix)/[a-z0-9]+(?:-[a-z0-9]+)*$`);
 
 /** Names no convention should ever reject. */
 const BRANCH_EXEMPT = /^(?:main|develop|release\/\d+\.\d+\.\d+)$/;
@@ -124,7 +123,7 @@ for (const pattern of CREATED) {
     deny(
       `branch name "${name}" — ${command}`,
       'Branches follow <type>/<description-kebab>, e.g. feat/organization-invitations or ' +
-        `fix/otp-expiry.\nType is one of: ${TYPES.split('|').join(', ')}, hotfix, codex. ` +
+        `fix/otp-expiry.\nType is one of: ${TYPES.split('|').join(', ')}, hotfix. ` +
         'The description is lowercase words joined by single hyphens.',
     );
   }

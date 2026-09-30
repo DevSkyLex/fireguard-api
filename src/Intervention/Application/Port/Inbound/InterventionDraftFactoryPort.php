@@ -18,7 +18,6 @@ use Intervention\Application\Contract\Draft\{CreateInterventionDraftRequest, Cre
  * Authorization is the caller's responsibility (see the request contract).
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

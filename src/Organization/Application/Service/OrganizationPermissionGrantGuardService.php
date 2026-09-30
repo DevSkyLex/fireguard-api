@@ -20,7 +20,6 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  * permissions it already holds (wildcard-aware via the authorization port).
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -48,11 +47,41 @@ final readonly class OrganizationPermissionGrantGuardService implements Organiza
   // #endregion
 
   // #region Methods
+  /**
+   * Method assertCanGrantPermissions
+   *
+   * Checks that the actor may grant each requested permission in the organization.
+   *
+   * @access public
+   *
+   * @param string $actorUserId the acting user identifier
+   * @param string $organizationId the organization identifier
+   * @param list<string> $permissions the permission names to grant
+   *
+   * @return void no return value
+   *
+   * @throws OrganizationAccessDeniedException when the actor cannot grant a requested permission
+   */
   public function assertCanGrantPermissions(string $actorUserId, string $organizationId, array $permissions): void
   {
     $this->assertPermissionsGrantable($actorUserId, $organizationId, $permissions, 'grant_permissions');
   }
 
+  /**
+   * Method assertCanAssignRoles
+   *
+   * Checks grantable permissions for each role that belongs to the organization.
+   *
+   * @access public
+   *
+   * @param string $actorUserId the acting user identifier
+   * @param string $organizationId the organization identifier
+   * @param list<string> $roleIds the role identifiers to assign
+   *
+   * @return void no return value
+   *
+   * @throws OrganizationAccessDeniedException when the actor cannot grant a role permission
+   */
   public function assertCanAssignRoles(string $actorUserId, string $organizationId, array $roleIds): void
   {
     foreach ($roleIds as $roleId) {

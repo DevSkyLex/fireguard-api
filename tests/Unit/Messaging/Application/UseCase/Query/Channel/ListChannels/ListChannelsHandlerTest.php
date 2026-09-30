@@ -32,7 +32,6 @@ use PHPUnit\Framework\TestCase;
  * querying with an empty id list is both pointless and expensive.
  *
  * @category Handler Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

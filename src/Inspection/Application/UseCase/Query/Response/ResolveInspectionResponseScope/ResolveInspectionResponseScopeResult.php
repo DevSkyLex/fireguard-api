@@ -15,7 +15,6 @@ use Shared\Application\Message\ResultMessage;
  * intervention is a bad filter, not a missing resource.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -23,6 +22,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class ResolveInspectionResponseScopeResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Returns the organization scope resolved for the response request, when known.
+   *
+   * @access public
+   *
+   * @param ?string $organizationId resolved organization scope, or null when it could not be determined
+   *
+   * @return void
+   */
   public function __construct(
     public ?string $organizationId = null,
   ) {

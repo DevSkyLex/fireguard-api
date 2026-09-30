@@ -20,7 +20,6 @@ use PHPUnit\Framework\TestCase;
  * them off, so the round trip is asserted in both directions.
  *
  * @category Mapper Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -14,7 +14,6 @@ use DateTimeImmutable;
  * as `intervention.recurrence_deleted`.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -20,7 +20,6 @@ use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationReq
  * catch this module's exceptions.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

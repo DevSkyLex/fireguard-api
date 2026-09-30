@@ -15,7 +15,9 @@ use function array_map;
 use function max;
 
 /**
- * Adapter InterventionCalendarFeedAdapter.
+ * Class InterventionCalendarFeedAdapter
+ *
+ * Supplies Intervention calendar entries to the Calendar feed.
  *
  * Implements the Calendar module's intervention feed port using the
  * Intervention module's own persistence records directly (mirrors
@@ -33,7 +35,6 @@ use function max;
  * `status` is its raw status value — the frontend owns labels/colors.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -41,8 +42,22 @@ use function max;
 final readonly class InterventionCalendarFeedAdapter implements InterventionCalendarFeedPort
 {
   // #region Constants
+  /**
+   * Constant SOURCE_KEY
+   *
+   * Identifies intervention items in the aggregated calendar feed.
+   *
+   * @access private
+   */
   private const string SOURCE_KEY = 'intervention';
 
+  /**
+   * Constant TARGET_TYPE
+   *
+   * Identifies intervention links attached to calendar feed items.
+   *
+   * @access private
+   */
   private const string TARGET_TYPE = 'intervention';
   // #endregion
 
@@ -61,6 +76,21 @@ final readonly class InterventionCalendarFeedAdapter implements InterventionCale
   // #endregion
 
   // #region Methods
+  /**
+   * Method findBetween
+   *
+   * Loads bounded intervention occurrences whose planned start or due date is in the range.
+   * Results are ordered by occurrence time and then identifier.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization whose interventions are listed
+   * @param DateTimeImmutable $from inclusive lower bound of the date range
+   * @param DateTimeImmutable $to inclusive upper bound of the date range
+   * @param int $limit maximum number of records to load
+   *
+   * @return list<CalendarFeedItem> matching calendar entries
+   */
   public function findBetween(string $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, int $limit): array
   {
     /** @var OrganizationRecord $organization */

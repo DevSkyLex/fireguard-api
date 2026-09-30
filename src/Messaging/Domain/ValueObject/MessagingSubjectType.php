@@ -25,18 +25,40 @@ use function array_column;
  * either member's side, in either order, resolves to the SAME conversation.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum MessagingSubjectType: string
 {
+  /**
+   * Case FACILITY
+   */
   case FACILITY = 'facility';
+
+  /**
+   * Case EQUIPMENT
+   */
   case EQUIPMENT = 'equipment';
+
+  /**
+   * Case INTERVENTION
+   */
   case INTERVENTION = 'intervention';
+
+  /**
+   * Case NON_CONFORMITY
+   */
   case NON_CONFORMITY = 'non_conformity';
+
+  /**
+   * Case CHANNEL
+   */
   case CHANNEL = 'channel';
+
+  /**
+   * Case DIRECT
+   */
   case DIRECT = 'direct';
 
   // #region Methods

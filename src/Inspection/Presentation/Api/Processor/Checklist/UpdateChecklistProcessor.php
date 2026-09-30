@@ -36,7 +36,6 @@ use function is_string;
  * into PATCH "has field" flags, and maps domain errors to HTTP responses.
  *
  * @category Processor
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -47,6 +46,22 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Provides command and query buses, organization authorization, the actor, and PATCH field-presence data.
+   *
+   * @access public
+   *
+   * @param CommandBusPort $commandBus dispatches checklist updates
+   * @param QueryBusPort $queryBus reloads the updated checklist
+   * @param OrganizationAuthorizationPort $authorization checks organization permissions
+   * @param Security $security resolves the authenticated user
+   * @param RequestStack $requestStack reads PATCH field presence from the request
+   *
+   * @return void
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
@@ -55,7 +70,23 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
     private RequestStack $requestStack,
   ) {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method process.
+   *
+   * Checks write access, applies the supplied checklist fields, and maps the result.
+   *
+   * @access public
+   *
+   * @param UpdateChecklistInput $data the input DTO, narrowed to UpdateChecklistInput
+   * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables route variables
+   * @param array<string, mixed> $context processor context
+   *
+   * @return ChecklistOutput the updated checklist representation
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ChecklistOutput
   {
     /** @var UpdateChecklistInput $data */
@@ -133,6 +164,17 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
     return $this->mapResult($result);
   }
 
+  /**
+   * Method mapMessengerException.
+   *
+   * Maps wrapped checklist and validation failures to their HTTP exceptions.
+   *
+   * @access private
+   *
+   * @param MessengerRuntimeException $exception the wrapped message failure
+   *
+   * @return Throwable the mapped HTTP exception or original failure
+   */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     return match (true) {
@@ -145,6 +187,17 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
     };
   }
 
+  /**
+   * Method mapResult.
+   *
+   * Copies checklist and item result fields into API output DTOs.
+   *
+   * @access private
+   *
+   * @param GetChecklistResult $result the checklist query result
+   *
+   * @return ChecklistOutput the API representation
+   */
   private function mapResult(GetChecklistResult $result): ChecklistOutput
   {
     $output = new ChecklistOutput();
@@ -176,4 +229,5 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
 
     return $output;
   }
+  // #endregion
 }

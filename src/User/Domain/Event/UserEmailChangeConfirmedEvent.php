@@ -16,7 +16,6 @@ use Shared\Domain\ValueObject\Uuid;
  * used and the account email has been updated.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -11,7 +11,6 @@ use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookSubscriptionId};
  * Port WebhookDeliveryRepositoryPort.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

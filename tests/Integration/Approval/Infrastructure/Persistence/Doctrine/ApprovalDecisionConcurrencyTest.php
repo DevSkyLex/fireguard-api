@@ -27,7 +27,6 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * Uses independent PostgreSQL connections rather than DAMA's shared transaction.
  *
  * @category Integration Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

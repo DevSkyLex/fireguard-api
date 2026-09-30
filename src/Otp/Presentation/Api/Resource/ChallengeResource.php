@@ -21,7 +21,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource ChallengeResource.
  *
  * @category Resource
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -178,8 +177,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class ChallengeResource
 {
   // #region Constants
+  /**
+   * Constant TOKEN_RESPONSE_LINK
+   */
   private const string TOKEN_RESPONSE_LINK = '$response.body#/token';
 
+  /**
+   * Constant CHALLENGE_NOT_FOUND_DESCRIPTION
+   */
   private const string CHALLENGE_NOT_FOUND_DESCRIPTION = 'Challenge not found';
   // #endregion
 }

@@ -15,6 +15,21 @@ use Throwable;
 /** Publishes a short-lived typing signal to the private conversation topic. */
 final readonly class PublishTypingHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the PublishTypingHandler dependencies and state.
+   *
+   * @access public
+   *
+   * @param MessagingConversationRepositoryPort $conversations the conversations
+   * @param MessagingRealtimePublisherPort $realtime the realtime
+   * @param MessagingAccessPolicy $accessPolicy the access policy
+   * @param LoggerPort $logger the logger
+   *
+   * @return void
+   */
   public function __construct(
     private MessagingConversationRepositoryPort $conversations,
     private MessagingRealtimePublisherPort $realtime,
@@ -23,6 +38,19 @@ final readonly class PublishTypingHandler implements CommandHandler
   ) {
   }
 
+  // #endregion
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Executes the use case represented by PublishTypingHandler and returns its result.
+   *
+   * @access public
+   *
+   * @param PublishTypingCommand $command the command to handle
+   *
+   * @return PublishTypingResult
+   */
   public function __invoke(PublishTypingCommand $command): PublishTypingResult
   {
     $conversation = $this->conversations->findById($command->conversationId);
@@ -46,4 +74,5 @@ final readonly class PublishTypingHandler implements CommandHandler
 
     return new PublishTypingResult($memberId);
   }
+  // #endregion
 }

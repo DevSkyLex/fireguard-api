@@ -36,7 +36,6 @@ use function is_string;
  * prevents a member from ever pinging presence as someone else.
  *
  * @category UseCase
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -44,6 +43,9 @@ use function is_string;
 final readonly class PingPresenceHandler implements CommandHandler
 {
   // #region Constants
+  /**
+   * Constant PRESENCE_TTL_SECONDS
+   */
   private const int PRESENCE_TTL_SECONDS = 90;
   // #endregion
 

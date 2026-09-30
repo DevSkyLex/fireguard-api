@@ -28,7 +28,6 @@ use function trim;
  * explicitly opt in before tenants may override the default model.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -16,7 +16,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  * `messaging.subject_resolver` seam.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

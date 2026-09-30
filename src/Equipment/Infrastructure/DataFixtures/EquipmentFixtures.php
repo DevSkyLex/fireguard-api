@@ -22,30 +22,146 @@ use function sprintf;
 use function str_replace;
 use function ucfirst;
 
+/**
+ * Class EquipmentFixtures
+ *
+ * Seeds representative equipment, attachments, tags and maintenance history for the demo organization.
+ *
+ * @category DataFixtures
+ */
 final class EquipmentFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
+  // #region Constants
+  /**
+   * Constant EXTINGUISHER_REFERENCE
+   *
+   * Reference used to retrieve the seeded extinguisher.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string EXTINGUISHER_REFERENCE = 'equipment-seed-extinguisher';
 
+  /**
+   * Constant DETECTOR_REFERENCE
+   *
+   * Reference used to retrieve the seeded smoke detector.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string DETECTOR_REFERENCE = 'equipment-seed-detector';
 
+  /**
+   * Constant HYDRANT_REFERENCE
+   *
+   * Reference used to retrieve the seeded hydrant.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string HYDRANT_REFERENCE = 'equipment-seed-hydrant';
 
+  /**
+   * Constant CRITICAL_TAG_REFERENCE
+   *
+   * Reference used to retrieve the critical-safety tag.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string CRITICAL_TAG_REFERENCE = 'equipment-seed-critical-tag';
 
+  /**
+   * Constant INSPECTED_TAG_REFERENCE
+   *
+   * Reference used to retrieve the annually-inspected tag.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string INSPECTED_TAG_REFERENCE = 'equipment-seed-inspected-tag';
 
+  /**
+   * Constant SPRINKLER_REFERENCE
+   *
+   * Reference used to retrieve the seeded sprinkler.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string SPRINKLER_REFERENCE = 'equipment-seed-sprinkler';
 
+  /**
+   * Constant ALARM_PANEL_REFERENCE
+   *
+   * Reference used to retrieve the seeded fire alarm panel.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string ALARM_PANEL_REFERENCE = 'equipment-seed-alarm-panel';
 
+  /**
+   * Constant HEAT_DETECTOR_REFERENCE
+   *
+   * Reference used to retrieve the seeded heat detector.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string HEAT_DETECTOR_REFERENCE = 'equipment-seed-heat-detector';
 
+  /**
+   * Constant SITE_EMERGENCY_LIGHTING_REFERENCE
+   *
+   * Reference used to retrieve the seeded site emergency lighting unit.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string SITE_EMERGENCY_LIGHTING_REFERENCE = 'equipment-seed-site-emergency-lighting';
 
+  /**
+   * Constant BUILDING_FIRE_DOOR_REFERENCE
+   *
+   * Reference used to retrieve the seeded building fire door.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string BUILDING_FIRE_DOOR_REFERENCE = 'equipment-seed-building-fire-door';
 
+  /**
+   * Constant FLOOR_ONE_CAMERA_REFERENCE
+   *
+   * Reference used to retrieve the seeded floor-one camera.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string FLOOR_ONE_CAMERA_REFERENCE = 'equipment-seed-floor-one-camera';
 
+  /**
+   * Constant FLOOR_TWO_GAS_DETECTOR_REFERENCE
+   *
+   * Reference used to retrieve the seeded floor-two gas detector.
+   *
+   * @access public
+   *
+   * @var string
+   */
   public const string FLOOR_TWO_GAS_DETECTOR_REFERENCE = 'equipment-seed-floor-two-gas-detector';
 
   /**
@@ -167,16 +283,70 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
    */
   public const int EXTRA_REGIONAL_EQUIPMENT_COUNT = 24;
 
+  /**
+   * Constant BAES_ECO_45_MODEL
+   *
+   * Shared model label used by emergency-lighting fixture rows.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string BAES_ECO_45_MODEL = 'BAES Eco 45';
 
+  /**
+   * Constant ASSA_ABLOY_BRAND
+   *
+   * Brand label used by the seeded fire-door records.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string ASSA_ABLOY_BRAND = 'Assa Abloy';
 
+  /**
+   * Constant SYSTEM_SENSOR_BRAND
+   *
+   * Brand label used by seeded heat detectors.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string SYSTEM_SENSOR_BRAND = 'System Sensor';
 
+  /**
+   * Constant POLYTRON_7000_MODEL
+   *
+   * Model label used by the seeded gas detector.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string POLYTRON_7000_MODEL = 'Polytron 7000';
 
+  /**
+   * Constant PRO_6_MODEL
+   *
+   * Model label used by the seeded extinguisher records.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PRO_6_MODEL = 'Pro 6';
 
+  /**
+   * Constant PDF_MIME_TYPE
+   *
+   * MIME type assigned to seeded PDF attachments.
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PDF_MIME_TYPE = 'application/pdf';
 
   /**
@@ -290,11 +460,32 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     'equipment-seed-bulk-22' => ['x' => 0.33, 'y' => 0.41],
   ];
 
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method getGroups.
+   *
+   * Includes equipment records in the equipment and main seed groups.
+   *
+   * @access public
+   *
+   * @return list<string> fixture groups
+   */
   public static function getGroups(): array
   {
     return ['equipment', 'main-seed'];
   }
 
+  /**
+   * Method getDependencies.
+   *
+   * Requires organization and facility fixtures before equipment references are resolved.
+   *
+   * @access public
+   *
+   * @return list<class-string<Fixture>> prerequisite fixture classes
+   */
   public function getDependencies(): array
   {
     return [
@@ -303,6 +494,17 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     ];
   }
 
+  /**
+   * Method load.
+   *
+   * Seeds representative assets and their tags, attachments and maintenance logs.
+   *
+   * @access public
+   *
+   * @param ObjectManager $manager fixture object manager
+   *
+   * @return void
+   */
   public function load(ObjectManager $manager): void
   {
     /** @var OrganizationRecord $organization */
@@ -740,4 +942,5 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
 
     return $equipment;
   }
+  // #endregion
 }

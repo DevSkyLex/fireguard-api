@@ -15,7 +15,6 @@ use DateTimeImmutable;
  * owning module's processor must return HTTP 202 instead).
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

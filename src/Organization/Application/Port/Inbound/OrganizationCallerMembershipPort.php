@@ -23,7 +23,6 @@ use Organization\Domain\ValueObject\OrganizationId;
  * row instead of paying a `findByOrganizationAndUser` lookup per list item.
  *
  * @category Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

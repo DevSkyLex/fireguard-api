@@ -24,7 +24,6 @@ use function trim;
  * Provider OpenIdConfigurationProvider.
  *
  * @category Provider
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -112,11 +111,22 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
   private const string DEFAULT_END_SESSION_PATH = '/api/oauth2/logout';
   // #endregion
 
+  // #region Properties
+  /**
+   * Property issuer
+   */
   private readonly string $issuer;
 
+  /**
+   * Property authorizePath
+   */
   private readonly string $authorizePath;
 
+  /**
+   * Property logoutPath
+   */
   private readonly string $logoutPath;
+  // #endregion
 
   // #region Constructor
   /**

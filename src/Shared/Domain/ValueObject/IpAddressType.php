@@ -10,7 +10,6 @@ namespace Shared\Domain\ValueObject;
  * Represents the type of an IP address (IPv4 or IPv6).
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

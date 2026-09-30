@@ -19,7 +19,6 @@ use Shared\Domain\Exception\InvalidValueException;
  * team assignment) treat this as a read-only lookup.
  *
  * @category Service
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -40,9 +39,21 @@ final readonly class TeamDirectoryService implements TeamDirectoryPort
     private TeamRepositoryPort $teamRepository,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method resolveTeam
+   *
+   * Resolves team from the supplied context.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $teamId the team identifier
+   *
+   * @return ?TeamMembershipSnapshot
+   */
   public function resolveTeam(string $organizationId, string $teamId): ?TeamMembershipSnapshot
   {
     try {
@@ -62,6 +73,18 @@ final readonly class TeamDirectoryService implements TeamDirectoryPort
     );
   }
 
+  /**
+   * Method listActiveMemberIds
+   *
+   * Lists active member ids matching the supplied filters.
+   *
+   * @access public
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $teamId the team identifier
+   *
+   * @return list<string> active member identifiers assigned to the team
+   */
   public function listActiveMemberIds(string $organizationId, string $teamId): array
   {
     $snapshot = $this->resolveTeam($organizationId, $teamId);

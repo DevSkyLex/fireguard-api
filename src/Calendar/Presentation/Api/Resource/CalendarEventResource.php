@@ -23,7 +23,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * inspections + interventions + preventive-maintenance due dates).
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -111,8 +110,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class CalendarEventResource
 {
   // #region Constants
+  /**
+   * Constant SECURITY_ROLE_USER
+   */
   private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 
+  /**
+   * Constant EVENT_URI_TEMPLATE
+   */
   private const string EVENT_URI_TEMPLATE = '/{organizationId}/calendar/events/{eventId}';
   // #endregion
 }

@@ -1,0 +1,142 @@
+# Copy to config.toml and replace checkout placeholders before starting MCPs.
+# config.toml is local and ignored by Git; this example uses native Codex options.
+# Enable only the servers needed by the folders attached to your project.
+
+[mcp_servers."context7"]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+startup_timeout_sec = 60
+
+[mcp_servers."angular"]
+command = "npx"
+args = ["--no-install", "ng", "mcp", "--read-only"]
+cwd = "<WEB_CHECKOUT>"
+startup_timeout_sec = 60
+
+[mcp_servers."spartan"]
+command = "npx"
+args = ["-y", "@spartan-ng/mcp"]
+cwd = "<WEB_CHECKOUT>"
+startup_timeout_sec = 60
+
+[mcp_servers."playwright"]
+command = "npx"
+args = ["-y", "@playwright/mcp"]
+cwd = "<WEB_CHECKOUT>"
+startup_timeout_sec = 60
+
+[mcp_servers."serena-api"]
+enabled = false
+command = "serena"
+args = ["start-mcp-server", "--context", "ide", "--project-from-cwd"]
+cwd = "<API_CHECKOUT>"
+startup_timeout_sec = 120
+
+[mcp_servers."serena-web"]
+enabled = false
+command = "serena"
+args = ["start-mcp-server", "--context", "ide", "--project-from-cwd"]
+cwd = "<WEB_CHECKOUT>"
+startup_timeout_sec = 120
+
+# Peer agents for the shared API + web project; definitions stay in their owner checkout.
+
+[agents."fg-web-a11y-auditor"]
+description = "Audit FireGuard semantics and interaction accessibility with concrete evidence and limits."
+config_file = "../../fireguard-web/.codex/agents/fg-web-a11y-auditor.toml"
+
+[agents."fg-web-access-builder"]
+description = "Build FireGuard permission projections and owner-published access contracts."
+config_file = "../../fireguard-web/.codex/agents/fg-web-access-builder.toml"
+
+[agents."fg-web-api-contract-reviewer"]
+description = "Compare FireGuard frontend transport contracts with explicitly scoped backend evidence."
+config_file = "../../fireguard-web/.codex/agents/fg-web-api-contract-reviewer.toml"
+
+[agents."fg-web-architecture-reviewer"]
+description = "Review FireGuard ownership, imports, public contracts, state and SSR invariants."
+config_file = "../../fireguard-web/.codex/agents/fg-web-architecture-reviewer.toml"
+
+[agents."fg-web-collection-builder"]
+description = "Build presentational FireGuard tables and dataviews with explicit collection events."
+config_file = "../../fireguard-web/.codex/agents/fg-web-collection-builder.toml"
+
+[agents."fg-web-comment-maintainer"]
+description = "Define or maintain assigned comment conventions, correct source docblocks and run scoped documentation formatting and lint without changing behavior."
+config_file = "../../fireguard-web/.codex/agents/fg-web-comment-maintainer.toml"
+
+[agents."fg-web-component-builder"]
+description = "Build FireGuard pages and ordinary presentational components with correct ownership and public contracts."
+config_file = "../../fireguard-web/.codex/agents/fg-web-component-builder.toml"
+
+[agents."fg-web-design-reviewer"]
+description = "Critique FireGuard visual composition against current artifacts, DESIGN.md and native Spartan."
+config_file = "../../fireguard-web/.codex/agents/fg-web-design-reviewer.toml"
+
+[agents."fg-web-directive-builder"]
+description = "Build SSR-safe FireGuard behavioral directives and typed template markers."
+config_file = "../../fireguard-web/.codex/agents/fg-web-directive-builder.toml"
+
+[agents."fg-web-e2e-runner"]
+description = "Verify FireGuard behavior in a real browser with bounded scenarios and durable evidence."
+config_file = "../../fireguard-web/.codex/agents/fg-web-e2e-runner.toml"
+
+[agents."fg-web-feature-builder"]
+description = "Define FireGuard feature ownership, public APIs, ports, composition and normative FEATURE.md contracts."
+config_file = "../../fireguard-web/.codex/agents/fg-web-feature-builder.toml"
+
+[agents."fg-web-form-builder"]
+description = "Build FireGuard Signal Forms, reusable validators and explicit draft/submission contracts."
+config_file = "../../fireguard-web/.codex/agents/fg-web-form-builder.toml"
+
+[agents."fg-web-i18n-auditor"]
+description = "Audit FireGuard message IDs, placeholders and locale catalogs without claiming visual or linguistic completeness."
+config_file = "../../fireguard-web/.codex/agents/fg-web-i18n-auditor.toml"
+
+[agents."fg-web-offline-sync-builder"]
+description = "Build FireGuard offline persistence and durable replay under the feature's conflict contract."
+config_file = "../../fireguard-web/.codex/agents/fg-web-offline-sync-builder.toml"
+
+[agents."fg-web-overlay-builder"]
+description = "Build native FireGuard overlays with safe dismissal, focus and adaptive surface contracts."
+config_file = "../../fireguard-web/.codex/agents/fg-web-overlay-builder.toml"
+
+[agents."fg-web-performance-reviewer"]
+description = "Review frontend bundle cost, lazy loading, request duplication, reactivity and SSR hydration from evidence."
+config_file = "../../fireguard-web/.codex/agents/fg-web-performance-reviewer.toml"
+
+[agents."fg-web-pipe-builder"]
+description = "Build pure FireGuard Angular pipes when a computed value or built-in does not fit."
+config_file = "../../fireguard-web/.codex/agents/fg-web-pipe-builder.toml"
+
+[agents."fg-web-routing-ssr-builder"]
+description = "Build FireGuard routing, guards, resolvers and explicit SSR/hydration loading boundaries."
+config_file = "../../fireguard-web/.codex/agents/fg-web-routing-ssr-builder.toml"
+
+[agents."fg-web-security-auditor"]
+description = "Review frontend auth/session, SSR cookies, token exposure, unsafe HTML and redirect boundaries."
+config_file = "../../fireguard-web/.codex/agents/fg-web-security-auditor.toml"
+
+[agents."fg-web-service-builder"]
+description = "Build FireGuard Hydra transport, pure data adapters and ordinary behavioral services."
+config_file = "../../fireguard-web/.codex/agents/fg-web-service-builder.toml"
+
+[agents."fg-web-signal-store"]
+description = "Build FireGuard SignalStore slices with explicit request state, typed events and deliberate lifecycle scope."
+config_file = "../../fireguard-web/.codex/agents/fg-web-signal-store.toml"
+
+[agents."fg-web-spartan-ui"]
+description = "Refine existing FireGuard visual composition, density and native Spartan interaction patterns."
+config_file = "../../fireguard-web/.codex/agents/fg-web-spartan-ui.toml"
+
+[agents."fg-web-utils-builder"]
+description = "Build pure FireGuard helpers, constants and option sets at their lowest justified scope."
+config_file = "../../fireguard-web/.codex/agents/fg-web-utils-builder.toml"
+
+[agents."fg-web-web-test-writer"]
+description = "Write and repair FireGuard Angular unit/integration tests at the owning boundary."
+config_file = "../../fireguard-web/.codex/agents/fg-web-web-test-writer.toml"
+
+[agents."fg-web-workflow-reviewer"]
+description = "Review frontend CI, browser tests, permissions, caches, images and deployment gates."
+config_file = "../../fireguard-web/.codex/agents/fg-web-workflow-reviewer.toml"

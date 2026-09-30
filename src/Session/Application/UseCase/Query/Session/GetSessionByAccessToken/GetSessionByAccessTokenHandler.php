@@ -11,7 +11,6 @@ use Shared\Application\Message\QueryHandler;
  * Handler GetSessionByAccessTokenHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

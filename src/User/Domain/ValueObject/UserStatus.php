@@ -10,7 +10,6 @@ namespace User\Domain\ValueObject;
  * Represents the status of a user account.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

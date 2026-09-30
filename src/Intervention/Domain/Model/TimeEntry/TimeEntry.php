@@ -13,7 +13,6 @@ use function mb_strlen;
  * Model TimeEntry: an independently versioned record of actual work.
  *
  * @category Model
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

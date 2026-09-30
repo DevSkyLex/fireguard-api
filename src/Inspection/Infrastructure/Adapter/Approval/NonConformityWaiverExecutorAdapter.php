@@ -33,7 +33,6 @@ use function is_string;
  * existing) means the deferred action can no longer be applied.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -56,14 +55,34 @@ final readonly class NonConformityWaiverExecutorAdapter implements ApprovalActio
     private QueryBusPort $queryBus,
   ) {
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
+  /**
+   * Method actionType
+   *
+   * Returns the registered action type for non-conformity waivers.
+   *
+   * @access public
+   *
+   * @return string
+   */
   public function actionType(): string
   {
     return ApprovalActionTypes::NC_WAIVER;
   }
 
+  /**
+   * Method execute
+   *
+   * Records the approved non-conformity waiver described by the deferred action context.
+   *
+   * @access public
+   *
+   * @param DeferredActionContext $context the context
+   *
+   * @return void
+   */
   public function execute(DeferredActionContext $context): void
   {
     $inspectionId = self::stringPayload($context->payload, 'inspectionId');

@@ -35,13 +35,19 @@ use function substr;
  * Authenticator OAuth2Authenticator.
  *
  * @category Authenticator
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class OAuth2Authenticator extends AbstractAuthenticator
 {
+  /**
+   * Constant ACCESS_TOKEN_USE_AUTH_SESSION.
+   *
+   * Identifies access tokens issued by the interactive Auth session flow.
+   *
+   * @access private
+   */
   private const ACCESS_TOKEN_USE_AUTH_SESSION = 'auth_session';
 
   // #region Properties
@@ -224,6 +230,19 @@ final class OAuth2Authenticator extends AbstractAuthenticator
     );
   }
 
+  /**
+   * Method assertVerifiedAccessToken.
+   *
+   * Verifies the token signature and expiry before trusting claims, and rejects pre-auth tokens.
+   *
+   * @access private
+   *
+   * @param UnencryptedToken $parsedToken the parsed bearer token to validate
+   *
+   * @return void no return value
+   *
+   * @throws CustomUserMessageAuthenticationException when signature, expiry, or token scope is invalid
+   */
   private function assertVerifiedAccessToken(UnencryptedToken $parsedToken): void
   {
     // Verify every signature before trusting claims for either token family.

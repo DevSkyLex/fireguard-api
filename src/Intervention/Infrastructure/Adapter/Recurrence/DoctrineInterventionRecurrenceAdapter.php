@@ -19,10 +19,11 @@ use function max;
 use function min;
 
 /**
- * Adapter DoctrineInterventionRecurrenceAdapter.
+ * Class DoctrineInterventionRecurrenceAdapter
+ *
+ * Persists recurrence schedules and reserves their materialization runs in Doctrine.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -31,12 +32,17 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
 {
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
+   * Supplies the explicitly wired entity manager and identifier factory.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
    * @param UuidFactory $uuidFactory the uuid factory value
+   *
+   * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -46,6 +52,19 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
   // #endregion
 
   // #region CRUD
+  /**
+   * Method create
+   *
+   * Creates a recurrence record from the validated request and returns its view.
+   *
+   * @access public
+   *
+   * @param InterventionRecurrenceCreateRequest $request validated recurrence data
+   *
+   * @return InterventionRecurrenceView created recurrence view
+   *
+   * @throws InterventionNotFoundException when the organization or template does not exist
+   */
   public function create(InterventionRecurrenceCreateRequest $request): InterventionRecurrenceView
   {
     $organization = $this->entityManager->find(OrganizationRecord::class, $request->organizationId);
@@ -81,6 +100,19 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     return $this->view($record);
   }
 
+  /**
+   * Method update
+   *
+   * Applies only request fields marked present and returns the updated recurrence view.
+   *
+   * @access public
+   *
+   * @param InterventionRecurrenceUpdateRequest $request recurrence identifier and merge-patch fields
+   *
+   * @return InterventionRecurrenceView updated recurrence view
+   *
+   * @throws InterventionNotFoundException when the recurrence does not exist
+   */
   public function update(InterventionRecurrenceUpdateRequest $request): InterventionRecurrenceView
   {
     $record = $this->entityManager->find(InterventionRecurrenceRecord::class, $request->id);
@@ -129,6 +161,19 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     return $this->view($record);
   }
 
+  /**
+   * Method delete
+   *
+   * Removes an existing recurrence record.
+   *
+   * @access public
+   *
+   * @param string $id recurrence identifier
+   *
+   * @return void
+   *
+   * @throws InterventionNotFoundException when the recurrence does not exist
+   */
   public function delete(string $id): void
   {
     $record = $this->entityManager->find(InterventionRecurrenceRecord::class, $id);
@@ -139,6 +184,17 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     $this->entityManager->flush();
   }
 
+  /**
+   * Method find
+   *
+   * Loads a recurrence by identifier and maps it to its application view.
+   *
+   * @access public
+   *
+   * @param string $id recurrence identifier
+   *
+   * @return InterventionRecurrenceView|null recurrence view, or null when absent
+   */
   public function find(string $id): ?InterventionRecurrenceView
   {
     $record = $this->entityManager->find(InterventionRecurrenceRecord::class, $id);
@@ -146,6 +202,20 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     return $record instanceof InterventionRecurrenceRecord ? $this->view($record) : null;
   }
 
+  /**
+   * Method list
+   *
+   * Returns a bounded page of an organization’s recurrences, optionally filtered by active state.
+   *
+   * @access public
+   *
+   * @param string $organizationId organization identifier
+   * @param int $page one-based page number
+   * @param int $itemsPerPage requested page size, capped at 100
+   * @param bool|null $isActive optional active-state filter
+   *
+   * @return InterventionRecurrencePage recurrence page and count
+   */
   public function list(string $organizationId, int $page, int $itemsPerPage, ?bool $isActive = null): InterventionRecurrencePage
   {
     $page = max(1, $page);
@@ -181,6 +251,19 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
   // #endregion
 
   // #region Materialization
+  /**
+   * Method pageDueForMaterialization
+   *
+   * Pages active recurrences whose lead-time window has opened and whose end date allows the next occurrence.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $now cutoff instant for lead-time eligibility
+   * @param int $limit maximum number of recurrences returned
+   * @param int $offset zero-based row offset
+   *
+   * @return InterventionRecurrencePage due recurrence page
+   */
   public function pageDueForMaterialization(DateTimeImmutable $now, int $limit, int $offset): InterventionRecurrencePage
   {
     $limit = max(1, $limit);
@@ -203,6 +286,20 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     return new InterventionRecurrencePage(array_map($this->view(...), $records), 0, $limit, 0);
   }
 
+  /**
+   * Method reserveRun
+   *
+   * Inserts a placeholder run under the recurrence/date uniqueness guard, returning null for an existing claim.
+   *
+   * @access public
+   *
+   * @param string $recurrenceId recurrence identifier
+   * @param DateTimeImmutable $occurrenceDate occurrence date to reserve
+   *
+   * @return string|null new run identifier, or null when already reserved
+   *
+   * @throws InterventionNotFoundException when the recurrence does not exist
+   */
   public function reserveRun(string $recurrenceId, DateTimeImmutable $occurrenceDate): ?string
   {
     $recurrence = $this->entityManager->find(InterventionRecurrenceRecord::class, $recurrenceId);
@@ -247,6 +344,20 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     return $runId;
   }
 
+  /**
+   * Method markRunSucceeded
+   *
+   * Records the created intervention identifier and successful status for a run.
+   *
+   * @access public
+   *
+   * @param string $runId materialization run identifier
+   * @param string $interventionId created intervention identifier
+   *
+   * @return void
+   *
+   * @throws InterventionNotFoundException when the run does not exist
+   */
   public function markRunSucceeded(string $runId, string $interventionId): void
   {
     $run = $this->entityManager->find(InterventionRecurrenceRunRecord::class, $runId);
@@ -260,6 +371,20 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     $this->entityManager->flush();
   }
 
+  /**
+   * Method markRunFailed
+   *
+   * Records the failure status and reason for a materialization run.
+   *
+   * @access public
+   *
+   * @param string $runId materialization run identifier
+   * @param string $error failure reason stored for the run
+   *
+   * @return void
+   *
+   * @throws InterventionNotFoundException when the run does not exist
+   */
   public function markRunFailed(string $runId, string $error): void
   {
     $run = $this->entityManager->find(InterventionRecurrenceRunRecord::class, $runId);
@@ -272,6 +397,21 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     $this->entityManager->flush();
   }
 
+  /**
+   * Method advanceNextOccurrence
+   *
+   * Updates the scheduled occurrence and sets the last-materialized instant only when supplied.
+   *
+   * @access public
+   *
+   * @param string $recurrenceId recurrence identifier
+   * @param DateTimeImmutable $nextOccurrenceAt recomputed next occurrence
+   * @param DateTimeImmutable|null $lastMaterializedAt successful materialization instant, or null
+   *
+   * @return void
+   *
+   * @throws InterventionNotFoundException when the recurrence does not exist
+   */
   public function advanceNextOccurrence(string $recurrenceId, DateTimeImmutable $nextOccurrenceAt, ?DateTimeImmutable $lastMaterializedAt): void
   {
     $record = $this->entityManager->find(InterventionRecurrenceRecord::class, $recurrenceId);
@@ -288,6 +428,23 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     $this->entityManager->flush();
   }
 
+  /**
+   * Method updateIdentity
+   *
+   * Applies only present name, site, and responsible fields from a merge-patch request.
+   *
+   * @access private
+   *
+   * @param InterventionRecurrenceRecord $record recurrence record being updated
+   * @param string|null $name replacement name when present
+   * @param string|null $siteId replacement site identifier when present
+   * @param string|null $responsibleId replacement responsible identifier when present
+   * @param bool $hasName whether the request supplied the name field
+   * @param bool $hasSiteId whether the request supplied the site field
+   * @param bool $hasResponsibleId whether the request supplied the responsible field
+   *
+   * @return void
+   */
   private function updateIdentity(
     InterventionRecurrenceRecord $record,
     ?string $name,
@@ -308,6 +465,23 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     }
   }
 
+  /**
+   * Method updateCadence
+   *
+   * Applies present frequency, interval, and anchor-date fields from a merge-patch request.
+   *
+   * @access private
+   *
+   * @param InterventionRecurrenceRecord $record recurrence record being updated
+   * @param string|null $frequency replacement frequency when present
+   * @param int|null $interval replacement interval when present
+   * @param DateTimeImmutable|null $anchorDate replacement anchor date when present
+   * @param bool $hasFrequency whether the request supplied the frequency field
+   * @param bool $hasInterval whether the request supplied the interval field
+   * @param bool $hasAnchorDate whether the request supplied the anchor date field
+   *
+   * @return void
+   */
   private function updateCadence(
     InterventionRecurrenceRecord $record,
     ?string $frequency,
@@ -328,6 +502,23 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     }
   }
 
+  /**
+   * Method updateSchedule
+   *
+   * Applies present timezone, lead-time, and next-occurrence fields from a merge-patch request.
+   *
+   * @access private
+   *
+   * @param InterventionRecurrenceRecord $record recurrence record being updated
+   * @param string|null $timezone replacement timezone when present
+   * @param int|null $leadTimeDays replacement lead-time days when present
+   * @param DateTimeImmutable|null $nextOccurrenceAt replacement next occurrence when present
+   * @param bool $hasTimezone whether the request supplied the timezone field
+   * @param bool $hasLeadTimeDays whether the request supplied the lead-time field
+   * @param bool $hasNextOccurrenceAt whether the request supplied the next-occurrence field
+   *
+   * @return void
+   */
   private function updateSchedule(
     InterventionRecurrenceRecord $record,
     ?string $timezone,
@@ -348,6 +539,21 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     }
   }
 
+  /**
+   * Method updateLifecycle
+   *
+   * Applies present end-date and active-state fields from a merge-patch request.
+   *
+   * @access private
+   *
+   * @param InterventionRecurrenceRecord $record recurrence record being updated
+   * @param DateTimeImmutable|null $endAt replacement end date when present
+   * @param bool|null $isActive replacement active state when present
+   * @param bool $hasEndAt whether the request supplied the end-date field
+   * @param bool $hasIsActive whether the request supplied the active-state field
+   *
+   * @return void
+   */
   private function updateLifecycle(
     InterventionRecurrenceRecord $record,
     ?DateTimeImmutable $endAt,

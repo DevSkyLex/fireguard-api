@@ -15,7 +15,6 @@ use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
  * with OAuth token storage.
  *
  * @category Adapter
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -37,6 +36,17 @@ final readonly class AccessTokenLookupAdapter implements AccessTokenLookupPort
   // #endregion
 
   // #region Methods
+  /**
+   * Method find.
+   *
+   * Maps a stored access token to its active, revoked, and expired status.
+   *
+   * @access public
+   *
+   * @param string $identifier the access token identifier
+   *
+   * @return AccessTokenStatus|null the token status when the token exists
+   */
   public function find(string $identifier): ?AccessTokenStatus
   {
     $token = $this->accessTokenRepository->find($identifier);

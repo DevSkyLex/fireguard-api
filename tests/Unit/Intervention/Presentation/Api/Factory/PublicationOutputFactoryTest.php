@@ -18,7 +18,6 @@ use PHPUnit\Framework\TestCase;
  * client uses them to decide whether to keep polling.
  *
  * @category Factory Tests
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

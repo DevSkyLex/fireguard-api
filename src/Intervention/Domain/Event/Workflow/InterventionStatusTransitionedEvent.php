@@ -18,7 +18,6 @@ use DateTimeImmutable;
  * the aggregate invariant that requires one for that transition.
  *
  * @category Event
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

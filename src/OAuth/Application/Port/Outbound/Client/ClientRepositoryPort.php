@@ -13,7 +13,6 @@ use OAuth\Domain\ValueObject\Client\{ClientId, ClientName};
  * Port for persisting and retrieving OAuth clients.
  *
  * @category Outbound Port
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

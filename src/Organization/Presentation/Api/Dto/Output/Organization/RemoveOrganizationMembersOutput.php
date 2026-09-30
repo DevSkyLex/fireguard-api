@@ -15,7 +15,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * the members that were removed and surface a partial failure for the rest.
  *
  * @category DTO
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -16,7 +16,6 @@ use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
  * Handler CreateUserHandler.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

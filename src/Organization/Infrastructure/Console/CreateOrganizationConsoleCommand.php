@@ -26,7 +26,6 @@ use function trim;
  * Command CreateOrganizationConsoleCommand.
  *
  * @category Console Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -55,8 +54,8 @@ final class CreateOrganizationConsoleCommand extends Command
   ) {
     parent::__construct();
   }
-  // #endregion
 
+  // #endregion
   // #region Methods
   /**
    * Method configure
@@ -139,6 +138,20 @@ HELP
     return $this->createOrganization($io, $name, trim($ownerRaw), $slug);
   }
 
+  /**
+   * Method createOrganization
+   *
+   * Creates an organization for the selected owner and reports the created organization details in the console.
+   *
+   * @access private
+   *
+   * @param SymfonyStyle $io the console input/output helper
+   * @param string $name the name
+   * @param string $ownerIdentifier the owner identifier
+   * @param ?string $slug the slug
+   *
+   * @return int the command exit status
+   */
   private function createOrganization(SymfonyStyle $io, string $name, string $ownerIdentifier, ?string $slug): int
   {
     try {
@@ -195,9 +208,9 @@ HELP
    *
    * @param string $identifier the user ID or email
    *
-   * @throws OrganizationConsoleUserNotFoundException if the user cannot be found
-   *
    * @return string the resolved user ID
+   *
+   * @throws OrganizationConsoleUserNotFoundException if the user cannot be found
    */
   private function resolveUserId(string $identifier): string
   {

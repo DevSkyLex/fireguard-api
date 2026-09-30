@@ -18,7 +18,6 @@ use Compliance\Presentation\Api\Provider\{GetComplianceOverviewProvider, GetFaci
  * `generatedAt` is the data-as-of timestamp.
  *
  * @category Resource
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

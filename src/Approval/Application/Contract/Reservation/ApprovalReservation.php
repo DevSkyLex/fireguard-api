@@ -14,7 +14,6 @@ namespace Approval\Application\Contract\Reservation;
  * partial-unique idempotence guard).
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

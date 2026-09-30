@@ -35,7 +35,6 @@ use function count;
  * organization filter, so a foreign id silently yields no label.
  *
  * @category Handler
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -84,12 +83,12 @@ final readonly class ExportEquipmentLabelsHandler implements QueryHandler
    *
    * @param ExportEquipmentLabelsQuery $query the query to handle
    *
+   * @return ExportEquipmentLabelsResult the bounded, name-resolved label rows
+   *
    * @throws EquipmentNotFoundException when the caller is outside the organization's scope
    * @throws EquipmentAccessDeniedException when the caller lacks `organization.equipment.read`
    * @throws InvalidArgumentException when both selection modes are provided, or the id list is empty
    * @throws EquipmentLabelExportTooLargeException when the selection matches more than {@see self::MAX_LABELS} items
-   *
-   * @return ExportEquipmentLabelsResult the bounded, name-resolved label rows
    */
   public function __invoke(ExportEquipmentLabelsQuery $query): ExportEquipmentLabelsResult
   {

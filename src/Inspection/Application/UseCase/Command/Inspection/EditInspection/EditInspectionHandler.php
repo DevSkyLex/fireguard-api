@@ -15,8 +15,31 @@ use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
+/**
+ * Class EditInspectionHandler
+ *
+ * Applies an inspection patch after validating referenced equipment, facility and checklist records.
+ *
+ * @category Handler
+ */
 final readonly class EditInspectionHandler implements CommandHandler
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Initializes the checklist lock and reference validation dependencies.
+   *
+   * @access public
+   *
+   * @param ChecklistLockPort $locks checklist mutation lock
+   * @param InspectionRepositoryPort $inspectionRepository inspection persistence
+   * @param EquipmentValidationPort $equipmentValidation equipment reference validation
+   * @param FacilityValidationPort $facilityValidation facility reference validation
+   * @param ChecklistValidationPort $checklistValidation checklist reference validation
+   *
+   * @return void
+   */
   public function __construct(
     private ChecklistLockPort $locks,
     private InspectionRepositoryPort $inspectionRepository,
@@ -25,12 +48,38 @@ final readonly class EditInspectionHandler implements CommandHandler
     private ChecklistValidationPort $checklistValidation,
   ) {
   }
+  // #endregion
 
+  // #region Methods
+  /**
+   * Method __invoke
+   *
+   * Runs the inspection edit while holding the relevant checklist lock.
+   *
+   * @access public
+   *
+   * @param EditInspectionCommand $command requested inspection changes
+   *
+   * @return EditInspectionResult updated inspection identifiers and timestamp
+   */
   public function __invoke(EditInspectionCommand $command): EditInspectionResult
   {
     return $this->locks->withLock($command->organizationId, $command->hasChecklistId ? $command->checklistId : null, fn (): EditInspectionResult => $this->execute($command));
   }
 
+  /**
+   * Method execute
+   *
+   * Loads the inspection, applies the requested patch and persists the result.
+   *
+   * @access private
+   *
+   * @param EditInspectionCommand $command requested inspection changes
+   *
+   * @return EditInspectionResult updated inspection identifiers and timestamp
+   *
+   * @throws InspectionNotFoundException when the inspection is missing from the organization
+   */
   private function execute(EditInspectionCommand $command): EditInspectionResult
   {
     try {
@@ -100,6 +149,19 @@ final readonly class EditInspectionHandler implements CommandHandler
     );
   }
 
+  /**
+   * Method assertReferences
+   *
+   * Validates every supplied equipment, facility and checklist reference.
+   *
+   * @access private
+   *
+   * @param EditInspectionCommand $command requested inspection changes
+   *
+   * @return void
+   *
+   * @throws InvalidValueException when a supplied reference cannot be used
+   */
   private function assertReferences(EditInspectionCommand $command): void
   {
     if ($command->hasEquipmentId) {
@@ -116,4 +178,5 @@ final readonly class EditInspectionHandler implements CommandHandler
       $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
     }
   }
+  // #endregion
 }

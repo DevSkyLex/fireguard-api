@@ -10,7 +10,6 @@ namespace Auth\Application\Contract\Federation;
  * Current sign-in methods for one user.
  *
  * @category Contract
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

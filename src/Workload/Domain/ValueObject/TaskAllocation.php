@@ -8,7 +8,6 @@ namespace Workload\Domain\ValueObject;
  * Value object TaskAllocation.
  *
  * @category ValueObject
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

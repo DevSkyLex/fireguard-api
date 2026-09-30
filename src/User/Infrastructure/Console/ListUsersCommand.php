@@ -23,7 +23,6 @@ use function sprintf;
  * Command ListUsersCommand.
  *
  * @category Console Command
- *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -36,6 +35,17 @@ use function sprintf;
 final class ListUsersCommand extends Command
 {
   // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Connects the console command to the application query bus.
+   *
+   * @access public
+   *
+   * @param QueryBusPort $queryBus dispatches the paginated user collection query
+   *
+   * @return void
+   */
   public function __construct(
     private readonly QueryBusPort $queryBus,
   ) {
@@ -44,6 +54,15 @@ final class ListUsersCommand extends Command
   // #endregion
 
   // #region Methods
+  /**
+   * Method configure
+   *
+   * Declares the page and limit options used by the console user listing.
+   *
+   * @access protected
+   *
+   * @return void
+   */
   protected function configure(): void
   {
     $this
@@ -63,6 +82,18 @@ final class ListUsersCommand extends Command
       );
   }
 
+  /**
+   * Method execute
+   *
+   * Queries one user page and prints identity, status and verification columns with a pagination summary.
+   *
+   * @access protected
+   *
+   * @param InputInterface $input console input carrying page and limit values
+   * @param OutputInterface $output console output receiving the user table and status messages
+   *
+   * @return int the console success exit status
+   */
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
     $io = new SymfonyStyle($input, $output);
