@@ -9,7 +9,7 @@ use Compliance\Domain\ValueObject\SafetyRegisterSnapshotId;
 use Compliance\Infrastructure\Persistence\Doctrine\Record\SafetyRegisterSnapshotRecord;
 
 /**
- * Mapper SafetyRegisterSnapshotMapper.
+ * Class SafetyRegisterSnapshotMapper
  *
  * @category Mapper
  * @version 1.0.0
@@ -20,12 +20,11 @@ final class SafetyRegisterSnapshotMapper
 {
   // #region Methods
   /**
-   * Method toDomain.
-   *
-   * @static
+   * Method toDomain
    *
    * Maps a Doctrine snapshot record to the domain model.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param SafetyRegisterSnapshotRecord $record the persistence record
@@ -50,12 +49,11 @@ final class SafetyRegisterSnapshotMapper
   }
 
   /**
-   * Method toRecord.
-   *
-   * @static
+   * Method toRecord
    *
    * Maps a snapshot domain model onto a Doctrine record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param SafetyRegisterSnapshot $snapshot the domain snapshot

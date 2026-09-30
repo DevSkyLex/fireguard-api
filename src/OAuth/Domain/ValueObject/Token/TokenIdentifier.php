@@ -10,7 +10,9 @@ use function bin2hex;
 use function random_bytes;
 
 /**
- * Class TokenIdentifier.
+ * Class TokenIdentifier
+ *
+ * Identifies a token and provides operations for generating and comparing identifiers.
  *
  * @category ValueObject
  * @version 1.0.0
@@ -21,14 +23,16 @@ final readonly class TokenIdentifier
 {
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
-   * Initializes a new instance of the
-   * TokenIdentifier class.
+   * Stores a non-empty token identifier.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $value the token identifier value
+   *
+   * @return void
    *
    * @throws InvalidArgumentException if the value is empty
    */
@@ -41,12 +45,15 @@ final readonly class TokenIdentifier
       );
     }
   }
+  // #endregion
 
+  // #region Methods
   /**
-   * Method __toString.
+   * Method __toString
    *
-   * Returns the string representation.
+   * Returns the stored token identifier as a string.
    *
+   * @access public
    * @since 1.0.0
    *
    * @return string the token identifier
@@ -55,18 +62,16 @@ final readonly class TokenIdentifier
   {
     return $this->value;
   }
-  // #endregion
 
-  // #region Methods
   /**
-   * Method generate.
+   * Method generate
    *
-   * Generates a new random token
-   * identifier.
+   * Generates an identifier by hex-encoding random bytes.
    *
+   * @access public
    * @since 1.0.0
    *
-   * @param positive-int $length the length of the identifier in bytes
+   * @param positive-int $length the number of random bytes to encode
    *
    * @return self the generated identifier
    */
@@ -76,11 +81,11 @@ final readonly class TokenIdentifier
   }
 
   /**
-   * Method equals.
+   * Method equals
    *
-   * Checks if this identifier
-   * equals another.
+   * Compares this identifier with another identifier.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param self $other the other identifier

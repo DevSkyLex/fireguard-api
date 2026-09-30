@@ -15,7 +15,7 @@ use function is_int;
 use function is_string;
 
 /**
- * Trait InterventionWorkflowViewDataTrait.
+ * Trait InterventionWorkflowViewDataTrait
  *
  * @category Trait
  * @version 1.0.0
@@ -27,19 +27,27 @@ trait InterventionWorkflowViewDataTrait
   // #region Constants
   /**
    * Constant INVALID_LIST_MESSAGE_SUFFIX
+   *
+   * Shared suffix for errors raised when workflow data is not a list.
    */
   private const string INVALID_LIST_MESSAGE_SUFFIX = ' must be a list of objects.';
   // #endregion
 
+  // #region Methods
   /**
-   * Method string.
+   * Method string
    *
+   * Reads a required string field from a decoded workflow view and rejects other values.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param array<string, mixed> $data
-   * @param string $key the key value
+   * @param array<string, mixed> $data decoded workflow view data
+   * @param string $key field name to read
    *
-   * @return string the string result
+   * @return string the field value
+   *
+   * @throws LogicException when the field is missing or is not a string
    */
   private function string(array $data, string $key): string
   {
@@ -52,14 +60,19 @@ trait InterventionWorkflowViewDataTrait
   }
 
   /**
-   * Method nullableString.
+   * Method nullableString
    *
+   * Reads an optional string field, preserving null and rejecting other values.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param array<string, mixed> $data
-   * @param string $key the key value
+   * @param array<string, mixed> $data decoded workflow view data
+   * @param string $key field name to read
    *
-   * @return ?string the nullable string result
+   * @return ?string the field value, or null when absent or explicitly null
+   *
+   * @throws LogicException when a present field is not a string
    */
   private function nullableString(array $data, string $key): ?string
   {
@@ -72,14 +85,19 @@ trait InterventionWorkflowViewDataTrait
   }
 
   /**
-   * Method integer.
+   * Method integer
    *
+   * Reads a required integer field without coercing other values.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param array<string, mixed> $data
-   * @param string $key the key value
+   * @param array<string, mixed> $data decoded workflow view data
+   * @param string $key field name to read
    *
-   * @return int the integer result
+   * @return int the field value
+   *
+   * @throws LogicException when the field is missing or is not an integer
    */
   private function integer(array $data, string $key): int
   {
@@ -92,14 +110,19 @@ trait InterventionWorkflowViewDataTrait
   }
 
   /**
-   * Method boolean.
+   * Method boolean
    *
+   * Reads a required boolean field without coercing other values.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param array<string, mixed> $data
-   * @param string $key the key value
+   * @param array<string, mixed> $data decoded workflow view data
+   * @param string $key field name to read
    *
-   * @return bool the boolean result
+   * @return bool the field value
+   *
+   * @throws LogicException when the field is missing or is not a boolean
    */
   private function boolean(array $data, string $key): bool
   {
@@ -112,14 +135,19 @@ trait InterventionWorkflowViewDataTrait
   }
 
   /**
-   * Method stringList.
+   * Method stringList
    *
+   * Reads a list field and verifies that every item is a string.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param array<string, mixed> $data the data value
-   * @param string $key the key value
+   * @param array<string, mixed> $data decoded workflow view data
+   * @param string $key field name to read
    *
-   * @return list<string>
+   * @return list<string> field values in their original order
+   *
+   * @throws LogicException when the field is not an array of strings
    */
   private function stringList(array $data, string $key): array
   {
@@ -138,14 +166,19 @@ trait InterventionWorkflowViewDataTrait
   }
 
   /**
-   * Method object.
+   * Method object
    *
+   * Reads an object-shaped field, requiring string keys while preserving nested values.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param array<string, mixed> $data the data value
-   * @param string $key the key value
+   * @param array<string, mixed> $data decoded workflow view data
+   * @param string $key field name to read
    *
-   * @return array<string, mixed>
+   * @return array<string, mixed> field value keyed by strings
+   *
+   * @throws LogicException when the field is not an object-shaped array
    */
   private function object(array $data, string $key): array
   {
@@ -164,14 +197,19 @@ trait InterventionWorkflowViewDataTrait
   }
 
   /**
-   * Method nullableObject.
+   * Method nullableObject
    *
+   * Reads an optional object-shaped field, preserving null when it is absent.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param array<string, mixed> $data the data value
-   * @param string $key the key value
+   * @param array<string, mixed> $data decoded workflow view data
+   * @param string $key field name to read
    *
-   * @return ?array<string, mixed>
+   * @return ?array<string, mixed> field value, or null when absent or explicitly null
+   *
+   * @throws LogicException when a present field is not an object-shaped array
    */
   private function nullableObject(array $data, string $key): ?array
   {
@@ -184,14 +222,19 @@ trait InterventionWorkflowViewDataTrait
   }
 
   /**
-   * Method objectList.
+   * Method objectList
    *
+   * Reads a list of object-shaped arrays and verifies that each item has string keys.
+   *
+   * @access private
    * @since 1.0.0
    *
-   * @param array<string, mixed> $data the data value
-   * @param string $key the key value
+   * @param array<string, mixed> $data decoded workflow view data
+   * @param string $key field name to read
    *
-   * @return list<array<string, mixed>>
+   * @return list<array<string, mixed>> field objects in their original order
+   *
+   * @throws LogicException when the field is not a list of object-shaped arrays
    */
   private function objectList(array $data, string $key): array
   {
@@ -214,4 +257,5 @@ trait InterventionWorkflowViewDataTrait
       return $item;
     }, $value));
   }
+  // #endregion
 }

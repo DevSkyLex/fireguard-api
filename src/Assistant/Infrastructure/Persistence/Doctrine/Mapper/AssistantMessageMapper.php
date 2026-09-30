@@ -10,7 +10,7 @@ use Assistant\Infrastructure\Exception\AssistantMessageThreadMissingException;
 use Assistant\Infrastructure\Persistence\Doctrine\Record\{AssistantMessageRecord, AssistantThreadRecord};
 
 /**
- * Mapper AssistantMessageMapper.
+ * Class AssistantMessageMapper
  *
  * @category Mapper
  * @version 1.0.0
@@ -21,10 +21,11 @@ final class AssistantMessageMapper
 {
   // #region Methods
   /**
-   * Method toDomain.
+   * Method toDomain
    *
-   * @static
+   * Reconstitutes the domain aggregate from its persisted record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param AssistantMessageRecord $record the persistence record
@@ -64,14 +65,17 @@ final class AssistantMessageMapper
   }
 
   /**
-   * Method toRecord.
+   * Method toRecord
    *
-   * @static
+   * Copies aggregate state into the persistence record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param AssistantMessage $message the domain aggregate
    * @param AssistantMessageRecord $record the persistence record to populate
+   *
+   * @return void the record is populated in place
    */
   public static function toRecord(AssistantMessage $message, AssistantMessageRecord $record): void
   {

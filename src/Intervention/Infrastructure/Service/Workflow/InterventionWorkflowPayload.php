@@ -15,19 +15,29 @@ use function is_array;
 use function is_string;
 
 /**
- * Parses workflow mutation fields without changing their validation rules.
+ * Class InterventionWorkflowPayload
+ *
+ * Validates workflow mutation fields using the established input rules.
+ *
+ * @category Service
  */
 final readonly class InterventionWorkflowPayload
 {
+  // #region Methods
   /**
-   * Method requiredString.
+   * Method requiredString
    *
+   * Returns a required, non-empty string field without coercing other values.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param array<string, mixed> $payload
-   * @param string $key the key value
+   * @param array<string, mixed> $payload workflow mutation fields
+   * @param string $key name of the required field
    *
-   * @return string the required string result
+   * @return string the non-empty field value
+   *
+   * @throws InvalidArgumentException when the field is missing, empty or not a string
    */
   public static function requiredString(array $payload, string $key): string
   {
@@ -40,14 +50,19 @@ final readonly class InterventionWorkflowPayload
   }
 
   /**
-   * Method nullableString.
+   * Method nullableString
    *
+   * Returns an optional string field, preserving null and rejecting other values.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param array<string, mixed> $payload
-   * @param string $key the key value
+   * @param array<string, mixed> $payload workflow mutation fields
+   * @param string $key name of the optional field
    *
-   * @return ?string the nullable string result
+   * @return ?string the field value, or null when absent or explicitly null
+   *
+   * @throws InvalidArgumentException when a present field is not a string
    */
   public static function nullableString(array $payload, string $key): ?string
   {
@@ -63,13 +78,18 @@ final readonly class InterventionWorkflowPayload
   }
 
   /**
-   * Method stringList.
+   * Method stringList
    *
+   * Validates an array of strings, removes duplicate values and reindexes the result.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $value the value value
+   * @param mixed $value candidate list value
    *
-   * @return list<string>
+   * @return list<string> unique string values in first-seen order
+   *
+   * @throws InvalidArgumentException when the value is not an array of strings
    */
   public static function stringList(mixed $value): array
   {
@@ -90,15 +110,19 @@ final readonly class InterventionWorkflowPayload
   }
 
   /**
-   * Method date.
+   * Method date
    *
-   * Executes the date operation.
+   * Converts an optional date-time string to an immutable date value.
+   * Malformed strings propagate DateTimeImmutable's parsing exception.
    *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $value the value value
+   * @param mixed $value candidate date-time value
    *
-   * @return ?DateTimeImmutable the date result
+   * @return ?DateTimeImmutable parsed date, or null when the value is null
+   *
+   * @throws InvalidArgumentException when a non-null value is not a string
    */
   public static function date(mixed $value): ?DateTimeImmutable
   {
@@ -113,13 +137,18 @@ final readonly class InterventionWorkflowPayload
   }
 
   /**
-   * Method patch.
+   * Method patch
    *
+   * Validates an object-shaped patch while preserving its nested values.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param mixed $value the value value
+   * @param mixed $value candidate patch value
    *
-   * @return array<string, mixed>
+   * @return array<string, mixed> patch fields keyed by strings
+   *
+   * @throws InvalidArgumentException when the value is not an object-shaped array
    */
   public static function patch(mixed $value): array
   {
@@ -135,4 +164,5 @@ final readonly class InterventionWorkflowPayload
     /** @var array<string, mixed> $value */
     return $value;
   }
+  // #endregion
 }

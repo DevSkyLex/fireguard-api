@@ -43,13 +43,16 @@ interface TokenRevocationPort
   public function revokeAccessToken(string $jwtToken): bool;
 
   /**
-   * Method revokeAllUserTokens.
+   * Method revokeAllUserTokens
    *
-   * Revokes all tokens for a given user.
+   * Requests revocation of a user's tokens; the current adapter only records this request.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $userId the user identifier
+   *
+   * @return void
    */
   public function revokeAllUserTokens(string $userId): void;
 }

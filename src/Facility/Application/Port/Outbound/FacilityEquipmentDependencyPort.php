@@ -25,6 +25,7 @@ interface FacilityEquipmentDependencyPort
    * Returns true when at least one active (non-decommissioned, published)
    * equipment item is assigned to the facility.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
@@ -41,12 +42,12 @@ interface FacilityEquipmentDependencyPort
    * each of the given facilities, in one round trip.
    *
    * Batched rather than per-facility on purpose: the callers are list queries,
-   * and asking once per row is how a page of twenty facilities becomes twenty
-   * queries.
+   * so one call avoids issuing a separate count query for each facility.
    *
    * Facilities with no equipment are absent from the result rather than mapped
    * to zero; callers default them.
    *
+   * @access public
    * @since 1.1.0
    *
    * @param string $organizationId the organization identifier

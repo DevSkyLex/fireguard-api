@@ -59,6 +59,7 @@ final readonly class SetEquipmentPlanPositionHandler implements CommandHandler
    *
    * Handles the corresponding use case execution.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param SetEquipmentPlanPositionCommand $command the command payload
@@ -105,6 +106,7 @@ final readonly class SetEquipmentPlanPositionHandler implements CommandHandler
   /**
    * Method result.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param Equipment $equipment the mutated equipment aggregate

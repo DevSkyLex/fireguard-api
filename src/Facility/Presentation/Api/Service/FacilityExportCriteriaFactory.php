@@ -33,6 +33,7 @@ final class FacilityExportCriteriaFactory
   /**
    * Method fromRequest.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param Request $request the incoming HTTP request
@@ -93,6 +94,7 @@ final class FacilityExportCriteriaFactory
    * raw filter values. `includeArchived` is excluded: it is always present
    * with a default, never a caller-applied narrowing filter.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param array<string, mixed> $filters the resolved filters

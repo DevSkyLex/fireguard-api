@@ -7,7 +7,7 @@ namespace Inspection\Domain\ValueObject;
 use function array_column;
 
 /**
- * Enum InspectionStatus.
+ * Enum InspectionStatus
  *
  * @category ValueObject
  * @version 1.0.0
@@ -16,25 +16,35 @@ use function array_column;
  */
 enum InspectionStatus: string
 {
+  // #region Cases
   /**
    * Case DRAFT
+   *
+   * The inspection is being prepared and has not been submitted.
    */
   case DRAFT = 'draft';
 
   /**
    * Case SUBMITTED
+   *
+   * The inspection was submitted and may be closed.
    */
   case SUBMITTED = 'submitted';
 
   /**
    * Case CLOSED
+   *
+   * The inspection lifecycle is complete.
    */
   case CLOSED = 'closed';
 
   /**
    * Case CANCELLED
+   *
+   * The inspection was cancelled before completion.
    */
   case CANCELLED = 'cancelled';
+  // #endregion
 
   // #region Methods
   /**
@@ -52,9 +62,14 @@ enum InspectionStatus: string
   }
 
   /**
-   * Method isDraft.
+   * Method isDraft
    *
+   * Indicates whether the inspection is still being prepared.
+   *
+   * @access public
    * @since 1.0.0
+   *
+   * @return bool true when the inspection is a draft
    */
   public function isDraft(): bool
   {
@@ -62,9 +77,14 @@ enum InspectionStatus: string
   }
 
   /**
-   * Method isClosed.
+   * Method isClosed
    *
+   * Indicates whether the inspection lifecycle is complete.
+   *
+   * @access public
    * @since 1.0.0
+   *
+   * @return bool true when the inspection is closed
    */
   public function isClosed(): bool
   {
@@ -72,9 +92,14 @@ enum InspectionStatus: string
   }
 
   /**
-   * Method isSubmitted.
+   * Method isSubmitted
    *
+   * Indicates whether the inspection has been submitted for completion.
+   *
+   * @access public
    * @since 1.0.0
+   *
+   * @return bool true when the inspection is submitted
    */
   public function isSubmitted(): bool
   {
@@ -82,9 +107,14 @@ enum InspectionStatus: string
   }
 
   /**
-   * Method isCancelled.
+   * Method isCancelled
    *
+   * Indicates whether the inspection was cancelled.
+   *
+   * @access public
    * @since 1.0.0
+   *
+   * @return bool true when the inspection is cancelled
    */
   public function isCancelled(): bool
   {

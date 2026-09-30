@@ -16,7 +16,7 @@ use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use Approval\Infrastructure\Persistence\Doctrine\Record\ApprovalRequestRecord;
 
 /**
- * Mapper ApprovalRequestMapper.
+ * Class ApprovalRequestMapper
  *
  * @category Mapper
  * @version 1.0.0
@@ -27,10 +27,11 @@ final class ApprovalRequestMapper
 {
   // #region Methods
   /**
-   * Method toDomain.
+   * Method toDomain
    *
-   * @static
+   * Reconstitutes the domain aggregate from its persisted record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ApprovalRequestRecord $record the persistence record
@@ -62,14 +63,17 @@ final class ApprovalRequestMapper
   }
 
   /**
-   * Method toRecord.
+   * Method toRecord
    *
-   * @static
+   * Copies aggregate state into the persistence record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ApprovalRequest $request the domain aggregate
    * @param ApprovalRequestRecord $record the persistence record to populate
+   *
+   * @return void the record is populated in place
    */
   public static function toRecord(ApprovalRequest $request, ApprovalRequestRecord $record): void
   {
