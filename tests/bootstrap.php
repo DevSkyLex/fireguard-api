@@ -51,7 +51,7 @@ function fireguard_isolated_database_url(string $dsn, string $token): string
   //
   // paratest's parent runs this same bootstrap, rewrites $_SERVER/$_ENV to its
   // own clone, and then spawns workers that inherit that environment. Measured
-  // on `paratest -c phpunit.e2e.xml`: the workers came up with
+  // on `paratest -c tests/E2E/phpunit.xml`: the workers came up with
   // AUTH_DATABASE_URL already reading "fireguard_auth_e2e_w427edba0bce3".
   // Without this, each worker would CREATE ... TEMPLATE off the parent's clone
   // and DROP a database the parent is holding.
@@ -163,7 +163,7 @@ function fireguard_isolated_database_url(string $dsn, string $token): string
 /**
  * Fingerprint everything the compiled Symfony container is built from.
  *
- * The test kernel boots with debug off — phpunit.dist.xml and phpunit.e2e.xml
+ * The test kernel boots with debug off — phpunit.dist.xml and tests/E2E/phpunit.xml
  * both force APP_DEBUG=0 — and a non-debug kernel never revalidates its
  * container cache. Symfony still writes the resource list to `*.meta`, but only
  * consults it in debug mode, so whatever sits in the cache directory is what the

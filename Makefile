@@ -13,7 +13,7 @@ PROJECT_NAME ?= $(notdir $(CURDIR))
 APP_ENV ?= dev
 # Resolved with make's own functions rather than a $(shell php -r ...) one-liner:
 # the quoting of that one-liner breaks under sh, so TMP_DIR came out empty and
-# APP_CACHE_DIR resolved to "/fireguard-sso-api/cache/dev" — which under Git
+# APP_CACHE_DIR resolved to "/fireguard-api/cache/dev" — which under Git
 # Bash means Git's own install directory. It went unnoticed only because
 # ENV_PREFIX never actually exported the value.
 TMP_DIR ?= $(if $(TEMP),$(subst \,/,$(TEMP)),$(if $(TMPDIR),$(TMPDIR),/tmp))
@@ -59,7 +59,7 @@ phpstan:
 
 deptrac:
 	$(PHP) $(DEPTRAC_BIN) analyse --config-file=deptrac.yaml
-	$(PHP) $(DEPTRAC_BIN) analyse --config-file=deptrac.modules.php
+	$(PHP) $(DEPTRAC_BIN) analyse --config-file=tests/Architecture/deptrac/modules.php
 
 # Validate Symfony container configuration.
 # `lint:container` needs the raised memory limit like phpstan/phpunit do: it
@@ -75,6 +75,19 @@ lint:
 # failed on those 33. A gate that disagrees with CI is not a gate. Cost: 3s -> 14s.
 cs-lint:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --dry-run --diff --using-cache=no
+
+.PHONY: docs-lint docs-fix
+
+# DOC_PATHS names assigned files; an empty scope must never format the whole tree.
+docs-lint:
+	$(if $(strip $(DOC_PATHS)),,$(error DOC_PATHS must name the assigned PHP files))
+	$(if $(filter-out %.php,$(DOC_PATHS)),$(error DOC_PATHS accepts explicit .php files only))
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --config=.php-cs-fixer.comments.php --dry-run --diff --using-cache=no -- $(DOC_PATHS)
+
+docs-fix:
+	$(if $(strip $(DOC_PATHS)),,$(error DOC_PATHS must name the assigned PHP files))
+	$(if $(filter-out %.php,$(DOC_PATHS)),$(error DOC_PATHS accepts explicit .php files only))
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --config=.php-cs-fixer.comments.php --using-cache=no -- $(DOC_PATHS)
 
 # Fail when the committed openapi.json no longer matches the code. The spec is
 # the contract-of-record the frontend and /fg-contract-check read; it silently
@@ -123,8 +136,8 @@ migrate-all: migrate-auth migrate-main
 # the only thing that changes the baseline. It purges before reloading, so
 # re-running it always restores exactly the baseline the E2E counts assert.
 test-db:
-	docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_auth_test'" | grep -q 1 || docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -c "CREATE DATABASE fireguard_auth_test;"
-	docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_main_test'" | grep -q 1 || docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -c "CREATE DATABASE fireguard_main_test;"
+	docker compose exec -T auth_database psql -U admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_auth_test'" | grep -q 1 || docker compose exec -T auth_database psql -U admin -d postgres -c "CREATE DATABASE fireguard_auth_test;"
+	docker compose exec -T main_database psql -U main_admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_main_test'" | grep -q 1 || docker compose exec -T main_database psql -U main_admin -d postgres -c "CREATE DATABASE fireguard_main_test;"
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --env=test --configuration=config/migrations/auth.yaml --no-interaction
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --env=test --configuration=config/migrations/main.yaml --no-interaction
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --env=test --no-interaction
@@ -136,8 +149,8 @@ test-db:
 # two databases; this is the sweep for those. The pattern matches only the
 # `_w<token>` clones, never the migrated templates or the dev databases.
 test-db-clean:
-	docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -tAc "SELECT 'DROP DATABASE IF EXISTS \"' || datname || '\" WITH (FORCE);' FROM pg_database WHERE datname ~ '^fireguard_auth_test_w'" | docker exec -i fireguard-sso-api-auth_database-1 psql -U admin -d postgres
-	docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -tAc "SELECT 'DROP DATABASE IF EXISTS \"' || datname || '\" WITH (FORCE);' FROM pg_database WHERE datname ~ '^fireguard_main_test_w'" | docker exec -i fireguard-sso-api-main_database-1 psql -U main_admin -d postgres
+	docker compose exec -T auth_database psql -U admin -d postgres -tAc "SELECT 'DROP DATABASE IF EXISTS \"' || datname || '\" WITH (FORCE);' FROM pg_database WHERE datname ~ '^fireguard_auth_test_w'" | docker compose exec -T auth_database psql -U admin -d postgres
+	docker compose exec -T main_database psql -U main_admin -d postgres -tAc "SELECT 'DROP DATABASE IF EXISTS \"' || datname || '\" WITH (FORCE);' FROM pg_database WHERE datname ~ '^fireguard_main_test_w'" | docker compose exec -T main_database psql -U main_admin -d postgres
 
 # Drop the compiled container caches the suite keys on its own sources.
 #

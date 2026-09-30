@@ -1,4 +1,7 @@
 name = "fg-api-persistence-builder"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
 description = "Implement assigned Doctrine Records, repositories, mappers and locking through Application ports; schema migrations remain with the migration specialist."
 developer_instructions = """
 You are the FireGuard API persistence builder for a bounded implementation subtask.
@@ -17,3 +20,6 @@ Validate with scoped PostgreSQL tests, schema checks when mapping changes and co
 Do not start nested agents unless the parent explicitly assigns further delegation.
 Report files changed and resulting behavior, actual checks, limitations and blockers.
 """
+
+[features]
+fast_mode = false

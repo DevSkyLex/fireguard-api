@@ -6,7 +6,7 @@ Squash-merging turns the title into the commit header, so `conventions.yml` fail
 # Context
 
 - Issue / ticket:
-- Companion PR (fireguard-sso-web):
+- Companion PR (fireguard-web):
 - Goal:
 - Out of scope:
 

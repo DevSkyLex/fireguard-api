@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * PostToolUse hook (fireguard-sso-api) - auto-format the file Claude just edited with
+ * PostToolUse hook (fireguard-api) - auto-format the file Claude just edited with
  * the project's own PHP-CS-Fixer config, so no change ever fails `make cs-lint` for
  * style reasons alone.
  *

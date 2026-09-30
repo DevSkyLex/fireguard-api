@@ -32,7 +32,7 @@
 // as plugins at the monorepo root, where the root's own copy already runs — without
 // this the same command would be judged three times. Null here: the root copy must
 // run in every root session.
-const OWNER = 'fireguard-sso-api';
+const OWNER = 'fireguard-api';
 if (OWNER) {
   const dir = (process.env.CLAUDE_PROJECT_DIR ?? '').replace(/\\/g, '/').replace(/\/+$/, '');
   if (!dir.endsWith(`/${OWNER}`)) process.exit(0);

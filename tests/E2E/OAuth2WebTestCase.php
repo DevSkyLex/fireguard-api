@@ -25,7 +25,6 @@ use function uniqid;
  * Provides fixture loading and token generation helpers.
  *
  * @category E2E Tests
- *
  * @version 1.0.0
  */
 abstract class OAuth2WebTestCase extends WebTestCase
@@ -57,7 +56,7 @@ abstract class OAuth2WebTestCase extends WebTestCase
    *
    * The fixture baseline is seeded once, into `fireguard_*_test` by
    * `make test-db` (phpunit.dist.xml, which runs this suite alongside the
-   * others) or into `fireguard_*_e2e` by CI (phpunit.e2e.xml). Loading it per
+   * others) or into `fireguard_*_e2e` by CI (tests/E2E/phpunit.xml). Loading it per
    * test instead cost ~5s each and bought nothing: DAMA wraps every test in a
    * transaction it rolls back, so the seeded data is already pristine at the
    * start of each one, and the test's own writes still disappear at the end.

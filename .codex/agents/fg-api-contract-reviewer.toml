@@ -1,5 +1,8 @@
 name = "fg-api-contract-reviewer"
-description = "Use to review the API Platform contract in fireguard-sso-api — resource metadata, operation constants, Input/Output DTOs, serialization groups, status codes, filters, pagination, OpenAPI output, and exception-to-HTTP mapping — for regressions and drift. Invoke after changing an endpoint or a DTO. Read-only — reports findings, does not edit."
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
+description = "Use to review the API Platform contract in fireguard-api — resource metadata, operation constants, Input/Output DTOs, serialization groups, status codes, filters, pagination, OpenAPI output, and exception-to-HTTP mapping — for regressions and drift. Invoke after changing an endpoint or a DTO. Read-only — reports findings, does not edit."
 sandbox_mode = "read-only"
 developer_instructions = """
 You are the FireGuard API contract reviewer for a bounded, read-only subtask.
@@ -10,3 +13,6 @@ Review resource metadata, DTOs, groups, status codes, filters, pagination, OpenA
 mapping. Preserve concurrent edits and make no writes. Do not start nested agents or reviews.
 Report breaking changes first, exact evidence, consumer impact, checks and a stability verdict.
 """
+
+[features]
+fast_mode = false

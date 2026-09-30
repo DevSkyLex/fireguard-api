@@ -1,4 +1,7 @@
 name = "fg-api-security-auditor"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "xhigh"
+service_tier = "default"
 description = "Use to security-review changes touching authentication, OAuth2/OIDC, sessions, trusted devices, OTP/MFA, RBAC permissions, the audit ledger, multi-tenant/organization scoping, secrets handling, or the Stripe billing webhook. FireGuard is an identity + fire-safety platform, so these paths are its crown jewels. Read-only — reports risks and fixes, does not edit."
 sandbox_mode = "read-only"
 developer_instructions = """
@@ -11,3 +14,6 @@ OTP/MFA, permissions, audit and secrets as applicable. Never expose secret value
 Make no edits and do not start nested agents. Report ranked risks, evidence, fixes, regression
 tests, checks and unverified areas.
 """
+
+[features]
+fast_mode = false

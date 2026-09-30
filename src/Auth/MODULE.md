@@ -160,6 +160,14 @@ Response (200):
 }
 ```
 
+#### Rate-limit responses
+
+Login, token refresh, MFA verification and MFA resend return `429 Too Many Requests`
+with `Content-Type: application/problem+json`, regardless of the request's `Accept` header.
+The problem details include `code: "rate_limit_exceeded"` and `retryAfterSeconds`, a
+non-negative integer or `null` when the retry delay is unknown. The `Retry-After` header
+is preserved when supplied by the limiter.
+
 ### Password Reset
 
 #### POST `/api/auth/password/reset/request`
@@ -458,6 +466,7 @@ public, while connection and password-setup endpoints require an authenticated u
 - `AuthorizationException` -> unauthorized access
 - `MfaChallengeException` -> invalid or expired MFA challenge
 - `TokenRevocationException` -> token revocation failed
+- `rate_limit_exceeded` -> HTTP 429; see the rate-limit response contract above
 - `unknown_provider`, `provider_unavailable` -> unsupported or disabled provider
 - `invalid_flow` -> expired, consumed or replayed state
 - `account_exists` -> provider email belongs to an existing unlinked account

@@ -384,14 +384,14 @@ Minimum tests for a new endpoint:
 
 ## Executable module boundary gate
 
-`make deptrac` and CI run both the original layer rules and `deptrac.modules.php`.
+`make deptrac` and CI run both the original layer rules and `tests/Architecture/deptrac/modules.php`.
 Each documented module has disjoint public (`Application/Port`, `Application/Contract`)
 and private collectors. Only public surfaces cross module boundaries. Shared's existing
 Domain kernel and message-handler contracts are explicitly public infrastructure contracts.
 No business consumer, including Audit, is exempt. Native AST analysis also sees fully qualified
 names, inheritance and signatures, not just textual `use` statements.
 
-`deptrac.modules.baseline.yaml` enumerates existing **exact class pairs**, including technical
+`tests/Architecture/deptrac/modules.baseline.yaml` enumerates existing **exact class pairs**, including technical
 HTTP/security helpers, legacy Domain types, event subscriptions, and fixture composition.
 These entries are visible migration debt, not new public APIs. Fix touched dependencies when
 practical and remove their exceptions. Do not regenerate the baseline to accept new violations;

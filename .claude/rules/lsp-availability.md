@@ -1,7 +1,7 @@
 # Code intelligence: Serena, and why there is no `LSP` tool
 
-**No `paths:` header on purpose.** This has to be in context *before* the first file is
-opened and the first subagent is spawned, which is exactly when it matters. How to *use*
+**No `paths:` header on purpose.** This has to be in context _before_ the first file is
+opened and the first subagent is spawned, which is exactly when it matters. How to _use_
 the server is in `lsp-usage.md`, which is path-scoped and arrives later.
 
 ## The standing answer
@@ -29,32 +29,32 @@ and it answers from a subagent, which the native tool never did.
 Three sessions, three verdicts, all 2026-08-26. The main session's `LSP` worked throughout;
 subagents never got it.
 
-| Claude Code | Subagent symptom | Main-session control |
-| --- | --- | --- |
-| 2.1.237 | `LSP` absent whatever the `tools:` line declared; 74 subagent runs, zero calls | `findReferences` correct |
-| 2.1.246 (headless) | `ToolSearch select:LSP` → "No matching deferred tools found" | 22 references across 9 files |
-| after a restart | `ToolSearch` **returns the full schema**; the call is refused: `Error: No such tool available: LSP. LSP is disabled for this session, in subagents as well as here.` | 22 references across 9 files |
+| Claude Code        | Subagent symptom                                                                                                                                                     | Main-session control         |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| 2.1.237            | `LSP` absent whatever the `tools:` line declared; 74 subagent runs, zero calls                                                                                       | `findReferences` correct     |
+| 2.1.246 (headless) | `ToolSearch select:LSP` → "No matching deferred tools found"                                                                                                         | 22 references across 9 files |
+| after a restart    | `ToolSearch` **returns the full schema**; the call is refused: `Error: No such tool available: LSP. LSP is disabled for this session, in subagents as well as here.` | 22 references across 9 files |
 
 The last row is the nastiest form: the schema loads, so a subagent believes it holds the tool.
 Two of three subagents asked "do you have `LSP`?" answered **yes** on that basis alone, and one
 pasted the schema as proof. Both were wrong.
 
 **A schema is not a capability. Only a real payload counts.** If you ever re-test this, demand
-the raw tool output *and* a `findReferences` result with numbers — that protocol has caught a
+the raw tool output _and_ a `findReferences` result with numbers — that protocol has caught a
 fabricating subagent twice.
 
-Serena, run through the same protocol, passed from inside `fg-module-explorer` and
-`fg-architecture-reviewer` with no `Grep` fallback and no tool refusal: 8 files for
+Serena, run through the same protocol, passed from inside `fg-api-module-explorer` and
+`fg-api-architecture-reviewer` with no `Grep` fallback and no tool refusal: 8 files for
 `AuditExportTooLargeException`, identical across three calls, matching the main session exactly.
 
 ## Re-measured head to head, in subagents (2026-08-26, after the removal)
 
-| | Serena, in a subagent | Grep, in a subagent | Main-session control |
-| --- | --- | --- | --- |
+|                                | Serena, in a subagent                 | Grep, in a subagent           | Main-session control           |
+| ------------------------------ | ------------------------------------- | ----------------------------- | ------------------------------ |
 | `AuditExportTooLargeException` | **8 files**, identical across 3 calls | 10 raw, 8 after manual triage | 10 raw `-w`, 8 true references |
-| tool calls | 3 | 10 | — |
-| wall clock | 33 s | 104 s | — |
-| subagent tokens | 47k | 68k | — |
+| tool calls                     | 3                                     | 10                            | —                              |
+| wall clock                     | 33 s                                  | 104 s                         | —                              |
+| subagent tokens                | 47k                                   | 68k                           | —                              |
 
 **Serena is exact at the file.** Its 8 paths are the control set minus the declaration itself
 and one `{@see}` docblock. Noise rate for a raw `grep -w` on this symbol: **20 %**, and the
@@ -95,18 +95,18 @@ been queried in the session. The rule stands; it simply costs one extra call to 
 
 ## How the server is set up
 
-[Serena](https://github.com/oraios/serena) 1.7.0, installed globally with
-`uv tool install -p 3.13 serena-agent`, registered at **user** scope, pinned to this
-repository:
+[Serena](https://github.com/oraios/serena) can be installed globally with
+`uv tool install -p 3.13 serena-agent`. Use a version supporting `--project-from-cwd`
+and start it from this repository or one of its subdirectories:
 
 ```
-serena start-mcp-server --context ide --project G:/Projets/fireguard/fireguard-sso-api
+serena start-mcp-server --context ide --project-from-cwd
 ```
 
-A second server, `serena-web`, is pinned to the frontend. Two servers rather than one on
-purpose: a single server holds **one** active project, so two subagents working on the two
-apps at once would fight over `activate_project`. Pinning removes the call entirely — the
-repository is chosen by the tool name.
+The native option selects the nearest ancestor containing `.serena/project.yml` or `.git`.
+No installation path is stored in the repository. Keep separate `serena-api` and
+`serena-web` sessions, each launched in its own checkout: a server holds one active project.
+Personal MCP registration and executable overrides belong in user-level configuration.
 
 **Context `ide`, not `claude-code`.** The `claude-code` context ships a prompt that forbids
 `Read` and `Edit` on code files outright, which contradicts how the `fg-*` agents work. `ide`
@@ -120,9 +120,9 @@ free edition does not answer it and returns `[]`, which reads exactly like "noth
 this". Serena's editing and memory tools are left out too: edits go through this repo's own
 discipline.
 
-| Check | Result |
-| --- | --- |
-| index size | 5 145 files |
+| Check                                        | Result                    |
+| -------------------------------------------- | ------------------------- |
+| index size                                   | 5 145 files               |
 | `find_symbol` on a class that does not exist | `[]` — it does not invent |
 
 ### Two traps hit during setup

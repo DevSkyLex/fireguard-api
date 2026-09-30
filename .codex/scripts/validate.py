@@ -1,18 +1,33 @@
 """Validate native Codex manifests, skills, references and hooks."""
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
+import argparse
 import json
 import re
+import sys
 import tomllib
 
 from check_links import check_links
+from check_references import check_documents, instruction_documents
 
-from agent_profiles import (
-    load_profiles, validate_global_policy, validate_native_agent, validate_native_references,
-    validate_profile_coverage,
+from agent_config import (
+    validate_global_policy, validate_native_agent, validate_role_registry,
 )
 
 
-def validate(root: Path) -> dict[str, int | str]:
+def validate_mcp_portability(config: dict) -> None:
+    """Keep the shared MCP example independent of machine paths."""
+    for name, server in config.get('mcp_servers', {}).items():
+        command = server.get('command', '')
+        assert command and '/' not in command and '\\' not in command, f'{name}: resolve executables through PATH'
+        values = [server.get('cwd', '')] + list(server.get('args', [])) + list(server.get('env', {}).values())
+        for value in values:
+            if isinstance(value, str):
+                assert not (PurePosixPath(value).is_absolute() or PureWindowsPath(value).is_absolute()), (
+                    f'{name}: absolute paths belong in personal configuration'
+                )
+
+
+def validate(root: Path, *, local_only: bool = False) -> dict[str, int | str]:
     skills_root = root / '.agents/skills'
     names: set[str] = set()
     for skill in sorted(path for path in skills_root.iterdir() if path.is_dir()):
@@ -31,8 +46,9 @@ def validate(root: Path) -> dict[str, int | str]:
             if '://' not in relative and not relative.startswith('#'):
                 assert (skill / relative).resolve().is_file(), f'Broken reference in {skill.name}: {relative}'
 
-    config = tomllib.loads((root / '.codex/config.toml').read_text(encoding='utf-8'))
+    config = tomllib.loads((root / '.codex/config.example.toml').read_text(encoding='utf-8'))
     validate_global_policy(config)
+    validate_mcp_portability(config)
 
     agents: set[str] = set()
     for path in sorted((root / '.codex/agents').glob('*.toml')):
@@ -42,11 +58,11 @@ def validate(root: Path) -> dict[str, int | str]:
         assert data['name'] not in agents, f'Duplicate agent: {data["name"]}'
         validate_native_agent(data, path.name)
         agents.add(data['name'])
-        validate_native_references(data['developer_instructions'], root)
 
-    profiles = load_profiles(root / '.codex/agent-profiles.toml')
-    validate_profile_coverage(profiles, agents)
+    validate_role_registry(config, root / '.codex/config.example.toml', local_only=local_only)
     check_links(root)
+    declared = {name for name in config.get('agents', {}) if name.startswith(('fg-api-', 'fg-web-'))}
+    check_documents(root, instruction_documents(root), names | agents | declared)
 
     rules = (root / '.codex/rules.md').read_text(encoding='utf-8')
     for relative in re.findall(r'\]\((rules/[^)]+\.md)\)', rules):
@@ -70,8 +86,18 @@ def validate(root: Path) -> dict[str, int | str]:
         and forbidden.search(path.read_bytes())
     ]
     assert not legacy, f'Legacy client paths: {legacy}'
-    return {'skills': len(names), 'agents': len(agents), 'rules': len(list((root / '.codex/rules').glob('*.md'))), 'status': 'PASS'}
+    return {'skills': len(names), 'agents': len(agents), 'rules': len(list((root / '.codex/rules').glob('*.md'))),
+            'scope': 'local' if local_only else 'shared',
+            'peer_definitions': 'not_checked' if local_only else 'checked' if declared else 'not_declared',
+            'status': 'PASS'}
 
 
 if __name__ == '__main__':
-    print(json.dumps(validate(Path(__file__).resolve().parents[2]), indent=2))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--local-only', action='store_true', help='Check peer declaration structure without opening peer definitions.')
+    args = parser.parse_args()
+    try:
+        print(json.dumps(validate(Path(__file__).resolve().parents[2], local_only=args.local_only), indent=2))
+    except (AssertionError, OSError, ValueError, KeyError) as error:
+        print(str(error), file=sys.stderr)
+        raise SystemExit(1)

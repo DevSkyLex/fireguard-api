@@ -73,6 +73,6 @@ deptrac violation that no language server does.
 The **`.mjs` hooks and launcher** under `.claude/` have no server at all: no diagnostics, no
 navigation. Read them normally.
 
-> Triplicated by design — the monorepo root and `fireguard-sso-web` each carry their own copy,
+> Triplicated by design — the monorepo root and `fireguard-web` each carry their own copy,
 > because rules are not a plugin component and do not travel to another session root.
 > **Change one, change all three.**

@@ -70,7 +70,7 @@ issuers and the web client to the native 1.x contracts. Any image update must
 verify publishing, private subscriptions, access denial, token redaction, and
 history replay before deployment. See the [versioned Mercure 1.0 migration guide](https://github.com/dunglas/mercure/blob/v1.0.0/docs/UPGRADE.md#compatibility-mode).
 
-`python3 scripts/check-mercure-contract.py` tests the versioned configurations
+`python3 .github/scripts/check-mercure-contract.py` tests the versioned configurations
 with dummy keys and isolated Docker resources: health, private publishing and
 subscriptions, replay on a running hub, access denial, and token redaction.
 CI runs this check without application secrets.
@@ -79,7 +79,7 @@ CI runs this check without application secrets.
 history immediately after a restart until a new publication occurs. Events
 remain persisted; the internal `lastSeq` bound is not restored at open
 ([1.0.0 implementation](https://github.com/dunglas/mercure/blob/v1.0.0/bolt.go)).
-The strict `python3 scripts/check-mercure-contract.py --check-restart-history`
+The strict `python3 .github/scripts/check-mercure-contract.py --check-restart-history`
 diagnostic reproduces this failure and is not part of the default compatibility
 check. No artificial publication masks the defect. Immediate replay after a
 restart still needs a fix or validation against a corrected upstream version;

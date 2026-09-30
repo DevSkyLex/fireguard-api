@@ -25,7 +25,7 @@ use const DIRECTORY_SEPARATOR;
 /**
  * Test CrossModuleDomainBoundaryTest.
  *
- * Complements deptrac.modules.php with the historical Domain-import count
+ * Complements tests/Architecture/deptrac/modules.php with the historical Domain-import count
  * ratchet. The Deptrac module gate now checks exact class pairs across all
  * private layers, including fully qualified references.
  *

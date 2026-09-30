@@ -3,7 +3,7 @@ description: Add a command or query use case to an existing module — the Comma
 argument-hint: '<Module> <command|query> <Action> — e.g. "Equipment command AssignToFacility"'
 ---
 
-Delegate to the **fg-usecase-builder** subagent: $ARGUMENTS
+Delegate to the **fg-api-usecase-builder** subagent: $ARGUMENTS
 
 Require it to:
 

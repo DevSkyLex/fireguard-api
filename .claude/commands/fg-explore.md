@@ -3,7 +3,7 @@ description: Map an existing module before changing it — use cases, ports, rec
 argument-hint: '<Module> [flow] — e.g. "Inspection" or "Intervention offline publication"'
 ---
 
-Delegate to the **fg-module-explorer** subagent: $ARGUMENTS
+Delegate to the **fg-api-module-explorer** subagent: $ARGUMENTS
 
 Require a map, **not a file listing**. The output that helps is *"mirror `ArchiveFacilityHandler`, it has the shape you need including the idempotence guard"* — not a tree of 200 paths.
 
@@ -19,4 +19,4 @@ Nine sections, in order:
 8. **Tests** — where, what level, and **what is not covered**. A missing denial-path functional test is the finding a builder needs before touching an endpoint.
 9. **The anchors** — three to five concrete files to mirror, each with one line on why.
 
-It maps; it does not judge or build. Observations go to **fg-architecture-reviewer**, **fg-security-auditor**, or the matching builder by name.
+It maps; it does not judge or build. Observations go to **fg-api-architecture-reviewer**, **fg-api-security-auditor**, or the matching builder by name.

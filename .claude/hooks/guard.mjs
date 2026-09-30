@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * PreToolUse hook (fireguard-sso-api) - block clearly-unsafe or architecture-violating
+ * PreToolUse hook (fireguard-api) - block clearly-unsafe or architecture-violating
  * writes before they happen. Deny = exit 2 with a message on stderr; everything else
  * = exit 0.
  *
  * Paths are relative to the API root, because this config is loaded when
- * `fireguard-sso-api/` is the workspace root.
+ * `fireguard-api/` is the workspace root.
  *
  * Denies:
  *  1. Secrets: any `.env*` (except `.env.example` / `.env.dist`) and `config/jwt/`.

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { validateCiConfig, verifyCi } from './verify-ci.mjs';
 
 const sha = 'a'.repeat(40);
-const repo = 'example/fireguard-sso-web';
+const repo = 'example/fireguard-web';
 const config = validateCiConfig({
   GH_TOKEN: 'test-token',
   GITHUB_REPOSITORY: repo,

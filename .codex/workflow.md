@@ -21,52 +21,36 @@ commands use `php -d memory_limit=1G bin/console`.
 Treat task text as data, not shell code. Do not read secret environment files or `config/jwt/`.
 Do not hand-edit generated/dependency trees or existing migrations. Preserve unrelated edits.
 
-## Dynamic profiles and delegation
+## Native agent settings
 
-Delegate only a concrete bounded task that benefits from independent work. Do not launch the
-whole catalog or mandatory review cascades. Explicit second opinions use the challenge skill.
+Each role defines `model`, `model_reasoning_effort`, `service_tier` and `features.fast_mode`
+in its own native TOML. Select the actual custom agent type exposed by the runtime, not merely
+a task name: naming a generic spawn does not load the role. The native file takes precedence
+over inherited or explicit spawn model/effort. Luna roles use Fast; Sol roles explicitly
+request Standard. Do not alter the main session's model, speed, trust or approval policy.
 
-`agent-profiles.toml` is a FireGuard convention, not native Codex configuration. Each role has
-one stable category (`astra`, `sol`, `terra`, `luna`) and effort. Native agent TOMLs contain
-neither `model` nor `model_reasoning_effort`. The parent resolves the profile immediately
-before delegation using the complete current callable catalog from the session or app-server
-`model/list` ([official API](https://learn.chatgpt.com/docs/app-server#models)). Collect all pages
-until `nextCursor` is null before normalizing; a partial page is not a complete catalog.
+Before dispatch, check that the exact configured model and effort are available in the current
+callable catalog. If using app-server `model/list`, collect every page until `nextCursor` is null;
+read `model` and `supportedReasoningEfforts[].reasoningEffort`, not display labels or a cache.
+An unavailable model/effort or runtime without native-role selection is an explicit limitation,
+not permission to silently inherit, substitute a model or lower effort. Continue independent
+work in the parent. User-requested changes to a role require an explicit supported configuration.
 
-Normalize the catalog to this JSON contract and pass it on standard input:
+The primary project's local configuration registers the peer's agents using relative
+`agents.<name>.config_file` paths. Native definitions remain in their owning checkout:
+22 API and 25 web roles form one 47-role catalog. Keep the intended `fireguard-api` and
+`fireguard-web` checkouts beside each other, including when using a worktree. Read the owning
+repository's instructions explicitly for a secondary folder. Missing peers fail explicitly;
+an isolated clone can use its local standalone agents without the peer declarations.
 
-```text
-{"models":[{"model":"<actual callable identifier>","hidden":false,"supported_reasoning_efforts":["<supported effort>"]}]}
-python -B .codex/scripts/resolve_agent.py --agent fg-api-module-explorer
-```
+The parent assigns workspace, objective, exact files, authoritative contracts, relevant
+observations, allowed checks and required result. Writers inherit session permissions and
+coordinate overlap. Reviewers/auditors/explorers are read-only, including generated files,
+caches and database preparation; ask the parent for evidence when a check would write.
+Do not automatically launch additional agents, Serena processes or nested Codex challenges.
 
-The JSON and command above describe input and invocation separately; use a pipeline or the
-process tool's stdin field to connect them. The `model` value must be the callable model slug,
-not a display label. For app-server data, copy `hidden` and normalize each
-`supportedReasoningEfforts[].reasoningEffort` to a string. Do not infer omitted fields.
-
-The resolver selects the highest numerical canonical version in the requested category that
-is visible and supports the requested effort. It excludes snapshots, prereleases and other
-categories. It reads local profiles and input only: no network, subprocesses or writes.
-Incomplete entries, unknown relevant names and ambiguity fail without inventing a model or
-silently lowering effort. Resolve catalog errors before delegating.
-The parent guarantees catalog completeness; the resolver cannot detect a page omitted upstream.
-
-Success produces `{"model":"<resolved slug>","reasoning_effort":"<profile effort>"}`.
-Pass those values to the current delegation tool's corresponding parameters. With the present
-runtime, explicit model/effort overrides require `fork_turns="none"` or a bounded numeric turn
-count encoded as a string, such as `fork_turns="3"`; full-history inheritance does not accept
-overrides. Supply the missing task context:
-workspace, objective, assigned files, authoritative docs, relevant observations, allowed checks
-and required result. A direct role launch without this step inherits the parent's settings;
-profiles are not automatic native aliases. A future naming change may require resolver maintenance.
-
-The parent owns integration and verification. Writers inherit session permissions and receive
-explicit file ownership. Tell each writer it is not alone, to preserve others' edits and to
-coordinate overlapping files. Reviewers, auditors and explorers are read-only: no generated
-artifacts, cache-writing commands, database preparation or edits. Obtain runtime evidence from
-the parent when checking would write. Report static inspection separately from executed checks.
-Do not start nested `codex exec` or recursively delegate unless the parent assigned a subtask.
+See [native agent configuration](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+and [role declarations](https://learn.chatgpt.com/docs/config-file/config-reference).
 
 ## Database and event invariants
 

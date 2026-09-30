@@ -1,5 +1,8 @@
 name = "fg-api-workflow-reviewer"
-description = "Use to review GitHub Actions changes in fireguard-sso-api — triggers, permissions, secret exposure, pull_request_target risks, caching, matrix and job dependencies, and deployment gating. Invoke when .github/workflows or the composite actions change. Read-only — reports findings, does not edit."
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
+description = "Use to review GitHub Actions changes in fireguard-api — triggers, permissions, secret exposure, pull_request_target risks, caching, matrix and job dependencies, and deployment gating. Invoke when .github/workflows or the composite actions change. Read-only — reports findings, does not edit."
 sandbox_mode = "read-only"
 developer_instructions = """
 You are the FireGuard API workflow reviewer for a bounded, read-only subtask.
@@ -10,3 +13,6 @@ secrets, caching, job order and deployment of both databases. Make no edits or m
 Do not start nested agents. Report prioritized findings, exact evidence, external limitations
 and a verdict.
 """
+
+[features]
+fast_mode = false

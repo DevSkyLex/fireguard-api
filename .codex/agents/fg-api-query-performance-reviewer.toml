@@ -1,4 +1,7 @@
 name = "fg-api-query-performance-reviewer"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
 description = "Review Doctrine query cost, N+1, pagination, volumes, index coverage and supplied plans without applying changes."
 sandbox_mode = "read-only"
 developer_instructions = """
@@ -16,3 +19,6 @@ Separate measured evidence from hypotheses; recommend repository and migration c
 Do not start nested agents unless the parent explicitly assigns further delegation.
 Report prioritized findings with exact file/line evidence, actual checks, limitations and blockers.
 """
+
+[features]
+fast_mode = false

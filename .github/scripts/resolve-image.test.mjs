@@ -7,7 +7,7 @@ import {
   validateImageLabels,
 } from './resolve-image.mjs';
 
-const repo = 'example/fireguard-sso-web';
+const repo = 'example/fireguard-web';
 const sha = 'a'.repeat(40);
 const digest = `sha256:${'b'.repeat(64)}`;
 const image = `ghcr.io/${repo}`;
@@ -39,7 +39,7 @@ test('validates repository-bound GHCR tag or digest', () => {
     `${image}:main;echo`,
     `${image}:../evil`,
     'ghcr.io/other/repo:main',
-    'docker.io/example/fireguard-sso-web:main',
+    'docker.io/example/fireguard-web:main',
     `${image}@sha256:short`,
   ]) {
     assert.throws(
@@ -91,7 +91,7 @@ test('rejects wrong source, revision and expected SHA', () => {
     validateImageLabels(
       {
         ...labels,
-        'org.opencontainers.image.source': 'https://github.com/Example/Fireguard-SSO-Web',
+        'org.opencontainers.image.source': 'https://github.com/Example/Fireguard-Web',
       },
       repo,
       sha,
@@ -99,10 +99,10 @@ test('rejects wrong source, revision and expected SHA', () => {
     sha,
   );
   for (const source of [
-    'https://github.com.evil.test/example/fireguard-sso-web',
-    'https://user@github.com/example/fireguard-sso-web',
-    'https://github.com/example/fireguard-sso-web?ref=main',
-    'https://github.com/example/fireguard-sso-web#source',
+    'https://github.com.evil.test/example/fireguard-web',
+    'https://user@github.com/example/fireguard-web',
+    'https://github.com/example/fireguard-web?ref=main',
+    'https://github.com/example/fireguard-web#source',
   ]) {
     assert.throws(
       () =>

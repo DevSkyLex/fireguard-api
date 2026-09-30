@@ -22,6 +22,31 @@ PostgreSQL on 5434, Redis on 6379 and Mailpit UI on 8025. Compose definitions re
 the source of truth for overrides. Use `make docker-logs` and `make docker-shell`
 for local diagnosis; application containers are not the test runner.
 
+## Compose project and data identity
+
+The default local project is `fireguard-api`, independently of the checkout
+directory. Use `docker compose -p <local-project>` or `COMPOSE_PROJECT_NAME` when
+running another checkout alongside it. Persistent volumes use
+`<local-project>_local_<volume>`; for example,
+`fireguard-api_local_auth_database_data`. The `local` namespace keeps development
+data separate from volumes belonging to older installations of the same project.
+Database commands in the Makefile address Compose services, so they follow the
+selected project name.
+
+Changing a project or volume name does not move existing data. Before starting
+the renamed stack, stop the existing containers and copy each named volume to
+its new name while the original is mounted read-only. Preserve ownership and
+permissions, compare the copies, then verify both databases and application
+health after startup. Retain the original volumes for rollback; never use
+`docker compose down -v` for a rename. See Docker's
+[project-name rules](https://docs.docker.com/compose/how-tos/project-name/) and
+[volume migration procedure](https://docs.docker.com/engine/storage/volumes/#back-up-restore-or-migrate-data-volumes).
+
+VPS deployments use `compose.prod.yaml`, their explicit `COMPOSE_PROJECT_NAME`
+and `VOLUME_PREFIX`. Repository directory names do not change the installation
+paths or deployed data identities recorded in the
+[installation appendix](../operations/current-installation.md).
+
 ## Apply both migration histories
 
 ```sh

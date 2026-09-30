@@ -32,7 +32,6 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Resource AuthResource.
  *
  * @category Resource
- *
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -86,9 +85,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid credentials - email or password incorrect',
+            content: new ArrayObject(self::ERROR_CONTENT),
           ),
           HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
             description: 'Too many authentication attempts',
+            content: new ArrayObject(self::RATE_LIMIT_CONTENT),
           ),
         ],
       ),
@@ -129,9 +130,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid or expired refresh token',
+            content: new ArrayObject(self::ERROR_CONTENT),
           ),
           HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
             description: 'Too many refresh requests',
+            content: new ArrayObject(self::RATE_LIMIT_CONTENT),
           ),
         ],
       ),
@@ -202,12 +205,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid or expired pre-auth token',
+            content: new ArrayObject(self::ERROR_CONTENT),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
             description: 'Invalid OTP code',
           ),
           HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
             description: 'Too many MFA verification attempts',
+            content: new ArrayObject(self::RATE_LIMIT_CONTENT),
           ),
         ],
       ),
@@ -230,12 +235,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid or expired pre-auth token',
+            content: new ArrayObject(self::ERROR_CONTENT),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
             description: 'MFA challenge not found or no longer valid',
+            content: new ArrayObject(self::ERROR_CONTENT),
           ),
           HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
             description: 'Resend cooldown not yet elapsed',
+            content: new ArrayObject(self::RATE_LIMIT_CONTENT),
           ),
         ],
       ),
@@ -244,6 +252,43 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class AuthResource
 {
+  /**
+   * OpenAPI bodies emitted by the centralized error normalizers.
+   */
+  private const array ERROR_CONTENT = [
+    'application/ld+json' => ['schema' => ['$ref' => '#/components/schemas/Error.jsonld']],
+    'application/problem+json' => ['schema' => ['$ref' => '#/components/schemas/Error']],
+    'application/json' => ['schema' => ['$ref' => '#/components/schemas/Error']],
+  ];
+
+  /**
+   * Problem details emitted by RateLimitFailureSubscriber regardless of Accept.
+   */
+  private const array RATE_LIMIT_CONTENT = [
+    'application/problem+json' => [
+      'schema' => [
+        'allOf' => [
+          ['$ref' => '#/components/schemas/Error'],
+          [
+            'type' => 'object',
+            'required' => ['code', 'retryAfterSeconds'],
+            'properties' => [
+              'code' => [
+                'type' => 'string',
+                'enum' => ['rate_limit_exceeded'],
+              ],
+              'retryAfterSeconds' => [
+                'type' => ['integer', 'null'],
+                'minimum' => 0,
+                'description' => 'Seconds until retry is allowed; null when the delay is unknown.',
+              ],
+            ],
+          ],
+        ],
+      ],
+    ],
+  ];
+
   private const LOGOUT_LINK_DESCRIPTION = 'Logout and revoke all tokens - requires Bearer access_token header';
 
   private const USER_INFO_LINK_DESCRIPTION = 'Get authenticated user information - requires Bearer access_token header';

@@ -32,7 +32,7 @@
  *     Now `-r` is required.
  *   - The delete verb and the out-of-tree target were matched against the whole
  *     command line rather than one segment. Every compound command opens with
- *     `cd "G:/Projets/…"`, so that `cd` satisfied "absolute path" for any `rm`
+ *     `cd "/workspace/project"`, so that `cd` satisfied "absolute path" for any `rm`
  *     after the `&&`. Rule 1 now runs per shell segment.
  * Rules 2-5 are unchanged: `git reset --hard` and `git checkout .` in particular
  * stay denied, because they would erase uncommitted work in progress.
@@ -98,7 +98,7 @@ const RECURSIVE_RM = /\b(rm\s+(-[a-z]*r[a-z]*\s+)+|Remove-Item\s+.*-Recurse|rmdi
 const OUT_OF_TREE_TARGET = /(\s|=|["'])(\/|[A-Za-z]:\/|~\/|\.\.\/)/;
 
 // Evaluated per shell segment, never across the whole line. A compound command
-// almost always opens with `cd "G:/Projets/…"`, and matching the delete verb in
+// almost always opens with `cd "/workspace/project"`, and matching the delete verb in
 // one clause against an absolute path in another denied every `rm` that
 // followed a `cd` — a false positive with no relation to what was deleted.
 for (const rawSegment of c2Separators.split(/(?:&&|\|\||;|\||\n)/)) {
@@ -112,12 +112,12 @@ for (const rawSegment of c2Separators.split(/(?:&&|\|\||;|\||\n)/)) {
 }
 
 // Whole-tree targets: a filesystem root, a `.git` directory, or an entire app tree.
-// The app-tree pattern must match the END of the argument — `rm -rf fireguard-sso-web`
-// deletes the application, while `rm -rf fireguard-sso-web/node_modules` is a routine
+// The app-tree pattern must match the END of the argument — `rm -rf fireguard-web`
+// deletes the application, while `rm -rf fireguard-web/node_modules` is a routine
 // reinstall. Anchoring on the name alone blocked the second, which is a false positive
 // that teaches people to disable the guard.
 const WHOLE_TREE =
-  /\b(rm|Remove-Item)\b[^|;&]*\s(?:\/|[A-Za-z]:\/|~\/?)(?=\s|$)|\b(rm|Remove-Item)\b[^|;&]*\s\S*\.git(?:\/)?(?=\s|$)|\b(rm|Remove-Item)\b[^|;&]*\sfireguard-sso-(?:api|web)\/?(?=\s|$)/i;
+  /\b(rm|Remove-Item)\b[^|;&]*\s(?:\/|[A-Za-z]:\/|~\/?)(?=\s|$)|\b(rm|Remove-Item)\b[^|;&]*\s\S*\.git(?:\/)?(?=\s|$)|\b(rm|Remove-Item)\b[^|;&]*\sfireguard-(?:api|web)\/?(?=\s|$)/i;
 if (WHOLE_TREE.test(c)) {
   deny(
     `delete of a repository or root path — ${command}`,
@@ -155,7 +155,10 @@ if (/\bgit\s+push\b/.test(c) && /(--force(?!-with-lease)|\s-f\b)/.test(c)) {
 
 // 4. Destructive database operations.
 if (/\b(DROP\s+(DATABASE|SCHEMA|TABLE)|TRUNCATE\s+TABLE)\b/i.test(c)) {
-  deny(`destructive SQL — ${command}`, 'Dropping or truncating is irreversible against a real database.');
+  deny(
+    `destructive SQL — ${command}`,
+    'Dropping or truncating is irreversible against a real database.',
+  );
 }
 if (/doctrine:(schema:drop|database:drop)/.test(c)) {
   deny(

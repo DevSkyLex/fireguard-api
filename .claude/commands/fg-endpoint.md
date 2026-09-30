@@ -3,7 +3,7 @@ description: Add or change an API Platform endpoint — Resource, Operation cons
 argument-hint: '<Module> <endpoint> — e.g. "Equipment list endpoint with filters and pagination"'
 ---
 
-Delegate to the **fg-endpoint-builder** subagent: $ARGUMENTS
+Delegate to the **fg-api-endpoint-builder** subagent: $ARGUMENTS
 
 Require all six checklist items from `ARCHITECTURE.md`, reported item by item:
 

@@ -8,20 +8,23 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ACCEPTED = ('codex/codex-docs-dynamic-agents', 'codex/docs-2', 'feat/new-module', 'fix/session-rotation')
-REJECTED = ('codex/', 'codex/Uppercase', 'codex/has_underscore', 'codex/-leading',
-            'codex/trailing-', 'codex/double--dash', 'codex/nested/path', 'unknown/change')
+ACCEPTED = ('docs/git-naming', 'docs/conventions-2', 'feat/new-module', 'fix/session-rotation',
+            'chore/tooling', 'refactor/use-cases', 'test/git-hooks', 'perf/repository-queries',
+            'ci/naming', 'build/dependencies', 'style/formatting', 'revert/session-change',
+            'hotfix/token-expiry')
+REJECTED = ('codex/', 'codex/ui-cleanup', 'feat/Uppercase', 'feat/has_underscore', 'feat/-leading',
+            'feat/trailing-', 'feat/double--dash', 'feat/nested/path', 'unknown/change')
 
 
 class GitConventionsTests(unittest.TestCase):
-    def test_ci_accepts_codex_without_weakening_descriptions(self):
+    def test_ci_requires_semantic_branch_prefix_and_kebab_description(self):
         source = (ROOT / '.github/workflows/conventions.yml').read_text(encoding='utf-8')
         pattern = re.search(r"pattern='([^']+)'", source).group(1)
         for branch in (*ACCEPTED, *REJECTED):
             with self.subTest(branch=branch):
                 self.assertEqual(re.fullmatch(pattern, branch) is not None, branch in ACCEPTED)
 
-    def test_actual_pre_push_hook_checks_codex_description(self):
+    def test_actual_pre_push_hook_requires_semantic_branch_names(self):
         shell = shutil.which('sh')
         environment = dict(os.environ)
         if not shell and (git := shutil.which('git')):

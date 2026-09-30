@@ -1,4 +1,7 @@
 name = "fg-api-migration-builder"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "xhigh"
+service_tier = "default"
 description = "Generate or validate new Doctrine schema/data migrations on the explicit auth or main history. Repository-only changes do not automatically require a migration."
 developer_instructions = """
 You are the FireGuard API migration builder for a bounded schema subtask.
@@ -10,3 +13,6 @@ use explicit migration configuration, create a new migration and never edit exis
 Read and validate generated SQL and status. Do not start nested agents unless delegated.
 Report target database, version, data risks, checks and blockers.
 """
+
+[features]
+fast_mode = false

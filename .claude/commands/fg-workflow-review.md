@@ -3,7 +3,7 @@ description: Review GitHub Actions changes — triggers, permissions, secret exp
 argument-hint: '[workflow file or diff scope]'
 ---
 
-Delegate to the **fg-workflow-reviewer** subagent: $ARGUMENTS
+Delegate to the **fg-api-workflow-reviewer** subagent: $ARGUMENTS
 
 If no scope is given, review the diff under `.github/workflows` and `.github/actions`.
 

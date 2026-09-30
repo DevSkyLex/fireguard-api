@@ -3,7 +3,7 @@ description: Generate, apply, or review a Doctrine migration on the correct data
 argument-hint: '<auth|main|all> [diff|migrate|status] — e.g. "main diff" or "all migrate"'
 ---
 
-Delegate to the **fg-migration-builder** subagent: $ARGUMENTS
+Delegate to the **fg-api-migration-builder** subagent: $ARGUMENTS
 
 The non-negotiable: **every Doctrine command names its database.** A bare `doctrine:migrations:diff` targets the default entity manager, writes into the wrong folder, and registers in the wrong version table.
 
@@ -21,4 +21,4 @@ Require it to:
 5. Apply with `make migrate-<db>` (or `migrate-all`), and show `doctrine:migrations:status` **before and after** — that is what proves it registered in the right version table.
 6. **Never edit an existing migration.** Its checksum and its position in the history are fixed. A PreToolUse hook blocks the write; the fix for a wrong migration is always a new one.
 
-A migration touching auth, sessions, tokens, permissions, or the audit ledger goes to **fg-security-auditor** in the same change.
+A migration touching auth, sessions, tokens, permissions, or the audit ledger goes to **fg-api-security-auditor** in the same change.

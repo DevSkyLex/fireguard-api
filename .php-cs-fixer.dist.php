@@ -73,15 +73,28 @@ return (new PhpCsFixer\Config())
 		'blank_line_before_statement' => true,
 		'phpdoc_to_comment' => false,
 		'phpdoc_align' => ['align' => 'left'],
-		'phpdoc_separation' => true,
+		'phpdoc_separation' => [
+		  'groups' => [
+		    ['category', 'package', 'subpackage', 'version'],
+		    ['access', 'since'],
+		    ['author', 'copyright', 'license'],
+		    ['property', 'property-read', 'property-write'],
+		  ],
+		  'skip_unlisted_annotations' => false,
+		],
 		'phpdoc_trim' => true,
-		'phpdoc_order' => true,
+		'phpdoc_order' => [
+		  'order' => ['category', 'package', 'subpackage', 'version', 'access', 'since', 'author', 'template', 'param', 'return', 'throws'],
+		],
+		'phpdoc_no_access' => false,
+		'phpdoc_summary' => false,
 		'phpdoc_line_span' => [
 			'const' => 'multi',
 			'property' => 'multi',
 			'method' => 'multi',
 		],
-		'no_superfluous_phpdoc_tags' => true,
+		// Descriptive typed tags are required by docs/guides/code-comments.md.
+		'no_superfluous_phpdoc_tags' => false,
 		'phpdoc_add_missing_param_annotation' => true,
 		'phpdoc_return_self_reference' => true,
 		'strict_param' => true,

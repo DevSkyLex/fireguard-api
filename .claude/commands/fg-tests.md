@@ -3,7 +3,7 @@ description: Write or repair PHPUnit tests — unit for handlers and domain, int
 argument-hint: '<Module> <flow> [level] — e.g. "Equipment assign-to-facility functional and unit"'
 ---
 
-Delegate to the **fg-test-writer** subagent: $ARGUMENTS
+Delegate to the **fg-api-test-writer** subagent: $ARGUMENTS
 
 Require it to:
 

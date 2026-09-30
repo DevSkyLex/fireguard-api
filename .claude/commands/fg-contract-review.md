@@ -3,7 +3,7 @@ description: Review the API Platform contract — resource metadata, DTOs, seria
 argument-hint: '[endpoint, resource, or diff scope]'
 ---
 
-Delegate to the **fg-contract-reviewer** subagent: $ARGUMENTS
+Delegate to the **fg-api-contract-reviewer** subagent: $ARGUMENTS
 
 The frontend consumes this API. A renamed field or a changed enum literal breaks it **at runtime**, not at build time, and TypeScript will not catch it.
 
@@ -20,4 +20,4 @@ Require it to check:
 
 Substantiate with `php -d memory_limit=1G bin/console api:openapi:export` — the generated source of truth for what the API actually publishes — and `debug:router`.
 
-Ask for findings ranked **breaking → should-fix → nit**, with breaking changes in their own section at the top and the consumer impact spelled out. End with a verdict: contract stable, additive only, or breaking. Frontend-side drift belongs to the monorepo-root `fg-contract-sync`.
+Ask for findings ranked **breaking → should-fix → nit**, with breaking changes in their own section at the top and the consumer impact spelled out. End with a verdict: contract stable, additive only, or breaking. Frontend-side drift belongs to `fg-web-api-contract-reviewer` for bounded endpoints/revisions.

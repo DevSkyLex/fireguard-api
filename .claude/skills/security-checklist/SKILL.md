@@ -1,6 +1,6 @@
 ---
 name: security-checklist
-description: What to verify when a change touches auth, OAuth2/OIDC, sessions, trusted devices, OTP/MFA, RBAC, the audit ledger, tenant scoping, secrets, or the Stripe webhook in fireguard-sso-api — the crown-jewel paths, fail-closed rules, and the denial-path tests each finding needs. Use before and after editing any of those.
+description: What to verify when a change touches auth, OAuth2/OIDC, sessions, trusted devices, OTP/MFA, RBAC, the audit ledger, tenant scoping, secrets, or the Stripe webhook in fireguard-api — the crown-jewel paths, fail-closed rules, and the denial-path tests each finding needs. Use before and after editing any of those.
 ---
 
 # Security checklist
