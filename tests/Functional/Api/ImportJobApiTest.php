@@ -35,6 +35,53 @@ final class ImportJobApiTest extends WebTestCase
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
   #[Test]
+  public function reportPagesKeepTheExistingErrorListShapeAndRejectUnboundedRequests(): void
+  {
+    $client = static::createClient();
+    $client->disableReboot();
+    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
+    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    $org = '550e8400-e29b-41d4-a716-446655480360';
+    $actor = '550e8400-e29b-41d4-a716-446655480361';
+    $id = '550e8400-e29b-41d4-a716-446655480362';
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $em);
+    $this->seedFullAccessOrganization($em, $org, $actor, new DateTimeImmutable());
+    $em->flush();
+    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class);
+    self::assertInstanceOf(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class, $jobs);
+    $job = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::EQUIPMENT, 'unused.csv', 'equipment.csv', $actor);
+    $job->markProcessing(new DateTimeImmutable());
+    for ($row = 1; $row <= 123; ++$row) {
+      $job->recordRowError(new \Import\Domain\ValueObject\ImportRowError($row, 'invalid', 'Bad row ' . $row));
+    }
+    $jobs->save($job);
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), $actor, $actor . '@corp.example'));
+    $client->request('GET', '/api/imports/' . $id);
+    self::assertResponseIsSuccessful();
+    $first = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($first);
+    self::assertIsArray($first['errorReport']);
+    self::assertCount(100, $first['errorReport']);
+    self::assertSame(123, $first['reportTotal']);
+    self::assertTrue($first['reportHasNextPage']);
+    $client->request('GET', '/api/imports/' . $id . '?reportPage=2&reportItemsPerPage=100');
+    self::assertResponseIsSuccessful();
+    $second = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($second);
+    self::assertIsArray($second['errorReport']);
+    self::assertIsArray($second['errorReport'][0]);
+    self::assertCount(23, $second['errorReport']);
+    self::assertSame(101, $second['errorReport'][0]['rowNumber']);
+    self::assertFalse($second['reportHasNextPage']);
+    foreach (['reportItemsPerPage=101', 'reportPage=0', 'reportPage[]=1'] as $query) {
+      $client->request('GET', '/api/imports/' . $id . '?' . $query);
+      self::assertResponseStatusCodeSame(400);
+    }
+  }
+
+  #[Test]
   public function testConfirmationReusesRetainedSimulationAndRechecksReferencesAtExecution(): void
   {
     $client = static::createClient();

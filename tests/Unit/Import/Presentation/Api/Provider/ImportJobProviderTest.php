@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Import\Presentation\Api\Provider;
 
-use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\{Get, Parameters, QueryParameter};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Import\Application\UseCase\Query\GetImportJob\{GetImportJobQuery, GetImportJobResult};
@@ -89,6 +89,39 @@ final class ImportJobProviderTest extends TestCase
     self::assertSame(10, $output->totalRows);
     self::assertSame(8, $output->successfulRows);
     self::assertSame(2, $output->failedRows);
+  }
+
+  /**
+   * Method testResolvedPaginationOverridesFiltersWhileMissingParametersKeepTheirFallback
+   *
+   * Protects API Platform's parsed-value precedence and the legacy filter fallback for an absent parameter.
+   *
+   * @access public
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testResolvedPaginationOverridesFiltersWhileMissingParametersKeepTheirFallback(): void
+  {
+    $page = new QueryParameter();
+    $page->setValue(2);
+    $operation = new Get(parameters: new Parameters([
+      'reportPage' => $page,
+      'reportItemsPerPage' => new QueryParameter(),
+    ]));
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())->method('ask')->with(self::callback(
+      static fn (GetImportJobQuery $query): bool => self::USER_ID === $query->userId
+        && self::JOB_ID === $query->importJobId
+        && 2 === $query->reportPage
+        && 25 === $query->reportItemsPerPage,
+    ))->willReturn($this->jobResult());
+
+    $output = $this->createProvider($queryBus)->provide($operation, ['id' => self::JOB_ID], [
+      'filters' => ['reportPage' => 'invalid fallback', 'reportItemsPerPage' => '25'],
+    ]);
+
+    self::assertSame(self::JOB_ID, $output->id);
   }
 
   #[Test]

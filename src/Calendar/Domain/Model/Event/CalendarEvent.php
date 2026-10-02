@@ -7,6 +7,7 @@ namespace Calendar\Domain\Model\Event;
 use Calendar\Domain\Exception\CalendarEventValidationException;
 use Calendar\Domain\ValueObject\CalendarEventId;
 use DateTimeImmutable;
+use DateTimeZone;
 
 /**
  * Model CalendarEvent.
@@ -70,7 +71,8 @@ final class CalendarEvent
    *
    * @static
    *
-   * Creates a new calendar event aggregate.
+   * Creates a new calendar event aggregate, normalizing its schedule to UTC
+   * before timestamp-without-timezone persistence.
    *
    * @since 1.0.0
    *
@@ -94,8 +96,8 @@ final class CalendarEvent
       organizationId: $identity->organizationId,
       title: $content->title,
       description: $content->description,
-      startsAt: $content->startsAt,
-      endsAt: $content->endsAt,
+      startsAt: $content->startsAt->setTimezone(new DateTimeZone('UTC')),
+      endsAt: $content->endsAt?->setTimezone(new DateTimeZone('UTC')),
       allDay: $content->allDay,
       facilityId: $content->facilityId,
       createdByMemberId: $identity->createdByMemberId,
@@ -302,8 +304,8 @@ final class CalendarEvent
 
     $this->title = $title;
     $this->description = $description;
-    $this->startsAt = $startsAt;
-    $this->endsAt = $endsAt;
+    $this->startsAt = $startsAt->setTimezone(new DateTimeZone('UTC'));
+    $this->endsAt = $endsAt?->setTimezone(new DateTimeZone('UTC'));
     $this->allDay = $allDay;
     $this->facilityId = $facilityId;
     $this->touch();

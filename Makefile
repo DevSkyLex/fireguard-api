@@ -31,7 +31,10 @@ APP_LOG_DIR ?= $(TMP_DIR)/$(PROJECT_NAME)/log/$(APP_ENV)
 export APP_CACHE_DIR
 export APP_LOG_DIR
 
-.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check schema-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures seed-fixtures-docker test cs-fix cs-lint coverage coverage-html coverage-check mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check schema-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures seed-fixtures-docker test cs-fix cs-lint coverage coverage-html coverage-check mutation benchmark docker-up docker-down docker-build docker-shell docker-logs
+
+benchmark:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN) -c tests/Performance/phpunit.xml
 
 # Run the whole suite: unit, architecture, integration, functional and E2E.
 
@@ -136,8 +139,8 @@ migrate-all: migrate-auth migrate-main
 # the only thing that changes the baseline. It purges before reloading, so
 # re-running it always restores exactly the baseline the E2E counts assert.
 test-db:
-	docker compose exec -T auth_database psql -U admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_auth_test'" | grep -q 1 || docker compose exec -T auth_database psql -U admin -d postgres -c "CREATE DATABASE fireguard_auth_test;"
-	docker compose exec -T main_database psql -U main_admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_main_test'" | grep -q 1 || docker compose exec -T main_database psql -U main_admin -d postgres -c "CREATE DATABASE fireguard_main_test;"
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:database:create --env=test --connection=auth --if-not-exists --no-interaction
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:database:create --env=test --connection=main --if-not-exists --no-interaction
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --env=test --configuration=config/migrations/auth.yaml --no-interaction
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --env=test --configuration=config/migrations/main.yaml --no-interaction
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --env=test --no-interaction

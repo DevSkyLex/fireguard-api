@@ -34,7 +34,7 @@ final class GetImportJobHandlerTest extends TestCase
   public function itReturnsTheReadViewAndAssertsTheKindReadPermission(): void
   {
     $repository = $this->createStub(ImportJobRepositoryPort::class);
-    $repository->method('findById')->willReturn($this->facilityJob());
+    $repository->method('findForExecution')->willReturn($this->facilityJob());
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
@@ -57,7 +57,7 @@ final class GetImportJobHandlerTest extends TestCase
     // The 403 an unentitled member gets would confirm the id exists to a
     // caller who is not a member of the owning organization at all.
     $repository = $this->createStub(ImportJobRepositoryPort::class);
-    $repository->method('findById')->willReturn($this->facilityJob());
+    $repository->method('findForExecution')->willReturn($this->facilityJob());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
@@ -74,7 +74,7 @@ final class GetImportJobHandlerTest extends TestCase
   public function itDeniesAMemberLackingTheKindReadPermission(): void
   {
     $repository = $this->createStub(ImportJobRepositoryPort::class);
-    $repository->method('findById')->willReturn($this->facilityJob());
+    $repository->method('findForExecution')->willReturn($this->facilityJob());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
@@ -91,7 +91,7 @@ final class GetImportJobHandlerTest extends TestCase
   public function itThrowsWhenTheJobDoesNotExist(): void
   {
     $repository = $this->createStub(ImportJobRepositoryPort::class);
-    $repository->method('findById')->willReturn(null);
+    $repository->method('findForExecution')->willReturn(null);
 
     $handler = new GetImportJobHandler($repository, $this->createStub(OrganizationAuthorizationPort::class), $this->createStub(\Import\Application\Port\Outbound\ImportExecutionPort::class));
 

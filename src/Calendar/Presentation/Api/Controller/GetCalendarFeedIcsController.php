@@ -33,8 +33,8 @@ use function is_string;
  * member's identity, so the member's `organization.events.read` permission
  * and visibility rules apply unchanged.
  *
- * Anti-oracle: an unknown token, a revoked token, and a token whose member
- * lost the read permission all answer the same plain 404 — an outsider
+ * Anti-oracle: an unknown/revoked token, an inactive account, a removed
+ * membership and a lost read permission all answer the same plain 404 — an outsider
  * probing URLs learns nothing about which case they hit.
  *
  * @category Controller
@@ -112,6 +112,7 @@ final class GetCalendarFeedIcsController extends AbstractController
       items: $feed->items,
       organizationId: $resolved->organizationId,
       generatedAt: new DateTimeImmutable('now', new DateTimeZone('UTC')),
+      timezone: $feed->timezone,
     );
 
     return new Response($document, Response::HTTP_OK, [

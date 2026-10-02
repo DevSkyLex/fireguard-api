@@ -57,7 +57,7 @@ final readonly class ClientRepositoryAdapter implements ClientRepositoryInterfac
       $identifier = new OAuthClientIdentifier(value: $clientIdentifier);
       $client = $this->clientRepository->find(identifier: $identifier);
 
-      if (!$client) {
+      if (!$client || !$client->isActive()) {
         return null;
       }
 

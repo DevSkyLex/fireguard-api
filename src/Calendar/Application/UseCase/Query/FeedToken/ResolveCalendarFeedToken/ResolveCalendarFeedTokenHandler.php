@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Calendar\Application\UseCase\Query\FeedToken\ResolveCalendarFeedToken;
 
 use Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort;
+use Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort;
 use Calendar\Application\Service\CalendarFeedTokenSecretFactory;
 use Calendar\Domain\Exception\CalendarFeedTokenNotFoundException;
 use DateTimeImmutable;
 use DateTimeZone;
 use Shared\Application\Message\QueryHandler;
+use User\Application\Port\Inbound\AccountStatusPort;
 
 use function sprintf;
 
@@ -17,7 +19,7 @@ use function sprintf;
  * UseCase ResolveCalendarFeedTokenHandler.
  *
  * Hash-based lookup for the public `.ics` endpoint: an unknown and a
- * revoked token are indistinguishable (both raise
+ * revoked token, unusable account and removed membership are indistinguishable (all raise
  * {@see CalendarFeedTokenNotFoundException} — no oracle). Records
  * `lastUsedAt` at most once per hour (see
  * {@see \Calendar\Domain\Model\FeedToken\CalendarFeedToken::shouldRecordUsage()})
@@ -65,10 +67,14 @@ final readonly class ResolveCalendarFeedTokenHandler implements QueryHandler
    *
    * @param CalendarFeedTokenRepositoryPort $repository the feed token repository port
    * @param CalendarFeedTokenSecretFactory $secretFactory the secret generator/hasher
+   * @param AccountStatusPort $accounts the authoritative current account status
+   * @param CalendarMemberDirectoryPort $members the current active membership directory
    */
   public function __construct(
     private CalendarFeedTokenRepositoryPort $repository,
     private CalendarFeedTokenSecretFactory $secretFactory,
+    private AccountStatusPort $accounts,
+    private CalendarMemberDirectoryPort $members,
   ) {
   }
   // #endregion
@@ -83,12 +89,16 @@ final readonly class ResolveCalendarFeedTokenHandler implements QueryHandler
    *
    * @return ResolveCalendarFeedTokenResult the resolved member identity and window bounds
    *
-   * @throws CalendarFeedTokenNotFoundException when the secret matches no active token
+   * @throws CalendarFeedTokenNotFoundException when the token, account or membership is unusable
    */
   public function __invoke(ResolveCalendarFeedTokenQuery $query): ResolveCalendarFeedTokenResult
   {
     $token = $this->repository->findActiveByTokenHash($this->secretFactory->hash($query->secret));
     if (null === $token) {
+      throw new CalendarFeedTokenNotFoundException();
+    }
+
+    if (!$this->accounts->isActive($token->userId()) || null === $this->members->resolveActiveMemberId($token->organizationId(), $token->userId())) {
       throw new CalendarFeedTokenNotFoundException();
     }
 

@@ -1506,6 +1506,8 @@ No endpoint enumerates all online members; reads remain bounded to supplied iden
 
 Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
 
+Authenticated HTTP E2E coverage creates an organization, grants messaging permissions to a second member, and exercises channel participants, message edits and tombstones, replies, multipart attachment download, delivery acknowledgements and read receipts. It checks exact PostgreSQL state and outbound event payloads, including unchanged state on nonparticipant and cross-organization denial. Anonymous route guards alone do not establish these write contracts. Actual Mercure delivery requires the separate web live-API smoke against its isolated worker/hub stack.
+
 Detailed cases and regression rationale are retained in the [Messaging testing reference](../../docs/guides/messaging.md#messaging-testing-reference). Use the [testing guide](../../docs/guides/testing.md) for current commands and isolated database setup.
 
 ## Error Codes

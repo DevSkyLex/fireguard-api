@@ -17,12 +17,16 @@ use Workload\Application\Contract\Capacity\CapacityWeekView;
 use Workload\Application\Port\Outbound\CapacityRepositoryPort;
 use Workload\Application\Service\WorkloadProjector;
 
+use function array_column;
 use function count;
 use function file_put_contents;
 use function hash;
 use function hrtime;
 use function json_encode;
 use function memory_get_peak_usage;
+use function memory_get_usage;
+use function memory_reset_peak_usage;
+use function sort;
 
 use const JSON_PRETTY_PRINT;
 use const JSON_THROW_ON_ERROR;
@@ -84,21 +88,34 @@ final class WorkloadProjectionBenchmarkTest extends KernelTestCase
     $clock->method('now')->willReturn(new DateTimeImmutable('2026-09-21T12:00:00Z'));
     $adapter = new InterventionWorkloadContributionsAdapter($em);
     $projector = new WorkloadProjector($adapter, $workforce, $capacities, $clock);
+    $counter = self::getContainer()->get(SqlQueryCounter::class);
+    self::assertInstanceOf(SqlQueryCounter::class, $counter);
     $samples = [];
     for ($run = 0; $run < 3; ++$run) {
       $em->clear();
+      $counter->queries = 0;
+      memory_reset_peak_usage();
+      $memoryStart = memory_get_usage(true);
       $started = hrtime(true);
       $tasks = $adapter->tasks(self::ORG, 'Europe/Paris');
       $actuals = $adapter->actuals(self::ORG, '2026-09-21', '2026-10-20');
       $readMs = (hrtime(true) - $started) / 1e6;
+      $readQueries = $counter->queries;
       $hydrated = $em->getUnitOfWork()->size();
       $em->clear();
+      $counter->queries = 0;
       $started = hrtime(true);
       $snapshot = $projector->project(self::ORG, '2026-09-21', '2026-10-20');
       $projectionMs = (hrtime(true) - $started) / 1e6;
+      $projectionQueries = $counter->queries;
+      $counter->queries = 0;
       $started = hrtime(true);
       $statistics = new DoctrineInterventionStatisticsGatewayAdapter($em)->aggregate(self::ORG, new DateTimeImmutable('2026-09-21'));
       $statisticsMs = (hrtime(true) - $started) / 1e6;
+      $statisticsQueries = $counter->queries;
+      self::assertSame(2, $readQueries, 'Task and actual contribution reads must remain two set-based queries.');
+      self::assertSame(2, $projectionQueries, 'Projection must not query once per member or task.');
+      self::assertSame(8, $statisticsQueries, 'Statistics must retain its eight fixed grouped/aggregate queries, without entity-based queries.');
       self::assertSame(0, $hydrated, 'Contribution reads must not populate the ORM identity map.');
       self::assertSame(2, $tasks[0]->revision);
       self::assertSame(4, $actuals[0]->revision);
@@ -108,8 +125,19 @@ final class WorkloadProjectionBenchmarkTest extends KernelTestCase
       self::assertSame('partial', $snapshot->view->completeness);
       $samples[] = ['readMs' => $readMs, 'projectionMs' => $projectionMs, 'statisticsMs' => $statisticsMs, 'managedEntities' => $hydrated,
         'tasks' => count($tasks), 'actuals' => count($actuals), 'fingerprint' => $snapshot->fingerprint,
-        'viewHash' => hash('sha256', json_encode($snapshot->view, JSON_THROW_ON_ERROR)), 'peakMiB' => memory_get_peak_usage(true) / 1048576];
+        'viewHash' => hash('sha256', json_encode($snapshot->view, JSON_THROW_ON_ERROR)), 'peakMiB' => memory_get_peak_usage(true) / 1048576,
+        'incrementalPeakMiB' => (memory_get_peak_usage(true) - $memoryStart) / 1048576,
+        'readQueries' => $readQueries, 'projectionQueries' => $projectionQueries, 'statisticsQueries' => $statisticsQueries];
     }
     file_put_contents(__DIR__ . '/../../var/workload-benchmark.json', json_encode($samples, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    foreach (['readMs' => 2000, 'projectionMs' => 15000, 'statisticsMs' => 2000, 'incrementalPeakMiB' => 256] as $metric => $budget) {
+      $values = array_column($samples, $metric);
+      sort($values);
+      self::assertLessThanOrEqual($budget, $values[1], $metric . ' median exceeds the committed performance budget.');
+    }
+    self::assertSame($samples[0]['fingerprint'], $samples[1]['fingerprint']);
+    self::assertSame($samples[0]['fingerprint'], $samples[2]['fingerprint']);
+    self::assertSame($samples[0]['viewHash'], $samples[1]['viewHash']);
+    self::assertSame($samples[0]['viewHash'], $samples[2]['viewHash']);
   }
 }

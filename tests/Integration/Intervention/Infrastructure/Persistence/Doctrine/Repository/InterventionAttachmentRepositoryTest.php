@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
+use function str_contains;
 
 /**
  * Test InterventionAttachmentRepository.
@@ -472,6 +473,100 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     $this->expectException(InterventionConflictException::class);
 
     $this->repository->saveReplacingSignature($racingSignature, null);
+  }
+
+  #[Test]
+  public function testConcurrentSameIdentityWaitsBeforeWritingAndReplayKeepsTheCommittedBlob(): void
+  {
+    $url = $_ENV['MAIN_DATABASE_URL'] ?? $_SERVER['MAIN_DATABASE_URL'] ?? null;
+    self::assertIsString($url);
+    $firstConnection = \Doctrine\DBAL\DriverManager::getConnection(['url' => $url]);
+    $connection = \Doctrine\DBAL\DriverManager::getConnection(['url' => $url]);
+    $organizationId = 'b7000000-0000-4000-8000-000000000001';
+    $interventionId = 'b7000000-0000-4000-8000-000000000002';
+    $firstManager = new \Doctrine\ORM\EntityManager($firstConnection, $this->entityManager->getConfiguration());
+    $organization = new OrganizationRecord();
+    $organization->id = $organizationId;
+    $organization->name = 'Independent upload contention';
+    $organization->slug = 'independent-upload-contention';
+    $organization->ownerUserId = $organizationId;
+    $organization->createdByUserId = $organizationId;
+    $organization->createdAt = new DateTimeImmutable();
+    $organization->updatedAt = $organization->createdAt;
+    $parent = new InterventionRecord();
+    $parent->id = $interventionId;
+    $parent->organization = $organization;
+    $parent->type = 'inventory';
+    $parent->name = 'Concurrent upload';
+    $parent->number = 1;
+    $parent->status = 'in_progress';
+    $parent->createdAt = new DateTimeImmutable();
+    $parent->updatedAt = $parent->createdAt;
+    $firstManager->persist($organization);
+    $firstManager->persist($parent);
+    $firstManager->flush();
+    $firstRepository = new InterventionAttachmentRepository($firstManager);
+    $connection->executeStatement("SET lock_timeout = '150ms'");
+    $secondManager = new \Doctrine\ORM\EntityManager($connection, $this->entityManager->getConfiguration());
+    $secondRepository = new InterventionAttachmentRepository($secondManager);
+    $resources = $this->createStub(\Intervention\Application\Port\Outbound\InterventionResourceGatewayPort::class);
+    $resources->method('interventionAssignmentContext')->willReturn(new \Intervention\Application\Contract\Resource\InterventionAssignmentContext($interventionId, $organizationId, 'in_progress', null));
+    $resources->method('interventionMutationContext')->willReturn(new \Intervention\Application\Contract\Resource\InterventionAssignmentContext($interventionId, $organizationId, 'in_progress', null));
+    $authorization = $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+    $ids = $this->createStub(\Shared\Application\Factory\UuidFactory::class);
+    $ids->method('generateRaw')->willReturnOnConsecutiveCalls('attempt-a', 'attempt-blocked', 'attempt-b');
+    $files = [];
+    $second = null;
+    $command = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentCommand(
+      userId: $organizationId,
+      interventionId: $interventionId,
+      fileName: 'evidence.jpg',
+      contents: 'first',
+      mimeType: 'image/jpeg',
+      size: 5,
+      attachmentId: self::ATTACHMENT_ID,
+    );
+    $storage = $this->createMock(\Shared\Application\Port\Outbound\FileStoragePort::class);
+    $storage->expects(self::once())->method('write')->willReturnCallback(function (string $path, string $contents) use (&$files, &$second, $command): void {
+      $files[$path] = $contents;
+      if (str_contains($path, 'attempt-a')) {
+        self::assertInstanceOf(\Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler::class, $second);
+
+        try {
+          $second($command);
+          self::fail('The second connection must wait before writing a blob.');
+        } catch (\Doctrine\DBAL\Exception\DriverException $exception) {
+          self::assertSame('55P03', $exception->getSQLState());
+        }
+        self::assertCount(1, $files);
+      }
+    });
+    $storage->method('delete')->willReturnCallback(static function (string $path) use (&$files): void { unset($files[$path]); });
+    $manager = new \Intervention\Application\Service\InterventionResourceManager($resources);
+    $first = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler($manager, $authorization, $firstRepository, $storage, $ids);
+    $second = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler($manager, $authorization, $secondRepository, $storage, $ids);
+
+    try {
+      $first($command);
+      $replayed = $second(new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentCommand(userId: $organizationId, interventionId: $interventionId, fileName: 'different.jpg', contents: 'second', mimeType: 'image/jpeg', size: 6, attachmentId: self::ATTACHMENT_ID));
+      self::assertSame('evidence.jpg', $replayed->fileName);
+      self::assertSame(5, $replayed->size);
+      $firstManager->clear();
+      $stored = $firstRepository->findById(InterventionAttachmentId::fromString(self::ATTACHMENT_ID));
+      self::assertNotNull($stored);
+      self::assertCount(1, $files);
+      self::assertSame('first', $files[$stored->storagePath()]);
+      self::assertSame(1, $firstRepository->countByInterventionId($interventionId));
+    } finally {
+      $firstConnection->executeStatement('DELETE FROM interventions WHERE id = ?', [$interventionId]);
+      $firstConnection->executeStatement('DELETE FROM organizations WHERE id = ?', [$organizationId]);
+      $firstManager->close();
+      $firstConnection->close();
+      $secondManager->close();
+      $connection->close();
+    }
   }
 
   private function createWorkItem(string $id, string $interventionId): void

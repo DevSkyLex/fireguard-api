@@ -10,7 +10,7 @@ use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\MemberInvitationProvisioningPort;
 use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
-use Organization\Domain\Exception\{OrganizationMembershipConflictException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMembershipConflictException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleName};
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -170,7 +170,7 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
       $exception instanceof OrganizationQuotaExceededException => new ProvisionMemberInvitationResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage()),
       $exception instanceof OrganizationMembershipConflictException => $this->fromConflict($exception),
       $exception instanceof OrganizationRoleNotFoundException => new ProvisionMemberInvitationResult(ProvisionOutcome::UNKNOWN_ROLE, message: $exception->getMessage()),
-      $exception instanceof OrganizationNotFoundException || $exception instanceof InvalidValueException || $exception instanceof InvalidArgumentException => new ProvisionMemberInvitationResult(ProvisionOutcome::INVALID, message: $exception->getMessage()),
+      $exception instanceof OrganizationAccessDeniedException || $exception instanceof OrganizationNotFoundException || $exception instanceof InvalidValueException || $exception instanceof InvalidArgumentException => new ProvisionMemberInvitationResult(ProvisionOutcome::INVALID, message: $exception->getMessage()),
       $exception instanceof MessengerRuntimeException => $this->fromWrappedException($exception),
       default => throw $exception,
     };
@@ -255,7 +255,8 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
       ($quota = $this->findException($exception, OrganizationQuotaExceededException::class)) instanceof OrganizationQuotaExceededException => new ProvisionMemberInvitationResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $quota->getMessage()),
       ($conflict = $this->findException($exception, OrganizationMembershipConflictException::class)) instanceof OrganizationMembershipConflictException => $this->fromConflict($conflict),
       ($role = $this->findException($exception, OrganizationRoleNotFoundException::class)) instanceof OrganizationRoleNotFoundException => new ProvisionMemberInvitationResult(ProvisionOutcome::UNKNOWN_ROLE, message: $role->getMessage()),
-      null !== ($invalid = $this->findException($exception, OrganizationNotFoundException::class)
+      null !== ($invalid = $this->findException($exception, OrganizationAccessDeniedException::class)
+        ?? $this->findException($exception, OrganizationNotFoundException::class)
         ?? $this->findException($exception, InvalidValueException::class)
         ?? $this->findException($exception, InvalidArgumentException::class)) => new ProvisionMemberInvitationResult(ProvisionOutcome::INVALID, message: $invalid->getMessage()),
       default => throw $exception,

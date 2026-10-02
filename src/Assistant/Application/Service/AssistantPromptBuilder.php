@@ -6,16 +6,19 @@ namespace Assistant\Application\Service;
 
 use Assistant\Application\Contract\Context\AssistantContextScope;
 use Assistant\Domain\Model\Message\AssistantMessage;
+use LengthException;
 
 use function array_map;
 use function array_merge;
+use function array_reverse;
+use function array_slice;
+use function mb_strlen;
 
 /**
  * Service AssistantPromptBuilder.
  *
  * Assembles the chat message list sent to Ollama: a fixed system prompt,
- * then a seam for business-context blocks, then the thread's own transcript,
- * oldest first.
+ * then business-context blocks, then a bounded recent transcript, oldest first.
  *
  * **L2.2 seam (now wired).** {@see self::buildContextBlocks()} delegates to
  * {@see AssistantContextAssembler} — a collection of `assistant.context_provider`
@@ -36,6 +39,31 @@ use function array_merge;
  */
 final class AssistantPromptBuilder
 {
+  /**
+   * Constant MAX_TRANSCRIPT_MESSAGES.
+   *
+   * Caps both repository hydration and the transcript sent to the generation client.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @var int MAX_TRANSCRIPT_MESSAGES
+   */
+  public const int MAX_TRANSCRIPT_MESSAGES = 20;
+
+  /**
+   * Constant MAX_TRANSCRIPT_CHARACTERS.
+   *
+   * Limits transcript bodies independently of the existing business-context budget.
+   * The current HTTP question limit is smaller, so the newest accepted prompt fits in full.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @var int MAX_TRANSCRIPT_CHARACTERS
+   */
+  public const int MAX_TRANSCRIPT_CHARACTERS = 24000;
+
   // #region Constants
   /**
    * Constant SYSTEM_PROMPT.
@@ -79,6 +107,7 @@ final class AssistantPromptBuilder
    */
   public function build(array $transcript, string $organizationId, AssistantContextScope $scope, bool $includeBusinessContext): array
   {
+    $transcript = $this->boundedTranscript($transcript);
     $messages = [['role' => 'system', 'content' => self::SYSTEM_PROMPT]];
 
     foreach ($this->buildContextBlocks($organizationId, $scope, $includeBusinessContext) as $contextBlock) {
@@ -89,6 +118,42 @@ final class AssistantPromptBuilder
       static fn (AssistantMessage $entry): array => ['role' => $entry->role()->value, 'content' => $entry->body()],
       $transcript,
     ));
+  }
+
+  /**
+   * Method boundedTranscript.
+   *
+   * Keeps a recent contiguous suffix of complete message bodies without changing persisted history.
+   * An oversized newest prompt fails instead of being silently truncated or replaced by older turns.
+   *
+   * @access private
+   * @since unreleased
+   *
+   * @param list<AssistantMessage> $transcript the completed transcript, oldest first
+   *
+   * @return list<AssistantMessage> the bounded chronological suffix
+   *
+   * @throws LengthException when the newest prompt alone exceeds the transcript budget
+   */
+  private function boundedTranscript(array $transcript): array
+  {
+    $selected = [];
+    $remaining = self::MAX_TRANSCRIPT_CHARACTERS;
+
+    foreach (array_reverse(array_slice($transcript, -self::MAX_TRANSCRIPT_MESSAGES)) as $entry) {
+      $length = mb_strlen($entry->body(), 'UTF-8');
+      if ($length > $remaining) {
+        if ([] === $selected) {
+          throw new LengthException('Assistant question exceeds the transcript budget.');
+        }
+
+        break;
+      }
+      $selected[] = $entry;
+      $remaining -= $length;
+    }
+
+    return array_reverse($selected);
   }
 
   /**

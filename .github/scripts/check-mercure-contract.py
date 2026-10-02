@@ -100,10 +100,10 @@ class ContractCheck:
         return configurations
 
     def setup(self) -> None:
-        self.docker("network", "create", "--internal", "--label", f"{LABEL}={self.run}", self.network)
         self.created.append(("network", self.network))
-        self.docker("volume", "create", "--label", f"{LABEL}={self.run}", self.volume)
+        self.docker("network", "create", "--internal", "--label", f"{LABEL}={self.run}", self.network)
         self.created.append(("volume", self.volume))
+        self.docker("volume", "create", "--label", f"{LABEL}={self.run}", self.volume)
 
     def start(self, name: str, service: dict) -> str:
         container = f"{self.run}-{name}"
@@ -248,7 +248,11 @@ class ContractCheck:
         for kind, name in reversed(self.created):
             require(name.startswith(self.run + "-"), "Refusing cleanup of a foreign resource")
             inspect = ("inspect",) if kind == "container" else (kind, "inspect")
-            raw = self.docker(*inspect, name, allowed=(0, 1))
+            try:
+                raw = self.docker(*inspect, name, allowed=(0, 1))
+            except RuntimeError as error:
+                errors.append(str(error))
+                continue
             resources = json.loads(raw) if raw else []
             if not resources:
                 continue
@@ -264,7 +268,7 @@ class ContractCheck:
                 errors.append(str(error))
         require(not errors, "; ".join(errors))
 
-    def run_checks(self, *, check_restart_history: bool) -> None:
+    def run_checks(self) -> None:
         configurations = self.configurations()
         try:
             self.setup()
@@ -276,17 +280,14 @@ class ContractCheck:
             self.stop(first)
             second = self.start("production", configurations[1][1])
             self.health(second)
-            if check_restart_history:
-                # This must run BEFORE any new publication: warming up the transport
-                # would hide the known Mercure 1.0.0 startup replay defect.
-                status, body = self.history(second, anchor)
-                require(
-                    status == "200" and "data: development-private-event" in body,
-                    "Persisted private history unavailable immediately after clean restart, before any new publication (known upstream Mercure 1.0.0 defect)",
-                )
-                print("PASS persisted history immediately after clean restart", flush=True)
-            else:
-                print("NOT CHECKED: restart history; use --check-restart-history (known failing diagnostic with Mercure 1.0.0)", flush=True)
+            # Replay must work immediately after startup, before a publication can
+            # initialize the transport and conceal a persistence regression.
+            status, body = self.history(second, anchor)
+            require(
+                status == "200" and "data: development-private-event" in body,
+                "Persisted private history unavailable immediately after clean restart, before any new publication",
+            )
+            print("PASS persisted history immediately after clean restart", flush=True)
             status, anchor = self.publish(second, "production-history-anchor")
             require(status == "200" and anchor, "Unable to publish the production contract anchor")
             self.exercise(second, "production", anchor)
@@ -299,16 +300,16 @@ class ContractCheck:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=__doc__,
-        epilog="The default smoke checks live contracts only. Mercure 1.0.0 has a known persisted-history replay defect immediately after restart; the explicit diagnostic must fail until that upstream behavior is fixed.",
+        epilog="Every run checks persisted private history immediately after restart before any publication.",
     )
     parser.add_argument(
         "--check-restart-history", action="store_true",
-        help="also require persisted replay immediately after clean restart, before any new publication (currently fails on Mercure 1.0.0)",
+        help="compatibility option; immediate persisted replay is always required",
     )
     arguments = parser.parse_args()
     check = ContractCheck()
     try:
-        check.run_checks(check_restart_history=arguments.check_restart_history)
+        check.run_checks()
     except (RuntimeError, OSError, ValueError, KeyError) as error:
         print(f"FAIL Mercure contract: {check.redact(str(error))}", file=sys.stderr)
         sys.exit(1)

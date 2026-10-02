@@ -13,6 +13,9 @@ use Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttach
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionConflictException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
 use Intervention\Presentation\Api\Processor\Attachment\InterventionMediaProcessor;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -33,14 +36,9 @@ use function unlink;
 /**
  * Test InterventionMediaProcessorTest.
  *
- * The processor makes NO authorization decision of its own — the
- * phase-based write permission and the flat read permission are enforced
- * authoritatively inside the command/query handlers (see
- * `Add`/`DeleteInterventionAttachmentHandlerTest` and
- * `ListInterventionAttachmentsHandlerTest`, plus
- * `tests/Architecture/Unit/InterventionAuthorizationEnforcementTest`). This
- * test only covers request wiring, `If-Match` revision handling, and
- * exception -> HTTP status mapping.
+ * Covers request wiring, revision handling, exception mapping and the scoped
+ * read authorization required by stored client UUID replay. New uploads and
+ * deletions retain their authoritative write permission checks in the handlers.
  *
  * @category Processor Tests
  *
@@ -52,6 +50,8 @@ final class InterventionMediaProcessorTest extends TestCase
   private const string USER_ID = 'user-id';
 
   private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440001';
+
+  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440002';
 
   private const string CLIENT_ID = '550e8400-e29b-41d4-a716-446655440004';
 
@@ -93,6 +93,7 @@ final class InterventionMediaProcessorTest extends TestCase
         $this->requestStackWithUpload($path),
         new MultipartAttachmentGuard(),
         new RevisionGuard(new RequestStack()),
+        $this->readAuthorization(),
       )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
 
       self::assertSame($attachment->id, $result?->id);
@@ -137,6 +138,7 @@ final class InterventionMediaProcessorTest extends TestCase
         $this->requestStackWithUpload($path, ['workItemId' => $workItemId]),
         new MultipartAttachmentGuard(),
         new RevisionGuard(new RequestStack()),
+        $this->readAuthorization(),
       )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
 
       self::assertSame($attachment->id, $result?->id);
@@ -161,6 +163,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $this->requestStackWithoutFile(['clientId' => 42]),
       new MultipartAttachmentGuard(),
       new RevisionGuard(new RequestStack()),
+      $this->readAuthorization(),
     )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
   }
 
@@ -180,6 +183,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $this->requestStackWithoutFile(['clientId' => 'not-a-uuid']),
       new MultipartAttachmentGuard(),
       new RevisionGuard(new RequestStack()),
+      $this->readAuthorization(),
     )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
   }
 
@@ -196,10 +200,19 @@ final class InterventionMediaProcessorTest extends TestCase
     $attachment->id = self::CLIENT_ID;
 
     $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturn($attachment);
+    $entityManager->method('find')->willReturnCallback(
+      static fn (string $class): InterventionRecord|InterventionAttachmentRecord|null => InterventionRecord::class === $class
+        ? $attachment->intervention
+        : $attachment,
+    );
 
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
+
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('resolveAccess')
+      ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.interventions.read')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new InterventionMediaProcessor(
       $entityManager,
@@ -208,6 +221,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $this->requestStackWithoutFile(['clientId' => self::CLIENT_ID]),
       new MultipartAttachmentGuard(),
       new RevisionGuard(new RequestStack()),
+      $authorization,
     )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
 
     self::assertSame(self::CLIENT_ID, $result?->id);
@@ -222,7 +236,11 @@ final class InterventionMediaProcessorTest extends TestCase
     $attachment->intervention->id = '660e8400-e29b-41d4-a716-4466554400ff';
 
     $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturn($attachment);
+    $entityManager->method('find')->willReturnCallback(
+      static fn (string $class): InterventionRecord|InterventionAttachmentRecord => InterventionRecord::class === $class
+        ? $attachment->intervention
+        : $attachment,
+    );
 
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
@@ -237,6 +255,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $this->requestStackWithoutFile(['clientId' => self::CLIENT_ID]),
       new MultipartAttachmentGuard(),
       new RevisionGuard(new RequestStack()),
+      $this->readAuthorization(),
     )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
   }
 
@@ -254,7 +273,10 @@ final class InterventionMediaProcessorTest extends TestCase
       $findCalls = 0;
       $entityManager = $this->wrappingEntityManager();
       $entityManager->method('find')->willReturnCallback(
-        static function () use (&$findCalls, $attachment): ?InterventionAttachmentRecord {
+        static function (string $class) use (&$findCalls, $attachment): InterventionRecord|InterventionAttachmentRecord|null {
+          if (InterventionRecord::class === $class) {
+            return $attachment->intervention;
+          }
           ++$findCalls;
 
           return 1 === $findCalls ? null : $attachment;
@@ -284,6 +306,7 @@ final class InterventionMediaProcessorTest extends TestCase
         $this->requestStackWithUpload($path, ['clientId' => self::CLIENT_ID]),
         new MultipartAttachmentGuard(),
         new RevisionGuard(new RequestStack()),
+        $this->readAuthorization(OrganizationAccessDecision::MISSING_PERMISSION),
       )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
 
       self::assertSame(self::CLIENT_ID, $result?->id);
@@ -312,6 +335,7 @@ final class InterventionMediaProcessorTest extends TestCase
         $this->requestStackWithUpload($path),
         new MultipartAttachmentGuard(),
         new RevisionGuard(new RequestStack()),
+        $this->readAuthorization(),
       )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
     } finally {
       unlink($path);
@@ -338,6 +362,7 @@ final class InterventionMediaProcessorTest extends TestCase
         $this->requestStackWithUpload($path),
         new MultipartAttachmentGuard(),
         new RevisionGuard(new RequestStack()),
+        $this->readAuthorization(),
       )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
     } finally {
       unlink($path);
@@ -350,7 +375,11 @@ final class InterventionMediaProcessorTest extends TestCase
     $attachment = $this->attachmentRecord();
 
     $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturn($attachment);
+    $entityManager->method('find')->willReturnCallback(
+      static fn (string $class): InterventionRecord|InterventionAttachmentRecord|null => InterventionRecord::class === $class
+        ? $attachment->intervention
+        : $attachment,
+    );
 
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
@@ -367,6 +396,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $requestStack,
       new MultipartAttachmentGuard(),
       new RevisionGuard($requestStack),
+      $this->readAuthorization(),
     )->process(null, new Delete(), ['id' => $attachment->id]);
   }
 
@@ -401,6 +431,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $requestStack,
       new MultipartAttachmentGuard(),
       new RevisionGuard($requestStack),
+      $this->readAuthorization(),
     )->process(null, new Delete(), ['id' => $attachment->id]);
 
     self::assertNull($result);
@@ -434,6 +465,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $requestStack,
       new MultipartAttachmentGuard(),
       new RevisionGuard($requestStack),
+      $this->readAuthorization(),
     )->process(null, new Delete(), ['id' => $attachment->id]);
   }
 
@@ -452,6 +484,7 @@ final class InterventionMediaProcessorTest extends TestCase
       new RequestStack(),
       new MultipartAttachmentGuard(),
       new RevisionGuard(new RequestStack()),
+      $this->readAuthorization(),
     )->process(null, new Post(), []);
   }
 
@@ -473,6 +506,7 @@ final class InterventionMediaProcessorTest extends TestCase
       new RequestStack(),
       new MultipartAttachmentGuard(),
       new RevisionGuard(new RequestStack()),
+      $this->readAuthorization(),
     )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
   }
 
@@ -491,6 +525,7 @@ final class InterventionMediaProcessorTest extends TestCase
       new RequestStack(),
       new MultipartAttachmentGuard(),
       new RevisionGuard(new RequestStack()),
+      $this->readAuthorization(),
     )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
   }
 
@@ -524,6 +559,7 @@ final class InterventionMediaProcessorTest extends TestCase
         $this->requestStackWithUpload($path),
         new MultipartAttachmentGuard(),
         new RevisionGuard(new RequestStack()),
+        $this->readAuthorization(),
       )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
     } finally {
       unlink($path);
@@ -548,6 +584,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $requestStack,
       new MultipartAttachmentGuard(),
       new RevisionGuard($requestStack),
+      $this->readAuthorization(),
     )->process(null, new Delete(), []);
   }
 
@@ -572,6 +609,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $requestStack,
       new MultipartAttachmentGuard(),
       new RevisionGuard($requestStack),
+      $this->readAuthorization(),
     )->process(null, new Delete(), ['id' => 'attachment-id']);
   }
 
@@ -603,6 +641,7 @@ final class InterventionMediaProcessorTest extends TestCase
       $requestStack,
       new MultipartAttachmentGuard(),
       new RevisionGuard($requestStack),
+      $this->readAuthorization(),
     )->process(null, new Delete(), ['id' => $attachment->id]);
   }
 
@@ -617,8 +656,11 @@ final class InterventionMediaProcessorTest extends TestCase
 
   private function attachmentRecord(): InterventionAttachmentRecord
   {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
     $intervention = new InterventionRecord();
     $intervention->id = self::INTERVENTION_ID;
+    $intervention->organization = $organization;
 
     $attachment = new InterventionAttachmentRecord();
     $attachment->id = 'attachment-id';
@@ -674,6 +716,14 @@ final class InterventionMediaProcessorTest extends TestCase
     ));
 
     return $requestStack;
+  }
+
+  private function readAuthorization(OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED): OrganizationAuthorizationPort
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn($decision);
+
+    return $authorization;
   }
 
   private function userSecurity(): Security

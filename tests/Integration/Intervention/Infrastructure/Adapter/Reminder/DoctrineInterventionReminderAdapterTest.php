@@ -13,6 +13,11 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
+use function array_unique;
+use function count;
+use function str_pad;
+
+use const STR_PAD_LEFT;
 
 /**
  * Test DoctrineInterventionReminderAdapter.
@@ -74,7 +79,7 @@ final class DoctrineInterventionReminderAdapterTest extends KernelTestCase
     $alreadyStamped = $this->persistIntervention('int-stamped', 'in_progress', $now->modify('+10 hours'));
     $this->stampDueSoon($alreadyStamped, $now->modify('-1 hour'));
 
-    $page = $this->adapter->pageDueSoon($now, $threshold, 50, 0);
+    $page = $this->adapter->pageDueSoon($now, $threshold, 50);
 
     $ids = array_map(static fn ($item): string => $item->id, $page->items);
     self::assertContains($inWindow, $ids);
@@ -92,7 +97,7 @@ final class DoctrineInterventionReminderAdapterTest extends KernelTestCase
     $future = $this->persistIntervention('int-future', 'changes_requested', $now->modify('+1 hour'));
     $terminal = $this->persistIntervention('int-published', 'published', $now->modify('-1 hour'));
 
-    $page = $this->adapter->pageOverdue($now, 50, 0);
+    $page = $this->adapter->pageOverdue($now, 50);
 
     $ids = array_map(static fn ($item): string => $item->id, $page->items);
     self::assertContains($past, $ids);
@@ -107,13 +112,13 @@ final class DoctrineInterventionReminderAdapterTest extends KernelTestCase
     $threshold = $now->modify('+48 hours');
     $id = $this->persistIntervention('int-mark', 'planned', $now->modify('+5 hours'));
 
-    $before = $this->adapter->pageDueSoon($now, $threshold, 50, 0);
+    $before = $this->adapter->pageDueSoon($now, $threshold, 50);
     self::assertContains($id, array_map(static fn ($item): string => $item->id, $before->items));
 
     $this->adapter->markDueSoonNotified($id, $now);
     $this->entityManager->clear();
 
-    $after = $this->adapter->pageDueSoon($now, $threshold, 50, 0);
+    $after = $this->adapter->pageDueSoon($now, $threshold, 50);
     self::assertNotContains($id, array_map(static fn ($item): string => $item->id, $after->items));
 
     $stamp = $this->entityManager->getConnection()->fetchOne(
@@ -132,8 +137,38 @@ final class DoctrineInterventionReminderAdapterTest extends KernelTestCase
     $this->adapter->markOverdueNotified($id, $now);
     $this->entityManager->clear();
 
-    $after = $this->adapter->pageOverdue($now, 50, 0);
+    $after = $this->adapter->pageOverdue($now, 50);
     self::assertNotContains($id, array_map(static fn ($item): string => $item->id, $after->items));
+  }
+
+  #[Test]
+  public function testKeysetVisitsAll401CandidatesWhileEachProcessedRowDisappears(): void
+  {
+    $now = new DateTimeImmutable('2026-06-15 12:00:00');
+    foreach (['dueSoon', 'overdue'] as $kind) {
+      $expected = [];
+      for ($index = 0; $index < 401; ++$index) {
+        $expected[] = $this->persistIntervention('cursor-' . $kind . '-' . str_pad((string) $index, 4, '0', STR_PAD_LEFT), 'planned', $now->modify('dueSoon' === $kind ? '+1 hour' : '-1 hour'));
+      }
+      $seen = [];
+      $afterId = null;
+      do {
+        $page = 'dueSoon' === $kind
+          ? $this->adapter->pageDueSoon($now, $now->modify('+48 hours'), 200, $afterId)
+          : $this->adapter->pageOverdue($now, 200, $afterId);
+        foreach ($page->items as $candidate) {
+          $seen[] = $candidate->id;
+          $afterId = $candidate->id;
+          if ('dueSoon' === $kind) {
+            $this->adapter->markDueSoonNotified($candidate->id, $now);
+          } else {
+            $this->adapter->markOverdueNotified($candidate->id, $now);
+          }
+        }
+      } while (200 === count($page->items));
+      self::assertSame($expected, $seen);
+      self::assertCount(401, array_unique($seen));
+    }
   }
 
   private function createOrganization(): void

@@ -152,9 +152,12 @@ final class IntrospectTokenHandlerTest extends TestCase
         'exp' => time() - 60,
       ]);
 
+    $repository = $this->createStub(AccessTokenRepositoryPort::class);
+    $repository->method('find')->willReturn($this->liveAccessToken());
+
     $handler = new IntrospectTokenHandler(
       jwtParser: $jwtParser,
-      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      accessTokenRepository: $repository,
       refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       issuer: 'https://issuer.example',
@@ -221,7 +224,7 @@ final class IntrospectTokenHandlerTest extends TestCase
       ]);
 
     $accessTokenRepository = $this->createMock(AccessTokenRepositoryPort::class);
-    $accessTokenRepository->expects(self::never())->method('find');
+    $accessTokenRepository->expects(self::once())->method('find')->willReturn($this->liveAccessToken());
 
     $handler = new IntrospectTokenHandler(
       jwtParser: $jwtParser,
@@ -511,10 +514,7 @@ final class IntrospectTokenHandlerTest extends TestCase
     ]);
 
     $tokenCache = $this->createMock(TokenCachePort::class);
-    $tokenCache->expects(self::once())
-      ->method('get')
-      ->with('token-123')
-      ->willReturn(null);
+    $tokenCache->expects(self::never())->method('get');
 
     $accessTokenRepository = $this->createMock(AccessTokenRepositoryPort::class);
     $accessTokenRepository->expects(self::once())
@@ -597,5 +597,27 @@ final class IntrospectTokenHandlerTest extends TestCase
 
     self::assertFalse($result->active);
   }
+
   // #endregion
+  #[Test]
+  public function testCachedActiveTokenCannotBypassDurableRevocation(): void
+  {
+    $parser = $this->createStub(JwtParserPort::class);
+    $parser->method('validate')->willReturn(true);
+    $parser->method('parse')->willReturn(['jti' => 'token-id']);
+    $token = $this->liveAccessToken();
+    $token->revoke();
+    $repository = $this->createStub(AccessTokenRepositoryPort::class);
+    $repository->method('find')->willReturn($token);
+    $cache = $this->createMock(TokenCachePort::class);
+    $cache->expects(self::never())->method('get');
+    $handler = new IntrospectTokenHandler($parser, $repository, $this->createStub(RefreshTokenRepositoryPort::class), $cache);
+
+    self::assertFalse($handler(new IntrospectTokenQuery('access-token'))->active);
+  }
+
+  private function liveAccessToken(): AccessToken
+  {
+    return new AccessToken('token-id', new OAuthClientIdentifier('client-1'), new DateTimeImmutable('+10 minutes'), Scopes::fromArray(['OPENID']), 'user-123');
+  }
 }

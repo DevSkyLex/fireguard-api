@@ -43,7 +43,7 @@ final class ResolveCalendarFeedTokenHandlerTest extends TestCase
       ->with(hash('sha256', self::SECRET))
       ->willReturn($token);
 
-    $handler = new ResolveCalendarFeedTokenHandler($repository, new CalendarFeedTokenSecretFactory());
+    $handler = $this->handler($repository);
 
     $result = $handler->__invoke(new ResolveCalendarFeedTokenQuery(self::SECRET));
 
@@ -65,7 +65,7 @@ final class ResolveCalendarFeedTokenHandlerTest extends TestCase
     $repository->method('findActiveByTokenHash')->willReturn(null);
     $repository->expects(self::never())->method('save');
 
-    $handler = new ResolveCalendarFeedTokenHandler($repository, new CalendarFeedTokenSecretFactory());
+    $handler = $this->handler($repository);
 
     $this->expectException(CalendarFeedTokenNotFoundException::class);
 
@@ -81,7 +81,7 @@ final class ResolveCalendarFeedTokenHandlerTest extends TestCase
     $repository->method('findActiveByTokenHash')->willReturn($token);
     $repository->expects(self::once())->method('save')->with($token);
 
-    $handler = new ResolveCalendarFeedTokenHandler($repository, new CalendarFeedTokenSecretFactory());
+    $handler = $this->handler($repository);
 
     $handler->__invoke(new ResolveCalendarFeedTokenQuery(self::SECRET));
 
@@ -98,9 +98,51 @@ final class ResolveCalendarFeedTokenHandlerTest extends TestCase
     $repository->method('findActiveByTokenHash')->willReturn($token);
     $repository->expects(self::never())->method('save');
 
-    $handler = new ResolveCalendarFeedTokenHandler($repository, new CalendarFeedTokenSecretFactory());
+    $handler = $this->handler($repository);
 
     $handler->__invoke(new ResolveCalendarFeedTokenQuery(self::SECRET));
+  }
+
+  #[Test]
+  public function itRejectsANonActiveAccountBeforeRecordingUsage(): void
+  {
+    $repository = $this->createMock(CalendarFeedTokenRepositoryPort::class);
+    $repository->method('findActiveByTokenHash')->willReturn($this->activeToken(null));
+    $repository->expects(self::never())->method('save');
+    $accounts = $this->createMock(\User\Application\Port\Inbound\AccountStatusPort::class);
+    $accounts->expects(self::once())->method('isActive')->with(self::USER_ID)->willReturn(false);
+    $members = $this->createMock(\Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort::class);
+    $members->expects(self::never())->method('resolveActiveMemberId');
+    $handler = new ResolveCalendarFeedTokenHandler($repository, new CalendarFeedTokenSecretFactory(), $accounts, $members);
+
+    $this->expectException(CalendarFeedTokenNotFoundException::class);
+    $handler(new ResolveCalendarFeedTokenQuery(self::SECRET));
+  }
+
+  #[Test]
+  public function itRejectsALostMembershipBeforeRecordingUsage(): void
+  {
+    $repository = $this->createMock(CalendarFeedTokenRepositoryPort::class);
+    $repository->method('findActiveByTokenHash')->willReturn($this->activeToken(null));
+    $repository->expects(self::never())->method('save');
+    $accounts = $this->createStub(\User\Application\Port\Inbound\AccountStatusPort::class);
+    $accounts->method('isActive')->willReturn(true);
+    $members = $this->createMock(\Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort::class);
+    $members->expects(self::once())->method('resolveActiveMemberId')->with(self::ORGANIZATION_ID, self::USER_ID)->willReturn(null);
+    $handler = new ResolveCalendarFeedTokenHandler($repository, new CalendarFeedTokenSecretFactory(), $accounts, $members);
+
+    $this->expectException(CalendarFeedTokenNotFoundException::class);
+    $handler(new ResolveCalendarFeedTokenQuery(self::SECRET));
+  }
+
+  private function handler(CalendarFeedTokenRepositoryPort $repository): ResolveCalendarFeedTokenHandler
+  {
+    $accounts = $this->createStub(\User\Application\Port\Inbound\AccountStatusPort::class);
+    $accounts->method('isActive')->willReturn(true);
+    $members = $this->createStub(\Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn('member-id');
+
+    return new ResolveCalendarFeedTokenHandler($repository, new CalendarFeedTokenSecretFactory(), $accounts, $members);
   }
 
   /**

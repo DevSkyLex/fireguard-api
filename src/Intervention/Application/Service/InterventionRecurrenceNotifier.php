@@ -4,23 +4,27 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Service;
 
+use Intervention\Application\Exception\InterventionNotificationDeliveryException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationMemberId;
+use Shared\Application\Port\Outbound\DurableEventContextPort;
 use Throwable;
+
+use function in_array;
 
 /**
  * Service InterventionRecurrenceNotifier.
  *
- * Sends a best-effort `intervention.recurrence_failed` notification when the
+ * Delivers `intervention.recurrence_failed` from a committed occurrence outcome when the
  * materializer fails to produce an intervention for a due occurrence. The
  * recurrence's responsible member is notified when set and still an active
  * member of the organization; otherwise the organization's administrators
  * are notified as a fallback (mirroring
  * {@see \Maintenance\Application\Service\MaintenanceReminderNotifier}). A
- * notification failure must never fail the recurring sweep.
+ * durable channel failure propagates for retry, while synchronous legacy callers remain best-effort.
  *
  * @category Service
  * @version 1.0.0
@@ -39,12 +43,14 @@ final readonly class InterventionRecurrenceNotifier
    * @param OrganizationNotificationPolicyPort $policy the organization notification policy port
    * @param OrganizationMemberRepositoryPort $members the organization member repository port
    * @param InterventionRecurrenceRecipientResolver $recipients the recurrence recipient resolver
+   * @param ?DurableEventContextPort $eventContext stable durable delivery identity, null for synchronous callers
    */
   public function __construct(
     private NotificationPort $notifications,
     private OrganizationNotificationPolicyPort $policy,
     private OrganizationMemberRepositoryPort $members,
     private InterventionRecurrenceRecipientResolver $recipients,
+    private ?DurableEventContextPort $eventContext = null,
   ) {
   }
   // #endregion
@@ -90,22 +96,47 @@ final readonly class InterventionRecurrenceNotifier
       ];
 
       foreach ($this->resolveRecipients($organizationId, $responsibleId) as $userId) {
-        try {
-          $this->notifications->send(new SendNotificationRequest(
-            type: 'intervention.recurrence_failed',
-            subject: 'Recurring intervention could not be created',
-            body: 'A recurring intervention could not be created from its template.',
-            channels: $channels,
-            payload: $payload,
-            recipientUserId: $userId,
-            organizationId: $organizationId,
-          ));
-        } catch (Throwable) {
-          // Best-effort per recipient: one failed delivery must not skip the rest.
-        }
+        $this->deliver(new SendNotificationRequest(
+          type: 'intervention.recurrence_failed',
+          subject: 'Recurring intervention could not be created',
+          body: 'A recurring intervention could not be created from its template.',
+          channels: $channels,
+          payload: $payload,
+          recipientUserId: $userId,
+          organizationId: $organizationId,
+          idempotencyKey: null === $this->eventContext?->eventId() ? null : $this->eventContext->eventId() . ':intervention.recurrence_failed:' . $userId,
+        ));
       }
-    } catch (Throwable) {
-      // Notifications must never fail the recurring sweep.
+    } catch (Throwable $exception) {
+      if (null !== $this->eventContext?->eventId()) {
+        throw $exception;
+      }
+    }
+  }
+
+  /**
+   * Method deliver
+   *
+   * Propagates durable channel failures for retry while keeping each synchronous recipient best-effort.
+   * The request retains the committed event and recipient identity across redelivery.
+   *
+   * @access private
+   *
+   * @param SendNotificationRequest $request one recipient's notification
+   *
+   * @return void
+   */
+  private function deliver(SendNotificationRequest $request): void
+  {
+    try {
+      $sent = $this->notifications->send($request);
+      if (null !== $this->eventContext?->eventId() && in_array('failed', $sent->channelStatus, true)) {
+        throw new InterventionNotificationDeliveryException('Recurrence notification has a failed channel; durable delivery will retry.');
+      }
+    } catch (Throwable $exception) {
+      if (null !== $this->eventContext?->eventId()) {
+        throw $exception;
+      }
     }
   }
 

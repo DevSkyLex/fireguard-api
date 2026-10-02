@@ -709,6 +709,7 @@ final class SendNotificationHandlerTest extends TestCase
 
     self::assertInstanceOf(SendNotificationResult::class, $result, 'opting out of every channel is a legitimate outcome, not an error');
     self::assertSame(['mercure' => false, 'email' => false], $result->channelDelivery);
+    self::assertSame(['mercure' => 'suppressed', 'email' => 'suppressed'], $result->channelStatus);
   }
 
   #[Test]

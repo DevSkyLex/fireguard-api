@@ -4,8 +4,16 @@ services:
     autoconfigure: true
 
   # User Module
+  User\Application\Port\Inbound\AccountStatusPort:
+    alias: User\Infrastructure\Adapter\User\AccountStatusAdapter
+  User\Infrastructure\Adapter\User\AccountStatusAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
   User\Application\Port\Outbound\UserRepositoryPort:
     class: User\Infrastructure\Persistence\Doctrine\Repository\UserRepository
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   User\Application\Port\Outbound\UserDataPurgePort:
     class: User\Infrastructure\Adapter\User\UserDataPurgeAdapter

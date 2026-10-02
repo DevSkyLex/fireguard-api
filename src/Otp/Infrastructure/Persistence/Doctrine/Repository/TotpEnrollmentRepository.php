@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Otp\Infrastructure\Persistence\Doctrine\Repository;
 
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
 use Otp\Application\Port\Outbound\Totp\TotpEnrollmentRepositoryPort;
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\TotpEnrollmentMapper;
 use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
+use Throwable;
 
 /**
  * Repository TotpEnrollmentRepository.
@@ -18,7 +21,7 @@ use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class TotpEnrollmentRepository implements TotpEnrollmentRepositoryPort
+final readonly class TotpEnrollmentRepository implements TotpEnrollmentRepositoryPort, TotpEnrollmentPurgePort
 {
   // #region Constructor
   /**
@@ -36,9 +39,39 @@ final readonly class TotpEnrollmentRepository implements TotpEnrollmentRepositor
   // #endregion
   // #region Methods
   /**
+   * Method withUserLock.
+   * {@inheritDoc}
+   */
+  public function withUserLock(string $userId, callable $operation): mixed
+  {
+    try {
+      return $this->entityManager->getConnection()->transactional(function () use ($userId, $operation): mixed {
+        $this->entityManager->getConnection()->executeQuery('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', ['fireguard.otp.user:' . $userId]);
+
+        return $operation();
+      });
+    } catch (Throwable $exception) {
+      $this->entityManager->clear();
+
+      throw $exception;
+    }
+  }
+
+  /**
+   * Method purgeForUser.
+   * {@inheritDoc}
+   */
+  public function purgeForUser(string $userId): void
+  {
+    $this->withUserLock($userId, function () use ($userId): void {
+      $this->entityManager->getConnection()->executeStatement('DELETE FROM totp_enrollments WHERE user_id = ?', [$userId]);
+    });
+  }
+
+  /**
    * Method save
    *
-   * Persists the federated flow under its state hash.
+   * Persists the enrollment through its owning auth connection.
    *
    * @access public
    *
@@ -79,6 +112,9 @@ final readonly class TotpEnrollmentRepository implements TotpEnrollmentRepositor
     if (null === $record) {
       return null;
     }
+
+    $lockMode = $this->entityManager->getConnection()->isTransactionActive() ? LockMode::PESSIMISTIC_WRITE : null;
+    $this->entityManager->refresh($record, $lockMode);
 
     return $this->mapper->toDomain($record);
   }

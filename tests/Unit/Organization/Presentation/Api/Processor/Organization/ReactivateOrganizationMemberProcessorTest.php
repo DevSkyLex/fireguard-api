@@ -107,7 +107,8 @@ final class ReactivateOrganizationMemberProcessorTest extends TestCase
       ->method('dispatch')
       ->with(self::callback(static function (ReactivateOrganizationMemberCommand $command): bool {
         return self::ORG_ID === $command->organizationId
-          && self::MEMBER_ID === $command->memberId;
+          && self::MEMBER_ID === $command->memberId
+          && self::USER_ID === $command->actorUserId;
       }))
       ->willReturn(new ReactivateOrganizationMemberResult(
         memberId: self::MEMBER_ID,

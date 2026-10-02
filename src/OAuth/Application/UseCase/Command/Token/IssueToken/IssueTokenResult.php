@@ -28,6 +28,7 @@ final readonly class IssueTokenResult implements ResultMessage
    * @param string $accessToken the access token
    * @param string $tokenType the token type (Bearer)
    * @param int $expiresIn the expiration time in seconds
+   * @param string $tokenId the non-secret identifier of the issued access token
    * @param string|null $refreshToken the refresh token (optional)
    * @param string|null $scope the granted scope (optional)
    * @param string|null $idToken the OpenID Connect ID token (optional)
@@ -36,6 +37,7 @@ final readonly class IssueTokenResult implements ResultMessage
     public readonly string $accessToken,
     public readonly string $tokenType,
     public readonly int $expiresIn,
+    public readonly string $tokenId,
     public readonly ?string $refreshToken = null,
     public readonly ?string $scope = null,
     public readonly ?string $idToken = null,

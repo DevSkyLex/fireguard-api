@@ -37,7 +37,7 @@ final class TotpEnrollmentCheckAdapterTest extends TestCase
   }
 
   #[Test]
-  public function testIsEnrolledReturnsFalseWhenPortThrows(): void
+  public function testEnrollmentLookupFailureMustPropagate(): void
   {
     /** @var TotpStatusPort&MockObject $totpStatus */
     $totpStatus = $this->createMock(TotpStatusPort::class);
@@ -47,6 +47,7 @@ final class TotpEnrollmentCheckAdapterTest extends TestCase
 
     $adapter = new TotpEnrollmentCheckAdapter(totpStatus: $totpStatus);
 
-    self::assertFalse($adapter->isEnrolled('user-1'));
+    $this->expectException(RuntimeException::class);
+    $adapter->isEnrolled('user-1');
   }
 }

@@ -124,8 +124,8 @@ See the [scheduled tasks](docs/operations/workers-and-scheduler.md) procedure.
 
 Every configured queue and scheduler receiver requires a supervised consumer.
 The following combined-worker example covers the current transport set. Managed
-Compose deployments can split these receivers across workers and isolate assistant
-processing; maintain the same complete coverage when changing that topology.
+Compose deployments split these receivers into async, webhook, assistant and
+scheduler services. Maintain that isolation and the same complete receiver coverage.
 
 ```sh
 php -d memory_limit=1G bin/console messenger:consume \

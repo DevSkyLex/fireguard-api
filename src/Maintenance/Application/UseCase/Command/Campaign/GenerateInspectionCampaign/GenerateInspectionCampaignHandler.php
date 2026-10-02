@@ -14,6 +14,7 @@ use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function array_map;
+use function count;
 use function json_encode;
 
 use const JSON_THROW_ON_ERROR;
@@ -57,6 +58,7 @@ final readonly class GenerateInspectionCampaignHandler implements CommandHandler
     private InterventionDraftFactoryPort $draftFactory,
     private OrganizationAuthorizationPort $authorization,
     private EventDispatcherPort $eventDispatcher,
+    private int $maxCampaignWorkItems = 25,
   ) {
   }
 
@@ -80,12 +82,22 @@ final readonly class GenerateInspectionCampaignHandler implements CommandHandler
       'organization.interventions.plan',
     ]);
 
+    $count = $this->schedules->countDueForCampaign($command->organizationId, $command->facilityId, $command->equipmentType, $command->dueBefore);
+    if ($count > $this->maxCampaignWorkItems) {
+      throw new MaintenanceValidationException('Campaign exceeds the synchronous work-item limit; narrow the maintenance filters.');
+    }
+
     $dueSchedules = $this->schedules->listDueForCampaign(
       $command->organizationId,
       $command->facilityId,
       $command->equipmentType,
       $command->dueBefore,
+      $this->maxCampaignWorkItems + 1,
     );
+
+    if (count($dueSchedules) > $this->maxCampaignWorkItems) {
+      throw new MaintenanceValidationException('Campaign exceeds the synchronous work-item limit; narrow the maintenance filters.');
+    }
 
     if ([] === $dueSchedules) {
       throw new MaintenanceValidationException('No due maintenance schedules match the given filters.');

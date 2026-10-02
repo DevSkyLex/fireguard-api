@@ -84,6 +84,11 @@ services:
       $enabled: '%env(bool:GEOIP_ENABLED)%'
       $maxAgeDays: '%env(int:GEOIP_MAX_AGE_DAYS)%'
 
+  Shared\Infrastructure\Console\InspectWorkerQueuesCommand:
+    arguments:
+      $authConnection: '@doctrine.dbal.auth_connection'
+      $mainConnection: '@doctrine.dbal.main_connection'
+
   Shared\Application\Port\Outbound\EventBusPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter'
   Shared\Application\Port\Outbound\FileStoragePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\FlysystemFileStorageAdapter'
   Shared\Application\Port\Outbound\LoggerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\LoggerAdapter'

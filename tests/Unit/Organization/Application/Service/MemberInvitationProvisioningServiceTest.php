@@ -215,6 +215,20 @@ final class MemberInvitationProvisioningServiceTest extends TestCase
     new MemberInvitationProvisioningService($commandBus, $roleRepository)->provision($this->request());
   }
 
+  #[Test]
+  public function deniedDirectAndWrappedGrantsBecomeInvalidImportOutcomes(): void
+  {
+    $roles = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roles->method('findByOrganizationAndName')->willReturn($this->role('member'));
+    $denial = \Organization\Domain\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.read');
+    foreach ([$denial, MessengerRuntimeException::wrap($denial)] as $exception) {
+      $bus = $this->createStub(CommandBusPort::class);
+      $bus->method('dispatch')->willThrowException($exception);
+
+      self::assertSame(ProvisionOutcome::INVALID, new MemberInvitationProvisioningService($bus, $roles)->provision($this->request())->outcome);
+    }
+  }
+
   /**
    * @param list<string> $roleNames
    */

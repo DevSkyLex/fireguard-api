@@ -275,10 +275,14 @@ automatically (DSN `schedule://intervention`) — run
 `messenger:consume scheduler_intervention` alongside the existing `async`
 worker (mirrors the Maintenance module's sweep exactly).
 `MaterializeDueRecurrencesHandler` is idempotent and processes every due
-recurrence page-wise:
+recurrence in bounded pages ordered by id. Each page continues strictly after the last
+processed id with one fixed time cutoff, so advancing a schedule cannot skip later rows:
 
 1. Pages through active recurrences whose lead-time window has opened
-   (`InterventionRecurrencePort::pageDueForMaterialization`).
+   (`InterventionRecurrencePort::pageDueForMaterialization`). The reservation, complete
+   draft and planned work items, final run, next occurrence and outbox event share
+   one main transaction. A crash before commit rolls them all back; replay can claim
+   the occurrence again.
 2. For each, idempotently claims the `(recurrence, occurrence date)` pair
    FIRST (`reserveRun`) — a unique constraint on
    `intervention_recurrence_runs (recurrence_id, occurrence_date)` is the
@@ -298,12 +302,24 @@ recurrence page-wise:
    retry on a permanently broken occurrence), and the recurrence's
    responsible member — or the organization's administrators as a fallback
    (`InterventionRecurrenceRecipientResolver`, mirroring
-   `MaintenanceReminderRecipientResolver`) — is notified best-effort
-   (`intervention.recurrence_failed`) via `InterventionRecurrenceNotifier`.
+   `MaintenanceReminderRecipientResolver`) — is notified from the committed outbox
+   (`intervention.recurrence_failed`) via `InterventionRecurrenceNotifier`. Only explicit
+   domain validation/not-found/conflict failures become terminal failed occurrences;
+   database, storage and enqueue failures roll back and propagate for retry.
 
 Every processed occurrence (success or failure) also dispatches
 `intervention.recurrence_materialized` for the audit ledger, with a system
 actor.
+
+Legacy reservations created before this atomic boundary can be ambiguous: a crash may
+have left no draft, a partial draft or a complete unlinked draft. The sweep never
+creates another draft for that marker. An operator first reconciles its existing
+work, then runs `app:intervention:recover-reserved-recurrence <run-id>` with either
+`--intervention-id=<verified-complete-existing-draft>` or
+`--failure-reason=<reconciled-reason>`. Recovery locks the run and recurrence,
+checks linked organization ownership and the occurrence date, finalizes and
+advances with its outbox event in one transaction. Resolved runs replay as no-ops.
+It never deletes or recreates an ambiguous draft automatically.
 
 #### Reading the origin back
 
@@ -340,7 +356,7 @@ here, not an exceptional one.
 `scheduler_intervention` transport (DSN `schedule://intervention`) and the
 same stateful/lock-guarded schedule. `SendDueRemindersHandler` is idempotent
 and processes every candidate page-wise, mirroring
-`MaterializeDueRecurrencesHandler`'s pagination:
+`MaterializeDueRecurrencesHandler`'s keyset pagination with a fixed time cutoff:
 
 1. Pages through interventions in statuses where field work is still
    expected — `planned`, `in_progress`, `changes_requested` (not `draft`,
@@ -1225,7 +1241,9 @@ point the API itself and other automations use — passing
 `origin: 'intervention:template'`. `InterventionTemplateInstantiator` is the
 SAME service the recurrence materializer (`MaterializeDueRecurrencesHandler`)
 uses with `origin: 'intervention:recurrence'`, so both callers share
-identical business logic instead of duplicating it.
+identical business logic instead of duplicating it. The draft factory wraps the
+parent, numbering, created activity, every planned item and their outbox effects
+in one main transaction; a late item failure leaves no partial draft.
 
 ## Domain Model
 
@@ -1274,15 +1292,14 @@ terminal).
 organization's reviewers, i.e. active members whose effective permissions
 grant `organization.interventions.review` directly or through a wildcard
 (`InterventionReviewerRecipientResolver`, same detection rule as the
-recurrence-failure resolver). Delivery is best-effort per recipient through
-`InterventionNotificationService::submitted()` — in-app + email, each channel
-honoring its own organization toggle, submitter excluded — and is deferred
-until after the workflow transaction commits. Two accepted trade-offs, on
-purpose: (a) the resolver iterates members × `getUserPermissions` inside the
-submitting HTTP request (post-commit, pre-response) — if this latency ever
-hurts on a large organization, defer the fan-out through Messenger; (b) every
-resubmission re-notifies all reviewers (wildcards include admins) — there is
-no deduplication, each review round is announced.
+recurrence-failure resolver). Each committed review round persists its notification request in `main_outbox`
+inside the workflow transaction. Delivery resolves reviewers after commit,
+honors in-app/email policy and excludes the submitter. Each distinct transition
+has its own stable event identity; retries use the event/type/recipient key and
+Notification's persisted channel receipts. Delivered or policy-suppressed channels
+are terminal, while failed channels propagate for outbox retry. Assignment and
+requested-changes notifications use the same boundary. A process exit between the
+commit and delivery therefore leaves durable pending work.
 
 Aggregate invariants (enforced in `Intervention`):
 
@@ -1457,6 +1474,13 @@ exactly like labels):
   (`idx_intervention_attachment_work_item`) — so the mapping and the schema
   now agree and a future resync cannot silently drop it again. Repository:
   `Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository`.
+Uploads lock both the attachment identity and owning intervention before checking
+capacity or writing a blob. Concurrent requests sharing a client id wait and then
+apply the existing replay semantics against the committed row. An id already
+owned by a different intervention is rejected. Every attempt uses its own random
+storage key, so a failed upload can only delete its own blob; replaced blobs are
+removed after the upload transaction commits.
+
 - `intervention_attachments.kind` (Phase 5d.2): `VARCHAR(20) NOT NULL DEFAULT
 'file'`, composite index `idx_intervention_attachment_intervention_kind` on
   `(intervention_id, kind)` — the input of `findSignatureByInterventionId()` /
@@ -1567,12 +1591,12 @@ Payload: `organization_id` (via `recordOrganizationAudit`), `intervention_number
 that transition). The actor is always the mutating user id — the work-item
 auto-start is attributed to the member whose update triggered it (the event
 models a `null` actor falling back to `system`, but no production call site
-produces one today). Like the notifications this
-same method already defers past the transaction (`changesRequested`,
-`submitted`), the event dispatch is queued into the same deferred-closure
-array and fires only after `wrapInTransaction` commits — a rollback (a later
-validation failure in the same request) leaves no ledger entry for a
-transition that never happened. A rejected transition (the aggregate throws
+produces one today). The status event and notification requests are inserted into
+`main_outbox` before
+the same main transaction commits. Consumer delivery follows commit; rollback
+removes both the transition and its pending effects. No in-memory after-commit
+closure carries the only copy of a required effect. A rejected transition
+(the aggregate throws
 before `applyTransition` sets the new status) and a field-only edit (no
 `status` key in the payload) dispatch nothing.
 
@@ -1637,3 +1661,5 @@ bounded grouped reads and remain unchanged after measurement.
 ## Configuration
 
 Bindings are defined in [Intervention configuration](../../config/modules/intervention.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.
+
+Stored attachment `clientId` replay enforces the same `organization.interventions.read` access decision as the single-item GET endpoint: outsiders and unknown parents return the same 404, owning members without READ receive 403, and authorized replay returns the original row without multipart file validation or overwrite. Fresh IDs retain the handler's phase-based write permission rather than requiring READ.

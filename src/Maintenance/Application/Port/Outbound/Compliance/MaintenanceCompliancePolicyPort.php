@@ -38,5 +38,12 @@ interface MaintenanceCompliancePolicyPort
    * @return MaintenanceCompliancePolicy the effective compliance policy
    */
   public function compliancePolicy(string $organizationId): MaintenanceCompliancePolicy;
+
+  /**
+   * @param list<string> $organizationIds
+   *
+   * @return array<string, MaintenanceCompliancePolicy>
+   */
+  public function compliancePolicies(array $organizationIds): array;
   // #endregion
 }

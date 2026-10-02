@@ -195,6 +195,8 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
     new Delete(
       name: UserOperations::DELETE,
       uriTemplate: self::USER_URI_TEMPLATE,
+      status: HttpResponse::HTTP_NO_CONTENT,
+      read: false,
       input: false,
       output: false,
       processor: DeleteUserProcessor::class,

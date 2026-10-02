@@ -6,13 +6,13 @@ namespace Tests\Unit\OAuth\Infrastructure\Adapter\Token;
 
 use DateTimeImmutable;
 use Defuse\Crypto\Crypto;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, RefreshTokenRepositoryPort, TokenCachePort};
+use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort, RefreshTokenRepositoryPort, TokenCachePort, UserTokenRevocationPort};
 use OAuth\Domain\Event\Token\TokenRevokedEvent;
 use OAuth\Domain\Model\Token\{AccessToken, RefreshToken};
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;
 use OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -86,6 +86,8 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
 
     self::assertTrue($adapter->revokeRefreshToken($encrypted));
@@ -114,6 +116,8 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
 
     self::assertFalse($adapter->revokeRefreshToken($encrypted));
@@ -140,6 +144,8 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
 
     self::assertFalse($adapter->revokeRefreshToken($encrypted));
@@ -172,6 +178,8 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
 
     self::assertFalse($adapter->revokeRefreshToken('invalid'));
@@ -214,6 +222,8 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
 
     self::assertTrue($adapter->revokeAccessToken($jwt));
@@ -258,6 +268,8 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
 
     self::assertFalse($adapter->revokeAccessToken($jwt));
@@ -274,20 +286,37 @@ final class TokenRevocationAdapterTest extends TestCase
   }
 
   #[Test]
-  public function testRevokeAllUserTokensLogs(): void
+  public function testRevokeAllUserTokensCommitsBeforeInvalidatingCache(): void
   {
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects(self::once())
       ->method('info');
 
+    $committed = false;
+    $revocation = $this->createMock(UserTokenRevocationPort::class);
+    $revocation->expects(self::once())->method('revokeForUser')->with('user-1')
+      ->willReturnCallback(static function () use (&$committed): array {
+        $committed = true;
+
+        return ['access-id', 'refresh-id', 'code-id'];
+      });
+    $cache = $this->createMock(TokenCachePort::class);
+    $cache->expects(self::exactly(3))->method('invalidate')
+      ->willReturnCallback(static function (string $identifier) use (&$committed): void {
+        self::assertTrue($committed);
+        self::assertContains($identifier, ['access-id', 'refresh-id', 'code-id']);
+      });
+
     $adapter = new TokenRevocationAdapter(
       accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
       refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
-      tokenCache: $this->createStub(TokenCachePort::class),
+      tokenCache: $cache,
       sessionTracking: $this->createStub(SessionTrackingPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $revocation,
+      jwtParser: $this->validatedParser(),
     );
 
     $adapter->revokeAllUserTokens('user-1');
@@ -335,6 +364,8 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $eventDispatcher,
       logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
 
     self::assertTrue($adapter->revokeRefreshToken($encrypted));
@@ -369,9 +400,130 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
 
     self::assertTrue($adapter->revokeRefreshToken($encrypted));
+  }
+
+  #[Test]
+  public function testForgedAccessTokenCannotRevokeStoredTokenOrSession(): void
+  {
+    $parser = $this->createMock(JwtParserPort::class);
+    $parser->expects(self::once())->method('validate')->willReturn(false);
+    $parser->expects(self::never())->method('parse');
+    $repository = $this->createMock(AccessTokenRepositoryPort::class);
+    $repository->expects(self::never())->method('find');
+    $sessions = $this->createMock(SessionTrackingPort::class);
+    $sessions->expects(self::never())->method('revokeSessionByToken');
+    $adapter = new TokenRevocationAdapter(
+      accessTokenRepository: $repository,
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
+      sessionTracking: $sessions,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      logger: $this->createStub(LoggerInterface::class),
+      encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $parser,
+    );
+
+    self::assertFalse($adapter->revokeAccessToken($this->createJwt(['jti' => 'known-victim-id'])));
+  }
+
+  #[Test]
+  public function testBulkStorageFailurePropagatesWithoutInvalidationOrSuccessLog(): void
+  {
+    $revocation = $this->createMock(UserTokenRevocationPort::class);
+    $revocation->expects(self::once())->method('revokeForUser')->willThrowException(new RuntimeException('storage unavailable'));
+    $cache = $this->createMock(TokenCachePort::class);
+    $cache->expects(self::never())->method('invalidate');
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects(self::never())->method('info');
+    $adapter = new TokenRevocationAdapter(
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $cache,
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      logger: $logger,
+      encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $revocation,
+      jwtParser: $this->validatedParser(),
+    );
+
+    $this->expectException(RuntimeException::class);
+    $adapter->revokeAllUserTokens('user-1');
+  }
+
+  /**
+   * Method testStoredTokenFailureKeepsCacheAndEventsUntouched
+   *
+   * Failed individual token persistence must not advertise a successful revocation through cache or events.
+   *
+   * @access public
+   *
+   * @param bool $refreshToken whether the failing token belongs to the refresh repository
+   *
+   * @return void
+   */
+  #[Test]
+  #[DataProvider('storedTokenFailures')]
+  public function testStoredTokenFailureKeepsCacheAndEventsUntouched(bool $refreshToken): void
+  {
+    $accessTokenRepository = $this->createMock(AccessTokenRepositoryPort::class);
+    $refreshTokenRepository = $this->createMock(RefreshTokenRepositoryPort::class);
+    $repository = $refreshToken ? $refreshTokenRepository : $accessTokenRepository;
+    $otherRepository = $refreshToken ? $accessTokenRepository : $refreshTokenRepository;
+    $token = $refreshToken ? $this->createRefreshToken('refresh-id', 'access-id') : $this->createAccessToken('access-id');
+    $repository->expects(self::once())->method('find')
+      ->with($refreshToken ? 'refresh-id' : 'access-id')->willReturn($token);
+    $repository->expects(self::once())->method('save')
+      ->with($token)->willThrowException(new RuntimeException('storage unavailable'));
+    $otherRepository->expects(self::never())->method('find');
+
+    $cache = $this->createMock(TokenCachePort::class);
+    $cache->expects(self::never())->method('invalidate');
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects(self::never())->method('info');
+    $logger->expects(self::once())->method('debug')->with(
+      $refreshToken ? 'Failed to revoke refresh token' : 'Failed to revoke access token',
+      ['error' => 'storage unavailable'],
+    );
+
+    $adapter = new TokenRevocationAdapter(
+      accessTokenRepository: $accessTokenRepository,
+      refreshTokenRepository: $refreshTokenRepository,
+      tokenCache: $cache,
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $events,
+      logger: $logger,
+      encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
+    );
+
+    $revoked = $refreshToken
+      ? $adapter->revokeRefreshToken($this->encryptPayload(['refresh_token_id' => 'refresh-id', 'access_token_id' => 'access-id']))
+      : $adapter->revokeAccessToken($this->createJwt(['jti' => 'access-id']));
+    self::assertFalse($revoked);
+  }
+
+  /**
+   * Method storedTokenFailures
+   *
+   * Exercises the same persistence boundary for each individual token family.
+   *
+   * @access public
+   *
+   * @return array<string, array{bool}> the access and refresh failure cases
+   */
+  public static function storedTokenFailures(): array
+  {
+    return ['access' => [false], 'refresh' => [true]];
   }
 
   private function createAdapter(): TokenRevocationAdapter
@@ -384,7 +536,26 @@ final class TokenRevocationAdapterTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
     );
+  }
+
+  private function validatedParser(): JwtParserPort
+  {
+    $parser = $this->createStub(JwtParserPort::class);
+    $parser->method('validate')->willReturn(true);
+    $parser->method('parse')->willReturnCallback(static function (string $jwt): array {
+      if ('' === $jwt) {
+        throw new RuntimeException('Test token cannot be empty.');
+      }
+      $token = new \Lcobucci\JWT\Token\Parser(new \Lcobucci\JWT\Encoding\JoseEncoder())->parse($jwt);
+      self::assertInstanceOf(\Lcobucci\JWT\UnencryptedToken::class, $token);
+
+      return $token->claims()->all();
+    });
+
+    return $parser;
   }
 
   private function createAccessToken(string $identifier): AccessToken

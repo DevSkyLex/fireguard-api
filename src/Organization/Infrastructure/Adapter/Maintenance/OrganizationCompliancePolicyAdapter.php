@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Adapter\Maintenance;
 
+use Doctrine\DBAL\{ArrayParameterType, Connection};
 use Maintenance\Application\Contract\Compliance\MaintenanceCompliancePolicy;
 use Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationComplianceDefaults;
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationSettings};
 use Shared\Domain\Exception\InvalidValueException;
+
+use function json_decode;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Adapter OrganizationCompliancePolicyAdapter.
@@ -39,6 +44,7 @@ final readonly class OrganizationCompliancePolicyAdapter implements MaintenanceC
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
+    private ?Connection $connection = null,
   ) {
   }
 
@@ -57,10 +63,14 @@ final readonly class OrganizationCompliancePolicyAdapter implements MaintenanceC
    */
   public function compliancePolicy(string $organizationId): MaintenanceCompliancePolicy
   {
+    if (null !== $this->connection) {
+      return $this->compliancePolicies([$organizationId])[$organizationId];
+    }
+
     try {
       $organization = $this->organizationRepository->findById(OrganizationId::fromString($organizationId));
     } catch (InvalidValueException) {
-      return new MaintenanceCompliancePolicy([], OrganizationComplianceDefaults::REMINDER_WINDOW_DAYS);
+      $organization = null;
     }
 
     $settings = $organization?->settings()->compliance;
@@ -69,6 +79,36 @@ final readonly class OrganizationCompliancePolicyAdapter implements MaintenanceC
     }
 
     return new MaintenanceCompliancePolicy($settings->effectiveInspectionPeriodicities(), $settings->reminderWindowDays);
+  }
+
+  /** @param list<string> $organizationIds
+   * @return array<string, MaintenanceCompliancePolicy> */
+  public function compliancePolicies(array $organizationIds): array
+  {
+    $policies = [];
+    foreach ($organizationIds as $id) {
+      $policies[$id] = new MaintenanceCompliancePolicy([], OrganizationComplianceDefaults::REMINDER_WINDOW_DAYS);
+    }
+    if ([] === $organizationIds) {
+      return $policies;
+    }
+    if (null === $this->connection) {
+      foreach ($organizationIds as $id) {
+        $policies[$id] = $this->compliancePolicy($id);
+      }
+
+      return $policies;
+    }
+    /** @var list<array{id: string, settings: string}> $rows */
+    $rows = $this->connection->fetchAllAssociative('SELECT id, settings FROM organizations WHERE id IN (:ids)', ['ids' => $organizationIds], ['ids' => ArrayParameterType::STRING]);
+    foreach ($rows as $row) {
+      /** @var array<string, mixed> $data */
+      $data = json_decode($row['settings'], true, flags: JSON_THROW_ON_ERROR);
+      $settings = OrganizationSettings::fromArray($data)->compliance;
+      $policies[(string) $row['id']] = new MaintenanceCompliancePolicy($settings->effectiveInspectionPeriodicities(), $settings->reminderWindowDays);
+    }
+
+    return $policies;
   }
   // #endregion
 }

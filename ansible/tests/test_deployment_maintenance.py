@@ -163,6 +163,9 @@ case "$*" in
   *'app:geoip:update'*) exit "${FAKE_UPDATE_FAILURE:-0}" ;;
   *'app:geoip:purge-session-locations'*) exit "${FAKE_PURGE_FAILURE:-0}" ;;
   *'app:cleanup:auth-data'*) exit "${FAKE_AUTH_FAILURE:-0}" ;;
+  *'bin/worker-health.php --sweeps'*) exit "${FAKE_SWEEP_FAILURE:-0}" ;;
+  *'bin/worker-health.php'*) exit "${FAKE_WORKER_FAILURE:-0}" ;;
+  *'app:workers:queues'*) exit "${FAKE_QUEUE_FAILURE:-0}" ;;
   *) exit 99 ;;
 esac
 """, newline="\n")
@@ -255,6 +258,27 @@ exit "${FAKE_LOGGER_FAILURE:-0}"
         for command in self.docker_calls():
             self.assertTrue(command.startswith("compose -f compose.yaml -f compose.dev.yaml "))
 
+    def test_worker_observation_checks_all_consumers_sweeps_and_both_queue_histories(self):
+        self.assertEqual(0, self.run_task("worker-observe").returncode)
+        commands = self.docker_calls()
+        self.assertEqual(6, len(commands))
+        for service, command in zip(["async_worker", "webhook_worker", "assistant_worker", "scheduler_worker"], commands):
+            self.assertIn("exec -T " + service + " php bin/worker-health.php", command)
+        self.assertIn("--sweeps", commands[4])
+        self.assertIn("app:workers:queues --env=prod", commands[5])
+
+    def test_queue_failure_is_reported_as_fixed_metadata(self):
+        result = self.run_task("worker-observe", FAKE_QUEUE_FAILURE="18")
+        self.assertEqual(18, result.returncode)
+        self.assertEqual("Durable queue age or failed message threshold exceeded\n", result.stderr)
+
+    def test_operation_lock_prevents_any_maintenance_during_snapshot_or_migration(self):
+        (self.app / ".fireguard-operation.lock").mkdir()
+        result = self.run_task("auth-retention")
+        self.assertEqual(75, result.returncode)
+        self.assertEqual([], self.docker_calls())
+        self.assertTrue((self.app / ".fireguard-operation.lock").is_dir())
+
 
 class DeploymentOrderingTest(unittest.TestCase):
     def test_scheduler_and_configuration_fail_before_any_service_interruption(self):
@@ -293,6 +317,11 @@ class ComposeCompatibilityTest(unittest.TestCase):
         base = source("compose.prod.yaml")
         override = source("compose.dev.yaml") if development else ""
         values = {name: "synthetic" for name in re.findall(r"\$\{([A-Z][A-Z0-9_]*)", base + override)}
+        for name in values:
+            if name.endswith("_CPU_LIMIT"):
+                values[name] = "0.75"
+            elif name.endswith("_MEMORY_LIMIT"):
+                values[name] = "512m"
         values.update({
             "FIREGUARD_IMAGE": "example.invalid/fireguard:synthetic",
             "FIREGUARD_FIXTURES_IMAGE": "example.invalid/fixtures:synthetic",

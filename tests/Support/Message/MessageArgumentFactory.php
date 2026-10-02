@@ -6,6 +6,7 @@ namespace Tests\Support\Message;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use Organization\Application\Contract\Member\OrganizationMemberGrant;
 use ReflectionClass;
 use ReflectionIntersectionType;
 use ReflectionNamedType;
@@ -246,6 +247,10 @@ final class MessageArgumentFactory
 
     if (DateTimeImmutable::class === $class || DateTimeInterface::class === $class) {
       return new DateTimeImmutable(self::FIXED_TIMESTAMP);
+    }
+
+    if (OrganizationMemberGrant::class === $class) {
+      return OrganizationMemberGrant::forActor(self::UUID);
     }
 
     if (is_a($class, Throwable::class, true)) {

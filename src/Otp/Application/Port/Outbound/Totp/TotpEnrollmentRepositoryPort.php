@@ -20,6 +20,22 @@ interface TotpEnrollmentRepositoryPort
 {
   // #region Methods
   /**
+   * Method withUserLock.
+   *
+   * Serializes a fresh enrollment decision and its mutation on the owning auth connection.
+   *
+   * @since 1.0.0
+   *
+   * @template T
+   *
+   * @param string $userId the enrollment owner
+   * @param callable():T $operation the enrollment decision and persistence
+   *
+   * @return T the committed operation result
+   */
+  public function withUserLock(string $userId, callable $operation): mixed;
+
+  /**
    * Method save.
    *
    * Persists a TOTP enrollment.

@@ -3,7 +3,7 @@
 # =============================================================================
 # Base FrankenPHP image with common extensions
 # =============================================================================
-ARG FRANKENPHP_IMAGE=dunglas/frankenphp:1-php8.4-bookworm
+ARG FRANKENPHP_IMAGE=dunglas/frankenphp:1-php8.4-bookworm@sha256:3672a0d093efc94375f3457467fa11d25a39f51c7969c4a827967ab29eb00eda
 FROM ${FRANKENPHP_IMAGE} AS base
 
 # Install system dependencies
@@ -41,7 +41,7 @@ RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
     && echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/prod.ini
 
 # Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2@sha256:af98f42dfff7c68ba8d53c2164fd9fde1087b7d449514baa38c418b1f6bc4bac /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 

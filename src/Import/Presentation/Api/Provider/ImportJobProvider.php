@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Import\Presentation\Api\Provider;
 
-use ApiPlatform\Metadata\Operation;
-use ApiPlatform\State\ProviderInterface;
+use ApiPlatform\Metadata\{Operation, QueryParameterInterface};
+use ApiPlatform\State\{ParameterNotFound, ProviderInterface};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Import\Application\UseCase\Query\GetImportJob\{GetImportJobQuery, GetImportJobResult};
 use Import\Presentation\Api\Dto\Output\ImportJobOutput;
@@ -16,6 +16,9 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
+use function ctype_digit;
+use function is_array;
+use function is_int;
 use function is_string;
 
 /**
@@ -77,13 +80,51 @@ final readonly class ImportJobProvider implements ProviderInterface
     }
 
     try {
+      $pagination = $this->reportPagination($operation, $context);
       /** @var GetImportJobResult $result */
-      $result = $this->queryBus->ask(new GetImportJobQuery($user->getId(), $id));
+      $result = $this->queryBus->ask(new GetImportJobQuery($user->getId(), $id, $pagination['page'], $pagination['itemsPerPage']));
     } catch (Throwable $exception) {
       throw $this->mapImportException($exception);
     }
 
     return $this->outputFactory->fromView($result);
+  }
+
+  /**
+   * Method reportPagination
+   *
+   * Gives resolved API parameters precedence over legacy filters and validates the bounded report window.
+   * Missing parameter values retain the filter fallback and existing defaults.
+   *
+   * @access private
+   *
+   * @param Operation $operation the operation carrying resolved query parameters
+   * @param array<string, mixed> $context the provider context containing legacy filters
+   *
+   * @return array{page: int, itemsPerPage: int} the validated pagination window
+   */
+  private function reportPagination(Operation $operation, array $context): array
+  {
+    $filters = is_array($context['filters'] ?? null) ? $context['filters'] : [];
+    foreach ($operation->getParameters() ?? [] as $key => $parameter) {
+      if (!$parameter instanceof QueryParameterInterface) {
+        continue;
+      }
+      $value = $parameter->getValue();
+      if (!$value instanceof ParameterNotFound) {
+        $filters[$key] = $value;
+      }
+    }
+    $page = $filters['reportPage'] ?? 1;
+    $itemsPerPage = $filters['reportItemsPerPage'] ?? 100;
+    if ((!is_int($page) && (!is_string($page) || !ctype_digit($page))) || (!is_int($itemsPerPage) && (!is_string($itemsPerPage) || !ctype_digit($itemsPerPage)))) {
+      throw new BadRequestHttpException('Report pagination requires positive integers.');
+    }
+    if ((int) $page < 1 || (int) $itemsPerPage < 1 || (int) $itemsPerPage > 100) {
+      throw new BadRequestHttpException('Report pages start at one and contain at most 100 rows.');
+    }
+
+    return ['page' => (int) $page, 'itemsPerPage' => (int) $itemsPerPage];
   }
   // #endregion
 }

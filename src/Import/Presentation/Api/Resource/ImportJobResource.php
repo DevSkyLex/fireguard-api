@@ -152,6 +152,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ImportJobOutput::class,
       provider: ImportJobProvider::class,
       security: self::SECURITY_ROLE_USER,
+      parameters: [
+        'reportPage' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'integer', 'minimum' => 1], castToArray: false, castToNativeType: false, constraints: [], description: 'Report page, starting at one.'),
+        'reportItemsPerPage' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'integer', 'minimum' => 1, 'maximum' => 100], castToArray: false, castToNativeType: false, constraints: [], description: 'Report rows per page, from one to 100 (default 100).'),
+      ],
     ),
   ],
 )]

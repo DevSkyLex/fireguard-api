@@ -30,7 +30,7 @@ use Organization\Domain\ValueObject\{
   OrganizationRoleId,
   OrganizationRoleName
 };
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -204,7 +204,11 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       EmailTranslatorTestFactory::create(),
     );
 
+    $grantGuard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class);
+    $grantGuard->expects(self::once())->method('assertCanAssignRoles')->with($inviterUserId, $organizationId, [$roleId]);
+
     $handler = new InviteOrganizationMemberHandler(
+      grantGuard: $grantGuard,
       deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
@@ -377,6 +381,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     $handler = new InviteOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class),
       deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
@@ -520,6 +525,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     $handler = new InviteOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class),
       deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
@@ -652,6 +658,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     $handler = new InviteOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class),
       deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
@@ -737,21 +744,17 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeExpiresAStalePendingInvitationBeforeContinuing(): void
+  public function testInvokeDoesNotExpireAStaleInvitationBeforeRolesAreValidated(): void
   {
     $stale = $this->pendingInvitation(new DateTimeImmutable('-1 day'));
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
-    $invitationRepository->expects(self::once())
-      ->method('findPendingByOrganizationAndEmail')
-      ->willReturn($stale);
-    $invitationRepository->expects(self::once())
-      ->method('save')
-      ->with(self::callback(static fn (OrganizationInvitation $invitation): bool => 'expired' === $invitation->status()->value));
+    $invitationRepository->expects(self::never())->method('findPendingByOrganizationAndEmail');
+    $invitationRepository->expects(self::never())->method('save');
 
-    // No default "member" role exists, so the use case stops right after the
-    // stale invitation has been expired and persisted.
+    // Invalid effective roles are rejected before even a stale invitation
+    // can be expired, so a denied grant produces no persistence side effect.
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::once())
@@ -851,6 +854,48 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     ));
   }
 
+  /**
+   * @return iterable<string, array{bool, bool}>
+   */
+  public static function invitationCallers(): iterable
+  {
+    yield 'ordinary command' => [false, false];
+    yield 'import command' => [false, true];
+    yield 'onboarding command' => [true, false];
+  }
+
+  #[Test]
+  #[DataProvider('invitationCallers')]
+  public function everyCallerChecksDefaultRolesBeforeAnyWrite(bool $onboarding, bool $deferDelivery): void
+  {
+    $guard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class);
+    $guard->expects(self::once())->method('assertCanAssignRoles')->with(self::INVITER_USER_ID, self::ORGANIZATION_ID, [self::MEMBER_ID])
+      ->willThrowException(\Organization\Domain\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.read'));
+    $invitations = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitations->expects(self::never())->method('findPendingByOrganizationAndEmail');
+    $invitations->expects(self::never())->method('save');
+    $transactions = $this->createMock(TransactionManagerPort::class);
+    $transactions->expects(self::never())->method('transactional');
+    $setup = $this->createMock(\Onboarding\Application\Port\Inbound\OrganizationSetupPort::class);
+    $setup->expects(self::never())->method('begin');
+    $handler = $this->makeHandler(
+      organizationRepository: $this->organizationRepositoryStub(),
+      invitationRepository: $invitations,
+      grantGuard: $guard,
+      transactionManager: $transactions,
+      setup: $setup,
+    );
+
+    $this->expectException(\Organization\Domain\Exception\OrganizationAccessDeniedException::class);
+    $handler(new InviteOrganizationMemberCommand(
+      self::ORGANIZATION_ID,
+      'member@example.com',
+      self::INVITER_USER_ID,
+      setupContext: $onboarding ? new \Onboarding\Application\Contract\Setup\OrganizationSetupContext(self::INVITER_USER_ID, 'session', 'invite') : null,
+      deferDelivery: $deferDelivery,
+    ));
+  }
+
   private function organizationRepositoryStub(): OrganizationRepositoryPort
   {
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
@@ -891,16 +936,38 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
   }
 
+  private function defaultRoleRepositoryStub(): OrganizationRoleRepositoryPort
+  {
+    $role = OrganizationRole::reconstitute(
+      new OrganizationRoleId(self::MEMBER_ID),
+      new OrganizationId(self::ORGANIZATION_ID),
+      new OrganizationRoleName('member'),
+      ['organization.read'],
+      true,
+      new DateTimeImmutable('-1 day'),
+    );
+    $roles = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roles->method('findByOrganizationAndName')->willReturn($role);
+    $roles->method('findByIdsInOrganization')->willReturn([$role]);
+
+    return $roles;
+  }
+
   private function makeHandler(
     ?OrganizationRepositoryPort $organizationRepository = null,
     ?OrganizationRoleRepositoryPort $roleRepository = null,
     ?OrganizationMemberRepositoryPort $memberRepository = null,
     ?OrganizationInvitationRepositoryPort $invitationRepository = null,
     ?UserRepositoryPort $userRepository = null,
+    ?\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort $grantGuard = null,
+    ?TransactionManagerPort $transactionManager = null,
+    ?\Onboarding\Application\Port\Inbound\OrganizationSetupPort $setup = null,
   ): InviteOrganizationMemberHandler {
-    $transactionManager = $this->createStub(TransactionManagerPort::class);
-    $transactionManager->method('transactional')
-      ->willReturnCallback(static fn (callable $operation): mixed => $operation());
+    if (null === $transactionManager) {
+      $transactionManager = $this->createStub(TransactionManagerPort::class);
+      $transactionManager->method('transactional')
+        ->willReturnCallback(static fn (callable $operation): mixed => $operation());
+    }
 
     $invitationNotifier = new OrganizationInvitationNotifier(
       $this->createStub(NotificationPort::class),
@@ -910,9 +977,10 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     return new InviteOrganizationMemberHandler(
+      grantGuard: $grantGuard ?? $this->createStub(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class),
       deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository ?? $this->createStub(OrganizationRepositoryPort::class),
-      roleRepository: $roleRepository ?? $this->createStub(OrganizationRoleRepositoryPort::class),
+      roleRepository: $roleRepository ?? $this->defaultRoleRepositoryStub(),
       memberRepository: $memberRepository ?? $this->createStub(OrganizationMemberRepositoryPort::class),
       invitationRepository: $invitationRepository ?? $this->createStub(OrganizationInvitationRepositoryPort::class),
       userRepository: $userRepository ?? $this->createStub(UserRepositoryPort::class),
@@ -922,6 +990,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       transactionManager: $transactionManager,
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      setup: $setup,
     );
   }
 }

@@ -112,15 +112,14 @@ final readonly class IntrospectTokenHandler implements QueryHandler
   {
     $audience = $this->audience($tokenData['aud'] ?? null);
 
-    // Check cache first
-    $cached = $this->tokenCache->get($tokenId);
-    if (null !== $cached) {
-      return $this->buildResultFromCache($cached);
-    }
-
+    // Durable revocation remains authoritative even when a cache entry races invalidation.
     $accessToken = $this->accessTokenRepository->find($tokenId);
     if (null === $accessToken || $accessToken->isRevoked() || $accessToken->isExpired()) {
       return IntrospectTokenResult::inactive();
+    }
+    $cached = $this->tokenCache->get($tokenId);
+    if (null !== $cached) {
+      return $this->buildResultFromCache($cached);
     }
 
     $iat = $tokenData['iat'] ?? null;

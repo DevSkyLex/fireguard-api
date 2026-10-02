@@ -8,7 +8,8 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\{NotificationType, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Contract\Member\OrganizationMemberGrant;
+use Organization\Application\Port\Inbound\{OrganizationMemberGrantGuardPort, OrganizationQuotaPort};
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationHandler, AcceptOrganizationInvitationResult};
@@ -166,7 +167,15 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
     $addMemberLogger->expects(self::never())
       ->method('warning');
 
+    $grantGuard = $this->createMock(OrganizationMemberGrantGuardPort::class);
+    $grantGuard->expects(self::once())->method('assertCanGrant')->with(
+      self::callback(static fn (OrganizationMemberGrant $grant): bool => OrganizationMemberGrant::INVITATION === $grant->source && $invitationId === $grant->reference),
+      $organizationId,
+      'member@example.com',
+      [$roleId],
+    );
     $addOrganizationMemberHandler = new AddOrganizationMemberHandler(
+      grantGuard: $grantGuard,
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -405,6 +414,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
     $addMemberLogger->expects(self::never())->method('warning');
 
     $addOrganizationMemberHandler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -600,6 +610,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
     $addMemberLogger->expects(self::never())->method('warning');
 
     $addOrganizationMemberHandler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -722,6 +733,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       ->method('findRoleIdsForInvitation');
 
     $addOrganizationMemberHandler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationMemberGrantGuardPort::class),
       organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
@@ -960,6 +972,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
   private function createHandler(OrganizationInvitationRepositoryPort $invitationRepository): AcceptOrganizationInvitationHandler
   {
     $addOrganizationMemberHandler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationMemberGrantGuardPort::class),
       organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),

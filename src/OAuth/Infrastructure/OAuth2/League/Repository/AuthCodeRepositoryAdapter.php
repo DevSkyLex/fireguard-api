@@ -7,7 +7,7 @@ namespace OAuth\Infrastructure\OAuth2\League\Repository;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
-use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\{AuthCodeRepositoryPort, GrantLifecyclePort};
 use OAuth\Domain\Model\Token\AuthCode;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;
@@ -37,6 +37,7 @@ final readonly class AuthCodeRepositoryAdapter implements AuthCodeRepositoryInte
    */
   public function __construct(
     private AuthCodeRepositoryPort $authCodeRepository,
+    private GrantLifecyclePort $grantLifecycle,
   ) {
   }
   // #endregion
@@ -120,13 +121,7 @@ final readonly class AuthCodeRepositoryAdapter implements AuthCodeRepositoryInte
    */
   public function isAuthCodeRevoked(string $codeId): bool
   {
-    $code = $this->authCodeRepository->find($codeId);
-
-    if (!$code) {
-      return true;
-    }
-
-    return $code->isRevoked();
+    return $this->grantLifecycle->isAuthCodeRevoked($codeId);
   }
   // #endregion
 }

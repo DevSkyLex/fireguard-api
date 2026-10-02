@@ -76,6 +76,7 @@ final class AddOrganizationAdminConsoleCommandTest extends TestCase
         && self::ORGANIZATION_ID === $command->organizationId
         && self::USER_ID === $command->userId
         && [self::ROLE_ID] === $command->roleIds
+        && \Organization\Application\Contract\Member\OrganizationMemberGrant::OPERATOR === $command->grant->source
         && false === $command->enforceQuota))
       ->willReturn($this->successResult());
 

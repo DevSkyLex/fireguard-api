@@ -7,7 +7,7 @@ namespace OAuth\Infrastructure\OAuth2\League\Repository;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
-use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\{GrantLifecyclePort, RefreshTokenRepositoryPort};
 use OAuth\Domain\Model\Token\RefreshToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Infrastructure\OAuth2\League\Entity\RefreshToken as LeagueRefreshToken;
@@ -34,6 +34,7 @@ final readonly class RefreshTokenRepositoryAdapter implements RefreshTokenReposi
    */
   public function __construct(
     private readonly RefreshTokenRepositoryPort $refreshTokenRepository,
+    private GrantLifecyclePort $grantLifecycle,
   ) {
   }
   // #endregion
@@ -114,13 +115,7 @@ final readonly class RefreshTokenRepositoryAdapter implements RefreshTokenReposi
    */
   public function isRefreshTokenRevoked(string $tokenId): bool
   {
-    $token = $this->refreshTokenRepository->find($tokenId);
-
-    if (!$token) {
-      return true;
-    }
-
-    return $token->isRevoked();
+    return $this->grantLifecycle->isRefreshTokenRevoked($tokenId);
   }
   // #endregion
 }

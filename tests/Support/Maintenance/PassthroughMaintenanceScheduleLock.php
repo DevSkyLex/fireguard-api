@@ -13,4 +13,9 @@ final class PassthroughMaintenanceScheduleLock implements MaintenanceScheduleLoc
   {
     return $work();
   }
+
+  public function synchronizedBatch(array $scopes, callable $work): mixed
+  {
+    return $work();
+  }
 }

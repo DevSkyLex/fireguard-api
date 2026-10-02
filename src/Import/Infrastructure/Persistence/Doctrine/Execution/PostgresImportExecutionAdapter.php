@@ -77,7 +77,7 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
          AND (lease_expires_at IS NULL OR lease_expires_at <= clock_timestamp())",
       ['id' => (string) $id, 'owner' => $owner],
     );
-    $job = $this->repository->findById($id);
+    $job = $this->repository->findForExecution($id);
     if (0 === $claimed && null !== $job && !$job->status()->isTerminal()) {
       throw new ImportLeaseUnavailable();
     }
@@ -114,7 +114,7 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
         if (false === $locked) {
           throw new ImportLeaseUnavailable();
         }
-        $job = $this->repository->findById($id) ?? throw new LogicException('The locked import no longer exists.');
+        $job = $this->repository->findForExecution($id) ?? throw new LogicException('The locked import no longer exists.');
         if (null !== $rowNumber && $rowNumber <= $job->processedRows()) {
           return $job;
         }
@@ -213,7 +213,7 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
       if (!$this->canResume($id)) {
         throw new ImportLeaseUnavailable();
       }
-      $job = $this->repository->findById($id) ?? throw ImportJobNotFoundException::withId((string) $id);
+      $job = $this->repository->findForExecution($id) ?? throw ImportJobNotFoundException::withId((string) $id);
       $job->resume(new DateTimeImmutable());
       $this->repository->save($job);
       $this->connection->executeStatement('UPDATE import_jobs SET lease_owner = NULL, lease_expires_at = NULL WHERE id = :id', ['id' => (string) $id]);

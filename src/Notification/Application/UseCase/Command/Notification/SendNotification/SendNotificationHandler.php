@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Notification\Application\UseCase\Command\Notification\SendNotification;
 
 use InvalidArgumentException;
+use LogicException;
 use Notification\Application\Contract\Notification\{NotificationChannel, NotificationType};
 use Notification\Application\Port\Outbound\{
   EmailNotificationChannelPort,
   MercureNotificationChannelPort,
+  NotificationDeliveryReceiptPort,
   NotificationPreferenceRepositoryPort,
   NotificationRepositoryPort,
   RecipientDirectoryPort
@@ -67,6 +69,7 @@ final readonly class SendNotificationHandler implements CommandHandler
     private RecipientDirectoryPort $recipientDirectory,
     private LoggerPort $logger,
     private UuidFactory $uuidFactory,
+    private ?NotificationDeliveryReceiptPort $deliveryReceipts = null,
   ) {
   }
   // #endregion
@@ -84,6 +87,22 @@ final readonly class SendNotificationHandler implements CommandHandler
    * @return SendNotificationResult the use case result
    */
   public function __invoke(SendNotificationCommand $command): SendNotificationResult
+  {
+    if (null !== $command->idempotencyKey) {
+      if (null === $this->deliveryReceipts) {
+        throw new LogicException('Durable delivery receipts are required for an idempotent notification.');
+      }
+
+      return $this->deliveryReceipts->synchronized($this->deliveryKey($command), fn (): SendNotificationResult => $this->send($command));
+    }
+
+    return $this->send($command);
+  }
+
+  /**
+   * Sends a new or replayed notification while retaining its original inbox identity.
+   */
+  private function send(SendNotificationCommand $command): SendNotificationResult
   {
     $channels = $this->normalizeChannels($command->channels);
     $recipientUserId = $this->normalizeNullableString($command->recipientUserId);
@@ -103,15 +122,95 @@ final readonly class SendNotificationHandler implements CommandHandler
       throw new InvalidArgumentException('Notification subject is required.');
     }
 
-    // When only a userId was provided, the guard above ensures it is non-null here.
+    $delivery = $this->resolveDeliveryChannels($channels, $recipientUserId, $recipientEmail, $type);
+    $channels = $delivery['channels'];
+    $recipientEmail = $delivery['recipientEmail'];
+
+    $email = null;
+    if (null !== $recipientEmail) {
+      $email = $this->normalizeEmail($recipientEmail);
+    }
+
+    $key = null === $command->idempotencyKey ? null : $this->deliveryKey($command);
+    $stored = null === $key ? null : $this->deliveryReceipts?->find($key);
+    /** @var NotificationId $notificationId */
+    $notificationId = $stored?->id() ?? $this->uuidFactory->create(NotificationId::class);
+    $channelValues = array_map(
+      static fn (NotificationChannel $channel): string => $channel->value,
+      $channels,
+    );
+
+    $notification = $stored ?? Notification::create(
+      id: $notificationId,
+      type: $type,
+      subject: $subject,
+      body: $command->body,
+      channels: $channelValues,
+      payload: $command->payload,
+      target: new NotificationTarget(
+        recipientUserId: $recipientUserId,
+        recipientEmail: $email,
+        organizationId: $this->normalizeNullableString($command->organizationId),
+      ),
+    );
+
+    if (null === $key) {
+      $this->notificationRepository->save($notification);
+    } elseif (null === $stored) {
+      $this->deliveryReceipts?->save($key, $notification);
+    }
+
+    // Preferences suppress delivery only, never persistence: the row above
+    // is already saved and stays in the in-app list regardless of what the
+    // loop below decides for the email/Mercure fan-out. An absent row (no
+    // userId to key on, or no customization for this category) means every
+    // channel stays enabled.
+    $preference = null !== $recipientUserId
+      ? $this->preferenceRepository->findByUserIdAndCategory($recipientUserId, NotificationType::category($type))
+      : null;
+
+    $channelStatus = $this->deliverChannels($notification, $channels, $preference, $command->deliveryPayload, $key);
+    $channelDelivery = array_map(static fn (string $status): bool => 'delivered' === $status, $channelStatus);
+
+    return new SendNotificationResult(
+      id: (string) $notification->id(),
+      type: $notification->type(),
+      subject: $notification->subject(),
+      body: $notification->body(),
+      channels: $notification->channels(),
+      payload: $notification->payload(),
+      channelDelivery: $channelDelivery,
+      channelStatus: $channelStatus,
+      createdAt: $notification->createdAt(),
+      recipientUserId: $notification->recipientUserId(),
+      recipientEmail: null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
+      organizationId: $notification->organizationId(),
+    );
+  }
+
+  /**
+   * Method resolveDeliveryChannels
+   *
+   * Resolves missing email addresses and drops only an unavailable email channel from a multi-channel request.
+   * Mercure still requires a user recipient, and email-only requests retain their strict address requirement.
+   *
+   * @access private
+   *
+   * @param list<NotificationChannel> $channels the normalized requested channels
+   * @param string|null $recipientUserId the normalized user recipient
+   * @param string|null $recipientEmail the normalized explicit address, when supplied
+   * @param string $type the validated notification type used for diagnostics
+   *
+   * @return array{channels: list<NotificationChannel>, recipientEmail: ?string} the deliverable channels and resolved address
+   */
+  private function resolveDeliveryChannels(array $channels, ?string $recipientUserId, ?string $recipientEmail, string $type): array
+  {
+    // The caller rejects an entirely absent target before directory resolution.
     if ($this->containsChannel($channels, NotificationChannel::EMAIL) && null === $recipientEmail) {
       $recipientEmail = $this->normalizeNullableString($this->recipientDirectory->emailForUserId((string) $recipientUserId));
     }
 
     if ($this->containsChannel($channels, NotificationChannel::EMAIL) && null === $recipientEmail) {
-      // Multi-channel requests degrade gracefully: the unresolvable email
-      // channel is dropped so the remaining channels still deliver. An
-      // email-only request with no resolvable address stays a caller error.
       if (1 === count($channels)) {
         throw new InvalidArgumentException('Recipient email is required for email notifications.');
       }
@@ -131,58 +230,7 @@ final readonly class SendNotificationHandler implements CommandHandler
       throw new InvalidArgumentException('Recipient userId is required for Mercure notifications.');
     }
 
-    $email = null;
-    if (null !== $recipientEmail) {
-      $email = $this->normalizeEmail($recipientEmail);
-    }
-
-    /** @var NotificationId $notificationId */
-    $notificationId = $this->uuidFactory->create(NotificationId::class);
-    $channelValues = array_map(
-      static fn (NotificationChannel $channel): string => $channel->value,
-      $channels,
-    );
-
-    $notification = Notification::create(
-      id: $notificationId,
-      type: $type,
-      subject: $subject,
-      body: $command->body,
-      channels: $channelValues,
-      payload: $command->payload,
-      target: new NotificationTarget(
-        recipientUserId: $recipientUserId,
-        recipientEmail: $email,
-        organizationId: $this->normalizeNullableString($command->organizationId),
-      ),
-    );
-
-    $this->notificationRepository->save($notification);
-
-    // Preferences suppress delivery only, never persistence: the row above
-    // is already saved and stays in the in-app list regardless of what the
-    // loop below decides for the email/Mercure fan-out. An absent row (no
-    // userId to key on, or no customization for this category) means every
-    // channel stays enabled.
-    $preference = null !== $recipientUserId
-      ? $this->preferenceRepository->findByUserIdAndCategory($recipientUserId, NotificationType::category($type))
-      : null;
-
-    $channelDelivery = $this->deliverChannels($notification, $channels, $preference, $command->deliveryPayload);
-
-    return new SendNotificationResult(
-      id: (string) $notification->id(),
-      type: $notification->type(),
-      subject: $notification->subject(),
-      body: $notification->body(),
-      channels: $notification->channels(),
-      payload: $notification->payload(),
-      channelDelivery: $channelDelivery,
-      createdAt: $notification->createdAt(),
-      recipientUserId: $notification->recipientUserId(),
-      recipientEmail: null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
-      organizationId: $notification->organizationId(),
-    );
+    return ['channels' => $channels, 'recipientEmail' => $recipientEmail];
   }
 
   /**
@@ -196,15 +244,25 @@ final readonly class SendNotificationHandler implements CommandHandler
    * @param list<NotificationChannel> $channels the normalized requested channels
    * @param NotificationPreference|null $preference the recipient's optional category preference
    * @param array<string, mixed> $deliveryPayload the ephemeral per-channel delivery payload
+   * @param string|null $key the durable delivery identity, or null for a synchronous notification without receipts
    *
-   * @return array<string, bool> delivery outcome for each requested channel
+   * @return array<string, string> explicit outcome for each requested channel
    */
-  private function deliverChannels(Notification $notification, array $channels, ?NotificationPreference $preference, array $deliveryPayload): array
+  private function deliverChannels(Notification $notification, array $channels, ?NotificationPreference $preference, array $deliveryPayload, ?string $key): array
   {
     $channelDelivery = [];
+    $acknowledged = null === $key ? [] : ($this->deliveryReceipts?->statuses($key) ?? []);
     foreach ($channels as $channel) {
+      if (isset($acknowledged[$channel->value])) {
+        $channelDelivery[$channel->value] = $acknowledged[$channel->value];
+
+        continue;
+      }
       if ($this->isChannelSuppressedByPreference($channel, $preference)) {
-        $channelDelivery[$channel->value] = false;
+        $channelDelivery[$channel->value] = 'suppressed';
+        if (null !== $key) {
+          $this->deliveryReceipts?->record($key, $channel->value, 'suppressed');
+        }
         $this->logger->info('Notification channel delivery skipped: disabled by user preference.', [
           'notificationId' => (string) $notification->id(),
           'channel' => $channel->value,
@@ -222,9 +280,12 @@ final readonly class SendNotificationHandler implements CommandHandler
           NotificationChannel::EMAIL => $this->emailChannel->send($notification, $channelPayload),
           NotificationChannel::MERCURE => $this->mercureChannel->publish($notification, $channelPayload),
         };
-        $channelDelivery[$channel->value] = true;
+        $channelDelivery[$channel->value] = 'delivered';
+        if (null !== $key) {
+          $this->deliveryReceipts?->record($key, $channel->value, 'delivered');
+        }
       } catch (Throwable $exception) {
-        $channelDelivery[$channel->value] = false;
+        $channelDelivery[$channel->value] = 'failed';
         $this->logChannelFailure($notification, $channel, $channelPayload, $exception);
         // Best-effort delivery: notification creation must not fail on channel errors.
       }
@@ -409,5 +470,12 @@ final readonly class SendNotificationHandler implements CommandHandler
     return $normalized;
   }
 
+  /**
+   * Binds a caller identity to its immutable recipient, organization and notification type.
+   */
+  private function deliveryKey(SendNotificationCommand $command): string
+  {
+    return $command->idempotencyKey . "\0" . $command->type . "\0" . $command->organizationId . "\0" . $command->recipientUserId . "\0" . $command->recipientEmail;
+  }
   // #endregion
 }

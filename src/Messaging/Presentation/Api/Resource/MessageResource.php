@@ -80,6 +80,7 @@ use Symfony\Component\HttpFoundation\Response;
     ),
     new Patch(
       uriTemplate: '/messages/{id}',
+      read: false,
       input: EditMessageInput::class,
       output: MessageOutput::class,
       processor: EditMessageProcessor::class,
@@ -87,6 +88,7 @@ use Symfony\Component\HttpFoundation\Response;
     ),
     new Delete(
       uriTemplate: '/messages/{id}',
+      read: false,
       output: false,
       processor: DeleteMessageProcessor::class,
       status: Response::HTTP_NO_CONTENT,

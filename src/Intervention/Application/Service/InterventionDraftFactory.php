@@ -14,6 +14,7 @@ use Intervention\Application\Exception\InterventionDraftCreationException;
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Psr\Log\LoggerInterface;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 
 use function count;
 use function is_int;
@@ -56,10 +57,12 @@ final readonly class InterventionDraftFactory implements InterventionDraftFactor
    *
    * @param InterventionWorkflowGatewayPort $gateway the intervention workflow gateway
    * @param LoggerInterface $logger the logger
+   * @param TransactionManagerPort $transactions owns the entire draft on main
    */
   public function __construct(
     private InterventionWorkflowGatewayPort $gateway,
     private LoggerInterface $logger,
+    private TransactionManagerPort $transactions,
   ) {
   }
   // #endregion
@@ -69,8 +72,7 @@ final readonly class InterventionDraftFactory implements InterventionDraftFactor
    * Method create.
    *
    * Creates an intervention draft and seeds its planned work items. A failure
-   * while seeding work items leaves a partial (mutable, deletable) draft and
-   * rethrows: callers decide whether to retry, clean up or surface the error.
+   * while seeding work items rolls back the draft, numbering, activities and effects.
    *
    * @since 1.0.0
    *
@@ -79,6 +81,22 @@ final readonly class InterventionDraftFactory implements InterventionDraftFactor
    * @return CreatedInterventionDraft the created draft summary
    */
   public function create(CreateInterventionDraftRequest $request): CreatedInterventionDraft
+  {
+    return $this->transactions->transactional(fn (): CreatedInterventionDraft => $this->createAtomically($request));
+  }
+
+  /**
+   * Method createAtomically
+   *
+   * Creates the complete draft within the owning main transaction.
+   *
+   * @access private
+   *
+   * @param CreateInterventionDraftRequest $request the complete draft specification
+   *
+   * @return CreatedInterventionDraft the committed draft summary
+   */
+  private function createAtomically(CreateInterventionDraftRequest $request): CreatedInterventionDraft
   {
     $actor = $request->actorUserId ?? self::SYSTEM_ACTOR;
 

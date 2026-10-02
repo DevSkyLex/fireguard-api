@@ -27,10 +27,12 @@ final readonly class ReactivateOrganizationMemberCommand implements CommandMessa
    *
    * @param string $organizationId the organization identifier
    * @param string $memberId the member identifier to reactivate
+   * @param string $actorUserId the authenticated actor whose role ceiling applies
    */
   public function __construct(
     public string $organizationId,
     public string $memberId,
+    public string $actorUserId,
   ) {
   }
   // #endregion

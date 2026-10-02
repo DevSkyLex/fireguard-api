@@ -122,7 +122,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
   private function processIfAvailable(ProcessImportJobCommand $command): void
   {
     $id = ImportJobId::fromString($command->importJobId);
-    $existing = $this->repository->findById($id);
+    $existing = $this->repository->findForExecution($id);
     if (null === $existing || $existing->status()->isTerminal()) {
       return;
     }
@@ -216,6 +216,9 @@ final readonly class ProcessImportJobHandler implements CommandHandler
     $resumeFrom = $job->processedRows();
     $projection = new DryRunProjection();
     $wouldCreate = [];
+    foreach ($this->repository->confirmedSimulationRows($job->id()) as $rowNumber) {
+      $wouldCreate[$rowNumber] = true;
+    }
     foreach ($job->errorReport() as $report) {
       if ('would_create' === $report->code) {
         $wouldCreate[$report->rowNumber] = true;
@@ -225,11 +228,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
     foreach ($this->csvStreamer->rows($contents) as $rowNumber => $row) {
       if ($rowNumber <= $resumeFrom) {
         if ($job->isDryRun() && isset($wouldCreate[$rowNumber])) {
-          if (ImportKind::EQUIPMENT === $job->kind()) {
-            $projection->recordEquipmentWouldCreate();
-          } elseif (ImportKind::FACILITY === $job->kind()) {
-            $projection->recordFacilityWouldCreate($row['code'] ?? null);
-          }
+          $this->restoreConfirmedSimulationRow($job->kind(), $row, $projection);
         }
 
         continue;
@@ -240,6 +239,29 @@ final readonly class ProcessImportJobHandler implements CommandHandler
         fn (ImportJob $current): ?string => $this->processRow($current, $rowNumber, $row, $projection, $actor),
         $rowNumber,
       );
+    }
+  }
+
+  /**
+   * Method restoreConfirmedSimulationRow
+   *
+   * Rebuilds quota offsets and pending facility codes from a previously confirmed successful simulation row.
+   * Member simulations carry no equipment or facility projection.
+   *
+   * @access private
+   *
+   * @param ImportKind $kind the owning simulation's resource kind
+   * @param array<string, string> $row the confirmed source row
+   * @param DryRunProjection $projection the running projection reconstructed before new row work
+   *
+   * @return void no return value
+   */
+  private function restoreConfirmedSimulationRow(ImportKind $kind, array $row, DryRunProjection $projection): void
+  {
+    if (ImportKind::EQUIPMENT === $kind) {
+      $projection->recordEquipmentWouldCreate();
+    } elseif (ImportKind::FACILITY === $kind) {
+      $projection->recordFacilityWouldCreate($row['code'] ?? null);
     }
   }
 

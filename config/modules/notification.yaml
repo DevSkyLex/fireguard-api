@@ -19,6 +19,13 @@ services:
   Notification\Application\Port\Outbound\NotificationRepositoryPort:
     alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository
 
+  Notification\Application\Port\Outbound\NotificationDeliveryReceiptPort:
+    alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationDeliveryReceiptRepository
+
+  Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationDeliveryReceiptRepository:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
   Notification\Application\Port\Outbound\NotificationPreferenceRepositoryPort:
     alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationPreferenceRepository
 
@@ -57,6 +64,8 @@ services:
   Notification\Application\Service\NotificationService: ~
 
   Notification\Application\UseCase\Command\Notification\SendNotification\SendNotificationHandler:
+    arguments:
+      $deliveryReceipts: '@Notification\Application\Port\Outbound\NotificationDeliveryReceiptPort'
     tags: ['messenger.message_handler']
 
   Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead\MarkNotificationAsReadHandler:

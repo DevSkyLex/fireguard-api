@@ -23,12 +23,14 @@ use Intervention\Infrastructure\Service\Workflow\{
 };
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationRecord};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_filter;
 use function array_map;
 use function array_values;
+use function iterator_to_array;
 
 /**
  * Test DoctrineInterventionWorkflowGatewayAdapterTest.
@@ -98,6 +100,7 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
 
     $this->eventDispatcher = new RecordingEventDispatcherPort();
     static::getContainer()->set(EventDispatcherPort::class, $this->eventDispatcher);
+    static::getContainer()->set(\Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher::class, $this->eventDispatcher);
 
     /** @var DoctrineInterventionWorkflowGatewayAdapter $adapter */
     $adapter = static::getContainer()->get(DoctrineInterventionWorkflowGatewayAdapter::class);
@@ -350,6 +353,84 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     self::assertSame(1, $this->adapter->list('change', self::TRANSITION_ID, [], 1, 20)->total);
   }
 
+  #[Test]
+  public function testLateDraftItemFailureRollsBackDraftItemsActivityAndNumberBeforeRetry(): void
+  {
+    $factory = static::getContainer()->get(\Intervention\Application\Service\InterventionDraftFactory::class);
+    self::assertInstanceOf(\Intervention\Application\Service\InterventionDraftFactory::class, $factory);
+    $connection = $this->entityManager->getConnection();
+    $counterBefore = $connection->fetchOne('SELECT last_number FROM intervention_number_counters WHERE organization_id = ?', [self::ORGANIZATION_ID]);
+
+    try {
+      $factory->create(new \Intervention\Application\Contract\Draft\CreateInterventionDraftRequest(
+        organizationId: self::ORGANIZATION_ID,
+        type: 'inventory',
+        name: 'Atomic draft',
+        origin: 'regression',
+        workItems: [
+          new \Intervention\Application\Contract\Draft\InterventionDraftWorkItem('inspection', estimatedMinutes: 5),
+          new \Intervention\Application\Contract\Draft\InterventionDraftWorkItem('inspection', estimatedMinutes: -1),
+        ],
+      ));
+      self::fail('The second work item must be rejected.');
+    } catch (\Intervention\Domain\Exception\InterventionValidationException) {
+      self::assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM interventions WHERE organization_id = ?', [self::ORGANIZATION_ID]));
+      self::assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM intervention_activities WHERE organization_id = ?', [self::ORGANIZATION_ID]));
+      self::assertSame($counterBefore, $connection->fetchOne('SELECT last_number FROM intervention_number_counters WHERE organization_id = ?', [self::ORGANIZATION_ID]));
+      self::assertTrue($this->entityManager->isOpen());
+    }
+    $created = $factory->create(new \Intervention\Application\Contract\Draft\CreateInterventionDraftRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'inventory',
+      name: 'Atomic draft retry',
+      origin: 'regression',
+      workItems: [new \Intervention\Application\Contract\Draft\InterventionDraftWorkItem('inspection', estimatedMinutes: 5)],
+    ));
+    self::assertSame(1, $created->workItemsCount);
+    self::assertSame(1, $connection->fetchOne('SELECT COUNT(*) FROM intervention_work_items WHERE intervention_id = ?', [$created->interventionId]));
+    self::assertSame(1, $connection->fetchOne('SELECT COUNT(*) FROM intervention_activities WHERE organization_id = ?', [self::ORGANIZATION_ID]));
+  }
+
+  #[Test]
+  public function testWorkflowOutboxAndTransitionCommitTogetherAndOuterFailureRollsBothBack(): void
+  {
+    $this->createInterventionWithStatus(self::TRANSITION_ID, 'Durable transition', 11, 'planned');
+    $this->entityManager->flush();
+    $connection = $this->entityManager->getConnection();
+    $registry = $this->createStub(\Doctrine\Persistence\ConnectionRegistry::class);
+    $registry->method('getConnection')->willReturn($connection);
+    $sender = new \Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransportFactory($registry)->createTransport('doctrine://main?queue_name=intervention_workflow_regression&auto_setup=false', ['use_notify' => false], new \Symfony\Component\Messenger\Transport\Serialization\PhpSerializer());
+    self::assertInstanceOf(\Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransport::class, $sender);
+    $sender->setup();
+    $connection->executeStatement('DELETE FROM messenger_messages WHERE queue_name = ?', ['intervention_workflow_regression']);
+    $ids = static::getContainer()->get(\Shared\Application\Factory\UuidFactory::class);
+    self::assertInstanceOf(\Shared\Application\Factory\UuidFactory::class, $ids);
+    $this->eventDispatcher->delegate = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($connection, $sender, $ids, $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
+    $mutation = new InterventionWorkflowMutation(resource: 'intervention', action: 'update', userId: self::ACTOR_USER_ID, id: self::TRANSITION_ID, payload: ['status' => 'in_progress'], expectedRevision: 1);
+    $transactions = static::getContainer()->get(\Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter::class);
+    self::assertInstanceOf(\Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter::class, $transactions);
+
+    try {
+      $transactions->transactional(function () use ($mutation): void {
+        $this->adapter->mutate($mutation);
+
+        throw new RuntimeException('Interrupted before the owning work unit commits.');
+      });
+    } catch (RuntimeException) {
+      self::assertSame('planned', $connection->fetchOne('SELECT status FROM interventions WHERE id = ?', [self::TRANSITION_ID]));
+      self::assertSame(0, $sender->getMessageCount());
+    }
+    $this->adapter->mutate($mutation);
+    self::assertSame('in_progress', $connection->fetchOne('SELECT status FROM interventions WHERE id = ?', [self::TRANSITION_ID]));
+    self::assertSame(1, $sender->getMessageCount());
+    $envelopes = iterator_to_array($sender->get());
+    self::assertCount(1, $envelopes);
+    $event = $envelopes[0]->getMessage();
+    self::assertInstanceOf(\Shared\Infrastructure\Messaging\Outbox\OutboxEvent::class, $event);
+    self::assertInstanceOf(InterventionStatusTransitionedEvent::class, $event->event);
+    self::assertSame(self::TRANSITION_ID, $event->event->interventionId);
+  }
+
   private function createOrganization(): void
   {
     $organization = new OrganizationRecord();
@@ -488,6 +569,8 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
  */
 final class RecordingEventDispatcherPort implements EventDispatcherPort
 {
+  public ?EventDispatcherPort $delegate = null;
+
   /**
    * @var list<object>
    */
@@ -495,7 +578,11 @@ final class RecordingEventDispatcherPort implements EventDispatcherPort
 
   public function dispatch(object $event): void
   {
-    $this->events[] = $event;
+    if (null !== $this->delegate) {
+      $this->delegate->dispatch($event);
+    } else {
+      $this->events[] = $event;
+    }
   }
 
   public function dispatchAll(array $events): void

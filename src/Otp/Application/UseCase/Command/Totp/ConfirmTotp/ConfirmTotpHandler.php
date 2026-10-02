@@ -7,7 +7,7 @@ namespace Otp\Application\UseCase\Command\Totp\ConfirmTotp;
 use Otp\Application\Exception\TotpPendingEnrollmentNotFoundException;
 use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Domain\Event\Totp\TotpEnrollmentConfirmedEvent;
-use Otp\Domain\Exception\TotpEnrollmentMaxAttemptsException;
+use Otp\Domain\Exception\{TotpEnrollmentAlreadyActiveException, TotpEnrollmentMaxAttemptsException};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
@@ -53,38 +53,52 @@ final readonly class ConfirmTotpHandler implements CommandHandler
    */
   public function __invoke(ConfirmTotpCommand $command): ConfirmTotpResult
   {
-    $enrollment = $this->enrollmentRepository->findByUserId($command->userId);
+    $result = $this->enrollmentRepository->withUserLock($command->userId, function () use ($command): ConfirmTotpResult {
+      $enrollment = $this->enrollmentRepository->findByUserId($command->userId);
 
-    if (null === $enrollment || !$enrollment->hasPending()) {
-      throw TotpPendingEnrollmentNotFoundException::forUser($command->userId);
-    }
+      if (null === $enrollment) {
+        throw TotpPendingEnrollmentNotFoundException::forUser($command->userId);
+      }
 
-    $pendingSecret = $enrollment->pendingSecret();
-    $codeValid = null !== $pendingSecret && $this->totpService->verify($command->code, $pendingSecret);
+      if ($enrollment->isActive()) {
+        throw TotpEnrollmentAlreadyActiveException::forUser();
+      }
+      if (!$enrollment->hasPending()) {
+        throw TotpPendingEnrollmentNotFoundException::forUser($command->userId);
+      }
 
-    try {
-      $confirmed = $enrollment->confirmPending($codeValid);
-    } catch (TotpEnrollmentMaxAttemptsException) {
+      $pendingSecret = $enrollment->pendingSecret();
+      $codeValid = null !== $pendingSecret && $this->totpService->verify($command->code, $pendingSecret);
+
+      try {
+        $confirmed = $enrollment->confirmPending($codeValid);
+      } catch (TotpEnrollmentMaxAttemptsException) {
+        $this->enrollmentRepository->save($enrollment);
+
+        return ConfirmTotpResult::failed(
+          attemptsRemaining: 0,
+          error: 'Maximum verification attempts exceeded. Please restart TOTP setup.',
+        );
+      }
+
       $this->enrollmentRepository->save($enrollment);
 
-      return ConfirmTotpResult::failed(
-        attemptsRemaining: 0,
-        error: 'Maximum verification attempts exceeded. Please restart TOTP setup.',
-      );
-    }
+      if (!$confirmed) {
+        return ConfirmTotpResult::failed(
+          attemptsRemaining: $enrollment->attemptsRemaining(),
+          error: 'Invalid verification code.',
+        );
+      }
 
-    $this->enrollmentRepository->save($enrollment);
-
-    if (!$confirmed) {
-      return ConfirmTotpResult::failed(
-        attemptsRemaining: $enrollment->attemptsRemaining(),
-        error: 'Invalid verification code.',
-      );
+      return ConfirmTotpResult::success();
+    });
+    if (!$result->success) {
+      return $result;
     }
 
     $this->eventDispatcher->dispatch(new TotpEnrollmentConfirmedEvent(userId: $command->userId));
 
-    return ConfirmTotpResult::success();
+    return $result;
   }
   // #endregion
 }

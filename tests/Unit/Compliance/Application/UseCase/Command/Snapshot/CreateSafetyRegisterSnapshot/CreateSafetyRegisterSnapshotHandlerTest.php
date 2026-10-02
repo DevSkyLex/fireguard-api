@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\{EventDispatcherPort, FileStoragePort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, FileStoragePort, TransactionManagerPort, UuidGeneratorPort};
 
 use function hash;
 use function json_encode;
@@ -278,6 +278,20 @@ final class CreateSafetyRegisterSnapshotHandlerTest extends TestCase
 
   // #region Helpers
 
+  #[Test]
+  public function anOutboxFailureRemovesTheNewlyWrittenArchiveAndPropagates(): void
+  {
+    $storage = $this->createMock(FileStoragePort::class);
+    $path = '';
+    $storage->expects(self::once())->method('write')->willReturnCallback(static function (string $written) use (&$path): void { $path = $written; });
+    $storage->expects(self::once())->method('delete')->with(self::callback(static function (string $deleted) use (&$path): bool { return $path === $deleted; }));
+    $events = $this->createStub(EventDispatcherPort::class);
+    $events->method('dispatch')->willThrowException(new RuntimeException('Outbox unavailable'));
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Outbox unavailable');
+    $this->handler(fileStorage: $storage, eventDispatcher: $events)($this->command());
+  }
+
   private function command(): CreateSafetyRegisterSnapshotCommand
   {
     return new CreateSafetyRegisterSnapshotCommand(
@@ -362,6 +376,9 @@ final class CreateSafetyRegisterSnapshotHandlerTest extends TestCase
     $uuidGenerator = $this->createStub(UuidGeneratorPort::class);
     $uuidGenerator->method('generate')->willReturn(self::GENERATED_ID);
 
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $work): mixed => $work());
+
     return new CreateSafetyRegisterSnapshotHandler(
       authorization: $authorization,
       entitlement: $entitlement,
@@ -373,6 +390,7 @@ final class CreateSafetyRegisterSnapshotHandlerTest extends TestCase
       repository: $repository ?? $this->createStub(SafetyRegisterSnapshotRepositoryPort::class),
       uuidFactory: new UuidFactory($uuidGenerator),
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      transactionManager: $transactions,
     );
   }
 

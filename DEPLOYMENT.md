@@ -53,10 +53,11 @@ Mercure inherits its image's health probe against the local administration API
 `/mercure/health/ready`, which also checks persistent transport. On failure,
 deployment stops and displays only their `State.Health` status and bounded probe
 history, without a full container inspection or environment variables. An
-application startup failure also triggers the existing diagnostics for the
-application and its worker.
+application or consumer startup failure stops every managed writer and reports
+bounded service state; payload-bearing logs remain private. The operation lock
+remains held for reviewed recovery.
 
-Local and deployed Compose configurations pin Mercure `v1.0.0` by digest and
+Repository Compose configurations pin Mercure `v1.0.2` by verified digest and
 explicitly enable `protocol_version_compatibility 8` for current clients: JWT
 `mercure.publish` / `mercure.subscribe` claims and `topic` / `authorization`
 parameters. Signatures remain limited to HS256, and the `authorization` value is
@@ -75,15 +76,16 @@ with dummy keys and isolated Docker resources: health, private publishing and
 subscriptions, replay on a running hub, access denial, and token redaction.
 CI runs this check without application secrets.
 
-**Known upstream limitation:** Mercure 1.0.0, like 0.24.2, does not return Bolt
-history immediately after a restart until a new publication occurs. Events
-remain persisted; the internal `lastSeq` bound is not restored at open
-([1.0.0 implementation](https://github.com/dunglas/mercure/blob/v1.0.0/bolt.go)).
-The strict `python3 .github/scripts/check-mercure-contract.py --check-restart-history`
-diagnostic reproduces this failure and is not part of the default compatibility
-check. No artificial publication masks the defect. Immediate replay after a
-restart still needs a fix or validation against a corrected upstream version;
-a green health probe does not guarantee it.
+The [official 1.0.2 release](https://github.com/dunglas/mercure/releases/tag/v1.0.2)
+fixes Bolt history loss after restart and ineffective history-size limits. The
+explicit persistent transport uses `/data/mercure.db` with a 10,000-event cap.
+`python3 ansible/tests/mercure-replay.py` is a strict isolated acceptance test:
+publish private anchor/sentinel events, restart the hub, reconnect from the anchor,
+and require exactly the pre-restart sentinel. It publishes nothing after restart.
+It also checks anonymous subscription and out-of-scope publication denial. A
+green probe alone does not validate replay; run the strict gate on each candidate
+hub image. Clients must resynchronize authoritative application state when their
+cursor is pruned or a reconnect cannot establish complete history.
 
 ## GitHub configuration
 
@@ -162,7 +164,11 @@ Without `image_ref`, manual delivery rebuilds the currently selected commit.
 Because paths, projects, and volumes are separate, a development rollback
 does not affect production containers or databases.
 
-Pre-migration backups remain in `VPS_APP_DIR/backups/<timestamp>/`.
+All application consumers and HTTP writers stop before pre-migration snapshots,
+migrations or fixture resets. Persisted transports initialize before any consumer
+starts. Local snapshots include both histories and matching files. Explicitly
+activated encrypted off-host backups replace new local raw snapshots; see
+[backup prerequisites and isolated recovery](docs/operations/migrations-and-backups.md).
 
 ## Delivery verification flow
 

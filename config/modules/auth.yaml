@@ -149,6 +149,7 @@ services:
   Auth\Presentation\Api\Processor\PasswordChange\ConfirmPasswordChangeProcessor: ~
 
   # Event Subscribers
+  Auth\Infrastructure\EventSubscriber\OAuthRequestScopeSubscriber: ~
   Auth\Infrastructure\EventSubscriber\RefreshTokenCookieSubscriber: ~
   Auth\Infrastructure\EventSubscriber\FederatedFlowCookieSubscriber: ~
   Auth\Infrastructure\EventSubscriber\EventLogSubscriber: ~

@@ -154,10 +154,19 @@ event ID across fan-out retries. Durable subscriber failures propagate to Messen
 
 Messenger owns `messenger_messages`, excluded from ORM schema introspection in
 both databases. Deploy the additive receipt migrations and run
-`messenger:setup-transports main_outbox main_failed failed` before consumers.
+`messenger:setup-transports main_outbox main_failed async webhook assistant failed`
+before consumers, including on a fresh installation.
 `main_outbox` failures go to `main_failed`; other asynchronous work has `failed`
 as its default destination. Never prune receipts while retained messages may replay.
 External delivery remains at least once where a provider has no idempotency key.
+
+Consumer health observes a per-container receiver-loop heartbeat, including idle
+polls, instead of PID liveness alone. Successful known sweep messages update only
+their bounded persistent completion timestamps. `app:workers:queues` observes both
+explicit auth/main connections for overdue due work and failed queues, without
+reading payloads. Deploy every dedicated consumer and all five scheduler receivers;
+run transport initialization before startup. See the worker operations guide for
+freshness thresholds and coordinated writer shutdown.
 
 - Service wiring: `config/modules/shared.yaml`
 - Parameters: `config/services.yaml` (e.g., `shared.file_storage.base_path`)

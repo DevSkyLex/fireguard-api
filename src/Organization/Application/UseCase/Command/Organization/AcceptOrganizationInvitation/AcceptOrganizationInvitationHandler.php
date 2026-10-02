@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Member\OrganizationMemberGrant;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Port\Outbound\OrganizationJoinRepositoryPort;
@@ -215,6 +216,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       organizationId: (string) $invitation->organizationId(),
       userId: $command->userId,
       roleIds: $roleIds,
+      grant: OrganizationMemberGrant::acceptedInvitation((string) $invitation->id()),
       sendMemberNotification: false,
       // The acceptance path already holds the lock and enforces the quota.
       enforceQuota: false,

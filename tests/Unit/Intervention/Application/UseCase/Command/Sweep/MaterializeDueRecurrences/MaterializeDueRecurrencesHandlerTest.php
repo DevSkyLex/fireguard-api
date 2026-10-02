@@ -22,7 +22,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\VoidResult;
-use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
 
 use function array_fill;
 
@@ -128,7 +128,7 @@ final class MaterializeDueRecurrencesHandlerTest extends TestCase
     $recurrence = $this->recurrence();
     $recurrences = $this->createMock(InterventionRecurrencePort::class);
     $recurrences->method('pageDueForMaterialization')->willReturn(new InterventionRecurrencePage([$recurrence], 0, 200, 0));
-    $recurrences->expects(self::once())->method('reserveRun')->willReturn(self::RUN_ID);
+    $recurrences->expects(self::exactly(2))->method('reserveRun')->willReturn(self::RUN_ID);
     $recurrences->expects(self::never())->method('markRunSucceeded');
     $recurrences->expects(self::once())->method('markRunFailed')->with(self::RUN_ID, self::isString());
     $recurrences->expects(self::once())
@@ -144,7 +144,7 @@ final class MaterializeDueRecurrencesHandlerTest extends TestCase
     $draftFactory->expects(self::never())->method('create');
 
     $notifications = $this->createMock(NotificationPort::class);
-    $notifications->expects(self::once())
+    $notifications->expects(self::never())
       ->method('send')
       ->with(self::callback(static function (SendNotificationRequest $request): bool {
         self::assertSame('intervention.recurrence_failed', $request->type);
@@ -262,7 +262,10 @@ final class MaterializeDueRecurrencesHandlerTest extends TestCase
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn(new DateTimeImmutable('2026-01-05T00:00:00+00:00'));
 
-    return new MaterializeDueRecurrencesHandler($recurrences, $instantiator, $notifier, $eventDispatcher, $clock);
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return new MaterializeDueRecurrencesHandler($recurrences, $instantiator, $eventDispatcher, $clock, $transactions);
   }
 
   private function notifications(): NotificationPort

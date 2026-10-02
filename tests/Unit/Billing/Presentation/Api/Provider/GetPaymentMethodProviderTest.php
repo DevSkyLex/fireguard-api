@@ -12,6 +12,7 @@ use Billing\Application\UseCase\Query\GetOrganizationPaymentMethod\{
   GetOrganizationPaymentMethodQuery,
   GetOrganizationPaymentMethodResult
 };
+use Billing\Domain\Exception\BillingGatewayUnavailableException;
 use Billing\Presentation\Api\Dto\Output\PaymentMethodOutput;
 use Billing\Presentation\Api\Provider\GetPaymentMethodProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -188,6 +189,20 @@ final class GetPaymentMethodProviderTest extends TestCase
 
     $this->expectException(MessengerRuntimeException::class);
 
+    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function itPreservesGatewayFailureForCentralHttpMapping(): void
+  {
+    $access = $this->createStub(OrganizationAccessPort::class);
+    $access->method('hasPermission')->willReturn(true);
+    $failure = MessengerRuntimeException::wrap(BillingGatewayUnavailableException::create());
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())->method('ask')->willThrowException($failure);
+    $provider = new GetPaymentMethodProvider($queryBus, $access, $this->securityWithUser());
+
+    $this->expectExceptionObject($failure);
     $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
   }
 

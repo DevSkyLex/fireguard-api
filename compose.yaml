@@ -53,8 +53,10 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    command: ["php", "bin/console", "messenger:consume", "assistant", "--time-limit=3600", "-vv"]
+    command: ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "assistant", "--time-limit=3600", "-vv"]
     restart: unless-stopped
+    stop_grace_period: 2m
+    init: true
     volumes:
       - .:/var/www/html:cached
       - app_var:/var/www/html/var
@@ -67,14 +69,9 @@ services:
       MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
       REDIS_URL: redis://redis:6379
       MAILER_DSN: smtp://mailer:1025
-    # The image's own HEALTHCHECK curls `/api/health`; a `messenger:consume`
-    # process serves no HTTP, so it reported `unhealthy` forever. What matters
-    # for a consumer is that the consumer is alive — matched against PID 1's
-    # own argv, because the image ships neither `ps` nor `pgrep`. The pattern is
-    # a single argv token: the entries are NUL-separated, so a phrase spanning
-    # two of them would never match.
+    # Consumer readiness requires a recent receiver-loop heartbeat, including idle polls.
     healthcheck:
-      test: ["CMD-SHELL", "grep -q assistant /proc/1/cmdline"]
+      test: ["CMD", "php", "bin/worker-health.php"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -89,22 +86,17 @@ services:
 ###< fireguard/assistant-worker ###
 
 ###> fireguard/async-worker ###
-  # Consumer for the general-purpose `async` and `webhook` transports.
-  #
-  # Every command routed there was silently dropped until now — not because the
-  # transport was wrong, but because nothing consumed it: intervention
-  # publication, recurrence and maintenance sweeps, automation rules, imports,
-  # approval expiry and webhook delivery all enqueue and then wait forever.
-  # The two transports share one consumer because neither is hot; the assistant
-  # keeps its own, since a slow model must never starve the rest.
+  # Ordinary async/outbox work is isolated from slow webhook and assistant providers.
   async_worker:
     build:
       context: .
       dockerfile: Dockerfile
       target: dev
     command:
-      ["php", "bin/console", "messenger:consume", "main_outbox", "async", "webhook", "--time-limit=3600", "-vv"]
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "main_outbox", "async", "--time-limit=3600", "-vv"]
     restart: unless-stopped
+    stop_grace_period: 2m
+    init: true
     volumes:
       - .:/var/www/html:cached
       - app_var:/var/www/html/var
@@ -118,7 +110,79 @@ services:
       REDIS_URL: redis://redis:6379
       MAILER_DSN: smtp://mailer:1025
     healthcheck:
-      test: ["CMD-SHELL", "grep -q async /proc/1/cmdline"]
+      test: ["CMD", "php", "bin/worker-health.php"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      app:
+        condition: service_started
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+
+  webhook_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "webhook", "--time-limit=3600", "-vv"]
+    restart: unless-stopped
+    stop_grace_period: 2m
+    init: true
+    volumes:
+      - .:/var/www/html:cached
+      - app_var:/var/www/html/var
+      - app_vendor:/var/www/html/vendor
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_DEBUG: ${APP_DEBUG:-1}
+      GEOIP_ENABLED: ${GEOIP_ENABLED:-false}
+      AUTH_DATABASE_URL: postgresql://${POSTGRES_AUTH_USER:-admin}:${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}@auth_database:5432/${POSTGRES_AUTH_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
+      MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
+      REDIS_URL: redis://redis:6379
+      MAILER_DSN: smtp://mailer:1025
+    healthcheck:
+      test: ["CMD", "php", "bin/worker-health.php"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      app:
+        condition: service_started
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+
+  scheduler_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "scheduler_maintenance", "scheduler_intervention", "scheduler_approval", "scheduler_inspection", "scheduler_organization", "--time-limit=3600", "-vv"]
+    restart: unless-stopped
+    stop_grace_period: 2m
+    init: true
+    volumes:
+      - .:/var/www/html:cached
+      - app_var:/var/www/html/var
+      - app_vendor:/var/www/html/vendor
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_DEBUG: ${APP_DEBUG:-1}
+      GEOIP_ENABLED: ${GEOIP_ENABLED:-false}
+      AUTH_DATABASE_URL: postgresql://${POSTGRES_AUTH_USER:-admin}:${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}@auth_database:5432/${POSTGRES_AUTH_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
+      MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
+      REDIS_URL: redis://redis:6379
+      MAILER_DSN: smtp://mailer:1025
+    healthcheck:
+      test: ["CMD", "php", "bin/worker-health.php"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -134,7 +198,7 @@ services:
 
 ###> doctrine/doctrine-bundle ###
   auth_database:
-    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea}
     ports:
       - "5433:5432"
     environment:
@@ -153,7 +217,7 @@ services:
       # - ./docker/db/auth-data:/var/lib/postgresql/data:rw
 
   main_database:
-    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea}
     ports:
       - "5434:5432"
     environment:
@@ -174,7 +238,7 @@ services:
 
 ###> symfony/cache ###
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     ports:
       - "6379:6379"
     healthcheck:
@@ -189,7 +253,7 @@ services:
 ###> symfony/mercure-bundle ###
   mercure:
     # Pin the hub and opt into its compatibility mode for the current clients.
-    image: dunglas/mercure:v1.0.0@sha256:33223c37ec29fd705f4de78e6dd38f403664b3669a34bf368b14cb98540016bb
+    image: dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
     restart: unless-stopped
     environment:
       # Uncomment the following line to disable HTTPS,
@@ -201,6 +265,11 @@ services:
       # Set the URL of your Symfony project (without trailing slash!) as value of the cors_origins directive
       MERCURE_EXTRA_DIRECTIVES: |
         protocol_version_compatibility 8
+        transport bolt {
+          path /data/mercure.db
+          size 10000
+          cleanup_frequency 0.3
+        }
         cors_origins http://localhost:8000 http://localhost:4200 http://localhost:4300 http://localhost:4310 http://localhost:4273
       CADDY_SERVER_EXTRA_DIRECTIVES: |
         log {

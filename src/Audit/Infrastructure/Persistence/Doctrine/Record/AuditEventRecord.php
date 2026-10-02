@@ -130,7 +130,7 @@ class AuditEventRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'subject_id', type: 'string', length: 64, nullable: true)]
+  #[ORM\Column(name: 'subject_id', type: 'string', length: 100, nullable: true)]
   public ?string $subjectId = null;
 
   /**

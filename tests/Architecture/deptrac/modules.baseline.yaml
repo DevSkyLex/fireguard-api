@@ -380,8 +380,6 @@ deptrac:
       - Intervention\Domain\Exception\InterventionResourceNotFoundException
       - Intervention\Domain\ValueObject\InterventionResourceType
       - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
-    Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter:
-      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
     Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter:
       - Messaging\Domain\ValueObject\MessagingSubjectType
     Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter:

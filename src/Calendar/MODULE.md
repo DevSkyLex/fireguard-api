@@ -66,10 +66,19 @@ unified feed (with `sourceKey=calendar_event` items) **is** the list view.
 `GET .../calendar/events/{eventId}` exists only to fetch one event's full
 detail (e.g. to populate an edit form).
 
+Event creation and updates normalize `startsAt`/`endsAt` to UTC before Doctrine
+writes timestamp-without-timezone columns, preserving the supplied instant across
+a database reload. Persisted events are reconstituted as stored; there is no
+historical date rewrite. All-day inputs use midnight in the organization's IANA
+timezone with the date's actual offset, and `endsAt` remains the inclusive final
+civil date. The frontend renders returned UTC instants in that organization timezone.
+
 ### `GET .../calendar/feed`
 
 - `from`/`to` are **mandatory** ISO-8601 datetimes with an explicit timezone
   offset. Both missing/blank → `400`.
+- Validated range bounds are converted to UTC before source queries so organization
+  midnight bounds remain the same instants in timestamp-without-timezone comparisons.
 - The range is **bounded**: inverted (`from` after `to`) or over-366-days
   ranges → `400`. This mirrors
   `Organization\Application\Support\DashboardSeriesBuilder::MAX_TREND_PERIOD_DAYS`
@@ -137,6 +146,11 @@ pasted into the calendar client.
   (`{APP_FRONTEND_URL}/organizations/{orgId}/calendar?target=…&id=…`).
   TEXT escaping (backslash/semicolon/comma/newline) and 75-octet line
   folding on UTF-8 boundaries per RFC 5545 §3.1.
+  All-day values are converted from UTC to the organization's IANA timezone before
+  extracting the civil date and adding one local day to the inclusive end.
+  `GetCalendarFeedHandler` reads this regional context through Organization's published
+  `OrganizationWorkforceDirectoryPort` and carries it in the internal result to the writer;
+  the public JSON feed shape is unchanged.
 - **Response headers**: `Content-Type: text/calendar; charset=utf-8`,
   `Cache-Control: private, max-age=300`, `X-Robots-Tag: noindex`.
 - **Partial data**: iCal emits 503 with `Retry-After: 300` and `private, no-store`
@@ -155,12 +169,13 @@ pasted into the calendar client.
   request (404s are `excluded_http_codes`), in **dev** it lands in the debug
   log like every route. The response is `Cache-Control: private`, and
   rotation/revocation are one call away.
-- **Known residual**: the per-fetch `organization.events.read` re-check goes
-  through `OrganizationAuthorizationService`'s shared permission cache
-  (30-second TTL), so a member removed from the organization can keep
-  fetching the feed for up to ~30 seconds. Bounded, platform-wide behavior of
-  the authorization cache — not specific to this endpoint; the token itself
-  is revocable immediately.
+- **Account and membership lifecycle**: every public fetch checks the current active
+  account through User's published `AccountStatusPort` and the current active
+  organization membership before recording token usage or loading the feed. Missing,
+  inactive, locked or pending accounts and removed memberships answer the same uniform
+  404 as an unknown/revoked token. The auth status read is scalar and bypasses ORM
+  identity maps; it performs no cross-database join. The subsequent
+  `organization.events.read` check retains the interactive feed's permission rules.
 
 ## Domain Model
 
@@ -190,7 +205,7 @@ pasted into the calendar client.
   / `calendar.feed_token_revoked`); identifiers only, never secret material.
 - `Domain\Exception\CalendarFeedTokenNotFoundException` → 404 (declared in
   `api_platform.exception_to_status`); deliberately one exception for
-  unknown _and_ revoked _and_ permission-lost, so the public endpoint leaks
+  unknown, revoked, inactive-account, removed-membership and permission-lost, so the public endpoint leaks
   nothing.
 
 ## Application Layer
@@ -233,6 +248,11 @@ pasted into the calendar client.
 
 ## Cross-module ports & their adapters
 
+Calendar also consumes User's published `Application\Port\Inbound\AccountStatusPort`
+directly during public token resolution. Its adapter is owned and registered by User
+in `config/modules/user.yaml`, explicitly bound to the auth manager. Calendar never
+imports User domain models or persistence records for this check.
+
 | Port (owned by Calendar)                           | Adapter                                      | Hosted in / registered in                                                                                                                     |
 | -------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Port\Outbound\Member\CalendarMemberDirectoryPort` | `OrganizationCalendarMemberDirectoryAdapter` | `Organization\Infrastructure\Adapter\Calendar\` — registered in `config/modules/organization.yaml`, aliased in `config/modules/calendar.yaml` |
@@ -243,7 +263,7 @@ pasted into the calendar client.
 Each adapter lives in the **provider** module (never in Calendar), per this
 repo's cross-module convention (mirrors
 `Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter` and
-siblings). Calendar depends only on its own port interfaces and its own
+siblings). Calendar depends only on published Application port interfaces and its own
 `CalendarFeedItem` contract type — never the provider modules' Domain,
 Infrastructure, or a concrete Adapter class.
 
@@ -393,6 +413,9 @@ granted explicitly).
   `tests/Functional/Api/CalendarFeedTokenApiTest.php` (endpoint existence +
   authentication-required, and the public `.ics` route answering a uniform
   404 — never 401 — for an unknown token).
+- E2E: `CalendarFeedTokenPermissionLossFlowTest` verifies uniform HTTP 404 after
+  account deactivation, membership removal and permission loss with a still-active
+  secret, through the real mutation endpoints.
 - E2E: `tests/E2E/CalendarFeedTokenFlowTest.php` — the full lifecycle:
   201 with the secret shown once, metadata without secret, unauthenticated
   `.ics` 200 with the member's entries, `lastUsedAt` recorded, rotation

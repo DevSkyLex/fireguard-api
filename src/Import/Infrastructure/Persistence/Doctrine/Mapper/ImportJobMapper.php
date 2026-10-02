@@ -30,10 +30,11 @@ final class ImportJobMapper
    * @since 1.0.0
    *
    * @param ImportJobRecord $record the persistence record
+   * @param ?list<ImportRowError> $report optional detached report rows, overriding legacy JSON without mutating the record
    *
    * @return ImportJob the domain aggregate
    */
-  public static function toDomain(ImportJobRecord $record): ImportJob
+  public static function toDomain(ImportJobRecord $record, ?array $report = null): ImportJob
   {
     return ImportJob::reconstitute(
       source: new ImportJobSource(
@@ -51,7 +52,7 @@ final class ImportJobMapper
         $record->processedRows,
         $record->successfulRows,
         $record->failedRows,
-        array_map(
+        $report ?? array_map(
           static fn (array $error): ImportRowError => new ImportRowError(
             rowNumber: (int) $error['rowNumber'],
             code: (string) $error['code'],
@@ -77,10 +78,11 @@ final class ImportJobMapper
    *
    * @param ImportJob $job the domain aggregate
    * @param ImportJobRecord $record the persistence record to populate
+   * @param bool $includeReport whether to include an aggregate's bounded legacy read report
    *
    * @return void the record is populated in place
    */
-  public static function toRecord(ImportJob $job, ImportJobRecord $record): void
+  public static function toRecord(ImportJob $job, ImportJobRecord $record, bool $includeReport = true): void
   {
     $record->id = (string) $job->id();
     $record->organizationId = $job->organizationId();
@@ -93,7 +95,7 @@ final class ImportJobMapper
     $record->processedRows = $job->processedRows();
     $record->successfulRows = $job->successfulRows();
     $record->failedRows = $job->failedRows();
-    $record->errorReport = array_map(
+    $record->errorReport = $includeReport ? array_map(
       static fn (ImportRowError $error): array => [
         'rowNumber' => $error->rowNumber,
         'column' => $error->column,
@@ -101,7 +103,7 @@ final class ImportJobMapper
         'message' => $error->message,
       ],
       $job->errorReport(),
-    );
+    ) : null;
     $record->jobError = $job->jobError();
     $record->createdBy = $job->createdBy();
     $record->createdAt = $job->createdAt();

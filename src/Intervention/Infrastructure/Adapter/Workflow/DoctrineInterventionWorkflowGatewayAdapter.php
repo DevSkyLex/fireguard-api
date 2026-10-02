@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Intervention\Infrastructure\Adapter\Workflow;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Export\InterventionExportCandidate;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowMutation, InterventionWorkflowPage, InterventionWorkflowView};
 use Intervention\Application\Port\Outbound\{InterventionIssueQueryPort, InterventionWorkflowGatewayPort};
@@ -36,24 +35,24 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    *
    * @access public
    *
-   * @param EntityManagerInterface $entityManager owns the workflow transaction
    * @param DoctrineInterventionWorkflowReader $reader reads workflow state
    * @param InterventionWorkflowWorkloadCoordinator $workload coordinates workload changes
    * @param InterventionWorkflowInterventionWriter $interventions writes intervention mutations
    * @param InterventionWorkflowWorkItemWriter $workItems writes work-item mutations
    * @param InterventionWorkflowChangeWriter $changes writes proposed-change mutations
    * @param InterventionIssueFinder $issueFinder computes workflow issues
+   * @param InterventionTransactionManagerAdapter $transactions owns mutation and outbox writes on main
    *
    * @return void
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
     private DoctrineInterventionWorkflowReader $reader,
     private InterventionWorkflowWorkloadCoordinator $workload,
     private InterventionWorkflowInterventionWriter $interventions,
     private InterventionWorkflowWorkItemWriter $workItems,
     private InterventionWorkflowChangeWriter $changes,
     private InterventionIssueFinder $issueFinder,
+    private InterventionTransactionManagerAdapter $transactions,
   ) {
   }
 
@@ -96,7 +95,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   /**
    * Method mutate
    *
-   * Coordinates workload and resource mutations in one transaction, then runs deferred notifications.
+   * Coordinates workload and resource mutations in one transaction, then persists outbox effects before commit.
    *
    * @access public
    *
@@ -110,7 +109,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   {
     /** @var list<callable(): void> $notifications */
     $notifications = [];
-    $view = $this->entityManager->wrapInTransaction(
+    $view = $this->transactions->transactional(
       function () use ($mutation, &$notifications): ?InterventionWorkflowView {
         $before = $this->workload->prepareWorkloadMutation($mutation);
         $view = match ($mutation->resource) {
@@ -120,13 +119,13 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
           default => throw new InvalidArgumentException('Unsupported intervention workflow resource.'),
         };
         $this->workload->complete($before, $mutation);
+        foreach ($notifications as $notify) {
+          $notify();
+        }
 
         return $view;
       },
     );
-    foreach ($notifications as $notify) {
-      $notify();
-    }
 
     return $view;
   }

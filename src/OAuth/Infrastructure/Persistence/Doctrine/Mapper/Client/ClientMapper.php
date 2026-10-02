@@ -121,6 +121,7 @@ final class ClientMapper
       )),
       secret: $record->secret,
       isConfidential: true, // Assuming all valid clients in DB are confidential for now
+      isActive: $record->isActive && null === $record->deletedAt,
     );
   }
   // #endregion

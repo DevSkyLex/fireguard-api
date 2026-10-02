@@ -26,6 +26,7 @@ final class RefreshTokenRepositoryAdapterTest extends TestCase
   {
     $adapter = new RefreshTokenRepositoryAdapter(
       refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      grantLifecycle: $this->createStub(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class),
     );
 
     $entity = $adapter->getNewRefreshToken();
@@ -57,7 +58,7 @@ final class RefreshTokenRepositoryAdapterTest extends TestCase
           && 'client-123' === (string) $saved->clientIdentifier();
       }));
 
-    $adapter = new RefreshTokenRepositoryAdapter(refreshTokenRepository: $repository);
+    $adapter = new RefreshTokenRepositoryAdapter(refreshTokenRepository: $repository, grantLifecycle: $this->createStub(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class));
 
     $adapter->persistNewRefreshToken($refreshToken);
   }
@@ -81,7 +82,7 @@ final class RefreshTokenRepositoryAdapterTest extends TestCase
       ->method('save')
       ->with(self::callback(fn (DomainRefreshToken $saved): bool => $saved->isRevoked()));
 
-    $adapter = new RefreshTokenRepositoryAdapter(refreshTokenRepository: $repository);
+    $adapter = new RefreshTokenRepositoryAdapter(refreshTokenRepository: $repository, grantLifecycle: $this->createStub(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class));
 
     $adapter->revokeRefreshToken('refresh-123');
   }
@@ -89,13 +90,11 @@ final class RefreshTokenRepositoryAdapterTest extends TestCase
   #[Test]
   public function testIsRefreshTokenRevokedReturnsTrueWhenMissing(): void
   {
+    $lifecycle = $this->createMock(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class);
+    $lifecycle->expects(self::once())->method('isRefreshTokenRevoked')->with('missing-token')->willReturn(true);
     $repository = $this->createMock(RefreshTokenRepositoryPort::class);
-    $repository->expects(self::once())
-      ->method('find')
-      ->with('missing-token')
-      ->willReturn(null);
-
-    $adapter = new RefreshTokenRepositoryAdapter(refreshTokenRepository: $repository);
+    $repository->expects(self::never())->method('find');
+    $adapter = new RefreshTokenRepositoryAdapter(refreshTokenRepository: $repository, grantLifecycle: $lifecycle);
 
     self::assertTrue($adapter->isRefreshTokenRevoked('missing-token'));
   }
@@ -103,20 +102,11 @@ final class RefreshTokenRepositoryAdapterTest extends TestCase
   #[Test]
   public function testIsRefreshTokenRevokedReturnsFalseWhenActive(): void
   {
-    $token = new DomainRefreshToken(
-      identifier: 'refresh-123',
-      expiryDateTime: new DateTimeImmutable('+1 hour'),
-      accessTokenIdentifier: 'access-123',
-      clientIdentifier: new \OAuth\Domain\ValueObject\Client\OAuthClientIdentifier('client-123'),
-    );
-
+    $lifecycle = $this->createMock(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class);
+    $lifecycle->expects(self::once())->method('isRefreshTokenRevoked')->with('refresh-123')->willReturn(false);
     $repository = $this->createMock(RefreshTokenRepositoryPort::class);
-    $repository->expects(self::once())
-      ->method('find')
-      ->with('refresh-123')
-      ->willReturn($token);
-
-    $adapter = new RefreshTokenRepositoryAdapter(refreshTokenRepository: $repository);
+    $repository->expects(self::never())->method('find');
+    $adapter = new RefreshTokenRepositoryAdapter(refreshTokenRepository: $repository, grantLifecycle: $lifecycle);
 
     self::assertFalse($adapter->isRefreshTokenRevoked('refresh-123'));
   }

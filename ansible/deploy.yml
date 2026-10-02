@@ -56,6 +56,27 @@
     # before: every deploy wrote a full dump of BOTH databases and left it there,
     # so the VPS filled up at a rate nobody was tracking.
     fireguard_backup_retention: 10
+    fireguard_writer_services: "app async_worker webhook_worker assistant_worker scheduler_worker"
+    # Activation is an explicit operator decision after private repository/key provisioning.
+    fireguard_offsite_backups_enabled: "{{ lookup('env', 'FIREGUARD_BACKUP_ENABLED') | default('false', true) | bool }}"
+    fireguard_backup_config: "{{ lookup('env', 'FIREGUARD_BACKUP_CONFIG') | default(fireguard_app_dir + '/backup.json', true) }}"
+    # Optional operational budgets remain configurable when the environment is generated.
+    fireguard_runtime_env_defaults:
+      API_MEMORY_LIMIT: 768m
+      API_CPU_LIMIT: '1.0'
+      WORKER_MEMORY_LIMIT: 384m
+      WORKER_CPU_LIMIT: '0.75'
+      AUTH_DATABASE_MEMORY_LIMIT: 512m
+      AUTH_DATABASE_CPU_LIMIT: '1.0'
+      MAIN_DATABASE_MEMORY_LIMIT: 512m
+      MAIN_DATABASE_CPU_LIMIT: '1.0'
+      REDIS_MEMORY_LIMIT: 256m
+      REDIS_CPU_LIMIT: '0.5'
+      MERCURE_MEMORY_LIMIT: 256m
+      MERCURE_CPU_LIMIT: '0.5'
+      WORKER_HEARTBEAT_MAX_AGE: '300'
+      LOG_MAX_SIZE: 10m
+      LOG_MAX_FILES: '5'
     fireguard_healthcheck_retries: 30
     fireguard_healthcheck_delay: 5
     fireguard_deployment_timestamp: ""
@@ -68,7 +89,8 @@
         that:
           - fireguard_image is defined
           - fireguard_image | length > 0
-        fail_msg: fireguard_image is required.
+          - fireguard_image is match('^[a-z0-9][a-z0-9._/:+-]+@sha256:[a-f0-9]{64}$')
+        fail_msg: An immutable fireguard_image digest is required.
 
     - name: Validate development fixture reset request
       ansible.builtin.assert:
@@ -162,6 +184,10 @@
         msg: "Missing {{ fireguard_env_file }}. Create it manually on the VPS before deploying."
       when: not fireguard_env_stat.stat.exists
 
+    - name: Acquire the installation operation lock before changing runtime configuration
+      ansible.builtin.command:
+        argv: [mkdir, "{{ fireguard_app_dir }}/.fireguard-operation.lock"]
+
     - name: Copy base Docker Compose file
       ansible.builtin.copy:
         src: ../compose.prod.yaml
@@ -239,13 +265,15 @@
           {{ (lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
              | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?'))
              | union(fireguard_deployment_env_keys)
+             | union(fireguard_runtime_env_defaults.keys() | list)
              | difference(fireguard_pinned_env_keys) }}
 
     - name: Resolve optional keys that have application defaults
       ansible.builtin.set_fact:
         fireguard_optional_env_keys: >-
-          {{ lookup('file', playbook_dir + '/../config/packages/env_defaults.yaml')
-             | regex_findall('env\\(([A-Z][A-Z0-9_]*)\\):') }}
+          {{ (lookup('file', playbook_dir + '/../config/packages/env_defaults.yaml')
+             | regex_findall('env\\(([A-Z][A-Z0-9_]*)\\):'))
+             | union(fireguard_runtime_env_defaults.keys() | list) }}
 
     - name: Resolve required deployment env keys
       ansible.builtin.set_fact:
@@ -370,7 +398,7 @@
                            or lookup('env', item) != (lookup('env', item) | trim))
                 else []) }}
       # Values allowed to stay blank must still be safe to quote when populated.
-      loop: "{{ fireguard_required_env_keys | difference(fireguard_computed_env_keys) | list }}"
+      loop: "{{ fireguard_required_env_keys | union(fireguard_runtime_env_defaults.keys() | list) | difference(fireguard_computed_env_keys) | list }}"
       loop_control:
         label: "{{ item }}"
       when: fireguard_managed_env
@@ -479,6 +507,34 @@
         minute: "47"
         hour: "3"
         job: "{{ (fireguard_app_dir + '/fireguard-maintenance.sh') | quote }} auth-retention"
+
+    - name: Install consumer queue and scheduled sweep observation
+      ansible.builtin.cron:
+        name: "Fireguard {{ fireguard_deployment_environment }} worker observation"
+        minute: "*/5"
+        job: "{{ (fireguard_app_dir + '/fireguard-maintenance.sh') | quote }} worker-observe"
+
+    - name: Install the operator backup and isolated recovery helper
+      ansible.builtin.copy:
+        src: ../bin/fireguard-backup.py
+        dest: "{{ fireguard_app_dir }}/fireguard-backup.py"
+        owner: "{{ fireguard_deployment_user.stdout }}"
+        mode: "0750"
+
+    - name: Validate explicitly activated backup prerequisites before changing services
+      ansible.builtin.command:
+        argv: [python3, "{{ fireguard_app_dir }}/fireguard-backup.py", validate, --config, "{{ fireguard_backup_config }}"]
+      changed_when: false
+      no_log: true
+      when: fireguard_offsite_backups_enabled
+
+    - name: Manage the explicitly activated daily encrypted off-host snapshot
+      ansible.builtin.cron:
+        name: "Fireguard {{ fireguard_deployment_environment }} encrypted off-host snapshot"
+        minute: "17"
+        hour: "2"
+        job: "python3 {{ (fireguard_app_dir + '/fireguard-backup.py') | quote }} snapshot --config {{ fireguard_backup_config | quote }} --app-dir {{ fireguard_app_dir | quote }}"
+        state: "{{ 'present' if fireguard_offsite_backups_enabled else 'absent' }}"
 
     - name: Check Traefik Docker network
       ansible.builtin.command: "docker network inspect {{ fireguard_traefik_network }}"
@@ -853,14 +909,28 @@
         executable: /bin/sh
       no_log: true
 
+    - name: Stop every managed writer before the consistent deployment snapshot
+      ansible.builtin.command: "{{ fireguard_compose_command }} stop --timeout 120 {{ fireguard_writer_services }}"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Upload the explicitly activated encrypted pre-migration snapshot
+      ansible.builtin.command:
+        argv: [python3, "{{ fireguard_app_dir }}/fireguard-backup.py", snapshot, --config, "{{ fireguard_backup_config }}", --app-dir, "{{ fireguard_app_dir }}", --already-stopped, --lock-held, --source-image, "{{ fireguard_image }}"]
+      no_log: true
+      when: fireguard_offsite_backups_enabled
+
     - name: Create deployment backup directory
       ansible.builtin.file:
         path: "{{ fireguard_app_dir }}/backups/{{ fireguard_deployment_timestamp }}"
         state: directory
-        mode: "0750"
+        mode: "0700"
+      when: not fireguard_offsite_backups_enabled
 
     - name: Back up auth database
       ansible.builtin.shell: |
+        set -eu
+        umask 077
         set -a
         . ./{{ fireguard_env_file | basename }}
         set +a
@@ -868,9 +938,12 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
+      when: not fireguard_offsite_backups_enabled
 
     - name: Back up main database
       ansible.builtin.shell: |
+        set -eu
+        umask 077
         set -a
         . ./{{ fireguard_env_file | basename }}
         set +a
@@ -878,6 +951,19 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
+      when: not fireguard_offsite_backups_enabled
+
+    - name: Archive matching application files without deployment secrets
+      ansible.builtin.shell: |
+        set -eu
+        umask 077
+        {{ fireguard_compose_command }} --profile tools run --rm --no-deps backup_files > backups/{{ fireguard_deployment_timestamp }}/files.tar
+        cd backups/{{ fireguard_deployment_timestamp }}
+        sha256sum auth.dump main.dump files.tar > SHA256SUMS
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+      when: not fireguard_offsite_backups_enabled
 
     # Directory names are the deployment timestamp, YYYYMMDDHHMMSS, so a
     # lexicographic sort is chronological. The slice takes everything EXCEPT the
@@ -889,6 +975,7 @@
         file_type: directory
         recurse: false
       register: fireguard_backup_dirs
+      when: not fireguard_offsite_backups_enabled
 
     - name: Prune every deployment backup but the newest few
       ansible.builtin.file:
@@ -899,27 +986,27 @@
            [:[0, (fireguard_backup_dirs.files | length) - (fireguard_backup_retention | int)] | max] }}
       loop_control:
         label: "{{ item | basename }}"
+      when: not fireguard_offsite_backups_enabled
 
     - name: Stop application service before schema changes
-      ansible.builtin.command: "{{ fireguard_compose_command }} stop app"
+      ansible.builtin.command: "{{ fireguard_compose_command }} stop --timeout 120 {{ fireguard_writer_services }}"
       args:
         chdir: "{{ fireguard_app_dir }}"
       register: fireguard_stop_app
       changed_when: fireguard_stop_app.rc == 0
-      failed_when: false
 
     - name: Run auth migrations
-      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d memory_limit=1G -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Run main migrations
-      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d memory_limit=1G -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
-    - name: Stop background application worker before resetting development data
-      ansible.builtin.command: "{{ fireguard_compose_command }} stop assistant_worker"
+    - name: Stop all managed writers before resetting development data
+      ansible.builtin.command: "{{ fireguard_compose_command }} stop --timeout 120 {{ fireguard_writer_services }}"
       args:
         chdir: "{{ fireguard_app_dir }}"
       when: fireguard_reset_development_fixtures
@@ -937,17 +1024,22 @@
       when: fireguard_reset_development_fixtures
 
     - name: Clear production cache
-      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:clear --no-warmup --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d memory_limit=1G -d display_errors=1 -d error_reporting=E_ALL bin/console cache:clear --no-warmup --env=prod -vvv"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Initialize every persisted Messenger transport before starting consumers
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps --entrypoint php app -d memory_limit=1G bin/console messenger:setup-transports main_outbox main_failed async webhook assistant failed --env=prod --no-interaction"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Warm production cache
-      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:warmup --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d memory_limit=1G -d display_errors=1 -d error_reporting=E_ALL bin/console cache:warmup --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Synchronize RBAC permissions
-      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console app:authz:sync-permissions --update-roles --no-interaction --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d memory_limit=1G -d display_errors=1 -d error_reporting=E_ALL bin/console app:authz:sync-permissions --update-roles --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
@@ -959,7 +1051,7 @@
     - name: Start application and verify internal health
       block:
         - name: Start application service
-          ansible.builtin.command: "{{ fireguard_compose_command }} up -d app assistant_worker"
+          ansible.builtin.command: "{{ fireguard_compose_command }} up -d {{ fireguard_writer_services }}"
           args:
             chdir: "{{ fireguard_app_dir }}"
 
@@ -973,19 +1065,21 @@
           delay: "{{ fireguard_healthcheck_delay }}"
           until: fireguard_internal_health.rc == 0
 
-        - name: Wait for assistant worker health
+        - name: Wait for every consumer receiver heartbeat
           ansible.builtin.shell: |
-            set -o pipefail
-            {{ fireguard_compose_command }} ps --format json assistant_worker \
-              | grep -q '"Health":"healthy"'
+            set -eu
+            container_id=$({{ fireguard_compose_command }} ps --all --quiet {{ item }})
+            test -n "$container_id"
+            docker inspect --format '{{ "{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}" }}' "$container_id"
           args:
             chdir: "{{ fireguard_app_dir }}"
-            executable: /bin/bash
-          register: fireguard_assistant_worker_health
+            executable: /bin/sh
+          loop: [async_worker, webhook_worker, assistant_worker, scheduler_worker]
+          register: fireguard_worker_health
           changed_when: false
           retries: "{{ fireguard_healthcheck_retries }}"
           delay: "{{ fireguard_healthcheck_delay }}"
-          until: fireguard_assistant_worker_health.rc == 0
+          until: fireguard_worker_health.rc == 0 and fireguard_worker_health.stdout == 'healthy'
 
         # /api/health sits on a `security: false` firewall, so a green health
         # check proves the container boots and nothing more. These two probes
@@ -1055,12 +1149,16 @@
               - "{{ fireguard_firewall_probe.stdout | default('') }}"
               - "JWKS published: {{ 'yes' if '\"kty\"' in (fireguard_jwks_probe.stdout | default('')) else 'no' }}"
       rescue:
-        # The app logs JSON to stderr in prod (monolog), so the real exception —
-        # e.g. `EnvNotFoundException: Environment variable not found: "..."` — is
-        # in `docker compose logs`, not in curl's bare "error: 500". Surface it
-        # before aborting so a failed deploy is diagnosable from the run output.
-        - name: Dump application and assistant worker logs after failed health check
-          ansible.builtin.command: "{{ fireguard_compose_command }} logs --tail=200 --no-color app assistant_worker"
+        - name: Stop every managed writer after unsuccessful startup
+          ansible.builtin.command: "{{ fireguard_compose_command }} stop --timeout 120 {{ fireguard_writer_services }}"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+          register: fireguard_failed_start_stop
+          failed_when: false
+
+        # State metadata is safe to surface; payload-bearing logs stay private.
+        - name: Inspect managed service state after failed health check
+          ansible.builtin.command: "{{ fireguard_compose_command }} ps --all --format json {{ fireguard_writer_services }}"
           args:
             chdir: "{{ fireguard_app_dir }}"
           register: fireguard_app_logs
@@ -1069,85 +1167,99 @@
           # here would replace the message below with a docker error and hide
           # the thing we came to read.
           failed_when: false
-        # `command` output is registered, not printed. Without this task the
-        # dump above went to a variable nobody read, and the failure message
-        # pointed at logs that were never in the run output -- which is exactly
-        # how the 2026-07-28 deploy failed undiagnosed for five weeks.
-        - name: Surface the application and assistant worker logs in the run output
+        - name: Surface managed service state in the run output
           ansible.builtin.debug:
             msg: "{{ (fireguard_app_logs.stdout_lines | default([])) + (fireguard_app_logs.stderr_lines | default([])) }}"
-        - name: Fail the deploy after surfacing service logs
+        - name: Fail the deploy after surfacing service state
           ansible.builtin.fail:
             msg: >-
-              Application startup, the surface checks or the assistant worker health check failed.
-              The app container and assistant worker logs were dumped in the previous task.
-              If the worker never reached Docker's healthy state, inspect its startup error
-              or restart loop. A startup EnvNotFoundException
-              there means a required key is missing from {{ fireguard_env_file }}.
-              An empty JWKS, or an anonymous GET /api answering 500 instead of 401,
-              means the app cannot read config/jwt/public.key -- the jwt_init step
-              regenerates that pair, so re-running the deploy is the first fix.
+              Application startup, surface checks or a consumer receiver heartbeat failed.
+              Writer shutdown {{ 'completed' if fireguard_failed_start_stop.rc == 0 else 'could not be confirmed' }}.
+              The operation lock remains held. Inspect private logs and pre-migration snapshots,
+              complete compatible migrations or restore both histories and matching files,
+              then explicitly release the lock before resuming a reviewed rollout.
 
-    - name: Wait for public application health
-      ansible.builtin.uri:
-        url: "{{ fireguard_healthcheck_url }}"
-        method: GET
-        status_code: 200
-        validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
-        return_content: false
-      delegate_to: localhost
-      register: fireguard_public_health
-      retries: "{{ fireguard_healthcheck_retries }}"
-      delay: "{{ fireguard_healthcheck_delay }}"
-      until: fireguard_public_health.status == 200
-      when: fireguard_healthcheck_url | length > 0
+    - name: Verify public surfaces before releasing the operation lock
+      block:
+        - name: Wait for public application health
+          ansible.builtin.uri:
+            url: "{{ fireguard_healthcheck_url }}"
+            method: GET
+            status_code: 200
+            validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
+            return_content: false
+          delegate_to: localhost
+          register: fireguard_public_health
+          retries: "{{ fireguard_healthcheck_retries }}"
+          delay: "{{ fireguard_healthcheck_delay }}"
+          until: fireguard_public_health.status == 200
+          when: fireguard_healthcheck_url | length > 0
 
-    - name: Wait for public Mercure health
-      ansible.builtin.uri:
-        url: "{{ fireguard_mercure_healthcheck_url }}"
-        method: GET
-        status_code: 200
-        validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
-        return_content: false
-      delegate_to: localhost
-      register: fireguard_public_mercure_health
-      retries: "{{ fireguard_healthcheck_retries }}"
-      delay: "{{ fireguard_healthcheck_delay }}"
-      until: fireguard_public_mercure_health.status == 200
+        - name: Wait for public Mercure health
+          ansible.builtin.uri:
+            url: "{{ fireguard_mercure_healthcheck_url }}"
+            method: GET
+            status_code: 200
+            validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
+            return_content: false
+          delegate_to: localhost
+          register: fireguard_public_mercure_health
+          retries: "{{ fireguard_healthcheck_retries }}"
+          delay: "{{ fireguard_healthcheck_delay }}"
+          until: fireguard_public_mercure_health.status == 200
 
-    - name: Refuse unauthenticated public Mailpit access
-      ansible.builtin.uri:
-        url: "{{ fireguard_mailpit_healthcheck_url }}"
-        method: GET
-        status_code: 401
-        validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
-        return_content: false
-      delegate_to: localhost
-      register: fireguard_public_mailpit_unauthenticated
-      retries: "{{ fireguard_healthcheck_retries }}"
-      delay: "{{ fireguard_healthcheck_delay }}"
-      until: fireguard_public_mailpit_unauthenticated.status == 401
-      when: fireguard_deployment_environment == 'development'
+        - name: Refuse unauthenticated public Mailpit access
+          ansible.builtin.uri:
+            url: "{{ fireguard_mailpit_healthcheck_url }}"
+            method: GET
+            status_code: 401
+            validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
+            return_content: false
+          delegate_to: localhost
+          register: fireguard_public_mailpit_unauthenticated
+          retries: "{{ fireguard_healthcheck_retries }}"
+          delay: "{{ fireguard_healthcheck_delay }}"
+          until: fireguard_public_mailpit_unauthenticated.status == 401
+          when: fireguard_deployment_environment == 'development'
 
-    - name: Wait for authenticated public Mailpit access
-      ansible.builtin.uri:
-        url: "{{ fireguard_mailpit_healthcheck_url }}"
-        method: GET
-        headers:
-          Authorization: "Basic {{ lookup('env', 'BASIC_AUTH_CREDENTIALS') | b64encode }}"
-        status_code: 200
-        validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
-        return_content: false
-      delegate_to: localhost
-      register: fireguard_public_mailpit_authenticated
-      retries: "{{ fireguard_healthcheck_retries }}"
-      delay: "{{ fireguard_healthcheck_delay }}"
-      until: fireguard_public_mailpit_authenticated.status == 200
-      no_log: true
-      when: fireguard_deployment_environment == 'development'
+        - name: Wait for authenticated public Mailpit access
+          ansible.builtin.uri:
+            url: "{{ fireguard_mailpit_healthcheck_url }}"
+            method: GET
+            headers:
+              Authorization: "Basic {{ lookup('env', 'BASIC_AUTH_CREDENTIALS') | b64encode }}"
+            status_code: 200
+            validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
+            return_content: false
+          delegate_to: localhost
+          register: fireguard_public_mailpit_authenticated
+          retries: "{{ fireguard_healthcheck_retries }}"
+          delay: "{{ fireguard_healthcheck_delay }}"
+          until: fireguard_public_mailpit_authenticated.status == 200
+          no_log: true
+          when: fireguard_deployment_environment == 'development'
+
+      rescue:
+        - name: Stop all managed writers after unsuccessful public verification
+          ansible.builtin.command: "{{ fireguard_compose_command }} stop --timeout 120 {{ fireguard_writer_services }}"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+          register: fireguard_public_failure_stop
+          failed_when: false
+
+        - name: Keep public verification failure closed and the operation lock held
+          ansible.builtin.fail:
+            msg: >-
+              Public verification failed. Writer shutdown {{ 'completed' if fireguard_public_failure_stop.rc == 0 else 'could not be confirmed' }}.
+              Keep the installation operation lock until recovery is reviewed. No image/schema rollback was attempted.
 
     - name: Show deployment services
       ansible.builtin.command: "{{ fireguard_compose_command }} ps"
       args:
         chdir: "{{ fireguard_app_dir }}"
       changed_when: false
+
+    - name: Release the operation lock only after verified rollout
+      ansible.builtin.file:
+        path: "{{ fireguard_app_dir }}/.fireguard-operation.lock"
+        state: absent

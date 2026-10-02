@@ -10,6 +10,8 @@ use User\Domain\Event\UserCreatedEvent;
 /**
  * Handler UserCreatedEventHandler.
  *
+ * Records account creation with its technical identifier, omitting email and username from INFO logs.
+ *
  * @category EventHandler
  * @version 1.0.0
  *
@@ -49,8 +51,6 @@ final readonly class UserCreatedEventHandler
       message: 'User created',
       context: [
         'user_id' => $event->userId,
-        'username' => $event->username,
-        'email' => $event->email,
       ],
     );
   }

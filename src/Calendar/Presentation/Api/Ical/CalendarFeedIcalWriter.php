@@ -101,10 +101,11 @@ final readonly class CalendarFeedIcalWriter
    * @param list<CalendarFeedItem> $items the merged feed items
    * @param string $organizationId the organization the feed belongs to
    * @param DateTimeImmutable $generatedAt the generation timestamp (used as DTSTAMP)
+   * @param string $timezone organization IANA timezone for all-day civil dates
    *
    * @return string the iCalendar document (CRLF line endings)
    */
-  public function write(array $items, string $organizationId, DateTimeImmutable $generatedAt): string
+  public function write(array $items, string $organizationId, DateTimeImmutable $generatedAt, string $timezone): string
   {
     $lines = [
       'BEGIN:VCALENDAR',
@@ -116,16 +117,17 @@ final readonly class CalendarFeedIcalWriter
     ];
 
     $dtStamp = $this->formatUtc($generatedAt);
+    $organizationTimezone = new DateTimeZone($timezone);
 
     foreach ($items as $item) {
       $lines[] = 'BEGIN:VEVENT';
       $lines[] = $this->fold(sprintf('UID:%s-%s@fireguard', $item->sourceKey, $item->id));
       $lines[] = 'DTSTAMP:' . $dtStamp;
       if ($item->allDay) {
-        $lines[] = 'DTSTART;VALUE=DATE:' . $item->startsAt->format('Ymd');
+        $lines[] = 'DTSTART;VALUE=DATE:' . $item->startsAt->setTimezone($organizationTimezone)->format('Ymd');
         if (null !== $item->endsAt) {
           // RFC 5545: an all-day DTEND is non-inclusive — add one day.
-          $lines[] = 'DTEND;VALUE=DATE:' . $item->endsAt->modify('+1 day')->format('Ymd');
+          $lines[] = 'DTEND;VALUE=DATE:' . $item->endsAt->setTimezone($organizationTimezone)->modify('+1 day')->format('Ymd');
         }
       } else {
         $lines[] = 'DTSTART:' . $this->formatUtc($item->startsAt);

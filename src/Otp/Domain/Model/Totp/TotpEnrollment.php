@@ -8,6 +8,7 @@ use DateInterval;
 use DateTimeImmutable;
 use Otp\Domain\Exception\{
   TotpDisableTemporarilyLockedException,
+  TotpEnrollmentAlreadyActiveException,
   TotpEnrollmentMaxAttemptsException,
   TotpEnrollmentNoPendingSecretException,
   TotpEnrollmentNotActiveException,
@@ -22,8 +23,8 @@ use function max;
  * Aggregate for a user's TOTP (authenticator app) enrollment. A user has at
  * most one enrollment, holding an optional "pending" secret (awaiting
  * confirmation) and an optional "active" secret (confirmed and usable for
- * login MFA). Calling setup again only replaces the pending secret; the
- * active secret (if any) stays usable until the new one is confirmed.
+ * login MFA). Initial setup may replace an unconfirmed pending secret.
+ * An active factor must be disabled with its current code before re-enrollment.
  *
  * @category Model
  * @version 1.0.0
@@ -363,8 +364,7 @@ final class TotpEnrollment
    * Method requestNewSecret.
    *
    * Replaces the pending secret with a freshly generated one, resetting the
-   * confirmation attempt counter. The active secret (if any) is left
-   * untouched until the new pending secret is confirmed.
+   * confirmation attempt counter. An active enrollment refuses replacement.
    *
    * @since 1.0.0
    *
@@ -375,6 +375,9 @@ final class TotpEnrollment
    */
   public function requestNewSecret(TotpSecret $secret, int $maxAttempts): void
   {
+    if ($this->isActive()) {
+      throw TotpEnrollmentAlreadyActiveException::forUser();
+    }
     $this->pendingSecret = $secret;
     $this->pendingCreatedAt = new DateTimeImmutable();
     $this->attempts = 0;
@@ -400,6 +403,9 @@ final class TotpEnrollment
    */
   public function confirmPending(bool $codeValid): bool
   {
+    if ($this->isActive()) {
+      throw TotpEnrollmentAlreadyActiveException::forUser();
+    }
     if (null === $this->pendingSecret) {
       throw TotpEnrollmentNoPendingSecretException::forUser($this->userId);
     }

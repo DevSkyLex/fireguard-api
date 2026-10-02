@@ -8,7 +8,9 @@ use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
 use Calendar\Application\Service\CalendarFeedAggregator;
 use Calendar\Application\UseCase\Query\Feed\GetCalendarFeed\{GetCalendarFeedHandler, GetCalendarFeedQuery, GetCalendarFeedResult};
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use DateTimeImmutable;
+use Organization\Application\Contract\Workforce\OrganizationWorkforceContext;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationWorkforceDirectoryPort};
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -16,6 +18,8 @@ use Shared\Application\Port\Outbound\LoggerPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
+
+use const DATE_ATOM;
 
 /**
  * Test GetCalendarFeedHandlerTest.
@@ -44,7 +48,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
       ->method('assertGrantedPermissions')
       ->with(self::USER_ID, self::ORGANIZATION_ID, ['organization.events.read']);
 
-    $handler = new GetCalendarFeedHandler($authorization, $this->emptyAggregator());
+    $handler = new GetCalendarFeedHandler($authorization, $this->emptyAggregator(), $this->createStub(OrganizationWorkforceDirectoryPort::class));
 
     $result = $handler->__invoke(new GetCalendarFeedQuery(
       userId: self::USER_ID,
@@ -72,7 +76,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
     $maintenance = $this->createMock(MaintenanceCalendarFeedPort::class);
     $maintenance->expects(self::once())->method('findBetween')->willReturn([]);
     $aggregator = new CalendarFeedAggregator($this->createStub(CalendarEventRepositoryPort::class), $inspections, $interventions, $maintenance, $this->createStub(LoggerPort::class));
-    $result = (new GetCalendarFeedHandler($authorization, $aggregator))(new GetCalendarFeedQuery(self::USER_ID, self::ORGANIZATION_ID, '2026-08-01T00:00:00Z', '2026-08-31T00:00:00Z'));
+    $result = (new GetCalendarFeedHandler($authorization, $aggregator, $this->createStub(OrganizationWorkforceDirectoryPort::class)))(new GetCalendarFeedQuery(self::USER_ID, self::ORGANIZATION_ID, '2026-08-01T00:00:00Z', '2026-08-31T00:00:00Z'));
     self::assertSame(['calendar_event', 'maintenance'], array_map(static fn ($source): string => $source->sourceKey, $result->sources));
     self::assertTrue($result->complete);
   }
@@ -84,7 +88,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
     $authorization->method('assertGrantedPermissions')
       ->willThrowException(new OrganizationAccessDeniedException('Missing permission.'));
 
-    $handler = new GetCalendarFeedHandler($authorization, $this->emptyAggregator());
+    $handler = new GetCalendarFeedHandler($authorization, $this->emptyAggregator(), $this->createStub(OrganizationWorkforceDirectoryPort::class));
 
     $this->expectException(OrganizationAccessDeniedException::class);
 
@@ -99,7 +103,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
   #[Test]
   public function itThrowsOnAMalformedDatetime(): void
   {
-    $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator());
+    $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator(), $this->createStub(OrganizationWorkforceDirectoryPort::class));
 
     $this->expectException(InvalidValueException::class);
 
@@ -114,7 +118,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
   #[Test]
   public function itThrowsOnAnInvertedRange(): void
   {
-    $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator());
+    $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator(), $this->createStub(OrganizationWorkforceDirectoryPort::class));
 
     $this->expectException(InvalidValueException::class);
 
@@ -129,7 +133,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
   #[Test]
   public function itThrowsWhenTheRangeExceedsThreeHundredSixtySixDays(): void
   {
-    $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator());
+    $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator(), $this->createStub(OrganizationWorkforceDirectoryPort::class));
 
     $this->expectException(InvalidValueException::class);
 
@@ -147,6 +151,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
     $handler = new GetCalendarFeedHandler(
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->emptyAggregator(),
+      $this->createStub(OrganizationWorkforceDirectoryPort::class),
     );
 
     $result = $handler->__invoke(new GetCalendarFeedQuery(
@@ -161,11 +166,42 @@ final class GetCalendarFeedHandlerTest extends TestCase
   }
 
   #[Test]
+  public function itPassesUtcMonthBoundsToPersistenceAndCarriesTheOrganizationTimezone(): void
+  {
+    $events = $this->createMock(CalendarEventRepositoryPort::class);
+    $events->expects(self::once())->method('listBetween')->with(
+      self::ORGANIZATION_ID,
+      self::callback(static fn (DateTimeImmutable $from): bool => '2026-03-28T23:00:00+00:00' === $from->format(DATE_ATOM)),
+      self::callback(static fn (DateTimeImmutable $to): bool => '2026-03-29T22:00:00+00:00' === $to->format(DATE_ATOM)),
+      self::anything(),
+    )->willReturn([]);
+    $organizations = $this->createMock(OrganizationWorkforceDirectoryPort::class);
+    $organizations->expects(self::once())->method('context')->with(self::ORGANIZATION_ID)
+      ->willReturn(new OrganizationWorkforceContext('Europe/Paris', 'monday'));
+    $aggregator = new CalendarFeedAggregator(
+      $events,
+      $this->createStub(InspectionCalendarFeedPort::class),
+      $this->createStub(InterventionCalendarFeedPort::class),
+      $this->createStub(MaintenanceCalendarFeedPort::class),
+      $this->createStub(LoggerPort::class),
+    );
+
+    $result = (new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $aggregator, $organizations))(
+      new GetCalendarFeedQuery(self::USER_ID, self::ORGANIZATION_ID, '2026-03-29T00:00:00+01:00', '2026-03-30T00:00:00+02:00'),
+    );
+
+    self::assertSame('Europe/Paris', $result->timezone);
+    self::assertSame('UTC', $result->from->getTimezone()->getName());
+    self::assertSame('UTC', $result->to->getTimezone()->getName());
+  }
+
+  #[Test]
   public function itRejectsAShapeValidDatetimeThatIsNotARealCalendarDate(): void
   {
     $handler = new GetCalendarFeedHandler(
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->emptyAggregator(),
+      $this->createStub(OrganizationWorkforceDirectoryPort::class),
     );
 
     $this->expectException(InvalidValueException::class);

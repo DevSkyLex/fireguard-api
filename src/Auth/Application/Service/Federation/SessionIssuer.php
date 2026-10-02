@@ -255,7 +255,7 @@ final readonly class SessionIssuer
   /**
    * Method hasActiveTotpEnrollment
    *
-   * Checks whether TOTP is enrolled so login MFA can choose it instead of email; lookup failures select email.
+   * Checks whether TOTP is enrolled; technical failures interrupt sign-in instead of selecting a weaker factor.
    *
    * @access private
    *
@@ -265,11 +265,7 @@ final readonly class SessionIssuer
    */
   private function hasActiveTotpEnrollment(string $userId): bool
   {
-    try {
-      return $this->totpEnrollmentCheck->isEnrolled($userId);
-    } catch (Throwable) {
-      return false;
-    }
+    return $this->totpEnrollmentCheck->isEnrolled($userId);
   }
   // #endregion
 }

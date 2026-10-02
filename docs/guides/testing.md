@@ -45,6 +45,31 @@ complete local line coverage. CI merges the current run's suite reports; no earl
 artifact proves this revision. See COVERAGE.md for exact scope, 90% threshold and
 the distinction between complete and diagnostic runs.
 
+## Bounded mutation and performance checks
+
+After preparing the PostgreSQL test templates, run:
+
+```sh
+XDEBUG_MODE=coverage php -d memory_limit=1G vendor/bin/infection \
+  --configuration=infection-sensitive.json5 --show-mutations \
+  --only-covering-test-cases --no-progress --threads=2
+make benchmark
+```
+
+The mutation configuration covers refresh-token and Stripe webhook handlers with
+four comparison/logical mutators and their focused tests. Its 90% MSI and covered
+MSI limits apply only to that configuration. A passing bounded run provides no
+repository-wide mutation or coverage percentage. Keep the reports from
+`var/infection/sensitive*` with the tested revision; CI's manual mutation input
+runs the same configuration against PostgreSQL.
+
+The explicit performance suite checks synthetic volume, exact or bounded query
+counts, incremental peak memory and stable outputs. Its test-only query counter
+shares state across test-kernel reboots because DAMA retains the database
+connection's logger. Each measured phase resets the counter. See the
+[performance budgets](../../tests/Performance/README.md) for datasets, limits and
+measurement artifacts. These tests create isolated data and roll it back.
+
 ## Equipment testing reference
 
 <details>

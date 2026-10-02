@@ -522,7 +522,7 @@ final class LoginHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeRequiresMfaWhenTrustedDeviceAndTotpChecksFail(): void
+  public function testEnrollmentLookupFailureCannotDowngradeToEmailMfa(): void
   {
     $command = new LoginCommand(
       email: 'user@example.com',
@@ -556,21 +556,11 @@ final class LoginHandlerTest extends TestCase
 
     /** @var ChallengeGeneratorPort&MockObject $generator */
     $generator = $this->createMock(ChallengeGeneratorPort::class);
-    $generator->expects(self::once())
-      ->method('generate')
-      ->with(self::callback(static fn (MfaChallengeCommand $cmd): bool => 'email' === $cmd->channel))
-      ->willReturn(new MfaChallengeResult(
-        challengeToken: 'challenge-123',
-        maskedRecipient: 'u***@example.com',
-        expiresAt: new DateTimeImmutable('+5 minutes'),
-        maxAttempts: 3,
-      ));
+    $generator->expects(self::never())->method('generate');
 
     /** @var JwtTokenServicePort&MockObject $jwt */
     $jwt = $this->createMock(JwtTokenServicePort::class);
-    $jwt->expects(self::once())
-      ->method('generatePreAuthToken')
-      ->willReturn('pre-auth');
+    $jwt->expects(self::never())->method('generatePreAuthToken');
     $jwt->expects(self::never())->method('generateTokens');
 
     $handler = $this->handler(
@@ -586,9 +576,10 @@ final class LoginHandlerTest extends TestCase
     );
 
     $result = $handler->__invoke($command);
-
-    $this->assertTrue($result->mfaRequired);
-    $this->assertSame('email', $result->mfaMethod);
+    self::assertFalse($result->authenticated);
+    self::assertNotTrue($result->mfaRequired);
+    self::assertNull($result->accessToken);
+    self::assertNull($result->mfaToken);
   }
 
   /**

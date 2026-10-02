@@ -14,6 +14,8 @@ use User\Domain\Event\UserEmailVerifiedEvent;
 /**
  * Handler UserEmailVerifiedEventHandler.
  *
+ * Sends the verification notification and logs its technical user identifier without the email address.
+ *
  * @category EventHandler
  * @version 1.0.0
  *
@@ -79,7 +81,6 @@ final readonly class UserEmailVerifiedEventHandler
       message: 'User email verified',
       context: [
         'user_id' => $event->userId,
-        'email' => $event->email,
       ],
     );
   }

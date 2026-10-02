@@ -11,6 +11,10 @@ services:
     autowire: true
     autoconfigure: true
 
+  Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort:
+    alias: Organization\Application\Service\OrganizationMemberGrantGuardService
+  Organization\Application\Service\OrganizationMemberGrantGuardService: ~
+
   Organization\Presentation\:
     resource: '../../src/Organization/Presentation'
 
@@ -412,7 +416,9 @@ services:
     alias: Approval\Infrastructure\Adapter\Organization\ApprovalActionTypeCatalogAdapter
 
   # Cross-module read model for the Maintenance module (compliance policy)
-  Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter: ~
+  Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
 
   # Cross-module read model for the Inspection module (non-conformity SLA policy)
   Organization\Infrastructure\Adapter\Inspection\OrganizationNonConformitySlaPolicyAdapter: ~

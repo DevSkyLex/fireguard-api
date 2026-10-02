@@ -7,11 +7,19 @@ namespace Tests\Integration\Assistant\Infrastructure\Persistence\Doctrine\Reposi
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantThreadId};
+use Assistant\Infrastructure\Persistence\Doctrine\Record\AssistantMessageRecord;
 use Assistant\Infrastructure\Persistence\Doctrine\Repository\{AssistantMessageRepository, AssistantThreadRepository};
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Logging\Middleware;
+use Doctrine\ORM\{EntityManager, EntityManagerInterface};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+use function array_map;
+use function array_slice;
+use function sprintf;
 
 /**
  * Test AssistantMessageRepositoryTest.
@@ -137,6 +145,110 @@ final class AssistantMessageRepositoryTest extends KernelTestCase
     self::assertSame('complete', $persisted->status()->value);
     self::assertSame('The final, full reply.', $persisted->body());
     self::assertSame(42, $persisted->tokenCount());
+  }
+
+  /**
+   * Method testCompletedHistoryLoadsOnlyTwentyRowsInOneQueryAndEndsAtTheQueuedQuestion.
+   *
+   * Verifies a real bounded PostgreSQL read, its hydration limit and its inclusive question boundary.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testCompletedHistoryLoadsOnlyTwentyRowsInOneQueryAndEndsAtTheQueuedQuestion(): void
+  {
+    $repository = new AssistantMessageRepository($this->entityManager);
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $ids = [];
+    for ($index = 0; $index < 120; ++$index) {
+      $ids[] = sprintf('550e8400-e29b-41d4-a716-446655449%03d', 400 + $index);
+      $repository->save(AssistantMessage::askUser(AssistantMessageId::fromString($ids[$index]), self::THREAD_ID, self::ORG_ID, 'Question ' . $index, $now->modify('+' . $index . ' seconds')));
+    }
+    $this->entityManager->clear();
+    $sqlLogger = $this->createMock(LoggerInterface::class);
+    $sqlLogger->expects(self::once())->method('debug')->with(
+      self::anything(),
+      self::callback(static function (array $context): bool {
+        $sql = $context['sql'];
+        self::assertIsString($sql);
+        self::assertStringContainsString('LIMIT 20', $sql);
+
+        return true;
+      }),
+    );
+    $configuration = clone $this->entityManager->getConnection()->getConfiguration();
+    $configuration->setMiddlewares([...$configuration->getMiddlewares(), new Middleware($sqlLogger)]);
+    $connection = DriverManager::getConnection($this->entityManager->getConnection()->getParams(), $configuration);
+    $trackedEntityManager = new EntityManager($connection, $this->entityManager->getConfiguration());
+
+    try {
+      $results = new AssistantMessageRepository($trackedEntityManager)->listCompletedThroughQuestion(self::THREAD_ID, $ids[100], 20);
+
+      self::assertCount(20, $results);
+      self::assertSame(array_slice($ids, 81, 20), array_map(static fn (AssistantMessage $message): string => (string) $message->id(), $results));
+      self::assertSame('Question 100', $results[19]->body());
+      self::assertCount(20, $trackedEntityManager->getUnitOfWork()->getIdentityMap()[AssistantMessageRecord::class]);
+    } finally {
+      $trackedEntityManager->close();
+      $connection->close();
+    }
+  }
+
+  /**
+   * Method testCompletedHistoryRejectsMissingForeignAndNonUserQuestionAnchors.
+   *
+   * Verifies thread isolation and rejection of invalid generation anchors.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testCompletedHistoryRejectsMissingForeignAndNonUserQuestionAnchors(): void
+  {
+    $repository = new AssistantMessageRepository($this->entityManager);
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $repository->save(AssistantMessage::askUser(AssistantMessageId::fromString(self::OTHER_THREAD_MESSAGE_ID), self::OTHER_THREAD_ID, self::ORG_ID, 'Foreign question', $now));
+    $reply = AssistantMessage::pendingReply(AssistantMessageId::fromString(self::MESSAGE_ID_1), self::THREAD_ID, self::ORG_ID, $now);
+    $reply->markStreaming();
+    $reply->markComplete('Earlier answer', 1, $now);
+    $repository->save($reply);
+    $this->entityManager->clear();
+
+    self::assertSame([], $repository->listCompletedThroughQuestion(self::THREAD_ID, self::OTHER_THREAD_MESSAGE_ID, 20));
+    self::assertSame([], $repository->listCompletedThroughQuestion(self::THREAD_ID, self::MESSAGE_ID_2, 20));
+    self::assertSame([], $repository->listCompletedThroughQuestion(self::THREAD_ID, self::MESSAGE_ID_1, 20));
+    self::assertSame([], $repository->listCompletedThroughQuestion(self::OTHER_THREAD_ID, self::OTHER_THREAD_MESSAGE_ID, 0));
+  }
+
+  /**
+   * Method testCompletedHistoryKeepsIdentifierTieOrderAndOmitsIncompleteMessagesAndFutureQuestions.
+   *
+   * Verifies deterministic tie ordering and exclusion before pagination.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testCompletedHistoryKeepsIdentifierTieOrderAndOmitsIncompleteMessagesAndFutureQuestions(): void
+  {
+    $repository = new AssistantMessageRepository($this->entityManager);
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $repository->save(AssistantMessage::askUser(AssistantMessageId::fromString(self::MESSAGE_ID_1), self::THREAD_ID, self::ORG_ID, 'Earlier question', $now));
+    $repository->save(AssistantMessage::pendingReply(AssistantMessageId::fromString(self::MESSAGE_ID_2), self::THREAD_ID, self::ORG_ID, $now));
+    $repository->save(AssistantMessage::askUser(AssistantMessageId::fromString(self::OTHER_THREAD_MESSAGE_ID), self::THREAD_ID, self::ORG_ID, 'Queued question', $now));
+    $futureId = '550e8400-e29b-41d4-a716-446655449403';
+    $repository->save(AssistantMessage::askUser(AssistantMessageId::fromString($futureId), self::THREAD_ID, self::ORG_ID, 'Future question', $now));
+    $this->entityManager->clear();
+
+    $results = $repository->listCompletedThroughQuestion(self::THREAD_ID, self::OTHER_THREAD_MESSAGE_ID, 20);
+    self::assertSame([self::MESSAGE_ID_1, self::OTHER_THREAD_MESSAGE_ID], array_map(static fn (AssistantMessage $message): string => (string) $message->id(), $results));
   }
 
   private function deleteFixtures(): void

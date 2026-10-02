@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         operationId: 'setupTotp',
         tags: ['OTP'],
         summary: 'Setup TOTP',
-        description: 'Generates a new TOTP secret and stores it server-side as a PENDING enrollment for the authenticated user. Returns the secret and a QR code URI for authenticator app setup. Calling this again replaces the pending secret. Requires otp_totp.setup permission.',
+        description: 'Generates a new TOTP secret and stores it server-side as a PENDING enrollment for the authenticated user. Returns the secret and a QR code URI for authenticator app setup. Calling this again replaces the pending secret during initial enrollment. Enrollment requires the account to remain active when its serialized mutation starts. An active factor must first be disabled with its current code; setup refuses replacement. Requires otp_totp.setup permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_CREATED => new Response(
@@ -54,6 +54,17 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'User must be authenticated',
+          ),
+          HttpResponse::HTTP_CONFLICT => new Response(
+            description: 'An active authenticator must first be disabled with its current code',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'Authenticator enrollment is unavailable for this account',
+            content: new ArrayObject([
+              'application/ld+json' => ['schema' => ['$ref' => '#/components/schemas/Error.jsonld']],
+              'application/problem+json' => ['schema' => ['$ref' => '#/components/schemas/Error']],
+              'application/json' => ['schema' => ['$ref' => '#/components/schemas/Error']],
+            ]),
           ),
         ],
       ),
@@ -70,7 +81,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         operationId: 'confirmTotp',
         tags: ['OTP'],
         summary: 'Confirm TOTP',
-        description: 'Verifies a code from the authenticator app against the pending secret and, on success, activates TOTP for the user. Requires otp_totp.confirm permission.',
+        description: 'Verifies a code from the authenticator app against the pending secret and, on success, activates TOTP for the user. An existing active factor cannot be replaced, including when a legacy pending secret exists. Requires otp_totp.confirm permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
@@ -84,6 +95,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
             description: 'Too many confirmation attempts',
+          ),
+          HttpResponse::HTTP_CONFLICT => new Response(
+            description: 'An active authenticator cannot be replaced by confirming a pending secret',
           ),
         ],
       ),

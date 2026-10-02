@@ -17,7 +17,7 @@ use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, Organi
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\{EventDispatcherPort, FileStoragePort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, FileStoragePort, TransactionManagerPort};
 use Throwable;
 
 use function hash;
@@ -84,6 +84,7 @@ final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandl
     private SafetyRegisterSnapshotRepositoryPort $repository,
     private UuidFactory $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -149,24 +150,25 @@ final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandl
     $this->fileStorage->write($storagePath, $pdf);
 
     try {
-      $this->repository->save($snapshot);
+      $this->transactionManager->transactional(function () use ($snapshot, $id, $command, $planKey, $generatedAt): void {
+        $this->repository->save($snapshot);
+        $this->eventDispatcher->dispatch(new SafetyRegisterSnapshotCreatedEvent(
+          snapshotId: (string) $id,
+          organizationId: $command->organizationId,
+          facilityId: $command->facilityId,
+          actorUserId: $command->userId,
+          planKey: $planKey,
+          scope: $snapshot->scope(),
+          generatedAt: $generatedAt,
+          contentHash: $snapshot->contentHash(),
+          sizeBytes: $snapshot->sizeBytes(),
+        ));
+      });
     } catch (Throwable $exception) {
       $this->fileStorage->delete($storagePath);
 
       throw $exception;
     }
-
-    $this->eventDispatcher->dispatch(new SafetyRegisterSnapshotCreatedEvent(
-      snapshotId: (string) $id,
-      organizationId: $command->organizationId,
-      facilityId: $command->facilityId,
-      actorUserId: $command->userId,
-      planKey: $planKey,
-      scope: $snapshot->scope(),
-      generatedAt: $generatedAt,
-      contentHash: $snapshot->contentHash(),
-      sizeBytes: $snapshot->sizeBytes(),
-    ));
 
     return new CreateSafetyRegisterSnapshotResult(snapshot: new SafetyRegisterSnapshotView(
       id: (string) $id,

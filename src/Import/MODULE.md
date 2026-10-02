@@ -99,6 +99,34 @@ Retain the source file until both the simulation and confirmed job are beyond re
 
 ## Deployment and verification
 
+Reports live in `import_row_reports`, keyed by job and file row. The worker loads
+only job counters and its current row outcome; it appends the report in the same
+transaction as provisioning, counters and `import_row_receipts`. Replaying a
+confirmed row neither reruns provisioning nor appends another report. Dry-run
+resumption loads only the successful row numbers once to rebuild quota projection.
+Main migration `Version20261002031100` preserves legacy JSON report rows and clears
+the old job JSON; rollback reconstructs the ordered JSON before dropping the table.
+Apply this migration before replacing workers. Retain both row tables with their
+jobs for the same recovery period.
+
+`GET /imports/{id}` preserves the `errorReport` array shape and returns at most 100
+rows in file order. Use `reportPage` (default 1) and `reportItemsPerPage` (default
+100, range 1–100) to retrieve subsequent rows. The additive `reportPage`,
+`reportItemsPerPage`, `reportTotal` and `reportHasNextPage` fields describe that
+page. Collection items return summaries with an empty report, avoiding reports
+being hydrated for every listed job. Scope and permissions apply before reading
+report data. Large-report clients must follow these pages to display every row.
+
+`MaintenanceImportBoundedWorkloadTest` measures the real append/receipt and
+resumption storage path at 1,000, 5,000 and 10,000 synthetic dry-run outcomes.
+The measured append times were 8.057, 41.714 and 85.233 seconds, with exactly
+10 statements per row plus two claim statements and no per-row ORM retention.
+Resumption used ten statements at every volume. The 10,000-row case deliberately
+stresses storage above the accepted CSV limit of 5,000 rows; these measurements
+do not measure CSV parsing or resource provisioning. The performance suite
+enforces linear query and bounded memory budgets; every sample is recorded in
+`var/import-report-benchmark.json`.
+
 Apply additive main lease/receipt and confirmation-link (Version20260921230000) migrations and initialize Messenger's transports.
 Drain old workers and reconcile legacy processing jobs before resumption: pre-upgrade
 creations beyond the old progress counter have no receipt and cannot retroactively

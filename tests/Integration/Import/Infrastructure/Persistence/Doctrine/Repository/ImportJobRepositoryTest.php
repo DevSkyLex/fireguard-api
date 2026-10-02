@@ -13,7 +13,11 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function array_column;
 use function array_map;
+use function json_decode;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Test ImportJobRepository.
@@ -115,6 +119,50 @@ final class ImportJobRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function reportMigrationPreservesLegacyRowsAndRestoresOrderedJsonOnRollback(): void
+  {
+    $job = ImportJob::create(ImportJobId::fromString(self::SAVE_JOB_ID), self::ORGANIZATION_ID, ImportKind::EQUIPMENT, 'legacy.csv', 'legacy.csv', self::ACTOR_ID);
+    $this->repository->save($job);
+    $connection = $this->entityManager->getConnection();
+    $project = self::getContainer()->getParameter('kernel.project_dir');
+    self::assertIsString($project);
+    require_once $project . '/migrations/main/Version20261002031100.php';
+    $migrationClass = 'DoctrineMigrations\\Main\\Version20261002031100';
+    $factory = new \Doctrine\Migrations\Version\DbalMigrationFactory($connection, new \Psr\Log\NullLogger());
+    $down = $factory->createVersion($migrationClass);
+    $down->down(new \Doctrine\DBAL\Schema\Schema());
+    foreach ($down->getSql() as $query) {
+      $connection->executeStatement($query->getStatement());
+    }
+    $legacy = '[{"rowNumber":2,"column":"type","code":"invalid","message":"Second"},{"rowNumber":1,"column":null,"code":"would_create","message":"First"}]';
+    $connection->executeStatement('UPDATE import_jobs SET error_report = :report WHERE id = :id', ['report' => $legacy, 'id' => self::SAVE_JOB_ID]);
+    $up = $factory->createVersion($migrationClass);
+    $up->up(new \Doctrine\DBAL\Schema\Schema());
+    foreach ($up->getSql() as $query) {
+      $connection->executeStatement($query->getStatement());
+    }
+    self::assertSame(2, $this->repository->countReport($job->id()));
+    self::assertSame([1, 2], array_map(static fn (ImportRowError $row): int => $row->rowNumber, $this->repository->reportPage($job->id(), 1, 100)));
+    self::assertSame([1], $this->repository->confirmedSimulationRows($job->id()));
+    self::assertNull($connection->fetchOne('SELECT error_report FROM import_jobs WHERE id = ?', [self::SAVE_JOB_ID]));
+    $restore = $factory->createVersion($migrationClass);
+    $restore->down(new \Doctrine\DBAL\Schema\Schema());
+    foreach ($restore->getSql() as $query) {
+      $connection->executeStatement($query->getStatement());
+    }
+    $json = $connection->fetchOne('SELECT j.error_report FROM import_jobs j WHERE j.id = ?', [self::SAVE_JOB_ID]);
+    self::assertIsString($json);
+    /** @var list<array{rowNumber: int}> $restored */
+    $restored = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+    self::assertSame([1, 2], array_column($restored, 'rowNumber'));
+    $again = $factory->createVersion($migrationClass);
+    $again->up(new \Doctrine\DBAL\Schema\Schema());
+    foreach ($again->getSql() as $query) {
+      $connection->executeStatement($query->getStatement());
+    }
+  }
+
+  #[Test]
   public function testSaveUpdatesTheExistingRecordAndRoundTripsTheErrorReport(): void
   {
     $now = new DateTimeImmutable('2026-03-01T09:00:00+00:00');
@@ -158,6 +206,9 @@ final class ImportJobRepositoryTest extends KernelTestCase
     self::assertNull($found->errorReport()[0]->column);
     self::assertSame('quota_exceeded', $found->errorReport()[1]->code);
     self::assertSame('siret', $found->errorReport()[1]->column);
+
+    $this->entityManager->flush();
+    self::assertNull($this->entityManager->getConnection()->fetchOne('SELECT error_report FROM import_jobs WHERE id = ?', [self::SAVE_JOB_ID]), 'A detail read must not dirty the legacy JSON column when another operation flushes.');
   }
 
   #[Test]
@@ -296,6 +347,7 @@ final class ImportJobRepositoryTest extends KernelTestCase
   private function cleanup(): void
   {
     $connection = $this->entityManager->getConnection();
+    $connection->executeStatement('DELETE FROM import_row_reports WHERE import_job_id IN (SELECT id FROM import_jobs WHERE organization_id IN (:first, :second))', ['first' => self::ORGANIZATION_ID, 'second' => self::OTHER_ORGANIZATION_ID]);
     $connection->executeStatement(
       'DELETE FROM import_jobs WHERE organization_id = :organizationId',
       ['organizationId' => self::ORGANIZATION_ID],

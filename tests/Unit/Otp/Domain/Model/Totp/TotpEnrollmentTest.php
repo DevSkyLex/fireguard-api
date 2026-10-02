@@ -6,7 +6,7 @@ namespace Tests\Unit\Otp\Domain\Model\Totp;
 
 use DateInterval;
 use DateTimeImmutable;
-use Otp\Domain\Exception\{TotpDisableTemporarilyLockedException, TotpEnrollmentMaxAttemptsException, TotpEnrollmentNoPendingSecretException, TotpEnrollmentNotActiveException};
+use Otp\Domain\Exception\{TotpDisableTemporarilyLockedException, TotpEnrollmentMaxAttemptsException, TotpEnrollmentNotActiveException};
 use Otp\Domain\Model\Totp\{TotpEnrollment, TotpEnrollmentAttempts, TotpEnrollmentSecrets};
 use Otp\Domain\ValueObject\TotpSecret;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -73,7 +73,7 @@ final class TotpEnrollmentTest extends TestCase
   }
 
   #[Test]
-  public function testConfirmPendingThrowsWhenNoPendingSecret(): void
+  public function testConfirmPendingThrowsWhenAlreadyActive(): void
   {
     $enrollment = TotpEnrollment::startEnrollment(
       userId: 'user-1',
@@ -82,7 +82,7 @@ final class TotpEnrollmentTest extends TestCase
     );
     $enrollment->confirmPending(true);
 
-    $this->expectException(TotpEnrollmentNoPendingSecretException::class);
+    $this->expectException(\Otp\Domain\Exception\TotpEnrollmentAlreadyActiveException::class);
 
     $enrollment->confirmPending(true);
   }
@@ -123,17 +123,14 @@ final class TotpEnrollmentTest extends TestCase
   }
 
   #[Test]
-  public function testRequestNewSecretKeepsActiveSecretUntouched(): void
+  public function testRequestNewSecretRefusesAnActiveFactor(): void
   {
     $activeSecret = new TotpSecret('JBSWY3DPEHPK3PXP');
     $enrollment = TotpEnrollment::startEnrollment(userId: 'user-1', secret: $activeSecret, maxAttempts: 5);
     $enrollment->confirmPending(true);
 
+    $this->expectException(\Otp\Domain\Exception\TotpEnrollmentAlreadyActiveException::class);
     $enrollment->requestNewSecret(new TotpSecret('AAAAAAAAAAAAAAAA'), 5);
-
-    self::assertTrue($enrollment->isActive());
-    self::assertSame($activeSecret, $enrollment->activeSecret());
-    self::assertTrue($enrollment->hasPending());
   }
 
   #[Test]

@@ -132,6 +132,9 @@ final class OAuth2Authenticator extends AbstractAuthenticator
   public function authenticate(Request $request): Passport
   {
     $request->attributes->remove('_fireguard_session_id');
+    $request->attributes->remove('_fireguard_oauth_scopes');
+    $request->attributes->remove('_fireguard_verified_token_id');
+    $request->attributes->remove('_fireguard_verified_token_use');
     $authHeader = $request->headers->get(key: 'Authorization', default: '');
     $token = substr($authHeader, 7);
 
@@ -163,6 +166,8 @@ final class OAuth2Authenticator extends AbstractAuthenticator
 
       $this->assertVerifiedAccessToken($parsedToken);
       $scopes = $this->resolveScopes($request, $parsedToken, $tokenId, $userId);
+      $request->attributes->set('_fireguard_verified_token_id', $tokenId);
+      $request->attributes->set('_fireguard_verified_token_use', self::ACCESS_TOKEN_USE_AUTH_SESSION === $claims->get('_fireguard_token_use', null) ? 'auth_session' : 'oauth');
 
       $userBadge = new UserBadge(
         userIdentifier: $userId,
@@ -285,6 +290,8 @@ final class OAuth2Authenticator extends AbstractAuthenticator
     if ($accessToken->expired) {
       throw new CustomUserMessageAuthenticationException(message: 'Token has expired');
     }
+
+    $request->attributes->set('_fireguard_oauth_scopes', $accessToken->scopes);
 
     return $accessToken->scopes;
   }

@@ -39,6 +39,8 @@ final readonly class InterventionRecurrenceMaterializedEvent
    * @param bool $succeeded whether the occurrence was successfully materialized
    * @param ?string $interventionId the created intervention identifier, when successful
    * @param ?string $error the failure reason, when unsuccessful
+   * @param ?string $templateId template used to resolve a durable failure notification
+   * @param ?string $responsibleId responsible member override for failure delivery
    */
   public function __construct(
     public string $organizationId,
@@ -46,6 +48,8 @@ final readonly class InterventionRecurrenceMaterializedEvent
     public bool $succeeded,
     public ?string $interventionId = null,
     public ?string $error = null,
+    public ?string $templateId = null,
+    public ?string $responsibleId = null,
   ) {
     $this->occurredAt = new DateTimeImmutable();
   }

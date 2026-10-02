@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember;
 
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Inbound\{OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationMemberNotFoundException, OrganizationMemberNotInactiveException, OrganizationNotFoundException};
@@ -49,6 +49,7 @@ final readonly class ReactivateOrganizationMemberHandler implements CommandHandl
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher port
+   * @param OrganizationPermissionGrantGuardPort $grantGuard the retained-role grant ceiling
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
@@ -56,6 +57,7 @@ final readonly class ReactivateOrganizationMemberHandler implements CommandHandl
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationPermissionGrantGuardPort $grantGuard,
   ) {
   }
   // #endregion
@@ -78,6 +80,7 @@ final readonly class ReactivateOrganizationMemberHandler implements CommandHandl
    *                                             belong to the organization
    * @throws OrganizationMemberNotInactiveException when the member is not
    *                                                currently inactive
+   * @throws \Organization\Domain\Exception\OrganizationAccessDeniedException when retained roles exceed the actor's grant ceiling
    * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
    *                                                                                     when reactivating would exceed the plan's member cap
    */
@@ -105,17 +108,20 @@ final readonly class ReactivateOrganizationMemberHandler implements CommandHandl
       throw OrganizationMemberNotInactiveException::withId($command->memberId);
     }
 
-    $this->transactionManager->transactional(function () use ($command, $member): void {
+    $roleIds = $this->transactionManager->transactional(function () use ($command, $member, $memberId): array {
       // Enforce the member cap inside the transaction so the advisory lock
       // serializes concurrent additions/reactivations (TOCTOU) — mirrors
       // AddOrganizationMemberHandler's re-add branch.
       $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::MEMBERS);
 
+      $retainedRoleIds = $this->memberRepository->findRoleIdsForMember($memberId);
+      $this->grantGuard->assertCanAssignRoles($command->actorUserId, $command->organizationId, $retainedRoleIds);
+
       $member->activate();
       $this->memberRepository->save($member);
-    });
 
-    $roleIds = $this->memberRepository->findRoleIdsForMember($memberId);
+      return $retainedRoleIds;
+    });
 
     $this->eventDispatcher->dispatch(new OrganizationMemberAddedEvent(
       organizationId: (string) $organizationId,

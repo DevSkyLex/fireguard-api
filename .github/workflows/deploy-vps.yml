@@ -51,14 +51,14 @@ jobs:
       should-deploy: ${{ steps.changes.outputs.should-deploy || 'true' }}
     steps:
       - name: Checkout trusted deployment verifier
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Node.js for deployment verification
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: '22.23.3'
 
       - name: Resolve deployment event
         id: context
@@ -91,11 +91,11 @@ jobs:
 
       - name: Set up Docker Buildx for image inspection
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.image_ref != '' }}
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GitHub Container Registry for image inspection
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.image_ref != '' }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -123,7 +123,7 @@ jobs:
 
       - name: Download original push context
         if: ${{ github.event_name == 'workflow_run' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ci-push-context
           path: ci-push-context
@@ -176,15 +176,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ needs.guard.outputs.source-sha }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -198,7 +198,7 @@ jobs:
 
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ steps.image_name.outputs.name }}
           tags: |
@@ -208,7 +208,7 @@ jobs:
 
       - name: Build and push Docker image
         id: prod_image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
           target: prod
@@ -224,7 +224,7 @@ jobs:
       - name: Extract fixture image metadata
         id: fixture_meta
         if: needs.guard.outputs.source-branch == 'develop' && github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ steps.image_name.outputs.name }}
           tags: type=raw,value=sha-${{ needs.guard.outputs.source-sha }}-fixtures
@@ -232,7 +232,7 @@ jobs:
       - name: Build and push fixture image
         id: fixtures_image
         if: needs.guard.outputs.source-branch == 'develop' && github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
           target: fixtures
@@ -352,7 +352,7 @@ jobs:
 
     steps:
       - name: Checkout deployment files
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ needs.guard.outputs.source-sha }}
 

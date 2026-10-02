@@ -89,12 +89,40 @@ everything page-wise (bounded memory):
 2. **Recompute**: pages through every schedule, recomputing `dueStatus`
    against the current instant.
 3. **Remind**: for schedules entering `due_soon`/`overdue` where
-   `remindedFor` doesn't already match `nextDueAt`, sends a
+   `remindedFor` doesn't already match `nextDueAt`, enqueues a
    `maintenance.inspection_due` / `maintenance.inspection_overdue`
    notification to the organization's administrators (`MaintenanceReminderNotifier`
    - `MaintenanceReminderRecipientResolver`), honoring the
      `inspectionDue` category toggle and the `inAppEnabled`/`emailEnabled`
      channels — mirrors `InterventionNotificationService`.
+
+Each page uses scalar equipment/schedule reads, grouped inspection history and
+organization policy reads, sorted advisory locks, and one schedule batch upsert.
+These operations retain no managed records and never clear the caller's entity
+manager. The source is reloaded after acquiring the locks so an inspection closure
+or override cannot be overwritten by an older page. List and campaign ordering
+ends with `id ASC`, including equal or absent due dates.
+
+Run a full sweep outside a single enclosing database transaction: transaction
+advisory locks release at each page commit. An enclosing transaction retains all
+page locks until its own commit and can exhaust PostgreSQL's shared lock budget.
+Individual page/equipment operations still join a caller transaction safely and
+preserve its managed records and pending changes.
+
+`MaintenanceImportBoundedWorkloadTest` exercises 20,000 published equipment in
+three native PostgreSQL sweeps. Its budgets bound SQL by pages, incremental memory
+and retained ORM entities. The measured median was 7.568 seconds, approximately
+1,300 statements, one pre-existing managed entity and at most 4 MiB additional
+memory; `var/maintenance-sweep-benchmark.json` records every sample. Measurements
+are specific to the local runner; the performance suite enforces acceptance
+budgets separately.
+
+Reminder enqueueing and its schedule marker commit in the same main transaction.
+`MaintenanceReminderSubscriber` delivers the queued event after commit. A failed
+recipient/channel throws for Messenger retry; preferences or organization policy
+suppression completes normally. Stable per-recipient identities use Notification's
+durable inbox/channel receipts, retaining completed channels across partial fanout
+failure. External acknowledgement loss can still repeat an external delivery.
 
 ### Generate an inspection campaign (synchronous)
 
@@ -108,6 +136,14 @@ schedules matching the given filters, and routes through
 same programmatic draft-creation path other automations use — with
 `origin: 'maintenance:campaign'`, one planned `inspection` work item per
 equipment (`target: {"equipmentId": "..."}`).
+
+The handler counts candidates before reading or creating a draft and returns 422
+above `maintenance.max_campaign_work_items` (default 25). The bounded read fetches
+one extra candidate and repeats the limit check to cover growth after counting.
+The PostgreSQL regression exercises the configured limit through the real draft
+factory; increasing the limit requires measuring that synchronous creation path.
+On the local native PostgreSQL runner, 25 work items took 1.331 seconds while 200
+took 41.328 seconds; this measured synchronous cost establishes the default cap.
 
 ## Architecture
 
@@ -236,7 +272,7 @@ receive; the recompute POLICY lives in the domain service below):
 - `dueStatus` (`unscheduled` | `up_to_date` | `due_soon` | `overdue`)
 - `lastRemindedAt` (nullable, observability only)
 - `remindedFor` (nullable) — the `nextDueAt` value a reminder has already
-  been sent for; the anti-duplicate marker, reset whenever `nextDueAt`
+  been queued for; the anti-duplicate marker, reset whenever `nextDueAt`
   changes
 - `createdAt`, `updatedAt`
 

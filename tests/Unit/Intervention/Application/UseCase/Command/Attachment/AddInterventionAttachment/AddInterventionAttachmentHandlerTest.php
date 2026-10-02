@@ -52,13 +52,14 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
-    $authorization->expects(self::once())
+    $authorization->expects(self::exactly(2))
       ->method('hasPermission')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.execute')
       ->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::once())->method('save');
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -98,6 +99,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $resources->method('interventionAssignmentContext')->willReturn(null);
 
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::never())->method('save');
 
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -147,6 +149,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::never())->method('save');
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -186,6 +189,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $authorization->method('hasPermission')->willReturn(false);
 
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::never())->method('save');
 
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -222,12 +226,13 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
-    $authorization->expects(self::once())
+    $authorization->expects(self::exactly(2))
       ->method('hasPermission')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.plan')
       ->willReturn(true);
 
     $attachmentRepository = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $fileStorage = $this->createStub(FileStoragePort::class);
 
     $uuidFactory = $this->createStub(UuidFactory::class);
@@ -262,6 +267,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::once())
       ->method('save')
       ->willThrowException(new RuntimeException('Database error.'));
@@ -305,6 +311,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $authorization->method('hasPermission')->willReturn(true);
 
     $attachmentRepository = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -347,10 +354,13 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->expects(self::never())->method('create');
 
+    $repository = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $repository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
+
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $this->resourceManager('in_progress'),
       authorization: $authorization,
-      attachmentRepository: $this->createStub(InterventionAttachmentRepositoryPort::class),
+      attachmentRepository: $repository,
       fileStorage: $this->createStub(FileStoragePort::class),
       uuidFactory: $uuidFactory,
     );
@@ -389,6 +399,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->method('countByInterventionId')
       ->with(self::INTERVENTION_ID)
@@ -426,6 +437,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->method('countByInterventionId')
       ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT - 1);
@@ -460,13 +472,14 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       new InterventionAttachmentFile('evidence.jpg', 'intervention/x/attachments/y_evidence.jpg', 'image/jpeg', 512),
     );
 
-    // A client-supplied id that already exists overwrites its own row: it adds
+    // A client-supplied id that already exists returns its committed row: it adds
     // nothing to the bucket, so the count must not even be consulted.
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->method('findById')->willReturn($existing);
     $attachmentRepository->expects(self::never())->method('countByInterventionId');
-    $attachmentRepository->expects(self::once())->method('save');
+    $attachmentRepository->expects(self::never())->method('save');
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $this->resourceManager('in_progress'),
@@ -492,6 +505,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->expects(self::once())->method('save');
 
@@ -530,6 +544,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::never())->method('save');
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -566,6 +581,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::never())->method('save');
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -602,6 +618,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::never())->method('save');
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -640,6 +657,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->expects(self::never())->method('save');
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -676,6 +694,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->method('findSignatureByInterventionId')->willReturn(null);
     $attachmentRepository->expects(self::never())->method('save');
@@ -722,6 +741,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->method('findSignatureByInterventionId')->willReturn($previousSignature);
     // The cap check must not see the previous signature as an extra row: it
@@ -780,6 +800,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->method('findSignatureByInterventionId')->willReturn(null);
     $attachmentRepository->expects(self::once())
@@ -813,6 +834,27 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       size: 100,
       kind: 'signature',
     ));
+  }
+
+  #[Test]
+  public function testUploadRechecksTheCurrentPhaseAfterAcquiringItsLock(): void
+  {
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $before = new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'in_progress');
+    $after = new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'submitted');
+    $resources->method('interventionAssignmentContext')->willReturnOnConsecutiveCalls($before, $after);
+    $resources->method('interventionMutationContext')->willReturnOnConsecutiveCalls($before, $after);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+    $repository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $repository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
+    $repository->expects(self::never())->method('save');
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('write');
+    $handler = new AddInterventionAttachmentHandler(new InterventionResourceManager($resources), $authorization, $repository, $storage, $this->createStub(UuidFactory::class));
+    $this->expectException(InterventionConflictException::class);
+    $handler($this->command(self::ATTACHMENT_ID));
   }
 
   private function command(?string $attachmentId): AddInterventionAttachmentCommand

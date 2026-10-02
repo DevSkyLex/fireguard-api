@@ -61,10 +61,13 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
    * user context, system actor): it only reads interventions and sends
    * best-effort notifications to their existing responsible/participants —
    * membership itself was already authorized when those were assigned.
+   * RecoverReservedRecurrenceHandler is an operator-only console recovery command
+   * with no user actor; it locks one legacy reservation and verifies that any
+   * explicitly linked intervention belongs to the recurrence organization.
    *
    * @var list<string>
    */
-  private const array EXEMPT_HANDLERS = ['ExecutePublicationHandler', 'MaterializeDueRecurrencesHandler', 'SendDueRemindersHandler'];
+  private const array EXEMPT_HANDLERS = ['ExecutePublicationHandler', 'MaterializeDueRecurrencesHandler', 'SendDueRemindersHandler', 'RecoverReservedRecurrenceHandler'];
 
   /**
    * Constant SCOPE_AWARE_METHODS.

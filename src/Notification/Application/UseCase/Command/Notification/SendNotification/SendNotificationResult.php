@@ -30,6 +30,7 @@ final readonly class SendNotificationResult implements ResultMessage
    * @param list<string> $channels the channels
    * @param array<string, mixed> $payload the payload
    * @param array<string, bool> $channelDelivery delivery status per channel
+   * @param array<string, string> $channelStatus delivered, suppressed or failed per channel
    * @param DateTimeImmutable $createdAt the creation datetime
    * @param string|null $recipientUserId the recipient user identifier
    * @param string|null $recipientEmail the recipient email
@@ -47,6 +48,7 @@ final readonly class SendNotificationResult implements ResultMessage
     public ?string $recipientUserId = null,
     public ?string $recipientEmail = null,
     public ?string $organizationId = null,
+    public array $channelStatus = [],
   ) {
   }
   // #endregion

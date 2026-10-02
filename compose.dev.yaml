@@ -28,7 +28,7 @@ services:
       - no-new-privileges:true
 
   mailpit:
-    image: axllent/mailpit:v1.27
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
     restart: unless-stopped
     networks:
       - default

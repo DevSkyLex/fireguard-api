@@ -71,6 +71,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -88,6 +90,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -123,6 +127,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -156,6 +162,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $oidcUserProvider,
     );
 
@@ -191,6 +199,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -208,6 +218,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -243,6 +255,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -268,6 +282,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -303,6 +319,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -320,6 +338,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -344,6 +364,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -364,6 +386,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
@@ -375,6 +399,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -398,6 +424,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
@@ -409,6 +437,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -431,6 +461,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -444,6 +476,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -467,6 +501,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -480,6 +516,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -502,6 +540,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -533,6 +573,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -554,6 +596,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
@@ -567,6 +611,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -588,6 +634,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
@@ -601,6 +649,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -623,6 +673,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -656,6 +708,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -684,6 +738,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -701,6 +757,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -734,6 +792,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -766,6 +826,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -797,6 +859,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -831,6 +895,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -861,6 +927,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -899,6 +967,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -923,6 +993,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -951,6 +1023,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -975,6 +1049,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -1003,6 +1079,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1025,6 +1103,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -1055,6 +1135,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $oidcUserProvider,
     );
 
@@ -1077,6 +1159,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -1107,6 +1191,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $oidcUserProvider,
     );
 
@@ -1129,6 +1215,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createAuthorizationServerMock(
@@ -1150,6 +1238,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1172,6 +1262,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -1203,6 +1295,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1223,6 +1317,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -1254,6 +1350,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1274,6 +1372,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -1305,6 +1405,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1325,6 +1427,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -1358,6 +1462,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1378,6 +1484,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -1411,6 +1519,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1431,6 +1541,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -1462,6 +1574,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1482,6 +1596,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authRequest = $this->createAuthorizationRequest();
@@ -1513,6 +1629,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
@@ -1532,6 +1650,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $rateLimiter = $this->createRateLimiterFactory(limit: 1);
@@ -1543,6 +1663,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
       rateLimiter: $rateLimiter,
     );
@@ -1567,6 +1689,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
@@ -1581,6 +1705,8 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
       rateLimiter: $this->createRateLimiterFactory(),
     );
@@ -1605,6 +1731,8 @@ final class AuthorizeProcessorTest extends TestCase
     );
 
     $requestStack = new RequestStack();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
     $requestStack->push($request);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
@@ -1638,12 +1766,48 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($this->grantLifecycle(), $this->sessionStatus()),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
       oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
     $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: Response::class, actual: $response);
+  }
+
+  /**
+   * Method testAlreadyAuthenticatedButRevokedSessionCannotCreateAnotherCode
+   *
+   * @return void
+   */
+  #[Test]
+  public function testAlreadyAuthenticatedButRevokedSessionCannotCreateAnotherCode(): void
+  {
+    $request = Request::create('/api/oauth2/authorize', 'GET', ['response_type' => 'code', 'code_challenge' => 'challenge', 'code_challenge_method' => 'S256']);
+    $request->attributes->set('_fireguard_verified_token_id', 'formerly-active-token');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
+    $requests = new RequestStack();
+    $requests->push($request);
+    $server = $this->createAuthorizationServerMock($this->createAuthorizationRequest());
+    $server->expects(self::never())->method('completeAuthorizationRequest');
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new CheckConsentResult(hasConsent: true, grantedScopes: ['openid'], missingScopes: [], requiresConsentScreen: false));
+    $sessions = $this->createMock(\Auth\Application\Port\Outbound\SessionStatusPort::class);
+    $sessions->expects(self::once())->method('activeSessionId')->with('formerly-active-token', 'user-123')->willReturn(null);
+    $lifecycle = $this->grantLifecycle();
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $server,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requests,
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($lifecycle, $sessions),
+    );
+
+    self::assertSame(401, $processor->provide($this->createStub(Operation::class))->getStatusCode());
   }
 
   /**
@@ -1657,6 +1821,23 @@ final class AuthorizeProcessorTest extends TestCase
       ->willReturn($authRequest);
 
     return $authorizationServer;
+  }
+
+  private function grantLifecycle(): \OAuth\Application\Port\Outbound\Token\GrantLifecyclePort
+  {
+    $lifecycle = $this->createStub(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class);
+    $lifecycle->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+    $lifecycle->method('isAccessTokenUsable')->willReturn(true);
+
+    return $lifecycle;
+  }
+
+  private function sessionStatus(): \Auth\Application\Port\Outbound\SessionStatusPort
+  {
+    $sessions = $this->createStub(\Auth\Application\Port\Outbound\SessionStatusPort::class);
+    $sessions->method('activeSessionId')->willReturn('active-session');
+
+    return $sessions;
   }
 
   private function createAuthorizationRequest(): AuthorizationRequest

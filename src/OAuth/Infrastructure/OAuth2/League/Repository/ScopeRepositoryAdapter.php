@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\OAuth2\League\Repository;
 
 use League\OAuth2\Server\Entities\{ClientEntityInterface, ScopeEntityInterface};
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort;
+use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scope;
+use OAuth\Domain\ValueObject\Security\GrantType;
 use OAuth\Infrastructure\OAuth2\League\Entity\Scope as LeagueScope;
 
 use function is_string;
+use function strtoupper;
 use function trim;
 
 /**
@@ -22,6 +27,21 @@ use function trim;
  */
 final readonly class ScopeRepositoryAdapter implements ScopeRepositoryInterface
 {
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * @access public
+   *
+   * @param OAuthClientRepositoryPort $clientRepository registered client scope and grant policy
+   *
+   * @return void
+   */
+  public function __construct(private OAuthClientRepositoryPort $clientRepository)
+  {
+  }
+  // #endregion
+
   // #region Methods
   /**
    * Method getScopeEntityByIdentifier
@@ -71,6 +91,21 @@ final readonly class ScopeRepositoryAdapter implements ScopeRepositoryInterface
     string|int|null $userIdentifier = null,
     ?string $authCodeId = null,
   ): array {
+    $client = $this->clientRepository->find(new OAuthClientIdentifier($clientEntity->getIdentifier()));
+    $requestedGrant = GrantType::tryFrom(strtoupper($grantType));
+    if (null === $client || !$client->isActive() || null === $requestedGrant || !$client->supportsGrantType($requestedGrant)) {
+      throw OAuthServerException::accessDenied('Client is not permitted to use this grant.');
+    }
+    if ([] === $scopes) {
+      throw OAuthServerException::invalidScope('');
+    }
+    foreach ($scopes as $scope) {
+      $requestedScope = Scope::tryFrom($scope->getIdentifier());
+      if (null === $requestedScope || !$client->hasScope($requestedScope)) {
+        throw OAuthServerException::invalidScope($scope->getIdentifier());
+      }
+    }
+
     return $scopes;
   }
   // #endregion

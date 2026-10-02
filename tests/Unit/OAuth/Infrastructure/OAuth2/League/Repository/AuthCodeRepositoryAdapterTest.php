@@ -26,6 +26,7 @@ final class AuthCodeRepositoryAdapterTest extends TestCase
   {
     $adapter = new AuthCodeRepositoryAdapter(
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      grantLifecycle: $this->createStub(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class),
     );
 
     $entity = $adapter->getNewAuthCode();
@@ -60,7 +61,7 @@ final class AuthCodeRepositoryAdapterTest extends TestCase
           && ['OPENID'] === $saved->scopes()->toArray();
       }));
 
-    $adapter = new AuthCodeRepositoryAdapter(authCodeRepository: $repository);
+    $adapter = new AuthCodeRepositoryAdapter(authCodeRepository: $repository, grantLifecycle: $this->createStub(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class));
 
     $adapter->persistNewAuthCode($authCode);
   }
@@ -86,7 +87,7 @@ final class AuthCodeRepositoryAdapterTest extends TestCase
       ->method('save')
       ->with(self::callback(fn (DomainAuthCode $saved): bool => $saved->isRevoked()));
 
-    $adapter = new AuthCodeRepositoryAdapter(authCodeRepository: $repository);
+    $adapter = new AuthCodeRepositoryAdapter(authCodeRepository: $repository, grantLifecycle: $this->createStub(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class));
 
     $adapter->revokeAuthCode('code-123');
   }
@@ -94,13 +95,11 @@ final class AuthCodeRepositoryAdapterTest extends TestCase
   #[Test]
   public function testIsAuthCodeRevokedReturnsTrueWhenMissing(): void
   {
+    $lifecycle = $this->createMock(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class);
+    $lifecycle->expects(self::once())->method('isAuthCodeRevoked')->with('missing-code')->willReturn(true);
     $repository = $this->createMock(AuthCodeRepositoryPort::class);
-    $repository->expects(self::once())
-      ->method('find')
-      ->with('missing-code')
-      ->willReturn(null);
-
-    $adapter = new AuthCodeRepositoryAdapter(authCodeRepository: $repository);
+    $repository->expects(self::never())->method('find');
+    $adapter = new AuthCodeRepositoryAdapter(authCodeRepository: $repository, grantLifecycle: $lifecycle);
 
     self::assertTrue($adapter->isAuthCodeRevoked('missing-code'));
   }
@@ -108,22 +107,11 @@ final class AuthCodeRepositoryAdapterTest extends TestCase
   #[Test]
   public function testIsAuthCodeRevokedReturnsFalseWhenActive(): void
   {
-    $code = new DomainAuthCode(
-      identifier: 'code-123',
-      expiryDateTime: new DateTimeImmutable('+1 hour'),
-      clientIdentifier: new \OAuth\Domain\ValueObject\Client\OAuthClientIdentifier('client-123'),
-      userIdentifier: 'user-123',
-      scopes: \OAuth\Domain\ValueObject\Scope\Scopes::fromArray(['OPENID']),
-      redirectUri: null,
-    );
-
+    $lifecycle = $this->createMock(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class);
+    $lifecycle->expects(self::once())->method('isAuthCodeRevoked')->with('code-123')->willReturn(false);
     $repository = $this->createMock(AuthCodeRepositoryPort::class);
-    $repository->expects(self::once())
-      ->method('find')
-      ->with('code-123')
-      ->willReturn($code);
-
-    $adapter = new AuthCodeRepositoryAdapter(authCodeRepository: $repository);
+    $repository->expects(self::never())->method('find');
+    $adapter = new AuthCodeRepositoryAdapter(authCodeRepository: $repository, grantLifecycle: $lifecycle);
 
     self::assertFalse($adapter->isAuthCodeRevoked('code-123'));
   }

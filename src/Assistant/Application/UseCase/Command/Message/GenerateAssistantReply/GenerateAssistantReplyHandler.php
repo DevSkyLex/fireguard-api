@@ -9,16 +9,16 @@ use Assistant\Application\Contract\Generation\AssistantGenerationOutcome;
 use Assistant\Application\Port\Outbound\{AssistantGenerationClientPort, AssistantMessageRepositoryPort, AssistantRealtimePublisherPort, AssistantThreadRepositoryPort};
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\{AssistantAttemptWriter, AssistantPromptBuilder};
-use Assistant\Domain\Exception\AssistantGenerationStoppedException;
+use Assistant\Domain\Exception\{AssistantGenerationStoppedException, AssistantQuestionUnavailableException};
 use Assistant\Domain\Model\Message\AssistantMessage;
-use Assistant\Domain\ValueObject\{AssistantMessageStatus, AssistantThreadId};
+use Assistant\Domain\ValueObject\{AssistantMessageRole, AssistantMessageStatus, AssistantThreadId};
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, LoggerPort};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 use function array_filter;
-use function array_slice;
+use function array_key_last;
 use function array_values;
 use function max;
 use function min;
@@ -172,36 +172,32 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
   /**
    * Method completedTranscript.
    *
-   * Loads a thread's messages and keeps only the already-`complete` turns,
-   * oldest first, excluding the reply currently being generated — a still
-   * `pending`/`streaming`/`failed` assistant message is never replayed as
-   * conversation history.
+   * Loads only the bounded completed suffix through this queued user question, oldest first.
+   * A missing question fails generation; later questions and the current reply never enter its prompt.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param string $threadId the owning thread identifier
    * @param string $excludedMessageId the currently-generating assistant message identifier to exclude
+   * @param string $questionMessageId the inclusive queued question anchor
    *
    * @return list<AssistantMessage> the completed transcript, oldest first
    */
   private function completedTranscript(string $threadId, string $excludedMessageId, string $questionMessageId): array
   {
-    $total = $this->messages->countByThread($threadId);
-    $history = $this->messages->listByThread($threadId, $total, 0);
-
-    foreach ($history as $index => $candidate) {
-      if ((string) $candidate->id() === $questionMessageId) {
-        $history = array_slice($history, 0, $index + 1);
-
-        break;
-      }
-    }
-
-    return array_values(array_filter(
+    $history = $this->messages->listCompletedThroughQuestion($threadId, $questionMessageId, AssistantPromptBuilder::MAX_TRANSCRIPT_MESSAGES);
+    $transcript = array_values(array_filter(
       $history,
       static fn (AssistantMessage $candidate): bool => AssistantMessageStatus::COMPLETE === $candidate->status()
         && (string) $candidate->id() !== $excludedMessageId,
     ));
+    $question = [] === $transcript ? null : $transcript[array_key_last($transcript)];
+    if (null === $question || (string) $question->id() !== $questionMessageId || AssistantMessageRole::USER !== $question->role()) {
+      throw AssistantQuestionUnavailableException::unavailable();
+    }
+
+    return $transcript;
   }
 
   /**
