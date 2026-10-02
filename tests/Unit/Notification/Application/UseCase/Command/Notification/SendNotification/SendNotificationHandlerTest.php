@@ -22,6 +22,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\GeoIp\IpLocation;
+use Shared\Application\Contract\Notification\EmailRequestDetails;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\LoggerPort;
 
@@ -30,6 +32,55 @@ use function array_values;
 #[CoversClass(SendNotificationHandler::class)]
 final class SendNotificationHandlerTest extends TestCase
 {
+  #[Test]
+  public function testPrivateEmailLocationIsExcludedFromPersistenceMercureAndFailureLogs(): void
+  {
+    $details = new EmailRequestDetails(location: new IpLocation('FR', 'Paris'));
+    $repository = $this->createMock(NotificationRepositoryPort::class);
+    $repository->expects(self::once())->method('save')->with(self::callback(
+      static fn (Notification $notification): bool => [] === $notification->payload()
+        && 'Security request.' === $notification->body(),
+    ));
+    $email = $this->createMock(EmailNotificationChannelPort::class);
+    $email->expects(self::once())->method('send')->with(
+      self::isInstanceOf(Notification::class),
+      ['context' => ['requestDetails' => $details]],
+    )->willThrowException(new RuntimeException('Paris FR 8.8.8.8', previous: new RuntimeException('Paris')));
+    $mercure = $this->createMock(MercureNotificationChannelPort::class);
+    $mercure->expects(self::once())->method('publish')->with(self::callback(
+      static fn (Notification $notification): bool => [] === $notification->payload()
+        && 'Security request.' === $notification->body(),
+    ), []);
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning')->with(
+      'Notification channel delivery failed.',
+      self::callback(static fn (array $context): bool => RuntimeException::class === $context['error']
+        && RuntimeException::class === $context['cause']),
+    );
+    $factory = $this->createStub(UuidFactory::class);
+    $factory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442019'));
+    $handler = new SendNotificationHandler(
+      $repository,
+      $this->createStub(NotificationPreferenceRepositoryPort::class),
+      $email,
+      $mercure,
+      $this->createStub(RecipientDirectoryPort::class),
+      $logger,
+      $factory,
+    );
+    $result = $handler(new SendNotificationCommand(
+      type: 'user.email_change_requested',
+      subject: 'Security request',
+      body: 'Security request.',
+      channels: [NotificationChannel::EMAIL, NotificationChannel::MERCURE],
+      recipientUserId: 'user-1',
+      recipientEmail: 'member@example.com',
+      deliveryPayload: ['email' => ['context' => ['requestDetails' => $details]]],
+    ));
+    self::assertSame([], $result->payload);
+    self::assertSame(['email' => false, 'mercure' => true], $result->channelDelivery);
+  }
+
   #[Test]
   public function testInvokeSendsEmailNotificationWithEphemeralDeliveryPayload(): void
   {

@@ -30,12 +30,17 @@ services:
       # Host() rules below) so the running container never depends on .env drift.
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
       DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
+      GEOIP_ENABLED: ${GEOIP_ENABLED:-false}
+      GEOIP_DATABASE_PATH: /var/lib/fireguard/geoip/dbip-city-lite.mmdb
+      GEOIP_MAX_AGE_DAYS: ${GEOIP_MAX_AGE_DAYS:-45}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     networks:
       - default
       - traefik_proxy
     volumes:
       - app_var:/var/www/html/var
       - jwt_keys:/var/www/html/config/jwt:ro
+      - geoip_data:/var/lib/fireguard/geoip:ro
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_proxy"
@@ -155,6 +160,44 @@ services:
       - "traefik.enable=false"
     security_opt:
       - no-new-privileges:true
+    logging: *default-logging
+
+  # One-shot job only: the serving app cannot replace the GeoIP database.
+  geoip_maintenance:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    profiles: ["tools"]
+    user: "1000:1000"
+    working_dir: /var/www/html
+    env_file: [.env]
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      REDIS_URL: redis://redis:6379
+      MERCURE_URL: http://mercure/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
+      DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
+      GEOIP_ENABLED: ${GEOIP_ENABLED:-false}
+      GEOIP_DATABASE_PATH: /var/lib/fireguard/geoip/dbip-city-lite.mmdb
+      GEOIP_MAX_AGE_DAYS: ${GEOIP_MAX_AGE_DAYS:-45}
+    entrypoint: ["php", "-d", "memory_limit=1G", "bin/console"]
+    command: ["app:geoip:update", "--if-enabled"]
+    volumes:
+      - app_var:/var/www/html/var
+      - jwt_keys:/var/www/html/config/jwt:ro
+      - geoip_data:/var/lib/fireguard/geoip
+    labels: ["traefik.enable=false"]
+    security_opt: ["no-new-privileges:true"]
+    logging: *default-logging
+
+  geoip_volume_init:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    profiles: ["tools"]
+    user: "0:0"
+    entrypoint: ["sh", "-c"]
+    command: ["chown 1000:1000 /var/lib/fireguard/geoip && chmod 0750 /var/lib/fireguard/geoip"]
+    volumes:
+      - geoip_data:/var/lib/fireguard/geoip
+    labels: ["traefik.enable=false"]
     logging: *default-logging
 
   app_var_init:
@@ -330,6 +373,8 @@ services:
     logging: *default-logging
 
 volumes:
+  geoip_data:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_geoip_data
   app_var:
     name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_app_var
   jwt_keys:

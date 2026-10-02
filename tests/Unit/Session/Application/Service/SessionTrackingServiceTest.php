@@ -35,6 +35,7 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
+        geoIp: $this->createStub(\Shared\Application\Port\Outbound\GeoIpLookupPort::class),
         sessionRepository: $repository,
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
@@ -63,6 +64,7 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
+        geoIp: $this->createStub(\Shared\Application\Port\Outbound\GeoIpLookupPort::class),
         sessionRepository: $repository,
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
@@ -88,6 +90,7 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
+        geoIp: $this->createStub(\Shared\Application\Port\Outbound\GeoIpLookupPort::class),
         sessionRepository: $this->createStub(SessionRepositoryPort::class),
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
@@ -111,6 +114,7 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
+        geoIp: $this->createStub(\Shared\Application\Port\Outbound\GeoIpLookupPort::class),
         sessionRepository: $this->createStub(SessionRepositoryPort::class),
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
@@ -136,6 +140,7 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
+        geoIp: $this->createStub(\Shared\Application\Port\Outbound\GeoIpLookupPort::class),
         sessionRepository: $this->createStub(SessionRepositoryPort::class),
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
@@ -166,6 +171,7 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
+        geoIp: $this->createStub(\Shared\Application\Port\Outbound\GeoIpLookupPort::class),
         sessionRepository: $this->createStub(SessionRepositoryPort::class),
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),

@@ -33,11 +33,11 @@ final class TotpSecretTest extends TestCase
   {
     $secret = new TotpSecret('JBSWY3DPEHPK3PXP');
 
-    $uri = $secret->getProvisioningUri('user@example.com', 'FireGuard Auth');
+    $uri = $secret->getProvisioningUri('user@example.com', 'Fireguard Auth');
 
     self::assertStringContainsString('otpauth://totp/', $uri);
     self::assertStringContainsString('secret=JBSWY3DPEHPK3PXP', $uri);
-    self::assertStringContainsString('issuer=FireGuard%20Auth', $uri);
+    self::assertStringContainsString('issuer=Fireguard%20Auth', $uri);
   }
 
   #[Test]

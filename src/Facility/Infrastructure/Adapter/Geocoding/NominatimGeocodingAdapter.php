@@ -82,7 +82,7 @@ final readonly class NominatimGeocodingAdapter implements GeocodingPort
    *
    * @var string
    */
-  public const string USER_AGENT = 'FireGuard/1.0 (contact@valentin-fortin.pro)';
+  public const string USER_AGENT = 'Fireguard/1.0 (contact@valentin-fortin.pro)';
 
   /**
    * Constant REQUEST_TIMEOUT_SECONDS.

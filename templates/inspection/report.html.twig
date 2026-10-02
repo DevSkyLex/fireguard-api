@@ -1,15 +1,12 @@
 {% extends 'pdf/layout.html.twig' %}
+{% import 'pdf/components.html.twig' as ui %}
+
+{% set severityTones = { critical: 'destructive', high: 'destructive', medium: 'warning', low: 'muted' } %}
+{% set nonConformityStatusTones = { done: 'success' } %}
 
 {% block title %}{{ 'inspection.title'|trans({}, 'pdf', lang) }}{% endblock %}
 
 {% block headerTitle %}{{ 'inspection.title'|trans({}, 'pdf', lang) }}{% endblock %}
-
-{% block styles %}
-    .severity-critical { color: #b3261e; font-weight: bold; }
-    .severity-high { color: #b3261e; }
-    .severity-medium { color: #9a6700; }
-    .severity-low { color: #52606d; }
-{% endblock %}
 
 {% block content %}
   <h1>{{ 'inspection.title'|trans({}, 'pdf', lang) }}</h1>
@@ -17,11 +14,11 @@
     <table>
       <tr>
         <td class="meta-label">{{ 'inspection.meta.status'|trans({}, 'pdf', lang) }}</td>
-        <td>{{ status }}</td>
+        <td>{{ ui.status('inspection', status, lang) }}</td>
       </tr>
       <tr>
         <td class="meta-label">{{ 'inspection.meta.result'|trans({}, 'pdf', lang) }}</td>
-        <td>{{ result }}</td>
+        <td>{{ ui.status('inspectionResult', result, lang) }}</td>
       </tr>
       <tr>
         <td class="meta-label">{{ 'inspection.meta.performedAt'|trans({}, 'pdf', lang) }}</td>
@@ -108,12 +105,12 @@
       <tbody>
         {% for nonConformity in nonConformities %}
           <tr>
-            <td class="severity-{{ nonConformity.severity }}">{{ ('nonConformities.severity.' ~ nonConformity.severity)|trans({}, 'pdf', lang) }}</td>
-            <td>{{ ('nonConformities.status.' ~ nonConformity.status)|trans({}, 'pdf', lang) }}</td>
+            <td>{{ ui.tag(('nonConformities.severity.' ~ nonConformity.severity)|trans({}, 'pdf', lang), severityTones[nonConformity.severity]|default('muted')) }}</td>
+            <td>{{ ui.tag(('nonConformities.status.' ~ nonConformity.status)|trans({}, 'pdf', lang), nonConformityStatusTones[nonConformity.status]|default('muted')) }}</td>
             <td>{{ nonConformity.description }}</td>
-            <td>{{ nonConformity.createdAt|default('—') }}</td>
-            <td>{{ nonConformity.dueAt|default('—') }}</td>
-            <td>{{ nonConformity.resolvedAt|default('—') }}</td>
+            <td class="nowrap">{{ nonConformity.createdAt|default('—') }}</td>
+            <td class="nowrap">{{ nonConformity.dueAt|default('—') }}</td>
+            <td class="nowrap">{{ nonConformity.resolvedAt|default('—') }}</td>
           </tr>
         {% endfor %}
       </tbody>

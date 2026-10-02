@@ -8,4 +8,5 @@
   <h1>{{ headingKey|trans({}, 'emails', lang) }}</h1>
   <p>{{ bodyKey|trans({}, 'emails', lang) }}</p>
   <p class="muted">{{ 'emailChange.noticeSupport'|trans({}, 'emails', lang) }}</p>
+  {% include 'notification/email/request_location.html.twig' %}
 {% endblock %}

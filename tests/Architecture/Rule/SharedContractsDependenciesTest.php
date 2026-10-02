@@ -28,19 +28,18 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
    *
    * @var string PORTS_DESCRIPTION
    */
-  public const string PORTS_DESCRIPTION = 'Shared ports must expose only Domain contracts.';
+  public const string PORTS_DESCRIPTION = 'Shared ports expose framework-agnostic Domain or Shared Application contracts.';
   // #endregion
 
   // #region Methods
   /**
-   * Method testSharedPortsDependOnlyOnDomains.
+   * Method testSharedPortsDependOnlyOnPureContracts.
    *
-   * Ensures shared ports only depend
-   * on Domain namespaces
+   * Ensures shared ports expose pure Domain or Shared Application contracts.
    *
    * @return iterable<Rule> Iterable of rules for shared ports
    */
-  public function testSharedPortsDependOnlyOnDomains(): iterable
+  public function testSharedPortsDependOnlyOnPureContracts(): iterable
   {
     $portSelectors = $this->sharedApplicationPortSelectors();
 
@@ -49,7 +48,7 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
     }
 
     /** @var list<SelectorInterface> $allowedSelectors */
-    $allowedSelectors = $this->sharedApplicationSupportSelectors();
+    $allowedSelectors = [...$this->sharedApplicationSupportSelectors(), Selector::inNamespace('Shared\\Application\\Contract', regex: false)];
 
     foreach ($this->modulesHavingLayer(layer: ArchitectureLayer::DOMAIN) as $module) {
       $allowedSelectors = [

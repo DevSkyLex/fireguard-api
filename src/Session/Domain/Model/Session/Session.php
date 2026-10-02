@@ -321,6 +321,8 @@ final class Session
    */
   public function revoke(): void
   {
+    $this->metadata = $this->metadata->withoutLocation();
+
     if ($this->isRevoked()) {
       return;
     }

@@ -89,18 +89,18 @@ final class DeliverWebhookHandlerTest extends TestCase
 
     self::assertIsArray($capturedHeaders);
     self::assertSame('application/json', $capturedHeaders['Content-Type']);
-    self::assertSame(self::DELIVERY_ID, $capturedHeaders['X-FireGuard-Webhook-Id']);
-    self::assertSame('intervention.published', $capturedHeaders['X-FireGuard-Webhook-Event']);
-    self::assertArrayHasKey('X-FireGuard-Webhook-Timestamp', $capturedHeaders);
-    self::assertArrayHasKey('X-FireGuard-Webhook-Signature', $capturedHeaders);
+    self::assertSame(self::DELIVERY_ID, $capturedHeaders['X-Fireguard-Webhook-Id']);
+    self::assertSame('intervention.published', $capturedHeaders['X-Fireguard-Webhook-Event']);
+    self::assertArrayHasKey('X-Fireguard-Webhook-Timestamp', $capturedHeaders);
+    self::assertArrayHasKey('X-Fireguard-Webhook-Signature', $capturedHeaders);
 
     self::assertIsString($capturedBody);
     self::assertSame(json_encode(['interventionId' => 'i-1'], JSON_THROW_ON_ERROR), $capturedBody);
 
-    $timestamp = $capturedHeaders['X-FireGuard-Webhook-Timestamp'];
+    $timestamp = $capturedHeaders['X-Fireguard-Webhook-Timestamp'];
     self::assertIsString($timestamp);
     $expectedSignature = 'sha256=' . hash_hmac('sha256', $timestamp . '.' . $capturedBody, self::SECRET);
-    self::assertSame($expectedSignature, $capturedHeaders['X-FireGuard-Webhook-Signature']);
+    self::assertSame($expectedSignature, $capturedHeaders['X-Fireguard-Webhook-Signature']);
   }
 
   #[Test]

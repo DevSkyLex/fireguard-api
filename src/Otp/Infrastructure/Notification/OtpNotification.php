@@ -151,7 +151,7 @@ final class OtpNotification extends Notification implements SmsNotificationInter
     }
 
     return sprintf(
-      '[FireGuard] Your verification code is: %s. Valid for %d minutes.',
+      '[Fireguard] Your verification code is: %s. Valid for %d minutes.',
       $code,
       (int) ceil(($this->otp->expiresAt()->getTimestamp() - time()) / 60),
     );

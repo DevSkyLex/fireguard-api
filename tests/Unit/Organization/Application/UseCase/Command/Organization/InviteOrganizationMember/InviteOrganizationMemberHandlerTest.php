@@ -157,7 +157,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
           && !array_key_exists('token', $request->payload)
           && !array_key_exists('acceptUrl', $request->payload)
           && !str_contains($request->body, 'Use this token')
-          && str_contains($request->subject, 'Invitation to join')
+          && str_contains($request->subject, 'invited to join')
           && 'notification/email/organization_invitation.html.twig' === $emailTemplate
           && is_array($emailContext)
           && !array_key_exists('token', $emailContext)

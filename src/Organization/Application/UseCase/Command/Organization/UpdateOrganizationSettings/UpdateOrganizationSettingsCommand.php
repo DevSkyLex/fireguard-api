@@ -48,6 +48,8 @@ final readonly class UpdateOrganizationSettingsCommand implements CommandMessage
    * @param ?string $legalName the new registered legal name (empty clears it), or null to leave unchanged
    * @param ?string $registrationNumber the new company/registration number (empty clears it), or null to leave unchanged
    * @param ?string $vatNumber the new VAT number (empty clears it), or null to leave unchanged
+   * @param ?array<string, ?string> $registeredAddress the whole replacement address (empty clears it), or null to leave unchanged
+   * @param ?string $privacyContactEmail the privacy contact (empty clears it), or null to leave unchanged
    */
   public function __construct(
     public string $organizationId,
@@ -67,6 +69,8 @@ final readonly class UpdateOrganizationSettingsCommand implements CommandMessage
     public ?string $legalName = null,
     public ?string $registrationNumber = null,
     public ?string $vatNumber = null,
+    public ?array $registeredAddress = null,
+    public ?string $privacyContactEmail = null,
   ) {
   }
   // #endregion

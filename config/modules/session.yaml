@@ -20,6 +20,10 @@ services:
     Session\Application\Service\SessionStatusService: ~
 
     # Command Handlers
+    Session\Application\UseCase\Command\Session\PurgeSessionLocations\PurgeSessionLocationsHandler:
+        tags: ['messenger.message_handler']
+    Session\Infrastructure\Console\PurgeSessionLocationsCommand: ~
+
     Session\Application\UseCase\Command\Session\CreateSession\CreateSessionHandler:
         tags: ['messenger.message_handler']
     Session\Application\UseCase\Command\Session\RevokeSession\RevokeSessionHandler:

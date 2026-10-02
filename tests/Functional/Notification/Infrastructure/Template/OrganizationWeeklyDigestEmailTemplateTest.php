@@ -8,6 +8,13 @@ use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Twig\Environment;
 
+use function html_entity_decode;
+use function strpos;
+use function substr;
+use function substr_count;
+
+use const ENT_QUOTES;
+
 /**
  * Test OrganizationWeeklyDigestEmailTemplateTest.
  *
@@ -59,11 +66,69 @@ final class OrganizationWeeklyDigestEmailTemplateTest extends KernelTestCase
   }
 
   #[Test]
+  public function testTemplateHoldsEachSectionItemsInACardAndKeepsTheTextOutsideIt(): void
+  {
+    $html = html_entity_decode($this->render('fr'), ENT_QUOTES);
+
+    self::assertSame(3, substr_count($html, 'class="item-card"'), 'One card per non-empty section.');
+    self::assertStringContainsString('Replace extinguisher', $this->firstCard($html));
+    self::assertStringNotContainsString('Voici ce qui demande votre attention', $this->firstCard($html), 'The intro stays outside the cards.');
+    self::assertStringNotContainsString('autres', $this->firstCard($html), '"and N more" stays outside the cards.');
+    self::assertStringContainsString('chaque lundi en tant qu\'administrateur de ACME & Co', $html);
+  }
+
+  #[Test]
   public function testTemplateAnnouncesTheRemainderWhenCountsExceedTheDetailSample(): void
   {
     $html = $this->render('en');
 
     self::assertStringContainsString('and 6 more', $html);
+  }
+
+  /**
+   * Method brandingExpectations.
+   *
+   * @static
+   *
+   * @return array<string, array{string, string, string}> locale => [locale, severity label, footer fragment]
+   */
+  public static function brandingExpectations(): array
+  {
+    return [
+      'english' => ['en', 'Critical', 'fire-safety field operations platform'],
+      'french' => ['fr', 'Critique', "plateforme d'opérations terrain"],
+      'spanish' => ['es', 'Crítica', 'plataforma de operaciones de campo'],
+    ];
+  }
+
+  #[Test]
+  #[DataProvider('brandingExpectations')]
+  public function testTemplateLocalizesSeverityAndFooterAndReferencesTheBrandMark(string $locale, string $severity, string $footer): void
+  {
+    $html = html_entity_decode($this->render($locale), ENT_QUOTES);
+
+    self::assertStringContainsString($severity, $html);
+    self::assertStringContainsString($footer, $html);
+    self::assertStringContainsString('src="cid:fireguard-mark"', $html, 'The mailer embeds the mark under this Content-ID.');
+    self::assertStringNotContainsString('FireGuard', $html, 'The brand is always written "Fireguard".');
+  }
+
+  /**
+   * Method firstCard.
+   *
+   * Extracts the markup of the first item card.
+   *
+   * @since 1.0.0
+   *
+   * @param string $html the rendered email
+   *
+   * @return string the first `item-card` table
+   */
+  private function firstCard(string $html): string
+  {
+    $start = (int) strpos($html, 'class="item-card"');
+
+    return substr($html, $start, (int) strpos($html, '</table>', $start) - $start);
   }
 
   /**

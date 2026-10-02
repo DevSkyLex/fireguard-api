@@ -19,6 +19,7 @@ use Organization\Domain\ValueObject\{
   OrganizationName,
   OrganizationNotificationSettings,
   OrganizationRegionalSettings,
+  OrganizationRegisteredAddress,
   OrganizationRegistrationNumber,
   OrganizationSettings,
   OrganizationSlug,
@@ -28,6 +29,7 @@ use Organization\Domain\ValueObject\{
 };
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(Organization::class)]
 final class OrganizationTest extends TestCase
@@ -434,6 +436,41 @@ final class OrganizationTest extends TestCase
 
     $organization->changeVatNumber(null);
     self::assertNull($organization->vatNumber());
+  }
+
+  #[Test]
+  public function testRegisteredOfficeAndPrivacyContactAreOptionalAndReplaySafe(): void
+  {
+    $organization = $this->reconstitutedOrganization();
+    self::assertNull($organization->registeredAddress());
+    self::assertNull($organization->privacyContactEmail());
+    $address = OrganizationRegisteredAddress::fromArray(['city' => ' Paris ', 'countryCode' => ' fr ']);
+    $organization->changeRegisteredAddress($address);
+    $organization->changePrivacyContactEmail(' privacy@example.com ');
+    self::assertSame('Paris', $organization->registeredAddress()?->city);
+    self::assertSame('privacy@example.com', $organization->privacyContactEmail()?->__toString());
+    $updatedAt = $organization->updatedAt();
+    $organization->changeRegisteredAddress(OrganizationRegisteredAddress::fromArray(['city' => 'Paris', 'countryCode' => 'FR']));
+    $organization->changePrivacyContactEmail('privacy@example.com');
+    self::assertSame($updatedAt, $organization->updatedAt());
+    $organization->changeRegisteredAddress(OrganizationRegisteredAddress::fromArray([]));
+    $organization->changePrivacyContactEmail(' ');
+    self::assertNull($organization->registeredAddress());
+    self::assertNull($organization->privacyContactEmail());
+  }
+
+  #[Test]
+  public function testInvalidPrivacyContactDoesNotReplaceTheExistingValue(): void
+  {
+    $organization = $this->reconstitutedOrganization();
+    $organization->changePrivacyContactEmail('privacy@example.com');
+    $this->expectException(InvalidValueException::class);
+
+    try {
+      $organization->changePrivacyContactEmail('invalid');
+    } finally {
+      self::assertSame('privacy@example.com', $organization->privacyContactEmail()?->__toString());
+    }
   }
 
   /**

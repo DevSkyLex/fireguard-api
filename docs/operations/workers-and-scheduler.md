@@ -136,6 +136,23 @@ Notes:
 
 ## Data Cleanup
 
+Ansible requires `crontab` and a running `cron`/`crond` service before changing services.
+It installs three independent daily jobs through the deployment user's private
+`fireguard-maintenance.sh` helper before application shutdown: GeoIP update and freshness
+check at 03:17, revoked-session location cleanup at 03:37, and auth retention at 03:47
+(host timezone). Auth retention runs in `app` with the `php` entrypoint, `memory_limit=1G`
+and `--env=prod`; a failed GeoIP purge does not prevent it.
+
+The one-shot `geoip_maintenance` service mounts the database volume writable; the serving
+app mounts it read-only. Updates/checks use `--if-enabled` and skip when collection is disabled.
+Preserve the host helper and cron entries during a historical rollback: GeoIP jobs skip a
+valid Compose configuration without their service, while auth retention still runs through
+`app`. Invalid Compose configuration and maintenance failures log fixed messages under
+`fireguard-maintenance` and return nonzero. Do not install the illustrative cron below a
+second time on an Ansible-managed host. See
+[GeoIP operations and privacy](../guides/geoip-operations-and-privacy.md).
+
+
 **Purpose**: Remove expired tokens, sessions, OTPs, and revoked data.
 
 **Command**:

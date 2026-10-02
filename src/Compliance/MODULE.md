@@ -133,15 +133,25 @@ timezone + `dateFormat` pattern) → `SafetyRegisterPdfRendererPort::render()`
 
 The template extends the common `templates/pdf/layout.html.twig` socle:
 fixed header (logo when stored + organization name), fixed footer with the
-legal identity block (legal name, registration number, VAT — only the filled
-fields), the formatted generation date, and `X / Y` page numbering stamped by the
+legal identity block (legal name, registration number, VAT and explicitly labelled
+registered office — only the filled fields; the registered office is distinct from
+the facility address), the formatted generation date, and `X / Y` page numbering stamped by the
 renderer adapter through dompdf's canvas `page_text()`
 (`{PAGE_NUM}`/`{PAGE_COUNT}` substitution — adapter-side API, no
 `isPhpEnabled`; CSS `counter(pages)` renders 0 in dompdf 3.x). All strings go through the Symfony translator, domain
 `pdf` (`translations/pdf.{en,fr,es}.yaml`); the language is the org regional
 `locale`'s language subtag (`fr-FR` → `fr`), falling back to `en` for the
-locales without a catalogue. The layout carries no normative claim
-(no standard or certification reference) by product decision.
+locales without a catalogue. The register explicitly identifies its status as tracking under the rules configured
+by the organization, not a regulatory certification. Calculations and status codes
+remain unchanged.
+
+The socle follows the web app's visual language (`fireguard-web/DESIGN.md`): neutral zinc ramp,
+hairline-separated tables with repeating headers, KPI tiles, and status pills that always carry
+a translated label. Tones are ported from the web tag registries (`intervention-tag.util.ts`,
+`equipment-status-tag.util.ts`): only end and alert states are tinted, in-between states stay plain
+text. The markup lives in `templates/pdf/components.html.twig`; enum labels come from the `status.*`
+block of the `pdf` catalogs (an unknown code falls back to a humanised label), and the raw code stays
+on the element as a `status-<code>` class. A small Fireguard mark closes the footer.
 
 ## Architecture
 
@@ -489,3 +499,9 @@ read cache) from `dataEvaluatedAt`, the oldest confirmed maintenance evaluation 
 legacy schedules with no evaluation date. It differs from `unscheduledEquipmentCount` (evaluated
 without a periodicity). Dates and coverage are supplied by Maintenance; Compliance does not
 recompute due statuses. Existing immutable archived PDF files are not regenerated.
+
+The registered office is resolved through Organization’s published Application
+branding contract when generating a live register or creating an archive. Snapshot
+downloads return the original stored PDF bytes without resolving current branding:
+old archives remain unchanged, and new archives retain their creation-time address
+even after the organization profile is updated. No address is backfilled.

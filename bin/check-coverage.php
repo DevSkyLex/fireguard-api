@@ -12,7 +12,7 @@ declare(strict_types=1);
  * @category Quality
  * @version 1.0.0
  *
- * @author FireGuard
+ * @author Fireguard
  */
 try {
   if (3 !== $argc || !is_numeric($argv[2])) {

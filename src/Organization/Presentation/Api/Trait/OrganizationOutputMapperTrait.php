@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Trait;
 
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use Organization\Domain\ValueObject\OrganizationSettings;
-use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMembershipRoleOutput, OrganizationOutput, OrganizationSettingsOutput};
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMembershipRoleOutput, OrganizationOutput, OrganizationRegisteredAddressOutput, OrganizationSettingsOutput};
 
 /**
  * Trait OrganizationOutputMapperTrait.
@@ -60,6 +60,8 @@ trait OrganizationOutputMapperTrait
     $output->legalName = $result->legalName;
     $output->registrationNumber = $result->registrationNumber;
     $output->vatNumber = $result->vatNumber;
+    $output->registeredAddress = OrganizationRegisteredAddressOutput::fromArray($result->registeredAddress);
+    $output->privacyContactEmail = $result->privacyContactEmail;
     $output->isOwner = $result->isOwner;
 
     if (null !== $result->roles) {

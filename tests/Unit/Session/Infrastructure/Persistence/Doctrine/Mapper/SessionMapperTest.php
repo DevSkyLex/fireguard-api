@@ -79,6 +79,10 @@ final class SessionMapperTest extends TestCase
     self::assertSame($revokedAt, $session->revokedAt());
     $session->revoke();
     self::assertSame($revokedAt, $session->revokedAt());
+    self::assertNull($session->metadata()->country);
+    self::assertNull($session->metadata()->city);
+    $record->metadata['country'] = null;
+    $record->metadata['city'] = null;
     self::assertEquals($record, SessionMapper::toRecord($session));
   }
 

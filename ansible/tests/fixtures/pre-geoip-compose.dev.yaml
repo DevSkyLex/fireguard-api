@@ -1,0 +1,70 @@
+services:
+  fixture_loader:
+    image: ${FIREGUARD_FIXTURES_IMAGE:?Set FIREGUARD_FIXTURES_IMAGE}
+    profiles: ['tools']
+    env_file:
+      - .env
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: '0'
+      APP_RUNTIME: Symfony\Component\Runtime\SymfonyRuntime
+      REDIS_URL: redis://redis:6379
+      MERCURE_URL: http://mercure/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
+      DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
+    networks:
+      - default
+    volumes:
+      - app_var:/var/www/html/var
+      - jwt_keys:/var/www/html/config/jwt:ro
+    depends_on:
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+    labels:
+      - 'traefik.enable=false'
+    security_opt:
+      - no-new-privileges:true
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    networks:
+      - default
+      - traefik_proxy
+    volumes:
+      - mailpit_data:/data
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: '1'
+      MP_SMTP_AUTH_ALLOW_INSECURE: '1'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=traefik_proxy'
+
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.rule=Host(`${MAILPIT_HOST:?Set MAILPIT_HOST}`)'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.entrypoints=websecure'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.tls=true'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.middlewares=${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-auth,${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-noindex,${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-security'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.service=${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}'
+
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-auth.basicauth.users=${BASIC_AUTH_USERS:?Set BASIC_AUTH_USERS}'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-auth.basicauth.removeheader=true'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-noindex.headers.customresponseheaders.X-Robots-Tag=noindex,nofollow,noarchive'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-noindex.headers.customresponseheaders.Cache-Control=private,no-store'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-security.headers.contenttypenosniff=true'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-security.headers.referrerpolicy=no-referrer'
+
+      - 'traefik.http.services.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.loadbalancer.server.port=8025'
+
+volumes:
+  mailpit_data:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_mailpit_data

@@ -14,6 +14,10 @@ use Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository;
 use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function json_decode;
+
+use const JSON_THROW_ON_ERROR;
+
 #[SkipDatabaseRollback]
 final class SessionRotationConcurrencyTest extends KernelTestCase
 {
@@ -77,6 +81,27 @@ final class SessionRotationConcurrencyTest extends KernelTestCase
     self::assertFalse($this->second->rotateTokens('refresh-before', 'access-before', 'access-loser', 'refresh-loser'));
     self::assertNotNull($this->second->findByAccessTokenId('access-winner'));
     self::assertNull($this->second->findByAccessTokenId('access-loser'));
+  }
+
+  public function testStaleIndividualRevocationKeepsRotatedPairAndErasesGeography(): void
+  {
+    $this->a->executeStatement("UPDATE sessions SET metadata = '{\"country\":\"FR\",\"city\":\"Paris\",\"browser\":\"Test\"}' WHERE id = ?", [self::ID]);
+    $stale = $this->second->findById(new SessionId(self::ID));
+    self::assertNotNull($stale);
+    self::assertTrue($this->first->rotateTokens('refresh-before', 'access-before', 'access-winner', 'refresh-winner'));
+    $stale->revoke();
+    $this->second->save($stale);
+    $row = $this->a->fetchAssociative('SELECT * FROM sessions WHERE id = ?', [self::ID]);
+    self::assertIsArray($row);
+    self::assertSame('access-winner', $row['access_token_id']);
+    self::assertNotNull($row['revoked_at']);
+    self::assertIsString($row['metadata']);
+    $metadata = json_decode($row['metadata'], true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($metadata);
+    self::assertArrayNotHasKey('country', $metadata);
+    self::assertArrayNotHasKey('city', $metadata);
+    self::assertSame('Test', $metadata['browser']);
+    self::assertFalse($this->first->rotateTokens('refresh-winner', 'access-winner', 'access-after-revoke', 'refresh-after-revoke'));
   }
 
   public function testRevocationWinsAgainstAConcurrentRefresh(): void

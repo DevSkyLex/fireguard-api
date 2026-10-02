@@ -175,11 +175,11 @@ Headers sent with every delivery:
 | Header                          | Value                                                                                 |
 | ------------------------------- | ------------------------------------------------------------------------------------- |
 | `Content-Type`                  | `application/json`                                                                    |
-| `User-Agent`                    | `FireGuard-Webhooks/1.0`                                                              |
-| `X-FireGuard-Webhook-Id`        | the delivery UUID — the consumer-side idempotency key (retries/redeliveries reuse it) |
-| `X-FireGuard-Webhook-Event`     | the public event type (e.g. `intervention.published`)                                 |
-| `X-FireGuard-Webhook-Timestamp` | the signed unix timestamp                                                             |
-| `X-FireGuard-Webhook-Signature` | `sha256=<hex hmac>`                                                                   |
+| `User-Agent`                    | `Fireguard-Webhooks/1.0`                                                              |
+| `X-Fireguard-Webhook-Id`        | the delivery UUID — the consumer-side idempotency key (retries/redeliveries reuse it) |
+| `X-Fireguard-Webhook-Event`     | the public event type (e.g. `intervention.published`)                                 |
+| `X-Fireguard-Webhook-Timestamp` | the signed unix timestamp                                                             |
+| `X-Fireguard-Webhook-Signature` | `sha256=<hex hmac>`                                                                   |
 
 A consumer should reject a delivery if `|now - timestamp| > 300s` (replay
 window) and recompute the HMAC over the exact raw request body before
@@ -262,7 +262,7 @@ no new Personal Access Token table was added in this lot. Justification:
   tasks, driven by the existing user session + org RBAC
   (`organization.webhooks.{read,manage}`); they need no machine token.
 - A webhook **consumer** only needs the HMAC secret to verify inbound
-  deliveries — it is never called back by FireGuard for anything else, so
+  deliveries — it is never called back by Fireguard for anything else, so
   it needs no API token at all.
 - OAuth2 client-credentials tokens are global SSO clients scoped to the
   **auth** database and carry OAuth scopes, not organization RBAC —

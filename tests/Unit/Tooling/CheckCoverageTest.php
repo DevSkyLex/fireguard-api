@@ -28,7 +28,7 @@ use const PHP_BINARY;
  * @category Tooling Tests
  * @version 1.0.0
  *
- * @author FireGuard
+ * @author Fireguard
  */
 #[CoversNothing]
 final class CheckCoverageTest extends TestCase

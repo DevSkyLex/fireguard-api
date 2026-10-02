@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Otp\Application\Port\Outbound\Challenge;
 
 use Otp\Domain\Model\Otp;
+use Shared\Application\Contract\Notification\EmailRequestDetails;
 
 /**
  * Port OtpNotifierPort.
@@ -25,7 +26,8 @@ interface OtpNotifierPort
    * Sends an OTP notification to the recipient.
    *
    * @param Otp $otp the OTP to send
+   * @param ?EmailRequestDetails $details transient email request details
    */
-  public function send(Otp $otp): void;
+  public function send(Otp $otp, ?EmailRequestDetails $details = null): void;
   // #endregion
 }

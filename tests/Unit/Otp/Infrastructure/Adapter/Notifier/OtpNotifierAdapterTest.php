@@ -5,11 +5,18 @@ declare(strict_types=1);
 namespace Tests\Unit\Otp\Infrastructure\Adapter\Notifier;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpGenerationOptions, OtpId, OtpPurpose};
 use Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter;
+use Otp\Infrastructure\Notification\RequestOriginResolver;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Contract\GeoIp\IpLocation;
+use Shared\Application\Contract\Notification\EmailRequestDetails;
+use Shared\Application\Port\Outbound\RequestOriginPort;
+use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\{Email, RawMessage};
 use Symfony\Component\Notifier\NotifierInterface;
@@ -29,6 +36,51 @@ use function is_string;
 final class OtpNotifierAdapterTest extends TestCase
 {
   // #region Methods
+  #[Test]
+  public function testExplicitEmptyContextDeliversWithoutResolvingOriginAgain(): void
+  {
+    $origin = $this->createMock(RequestOriginPort::class);
+    $origin->expects(self::never())->method('current')->willThrowException(new RuntimeException('origin unavailable'));
+    $mailer = new FakeMailer();
+    $adapter = new OtpNotifierAdapter(
+      notifier: $this->createStub(NotifierInterface::class),
+      mailer: $mailer,
+      twig: new Environment(new ArrayLoader([
+        'otp/email/code.html.twig' => '{{ origin is null ? "no-origin" : "origin" }}|{{ code }}',
+      ])),
+      originResolver: $origin,
+    );
+    $otp = $this->createOtp(OtpChannel::EMAIL, 'user@example.com');
+
+    $adapter->send($otp, EmailRequestDetails::fromOrigin(null, null));
+
+    self::assertSame(['no-origin|' . $otp->code()->plain()], $mailer->htmlBodies);
+    self::assertSame(['Your login verification code'], $mailer->subjects);
+  }
+
+  #[Test]
+  public function testLocationBearingDeliveryFailureCannotExposeProviderExceptionContent(): void
+  {
+    $mailer = $this->createMock(MailerInterface::class);
+    $mailer->expects(self::once())->method('send')->willThrowException(new RuntimeException('Paris FR 8.8.8.8'));
+    $adapter = new OtpNotifierAdapter(
+      $this->createStub(NotifierInterface::class),
+      $mailer,
+      $this->createTwigEnvironment(),
+    );
+
+    try {
+      $adapter->send(
+        $this->createOtp(OtpChannel::EMAIL, 'user@example.com'),
+        new EmailRequestDetails(location: new IpLocation('FR', 'Paris')),
+      );
+      self::fail('The delivery failure must remain visible to the caller.');
+    } catch (RuntimeException $exception) {
+      self::assertSame('OTP email delivery failed: RuntimeException', $exception->getMessage());
+      self::assertNull($exception->getPrevious());
+    }
+  }
+
   #[Test]
   public function testSendEmailUsesMailer(): void
   {
@@ -126,12 +178,13 @@ final class OtpNotifierAdapterTest extends TestCase
     );
 
     $cases = [
-      [OtpPurpose::LOGIN, '[FireGuard] Your login verification code'],
-      [OtpPurpose::PASSWORD_RESET, '[FireGuard] Your password reset code'],
-      [OtpPurpose::EMAIL_VERIFICATION, '[FireGuard] Verify your email address'],
-      [OtpPurpose::PHONE_VERIFICATION, '[FireGuard] Verify your phone number'],
-      [OtpPurpose::SENSITIVE_OPERATION, '[FireGuard] Confirm your action'],
-      [OtpPurpose::TRANSACTION_APPROVAL, '[FireGuard] Approve your transaction'],
+      [OtpPurpose::LOGIN, 'Your login verification code'],
+      [OtpPurpose::PASSWORD_RESET, 'Your password reset code'],
+      [OtpPurpose::EMAIL_VERIFICATION, 'Verify your email address'],
+      [OtpPurpose::EMAIL_OWNERSHIP, 'Verify your email address'],
+      [OtpPurpose::PHONE_VERIFICATION, 'Verify your phone number'],
+      [OtpPurpose::SENSITIVE_OPERATION, 'Confirm your action'],
+      [OtpPurpose::TRANSACTION_APPROVAL, 'Approve your transaction'],
     ];
 
     $expectedSubjects = [];
@@ -164,8 +217,51 @@ final class OtpNotifierAdapterTest extends TestCase
     $adapter->send($otp);
 
     self::assertCount(1, $mailer->htmlBodies);
-    self::assertStringContainsString('Use the code below to reset your password.', $mailer->htmlBodies[0]);
+    self::assertStringContainsString('Return to the Fireguard password reset screen and enter the code below', $mailer->htmlBodies[0]);
     self::assertStringContainsString('expires in', $mailer->htmlBodies[0]);
+  }
+
+  #[Test]
+  public function testSendEmailPassesTheRequestTimeAndOriginToTheTemplate(): void
+  {
+    $request = Request::create('/api/auth/login', 'POST');
+    $request->headers->set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
+    $stack = new RequestStack();
+    $stack->push($request);
+    $mailer = new FakeMailer();
+
+    $adapter = new OtpNotifierAdapter(
+      notifier: $this->createStub(NotifierInterface::class),
+      mailer: $mailer,
+      twig: new Environment(new ArrayLoader([
+        'otp/email/code.html.twig' => '{{ origin.browser }}|{{ origin.operatingSystem }}|{{ requestedAt|date("Y-m-d H:i", "UTC") }}',
+      ])),
+      senderEmail: 'noreply@example.com',
+      originResolver: new RequestOriginResolver($stack),
+    );
+    $otp = $this->createOtp(OtpChannel::EMAIL, 'user@example.com');
+
+    $adapter->send($otp);
+
+    self::assertSame(['Chrome|Windows|' . $otp->createdAt()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i')], $mailer->htmlBodies);
+  }
+
+  #[Test]
+  public function testSendEmailHasNoOriginOutsideAnHttpRequest(): void
+  {
+    $mailer = new FakeMailer();
+
+    $adapter = new OtpNotifierAdapter(
+      notifier: $this->createStub(NotifierInterface::class),
+      mailer: $mailer,
+      twig: new Environment(new ArrayLoader([
+        'otp/email/code.html.twig' => '{{ origin is null ? "no-origin" : "origin" }}',
+      ])),
+    );
+
+    $adapter->send($this->createOtp(OtpChannel::EMAIL, 'user@example.com'));
+
+    self::assertSame(['no-origin'], $mailer->htmlBodies);
   }
 
   #[Test]

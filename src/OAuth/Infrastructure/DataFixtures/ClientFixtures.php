@@ -122,7 +122,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
     // Web Application Client (Authorization Code + PKCE)
     $webClient = $this->createClient(
       id: 'd4e5f6a7-b8c9-4123-8ef0-456789012345',
-      name: 'FireGuard Web App',
+      name: 'Fireguard Web App',
       secret: 'web_secret_123',
       redirectUris: [
         'https://app.fireguard.local/callback',
@@ -147,7 +147,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
     // Mobile Application Client
     $mobileClient = $this->createClient(
       id: 'e5f6a7b8-c9d0-4234-8f01-567890123456',
-      name: 'FireGuard Mobile App',
+      name: 'Fireguard Mobile App',
       secret: 'mobile_secret_456',
       redirectUris: [
         'https://mobile.fireguard.local/callback',
@@ -170,7 +170,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
     // API/Machine-to-Machine Client (Client Credentials)
     $apiClient = $this->createClient(
       id: 'f6a7b8c9-d0e1-4345-8012-678901234567',
-      name: 'FireGuard API Service',
+      name: 'Fireguard API Service',
       secret: 'api_secret_789',
       redirectUris: [],
       grantTypes: [

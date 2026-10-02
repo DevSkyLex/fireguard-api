@@ -12,6 +12,23 @@
    between rows), side margins (210 - 3*63.5 - 2*2.5) / 2 = 7.25 mm,
    top/bottom margins (297 - 8*33.9) / 2 = 12.9 mm.
 
+   dompdf pitfalls this geometry depends on — each one silently breaks the grid
+   (locked by DompdfEquipmentLabelSheetRendererTest, which measures the rendered
+   positions):
+   - NEVER a universal `* { margin: 0 }` reset: dompdf stores the @page margins
+     on the root frame's style, so the universal rule overwrites them and the
+     sheet starts at 0,0. Reset `body` only.
+   - NEVER `table-layout: fixed`: dompdf 3.1 records every cell width as 0 in
+     fixed layout and splits the table into equal columns, ignoring the
+     63.5 / 2.5 mm widths.
+   - Widths are CONTENT-box: a cell's padding is added on top of its `width`
+     (QR cell: 24 + 3 + 0.9 = 27.9 mm).
+   - `padding: 0` sits on the outer cell classes, not on `table.sheet td`, whose
+     descendant selector would also override the inner label cells' padding.
+   - A bounded, absolute text descendant keeps long values out of table sizing
+     and page-break checks. The non-absolute content owns max-height and clipping;
+     dompdf does not apply max-height to an absolutely positioned block.
+
    Expects in context:
    - lang: two-letter translation language (catalog domain "pdf")
    - labels: list of { qrDataUri, type, subType?, serialNumber?, facilityName?, locationLabel? }
@@ -23,23 +40,25 @@
   <title>{{ 'equipmentLabels.title'|trans({}, 'pdf', lang) }}</title>
   <style>
     @page { margin: 12.9mm 7.25mm; }
-    * { margin: 0; padding: 0; }
-    body { font-family: DejaVu Sans, sans-serif; color: #1f2933; }
+    body { margin: 0; font-family: DejaVu Sans, sans-serif; color: #09090b; }
 
-    table.sheet { border-collapse: collapse; table-layout: fixed; width: 195.5mm; }
-    table.sheet td { border: none; padding: 0; vertical-align: top; }
-    td.label { width: 63.5mm; height: 33.9mm; overflow: hidden; }
-    td.gutter { width: 2.5mm; }
+    table.sheet { border-collapse: collapse; width: 195.5mm; }
+    table.sheet td { border: none; vertical-align: top; }
+    td.label { width: 63.5mm; height: 33.9mm; padding: 0; overflow: hidden; }
+    td.gutter { width: 2.5mm; padding: 0; }
     .page-break { page-break-after: always; }
 
-    table.label-inner { border-collapse: collapse; table-layout: fixed; width: 63.5mm; }
+    table.label-inner { border-collapse: collapse; width: 63.5mm; }
     table.label-inner td { border: none; vertical-align: middle; }
-    td.qr-cell { width: 27.9mm; padding: 3mm 0.9mm 3mm 3mm; }
+    td.qr-cell { width: 24mm; padding: 3mm 0.9mm 3mm 3mm; }
     td.qr-cell img { width: 24mm; height: 24mm; }
-    td.text-cell { padding: 3mm 2mm 3mm 1mm; }
+    td.text-cell { width: 32.6mm; padding: 3mm 2mm 3mm 1mm; }
+    .text-slot { position: relative; width: 32.6mm; height: 24mm; }
+    .text-position { position: absolute; left: 0; top: 50%; width: 32.6mm; transform: translateY(-50%); }
+    .text-content { width: 32.6mm; max-height: 27.9mm; overflow: hidden; overflow-wrap: anywhere; }
     .label-name { font-size: 7.5pt; font-weight: bold; line-height: 1.25; }
-    .label-line { font-size: 6.5pt; color: #3e4c59; line-height: 1.3; }
-    .label-site { font-size: 6pt; color: #52606d; line-height: 1.3; }
+    .label-line { font-size: 6.5pt; color: #3f3f46; line-height: 1.3; }
+    .label-site { font-size: 6pt; color: #52525b; line-height: 1.3; }
   </style>
 </head>
 <body>
@@ -54,6 +73,7 @@
                 <tr>
                   <td class="qr-cell"><img src="{{ label.qrDataUri }}" alt=""></td>
                   <td class="text-cell">
+                    <div class="text-slot"><div class="text-position"><div class="text-content">
                     <div class="label-name">{{ label.type }}{% if label.subType is not empty %} — {{ label.subType }}{% endif %}</div>
                     {% if label.serialNumber is not empty %}
                       <div class="label-line">{{ 'equipmentLabels.serialNumber'|trans({ '%serial%': label.serialNumber }, 'pdf', lang) }}</div>
@@ -64,6 +84,7 @@
                     {% if label.locationLabel is not empty %}
                       <div class="label-site">{{ label.locationLabel }}</div>
                     {% endif %}
+                    </div></div></div>
                   </td>
                 </tr>
               </table>

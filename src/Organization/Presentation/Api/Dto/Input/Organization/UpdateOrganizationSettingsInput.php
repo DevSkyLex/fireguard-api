@@ -186,5 +186,48 @@ final class UpdateOrganizationSettingsInput
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[ApiProperty(description: 'VAT number (empty string clears it)', required: false, example: 'FR12345678901')]
   public ?string $vatNumber = null;
+
+  /**
+   * Property registeredAddress
+   *
+   * Null or omission leaves the address unchanged; an object replaces it and an empty object clears it.
+   */
+  #[Assert\Valid]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(
+    description: 'Whole registered office replacement; null or omission leaves it unchanged, an empty object clears it. Arrays, scalars and unknown properties are rejected.',
+    required: false,
+    openapiContext: [
+      'additionalProperties' => false,
+      'properties' => [
+        'line1' => ['type' => ['string', 'null']],
+        'line2' => ['type' => ['string', 'null']],
+        'postalCode' => ['type' => ['string', 'null']],
+        'city' => ['type' => ['string', 'null']],
+        'region' => ['type' => ['string', 'null']],
+        'countryCode' => ['type' => ['string', 'null']],
+      ],
+    ],
+  )]
+  public ?UpdateOrganizationRegisteredAddressInput $registeredAddress = null;
+
+  /**
+   * Property privacyContactEmail
+   *
+   * Null or omission leaves the contact unchanged; an empty string clears it.
+   */
+  #[Assert\Length(max: 254, normalizer: 'trim')]
+  #[Assert\Email(normalizer: 'trim')]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(
+    description: 'Contact for the organization personal data processing: a valid email of at most 254 characters after trimming; null or omission leaves it unchanged, an empty string clears it',
+    required: false,
+    example: 'privacy@example.com',
+    schema: [
+      'type' => ['string', 'null'],
+      'description' => 'Contact for the organization personal data processing: a valid email of at most 254 characters after trimming; null or omission leaves it unchanged, an empty string clears it',
+    ],
+  )]
+  public ?string $privacyContactEmail = null;
   // #endregion
 }

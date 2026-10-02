@@ -25,6 +25,7 @@ use Organization\Domain\ValueObject\{
   OrganizationName,
   OrganizationNotificationSettings,
   OrganizationRegionalSettings,
+  OrganizationRegisteredAddress,
   OrganizationRegistrationNumber,
   OrganizationSlug,
   OrganizationStatus,
@@ -225,6 +226,16 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
     if (null !== $command->vatNumber) {
       $organization->changeVatNumber('' === $command->vatNumber ? null : new OrganizationVatNumber($command->vatNumber));
       $changed = true;
+    }
+    if (null !== $command->registeredAddress) {
+      $previousAddress = $organization->registeredAddress()?->toArray();
+      $organization->changeRegisteredAddress(OrganizationRegisteredAddress::fromArray($command->registeredAddress));
+      $changed = $changed || $previousAddress !== $organization->registeredAddress()?->toArray();
+    }
+    if (null !== $command->privacyContactEmail) {
+      $previousEmail = $organization->privacyContactEmail()?->__toString();
+      $organization->changePrivacyContactEmail($command->privacyContactEmail);
+      $changed = $changed || $previousEmail !== $organization->privacyContactEmail()?->__toString();
     }
 
     return $changed;

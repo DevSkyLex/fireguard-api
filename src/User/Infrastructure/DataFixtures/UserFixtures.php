@@ -102,7 +102,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
   /**
    * Constant STAFF_SEEDS.
    *
-   * The FireGuard demo workforce. One row per account the organization
+   * The Fireguard demo workforce. One row per account the organization
    * fixtures then turn into an organization member, so interventions,
    * inspections and work items have a realistic roster to be assigned to
    * instead of the same two accounts over and over.

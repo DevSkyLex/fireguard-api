@@ -169,11 +169,11 @@ final readonly class DeliverWebhookHandler implements CommandHandler
 
     $headers = [
       'Content-Type' => 'application/json',
-      'User-Agent' => 'FireGuard-Webhooks/1.0',
-      'X-FireGuard-Webhook-Id' => (string) $delivery->id(),
-      'X-FireGuard-Webhook-Event' => $delivery->eventType(),
-      'X-FireGuard-Webhook-Timestamp' => $timestamp,
-      'X-FireGuard-Webhook-Signature' => 'sha256=' . $signature,
+      'User-Agent' => 'Fireguard-Webhooks/1.0',
+      'X-Fireguard-Webhook-Id' => (string) $delivery->id(),
+      'X-Fireguard-Webhook-Event' => $delivery->eventType(),
+      'X-Fireguard-Webhook-Timestamp' => $timestamp,
+      'X-Fireguard-Webhook-Signature' => 'sha256=' . $signature,
     ];
 
     $response = $this->httpClient->post($subscription->url(), $headers, $body, $this->timeoutSeconds);

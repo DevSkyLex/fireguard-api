@@ -12,6 +12,7 @@ use Organization\Domain\ValueObject\{
   OrganizationId,
   OrganizationName,
   OrganizationRegionalSettings,
+  OrganizationRegisteredAddress,
   OrganizationRegistrationNumber,
   OrganizationSettings,
   OrganizationVatNumber,
@@ -58,6 +59,7 @@ final class OrganizationDocumentBrandingAdapterTest extends TestCase
     self::assertSame('SAS Acme Sécurité', $branding->legalName);
     self::assertSame('123 456 789', $branding->registrationNumber);
     self::assertSame('FR12345678901', $branding->vatNumber);
+    self::assertSame(['line1' => '12 rue du Siège', 'line2' => null, 'postalCode' => '75001', 'city' => 'Paris', 'region' => null, 'countryCode' => 'FR'], $branding->registeredAddress);
     self::assertSame('Europe/Paris', $branding->timezone);
     self::assertSame('fr-FR', $branding->locale);
     self::assertSame('dd/MM/yyyy', $branding->dateFormat);
@@ -96,6 +98,7 @@ final class OrganizationDocumentBrandingAdapterTest extends TestCase
     self::assertNull($branding->legalName);
     self::assertNull($branding->registrationNumber);
     self::assertNull($branding->vatNumber);
+    self::assertNull($branding->registeredAddress);
     self::assertSame('UTC', $branding->timezone);
     self::assertSame('en-US', $branding->locale);
     self::assertSame('yyyy-MM-dd', $branding->dateFormat);
@@ -140,6 +143,7 @@ final class OrganizationDocumentBrandingAdapterTest extends TestCase
         legalName: 'SAS Acme Sécurité',
         registrationNumber: new OrganizationRegistrationNumber('123 456 789'),
         vatNumber: new OrganizationVatNumber('FR12345678901'),
+        registeredAddress: OrganizationRegisteredAddress::fromArray(['line1' => '12 rue du Siège', 'postalCode' => '75001', 'city' => 'Paris', 'countryCode' => 'FR']),
       ),
     );
   }

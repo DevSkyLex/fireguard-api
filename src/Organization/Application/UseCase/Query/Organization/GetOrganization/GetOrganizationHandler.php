@@ -102,6 +102,8 @@ final readonly class GetOrganizationHandler implements QueryHandler
       legalName: $organization->legalName(),
       registrationNumber: null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null,
       vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
+      registeredAddress: $organization->registeredAddress()?->toArray(),
+      privacyContactEmail: $organization->privacyContactEmail()?->__toString(),
       isOwner: $isOwner,
       roles: $roles,
     );

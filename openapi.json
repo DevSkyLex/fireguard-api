@@ -1,7 +1,7 @@
 {
     "openapi": "3.2.0",
     "info": {
-        "title": "FireGuard API",
+        "title": "Fireguard API",
         "description": "Fire-safety compliance platform API \u2014 identity, organizations, facilities, equipment, inspections, interventions, maintenance and compliance",
         "version": "1.0.0"
     },
@@ -45673,6 +45673,7 @@
                                 }
                             },
                             "decisionBlockReason": {
+                                "description": "Property decisionBlockReason",
                                 "type": [
                                     "string",
                                     "null"
@@ -45796,6 +45797,7 @@
                     },
                     "attemptId": {
                         "readOnly": true,
+                        "description": "Property attemptId",
                         "type": [
                             "string",
                             "null"
@@ -45803,16 +45805,19 @@
                     },
                     "attemptNumber": {
                         "readOnly": true,
+                        "description": "Property attemptNumber",
                         "default": 0,
                         "type": "integer"
                     },
                     "attemptSequence": {
                         "readOnly": true,
+                        "description": "Property attemptSequence",
                         "default": 0,
                         "type": "integer"
                     },
                     "attemptExpiresAt": {
                         "readOnly": true,
+                        "description": "Property attemptExpiresAt",
                         "type": [
                             "string",
                             "null"
@@ -45820,11 +45825,13 @@
                     },
                     "canCancel": {
                         "readOnly": true,
+                        "description": "Property canCancel",
                         "default": false,
                         "type": "boolean"
                     },
                     "canRetry": {
                         "readOnly": true,
+                        "description": "Property canRetry",
                         "default": false,
                         "type": "boolean"
                     }
@@ -45965,6 +45972,7 @@
                             },
                             "attemptId": {
                                 "readOnly": true,
+                                "description": "Property attemptId",
                                 "type": [
                                     "string",
                                     "null"
@@ -45972,16 +45980,19 @@
                             },
                             "attemptNumber": {
                                 "readOnly": true,
+                                "description": "Property attemptNumber",
                                 "default": 0,
                                 "type": "integer"
                             },
                             "attemptSequence": {
                                 "readOnly": true,
+                                "description": "Property attemptSequence",
                                 "default": 0,
                                 "type": "integer"
                             },
                             "attemptExpiresAt": {
                                 "readOnly": true,
+                                "description": "Property attemptExpiresAt",
                                 "type": [
                                     "string",
                                     "null"
@@ -45989,11 +46000,13 @@
                             },
                             "canCancel": {
                                 "readOnly": true,
+                                "description": "Property canCancel",
                                 "default": false,
                                 "type": "boolean"
                             },
                             "canRetry": {
                                 "readOnly": true,
+                                "description": "Property canRetry",
                                 "default": false,
                                 "type": "boolean"
                             }
@@ -46196,6 +46209,7 @@
                 "properties": {
                     "attemptId": {
                         "format": "uuid",
+                        "description": "Property attemptId",
                         "externalDocs": {
                             "url": "https://schema.org/identifier"
                         },
@@ -46609,54 +46623,67 @@
                         "type": "object",
                         "properties": {
                             "id": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "runId": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "organizationId": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "ruleKey": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "subjectId": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "attemptNumber": {
+                                "description": "Method __construct",
                                 "type": "integer"
                             },
                             "status": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "createdAt": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "finishedAt": {
+                                "description": "Method __construct",
                                 "type": [
                                     "string",
                                     "null"
                                 ]
                             },
                             "requestedBy": {
+                                "description": "Method __construct",
                                 "type": [
                                     "string",
                                     "null"
                                 ]
                             },
                             "interventionId": {
+                                "description": "Method __construct",
                                 "type": [
                                     "string",
                                     "null"
                                 ]
                             },
                             "errorCode": {
+                                "description": "Method __construct",
                                 "type": [
                                     "string",
                                     "null"
                                 ]
                             },
                             "canRetry": {
+                                "description": "Method __construct",
                                 "type": "boolean"
                             }
                         }
@@ -46673,15 +46700,19 @@
                         "type": "object",
                         "properties": {
                             "id": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "ruleKey": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "enabled": {
+                                "description": "Method __construct",
                                 "type": "boolean"
                             },
                             "canManage": {
+                                "description": "Method __construct",
                                 "type": "boolean"
                             }
                         }
@@ -46698,6 +46729,7 @@
                 "properties": {
                     "attemptId": {
                         "format": "uuid",
+                        "description": "Property attemptId",
                         "externalDocs": {
                             "url": "https://schema.org/identifier"
                         },
@@ -46983,6 +47015,7 @@
                             },
                             "complete": {
                                 "readOnly": true,
+                                "description": "Property complete",
                                 "default": true,
                                 "type": "boolean"
                             }
@@ -47074,14 +47107,17 @@
                 "type": "object",
                 "properties": {
                     "sourceKey": {
+                        "description": "Property sourceKey",
                         "default": "",
                         "type": "string"
                     },
                     "available": {
+                        "description": "Property available",
                         "default": true,
                         "type": "boolean"
                     },
                     "truncated": {
+                        "description": "Property truncated",
                         "default": false,
                         "type": "boolean"
                     }
@@ -47646,21 +47682,25 @@
                         "properties": {
                             "id": {
                                 "readOnly": true,
+                                "description": "Property id",
                                 "default": "",
                                 "type": "string"
                             },
                             "organizationId": {
                                 "readOnly": true,
+                                "description": "Property organizationId",
                                 "default": "",
                                 "type": "string"
                             },
                             "name": {
                                 "readOnly": true,
+                                "description": "Property name",
                                 "default": "",
                                 "type": "string"
                             },
                             "referenceCode": {
                                 "readOnly": true,
+                                "description": "Property referenceCode",
                                 "type": [
                                     "string",
                                     "null"
@@ -47668,23 +47708,25 @@
                             },
                             "version": {
                                 "readOnly": true,
+                                "description": "Property version",
                                 "default": "",
                                 "type": "string"
                             },
                             "status": {
                                 "readOnly": true,
+                                "description": "Property status",
                                 "default": "",
                                 "type": "string"
                             },
                             "itemCount": {
                                 "readOnly": true,
-                                "description": "Number of items on the checklist. Always populated, on every operation\n(including the list collection, where the full `items` array below is\nintentionally omitted \u2014 see `items` docblock).",
+                                "description": "Property itemCount",
                                 "default": 0,
                                 "type": "integer"
                             },
                             "items": {
                                 "readOnly": true,
-                                "description": "Full item list. Populated on create/get/patch/archive responses. The\nlist (`GetCollection`) response leaves this empty and relies on\n`itemCount` instead, to avoid shipping every row's full item payload\njust so clients can count them.",
+                                "description": "Property items",
                                 "type": "array",
                                 "items": {
                                     "$ref": "#/components/schemas/ChecklistItemOutput.jsonld-inspection.read"
@@ -47692,29 +47734,35 @@
                             },
                             "createdAt": {
                                 "readOnly": true,
+                                "description": "Property createdAt",
                                 "default": "",
                                 "type": "string"
                             },
                             "updatedAt": {
                                 "readOnly": true,
+                                "description": "Property updatedAt",
                                 "default": "",
                                 "type": "string"
                             },
                             "previousChecklistId": {
+                                "description": "Property previousChecklistId",
                                 "type": [
                                     "string",
                                     "null"
                                 ]
                             },
                             "canEditMetadata": {
+                                "description": "Property canEditMetadata",
                                 "default": false,
                                 "type": "boolean"
                             },
                             "canEditItems": {
+                                "description": "Property canEditItems",
                                 "default": false,
                                 "type": "boolean"
                             },
                             "canCreateRevision": {
+                                "description": "Property canCreateRevision",
                                 "default": false,
                                 "type": "boolean"
                             }
@@ -47846,26 +47894,31 @@
                 "properties": {
                     "id": {
                         "readOnly": true,
+                        "description": "Property id.",
                         "default": "",
                         "type": "string"
                     },
                     "label": {
                         "readOnly": true,
+                        "description": "Property label.",
                         "default": "",
                         "type": "string"
                     },
                     "position": {
                         "readOnly": true,
+                        "description": "Property position.",
                         "default": 0,
                         "type": "integer"
                     },
                     "required": {
                         "readOnly": true,
+                        "description": "Property required.",
                         "default": true,
                         "type": "boolean"
                     },
                     "description": {
                         "readOnly": true,
+                        "description": "Property description.",
                         "type": [
                             "string",
                             "null"
@@ -48388,6 +48441,7 @@
                 ],
                 "properties": {
                     "messageId": {
+                        "description": "Property messageId",
                         "default": "",
                         "type": "string"
                     }
@@ -48572,6 +48626,7 @@
                         "type": "object",
                         "properties": {
                             "accepted": {
+                                "description": "Property accepted",
                                 "default": true,
                                 "type": "boolean"
                             }
@@ -48649,6 +48704,7 @@
                 "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention).",
                 "properties": {
                     "active": {
+                        "description": "Property active",
                         "default": false,
                         "type": "boolean"
                     }
@@ -48658,28 +48714,33 @@
                 "type": "object",
                 "properties": {
                     "memberId": {
+                        "description": "Property memberId",
                         "default": "",
                         "type": "string"
                     },
                     "deliveredMessageId": {
+                        "description": "Property deliveredMessageId",
                         "type": [
                             "string",
                             "null"
                         ]
                     },
                     "deliveredThroughAt": {
+                        "description": "Property deliveredThroughAt",
                         "type": [
                             "string",
                             "null"
                         ]
                     },
                     "readMessageId": {
+                        "description": "Property readMessageId",
                         "type": [
                             "string",
                             "null"
                         ]
                     },
                     "readThroughAt": {
+                        "description": "Property readThroughAt",
                         "type": [
                             "string",
                             "null"
@@ -50827,21 +50888,25 @@
                         "properties": {
                             "id": {
                                 "readOnly": true,
+                                "description": "Property id",
                                 "default": "",
                                 "type": "string"
                             },
                             "key": {
                                 "readOnly": true,
+                                "description": "Property key",
                                 "default": "",
                                 "type": "string"
                             },
                             "label": {
                                 "readOnly": true,
+                                "description": "Property label",
                                 "default": "",
                                 "type": "string"
                             },
                             "fieldType": {
                                 "readOnly": true,
+                                "description": "Property fieldType",
                                 "default": "",
                                 "type": "string"
                             },
@@ -50854,6 +50919,7 @@
                             },
                             "facilityType": {
                                 "readOnly": true,
+                                "description": "Property facilityType",
                                 "type": [
                                     "string",
                                     "null"
@@ -50861,11 +50927,13 @@
                             },
                             "required": {
                                 "readOnly": true,
+                                "description": "Property required",
                                 "default": false,
                                 "type": "boolean"
                             },
                             "unit": {
                                 "readOnly": true,
+                                "description": "Property unit",
                                 "type": [
                                     "string",
                                     "null"
@@ -51005,6 +51073,7 @@
                 "properties": {
                     "code": {
                         "maxLength": 4096,
+                        "description": "Property code",
                         "type": [
                             "string",
                             "null"
@@ -51012,6 +51081,7 @@
                     },
                     "error": {
                         "maxLength": 128,
+                        "description": "Property error",
                         "type": [
                             "string",
                             "null"
@@ -51019,6 +51089,7 @@
                     },
                     "state": {
                         "maxLength": 256,
+                        "description": "Property state",
                         "type": [
                             "string",
                             "null"
@@ -51038,9 +51109,11 @@
                         "type": "object",
                         "properties": {
                             "password_configured": {
+                                "description": "Property passwordConfigured.",
                                 "type": "boolean"
                             },
                             "last_sign_in_method": {
+                                "description": "Property lastSignInMethod.",
                                 "type": [
                                     "string",
                                     "null"
@@ -51066,9 +51139,11 @@
                         "type": "object",
                         "properties": {
                             "provider": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "enabled": {
+                                "description": "Method __construct",
                                 "type": "boolean"
                             }
                         }
@@ -51082,6 +51157,7 @@
                 "properties": {
                     "return_url": {
                         "maxLength": 500,
+                        "description": "Property returnUrl",
                         "default": "/",
                         "type": "string"
                     }
@@ -51096,6 +51172,7 @@
                         "type": "object",
                         "properties": {
                             "authorization_url": {
+                                "description": "Method __construct",
                                 "type": "string"
                             }
                         }
@@ -51211,15 +51288,19 @@
                 "type": "object",
                 "properties": {
                     "provider": {
+                        "description": "Property provider",
                         "type": "string"
                     },
                     "email": {
+                        "description": "Property email",
                         "type": "string"
                     },
                     "connected_at": {
+                        "description": "Property connectedAt",
                         "type": "string"
                     },
                     "last_used_at": {
+                        "description": "Property lastUsedAt",
                         "type": "string"
                     }
                 }
@@ -51534,10 +51615,12 @@
                                 "type": "string"
                             },
                             "canConfirm": {
+                                "description": "Property canConfirm",
                                 "default": false,
                                 "type": "boolean"
                             },
                             "confirmedJobId": {
+                                "description": "Property confirmedJobId",
                                 "type": [
                                     "string",
                                     "null"
@@ -51584,15 +51667,19 @@
                         "type": "object",
                         "properties": {
                             "id": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "filename": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "content": {
+                                "description": "Method __construct",
                                 "type": "string"
                             },
                             "mediaType": {
+                                "description": "Method __construct",
                                 "type": "string"
                             }
                         }
@@ -52290,11 +52377,13 @@
                 "properties": {
                     "type": {
                         "readOnly": true,
+                        "description": "Property type",
                         "default": "",
                         "type": "string"
                     },
                     "id": {
                         "readOnly": true,
+                        "description": "Property id",
                         "type": [
                             "string",
                             "null"
@@ -52302,6 +52391,7 @@
                     },
                     "firstName": {
                         "readOnly": true,
+                        "description": "Property firstName",
                         "type": [
                             "string",
                             "null"
@@ -52309,6 +52399,7 @@
                     },
                     "lastName": {
                         "readOnly": true,
+                        "description": "Property lastName",
                         "type": [
                             "string",
                             "null"
@@ -52316,11 +52407,13 @@
                     },
                     "displayName": {
                         "readOnly": true,
+                        "description": "Property displayName",
                         "default": "",
                         "type": "string"
                     },
                     "avatarUrl": {
                         "readOnly": true,
+                        "description": "Property avatarUrl",
                         "type": [
                             "string",
                             "null"
@@ -52328,6 +52421,7 @@
                     },
                     "organizationName": {
                         "readOnly": true,
+                        "description": "Property organizationName",
                         "type": [
                             "string",
                             "null"
@@ -52340,11 +52434,13 @@
                 "properties": {
                     "type": {
                         "readOnly": true,
+                        "description": "Property type",
                         "default": "",
                         "type": "string"
                     },
                     "id": {
                         "readOnly": true,
+                        "description": "Property id",
                         "type": [
                             "string",
                             "null"
@@ -52352,6 +52448,7 @@
                     },
                     "firstName": {
                         "readOnly": true,
+                        "description": "Property firstName",
                         "type": [
                             "string",
                             "null"
@@ -52359,6 +52456,7 @@
                     },
                     "lastName": {
                         "readOnly": true,
+                        "description": "Property lastName",
                         "type": [
                             "string",
                             "null"
@@ -52366,11 +52464,13 @@
                     },
                     "displayName": {
                         "readOnly": true,
+                        "description": "Property displayName",
                         "default": "",
                         "type": "string"
                     },
                     "avatarUrl": {
                         "readOnly": true,
+                        "description": "Property avatarUrl",
                         "type": [
                             "string",
                             "null"
@@ -52378,6 +52478,7 @@
                     },
                     "organizationName": {
                         "readOnly": true,
+                        "description": "Property organizationName",
                         "type": [
                             "string",
                             "null"
@@ -57204,31 +57305,37 @@
                         "properties": {
                             "id": {
                                 "readOnly": true,
+                                "description": "Property id",
                                 "default": "",
                                 "type": "string"
                             },
                             "inspectionId": {
                                 "readOnly": true,
+                                "description": "Property inspectionId",
                                 "default": "",
                                 "type": "string"
                             },
                             "description": {
                                 "readOnly": true,
+                                "description": "Property description",
                                 "default": "",
                                 "type": "string"
                             },
                             "severity": {
                                 "readOnly": true,
+                                "description": "Property severity",
                                 "default": "",
                                 "type": "string"
                             },
                             "status": {
                                 "readOnly": true,
+                                "description": "Property status",
                                 "default": "",
                                 "type": "string"
                             },
                             "dueAt": {
                                 "readOnly": true,
+                                "description": "Property dueAt",
                                 "type": [
                                     "string",
                                     "null"
@@ -57236,6 +57343,7 @@
                             },
                             "resolvedAt": {
                                 "readOnly": true,
+                                "description": "Property resolvedAt",
                                 "type": [
                                     "string",
                                     "null"
@@ -57243,6 +57351,7 @@
                             },
                             "notes": {
                                 "readOnly": true,
+                                "description": "Property notes",
                                 "type": [
                                     "string",
                                     "null"
@@ -57266,11 +57375,13 @@
                             },
                             "createdAt": {
                                 "readOnly": true,
+                                "description": "Property createdAt",
                                 "default": "",
                                 "type": "string"
                             },
                             "updatedAt": {
                                 "readOnly": true,
+                                "description": "Property updatedAt",
                                 "default": "",
                                 "type": "string"
                             }
@@ -58406,6 +58517,26 @@
                                     "null"
                                 ]
                             },
+                            "registeredAddress": {
+                                "readOnly": true,
+                                "description": "Optional registered office, distinct from facility addresses",
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/components/schemas/OrganizationRegisteredAddressOutput.jsonld-Organization.read"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "privacyContactEmail": {
+                                "readOnly": true,
+                                "description": "Optional contact for this organization personal data processing",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
                             "isOwner": {
                                 "readOnly": true,
                                 "description": "Property isOwner.",
@@ -58643,6 +58774,63 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "registeredAddress": {
+                        "description": "Whole registered office replacement; null or omission leaves it unchanged, an empty object clears it. Arrays, scalars and unknown properties are rejected.",
+                        "additionalProperties": false,
+                        "properties": {
+                            "line1": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "line2": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "postalCode": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "city": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "region": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "countryCode": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/UpdateOrganizationRegisteredAddressInput-Organization.write"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "privacyContactEmail": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Contact for the organization personal data processing: a valid email of at most 254 characters after trimming; null or omission leaves it unchanged, an empty string clears it"
                     }
                 }
             },
@@ -59197,6 +59385,7 @@
                         "properties": {
                             "generatedAt": {
                                 "readOnly": true,
+                                "description": "Property generatedAt",
                                 "default": "",
                                 "type": "string"
                             },
@@ -59423,11 +59612,13 @@
                         "properties": {
                             "generatedAt": {
                                 "readOnly": true,
+                                "description": "Property generatedAt",
                                 "default": "",
                                 "type": "string"
                             },
                             "metric": {
                                 "readOnly": true,
+                                "description": "Property metric",
                                 "default": "",
                                 "type": "string"
                             },
@@ -59916,11 +60107,13 @@
                             "approval_required",
                             "automatic"
                         ],
+                        "description": "Property mode",
                         "default": "invitation_only",
                         "type": "string"
                     },
                     "roleId": {
                         "format": "uuid",
+                        "description": "Property roleId",
                         "externalDocs": {
                             "url": "https://schema.org/identifier"
                         },
@@ -59990,6 +60183,7 @@
                 "properties": {
                     "domain": {
                         "maxLength": 253,
+                        "description": "Property domain",
                         "default": "",
                         "type": "string"
                     }
@@ -60175,6 +60369,7 @@
                         "type": "object",
                         "properties": {
                             "totalItems": {
+                                "description": "Property totalItems",
                                 "default": 0,
                                 "type": "integer"
                             },
@@ -60214,11 +60409,13 @@
                         "properties": {
                             "value": {
                                 "readOnly": true,
+                                "description": "Property value",
                                 "default": "",
                                 "type": "string"
                             },
                             "label": {
                                 "readOnly": true,
+                                "description": "Property label",
                                 "default": "",
                                 "type": "string"
                             }
@@ -60970,6 +61167,53 @@
                     }
                 }
             },
+            "OrganizationRegisteredAddressOutput.jsonld-Organization.read": {
+                "type": "object",
+                "properties": {
+                    "line1": {
+                        "description": "Method __construct",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "line2": {
+                        "description": "Method __construct",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "postalCode": {
+                        "description": "Method __construct",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "city": {
+                        "description": "Method __construct",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "region": {
+                        "description": "Method __construct",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "countryCode": {
+                        "description": "Method __construct",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
             "OrganizationRole.AssignOrganizationRoleInput-Organization.write": {
                 "type": "object",
                 "description": "Organization RBAC role management.",
@@ -61012,10 +61256,7 @@
                         ],
                         "type": "array",
                         "items": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
+                            "type": "string"
                         }
                     },
                     "description": {
@@ -62354,6 +62595,7 @@
                                 "type": "boolean"
                             },
                             "status": {
+                                "description": "Property status",
                                 "default": "offline",
                                 "type": "string",
                                 "enum": [
@@ -62383,14 +62625,17 @@
                         "type": "object",
                         "properties": {
                             "topic": {
+                                "description": "Property topic",
                                 "default": "",
                                 "type": "string"
                             },
                             "token": {
+                                "description": "Property token",
                                 "default": "",
                                 "type": "string"
                             },
                             "expiresAt": {
+                                "description": "Property expiresAt",
                                 "default": "",
                                 "type": "string"
                             }
@@ -62408,14 +62653,17 @@
                         "type": "object",
                         "properties": {
                             "doNotDisturb": {
+                                "description": "Property doNotDisturb",
                                 "default": false,
                                 "type": "boolean"
                             },
                             "revision": {
+                                "description": "Property revision",
                                 "default": 0,
                                 "type": "integer"
                             },
                             "invisible": {
+                                "description": "Property invisible",
                                 "default": false,
                                 "type": "boolean"
                             }
@@ -62433,14 +62681,17 @@
                         "type": "object",
                         "properties": {
                             "topic": {
+                                "description": "Property topic",
                                 "default": "",
                                 "type": "string"
                             },
                             "token": {
+                                "description": "Property token",
                                 "default": "",
                                 "type": "string"
                             },
                             "expiresAt": {
+                                "description": "Property expiresAt",
                                 "default": "",
                                 "type": "string"
                             }
@@ -62454,9 +62705,11 @@
                 "description": "Service PresencePreferenceResource.",
                 "properties": {
                     "doNotDisturb": {
+                        "description": "Property doNotDisturb",
                         "type": "boolean"
                     },
                     "invisible": {
+                        "description": "Property invisible",
                         "type": "boolean"
                     }
                 }
@@ -63134,6 +63387,20 @@
                                 "readOnly": true,
                                 "description": "Detected browser name.",
                                 "example": "Chrome",
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "country": {
+                                "readOnly": true,
+                                "description": "Approximate ISO 3166-1 alpha-2 country at sign-in.",
+                                "example": "FR",
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "city": {
+                                "readOnly": true,
+                                "description": "Approximate city at sign-in, when available.",
+                                "example": "Paris",
                                 "type": "string",
                                 "nullable": true
                             },
@@ -64298,6 +64565,55 @@
                     }
                 }
             },
+            "UpdateOrganizationRegisteredAddressInput-Organization.write": {
+                "type": "object",
+                "properties": {
+                    "line1": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional first address line; maximum 255 characters after trimming. Blank values become null."
+                    },
+                    "line2": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional second address line; maximum 255 characters after trimming. Blank values become null."
+                    },
+                    "postalCode": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional postal code; maximum 32 characters after trimming. Blank values become null."
+                    },
+                    "city": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional city; maximum 128 characters after trimming. Blank values become null."
+                    },
+                    "region": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional region; maximum 128 characters after trimming. Blank values become null."
+                    },
+                    "countryCode": {
+                        "pattern": "^(\\s*(?:[A-Za-z]{2})?\\s*)$",
+                        "description": "Property countryCode",
+                        "example": "FR",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
             "User.UserInput-user.write": {
                 "type": "object",
                 "description": "Resource UserResource.",
@@ -65114,6 +65430,7 @@
                 ],
                 "properties": {
                     "startsOn": {
+                        "description": "Property startsOn",
                         "externalDocs": {
                             "url": "https://schema.org/Date"
                         },
@@ -65121,6 +65438,7 @@
                         "type": "string"
                     },
                     "endsOn": {
+                        "description": "Property endsOn",
                         "externalDocs": {
                             "url": "https://schema.org/Date"
                         },
@@ -65130,6 +65448,7 @@
                     "minutes": {
                         "minimum": 0,
                         "maximum": 1440,
+                        "description": "Property minutes",
                         "default": 0,
                         "type": "integer"
                     }
@@ -65164,6 +65483,7 @@
                 ],
                 "properties": {
                     "effectiveOn": {
+                        "description": "Property effectiveOn",
                         "externalDocs": {
                             "url": "https://schema.org/Date"
                         },

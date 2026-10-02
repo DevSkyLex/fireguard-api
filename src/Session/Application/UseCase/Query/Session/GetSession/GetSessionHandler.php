@@ -7,6 +7,7 @@ namespace Session\Application\UseCase\Query\Session\GetSession;
 use Session\Application\Port\Outbound\SessionRepositoryPort;
 use Session\Domain\Exception\SessionNotFoundException;
 use Session\Domain\ValueObject\SessionId;
+use Shared\Application\Port\Outbound\CurrentActorPort;
 
 /**
  * Handler GetSessionHandler.
@@ -25,9 +26,11 @@ final readonly class GetSessionHandler implements \Shared\Application\Message\Qu
    * @since 1.0.0
    *
    * @param SessionRepositoryPort $sessionRepository the session repository
+   * @param CurrentActorPort $actor account identity required to read a session
    */
   public function __construct(
     private SessionRepositoryPort $sessionRepository,
+    private CurrentActorPort $actor,
   ) {
   }
   // #endregion
@@ -51,7 +54,7 @@ final readonly class GetSessionHandler implements \Shared\Application\Message\Qu
     $sessionId = new SessionId(value: $query->sessionId);
     $session = $this->sessionRepository->findById(id: $sessionId);
 
-    if (null === $session) {
+    if (null === $session || $session->userId() !== $this->actor->userId()) {
       throw SessionNotFoundException::withId(id: $query->sessionId);
     }
 

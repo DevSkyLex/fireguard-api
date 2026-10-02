@@ -96,6 +96,7 @@ final readonly class OrganizationDocumentBrandingAdapter implements Organization
       timezone: $regional->timezone,
       locale: $regional->locale,
       dateFormat: $regional->dateFormat,
+      registeredAddress: $organization->registeredAddress()?->toArray(),
     );
   }
 

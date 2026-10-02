@@ -176,6 +176,12 @@ the distinction between complete and diagnostic runs.
     empty-`ids[]` 400, the unauthenticated 401, the
     `EquipmentLabelsExportedEvent` dispatch, and the bus-wrapped 403/404/422
     unwrapping.
+  - `tests/Unit/Equipment/Infrastructure/Pdf/DompdfEquipmentLabelSheetRendererTest`
+    — the Avery L7159 geometry **measured on the rendered frames** (dompdf
+    `end_frame` callbacks): label boxes at the 7.25 / 12.9 mm margins and the
+    66 mm × 33.9 mm pitch, every text line inside its own label, the page
+    count through the real renderer (24 → 1, 25 → 2), including the second
+    sheet restarting at the top margin.
   - Functional: `tests/Functional/Api/EquipmentLabelSheetApiTest.php` — 200
     `%PDF-` for the whole-park, `ids[]` and `facilityId` selections, 400 for
     both modes at once, **422 through the real HTTP surface** (501 ids in the

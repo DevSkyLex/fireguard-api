@@ -69,6 +69,8 @@ final readonly class GetSessionProvider implements ProviderInterface
     $output->userAgent = $result->userAgent;
     $output->deviceType = $result->deviceType;
     $output->browser = $result->browser;
+    $output->country = $result->isRevoked ? null : $result->country;
+    $output->city = $result->isRevoked ? null : $result->city;
     $output->createdAt = $result->createdAt->format('c');
     $output->lastActivityAt = $result->lastActivityAt->format('c');
     $output->isActive = !$result->isRevoked;

@@ -36,6 +36,7 @@ final readonly class OrganizationDocumentBranding
    * @param string $timezone the IANA timezone identifier (e.g. "Europe/Paris")
    * @param string $locale the display locale (e.g. "fr-FR")
    * @param string $dateFormat the date format pattern (e.g. "dd/MM/yyyy")
+   * @param ?array{line1: ?string, line2: ?string, postalCode: ?string, city: ?string, region: ?string, countryCode: ?string} $registeredAddress the optional registered office, distinct from a facility address
    */
   public function __construct(
     public string $organizationName,
@@ -46,6 +47,7 @@ final readonly class OrganizationDocumentBranding
     public string $timezone,
     public string $locale,
     public string $dateFormat,
+    public ?array $registeredAddress = null,
   ) {
   }
   // #endregion

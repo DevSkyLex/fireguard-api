@@ -184,6 +184,8 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
       legalName: $organization->legalName(),
       registrationNumber: null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null,
       vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
+      registeredAddress: $organization->registeredAddress()?->toArray(),
+      privacyContactEmail: $organization->privacyContactEmail()?->__toString(),
       planId: $plan instanceof Plan ? (string) $plan->id() : null,
       planName: $plan instanceof Plan ? $plan->name() : null,
       isOwner: $this->callerMembership->isOwner($organization->ownerUserId(), $userId),

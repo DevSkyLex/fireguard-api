@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\EmailChange\RequestEmailChange;
 
+use Shared\Application\Contract\Notification\EmailRequestDetails;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, LoggerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\Email;
@@ -64,6 +66,8 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    * @param EventIdProvider $eventIdProvider the event ID provider
    * @param LoggerPort $logger the logger port
+   * @param ?GeoIpLookupPort $geoIp optional local email enrichment
+   * @param ?RequestOriginPort $requestOrigin transient browser context
    */
   public function __construct(
     private UserRepositoryPort $userRepository,
@@ -75,6 +79,8 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
     private EventIdProvider $eventIdProvider,
     private LoggerPort $logger,
+    private ?GeoIpLookupPort $geoIp = null,
+    private ?RequestOriginPort $requestOrigin = null,
   ) {
   }
   // #endregion
@@ -125,7 +131,7 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
       return $newEmail;
     }
 
-    return $this->createRequest($user, $newEmail);
+    return $this->createRequest($user, $newEmail, $command->ipAddress);
   }
 
   /**
@@ -199,7 +205,7 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
    *
    * @return RequestEmailChangeResult the request result
    */
-  private function createRequest(User $user, Email $newEmail): RequestEmailChangeResult
+  private function createRequest(User $user, Email $newEmail, ?string $ipAddress): RequestEmailChangeResult
   {
     $now = $this->clock->now();
     $rawToken = $this->tokenHasher->generate();
@@ -234,6 +240,7 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
     ));
 
     $locale = $this->notifier->clampLocale($user->locale()->value);
+    $requestDetails = $this->requestDetails($ipAddress);
 
     // The confirmation email to the NEW address is the flow itself: a
     // failure here must fail the use case, not be swallowed.
@@ -242,6 +249,7 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
       confirmUrl: $this->notifier->buildConfirmUrl($rawToken),
       expiresAt: $request->expiresAt(),
       locale: $locale,
+      requestDetails: $requestDetails,
     );
 
     // The alert to the OLD address is best-effort: it must not undo a
@@ -250,15 +258,48 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
       $this->notifier->sendPendingNotice(
         currentEmail: $user->email()->value,
         locale: $locale,
+        requestDetails: $requestDetails,
       );
     } catch (Throwable $exception) {
       $this->logger->warning('Email change pending notice could not be sent.', [
         'user_id' => $user->id()->value,
-        'error' => $exception->getMessage(),
+        'error' => $exception::class,
       ]);
     }
 
     return RequestEmailChangeResult::success(expiresAt: $request->expiresAt());
+  }
+
+  /**
+   * Method requestDetails
+   *
+   * Resolves independent optional enrichments without affecting notification delivery.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param ?string $ipAddress the command's trusted client IP
+   *
+   * @return EmailRequestDetails transient context, including an empty fallback
+   */
+  private function requestDetails(?string $ipAddress): EmailRequestDetails
+  {
+    $origin = null;
+    $location = null;
+
+    try {
+      $origin = $this->requestOrigin?->current();
+    } catch (Throwable) {
+      // An unavailable origin must not suppress the security email.
+    }
+
+    try {
+      $location = null === $ipAddress ? null : $this->geoIp?->locate($ipAddress);
+    } catch (Throwable) {
+      // Preserve any known device labels when local geography is unavailable.
+    }
+
+    return EmailRequestDetails::fromOrigin($origin, $location);
   }
   // #endregion
 }

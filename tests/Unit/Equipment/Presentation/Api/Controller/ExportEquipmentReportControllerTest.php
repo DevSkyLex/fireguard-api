@@ -77,6 +77,7 @@ final class ExportEquipmentReportControllerTest extends TestCase
       'legalName' => 'SAS Acme Sécurité',
       'registrationNumber' => '123 456 789',
       'vatNumber' => 'FR12345678901',
+      'registeredAddress' => ['line1' => '12 rue du Siège', 'line2' => null, 'postalCode' => '75001', 'city' => 'Paris', 'region' => null, 'countryCode' => 'FR'],
     ], $context['org']);
     self::assertSame('fr', $context['lang']);
     self::assertIsString($context['generatedAtFormatted']);
@@ -349,6 +350,7 @@ final class ExportEquipmentReportControllerTest extends TestCase
       timezone: 'Europe/Paris',
       locale: 'fr-FR',
       dateFormat: 'dd/MM/yyyy',
+      registeredAddress: ['line1' => '12 rue du Siège', 'line2' => null, 'postalCode' => '75001', 'city' => 'Paris', 'region' => null, 'countryCode' => 'FR'],
     ));
 
     return $branding;

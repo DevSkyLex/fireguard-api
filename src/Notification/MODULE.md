@@ -205,7 +205,18 @@ Channel details:
   - renders a Twig template (default: `notification/email/default.html.twig`),
   - optional custom template: `deliveryPayload['email']['template']`,
   - optional template vars: `deliveryPayload['email']['context']`,
-  - `deliveryPayload['email']['body']` is still supported as default-template body override.
+  - `deliveryPayload['email']['body']` is still supported as default-template body override,
+  - every transactional email (including the OTP code email) extends
+    `templates/notification/email/layout.html.twig`, which follows the web app's visual
+    language (neutral zinc ramp, vermilion fill for the primary button only, dark scheme via
+    `prefers-color-scheme`); shared markup (button, link fallback, status badge) lives in
+    `notification/email/components.html.twig`. The header mark is referenced as
+    `cid:fireguard-mark` and embedded by `Shared\Infrastructure\EventSubscriber\EmbedBrandMarkSubscriber`
+    on the mailer `MessageEvent` (PNG next to the layout), so it covers every send path.
+  - cards hold the *content* of a notification and never the text around it: the default template
+    puts the notification body in a card (heading and settings note outside), and the weekly digest
+    groups the items of each section in one card (heading, counts, "and N more" and the call to
+    action outside). Cards use the page-header tint (`bg-muted/25`).
 - Mercure channel (`MercureNotificationChannelAdapter`):
   - publishes private updates to topic: `/{topicPrefix}/{userId}/notifications`
     (default prefix: `/users`).
@@ -388,6 +399,10 @@ entries; neither is a separate inbox source yet.
 
 ## Testing
 
+Security template tests verify escaping, en/fr/es approximate wording and DB-IP attribution;
+email-change producer tests keep geography out of persistent Notification fields.
+
+
 - Unit tests: `tests/Unit/Notification`
 - Included coverage:
   - send flow + delivery status behavior, including preference suppression
@@ -440,5 +455,14 @@ entries; neither is a separate inbox source yet.
   - channel errors are logged and reported in `channelDelivery` (no hard failure).
 
 ## Flows
+
+Security email geography is accepted only in `deliveryPayload` template context, including
+an immutable `EmailRequestDetails`. The persistent payload, stored body, audit and Mercure
+projection do not receive it. Delivery remains synchronous for these existing security emails;
+no geography is enqueued in an outbox or retry message. The delivered email and its provider
+copies follow separately documented retention, not the in-process context lifetime.
+For an email carrying `EmailRequestDetails`, delivery failure logs retain exception types
+instead of transport messages or causes that could echo the rendered geography.
+
 
 Owned events create notifications and apply delivery/preferences rules; authorized account/organization reads expose only the intended recipient scope. Read acknowledgements follow the notification API rather than another module's message receipt state.

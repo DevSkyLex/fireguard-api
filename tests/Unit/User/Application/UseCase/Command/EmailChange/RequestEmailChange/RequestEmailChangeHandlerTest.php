@@ -7,10 +7,15 @@ namespace Tests\Unit\User\Application\UseCase\Command\EmailChange\RequestEmailCh
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Contract\GeoIp\IpLocation;
+use Shared\Application\Contract\Http\RequestOrigin;
+use Shared\Application\Contract\Notification\EmailRequestDetails;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, LoggerPort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
@@ -27,6 +32,9 @@ use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
 use function count;
+use function json_encode;
+
+use const JSON_THROW_ON_ERROR;
 
 #[CoversClass(RequestEmailChangeHandler::class)]
 final class RequestEmailChangeHandlerTest extends TestCase
@@ -47,6 +55,100 @@ final class RequestEmailChangeHandlerTest extends TestCase
   private array $dispatchedEvents = [];
 
   // #region Tests
+  /**
+   * @return iterable<string, array{bool, bool}>
+   */
+  public static function enrichmentFailures(): iterable
+  {
+    yield 'origin only' => [true, false];
+    yield 'geography only' => [false, true];
+    yield 'both unavailable' => [true, true];
+  }
+
+  #[Test]
+  #[DataProvider('enrichmentFailures')]
+  public function testOptionalEnrichmentFailuresDoNotSuppressEmails(bool $originFails, bool $geoFails): void
+  {
+    $user = $this->makeActiveUser();
+    $users = $this->createStub(UserRepositoryPort::class);
+    $users->method('findById')->willReturn($user);
+    $users->method('existsByEmail')->willReturn(false);
+    $requests = $this->createMock(EmailChangeRequestRepositoryPort::class);
+    $requests->expects(self::once())->method('save');
+    $origin = $this->createMock(RequestOriginPort::class);
+    $originCall = $origin->expects(self::once())->method('current');
+    if ($originFails) {
+      $originCall->willThrowException(new RuntimeException('origin unavailable'));
+    } else {
+      $originCall->willReturn(new RequestOrigin('9.9.9.9', 'Firefox', 'Linux', 'fr'));
+    }
+    $geo = $this->createMock(GeoIpLookupPort::class);
+    $geoCall = $geo->expects(self::once())->method('locate')->with('8.8.8.8');
+    if ($geoFails) {
+      $geoCall->willThrowException(new RuntimeException('lookup unavailable'));
+    } else {
+      $geoCall->willReturn(new IpLocation('FR', 'Paris'));
+    }
+    $sent = [];
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::exactly(2))->method('send')->willReturnCallback(
+      function (SendNotificationRequest $request) use (&$sent): SentNotification {
+        $sent[] = $request;
+
+        return $this->sentNotification($request);
+      },
+    );
+    $handler = $this->makeHandler(userRepo: $users, requests: $requests, notifications: $notifications, geoIp: $geo, requestOrigin: $origin);
+    $result = $handler(new RequestEmailChangeCommand(self::USER_ID, self::NEW_EMAIL, self::CURRENT_PASSWORD, ipAddress: '8.8.8.8'));
+    self::assertTrue($result->success);
+    self::assertSame(self::NEW_EMAIL, $sent[0]->recipientEmail);
+    self::assertSame('jdoe@example.com', $sent[1]->recipientEmail);
+    foreach ($sent as $notification) {
+      $delivery = $notification->deliveryPayload[NotificationChannel::EMAIL->value];
+      self::assertIsArray($delivery);
+      self::assertIsArray($delivery['context']);
+      $details = $delivery['context']['requestDetails'];
+      self::assertInstanceOf(EmailRequestDetails::class, $details);
+      self::assertSame($originFails ? null : 'Firefox', $details->browser);
+      self::assertSame($originFails ? null : 'Linux', $details->operatingSystem);
+      self::assertSame($geoFails ? null : 'Paris', $details->location?->city);
+    }
+  }
+
+  #[Test]
+  public function testConfirmationDeliveryFailureStillFailsTheUseCase(): void
+  {
+    $users = $this->createStub(UserRepositoryPort::class);
+    $users->method('findById')->willReturn($this->makeActiveUser());
+    $users->method('existsByEmail')->willReturn(false);
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())->method('send')->willThrowException(new RuntimeException('delivery failed'));
+    $handler = $this->makeHandler(userRepo: $users, notifications: $notifications);
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('delivery failed');
+    $handler($this->command());
+  }
+
+  #[Test]
+  public function testPendingNoticeDeliveryFailureKeepsSuccessAndIsLogged(): void
+  {
+    $users = $this->createStub(UserRepositoryPort::class);
+    $users->method('findById')->willReturn($this->makeActiveUser());
+    $users->method('existsByEmail')->willReturn(false);
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::exactly(2))->method('send')->willReturnCallback(function (SendNotificationRequest $request): SentNotification {
+      if ('jdoe@example.com' === $request->recipientEmail) {
+        throw new RuntimeException('delivery failed');
+      }
+
+      return $this->sentNotification($request);
+    });
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning')->with('Email change pending notice could not be sent.', ['user_id' => self::USER_ID, 'error' => RuntimeException::class]);
+    $result = ($this->makeHandler(userRepo: $users, notifications: $notifications, logger: $logger))($this->command());
+    self::assertTrue($result->success);
+  }
+
   #[Test]
   public function testFailsWhenUserNotFound(): void
   {
@@ -191,9 +293,10 @@ final class RequestEmailChangeHandlerTest extends TestCase
       requests: $requests,
       notifications: $notifications,
       now: $now,
+      geoIp: $this->geoIp(),
     );
 
-    $result = $handler($this->command());
+    $result = $handler(new RequestEmailChangeCommand(userId: self::USER_ID, newEmail: self::NEW_EMAIL, currentPassword: self::CURRENT_PASSWORD, ipAddress: '8.8.8.8'));
 
     self::assertTrue($result->success);
     self::assertInstanceOf(EmailChangeRequest::class, $savedRequest);
@@ -215,6 +318,18 @@ final class RequestEmailChangeHandlerTest extends TestCase
     $confirmDelivery = $sent[0]->deliveryPayload[NotificationChannel::EMAIL->value];
     self::assertStringContainsString('token=', $confirmDelivery['context']['confirmUrl']);
     self::assertStringNotContainsString($savedRequest->tokenHash(), $confirmDelivery['context']['confirmUrl']);
+
+    foreach ($sent as $notification) {
+      $delivery = $notification->deliveryPayload[NotificationChannel::EMAIL->value];
+      self::assertIsArray($delivery);
+      self::assertIsArray($delivery['context']);
+      $context = $delivery['context']['requestDetails'];
+      self::assertInstanceOf(EmailRequestDetails::class, $context);
+      self::assertSame('Paris', $context->location?->city);
+      self::assertArrayNotHasKey('requestDetails', $notification->payload);
+      self::assertStringNotContainsString('Paris', json_encode($notification->payload, JSON_THROW_ON_ERROR));
+      self::assertStringNotContainsString('Paris', $notification->body);
+    }
 
     // The requested event is dispatched after the save.
     self::assertCount(1, $this->dispatchedEvents);
@@ -243,6 +358,9 @@ final class RequestEmailChangeHandlerTest extends TestCase
     ?EmailChangeRequestRepositoryPort $requests = null,
     ?NotificationPort $notifications = null,
     ?DateTimeImmutable $now = null,
+    ?GeoIpLookupPort $geoIp = null,
+    ?RequestOriginPort $requestOrigin = null,
+    ?LoggerPort $logger = null,
   ): RequestEmailChangeHandler {
     $this->dispatchedEvents = [];
 
@@ -271,14 +389,24 @@ final class RequestEmailChangeHandlerTest extends TestCase
       notifier: new EmailChangeNotifier(
         notificationPort: $notifications,
         frontendUrl: 'https://app.fireguard.test',
-        translator: EmailTranslatorTestFactory::create(),
+        translator: new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
       ),
       uuidGenerator: $uuid,
       clock: $clock,
       eventDispatcher: $dispatcher,
       eventIdProvider: new TestEventIdProvider(),
-      logger: $this->createStub(LoggerPort::class),
+      geoIp: $geoIp,
+      requestOrigin: $requestOrigin,
+      logger: $logger ?? $this->createStub(LoggerPort::class),
     );
+  }
+
+  private function geoIp(): GeoIpLookupPort
+  {
+    $geo = $this->createMock(GeoIpLookupPort::class);
+    $geo->expects(self::once())->method('locate')->with('8.8.8.8')->willReturn(new IpLocation('FR', 'Paris'));
+
+    return $geo;
   }
 
   private function sentNotification(SendNotificationRequest $request): SentNotification

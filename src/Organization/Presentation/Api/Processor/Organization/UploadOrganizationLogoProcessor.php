@@ -11,7 +11,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
 use Organization\Infrastructure\Image\OrganizationLogoResizer;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationRegisteredAddressOutput};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -220,6 +220,8 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
     $output->legalName = $result->legalName;
     $output->registrationNumber = $result->registrationNumber;
     $output->vatNumber = $result->vatNumber;
+    $output->registeredAddress = OrganizationRegisteredAddressOutput::fromArray($result->registeredAddress);
+    $output->privacyContactEmail = $result->privacyContactEmail;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
 

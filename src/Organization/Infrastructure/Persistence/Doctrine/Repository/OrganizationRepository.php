@@ -121,6 +121,8 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
       $existing->legalName = $record->legalName;
       $existing->registrationNumber = $record->registrationNumber;
       $existing->vatNumber = $record->vatNumber;
+      $existing->registeredAddress = $record->registeredAddress;
+      $existing->privacyContactEmail = $record->privacyContactEmail;
       $existing->updatedAt = $record->updatedAt;
     } else {
       $this->entityManager->persist($record);

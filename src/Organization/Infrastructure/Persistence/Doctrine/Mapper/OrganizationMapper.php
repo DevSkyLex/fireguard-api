@@ -11,6 +11,7 @@ use Organization\Domain\ValueObject\{
   OrganizationId,
   OrganizationLegalType,
   OrganizationName,
+  OrganizationRegisteredAddress,
   OrganizationRegistrationNumber,
   OrganizationSettings,
   OrganizationSlug,
@@ -19,6 +20,7 @@ use Organization\Domain\ValueObject\{
   PlanId
 };
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Domain\ValueObject\Email;
 
 /**
  * Mapper OrganizationMapper.
@@ -75,6 +77,8 @@ final class OrganizationMapper
         legalName: $record->legalName,
         registrationNumber: null !== $record->registrationNumber ? new OrganizationRegistrationNumber($record->registrationNumber) : null,
         vatNumber: null !== $record->vatNumber ? new OrganizationVatNumber($record->vatNumber) : null,
+        registeredAddress: null !== $record->registeredAddress ? OrganizationRegisteredAddress::fromArray($record->registeredAddress) : null,
+        privacyContactEmail: null !== $record->privacyContactEmail ? new Email($record->privacyContactEmail) : null,
       ),
     );
   }
@@ -109,6 +113,8 @@ final class OrganizationMapper
     $record->legalName = $organization->legalName();
     $record->registrationNumber = null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null;
     $record->vatNumber = null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null;
+    $record->registeredAddress = $organization->registeredAddress()?->toArray();
+    $record->privacyContactEmail = $organization->privacyContactEmail()?->__toString();
     $record->createdAt = $organization->createdAt();
     $record->updatedAt = $organization->updatedAt();
 

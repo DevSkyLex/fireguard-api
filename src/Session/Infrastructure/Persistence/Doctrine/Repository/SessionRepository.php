@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Session\Infrastructure\Persistence\Doctrine\Repository;
 
-use DateTimeImmutable;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Session\Application\Port\Outbound\SessionRepositoryPort;
 use Session\Domain\Model\Session\Session;
@@ -88,6 +88,18 @@ final class SessionRepository implements SessionRepositoryPort
   {
     $record = SessionMapper::toRecord(session: $session);
     $existingRecord = $this->repository->find(id: $record->id);
+
+    if (null !== $existingRecord && $session->isRevoked()) {
+      // A stale snapshot must not restore a token pair rotated by another request.
+      $this->entityManager->getConnection()->executeStatement(
+        "UPDATE sessions SET revoked_at = COALESCE(revoked_at, :revokedAt), metadata = (metadata::jsonb - 'country' - 'city')::json WHERE id = :id",
+        ['revokedAt' => $record->revokedAt, 'id' => $record->id],
+        ['revokedAt' => Types::DATETIME_IMMUTABLE, 'id' => UuidType::NAME],
+      );
+      $this->entityManager->refresh($existingRecord);
+
+      return;
+    }
 
     if ($existingRecord) {
       $existingRecord->accessTokenId = $record->accessTokenId;
@@ -192,17 +204,7 @@ final class SessionRepository implements SessionRepositoryPort
    */
   public function revokeAllForUser(string $userId): int
   {
-    $qb = $this->entityManager->createQueryBuilder();
-    $qb->update(SessionRecord::class, 's')
-      ->set('s.revokedAt', ':now')
-      ->where('s.userId = :userId')
-      ->andWhere('s.revokedAt IS NULL')
-      ->setParameter('now', new DateTimeImmutable())
-      ->setParameter('userId', $userId);
-
-    $result = $qb->getQuery()->execute();
-
-    return is_int($result) ? $result : 0;
+    return $this->revokeActiveForUser($userId);
   }
 
   /**
@@ -211,30 +213,7 @@ final class SessionRepository implements SessionRepositoryPort
    */
   public function revokeAllForUserExcept(string $userId, string $exceptSessionId): int
   {
-    $qb = $this->entityManager->createQueryBuilder();
-    $qb->update(SessionRecord::class, 's')
-      ->set('s.revokedAt', ':now')
-      ->where('s.userId = :userId')
-      ->andWhere('s.revokedAt IS NULL')
-      ->setParameter('now', new DateTimeImmutable())
-      ->setParameter('userId', $userId);
-
-    // The `id` column is mapped through Symfony's UuidType (see SessionRecord);
-    // it must be bound with that same type, otherwise Doctrine compares the
-    // raw string against the converted database value and the `!=` clause
-    // never matches, silently revoking the excluded session too. Only apply
-    // the exclusion when exceptSessionId is actually a well-formed UUID: the
-    // resolver upstream falls back to the framework's HTTP session id when
-    // the current Session aggregate cannot be identified, and that id is not
-    // UUID-shaped — attempting to parse it would throw.
-    if (Uuid::isValid(uuid: $exceptSessionId)) {
-      $qb->andWhere('s.id != :exceptSessionId')
-        ->setParameter('exceptSessionId', Uuid::fromString(uuid: $exceptSessionId), UuidType::NAME);
-    }
-
-    $result = $qb->getQuery()->execute();
-
-    return is_int($result) ? $result : 0;
+    return $this->revokeActiveForUser($userId, $exceptSessionId);
   }
 
   /**
@@ -249,6 +228,51 @@ final class SessionRepository implements SessionRepositoryPort
       $this->entityManager->remove(object: $record);
       $this->entityManager->flush();
     }
+  }
+
+  /**
+   * Removes location keys while preserving all other metadata and token state.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId owning account
+   *
+   * @return int erased row count
+   */
+  public function purgeLocations(?string $userId = null): int
+  {
+    $where = null === $userId ? 'revoked_at IS NOT NULL' : 'user_id = :userId';
+
+    return (int) $this->entityManager->getConnection()->executeStatement(
+      "UPDATE sessions SET metadata = (metadata::jsonb - 'country' - 'city')::json WHERE (" . $where . ") AND (jsonb_exists(metadata::jsonb, 'country') OR jsonb_exists(metadata::jsonb, 'city'))",
+      null === $userId ? [] : ['userId' => $userId],
+    );
+  }
+
+  /**
+   * Revokes and strips geography in one PostgreSQL update, serialized with token rotation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId owning account
+   * @param string|null $exceptSessionId optional current session; non-UUID IDs exclude nothing
+   *
+   * @return int newly revoked session count
+   */
+  private function revokeActiveForUser(string $userId, ?string $exceptSessionId = null): int
+  {
+    $sql = "UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP, metadata = (metadata::jsonb - 'country' - 'city')::json WHERE user_id = :userId AND revoked_at IS NULL";
+    $parameters = ['userId' => $userId];
+    $types = [];
+    if (null !== $exceptSessionId && Uuid::isValid($exceptSessionId)) {
+      $sql .= ' AND id != :exceptSessionId';
+      $parameters['exceptSessionId'] = Uuid::fromString($exceptSessionId);
+      $types['exceptSessionId'] = UuidType::NAME;
+    }
+
+    $result = $this->entityManager->getConnection()->executeStatement($sql, $parameters, $types);
+
+    return is_int($result) ? $result : 0;
   }
   // #endregion
 }

@@ -1,0 +1,6 @@
+interface:
+  display_name: "FireGuard API Planning"
+  short_description: "Prepare source-grounded implementation plans"
+  default_prompt: "Use $fg-api-plan to prepare or revise a plan from verified repository contracts and proportionate validation."
+policy:
+  allow_implicit_invocation: true

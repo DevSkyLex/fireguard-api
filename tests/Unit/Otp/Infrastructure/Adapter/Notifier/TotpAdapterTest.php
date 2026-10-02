@@ -47,7 +47,7 @@ final class TotpAdapterTest extends TestCase
 
     self::assertStringStartsWith('otpauth://totp/', $uri);
     self::assertStringContainsString('secret=JBSWY3DPEHPK3PXP', $uri);
-    self::assertStringContainsString('issuer=FireGuard%20Auth', $uri);
+    self::assertStringContainsString('issuer=Fireguard%20Auth', $uri);
   }
 
   #[Test]

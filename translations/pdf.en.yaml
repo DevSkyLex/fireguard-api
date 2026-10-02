@@ -1,4 +1,5 @@
 layout:
+  registeredAddress: "Registered office"
   generatedAt: "Generated on %date%"
   registrationNumber: "Registration no. %number%"
   vatNumber: "VAT %number%"
@@ -8,6 +9,7 @@ common:
   "no": "No"
 
 compliance:
+  configuredRulesNote: "Tracking status according to the rules configured in this organization. This register is not a regulatory certification."
   title: "Safety register"
   scope:
     organization: "Organization report"
@@ -32,14 +34,14 @@ compliance:
     dueSoon: "Due soon"
     overdue: "Overdue"
     unscheduled: "Unscheduled"
-    openNonConformities: "Open NC (low/med/high/critical)"
+    openNonConformities: "Open NC"
   facilities:
     heading: "Facilities"
     facility: "Facility"
     type: "Type"
     status: "Status"
-    equipment: "Equipment (up-to-date / due soon / overdue / unscheduled)"
-    openNonConformities: "Open NC (low/med/high/critical)"
+    equipment: "Equipment"
+    openNonConformities: "Open NC"
     lastInspection: "Last inspection"
   note: "Register generated on %date%. Evaluation freshness and equipment awaiting evaluation are shown separately. The live register can change; archived registers preserve their original document."
 
@@ -188,3 +190,45 @@ equipment:
 equipmentLabels:
   title: "Equipment QR labels"
   serialNumber: "S/N %serial%"
+status:
+  intervention:
+    draft: "Draft"
+    planned: "Planned"
+    in_progress: "In progress"
+    submitted: "Submitted"
+    changes_requested: "Changes requested"
+    published: "Published"
+    abandoned: "Abandoned"
+  priority:
+    low: "Low"
+    normal: "Normal"
+    high: "High"
+    urgent: "Urgent"
+  interventionType:
+    site_setup: "Site setup"
+    inventory: "Inventory"
+    inspection_campaign: "Inspection campaign"
+  workItem:
+    planned: "Planned"
+    in_progress: "In progress"
+    completed: "Completed"
+    skipped: "Skipped"
+  inspection:
+    draft: "Draft"
+    submitted: "Submitted"
+    closed: "Closed"
+    cancelled: "Cancelled"
+  inspectionResult:
+    pass: "Pass"
+    partial: "Partial"
+    fail: "Fail"
+  equipment:
+    in_stock: "In stock"
+    operational: "Operational"
+    under_maintenance: "Under maintenance"
+    decommissioned: "Decommissioned"
+  maintenanceDue:
+    unscheduled: "Unscheduled"
+    up_to_date: "Up to date"
+    due_soon: "Due soon"
+    overdue: "Overdue"

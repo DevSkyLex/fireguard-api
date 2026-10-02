@@ -119,12 +119,12 @@ final readonly class TotpSecret
    * @since 1.0.0
    *
    * @param string $accountName the account name/email
-   * @param string $issuer The issuer name (e.g., "FireGuard Auth").
+   * @param string $issuer The issuer name (e.g., "Fireguard Auth").
    * @param int $digits number of digits in generated codes
    *
    * @return string the otpauth:// URI
    */
-  public function getProvisioningUri(string $accountName, string $issuer = 'FireGuard Auth', int $digits = 6): string
+  public function getProvisioningUri(string $accountName, string $issuer = 'Fireguard Auth', int $digits = 6): string
   {
     return sprintf(
       'otpauth://totp/%s:%s?secret=%s&issuer=%s&algorithm=SHA1&digits=%d&period=30',

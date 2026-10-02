@@ -1,8 +1,18 @@
 {% extends 'notification/email/layout.html.twig' %}
 
+{# Context: organizationId, completedAt (ISO 8601, shown in UTC). #}
 {% block content %}
   <h1>{{ subject }}</h1>
-  <p>Your organization onboarding has been successfully completed.</p>
-  <p class="muted">Organization ID: {{ organizationId }}<br />Completed at: {{ completedAt }}</p>
+  <p>Your organization is set up and ready to use. Here is a summary of the setup:</p>
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="details-card" bgcolor="#fcfcfc">
+    <tr>
+      <td class="label">Organization ID</td>
+      <td>{{ organizationId }}</td>
+    </tr>
+    <tr>
+      <td class="label">Completed</td>
+      <td>{{ completedAt|date('j F Y, H:i', 'UTC') }} UTC</td>
+    </tr>
+  </table>
   <p>You can now access all features of your organization.</p>
 {% endblock %}

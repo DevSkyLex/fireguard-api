@@ -15,7 +15,7 @@ use SebastianBergmann\CodeCoverage\Report\Clover;
  * @category Quality
  * @version 1.0.0
  *
- * @author FireGuard
+ * @author Fireguard
  */
 try {
   require dirname(__DIR__) . '/vendor/autoload.php';

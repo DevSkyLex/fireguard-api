@@ -16,6 +16,7 @@ use Notification\Application\Port\Outbound\{
 use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\Model\NotificationPreference\NotificationPreference;
 use Notification\Domain\ValueObject\NotificationId;
+use Shared\Application\Contract\Notification\EmailRequestDetails;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\LoggerPort;
@@ -216,14 +217,20 @@ final readonly class SendNotificationHandler implements CommandHandler
         $channelDelivery[$channel->value] = true;
       } catch (Throwable $exception) {
         $channelDelivery[$channel->value] = false;
+        $context = $channelPayload['context'] ?? null;
+        $privateEmailContext = NotificationChannel::EMAIL === $channel
+          && is_array($context)
+          && ($context['requestDetails'] ?? null) instanceof EmailRequestDetails;
+        $cause = $exception->getPrevious();
+        // Transport errors can echo rendered email content; retain only exception types.
         $this->logger->warning('Notification channel delivery failed.', [
           'notificationId' => (string) $notification->id(),
           'channel' => $channel->value,
           'type' => $notification->type(),
           'recipientUserId' => $notification->recipientUserId(),
           'recipientEmail' => null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
-          'error' => $exception->getMessage(),
-          'cause' => $exception->getPrevious()?->getMessage(),
+          'error' => $privateEmailContext ? $exception::class : $exception->getMessage(),
+          'cause' => $privateEmailContext ? (null === $cause ? null : $cause::class) : $cause?->getMessage(),
         ]);
         // Best-effort delivery: notification creation must not fail on channel errors.
       }

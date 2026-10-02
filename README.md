@@ -1,6 +1,6 @@
-# FireGuard API
+# Fireguard API
 
-Symfony/API Platform backend for FireGuard identity, organization access,
+Symfony/API Platform backend for Fireguard identity, organization access,
 field operations and collaboration. The [web application](https://github.com/DevSkyLex/fireguard-web)
 is a separate repository. Dependency versions live in [composer.json](composer.json)
 and its lockfile.

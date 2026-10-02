@@ -95,7 +95,7 @@ final readonly class PhotonAddressSuggestionsAdapter implements AddressSuggestio
     try {
       $response = $this->httpClient->request('GET', rtrim($this->baseUrl, '/') . '/api/', [
         'query' => ['q' => $query, 'limit' => 10],
-        'headers' => ['User-Agent' => 'FireGuard/1.0 (contact@valentin-fortin.pro)'],
+        'headers' => ['User-Agent' => 'Fireguard/1.0 (contact@valentin-fortin.pro)'],
         'timeout' => 3,
         'max_duration' => 3,
         'max_redirects' => 0,
