@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\Service;
 
 use DateTimeImmutable;
+use Intervention\Application\Exception\InterventionNotificationDeliveryException;
 use Intervention\Application\Service\{InterventionNotificationService, InterventionRecurrenceRecipientResolver, InterventionReviewerRecipientResolver};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -775,7 +776,7 @@ final class InterventionNotificationServiceTest extends TestCase
     try {
       $context->deliver('workflow-event', fn () => $service->assigned('intervention-1', 'Inventory', self::MEMBER_ID));
       self::fail('A failed durable channel must propagate for retry.');
-    } catch (RuntimeException) {
+    } catch (InterventionNotificationDeliveryException) {
       self::assertNull($context->eventId());
     }
     $context->deliver('workflow-event', fn () => $service->assigned('intervention-1', 'Inventory', self::MEMBER_ID));

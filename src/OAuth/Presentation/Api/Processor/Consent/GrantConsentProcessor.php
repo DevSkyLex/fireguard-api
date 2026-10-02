@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
 use Nyholm\Psr7\{Response as Psr7Response, ServerRequest};
 use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentCommand;
@@ -125,21 +126,9 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     $approved = true === $data->approved;
     $scopes = $this->parseScopes($data->scope);
 
-    $psrRequest = $this->buildAuthorizationRequest($data);
-
-    try {
-      $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($psrRequest);
-      $this->scopeRepository->finalizeScopes($authorizationRequest->getScopes(), 'authorization_code', $authorizationRequest->getClient());
-    } catch (OAuthServerException $exception) {
-      return $this->convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
-    } catch (Throwable $exception) {
-      return new JsonResponse(
-        data: [
-          'error' => 'invalid_request',
-          'error_description' => 'Invalid authorization request.',
-        ],
-        status: Response::HTTP_BAD_REQUEST,
-      );
+    $authorizationRequest = $this->validateAuthorizationRequest($data);
+    if ($authorizationRequest instanceof Response) {
+      return $authorizationRequest;
     }
 
     $userEntity = new LeagueUser();
@@ -180,6 +169,39 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
 
       return $this->convertPsrResponse($psrResponse);
     });
+  }
+
+  /**
+   * Method validateAuthorizationRequest
+   *
+   * Validates the League request and current client scope allowlist before consent or grant writes can occur.
+   *
+   * @access private
+   *
+   * @param GrantConsentInput $input the consent and authorization request fields
+   *
+   * @return AuthorizationRequestInterface|Response the validated request or its existing protocol error response
+   */
+  private function validateAuthorizationRequest(GrantConsentInput $input): AuthorizationRequestInterface|Response
+  {
+    $psrRequest = $this->buildAuthorizationRequest($input);
+
+    try {
+      $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($psrRequest);
+      $this->scopeRepository->finalizeScopes($authorizationRequest->getScopes(), 'authorization_code', $authorizationRequest->getClient());
+    } catch (OAuthServerException $exception) {
+      return $this->convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
+    } catch (Throwable $exception) {
+      return new JsonResponse(
+        data: [
+          'error' => 'invalid_request',
+          'error_description' => 'Invalid authorization request.',
+        ],
+        status: Response::HTTP_BAD_REQUEST,
+      );
+    }
+
+    return $authorizationRequest;
   }
 
   /**

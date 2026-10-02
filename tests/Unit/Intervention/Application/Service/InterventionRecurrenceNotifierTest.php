@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\Service;
 
 use DateTimeImmutable;
+use Intervention\Application\Exception\InterventionNotificationDeliveryException;
 use Intervention\Application\Service\{InterventionRecurrenceNotifier, InterventionRecurrenceRecipientResolver};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -15,6 +16,9 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Port\Outbound\DurableEventContextPort;
+
+use function count;
 
 /**
  * Test InterventionRecurrenceNotifier.
@@ -152,19 +156,65 @@ final class InterventionRecurrenceNotifierTest extends TestCase
   #[Test]
   public function testNeverThrowsWhenDeliveryFails(): void
   {
-    $notifications = $this->createStub(NotificationPort::class);
-    $notifications->method('send')->willThrowException(new RuntimeException('unavailable'));
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::exactly(2))->method('send')->willThrowException(new RuntimeException('unavailable'));
 
     $notifier = new InterventionRecurrenceNotifier(
       $notifications,
       $this->policy(),
       $this->createStub(OrganizationMemberRepositoryPort::class),
-      $this->recipients(['user-admin']),
+      $this->recipients(['user-admin-a', 'user-admin-b']),
     );
 
     $notifier->notifyMaterializationFailed(self::ORG_ID, 'recurrence-9', 'template-7', null, 'boom');
 
     self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testDurableChannelFailureRetriesWithStableRecipientIdentityAndAcceptsSuppression(): void
+  {
+    $requests = [];
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::exactly(2))->method('send')->willReturnCallback(static function (SendNotificationRequest $request) use (&$requests): SentNotification {
+      $requests[] = $request;
+
+      return new SentNotification('notification', $request->type, $request->subject, $request->body, ['mercure'], $request->payload, ['mercure' => false], new DateTimeImmutable(), channelStatus: ['mercure' => 1 === count($requests) ? 'failed' : 'suppressed']);
+    });
+    $eventContext = $this->createStub(DurableEventContextPort::class);
+    $eventContext->method('eventId')->willReturn('recurrence-outcome');
+    $notifier = new InterventionRecurrenceNotifier($notifications, $this->policy(), $this->createStub(OrganizationMemberRepositoryPort::class), $this->recipients(['user-admin']), $eventContext);
+
+    try {
+      $notifier->notifyMaterializationFailed(self::ORG_ID, 'recurrence-9', 'template-7', null, 'boom');
+      self::fail('A failed durable channel must propagate for retry.');
+    } catch (InterventionNotificationDeliveryException $failure) {
+      self::assertSame('Recurrence notification has a failed channel; durable delivery will retry.', $failure->getMessage());
+    }
+    $notifier->notifyMaterializationFailed(self::ORG_ID, 'recurrence-9', 'template-7', null, 'boom');
+
+    self::assertCount(2, $requests);
+    self::assertSame('recurrence-outcome:intervention.recurrence_failed:user-admin', $requests[0]->idempotencyKey);
+    self::assertSame($requests[0]->idempotencyKey, $requests[1]->idempotencyKey);
+    self::assertSame($requests[0]->payload, $requests[1]->payload);
+  }
+
+  #[Test]
+  public function testDurableDeliveryPreservesTheOriginalPortException(): void
+  {
+    $failure = new RuntimeException('delivery provider unavailable');
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())->method('send')->willThrowException($failure);
+    $eventContext = $this->createStub(DurableEventContextPort::class);
+    $eventContext->method('eventId')->willReturn('recurrence-outcome');
+    $notifier = new InterventionRecurrenceNotifier($notifications, $this->policy(), $this->createStub(OrganizationMemberRepositoryPort::class), $this->recipients(['user-admin']), $eventContext);
+
+    try {
+      $notifier->notifyMaterializationFailed(self::ORG_ID, 'recurrence-9', 'template-7', null, 'boom');
+      self::fail('A durable delivery exception must propagate unchanged.');
+    } catch (RuntimeException $actual) {
+      self::assertSame($failure, $actual);
+    }
   }
 
   #[Test]

@@ -9,10 +9,9 @@ use Assistant\Application\Contract\Generation\AssistantGenerationOutcome;
 use Assistant\Application\Port\Outbound\{AssistantGenerationClientPort, AssistantMessageRepositoryPort, AssistantRealtimePublisherPort, AssistantThreadRepositoryPort};
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\{AssistantAttemptWriter, AssistantPromptBuilder};
-use Assistant\Domain\Exception\AssistantGenerationStoppedException;
+use Assistant\Domain\Exception\{AssistantGenerationStoppedException, AssistantQuestionUnavailableException};
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageRole, AssistantMessageStatus, AssistantThreadId};
-use RuntimeException;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, LoggerPort};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -195,7 +194,7 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
     ));
     $question = [] === $transcript ? null : $transcript[array_key_last($transcript)];
     if (null === $question || (string) $question->id() !== $questionMessageId || AssistantMessageRole::USER !== $question->role()) {
-      throw new RuntimeException('Assistant generation question is unavailable.');
+      throw AssistantQuestionUnavailableException::unavailable();
     }
 
     return $transcript;

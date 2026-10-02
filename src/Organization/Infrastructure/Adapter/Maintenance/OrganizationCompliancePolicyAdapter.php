@@ -70,7 +70,7 @@ final readonly class OrganizationCompliancePolicyAdapter implements MaintenanceC
     try {
       $organization = $this->organizationRepository->findById(OrganizationId::fromString($organizationId));
     } catch (InvalidValueException) {
-      return new MaintenanceCompliancePolicy([], OrganizationComplianceDefaults::REMINDER_WINDOW_DAYS);
+      $organization = null;
     }
 
     $settings = $organization?->settings()->compliance;

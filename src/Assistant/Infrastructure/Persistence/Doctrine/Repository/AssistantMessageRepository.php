@@ -24,6 +24,15 @@ use function array_reverse;
  */
 final readonly class AssistantMessageRepository implements AssistantMessageRepositoryPort
 {
+  // #region Constants
+  /**
+   * Constant THREAD_PREDICATE
+   *
+   * Scopes message reads to the raw thread identifier without joining the thread aggregate.
+   */
+  private const string THREAD_PREDICATE = 'IDENTITY(m.thread) = :threadId';
+  // #endregion
+
   // #region Properties
   /**
    * @var EntityRepository<AssistantMessageRecord>
@@ -118,7 +127,7 @@ final readonly class AssistantMessageRepository implements AssistantMessageRepos
     // compares the raw foreign key without a join.
     /** @var list<AssistantMessageRecord> $records */
     $records = $this->repository->createQueryBuilder('m')
-      ->where('IDENTITY(m.thread) = :threadId')
+      ->where(self::THREAD_PREDICATE)
       ->setParameter('threadId', $threadId)
       ->orderBy('m.createdAt', 'ASC')
       ->addOrderBy('m.id', 'ASC')
@@ -145,7 +154,7 @@ final readonly class AssistantMessageRepository implements AssistantMessageRepos
   {
     return (int) $this->repository->createQueryBuilder('m')
       ->select('COUNT(m.id)')
-      ->where('IDENTITY(m.thread) = :threadId')
+      ->where(self::THREAD_PREDICATE)
       ->setParameter('threadId', $threadId)
       ->getQuery()
       ->getSingleScalarResult();
@@ -175,7 +184,7 @@ final readonly class AssistantMessageRepository implements AssistantMessageRepos
     /** @var list<AssistantMessageRecord> $records */
     $records = $this->repository->createQueryBuilder('m')
       ->from(AssistantMessageRecord::class, 'question')
-      ->where('IDENTITY(m.thread) = :threadId')
+      ->where(self::THREAD_PREDICATE)
       ->andWhere('IDENTITY(question.thread) = :threadId')
       ->andWhere('question.id = :questionId')
       ->andWhere('question.role = :userRole')

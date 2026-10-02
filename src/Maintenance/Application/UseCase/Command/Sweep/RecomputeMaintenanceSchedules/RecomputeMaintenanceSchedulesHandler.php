@@ -133,31 +133,63 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
     do {
       $page = $this->schedules->pageForSweep(self::PAGE_SIZE, $offset);
 
-      $scopes = array_map(static fn (MaintenanceScheduleView $schedule): array => ['organizationId' => $schedule->organizationId, 'equipmentId' => $schedule->equipmentId], $page->items);
-      if ([] !== $scopes) {
-        $this->locks->synchronizedBatch($scopes, function () use ($page): void {
-          $groups = [];
-          foreach ($page->items as $schedule) {
-            $groups[$schedule->organizationId][] = $schedule->equipmentId;
-          }
-          $policies = $this->compliancePolicy->compliancePolicies(array_keys($groups));
-          $updates = [];
-          foreach ($groups as $organizationId => $equipmentIds) {
-            $current = $this->schedules->findForEquipment($organizationId, $equipmentIds);
-            $compliance = $policies[$organizationId] ?? $this->compliancePolicy->compliancePolicy($organizationId);
-            foreach ($current as $schedule) {
-              $snapshot = $this->recomputeAndRemindOne($schedule, $compliance);
-              if (null !== $snapshot) {
-                $updates[] = $snapshot;
-              }
-            }
-          }
-          $this->schedules->saveBatch($updates);
-        });
-      }
+      $this->recomputeAndRemindPage($page->items);
 
       $offset += self::PAGE_SIZE;
     } while (self::PAGE_SIZE === count($page->items));
+  }
+
+  /**
+   * Method recomputeAndRemindPage
+   *
+   * Acquires every page scope before reloading schedules and enqueueing reminder updates.
+   *
+   * @access private
+   *
+   * @param list<MaintenanceScheduleView> $items the schedule identities to lock
+   *
+   * @return void
+   */
+  private function recomputeAndRemindPage(array $items): void
+  {
+    $scopes = array_map(static fn (MaintenanceScheduleView $schedule): array => ['organizationId' => $schedule->organizationId, 'equipmentId' => $schedule->equipmentId], $items);
+    if ([] === $scopes) {
+      return;
+    }
+
+    $this->locks->synchronizedBatch($scopes, fn () => $this->recomputeLockedSchedules($items));
+  }
+
+  /**
+   * Method recomputeLockedSchedules
+   *
+   * Recomputes fresh schedules in batches while their reminders and markers share the page transaction.
+   *
+   * @access private
+   *
+   * @param list<MaintenanceScheduleView> $items the schedule identities within the locked page
+   *
+   * @return void
+   */
+  private function recomputeLockedSchedules(array $items): void
+  {
+    $groups = [];
+    foreach ($items as $schedule) {
+      $groups[$schedule->organizationId][] = $schedule->equipmentId;
+    }
+    $policies = $this->compliancePolicy->compliancePolicies(array_keys($groups));
+    $updates = [];
+    foreach ($groups as $organizationId => $equipmentIds) {
+      $current = $this->schedules->findForEquipment($organizationId, $equipmentIds);
+      $compliance = $policies[$organizationId] ?? $this->compliancePolicy->compliancePolicy($organizationId);
+      foreach ($current as $schedule) {
+        $snapshot = $this->recomputeAndRemindOne($schedule, $compliance);
+        if (null !== $snapshot) {
+          $updates[] = $snapshot;
+        }
+      }
+    }
+    $this->schedules->saveBatch($updates);
   }
 
   /**

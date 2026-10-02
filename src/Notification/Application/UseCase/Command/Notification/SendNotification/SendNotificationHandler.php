@@ -122,33 +122,9 @@ final readonly class SendNotificationHandler implements CommandHandler
       throw new InvalidArgumentException('Notification subject is required.');
     }
 
-    // When only a userId was provided, the guard above ensures it is non-null here.
-    if ($this->containsChannel($channels, NotificationChannel::EMAIL) && null === $recipientEmail) {
-      $recipientEmail = $this->normalizeNullableString($this->recipientDirectory->emailForUserId((string) $recipientUserId));
-    }
-
-    if ($this->containsChannel($channels, NotificationChannel::EMAIL) && null === $recipientEmail) {
-      // Multi-channel requests degrade gracefully: the unresolvable email
-      // channel is dropped so the remaining channels still deliver. An
-      // email-only request with no resolvable address stays a caller error.
-      if (1 === count($channels)) {
-        throw new InvalidArgumentException('Recipient email is required for email notifications.');
-      }
-
-      $channels = array_values(array_filter(
-        $channels,
-        static fn (NotificationChannel $channel): bool => NotificationChannel::EMAIL !== $channel,
-      ));
-
-      $this->logger->warning('Email channel dropped: no resolvable recipient address.', [
-        'type' => $type,
-        'recipientUserId' => $recipientUserId,
-      ]);
-    }
-
-    if ($this->containsChannel($channels, NotificationChannel::MERCURE) && null === $recipientUserId) {
-      throw new InvalidArgumentException('Recipient userId is required for Mercure notifications.');
-    }
+    $delivery = $this->resolveDeliveryChannels($channels, $recipientUserId, $recipientEmail, $type);
+    $channels = $delivery['channels'];
+    $recipientEmail = $delivery['recipientEmail'];
 
     $email = null;
     if (null !== $recipientEmail) {
@@ -210,6 +186,51 @@ final readonly class SendNotificationHandler implements CommandHandler
       recipientEmail: null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
       organizationId: $notification->organizationId(),
     );
+  }
+
+  /**
+   * Method resolveDeliveryChannels
+   *
+   * Resolves missing email addresses and drops only an unavailable email channel from a multi-channel request.
+   * Mercure still requires a user recipient, and email-only requests retain their strict address requirement.
+   *
+   * @access private
+   *
+   * @param list<NotificationChannel> $channels the normalized requested channels
+   * @param string|null $recipientUserId the normalized user recipient
+   * @param string|null $recipientEmail the normalized explicit address, when supplied
+   * @param string $type the validated notification type used for diagnostics
+   *
+   * @return array{channels: list<NotificationChannel>, recipientEmail: ?string} the deliverable channels and resolved address
+   */
+  private function resolveDeliveryChannels(array $channels, ?string $recipientUserId, ?string $recipientEmail, string $type): array
+  {
+    // The caller rejects an entirely absent target before directory resolution.
+    if ($this->containsChannel($channels, NotificationChannel::EMAIL) && null === $recipientEmail) {
+      $recipientEmail = $this->normalizeNullableString($this->recipientDirectory->emailForUserId((string) $recipientUserId));
+    }
+
+    if ($this->containsChannel($channels, NotificationChannel::EMAIL) && null === $recipientEmail) {
+      if (1 === count($channels)) {
+        throw new InvalidArgumentException('Recipient email is required for email notifications.');
+      }
+
+      $channels = array_values(array_filter(
+        $channels,
+        static fn (NotificationChannel $channel): bool => NotificationChannel::EMAIL !== $channel,
+      ));
+
+      $this->logger->warning('Email channel dropped: no resolvable recipient address.', [
+        'type' => $type,
+        'recipientUserId' => $recipientUserId,
+      ]);
+    }
+
+    if ($this->containsChannel($channels, NotificationChannel::MERCURE) && null === $recipientUserId) {
+      throw new InvalidArgumentException('Recipient userId is required for Mercure notifications.');
+    }
+
+    return ['channels' => $channels, 'recipientEmail' => $recipientEmail];
   }
 
   /**

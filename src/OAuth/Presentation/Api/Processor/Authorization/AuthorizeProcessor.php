@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
 use Nyholm\Psr7\{Response as Psr7Response, ServerRequest};
 use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
@@ -152,10 +153,26 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       );
     }
 
-    $prompts = $this->parsePrompt($request);
-    $promptError = $this->validatePromptValues($prompts);
-    if (null !== $promptError) {
-      return $promptError;
+    return $this->authorizeValidatedRequest($request, $authorizationRequest);
+  }
+
+  /**
+   * Method authorizeValidatedRequest
+   *
+   * Checks OIDC prompt requirements and the authenticated user only after League and client scopes have been validated.
+   *
+   * @access private
+   *
+   * @param Request $request the incoming authorization request
+   * @param AuthorizationRequestInterface $authorizationRequest the validated League request
+   *
+   * @return Response the prompt refusal or consent-stage authorization response
+   */
+  private function authorizeValidatedRequest(Request $request, AuthorizationRequestInterface $authorizationRequest): Response
+  {
+    $prompts = $this->parseAndValidatePrompt($request);
+    if ($prompts instanceof JsonResponse) {
+      return $prompts;
     }
 
     $securityUser = $this->validateAuthorizationUser($request, $prompts);
@@ -163,6 +180,25 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       return $securityUser;
     }
 
+    return $this->completeConsentedRequest($request, $authorizationRequest, $securityUser, $prompts);
+  }
+
+  /**
+   * Method completeConsentedRequest
+   *
+   * Requires the existing consent decision before completing the grant under the fresh principal guard.
+   *
+   * @access private
+   *
+   * @param Request $request the incoming authorization request
+   * @param AuthorizationRequestInterface $authorizationRequest the validated League request
+   * @param SecurityUser $securityUser the authenticated local user
+   * @param list<string> $prompts the validated OIDC prompts
+   *
+   * @return Response the consent refusal or completed authorization response
+   */
+  private function completeConsentedRequest(Request $request, AuthorizationRequestInterface $authorizationRequest, SecurityUser $securityUser, array $prompts): Response
+  {
     $requestedScopes = $this->extractScopeIdentifiers($authorizationRequest->getScopes());
     $clientId = (string) $authorizationRequest->getClient()->getIdentifier();
 
@@ -173,7 +209,7 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       requestedScopes: $requestedScopes,
     ));
 
-    $requiresConsent = $consent->requiresConsentScreen || $this->requiresConsentPrompt($prompts);
+    $requiresConsent = $consent->requiresConsentScreen || in_array('consent', $prompts, true);
     if ($requiresConsent) {
       return new JsonResponse(
         data: [
@@ -467,30 +503,30 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
   }
 
   /**
-   * @return list<string>
+   * Method parseAndValidatePrompt
+   *
+   * Normalizes supplied OIDC prompts and rejects unknown values or incompatible prompt=none combinations before checking the user.
+   *
+   * @access private
+   *
+   * @param Request $request the incoming authorization request
+   *
+   * @return list<string>|JsonResponse the normalized prompts or the existing invalid-request response
    */
-  private function parsePrompt(Request $request): array
+  private function parseAndValidatePrompt(Request $request): array|JsonResponse
   {
     $prompt = $this->readParam($request, 'prompt');
-    if (null === $prompt) {
-      return [];
+    $prompts = [];
+    if (null !== $prompt) {
+      $values = array_filter(
+        array_map('trim', explode(' ', $prompt)),
+        static fn (string $value): bool => '' !== $value,
+      );
+
+      $normalized = array_map('strtolower', $values);
+      $prompts = array_values(array_unique($normalized));
     }
 
-    $values = array_filter(
-      array_map('trim', explode(' ', $prompt)),
-      static fn (string $value): bool => '' !== $value,
-    );
-
-    $normalized = array_map('strtolower', $values);
-
-    return array_values(array_unique($normalized));
-  }
-
-  /**
-   * @param list<string> $prompts
-   */
-  private function validatePromptValues(array $prompts): ?JsonResponse
-  {
     $allowed = ['none', 'login', 'consent', 'select_account'];
     foreach ($prompts as $prompt) {
       if (!in_array($prompt, $allowed, true)) {
@@ -502,7 +538,7 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       return $this->buildInvalidRequest('prompt=none cannot be combined with other values.');
     }
 
-    return null;
+    return $prompts;
   }
 
   /**
@@ -511,14 +547,6 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
   private function requiresLogin(array $prompts): bool
   {
     return in_array('login', $prompts, true) || in_array('select_account', $prompts, true);
-  }
-
-  /**
-   * @param list<string> $prompts
-   */
-  private function requiresConsentPrompt(array $prompts): bool
-  {
-    return in_array('consent', $prompts, true);
   }
 
   /**

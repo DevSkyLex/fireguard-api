@@ -54,6 +54,15 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
   use InterventionWorkflowExceptionMapperTrait;
   use MessengerExceptionUnwrapperTrait;
 
+  // #region Constants
+  /**
+   * Constant ATTACHMENT_NOT_FOUND_MESSAGE
+   *
+   * Uses the same response text for absent attachments and attachments hidden by context.
+   */
+  private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -209,11 +218,11 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
   {
     $parent = $this->entityManager->find(InterventionRecord::class, $interventionId);
     if (!$parent instanceof InterventionRecord || null === $parent->organization) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
     $requestedAccess = $this->authorization->resolveAccess($userId, $parent->organization->id, 'organization.interventions.read');
     if ($requestedAccess->isOutsideScope()) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $existing = $this->entityManager->find(InterventionAttachmentRecord::class, $clientId);
@@ -221,13 +230,13 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
       return null;
     }
     if (null === $existing->intervention?->organization) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
     $readAccess = $existing->intervention->organization->id === $parent->organization->id
       ? $requestedAccess
       : $this->authorization->resolveAccess($userId, $existing->intervention->organization->id, 'organization.interventions.read');
     if ($readAccess->isOutsideScope()) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
     if (!$readAccess->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.interventions.read permission.');
@@ -250,12 +259,12 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $record = $this->entityManager->find(InterventionAttachmentRecord::class, $id);
     if (!$record instanceof InterventionAttachmentRecord || null === $record->intervention) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $user = $this->user();

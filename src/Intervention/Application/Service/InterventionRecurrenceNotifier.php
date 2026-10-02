@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Service;
 
+use Intervention\Application\Exception\InterventionNotificationDeliveryException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationMemberId;
-use RuntimeException;
 use Shared\Application\Port\Outbound\DurableEventContextPort;
 use Throwable;
 
@@ -96,25 +96,42 @@ final readonly class InterventionRecurrenceNotifier
       ];
 
       foreach ($this->resolveRecipients($organizationId, $responsibleId) as $userId) {
-        try {
-          $sent = $this->notifications->send(new SendNotificationRequest(
-            type: 'intervention.recurrence_failed',
-            subject: 'Recurring intervention could not be created',
-            body: 'A recurring intervention could not be created from its template.',
-            channels: $channels,
-            payload: $payload,
-            recipientUserId: $userId,
-            organizationId: $organizationId,
-            idempotencyKey: null === $this->eventContext?->eventId() ? null : $this->eventContext->eventId() . ':intervention.recurrence_failed:' . $userId,
-          ));
-          if (null !== $this->eventContext?->eventId() && in_array('failed', $sent->channelStatus, true)) {
-            throw new RuntimeException('Recurrence notification has a failed channel; durable delivery will retry.');
-          }
-        } catch (Throwable $exception) {
-          if (null !== $this->eventContext?->eventId()) {
-            throw $exception;
-          }
-        }
+        $this->deliver(new SendNotificationRequest(
+          type: 'intervention.recurrence_failed',
+          subject: 'Recurring intervention could not be created',
+          body: 'A recurring intervention could not be created from its template.',
+          channels: $channels,
+          payload: $payload,
+          recipientUserId: $userId,
+          organizationId: $organizationId,
+          idempotencyKey: null === $this->eventContext?->eventId() ? null : $this->eventContext->eventId() . ':intervention.recurrence_failed:' . $userId,
+        ));
+      }
+    } catch (Throwable $exception) {
+      if (null !== $this->eventContext?->eventId()) {
+        throw $exception;
+      }
+    }
+  }
+
+  /**
+   * Method deliver
+   *
+   * Propagates durable channel failures for retry while keeping each synchronous recipient best-effort.
+   * The request retains the committed event and recipient identity across redelivery.
+   *
+   * @access private
+   *
+   * @param SendNotificationRequest $request one recipient's notification
+   *
+   * @return void
+   */
+  private function deliver(SendNotificationRequest $request): void
+  {
+    try {
+      $sent = $this->notifications->send($request);
+      if (null !== $this->eventContext?->eventId() && in_array('failed', $sent->channelStatus, true)) {
+        throw new InterventionNotificationDeliveryException('Recurrence notification has a failed channel; durable delivery will retry.');
       }
     } catch (Throwable $exception) {
       if (null !== $this->eventContext?->eventId()) {

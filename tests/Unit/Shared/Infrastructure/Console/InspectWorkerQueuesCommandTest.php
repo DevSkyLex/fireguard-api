@@ -45,4 +45,19 @@ final class InspectWorkerQueuesCommandTest extends TestCase
     $main->expects(self::never())->method('fetchAllAssociative');
     self::assertSame(2, new CommandTester(new InspectWorkerQueuesCommand($auth, $main))->execute(['--max-age' => '0']));
   }
+
+  public function testInvalidQueueProjectionFailsBeforeOtherDatabaseAndDoesNotExposeItsData(): void
+  {
+    $auth = $this->createMock(Connection::class);
+    $main = $this->createMock(Connection::class);
+    $auth->expects(self::once())->method('fetchAllAssociative')->willReturn([
+      ['queue_name' => 'async', 'messages' => 'private-invalid-value', 'overdue_seconds' => '0'],
+    ]);
+    $main->expects(self::never())->method('fetchAllAssociative');
+    $tester = new CommandTester(new InspectWorkerQueuesCommand($auth, $main));
+
+    self::assertSame(1, $tester->execute([]));
+    self::assertSame("Durable queue observation failed; check transport initialization and connectivity.\n", $tester->getDisplay(true));
+    self::assertStringNotContainsString('private-invalid-value', $tester->getDisplay());
+  }
 }

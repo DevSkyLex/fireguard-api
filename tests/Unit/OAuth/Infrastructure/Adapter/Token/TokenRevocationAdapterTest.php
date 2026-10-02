@@ -12,7 +12,7 @@ use OAuth\Domain\Model\Token\{AccessToken, RefreshToken};
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;
 use OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -455,6 +455,75 @@ final class TokenRevocationAdapterTest extends TestCase
 
     $this->expectException(RuntimeException::class);
     $adapter->revokeAllUserTokens('user-1');
+  }
+
+  /**
+   * Method testStoredTokenFailureKeepsCacheAndEventsUntouched
+   *
+   * Failed individual token persistence must not advertise a successful revocation through cache or events.
+   *
+   * @access public
+   *
+   * @param bool $refreshToken whether the failing token belongs to the refresh repository
+   *
+   * @return void
+   */
+  #[Test]
+  #[DataProvider('storedTokenFailures')]
+  public function testStoredTokenFailureKeepsCacheAndEventsUntouched(bool $refreshToken): void
+  {
+    $accessTokenRepository = $this->createMock(AccessTokenRepositoryPort::class);
+    $refreshTokenRepository = $this->createMock(RefreshTokenRepositoryPort::class);
+    $repository = $refreshToken ? $refreshTokenRepository : $accessTokenRepository;
+    $otherRepository = $refreshToken ? $accessTokenRepository : $refreshTokenRepository;
+    $token = $refreshToken ? $this->createRefreshToken('refresh-id', 'access-id') : $this->createAccessToken('access-id');
+    $repository->expects(self::once())->method('find')
+      ->with($refreshToken ? 'refresh-id' : 'access-id')->willReturn($token);
+    $repository->expects(self::once())->method('save')
+      ->with($token)->willThrowException(new RuntimeException('storage unavailable'));
+    $otherRepository->expects(self::never())->method('find');
+
+    $cache = $this->createMock(TokenCachePort::class);
+    $cache->expects(self::never())->method('invalidate');
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects(self::never())->method('info');
+    $logger->expects(self::once())->method('debug')->with(
+      $refreshToken ? 'Failed to revoke refresh token' : 'Failed to revoke access token',
+      ['error' => 'storage unavailable'],
+    );
+
+    $adapter = new TokenRevocationAdapter(
+      accessTokenRepository: $accessTokenRepository,
+      refreshTokenRepository: $refreshTokenRepository,
+      tokenCache: $cache,
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $events,
+      logger: $logger,
+      encryptionKey: $this->encryptionKey(),
+      userTokenRevocation: $this->createStub(UserTokenRevocationPort::class),
+      jwtParser: $this->validatedParser(),
+    );
+
+    $revoked = $refreshToken
+      ? $adapter->revokeRefreshToken($this->encryptPayload(['refresh_token_id' => 'refresh-id', 'access_token_id' => 'access-id']))
+      : $adapter->revokeAccessToken($this->createJwt(['jti' => 'access-id']));
+    self::assertFalse($revoked);
+  }
+
+  /**
+   * Method storedTokenFailures
+   *
+   * Exercises the same persistence boundary for each individual token family.
+   *
+   * @access public
+   *
+   * @return array<string, array{bool}> the access and refresh failure cases
+   */
+  public static function storedTokenFailures(): array
+  {
+    return ['access' => [false], 'refresh' => [true]];
   }
 
   private function createAdapter(): TokenRevocationAdapter

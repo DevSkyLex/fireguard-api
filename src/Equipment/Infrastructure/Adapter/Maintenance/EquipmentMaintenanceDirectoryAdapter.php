@@ -35,6 +35,15 @@ use function max;
  */
 final readonly class EquipmentMaintenanceDirectoryAdapter implements MaintenanceEquipmentDirectoryPort
 {
+  // #region Constants
+  /**
+   * Constant TRACKABLE_EQUIPMENT_PROJECTION
+   *
+   * Keeps the scalar directory view identical across single, batch and paginated reads.
+   */
+  private const string TRACKABLE_EQUIPMENT_PROJECTION = 'e.id AS equipmentId, IDENTITY(e.organization) AS organizationId, e.facilityId AS facilityId, e.type AS equipmentType, e.status AS status';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -65,7 +74,7 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
   {
     /** @var array{equipmentId: string, organizationId: string, facilityId: ?string, equipmentType: string, status: string}|null $row */
     $row = $this->entityManager->createQueryBuilder()
-      ->select('e.id AS equipmentId, IDENTITY(e.organization) AS organizationId, e.facilityId AS facilityId, e.type AS equipmentType, e.status AS status')
+      ->select(self::TRACKABLE_EQUIPMENT_PROJECTION)
       ->from(EquipmentRecord::class, 'e')->where('e.id = :id AND e.recordStatus = :status')
       ->setParameter('id', $equipmentId)->setParameter('status', 'published')->getQuery()->getOneOrNullResult(\Doctrine\ORM\Query::HYDRATE_ARRAY);
 
@@ -84,7 +93,7 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
     }
     /** @var list<array{equipmentId: string, organizationId: string, facilityId: ?string, equipmentType: string, status: string}> $rows */
     $rows = $this->entityManager->createQueryBuilder()
-      ->select('e.id AS equipmentId, IDENTITY(e.organization) AS organizationId, e.facilityId AS facilityId, e.type AS equipmentType, e.status AS status')
+      ->select(self::TRACKABLE_EQUIPMENT_PROJECTION)
       ->from(EquipmentRecord::class, 'e')->where('e.id IN (:ids) AND e.recordStatus = :status')
       ->setParameter('ids', $equipmentIds)->setParameter('status', 'published')->getQuery()->getArrayResult();
 
@@ -107,7 +116,7 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
   public function listEquipmentPage(int $limit, int $offset, ?string $organizationId = null): array
   {
     $qb = $this->entityManager->createQueryBuilder()
-      ->select('e.id AS equipmentId, IDENTITY(e.organization) AS organizationId, e.facilityId AS facilityId, e.type AS equipmentType, e.status AS status')
+      ->select(self::TRACKABLE_EQUIPMENT_PROJECTION)
       ->from(EquipmentRecord::class, 'e')
       ->where('e.recordStatus = :recordStatus')
       ->setParameter('recordStatus', 'published')

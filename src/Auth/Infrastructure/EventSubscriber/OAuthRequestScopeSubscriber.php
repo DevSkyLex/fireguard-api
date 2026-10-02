@@ -87,36 +87,67 @@ final readonly class OAuthRequestScopeSubscriber implements EventSubscriberInter
     $method = $request->getMethod();
     $operation = $request->attributes->get('_api_operation_name');
     $resource = $request->attributes->get('_api_resource_class');
-    if ('OAuth\\Presentation\\Api\\Resource\\OAuth2Resource' === $resource) {
-      if (('GET' === $method && 'userinfo' === $operation)
-        || ('POST' === $method && in_array($operation, ['revoke_token', 'introspect_token'], true))
-      ) {
-        return null;
-      }
-      if (in_array($operation, ['authorize', 'check_consent', 'grant_consent'], true)) {
-        return 'ADMIN';
-      }
+    if ($this->isIdentityProtocolOperation($resource, $operation, $method)) {
+      return null;
     }
-    if (in_array($resource, [
-      'OAuth\\Presentation\\Api\\Resource\\ClientResource',
-      'Tenant\\Presentation\\Api\\Resource\\TenantResource',
-      'Authorization\\Presentation\\Api\\Resource\\RoleResource',
-      'Authorization\\Presentation\\Api\\Resource\\PermissionResource',
-      'User\\Presentation\\Api\\Resource\\UserResource',
-      'Organization\\Presentation\\Api\\Resource\\OrganizationRoleResource',
-    ], true)) {
+    if ($this->requiresAdministration($resource, $operation)) {
       return 'ADMIN';
     }
-    if ('POST' === $method && 'workload_assess' === $operation) {
-      return 'READ';
-    }
 
-    return match ($method) {
-      'GET', 'HEAD', 'OPTIONS' => 'READ',
-      'POST', 'PUT', 'PATCH' => 'WRITE',
-      'DELETE' => 'DELETE',
-      default => 'ADMIN',
-    };
+    return 'POST' === $method && 'workload_assess' === $operation
+      ? 'READ'
+      : match ($method) {
+        'GET', 'HEAD', 'OPTIONS' => 'READ',
+        'POST', 'PUT', 'PATCH' => 'WRITE',
+        'DELETE' => 'DELETE',
+        default => 'ADMIN',
+      };
+  }
+
+  /**
+   * Method isIdentityProtocolOperation
+   *
+   * Recognizes only the routed OAuth identity operations exempt from business delegation scopes.
+   *
+   * @access private
+   *
+   * @param mixed $resource the canonical routed API resource
+   * @param mixed $operation the canonical routed API operation
+   * @param string $method the HTTP request method
+   *
+   * @return bool whether the operation retains its own protocol authorization
+   */
+  private function isIdentityProtocolOperation(mixed $resource, mixed $operation, string $method): bool
+  {
+    return 'OAuth\\Presentation\\Api\\Resource\\OAuth2Resource' === $resource
+      && (('GET' === $method && 'userinfo' === $operation)
+        || ('POST' === $method && in_array($operation, ['revoke_token', 'introspect_token'], true)));
+  }
+
+  /**
+   * Method requiresAdministration
+   *
+   * Keeps routed account administration and OAuth grant management behind the independent ADMIN capability.
+   *
+   * @access private
+   *
+   * @param mixed $resource the canonical routed API resource
+   * @param mixed $operation the canonical routed API operation
+   *
+   * @return bool whether the delegated operation requires ADMIN
+   */
+  private function requiresAdministration(mixed $resource, mixed $operation): bool
+  {
+    return ('OAuth\\Presentation\\Api\\Resource\\OAuth2Resource' === $resource
+      && in_array($operation, ['authorize', 'check_consent', 'grant_consent'], true))
+      || in_array($resource, [
+        'OAuth\\Presentation\\Api\\Resource\\ClientResource',
+        'Tenant\\Presentation\\Api\\Resource\\TenantResource',
+        'Authorization\\Presentation\\Api\\Resource\\RoleResource',
+        'Authorization\\Presentation\\Api\\Resource\\PermissionResource',
+        'User\\Presentation\\Api\\Resource\\UserResource',
+        'Organization\\Presentation\\Api\\Resource\\OrganizationRoleResource',
+      ], true);
   }
   // #endregion
 }

@@ -94,48 +94,7 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
       $decrypted = $this->decrypt($encryptedToken);
       $payload = json_decode($decrypted, true);
 
-      if (!is_array($payload) || !isset($payload['refresh_token_id'])) {
-        return false;
-      }
-
-      $tokenId = $payload['refresh_token_id'];
-      if (!is_string($tokenId)) {
-        return false;
-      }
-      $accessTokenId = $payload['access_token_id'] ?? null;
-      $this->revokeSessionByTokenIds(
-        refreshTokenId: $tokenId,
-        accessTokenId: is_string($accessTokenId) ? $accessTokenId : null,
-      );
-      $token = $this->refreshTokenRepository->find($tokenId);
-
-      if (null !== $token) {
-        $token->revoke();
-        $this->refreshTokenRepository->save($token);
-        $this->tokenCache->invalidate($tokenId);
-
-        $this->logger->info('Refresh token revoked', [
-          'token_id' => $tokenId,
-        ]);
-
-        $userId = null;
-        if (isset($payload['user_id']) && is_string($payload['user_id'])) {
-          $userId = $payload['user_id'];
-        }
-
-        $this->eventDispatcher->dispatch(new TokenRevokedEvent(
-          tokenId: $tokenId,
-          tokenType: 'refresh_token',
-          reason: null,
-          clientId: null,
-          userId: $userId,
-          ipAddress: null,
-        ));
-
-        return true;
-      }
-
-      return false;
+      return $this->revokeRefreshTokenPayload($payload);
     } catch (Throwable $e) {
       $this->logger->debug('Failed to revoke refresh token', [
         'error' => $e->getMessage(),
@@ -163,42 +122,9 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
     }
 
     try {
-      if (!$this->jwtParser->validate($jwtToken)) {
-        return false;
-      }
-      $claims = $this->jwtParser->parse($jwtToken);
-      $tokenId = $claims['jti'] ?? null;
-      if (!is_string($tokenId) || '' === $tokenId) {
-        return false;
-      }
-      $this->revokeSessionByTokenIds(refreshTokenId: null, accessTokenId: $tokenId);
-      $token = $this->accessTokenRepository->find($tokenId);
+      $tokenId = $this->validatedAccessTokenId($jwtToken);
 
-      if (null !== $token) {
-        $token->revoke();
-        $this->accessTokenRepository->save($token);
-        $this->tokenCache->invalidate($tokenId);
-
-        $this->logger->info('Access token revoked', [
-          'token_id' => $tokenId,
-        ]);
-
-        $userId = $token->userIdentifier();
-        $clientId = (string) $token->clientIdentifier();
-
-        $this->eventDispatcher->dispatch(new TokenRevokedEvent(
-          tokenId: $tokenId,
-          tokenType: 'access_token',
-          reason: null,
-          clientId: $clientId,
-          userId: is_string($userId) ? $userId : null,
-          ipAddress: null,
-        ));
-
-        return true;
-      }
-
-      return false;
+      return null !== $tokenId && $this->revokeStoredAccessToken($tokenId);
     } catch (Throwable $e) {
       $this->logger->debug('Failed to revoke access token', [
         'error' => $e->getMessage(),
@@ -228,6 +154,124 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
     $this->logger->info('All OAuth grants revoked for user', [
       'user_id' => $userId,
     ]);
+  }
+
+  /**
+   * Method revokeRefreshTokenPayload
+   *
+   * Rejects unusable decoded refresh identifiers before session or storage access and publishes only after the stored revocation.
+   *
+   * @access private
+   *
+   * @param mixed $payload the decrypted JSON value
+   *
+   * @return bool whether a stored refresh token was revoked
+   */
+  private function revokeRefreshTokenPayload(mixed $payload): bool
+  {
+    if (!is_array($payload) || !isset($payload['refresh_token_id']) || !is_string($payload['refresh_token_id'])) {
+      return false;
+    }
+
+    $tokenId = $payload['refresh_token_id'];
+    $accessTokenId = $payload['access_token_id'] ?? null;
+    $this->revokeSessionByTokenIds(
+      refreshTokenId: $tokenId,
+      accessTokenId: is_string($accessTokenId) ? $accessTokenId : null,
+    );
+    $token = $this->refreshTokenRepository->find($tokenId);
+    if (null === $token) {
+      return false;
+    }
+
+    $token->revoke();
+    $this->refreshTokenRepository->save($token);
+    $this->tokenCache->invalidate($tokenId);
+
+    $this->logger->info('Refresh token revoked', [
+      'token_id' => $tokenId,
+    ]);
+
+    $userId = null;
+    if (isset($payload['user_id']) && is_string($payload['user_id'])) {
+      $userId = $payload['user_id'];
+    }
+
+    $this->eventDispatcher->dispatch(new TokenRevokedEvent(
+      tokenId: $tokenId,
+      tokenType: 'refresh_token',
+      reason: null,
+      clientId: null,
+      userId: $userId,
+      ipAddress: null,
+    ));
+
+    return true;
+  }
+
+  /**
+   * Method validatedAccessTokenId
+   *
+   * Verifies the JWT before reading its identifier so untrusted claims cannot drive session or token revocation.
+   *
+   * @access private
+   *
+   * @param string $jwtToken the serialized access-token JWT
+   *
+   * @return string|null a usable identifier from a validated token
+   */
+  private function validatedAccessTokenId(string $jwtToken): ?string
+  {
+    if (!$this->jwtParser->validate($jwtToken)) {
+      return null;
+    }
+
+    $claims = $this->jwtParser->parse($jwtToken);
+    $tokenId = $claims['jti'] ?? null;
+
+    return is_string($tokenId) && '' !== $tokenId ? $tokenId : null;
+  }
+
+  /**
+   * Method revokeStoredAccessToken
+   *
+   * Revokes the verified token's session and stored access token before cache invalidation and event publication.
+   *
+   * @access private
+   *
+   * @param string $tokenId the identifier obtained after JWT validation
+   *
+   * @return bool whether a stored access token was revoked
+   */
+  private function revokeStoredAccessToken(string $tokenId): bool
+  {
+    $this->revokeSessionByTokenIds(refreshTokenId: null, accessTokenId: $tokenId);
+    $token = $this->accessTokenRepository->find($tokenId);
+    if (null === $token) {
+      return false;
+    }
+
+    $token->revoke();
+    $this->accessTokenRepository->save($token);
+    $this->tokenCache->invalidate($tokenId);
+
+    $this->logger->info('Access token revoked', [
+      'token_id' => $tokenId,
+    ]);
+
+    $userId = $token->userIdentifier();
+    $clientId = (string) $token->clientIdentifier();
+
+    $this->eventDispatcher->dispatch(new TokenRevokedEvent(
+      tokenId: $tokenId,
+      tokenType: 'access_token',
+      reason: null,
+      clientId: $clientId,
+      userId: is_string($userId) ? $userId : null,
+      ipAddress: null,
+    ));
+
+    return true;
   }
 
   /**

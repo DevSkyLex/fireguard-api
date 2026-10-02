@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Console;
 
 use Doctrine\DBAL\Connection;
-use RuntimeException;
+use Shared\Infrastructure\Exception\QueueObservationException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\{InputInterface, InputOption};
@@ -76,7 +76,7 @@ final class InspectWorkerQueuesCommand extends Command
         $queues = $connection->fetchAllAssociative('SELECT queue_name, COUNT(*) AS messages, COALESCE(MAX(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - available_at))) FILTER (WHERE delivered_at IS NULL AND available_at <= CURRENT_TIMESTAMP), 0) AS overdue_seconds FROM messenger_messages GROUP BY queue_name ORDER BY queue_name');
         foreach ($queues as $queue) {
           if (!is_numeric($queue['messages']) || !is_numeric($queue['overdue_seconds'])) {
-            throw new RuntimeException('Unexpected durable queue observation shape.');
+            throw new QueueObservationException('Unexpected durable queue observation shape.');
           }
           $failed = 'failed' === $queue['queue_name'] || 'main_failed' === $queue['queue_name'];
           $healthy = $healthy && !($failed && (int) $queue['messages'] > 0) && (float) $queue['overdue_seconds'] <= (int) $maxAge;

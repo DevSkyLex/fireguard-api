@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Maintenance\Application\Service;
 
 use DateTimeImmutable;
+use Maintenance\Application\Exception\MaintenanceReminderDeliveryException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
-use RuntimeException;
 use Throwable;
 
 use function in_array;
@@ -111,10 +111,10 @@ final readonly class MaintenanceReminderNotifier
         }
       }
     } catch (Throwable $exception) {
-      throw new RuntimeException('Maintenance reminder delivery could not resolve its policy or recipients.', 0, $exception);
+      throw new MaintenanceReminderDeliveryException('Maintenance reminder delivery could not resolve its policy or recipients.', 0, $exception);
     }
     if ($failed) {
-      throw new RuntimeException('Maintenance reminder has retryable delivery failures.');
+      throw new MaintenanceReminderDeliveryException('Maintenance reminder has retryable delivery failures.');
     }
   }
   // #endregion

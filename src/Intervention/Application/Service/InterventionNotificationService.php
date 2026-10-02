@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Intervention\Application\Service;
 
 use DateTimeImmutable;
+use Intervention\Application\Exception\InterventionNotificationDeliveryException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\ValueObject\{OrganizationMemberId, OrganizationNotificationSettings};
-use RuntimeException;
 use Shared\Application\Port\Outbound\{DurableEventContextPort, IdempotentConsumerPort};
 use Throwable;
 
@@ -525,7 +525,7 @@ final readonly class InterventionNotificationService
       idempotencyKey: null === $eventId ? null : $eventId . ':' . $request->type . ':' . ($request->recipientUserId ?? $request->recipientEmail ?? ''),
     ));
     if (null !== $eventId && in_array('failed', $sent->channelStatus, true)) {
-      throw new RuntimeException('Intervention notification has a failed channel; durable delivery will retry.');
+      throw new InterventionNotificationDeliveryException('Intervention notification has a failed channel; durable delivery will retry.');
     }
   }
 

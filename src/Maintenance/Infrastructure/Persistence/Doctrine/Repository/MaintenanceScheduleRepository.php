@@ -33,6 +33,20 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
 {
   // #region Constants
   /**
+   * Constant DATABASE_TIMESTAMP_FORMAT
+   *
+   * Preserves the existing database timestamp serialization for every snapshot field.
+   */
+  private const string DATABASE_TIMESTAMP_FORMAT = 'Y-m-d H:i:s';
+
+  /**
+   * Constant COUNT_PROJECTION
+   *
+   * Uses the same scalar DQL projection for filtered schedule counts.
+   */
+  private const string COUNT_PROJECTION = 'COUNT(s.id)';
+
+  /**
    * Constant ORGANIZATION_PREDICATE
    *
    * Reusable DQL clause that scopes schedules to an organization.
@@ -164,13 +178,13 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     }
     $values = [];
     $parameters = [];
-    $now = new DateTimeImmutable()->format('Y-m-d H:i:s');
+    $now = new DateTimeImmutable()->format(self::DATABASE_TIMESTAMP_FORMAT);
     foreach ($snapshots as $index => $snapshot) {
       $row = ['id' => $snapshot->id ?? $this->uuidFactory->generateRaw(), 'organization' => $snapshot->organizationId, 'equipment' => $snapshot->equipmentId,
         'facility' => $snapshot->facilityId, 'type' => $snapshot->equipmentType, 'override' => $snapshot->intervalOverride,
-        'closed' => $snapshot->lastInspectionClosedAt?->format('Y-m-d H:i:s'), 'due' => $snapshot->nextDueAt?->format('Y-m-d H:i:s'), 'status' => $snapshot->dueStatus,
-        'reminded' => $snapshot->lastRemindedAt?->format('Y-m-d H:i:s'), 'remindedFor' => $snapshot->remindedFor?->format('Y-m-d H:i:s'),
-        'created' => $now, 'updated' => $now, 'evaluated' => $snapshot->evaluatedAt?->format('Y-m-d H:i:s')];
+        'closed' => $snapshot->lastInspectionClosedAt?->format(self::DATABASE_TIMESTAMP_FORMAT), 'due' => $snapshot->nextDueAt?->format(self::DATABASE_TIMESTAMP_FORMAT), 'status' => $snapshot->dueStatus,
+        'reminded' => $snapshot->lastRemindedAt?->format(self::DATABASE_TIMESTAMP_FORMAT), 'remindedFor' => $snapshot->remindedFor?->format(self::DATABASE_TIMESTAMP_FORMAT),
+        'created' => $now, 'updated' => $now, 'evaluated' => $snapshot->evaluatedAt?->format(self::DATABASE_TIMESTAMP_FORMAT)];
       $placeholders = [];
       foreach ($row as $name => $value) {
         $key = 'r' . $index . $name;
@@ -240,7 +254,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     }
 
     $total = (int) (clone $qb)
-      ->select('COUNT(s.id)')
+      ->select(self::COUNT_PROJECTION)
       ->getQuery()
       ->getSingleScalarResult();
 
@@ -314,7 +328,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, null, $dueBefore)
       ->andWhere('s.dueStatus IN (:dueStatuses)')->setParameter('dueStatuses', ['due_soon', 'overdue']);
 
-    return (int) $qb->select('COUNT(s.id)')->getQuery()->getSingleScalarResult();
+    return (int) $qb->select(self::COUNT_PROJECTION)->getQuery()->getSingleScalarResult();
   }
 
   /**
@@ -369,10 +383,10 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
         next_due_at = EXCLUDED.next_due_at, due_status = EXCLUDED.due_status, last_reminded_at = EXCLUDED.last_reminded_at,
         reminded_for = EXCLUDED.reminded_for, updated_at = EXCLUDED.updated_at, evaluated_at = EXCLUDED.evaluated_at',
       ['id' => $id, 'organization' => $snapshot->organizationId, 'equipment' => $snapshot->equipmentId, 'facility' => $snapshot->facilityId,
-        'type' => $snapshot->equipmentType, 'override' => $snapshot->intervalOverride, 'closed' => $snapshot->lastInspectionClosedAt?->format('Y-m-d H:i:s'),
-        'due' => $snapshot->nextDueAt?->format('Y-m-d H:i:s'), 'status' => $snapshot->dueStatus,
-        'reminded' => $snapshot->lastRemindedAt?->format('Y-m-d H:i:s'), 'remindedFor' => $snapshot->remindedFor?->format('Y-m-d H:i:s'),
-        'created' => ($existing->createdAt ?? $now)->format('Y-m-d H:i:s'), 'updated' => $now->format('Y-m-d H:i:s'), 'evaluated' => $snapshot->evaluatedAt?->format('Y-m-d H:i:s')],
+        'type' => $snapshot->equipmentType, 'override' => $snapshot->intervalOverride, 'closed' => $snapshot->lastInspectionClosedAt?->format(self::DATABASE_TIMESTAMP_FORMAT),
+        'due' => $snapshot->nextDueAt?->format(self::DATABASE_TIMESTAMP_FORMAT), 'status' => $snapshot->dueStatus,
+        'reminded' => $snapshot->lastRemindedAt?->format(self::DATABASE_TIMESTAMP_FORMAT), 'remindedFor' => $snapshot->remindedFor?->format(self::DATABASE_TIMESTAMP_FORMAT),
+        'created' => ($existing->createdAt ?? $now)->format(self::DATABASE_TIMESTAMP_FORMAT), 'updated' => $now->format(self::DATABASE_TIMESTAMP_FORMAT), 'evaluated' => $snapshot->evaluatedAt?->format(self::DATABASE_TIMESTAMP_FORMAT)],
     );
 
     return $this->findByOrganizationAndEquipment($snapshot->organizationId, $snapshot->equipmentId) ?? throw MaintenanceNotFoundException::withId($id);
@@ -419,7 +433,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
   ): int {
     $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, $dueStatus, $dueBefore);
 
-    return (int) $qb->select('COUNT(s.id)')->getQuery()->getSingleScalarResult();
+    return (int) $qb->select(self::COUNT_PROJECTION)->getQuery()->getSingleScalarResult();
   }
 
   /**
