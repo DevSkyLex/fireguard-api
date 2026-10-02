@@ -9,6 +9,7 @@ use DateTimeZone;
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpGenerationOptions, OtpId, OtpPurpose};
 use Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter;
+use Otp\Infrastructure\Exception\OtpEmailDeliveryException;
 use Otp\Infrastructure\Notification\RequestOriginResolver;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -75,9 +76,31 @@ final class OtpNotifierAdapterTest extends TestCase
         new EmailRequestDetails(location: new IpLocation('FR', 'Paris')),
       );
       self::fail('The delivery failure must remain visible to the caller.');
-    } catch (RuntimeException $exception) {
+    } catch (OtpEmailDeliveryException $exception) {
       self::assertSame('OTP email delivery failed: RuntimeException', $exception->getMessage());
       self::assertNull($exception->getPrevious());
+    }
+  }
+
+  #[Test]
+  public function testDeliveryWithoutLocationPreservesTheProviderFailure(): void
+  {
+    foreach ([null, EmailRequestDetails::fromOrigin(null, null)] as $details) {
+      $failure = new RuntimeException('Provider unavailable');
+      $mailer = $this->createMock(MailerInterface::class);
+      $mailer->expects(self::once())->method('send')->willThrowException($failure);
+      $adapter = new OtpNotifierAdapter(
+        $this->createStub(NotifierInterface::class),
+        $mailer,
+        $this->createTwigEnvironment(),
+      );
+
+      try {
+        $adapter->send($this->createOtp(OtpChannel::EMAIL, 'user@example.com'), $details);
+        self::fail('The delivery failure must remain visible to the caller.');
+      } catch (RuntimeException $exception) {
+        self::assertSame($failure, $exception);
+      }
     }
   }
 

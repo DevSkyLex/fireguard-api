@@ -18,7 +18,7 @@ use Notification\Application\UseCase\Command\Notification\SendNotification\{Send
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\Model\NotificationPreference\NotificationPreference;
 use Notification\Domain\ValueObject\NotificationId;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -79,6 +79,110 @@ final class SendNotificationHandlerTest extends TestCase
     ));
     self::assertSame([], $result->payload);
     self::assertSame(['email' => false, 'mercure' => true], $result->channelDelivery);
+  }
+
+  /**
+   * Method testFailedChannelLogsOnlyTheAllowedDiagnostics
+   *
+   * Verifies that optional causes and malformed template context preserve the delivery diagnostic policy.
+   *
+   * @access public
+   *
+   * @param NotificationChannel $channel the failing delivery channel
+   * @param array<string, mixed> $payload the channel's ephemeral payload
+   * @param RuntimeException $failure the transport failure
+   * @param string $expectedError the allowed primary diagnostic
+   * @param string|null $expectedCause the allowed cause diagnostic
+   *
+   * @return void no return value
+   */
+  #[Test]
+  #[DataProvider('failureDiagnostics')]
+  public function testFailedChannelLogsOnlyTheAllowedDiagnostics(NotificationChannel $channel, array $payload, RuntimeException $failure, string $expectedError, ?string $expectedCause): void
+  {
+    $repository = $this->createMock(NotificationRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+    $email = $this->createMock(EmailNotificationChannelPort::class);
+    $mercure = $this->createMock(MercureNotificationChannelPort::class);
+    $email->expects(NotificationChannel::EMAIL === $channel ? self::once() : self::never())
+      ->method('send')->willThrowException($failure);
+    $mercure->expects(NotificationChannel::MERCURE === $channel ? self::once() : self::never())
+      ->method('publish')->willThrowException($failure);
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning')->with('Notification channel delivery failed.', [
+      'notificationId' => '550e8400-e29b-41d4-a716-446655442018',
+      'channel' => $channel->value,
+      'type' => 'user.email_change_requested',
+      'recipientUserId' => 'user-1',
+      'recipientEmail' => 'member@example.com',
+      'error' => $expectedError,
+      'cause' => $expectedCause,
+    ]);
+    $factory = $this->createStub(UuidFactory::class);
+    $factory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442018'));
+    $handler = new SendNotificationHandler(
+      $repository,
+      $this->createStub(NotificationPreferenceRepositoryPort::class),
+      $email,
+      $mercure,
+      $this->createStub(RecipientDirectoryPort::class),
+      $logger,
+      $factory,
+    );
+
+    $result = $handler(new SendNotificationCommand(
+      type: 'user.email_change_requested',
+      subject: 'Security request',
+      body: 'Security request.',
+      channels: [$channel],
+      recipientUserId: 'user-1',
+      recipientEmail: 'member@example.com',
+      deliveryPayload: [$channel->value => $payload],
+    ));
+
+    self::assertSame([$channel->value => false], $result->channelDelivery);
+    self::assertSame('550e8400-e29b-41d4-a716-446655442018', $result->id);
+  }
+
+  /**
+   * Method failureDiagnostics
+   *
+   * Covers private emails without a cause and ordinary transport failures with optional template context.
+   *
+   * @access public
+   *
+   * @return iterable<string, array{NotificationChannel, array<string, mixed>, RuntimeException, string, ?string}> the failure cases
+   */
+  public static function failureDiagnostics(): iterable
+  {
+    yield 'private email without cause' => [
+      NotificationChannel::EMAIL,
+      ['context' => ['requestDetails' => new EmailRequestDetails(location: new IpLocation('FR', 'Paris'))]],
+      new RuntimeException('Paris FR 8.8.8.8'),
+      RuntimeException::class,
+      null,
+    ];
+    yield 'ordinary email with cause' => [
+      NotificationChannel::EMAIL,
+      ['context' => ['requestDetails' => null]],
+      new RuntimeException('SMTP unavailable', previous: new RuntimeException('Connection refused')),
+      'SMTP unavailable',
+      'Connection refused',
+    ];
+    yield 'malformed email context without cause' => [
+      NotificationChannel::EMAIL,
+      ['context' => 'invalid'],
+      new RuntimeException('SMTP unavailable'),
+      'SMTP unavailable',
+      null,
+    ];
+    yield 'ordinary Mercure failure' => [
+      NotificationChannel::MERCURE,
+      [],
+      new RuntimeException('Hub unavailable', previous: new RuntimeException('Connection refused')),
+      'Hub unavailable',
+      'Connection refused',
+    ];
   }
 
   #[Test]

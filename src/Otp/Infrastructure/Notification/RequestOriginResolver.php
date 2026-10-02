@@ -106,11 +106,9 @@ final readonly class RequestOriginResolver implements RequestOriginPort
     $browser = $agent->getBrowser();
     $operatingSystem = $agent->getOS();
 
-    if (null === $browser && null === $operatingSystem) {
-      return null;
-    }
-
-    return ['browser' => $browser, 'operatingSystem' => $operatingSystem];
+    return null === $browser && null === $operatingSystem
+      ? null
+      : ['browser' => $browser, 'operatingSystem' => $operatingSystem];
   }
   // #endregion
 }

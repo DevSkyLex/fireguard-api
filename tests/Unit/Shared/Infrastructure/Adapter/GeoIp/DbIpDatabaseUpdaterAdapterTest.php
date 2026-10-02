@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\ClockPort;
 use Shared\Infrastructure\Adapter\GeoIp\DbIpDatabaseUpdaterAdapter;
+use Shared\Infrastructure\Exception\GeoIpDatabaseException;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpClient\{MockHttpClient, Response\MockResponse};
 use Symfony\Component\Lock\{LockFactory, Store\FlockStore};
@@ -26,6 +27,7 @@ use function mkdir;
 use function random_bytes;
 use function str_replace;
 use function substr;
+use function substr_replace;
 use function sys_get_temp_dir;
 
 /**
@@ -118,7 +120,7 @@ final class DbIpDatabaseUpdaterAdapterTest extends TestCase
       try {
         new DbIpDatabaseUpdaterAdapter(new MockHttpClient(new MockResponse($current)), $this->clock, $this->path, $archiveLimit, $expandedLimit)->update();
         self::fail('Size limit must stop publishing.');
-      } catch (RuntimeException) {
+      } catch (GeoIpDatabaseException) {
         self::assertSame($previous, file_get_contents($this->path));
       }
     }
@@ -131,10 +133,54 @@ final class DbIpDatabaseUpdaterAdapterTest extends TestCase
     $client = new MockHttpClient();
 
     try {
-      $this->expectException(RuntimeException::class);
+      $this->expectException(GeoIpDatabaseException::class);
       new DbIpDatabaseUpdaterAdapter($client, $this->clock, $this->path)->update();
     } finally {
       $lock->release();
+      self::assertSame(0, $client->getRequestsCount());
+    }
+  }
+
+  public function testDatabaseBuildValidatesLocalSearchPathsWithoutHttpRequests(): void
+  {
+    $build = new DateTimeImmutable('2026-10-01T00:00:00Z');
+    file_put_contents($this->path, SyntheticMmdb::bytes($build));
+    $client = new MockHttpClient(static function (): never {
+      self::fail('Installed database validation must never send a network request.');
+    });
+
+    self::assertEquals($build, new DbIpDatabaseUpdaterAdapter($client, $this->clock, $this->path)->databaseBuild());
+    self::assertSame(0, $client->getRequestsCount());
+  }
+
+  public function testInvalidGzipChecksumAndLengthCannotReplaceInstalledDatabase(): void
+  {
+    $previous = SyntheticMmdb::bytes(new DateTimeImmutable('2026-09-01T00:00:00Z'));
+    $current = $this->gzip(SyntheticMmdb::bytes(new DateTimeImmutable('2026-10-01T00:00:00Z')));
+    foreach ([substr_replace($current, "\0\0\0\0", -8, 4), substr_replace($current, "\0\0\0\0", -4, 4)] as $corruptArchive) {
+      file_put_contents($this->path, $previous);
+      $updater = new DbIpDatabaseUpdaterAdapter(new MockHttpClient(new MockResponse($corruptArchive)), $this->clock, $this->path);
+
+      try {
+        $updater->update();
+        self::fail('Corrupt gzip trailers must fail validation.');
+      } catch (GeoIpDatabaseException) {
+        self::assertSame($previous, file_get_contents($this->path));
+        self::assertSame([], glob($this->directory . '/.dbip-*'));
+      }
+    }
+  }
+
+  public function testFutureDatabaseMetadataFailsLocallyWithDedicatedException(): void
+  {
+    file_put_contents($this->path, SyntheticMmdb::bytes(new DateTimeImmutable('2026-11-01T00:00:00Z')));
+    $client = new MockHttpClient();
+
+    try {
+      $this->expectException(GeoIpDatabaseException::class);
+      $this->expectExceptionMessage('Unexpected GeoIP database metadata.');
+      new DbIpDatabaseUpdaterAdapter($client, $this->clock, $this->path)->databaseBuild();
+    } finally {
       self::assertSame(0, $client->getRequestsCount());
     }
   }

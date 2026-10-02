@@ -253,12 +253,17 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 final class AuthResource
 {
   /**
+   * Constant ERROR_SCHEMA_REFERENCE
+   */
+  private const string ERROR_SCHEMA_REFERENCE = '#/components/schemas/Error';
+
+  /**
    * OpenAPI bodies emitted by the centralized error normalizers.
    */
   private const array ERROR_CONTENT = [
     'application/ld+json' => ['schema' => ['$ref' => '#/components/schemas/Error.jsonld']],
-    'application/problem+json' => ['schema' => ['$ref' => '#/components/schemas/Error']],
-    'application/json' => ['schema' => ['$ref' => '#/components/schemas/Error']],
+    'application/problem+json' => ['schema' => ['$ref' => self::ERROR_SCHEMA_REFERENCE]],
+    'application/json' => ['schema' => ['$ref' => self::ERROR_SCHEMA_REFERENCE]],
   ];
 
   /**
@@ -268,7 +273,7 @@ final class AuthResource
     'application/problem+json' => [
       'schema' => [
         'allOf' => [
-          ['$ref' => '#/components/schemas/Error'],
+          ['$ref' => self::ERROR_SCHEMA_REFERENCE],
           [
             'type' => 'object',
             'required' => ['code', 'retryAfterSeconds'],
