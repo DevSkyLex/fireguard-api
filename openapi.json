@@ -16564,6 +16564,33 @@
                         },
                         "style": "simple",
                         "explode": false
+                    },
+                    {
+                        "name": "reportPage",
+                        "in": "query",
+                        "description": "Report page, starting at one.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "reportItemsPerPage",
+                        "in": "query",
+                        "description": "Report rows per page, from one to 100 (default 100).",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": true
                     }
                 ]
             }
@@ -30663,6 +30690,9 @@
                     "429": {
                         "description": "Too many confirmation attempts"
                     },
+                    "409": {
+                        "description": "An active authenticator cannot be replaced by confirming a pending secret"
+                    },
                     "400": {
                         "description": "Invalid input",
                         "content": {
@@ -30707,7 +30737,7 @@
                     }
                 },
                 "summary": "Confirm TOTP",
-                "description": "Verifies a code from the authenticator app against the pending secret and, on success, activates TOTP for the user. Requires otp_totp.confirm permission.",
+                "description": "Verifies a code from the authenticator app against the pending secret and, on success, activates TOTP for the user. An existing active factor cannot be replaced, including when a legacy pending secret exists. Requires otp_totp.confirm permission.",
                 "parameters": [],
                 "requestBody": {
                     "description": "The new Totp resource",
@@ -30862,6 +30892,29 @@
                     "401": {
                         "description": "User must be authenticated"
                     },
+                    "409": {
+                        "description": "An active authenticator must first be disabled with its current code"
+                    },
+                    "403": {
+                        "description": "Authenticator enrollment is unavailable for this account",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid input",
                         "content": {
@@ -30903,31 +30956,10 @@
                             }
                         },
                         "links": {}
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
                     }
                 },
                 "summary": "Setup TOTP",
-                "description": "Generates a new TOTP secret and stores it server-side as a PENDING enrollment for the authenticated user. Returns the secret and a QR code URI for authenticator app setup. Calling this again replaces the pending secret. Requires otp_totp.setup permission.",
+                "description": "Generates a new TOTP secret and stores it server-side as a PENDING enrollment for the authenticated user. Returns the secret and a QR code URI for authenticator app setup. Calling this again replaces the pending secret during initial enrollment. Enrollment requires the account to remain active when its serialized mutation starts. An active factor must first be disabled with its current code; setup refuses replacement. Requires otp_totp.setup permission.",
                 "parameters": [],
                 "security": [
                     {
@@ -51582,6 +51614,26 @@
                                 "items": {
                                     "$ref": "#/components/schemas/ImportRowErrorOutput.jsonld"
                                 }
+                            },
+                            "reportPage": {
+                                "description": "Current report page, starting at one.",
+                                "default": 1,
+                                "type": "integer"
+                            },
+                            "reportItemsPerPage": {
+                                "description": "Maximum report rows returned per page.",
+                                "default": 100,
+                                "type": "integer"
+                            },
+                            "reportTotal": {
+                                "description": "Total confirmed report rows for this job.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "reportHasNextPage": {
+                                "description": "Whether a subsequent report page exists.",
+                                "default": false,
+                                "type": "boolean"
                             },
                             "jobError": {
                                 "description": "Property jobError.",

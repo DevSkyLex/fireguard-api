@@ -38,11 +38,11 @@ interface InterventionReminderPort
    * @param DateTimeImmutable $now the current instant
    * @param DateTimeImmutable $threshold the upper bound of the due-soon window
    * @param int $limit the maximum number of results
-   * @param int $offset the result offset
+   * @param ?string $afterId last processed identifier, null for the first page
    *
    * @return InterventionReminderPage the due-soon candidate page
    */
-  public function pageDueSoon(DateTimeImmutable $now, DateTimeImmutable $threshold, int $limit, int $offset): InterventionReminderPage;
+  public function pageDueSoon(DateTimeImmutable $now, DateTimeImmutable $threshold, int $limit, ?string $afterId = null): InterventionReminderPage;
 
   /**
    * Method pageOverdue.
@@ -55,11 +55,11 @@ interface InterventionReminderPort
    *
    * @param DateTimeImmutable $now the current instant
    * @param int $limit the maximum number of results
-   * @param int $offset the result offset
+   * @param ?string $afterId last processed identifier, null for the first page
    *
    * @return InterventionReminderPage the overdue candidate page
    */
-  public function pageOverdue(DateTimeImmutable $now, int $limit, int $offset): InterventionReminderPage;
+  public function pageOverdue(DateTimeImmutable $now, int $limit, ?string $afterId = null): InterventionReminderPage;
 
   /**
    * Method markDueSoonNotified.

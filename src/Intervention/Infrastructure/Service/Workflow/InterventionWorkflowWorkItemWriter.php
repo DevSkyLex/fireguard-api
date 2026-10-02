@@ -10,7 +10,7 @@ use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowMutation,
   InterventionWorkflowView
 };
-use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
+use Intervention\Domain\Event\Workflow\{InterventionStatusTransitionedEvent, InterventionWorkflowNotificationRequestedEvent};
 use Intervention\Domain\Exception\{
   InterventionConflictException,
   InterventionPreconditionFailedException,
@@ -52,7 +52,7 @@ final readonly class InterventionWorkflowWorkItemWriter
    *
    * @param InterventionWorkflowWriterRuntime $runtime persistence and workflow collaborators
    * @param InterventionWorkItemTransitionPolicy $workItemTransitionPolicy validates status changes
-   * @param EventDispatcherPort $eventDispatcher dispatches workflow events
+   * @param EventDispatcherPort $eventDispatcher records workflow events in the main outbox
    *
    * @return void
    */
@@ -74,7 +74,7 @@ final readonly class InterventionWorkflowWorkItemWriter
    * @since 1.0.0
    *
    * @param InterventionWorkflowMutation $mutation the mutation value
-   * @param list<callable(): void> $notifications deferred notifications dispatched after commit
+   * @param list<callable(): void> $notifications effects persisted into the outbox before commit
    *
    * @return ?InterventionWorkflowView the mutate work item result
    */
@@ -111,7 +111,7 @@ final readonly class InterventionWorkflowWorkItemWriter
       $interventionId = $intervention->id;
       $interventionName = $intervention->name;
       $assigneeId = $record->assigneeId;
-      $notifications[] = fn () => $this->runtime->notifications->assigned($interventionId, $interventionName, $assigneeId);
+      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionWorkflowNotificationRequestedEvent('assigned', $interventionId, $interventionName, $assigneeId));
     }
 
     return $this->runtime->views->workItemView($record);
@@ -231,7 +231,7 @@ final readonly class InterventionWorkflowWorkItemWriter
       $this->runtime->memberPolicy->findMemberId($organizationId, $actorUserId),
       new InterventionActivityContent('system', 'status_changed', null, ['from' => 'planned', 'to' => 'in_progress']),
     ));
-    // Audit ledger dispatch is deferred until the transaction commits.
+    // Persist the audit event in the transaction; delivery follows commit.
     $interventionId = $intervention->id;
     $interventionNumber = $intervention->number;
     $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
@@ -354,7 +354,7 @@ final readonly class InterventionWorkflowWorkItemWriter
    * @since 1.0.0
    *
    * @param InterventionWorkflowMutation $mutation the mutation value
-   * @param list<callable(): void> $notifications deferred notifications dispatched after commit
+   * @param list<callable(): void> $notifications effects persisted into the outbox before commit
    *
    * @return InterventionWorkflowView the create work item result
    */
@@ -406,7 +406,7 @@ final readonly class InterventionWorkflowWorkItemWriter
       $interventionId = $intervention->id;
       $interventionName = $intervention->name;
       $assigneeId = $record->assigneeId;
-      $notifications[] = fn () => $this->runtime->notifications->assigned($interventionId, $interventionName, $assigneeId);
+      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionWorkflowNotificationRequestedEvent('assigned', $interventionId, $interventionName, $assigneeId));
     }
 
     return $this->runtime->views->workItemView($record);

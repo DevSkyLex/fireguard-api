@@ -78,6 +78,8 @@ final class AddOrganizationMemberProcessorTest extends TestCase
       ->with(self::callback(static function (AddOrganizationMemberCommand $command): bool {
         return '550e8400-e29b-41d4-a716-446655441210' === $command->organizationId
           && '550e8400-e29b-41d4-a716-446655441201' === $command->userId
+          && \Organization\Application\Contract\Member\OrganizationMemberGrant::ACTOR === $command->grant->source
+          && '550e8400-e29b-41d4-a716-446655441200' === $command->grant->reference
           && ['550e8400-e29b-41d4-a716-446655441211'] === $command->roleIds;
       }))
       ->willReturn(new AddOrganizationMemberResult(
@@ -175,6 +177,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
 
     $handlerFailure = new HandlerFailedException(
       new Envelope(new AddOrganizationMemberCommand(
+        grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
         organizationId: '550e8400-e29b-41d4-a716-446655441210',
         userId: '550e8400-e29b-41d4-a716-446655441201',
       )),
@@ -315,6 +318,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
   {
     return MessengerRuntimeException::wrap(new HandlerFailedException(
       new Envelope(new AddOrganizationMemberCommand(
+        grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
         organizationId: '550e8400-e29b-41d4-a716-446655441210',
         userId: '550e8400-e29b-41d4-a716-446655441201',
       )),

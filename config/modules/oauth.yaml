@@ -9,6 +9,8 @@ services:
     autowire: true
     autoconfigure: true
 
+  OAuth\Presentation\Api\Service\AuthorizationGrantCompletion: ~
+
   # OAuth Module - Validators
   OAuth\Presentation\Api\Validator\ValidScopes\ValidScopesValidator: ~
   OAuth\Presentation\Api\Validator\ValidRedirectUri\ValidRedirectUriValidator: ~
@@ -99,6 +101,17 @@ services:
   OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper: ~
   OAuth\Infrastructure\Persistence\Doctrine\Mapper\ConsentMapper: ~
 
+  OAuth\Infrastructure\Persistence\Doctrine\Repository\UserTokenRevocationRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  OAuth\Infrastructure\Persistence\Doctrine\Repository\GrantLifecycleRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  OAuth\Application\Port\Outbound\Token\GrantLifecyclePort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\GrantLifecycleRepository
+
   # Port Binding
   OAuth\Application\Port\Outbound\Token\JwtParserPort:
     alias: OAuth\Infrastructure\Adapter\Jwt\JwtParserAdapter
@@ -154,6 +167,9 @@ services:
 
   OAuth\Infrastructure\Adapter\Auth\AccessTokenLookupAdapter: ~
   OAuth\Infrastructure\Adapter\Auth\TokenRefreshAdapter: ~
+
+  OAuth\Application\Port\Outbound\Token\UserTokenRevocationPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\UserTokenRevocationRepository
 
   # OAuth Adapters
   OAuth\Infrastructure\Adapter\Cache\TokenCacheAdapter: ~

@@ -10,6 +10,9 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
+use function array_key_exists;
+use function in_array;
+
 /**
  * Test EventLogSubscriberTest.
  *
@@ -42,7 +45,7 @@ final class EventLogSubscriberTest extends TestCase
           fn (array $context): bool => 'authorization_code' === $context['grant_type']
           && 'client-123' === $context['client_id']
           && 'user-123' === $context['user_id']
-          && '127.0.0.1' === $context['ip'],
+          && !array_key_exists('ip', $context) && !in_array('127.0.0.1', $context, true),
         ),
       );
 
@@ -70,7 +73,7 @@ final class EventLogSubscriberTest extends TestCase
         self::callback(
           fn (array $context): bool => 'password' === $context['grant_type']
           && 'client-123' === $context['client_id']
-          && '127.0.0.1' === $context['ip']
+          && !array_key_exists('ip', $context) && !in_array('127.0.0.1', $context, true)
           && 'invalid_client' === $context['reason'],
         ),
       );
@@ -95,7 +98,7 @@ final class EventLogSubscriberTest extends TestCase
         'Token refreshed successfully',
         self::callback(
           fn (array $context): bool => 'user-123' === $context['user_id']
-          && '127.0.0.1' === $context['ip'],
+          && !array_key_exists('ip', $context) && !in_array('127.0.0.1', $context, true),
         ),
       );
 
@@ -117,7 +120,7 @@ final class EventLogSubscriberTest extends TestCase
         'Token refresh failed',
         self::callback(
           fn (array $context): bool => 'user-123' === $context['user_id']
-          && '127.0.0.1' === $context['ip']
+          && !array_key_exists('ip', $context) && !in_array('127.0.0.1', $context, true)
           && 'revoked' === $context['reason'],
         ),
       );

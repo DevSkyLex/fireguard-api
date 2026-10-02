@@ -1,0 +1,9 @@
+{
+  "repository": "",
+  "password_file": "",
+  "secret_recovery_reference": "",
+  "storage_mode": "local",
+  "storage_export_argv": [],
+  "compose_files": ["compose.yaml"],
+  "restic_env": {}
+}

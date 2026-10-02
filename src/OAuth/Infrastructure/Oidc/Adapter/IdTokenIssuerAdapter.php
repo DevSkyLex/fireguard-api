@@ -9,12 +9,14 @@ use DateTimeImmutable;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
+use Lcobucci\JWT\Token\RegisteredClaims;
 use OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function bin2hex;
 use function file_get_contents;
 use function hash;
+use function in_array;
 use function is_string;
 use function random_bytes;
 
@@ -171,7 +173,7 @@ final class IdTokenIssuerAdapter implements IdTokenIssuerPort
 
     foreach ($claims as $key => $value) {
       $claimKey = (string) $key;
-      if ('' !== $claimKey) {
+      if ('' !== $claimKey && 'nonce' !== $claimKey && !in_array($claimKey, RegisteredClaims::ALL, true)) {
         $builder = $builder->withClaim($claimKey, $value);
       }
     }

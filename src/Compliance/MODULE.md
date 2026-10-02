@@ -416,6 +416,13 @@ bytes, sizeBytes, and the storage path. The hash is also recorded in the
 tamper-evident audit ledger (`compliance.register_snapshot_created`), so the
 stored document and the ledger corroborate each other.
 
+Snapshot metadata and `SafetyRegisterSnapshotCreatedEvent` enqueueing commit in
+one main transaction through the existing outbox. Consumers receive the event
+after commit and retain their durable receipts. If metadata or enqueueing fails,
+the transaction rolls back and the handler removes the newly written PDF. The
+auth audit ledger commits when its outbox consumer runs; event replay does not
+recreate the archive.
+
 Gate — identical to the live export on all three operations:
 `resolveAccess` runs **first** (an organization outside the caller's scope
 answers 404, exactly like an unknown id), then the

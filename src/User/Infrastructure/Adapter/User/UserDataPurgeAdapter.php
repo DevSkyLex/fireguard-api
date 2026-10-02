@@ -8,6 +8,7 @@ use Authorization\Domain\ValueObject\SubjectType;
 use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleAssignmentRecord;
 use Doctrine\ORM\EntityManagerInterface;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\{AccessTokenRecord, AuthCodeRecord, ConsentRecord, RefreshTokenRecord};
+use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
 use Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord;
 use Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord;
 use TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord;
@@ -32,15 +33,26 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
 {
   // #region Constructor
   /**
-   * @param EntityManagerInterface $entityManager the entity manager
+   * @param EntityManagerInterface $entityManager the explicit auth entity manager
+   * @param TotpEnrollmentPurgePort $totpEnrollmentPurge the Otp-owned secret deletion capability
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
+    private TotpEnrollmentPurgePort $totpEnrollmentPurge,
   ) {
   }
   // #endregion
 
   // #region Methods
+  /**
+   * Method withUserLock.
+   * {@inheritDoc}
+   */
+  public function withUserLock(string $userId, callable $operation): mixed
+  {
+    return $this->totpEnrollmentPurge->withUserLock($userId, $operation);
+  }
+
   /**
    * Method purgeForUser.
    *
@@ -68,6 +80,8 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
       where: 's.userId = :userId',
       parameters: ['userId' => $normalizedUserId],
     );
+
+    $this->totpEnrollmentPurge->purgeForUser($normalizedUserId);
 
     // OTP challenges
     $this->deleteWhere(

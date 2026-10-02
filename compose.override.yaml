@@ -36,7 +36,7 @@ services:
 
 ###> symfony/mailer ###
   mailer:
-    image: axllent/mailpit
+    image: axllent/mailpit@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
     ports:
       - "1025:1025"
       - "8025:8025"
@@ -57,7 +57,7 @@ services:
   #   export STRIPE_SECRET_KEY=sk_test_...   (then: docker compose up -d stripe-cli)
   # The signing secret is printed in its logs — copy it into STRIPE_WEBHOOK_SECRET.
   stripe-cli:
-    image: stripe/stripe-cli:latest
+    image: stripe/stripe-cli:latest@sha256:92dbb87a9342196d6b4c0aa305ef8d0cacc1edd81da12f1e819ed78e9e99bead
     command: listen --forward-to http://app:8000/api/billing/webhook
     environment:
       STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}

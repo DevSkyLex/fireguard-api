@@ -7,48 +7,24 @@ namespace Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrenc
 use DateTimeImmutable;
 use Intervention\Application\Contract\Recurrence\InterventionRecurrenceView;
 use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
-use Intervention\Application\Service\{InterventionRecurrenceNotifier, InterventionTemplateInstantiator};
+use Intervention\Application\Service\InterventionTemplateInstantiator;
 use Intervention\Domain\Event\Recurrence\InterventionRecurrenceMaterializedEvent;
+use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\ValueObject\RecurrenceRule;
 use Shared\Application\Message\{CommandHandler, VoidResult};
-use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
-use Throwable;
+use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
 
 use function count;
 
 /**
  * UseCase MaterializeDueRecurrencesHandler.
  *
- * Idempotent, safe-to-re-run recurring sweep: pages through every active
- * recurrence whose lead-time window has opened
- * (`next_occurrence_at - lead_time_days <= now`, and whose `end_at`, if any,
- * has not yet passed the next occurrence) and materializes the due
- * occurrence into a real intervention draft.
- *
- * For each due recurrence:
- *
- * 1. The occurrence is idempotently reserved first
- *    ({@see InterventionRecurrencePort::reserveRun()}), so a Messenger retry
- *    or an overlapping sweep tick can never materialize the same occurrence
- *    twice — a reservation miss (already claimed) skips the recurrence
- *    entirely.
- * 2. The draft is created through {@see InterventionTemplateInstantiator} —
- *    the same core the API's template instantiation endpoint uses — with
- *    `origin: 'intervention:recurrence'` and a system actor (`actorUserId:
- *    null`). The recurrence's own `siteId`/`responsibleId` act as overrides
- *    over the template's defaults; `plannedStartAt` is the occurrence
- *    instant itself.
- * 3. On success, the run is marked `succeeded` with the created intervention
- *    id, `next_occurrence_at` advances to `rule->nextAfter(occurrence)`, and
- *    `last_materialized_at` is set.
- * 4. On failure (site archived, template deleted, ...), the run is marked
- *    `failed` with the error, `next_occurrence_at` still advances (no
- *    infinite retry on a permanently broken occurrence), and the
- *    recurrence's responsible (or the organization's administrators as a
- *    fallback) is notified best-effort.
- *
- * Every page is processed independently to keep memory bounded regardless
- * of how many organizations/recurrences exist.
+ * Materializes one occurrence per due recurrence using bounded id-keyset pages
+ * and a fixed eligibility instant. Reservation, the complete draft, final run,
+ * schedule advance and outbox outcome commit together on main. Transient
+ * persistence/enqueue failures roll back and propagate for retry; explicit domain
+ * failures record a terminal failed occurrence and durable failure notification.
+ * Concurrent or completed occurrence claims are no-ops.
  *
  * @category UseCase
  * @version 1.0.0
@@ -78,16 +54,16 @@ final readonly class MaterializeDueRecurrencesHandler implements CommandHandler
    *
    * @param InterventionRecurrencePort $recurrences the recurrences port
    * @param InterventionTemplateInstantiator $instantiator the shared template instantiation service
-   * @param InterventionRecurrenceNotifier $notifier the recurrence failure notifier
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    * @param ClockPort $clock the clock port
+   * @param TransactionManagerPort $transactions owns each complete occurrence on main
    */
   public function __construct(
     private InterventionRecurrencePort $recurrences,
     private InterventionTemplateInstantiator $instantiator,
-    private InterventionRecurrenceNotifier $notifier,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
+    private TransactionManagerPort $transactions,
   ) {
   }
   // #endregion
@@ -105,16 +81,16 @@ final readonly class MaterializeDueRecurrencesHandler implements CommandHandler
   public function __invoke(MaterializeDueRecurrencesCommand $command): VoidResult
   {
     $now = $this->clock->now();
-    $offset = 0;
+    $afterId = null;
 
     do {
-      $page = $this->recurrences->pageDueForMaterialization($now, self::PAGE_SIZE, $offset);
+      $page = $this->recurrences->pageDueForMaterialization($now, self::PAGE_SIZE, $afterId);
 
       foreach ($page->items as $recurrence) {
         $this->materializeOne($recurrence);
+        $afterId = $recurrence->id;
       }
 
-      $offset += self::PAGE_SIZE;
     } while (self::PAGE_SIZE === count($page->items));
 
     return new VoidResult();
@@ -130,29 +106,33 @@ final readonly class MaterializeDueRecurrencesHandler implements CommandHandler
   private function materializeOne(InterventionRecurrenceView $recurrence): void
   {
     $occurrenceAt = $recurrence->nextOccurrenceAt;
-    $runId = $this->recurrences->reserveRun($recurrence->id, $occurrenceAt);
-    if (null === $runId) {
-      // Already claimed by a previous tick or a concurrent worker: skip.
-      return;
-    }
 
     try {
-      $draft = $this->instantiator->instantiate(
-        templateId: $recurrence->templateId,
-        origin: self::ORIGIN,
-        name: $recurrence->name,
-        siteId: $recurrence->siteId,
-        responsibleId: $recurrence->responsibleId,
-        plannedStartAt: $occurrenceAt,
-        actorUserId: null,
-      );
-    } catch (Throwable $exception) {
-      $this->handleFailure($recurrence, $runId, $occurrenceAt, $exception->getMessage());
-
-      return;
+      $this->transactions->transactional(function () use ($recurrence, $occurrenceAt): void {
+        $runId = $this->recurrences->reserveRun($recurrence->id, $occurrenceAt);
+        if (null === $runId) {
+          return;
+        }
+        $draft = $this->instantiator->instantiate(
+          templateId: $recurrence->templateId,
+          origin: self::ORIGIN,
+          name: $recurrence->name,
+          siteId: $recurrence->siteId,
+          responsibleId: $recurrence->responsibleId,
+          plannedStartAt: $occurrenceAt,
+          actorUserId: null,
+        );
+        $this->handleSuccess($recurrence, $runId, $occurrenceAt, $draft->interventionId);
+      });
+    } catch (InterventionNotFoundException|InterventionConflictException|InterventionValidationException $exception) {
+      // Permanent input failure: the draft rolled back before recording the failed occurrence.
+      $this->transactions->transactional(function () use ($recurrence, $occurrenceAt, $exception): void {
+        $runId = $this->recurrences->reserveRun($recurrence->id, $occurrenceAt);
+        if (null !== $runId) {
+          $this->handleFailure($recurrence, $runId, $occurrenceAt, $exception->getMessage());
+        }
+      });
     }
-
-    $this->handleSuccess($recurrence, $runId, $occurrenceAt, $draft->interventionId);
   }
 
   /**
@@ -198,19 +178,13 @@ final readonly class MaterializeDueRecurrencesHandler implements CommandHandler
     $nextOccurrenceAt = $this->rule($recurrence)->nextAfter($occurrenceAt, $recurrence->timezone);
     $this->recurrences->advanceNextOccurrence($recurrence->id, $nextOccurrenceAt, null);
 
-    $this->notifier->notifyMaterializationFailed(
-      $recurrence->organizationId,
-      $recurrence->id,
-      $recurrence->templateId,
-      $recurrence->responsibleId,
-      $error,
-    );
-
     $this->eventDispatcher->dispatch(new InterventionRecurrenceMaterializedEvent(
       organizationId: $recurrence->organizationId,
       recurrenceId: $recurrence->id,
       succeeded: false,
       error: $error,
+      templateId: $recurrence->templateId,
+      responsibleId: $recurrence->responsibleId,
     ));
   }
 

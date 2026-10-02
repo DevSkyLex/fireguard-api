@@ -2,6 +2,14 @@ imports:
   - { resource: 'services_fixtures.yaml' }
 
 services:
+  Tests\Performance\SqlQueryCounter:
+    public: true
+  fireguard_test_query_counter_middleware:
+    class: Doctrine\DBAL\Logging\Middleware
+    arguments: ['@Tests\Performance\SqlQueryCounter']
+    tags:
+      - { name: doctrine.middleware, connections: [main], priority: 100 }
+
   User\Infrastructure\DataFixtures\FixtureUserPasswords:
     factory: ['User\Infrastructure\DataFixtures\FixtureUserPasswords', 'fromJson']
     arguments:

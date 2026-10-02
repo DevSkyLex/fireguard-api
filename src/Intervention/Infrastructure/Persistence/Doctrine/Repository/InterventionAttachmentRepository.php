@@ -7,7 +7,7 @@ namespace Intervention\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
-use Intervention\Domain\Exception\InterventionConflictException;
+use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionAttachmentMapper;
@@ -55,6 +55,46 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
   // #endregion
 
   // #region Methods
+  /**
+   * Method withUploadLock
+   *
+   * Locks the attachment identity across parents and the parent's capacity/signature invariant.
+   *
+   * @access public
+   *
+   * @template T
+   *
+   * @param string $interventionId owning intervention identifier
+   * @param string $attachmentId upload identity to serialize
+   * @param callable(): T $operation upload while the main transaction owns both locks
+   *
+   * @return T the committed upload result
+   */
+  public function withUploadLock(string $interventionId, string $attachmentId, callable $operation): mixed
+  {
+    try {
+      return $this->entityManager->getConnection()->transactional(function () use ($interventionId, $attachmentId, $operation): mixed {
+        $connection = $this->entityManager->getConnection();
+        $connection->executeQuery('SELECT pg_advisory_xact_lock(hashtext(:key))', ['key' => 'intervention:attachment:' . $attachmentId])->fetchOne();
+        if (false === $connection->fetchOne('SELECT id FROM interventions WHERE id = :id FOR UPDATE', ['id' => $interventionId])) {
+          throw InterventionNotFoundException::withId($interventionId);
+        }
+        $parent = $this->entityManager->find(InterventionRecord::class, $interventionId);
+        if ($parent instanceof InterventionRecord) {
+          $this->entityManager->refresh($parent);
+        }
+
+        return $operation();
+      });
+    } catch (Throwable $exception) {
+      if ($this->entityManager->isOpen()) {
+        $this->entityManager->clear();
+      }
+
+      throw $exception;
+    }
+  }
+
   /**
    * Method save.
    *

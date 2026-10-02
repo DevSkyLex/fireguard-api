@@ -9,12 +9,13 @@ use ApiPlatform\State\{ProcessorInterface, ProviderInterface};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use Nyholm\Psr7\{Response as Psr7Response, ServerRequest};
 use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentQuery, CheckConsentResult};
 use OAuth\Infrastructure\OAuth2\League\Entity\User as LeagueUser;
-use OAuth\Presentation\Api\Service\AuthorizationResponseSupport;
+use OAuth\Presentation\Api\Service\{AuthorizationGrantCompletion, AuthorizationResponseSupport};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -79,6 +80,8 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     private RequestStack $requestStack,
     private AuthCodeRepositoryPort $authCodeRepository,
     private OidcUserProviderPort $oidcUserProvider,
+    private ScopeRepositoryInterface $scopeRepository,
+    private AuthorizationGrantCompletion $grantCompletion,
     #[Autowire(service: 'limiter.oauth_authorize')]
     private ?RateLimiterFactory $rateLimiter = null,
   ) {
@@ -135,6 +138,11 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
 
     try {
       $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($psrRequest);
+      $this->scopeRepository->finalizeScopes(
+        $authorizationRequest->getScopes(),
+        'authorization_code',
+        $authorizationRequest->getClient(),
+      );
     } catch (OAuthServerException $exception) {
       return AuthorizationResponseSupport::convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
     } catch (Throwable $exception) {
@@ -194,14 +202,15 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     $authorizationRequest->setUser($userEntity);
     $authorizationRequest->setAuthorizationApproved(true);
 
-    $psrResponse = $this->authorizationServer->completeAuthorizationRequest(
-      authRequest: $authorizationRequest,
-      response: new Psr7Response(),
-    );
+    return $this->grantCompletion->complete($request, $userId, function () use ($request, $authorizationRequest): Response {
+      $psrResponse = $this->authorizationServer->completeAuthorizationRequest(
+        authRequest: $authorizationRequest,
+        response: new Psr7Response(),
+      );
+      $this->storeNonceFromResponse($request, $psrResponse);
 
-    $this->storeNonceFromResponse($request, $psrResponse);
-
-    return AuthorizationResponseSupport::convertPsrResponse($psrResponse);
+      return AuthorizationResponseSupport::convertPsrResponse($psrResponse);
+    });
   }
 
   /**

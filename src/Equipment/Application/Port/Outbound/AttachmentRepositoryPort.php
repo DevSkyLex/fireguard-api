@@ -30,6 +30,15 @@ interface AttachmentRepositoryPort
   public function save(EquipmentAttachment $attachment): void;
 
   /**
+   * Stores the first upload for this identifier, under the equipment cardinality lock.
+   *
+   * @param EquipmentAttachment $attachment the upload attempt
+   *
+   * @return EquipmentAttachment the existing or newly stored attachment
+   */
+  public function saveIfAbsent(EquipmentAttachment $attachment): EquipmentAttachment;
+
+  /**
    * Method findById.
    *
    * Finds an attachment by identifier.

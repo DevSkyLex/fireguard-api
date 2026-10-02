@@ -12,10 +12,11 @@ use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachmen
 use Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttachment\DeleteInterventionAttachmentCommand;
 use Intervention\Domain\Exception\InterventionAttachmentNotFoundException;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionAttachmentRecord;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
 use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
 use Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerExceptionUnwrapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Exception\InvalidValueException;
@@ -35,17 +36,11 @@ use function is_string;
  * `POST /interventions/{interventionId}/attachments` and
  * `DELETE /intervention-attachments/{id}`.
  *
- * This processor makes NO authorization decision of its own: it only
- * extracts the request (URI variables, authenticated user, multipart
- * upload) and the pre-existing resource state needed to build the command
- * (e.g. the attachment's owning intervention id for `If-Match` revision
- * checking on delete). The phase-based write permission — resolved through
- * `InterventionResourceManager::mutationPermission()` — and the flat read
- * permission are enforced authoritatively inside
- * `AddInterventionAttachmentHandler` / `DeleteInterventionAttachmentHandler` /
- * `ListInterventionAttachmentsHandler` (see
- * `tests/Architecture/Unit/InterventionAuthorizationEnforcementTest`), so
- * there is a single source of truth for the permission decision.
+ * Upload and delete commands enforce phase-based write authorization in their
+ * use-case handlers. A stored client UUID replay directly reads Doctrine instead
+ * of dispatching an upload command, so this processor enforces the same scoped
+ * read permission as the single-attachment GET provider before returning it.
+ * Replay never reads the multipart file or overwrites the committed attachment.
  *
  * @category Processor
  * @version 1.0.0
@@ -74,6 +69,7 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
    * @param RequestStack $requestStack provides the current multipart request
    * @param MultipartAttachmentGuard $attachmentGuard validates uploaded content
    * @param RevisionGuard $revisionGuard checks optimistic revision headers
+   * @param OrganizationAuthorizationPort $authorization scopes stored client UUID replay reads
    *
    * @return void
    */
@@ -84,6 +80,7 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
     private RequestStack $requestStack,
     private MultipartAttachmentGuard $attachmentGuard,
     private RevisionGuard $revisionGuard,
+    private OrganizationAuthorizationPort $authorization,
   ) {
   }
   // #endregion
@@ -99,11 +96,12 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?InterventionAttachmentOutput
   {
-    return $this->entityManager->wrapInTransaction(
-      fn (): ?InterventionAttachmentOutput => 'DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()
-        ? $this->delete($uriVariables)
-        : $this->upload($uriVariables),
-    );
+    if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
+      return $this->entityManager->wrapInTransaction(fn (): null => $this->delete($uriVariables));
+    }
+
+    // The upload use case owns the complete transaction and post-commit blob cleanup.
+    return $this->upload($uriVariables);
   }
 
   /**
@@ -124,7 +122,7 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
     $request = $this->currentRequest();
     $clientId = self::validatedClientId($request->request->get('clientId'));
     if (null !== $clientId) {
-      $existing = $this->existingAttachment($clientId, $interventionId);
+      $existing = $this->existingAttachment($clientId, $interventionId, $user->getId());
       if ($existing instanceof InterventionAttachmentOutput) {
         return $existing;
       }
@@ -195,24 +193,46 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
   /**
    * Method existingAttachment.
    *
-   * Returns an earlier upload for this intervention or rejects cross-intervention reuse.
+   * Returns an earlier upload only within the actor's read scope, before multipart file validation.
    *
    * @access private
    *
    * @param string $clientId the client-supplied attachment UUID
    * @param string $interventionId the owning intervention identifier
+   * @param string $userId the authenticated actor
    *
    * @return ?InterventionAttachmentOutput the existing output, or null when absent
    *
    * @throws ConflictHttpException when the UUID belongs to another intervention
    */
-  private function existingAttachment(string $clientId, string $interventionId): ?InterventionAttachmentOutput
+  private function existingAttachment(string $clientId, string $interventionId, string $userId): ?InterventionAttachmentOutput
   {
+    $parent = $this->entityManager->find(InterventionRecord::class, $interventionId);
+    if (!$parent instanceof InterventionRecord || null === $parent->organization) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    $requestedAccess = $this->authorization->resolveAccess($userId, $parent->organization->id, 'organization.interventions.read');
+    if ($requestedAccess->isOutsideScope()) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+
     $existing = $this->entityManager->find(InterventionAttachmentRecord::class, $clientId);
     if (!$existing instanceof InterventionAttachmentRecord) {
       return null;
     }
-    if ($existing->intervention?->id !== $interventionId) {
+    if (null === $existing->intervention?->organization) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    $readAccess = $existing->intervention->organization->id === $parent->organization->id
+      ? $requestedAccess
+      : $this->authorization->resolveAccess($userId, $existing->intervention->organization->id, 'organization.interventions.read');
+    if ($readAccess->isOutsideScope()) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    if (!$readAccess->isGranted()) {
+      throw new AccessDeniedHttpException('Missing organization.interventions.read permission.');
+    }
+    if ($existing->intervention->id !== $interventionId) {
       throw new ConflictHttpException('Attachment client UUID is already assigned to another intervention.');
     }
 

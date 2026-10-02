@@ -6,7 +6,6 @@ namespace Otp\Infrastructure\Adapter\Auth;
 
 use Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort;
 use Otp\Application\Port\Inbound\Totp\TotpStatusPort;
-use Throwable;
 
 /**
  * Adapter TotpEnrollmentCheckAdapter.
@@ -46,12 +45,7 @@ final readonly class TotpEnrollmentCheckAdapter implements TotpEnrollmentCheckPo
    */
   public function isEnrolled(string $userId): bool
   {
-    try {
-      return $this->totpStatus->isEnabled($userId);
-    } catch (Throwable) {
-      // If the check fails, fall back to email MFA rather than failing login.
-      return false;
-    }
+    return $this->totpStatus->isEnabled($userId);
   }
   // #endregion
 }

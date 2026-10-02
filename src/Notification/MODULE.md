@@ -198,6 +198,26 @@ to indicate success/failure per channel.
   - `channelDelivery[channel] = false`.
 - `deliveryPayload` is channel-specific runtime data and is never persisted.
 
+Durable event callers supply an optional `idempotencyKey`. The identity is bound
+to notification type, organization and recipient, and serialized with a main
+database advisory lock. `notification_delivery_receipts` and the single inbox row
+commit together on a dedicated connection to the same main database. Channel
+acknowledgements survive rollback of an outer event consumer: replay reuses the
+inbox identity and skips acknowledged channels. The additive `channelStatus` map
+distinguishes `delivered`, intentional `suppressed`, and retryable `failed`; the
+existing boolean `channelDelivery` remains available. Consumers retry failed
+statuses and accept suppression. Apply main migration `Version20261002031000`
+before enabling these callers, and retain receipts while events can replay.
+An external transport acceptance followed by a lost acknowledgement can still
+repeat that transport delivery; local receipts cannot make an SMTP server atomic
+with PostgreSQL.
+
+Deleting an inbox row while retaining its hashed delivery receipt leaves a
+receipt that cannot be replaced through a fresh notification identity. Such a
+replay fails until recovery reconciles the obsolete event. Any retention or
+account-purge workflow must therefore reconcile or cancel queued events before
+removing their inbox rows. This change does not add that purge workflow.
+
 Channel details:
 
 - Email channel (`EmailNotificationChannelAdapter`):

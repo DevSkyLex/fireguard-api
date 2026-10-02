@@ -46,7 +46,7 @@ interface TokenRevocationPort
   /**
    * Method revokeAllUserTokens
    *
-   * Request revocation of a user's tokens; the current adapter only records this request.
+   * Revoke all user-bound OAuth access and refresh tokens and unused authorization codes.
    *
    * @access public
    * @since 1.0.0

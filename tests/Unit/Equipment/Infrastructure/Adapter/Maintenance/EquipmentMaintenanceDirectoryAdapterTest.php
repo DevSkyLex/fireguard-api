@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Infrastructure\Adapter\Maintenance;
 
 use DateTimeImmutable;
-use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder};
+use Doctrine\ORM\{EntityManagerInterface, Query, QueryBuilder};
 use Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter;
 use Equipment\Infrastructure\Exception\EquipmentOrganizationMissingException;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
@@ -13,6 +13,8 @@ use Maintenance\Application\Contract\Directory\TrackableEquipment;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+
+use function array_map;
 
 /**
  * Test EquipmentMaintenanceDirectoryAdapterTest.
@@ -37,14 +39,8 @@ final class EquipmentMaintenanceDirectoryAdapterTest extends TestCase
   #[Test]
   public function testFindEquipmentOnlyLooksUpPublishedRecords(): void
   {
-    $repository = $this->createMock(EntityRepository::class);
-    $repository->expects(self::once())
-      ->method('findOneBy')
-      ->with(['id' => self::EQUIPMENT_ID, 'recordStatus' => 'published'])
-      ->willReturn($this->record());
-
     $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('getRepository')->willReturn($repository);
+    $entityManager->method('createQueryBuilder')->willReturn($this->queryBuilder([$this->record()]));
 
     $view = new EquipmentMaintenanceDirectoryAdapter($entityManager)->findEquipment(self::EQUIPMENT_ID);
 
@@ -59,11 +55,8 @@ final class EquipmentMaintenanceDirectoryAdapterTest extends TestCase
   #[Test]
   public function testFindEquipmentReturnsNullWhenNothingMatches(): void
   {
-    $repository = $this->createStub(EntityRepository::class);
-    $repository->method('findOneBy')->willReturn(null);
-
     $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('getRepository')->willReturn($repository);
+    $entityManager->method('createQueryBuilder')->willReturn($this->queryBuilder([]));
 
     self::assertNull(new EquipmentMaintenanceDirectoryAdapter($entityManager)->findEquipment(self::EQUIPMENT_ID));
   }
@@ -74,11 +67,8 @@ final class EquipmentMaintenanceDirectoryAdapterTest extends TestCase
     $record = $this->record();
     $record->organization = null;
 
-    $repository = $this->createStub(EntityRepository::class);
-    $repository->method('findOneBy')->willReturn($record);
-
     $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('getRepository')->willReturn($repository);
+    $entityManager->method('createQueryBuilder')->willReturn($this->queryBuilder([$record]));
 
     $this->expectException(EquipmentOrganizationMissingException::class);
     $this->expectExceptionMessage('Equipment organization is missing.');
@@ -141,7 +131,10 @@ final class EquipmentMaintenanceDirectoryAdapterTest extends TestCase
   private function queryBuilder(array $records, array &$paging = []): QueryBuilder
   {
     $query = $this->createStub(Query::class);
-    $query->method('getResult')->willReturn($records);
+    $rows = array_map(static fn (EquipmentRecord $record): array => ['equipmentId' => $record->id,
+      'organizationId' => $record->organization?->id, 'facilityId' => $record->facilityId, 'equipmentType' => $record->type, 'status' => $record->status], $records);
+    $query->method('getArrayResult')->willReturn($rows);
+    $query->method('getOneOrNullResult')->willReturn($rows[0] ?? null);
 
     $queryBuilder = $this->createStub(QueryBuilder::class);
     $queryBuilder->method('select')->willReturnSelf();

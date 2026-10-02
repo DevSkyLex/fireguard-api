@@ -11,6 +11,9 @@ use Import\Domain\ValueObject\ImportJobId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
 
+use function max;
+use function min;
+
 /**
  * UseCase GetImportJobHandler.
  *
@@ -58,7 +61,7 @@ final readonly class GetImportJobHandler implements QueryHandler
    */
   public function __invoke(GetImportJobQuery $query): GetImportJobResult
   {
-    $job = $this->repository->findById(ImportJobId::fromString($query->importJobId));
+    $job = $this->repository->findForExecution(ImportJobId::fromString($query->importJobId));
     if (null === $job) {
       throw ImportJobNotFoundException::withId($query->importJobId);
     }
@@ -76,7 +79,18 @@ final readonly class GetImportJobHandler implements QueryHandler
     $canResume = $this->authorization->hasPermission($query->userId, $job->organizationId(), ImportPermissions::write($job->kind()))
       && $this->execution->canResume($job->id());
 
-    return GetImportJobResult::fromDomain($job, $canResume, $this->authorization->hasPermission($query->userId, $job->organizationId(), ImportPermissions::write($job->kind())));
+    $page = max(1, $query->reportPage);
+    $limit = max(1, min(100, $query->reportItemsPerPage));
+
+    return GetImportJobResult::fromDomain(
+      $job,
+      $canResume,
+      $this->authorization->hasPermission($query->userId, $job->organizationId(), ImportPermissions::write($job->kind())),
+      $this->repository->reportPage($job->id(), $page, $limit),
+      $page,
+      $limit,
+      $this->repository->countReport($job->id()),
+    );
   }
 
   // #endregion

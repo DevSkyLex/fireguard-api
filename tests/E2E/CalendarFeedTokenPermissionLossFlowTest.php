@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -124,6 +125,49 @@ final class CalendarFeedTokenPermissionLossFlowTest extends OAuth2WebTestCase
   }
 
   // #region Helpers
+
+  /**
+   * @return iterable<string, array{string}>
+   */
+  public static function lostAccess(): iterable
+  {
+    yield 'deactivated account' => ['account'];
+    yield 'removed membership' => ['membership'];
+  }
+
+  #[Test]
+  #[DataProvider('lostAccess')]
+  public function liveFeedSecretStopsWorkingWhenItsOwnerLosesAccess(string $lostAccess): void
+  {
+    $client = static::createClientWithFixtures();
+    $ownerToken = $this->authenticateAsSeededAdmin($client);
+    $organizationId = $this->createOrganization($client, $ownerToken, 'Calendar Access ' . uniqid());
+    self::assertIsString($organizationId);
+    $member = $this->authenticateFreshUser($client);
+    $memberId = $this->addOrganizationMember($client, $ownerToken, $organizationId, $member['userId']);
+    self::assertIsString($memberId);
+    $client->request('POST', '/api/organizations/' . $organizationId . '/calendar/feed-token', server: $this->headers($member['token']));
+    self::assertSame(201, $client->getResponse()->getStatusCode());
+    $secret = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}')['secret'] ?? null;
+    self::assertIsString($secret);
+    $client->request('GET', '/api/calendar/feed/' . $secret . '.ics');
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+
+    if ('account' === $lostAccess) {
+      $client->request('POST', '/api/me/deactivate', server: $this->headers($member['token']));
+      self::assertSame(200, $client->getResponse()->getStatusCode());
+    } else {
+      $client->request('DELETE', '/api/organizations/' . $organizationId . '/members/' . $memberId, server: $this->headers($ownerToken));
+      self::assertSame(204, $client->getResponse()->getStatusCode());
+    }
+
+    $client->request('GET', '/api/calendar/feed/' . $secret . '.ics');
+    self::assertSame(404, $client->getResponse()->getStatusCode());
+    $denialBody = $client->getResponse()->getContent();
+    $client->request('GET', '/api/calendar/feed/unknown-' . uniqid() . '.ics');
+    self::assertSame(404, $client->getResponse()->getStatusCode());
+    self::assertSame($denialBody, $client->getResponse()->getContent());
+  }
 
   private function loginAndGetUserAccessToken(KernelBrowser $client, string $email, string $password): string
   {

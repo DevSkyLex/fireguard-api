@@ -70,6 +70,7 @@ final class GenerateTokenCommandTest extends TestCase
       accessToken: 'access-token-value',
       tokenType: 'Bearer',
       expiresIn: 3600,
+      tokenId: 'issued-token-id',
       refreshToken: 'refresh-token-value',
       scope: 'openid profile',
     );

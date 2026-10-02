@@ -60,13 +60,13 @@ final readonly class DoctrineInterventionReminderAdapter implements Intervention
    * @param DateTimeImmutable $now current instant
    * @param DateTimeImmutable $threshold inclusive end of the due-soon window
    * @param int $limit maximum number of candidates to return
-   * @param int $offset number of earlier candidates to skip
+   * @param ?string $afterId last processed identifier, null for the first page
    *
    * @return InterventionReminderPage due-soon candidates and total count
    */
-  public function pageDueSoon(DateTimeImmutable $now, DateTimeImmutable $threshold, int $limit, int $offset): InterventionReminderPage
+  public function pageDueSoon(DateTimeImmutable $now, DateTimeImmutable $threshold, int $limit, ?string $afterId = null): InterventionReminderPage
   {
-    $qb = $this->baseQuery($limit, $offset)
+    $qb = $this->baseQuery($limit, $afterId)
       ->andWhere('m.dueSoonNotifiedAt IS NULL')
       ->andWhere('m.dueAt >= :now')
       ->andWhere('m.dueAt <= :threshold')
@@ -85,13 +85,13 @@ final readonly class DoctrineInterventionReminderAdapter implements Intervention
    *
    * @param DateTimeImmutable $now current instant
    * @param int $limit maximum number of candidates to return
-   * @param int $offset number of earlier candidates to skip
+   * @param ?string $afterId last processed identifier, null for the first page
    *
    * @return InterventionReminderPage overdue candidates and total count
    */
-  public function pageOverdue(DateTimeImmutable $now, int $limit, int $offset): InterventionReminderPage
+  public function pageOverdue(DateTimeImmutable $now, int $limit, ?string $afterId = null): InterventionReminderPage
   {
-    $qb = $this->baseQuery($limit, $offset)
+    $qb = $this->baseQuery($limit, $afterId)
       ->andWhere('m.overdueNotifiedAt IS NULL')
       ->andWhere('m.dueAt < :now')
       ->setParameter('now', $now);
@@ -143,21 +143,25 @@ final readonly class DoctrineInterventionReminderAdapter implements Intervention
    * @since 1.0.0
    *
    * @param int $limit the maximum number of results
-   * @param int $offset the result offset
+   * @param ?string $afterId last processed identifier, null for the first page
    *
    * @return QueryBuilder the shared candidate query, before its window filter
    */
-  private function baseQuery(int $limit, int $offset): QueryBuilder
+  private function baseQuery(int $limit, ?string $afterId = null): QueryBuilder
   {
-    return $this->entityManager->createQueryBuilder()
+    $qb = $this->entityManager->createQueryBuilder()
       ->select('m')
       ->from(InterventionRecord::class, 'm')
       ->where('m.status IN (:statuses)')
       ->andWhere('m.dueAt IS NOT NULL')
       ->setParameter('statuses', self::ACTIVE_STATUSES)
       ->orderBy('m.id', 'ASC')
-      ->setFirstResult(max(0, $offset))
       ->setMaxResults(max(1, $limit));
+    if (null !== $afterId) {
+      $qb->andWhere('m.id > :afterId')->setParameter('afterId', $afterId);
+    }
+
+    return $qb;
   }
 
   /**

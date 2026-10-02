@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 use function array_keys;
+use function count;
 use function sprintf;
 
 final class InterventionNotificationServiceTest extends TestCase
@@ -754,6 +755,33 @@ final class InterventionNotificationServiceTest extends TestCase
       ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID]);
 
     self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function durableWorkflowDeliveryRetriesAFailedChannelWithTheSameRecipientKeyAndAcceptsSuppression(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $requests = [];
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::exactly(2))->method('send')->willReturnCallback(static function (SendNotificationRequest $request) use (&$requests): SentNotification {
+      $requests[] = $request;
+
+      return new SentNotification('notification', $request->type, $request->subject, $request->body, ['mercure'], $request->payload, ['mercure' => false], new DateTimeImmutable(), channelStatus: ['mercure' => 1 === count($requests) ? 'failed' : 'suppressed']);
+    });
+    $context = new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext();
+    $service = new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins(), $context, new \App\Tests\Support\Shared\ImmediateIdempotentConsumer());
+
+    try {
+      $context->deliver('workflow-event', fn () => $service->assigned('intervention-1', 'Inventory', self::MEMBER_ID));
+      self::fail('A failed durable channel must propagate for retry.');
+    } catch (RuntimeException) {
+      self::assertNull($context->eventId());
+    }
+    $context->deliver('workflow-event', fn () => $service->assigned('intervention-1', 'Inventory', self::MEMBER_ID));
+    self::assertSame('workflow-event:intervention.assigned:' . self::USER_ID, $requests[0]->idempotencyKey);
+    self::assertSame($requests[0]->idempotencyKey, $requests[1]->idempotencyKey);
+    self::assertNull($context->eventId());
   }
 
   private function member(bool $isActive = true): OrganizationMember

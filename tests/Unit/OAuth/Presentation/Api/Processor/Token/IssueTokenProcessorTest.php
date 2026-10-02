@@ -103,6 +103,7 @@ final class IssueTokenProcessorTest extends TestCase
         accessToken: 'access-token',
         tokenType: 'Bearer',
         expiresIn: 3600,
+        tokenId: 'issued-token-id',
         refreshToken: 'refresh-token',
         scope: 'openid',
         idToken: null,

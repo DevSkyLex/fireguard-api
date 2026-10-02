@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Console;
 
+use Organization\Application\Contract\Member\OrganizationMemberGrant;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleName};
@@ -275,6 +276,7 @@ HELP
       $result = $this->commandBus->dispatch(new AddOrganizationMemberCommand(
         organizationId: $organizationIdStr,
         userId: $userId,
+        grant: OrganizationMemberGrant::operator(),
         roleIds: [$ownerRole->id()->value],
         // Break-glass/operator path: granting an owner must not be blocked by the
         // plan member cap (e.g. recovering an org left over-cap by a downgrade).

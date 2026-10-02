@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Presentation\Api\Controller;
 
+use Calendar\Application\Contract\Feed\CalendarFeedItem;
 use Calendar\Application\UseCase\Query\Feed\GetCalendarFeed\GetCalendarFeedResult;
 use Calendar\Application\UseCase\Query\FeedToken\ResolveCalendarFeedToken\ResolveCalendarFeedTokenResult;
 use Calendar\Presentation\Api\Controller\GetCalendarFeedIcsController;
@@ -17,6 +18,24 @@ use Symfony\Component\HttpFoundation\Request;
 #[CoversClass(GetCalendarFeedIcsController::class)]
 final class GetCalendarFeedIcsControllerTest extends TestCase
 {
+  #[Test]
+  public function completeFeedExportsAllDayDatesInItsOrganizationTimezone(): void
+  {
+    $item = new CalendarFeedItem('calendar_event', 'event', 'Paris day', null, new DateTimeImmutable('2026-03-28T23:00:00Z'), null, true, null, null, 'calendar_event', 'event');
+    $bus = $this->createMock(QueryBusPort::class);
+    $bus->expects(self::exactly(2))->method('ask')->willReturnOnConsecutiveCalls(
+      new ResolveCalendarFeedTokenResult('org', 'user', '2026-03-01T00:00:00Z', '2026-04-01T00:00:00Z'),
+      new GetCalendarFeedResult([$item], new DateTimeImmutable('2026-03-01'), new DateTimeImmutable('2026-04-01'), timezone: 'Europe/Paris'),
+    );
+    $request = Request::create('/api/calendar/feed/private-token.ics');
+    $request->attributes->set('token', 'private-token');
+
+    $response = (new GetCalendarFeedIcsController($bus, new CalendarFeedIcalWriter('https://app.test')))($request);
+
+    self::assertSame(200, $response->getStatusCode());
+    self::assertStringContainsString("DTSTART;VALUE=DATE:20260329\r\n", (string) $response->getContent());
+  }
+
   #[Test]
   public function incompleteFeedDoesNotPublishAnEmptyCalendarAsSuccessfulSynchronization(): void
   {

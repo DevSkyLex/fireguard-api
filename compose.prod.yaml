@@ -3,12 +3,15 @@ name: ${COMPOSE_PROJECT_NAME:?Set COMPOSE_PROJECT_NAME}
 x-logging: &default-logging
   driver: json-file
   options:
-    max-size: "10m"
-    max-file: "5"
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILES:-5}"
 
 services:
   app:
     image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    mem_limit: ${API_MEMORY_LIMIT:-768m}
+    cpus: ${API_CPU_LIMIT:-1.0}
+    pids_limit: 128
     restart: unless-stopped
     env_file:
       - .env
@@ -84,7 +87,12 @@ services:
   # never starve request handling.
   assistant_worker:
     image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    mem_limit: ${WORKER_MEMORY_LIMIT:-384m}
+    cpus: ${WORKER_CPU_LIMIT:-0.75}
+    pids_limit: 128
     restart: unless-stopped
+    stop_grace_period: 2m
+    init: true
     env_file:
       - .env
     environment:
@@ -97,12 +105,12 @@ services:
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
       DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
     command:
-      ["php", "bin/console", "messenger:consume", "assistant", "--time-limit=3600", "--memory-limit=256M"]
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "assistant", "--time-limit=3600", "--memory-limit=256M"]
     volumes:
       - app_var:/var/www/html/var
       - jwt_keys:/var/www/html/config/jwt:ro
     healthcheck:
-      test: ["CMD-SHELL", "grep -q assistant /proc/1/cmdline"]
+      test: ["CMD", "php", "bin/worker-health.php"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -126,7 +134,12 @@ services:
   # Run messenger:setup-transports before starting consumers after deployment.
   async_worker:
     image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    mem_limit: ${WORKER_MEMORY_LIMIT:-384m}
+    cpus: ${WORKER_CPU_LIMIT:-0.75}
+    pids_limit: 128
     restart: unless-stopped
+    stop_grace_period: 2m
+    init: true
     env_file:
       - .env
     environment:
@@ -137,12 +150,98 @@ services:
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
       DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
     command:
-      ["php", "bin/console", "messenger:consume", "main_outbox", "async", "webhook", "--time-limit=3600", "--memory-limit=256M"]
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "main_outbox", "async", "--time-limit=3600", "--memory-limit=256M"]
     volumes:
       - app_var:/var/www/html/var
       - jwt_keys:/var/www/html/config/jwt:ro
     healthcheck:
-      test: ["CMD-SHELL", "grep -q main_outbox /proc/1/cmdline"]
+      test: ["CMD", "php", "bin/worker-health.php"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mercure:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=false"
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+  webhook_worker:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    mem_limit: ${WORKER_MEMORY_LIMIT:-384m}
+    cpus: ${WORKER_CPU_LIMIT:-0.75}
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 2m
+    init: true
+    env_file:
+      - .env
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      REDIS_URL: redis://redis:6379
+      MERCURE_URL: http://mercure/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
+      DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
+    command:
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "webhook", "--time-limit=3600", "--memory-limit=256M"]
+    volumes:
+      - app_var:/var/www/html/var
+      - jwt_keys:/var/www/html/config/jwt:ro
+    healthcheck:
+      test: ["CMD", "php", "bin/worker-health.php"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mercure:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=false"
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+  scheduler_worker:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    mem_limit: ${WORKER_MEMORY_LIMIT:-384m}
+    cpus: ${WORKER_CPU_LIMIT:-0.75}
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 2m
+    init: true
+    env_file:
+      - .env
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      REDIS_URL: redis://redis:6379
+      MERCURE_URL: http://mercure/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
+      DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
+    command:
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "scheduler_maintenance", "scheduler_intervention", "scheduler_approval", "scheduler_inspection", "scheduler_organization", "--time-limit=3600", "--memory-limit=256M"]
+    volumes:
+      - app_var:/var/www/html/var
+      - jwt_keys:/var/www/html/config/jwt:ro
+    healthcheck:
+      test: ["CMD", "php", "bin/worker-health.php"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -187,6 +286,17 @@ services:
       - geoip_data:/var/lib/fireguard/geoip
     labels: ["traefik.enable=false"]
     security_opt: ["no-new-privileges:true"]
+    logging: *default-logging
+
+  backup_files:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    profiles: ["tools"]
+    user: "1000:1000"
+    entrypoint: ["tar"]
+    command: ["-cf", "-", "-C", "/snapshot", "--exclude=./cache", "--exclude=./log", "--exclude=./coverage", "--exclude=./infection", "."]
+    volumes:
+      - app_var:/snapshot:ro
+    labels: ["traefik.enable=false"]
     logging: *default-logging
 
   geoip_volume_init:
@@ -274,7 +384,10 @@ services:
     logging: *default-logging
 
   auth_database:
-    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea}
+    mem_limit: ${AUTH_DATABASE_MEMORY_LIMIT:-512m}
+    cpus: ${AUTH_DATABASE_CPU_LIMIT:-1.0}
+    pids_limit: 128
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_AUTH_DB:?Set POSTGRES_AUTH_DB}
@@ -293,7 +406,10 @@ services:
     logging: *default-logging
 
   main_database:
-    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea}
+    mem_limit: ${MAIN_DATABASE_MEMORY_LIMIT:-512m}
+    cpus: ${MAIN_DATABASE_CPU_LIMIT:-1.0}
+    pids_limit: 128
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_MAIN_DB:?Set POSTGRES_MAIN_DB}
@@ -312,7 +428,10 @@ services:
     logging: *default-logging
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    mem_limit: ${REDIS_MEMORY_LIMIT:-256m}
+    cpus: ${REDIS_CPU_LIMIT:-0.5}
+    pids_limit: 128
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -328,7 +447,10 @@ services:
 
   mercure:
     # Pin the hub and opt into its compatibility mode for the current clients.
-    image: dunglas/mercure:v1.0.0@sha256:33223c37ec29fd705f4de78e6dd38f403664b3669a34bf368b14cb98540016bb
+    image: dunglas/mercure:v1.0.2@sha256:e5d8f06a60f2feb5e91f7ba2046d9184f6339b3498b5d2f5adaeb5bcb080bfc7
+    mem_limit: ${MERCURE_MEMORY_LIMIT:-256m}
+    cpus: ${MERCURE_CPU_LIMIT:-0.5}
+    pids_limit: 128
     restart: unless-stopped
     environment:
       SERVER_NAME: ":80"
@@ -338,6 +460,11 @@ services:
       MERCURE_SUBSCRIBER_JWT_ALG: HS256
       MERCURE_EXTRA_DIRECTIVES: |
         protocol_version_compatibility 8
+        transport bolt {
+          path /data/mercure.db
+          size 10000
+          cleanup_frequency 0.3
+        }
         cors_origins ${MERCURE_CORS_ORIGINS:?Set MERCURE_CORS_ORIGINS}
       CADDY_SERVER_EXTRA_DIRECTIVES: |
         log {

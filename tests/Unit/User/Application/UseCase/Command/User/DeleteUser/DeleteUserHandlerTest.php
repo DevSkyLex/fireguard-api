@@ -36,6 +36,7 @@ final class DeleteUserHandlerTest extends TestCase
       ->willReturn(null);
 
     $purgePort = $this->createStub(UserDataPurgePort::class);
+    $purgePort->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $handler = new DeleteUserHandler($repository, $purgePort);
 
     $this->expectException(UserNotFoundException::class);
@@ -66,6 +67,7 @@ final class DeleteUserHandlerTest extends TestCase
 
     /** @var UserDataPurgePort&MockObject $purgePort */
     $purgePort = $this->createMock(UserDataPurgePort::class);
+    $purgePort->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $purgePort->expects(self::once())
       ->method('purgeForUser')
       ->with($user->id()->value);

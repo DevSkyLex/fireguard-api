@@ -110,6 +110,26 @@ final class ImportJobOutput
   public array $errorReport = [];
 
   /**
+   * Current report page, starting at one.
+   */
+  public int $reportPage = 1;
+
+  /**
+   * Maximum report rows returned per page.
+   */
+  public int $reportItemsPerPage = 100;
+
+  /**
+   * Total confirmed report rows for this job.
+   */
+  public int $reportTotal = 0;
+
+  /**
+   * Whether a subsequent report page exists.
+   */
+  public bool $reportHasNextPage = false;
+
+  /**
    * Property jobError.
    *
    * @since 1.0.0

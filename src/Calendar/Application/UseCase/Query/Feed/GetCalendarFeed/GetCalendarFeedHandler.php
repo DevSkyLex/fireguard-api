@@ -6,8 +6,9 @@ namespace Calendar\Application\UseCase\Query\Feed\GetCalendarFeed;
 
 use Calendar\Application\Service\CalendarFeedAggregator;
 use DateTimeImmutable;
+use DateTimeZone;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationWorkforceDirectoryPort};
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -60,10 +61,12 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
    *
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param CalendarFeedAggregator $aggregator the calendar feed aggregator service
+   * @param OrganizationWorkforceDirectoryPort $organizations published organization regional settings
    */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
     private CalendarFeedAggregator $aggregator,
+    private OrganizationWorkforceDirectoryPort $organizations,
   ) {
   }
   // #endregion
@@ -89,6 +92,8 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
     $from = self::parse($query->from, 'from');
     $to = self::parse($query->to, 'to');
     self::assertSupportedRange($from, $to);
+    $from = $from->setTimezone(new DateTimeZone('UTC'));
+    $to = $to->setTimezone(new DateTimeZone('UTC'));
 
     $allowedSources = ['calendar_event'];
     foreach ([
@@ -101,8 +106,16 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
       }
     }
     $feed = $this->aggregator->aggregate($query->organizationId, $from, $to, $allowedSources);
+    $organizationContext = $this->organizations->context($query->organizationId);
 
-    return new GetCalendarFeedResult(items: $feed->items, from: $from, to: $to, sources: $feed->sources, complete: $feed->isComplete());
+    return new GetCalendarFeedResult(
+      items: $feed->items,
+      from: $from,
+      to: $to,
+      sources: $feed->sources,
+      complete: $feed->isComplete(),
+      timezone: null === $organizationContext ? 'UTC' : $organizationContext->timezone,
+    );
   }
 
   /**

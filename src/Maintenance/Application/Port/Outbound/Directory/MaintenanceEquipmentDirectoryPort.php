@@ -22,6 +22,13 @@ use Maintenance\Application\Contract\Directory\TrackableEquipment;
  */
 interface MaintenanceEquipmentDirectoryPort
 {
+  /**
+   * @param list<string> $equipmentIds
+   *
+   * @return list<TrackableEquipment>
+   */
+  public function findEquipmentByIds(array $equipmentIds): array;
+
   // #region Methods
   /**
    * Method findEquipment.

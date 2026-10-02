@@ -92,6 +92,8 @@ api_platform:
     Session\Domain\Exception\SessionNotFoundException: 404
     Tenant\Domain\Exception\TenantNotFoundException: 404
     Otp\Application\Exception\TotpPendingEnrollmentNotFoundException: 404
+    Otp\Domain\Exception\TotpEnrollmentAlreadyActiveException: 409
+    Otp\Domain\Exception\TotpEnrollmentUnavailableException: 403
     Otp\Application\Exception\OtpNotFoundException: 404
     TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException: 404
 

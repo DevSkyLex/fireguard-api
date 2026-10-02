@@ -53,8 +53,8 @@ final class GetCalendarEventResultTest extends TestCase
     self::assertSame(self::ORGANIZATION_ID, $result->organizationId);
     self::assertSame('Fire drill', $result->title);
     self::assertSame('Quarterly exercise', $result->description);
-    self::assertSame($startsAt, $result->startsAt);
-    self::assertSame($endsAt, $result->endsAt);
+    self::assertSame($event->startsAt(), $result->startsAt);
+    self::assertSame($event->endsAt(), $result->endsAt);
     self::assertFalse($result->allDay);
     self::assertSame('facility-1', $result->facilityId);
     self::assertSame('member-1', $result->createdByMemberId);

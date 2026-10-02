@@ -11,9 +11,10 @@ namespace Organization\Application\Port\Inbound;
  * permissions (directly on a role, or by assigning an existing role) that the
  * actor already holds. Each method throws
  * {@see \Organization\Domain\Exception\OrganizationAccessDeniedException} on the
- * first permission the actor does not hold. Callers invoke this in the
- * Presentation layer BEFORE dispatching the command, so the thrown exception is
- * not wrapped by the message bus and maps cleanly to HTTP 403.
+ * first permission the actor does not hold. Membership and invitation use
+ * cases invoke this after resolving their effective roles, so non-HTTP callers
+ * and implicit default roles obey the same grant ceiling. HTTP processors also
+ * retain their early check for explicit roles.
  *
  * @category Port
  * @version 1.0.0

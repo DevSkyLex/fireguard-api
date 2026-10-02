@@ -9,16 +9,18 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use Nyholm\Psr7\{Response as Psr7Response, ServerRequest};
 use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
-use OAuth\Application\UseCase\Command\Consent\GrantConsent\{GrantConsentCommand, GrantConsentResult};
+use OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentCommand;
 use OAuth\Infrastructure\OAuth2\League\Entity\User as LeagueUser;
 use OAuth\Presentation\Api\Dto\Input\Consent\GrantConsentInput;
+use OAuth\Presentation\Api\Service\AuthorizationGrantCompletion;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpFoundation\{JsonResponse, Response};
+use Symfony\Component\HttpFoundation\{JsonResponse, RequestStack, Response};
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Throwable;
@@ -78,6 +80,9 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     private Security $security,
     private AuthCodeRepositoryPort $authCodeRepository,
+    private ScopeRepositoryInterface $scopeRepository,
+    private AuthorizationGrantCompletion $grantCompletion,
+    private RequestStack $requestStack,
     #[Autowire(service: 'limiter.oauth_consent_grant')]
     private ?RateLimiterFactory $rateLimiter = null,
   ) {
@@ -120,20 +125,11 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     $approved = true === $data->approved;
     $scopes = $this->parseScopes($data->scope);
 
-    if (true === $approved) {
-      /** @var GrantConsentResult $result */
-      $result = $this->commandBus->dispatch(command: new GrantConsentCommand(
-        userId: $securityUser->getId(),
-        clientId: (string) $data->clientId,
-        scopes: $scopes,
-      ));
-      unset($result);
-    }
-
     $psrRequest = $this->buildAuthorizationRequest($data);
 
     try {
       $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($psrRequest);
+      $this->scopeRepository->finalizeScopes($authorizationRequest->getScopes(), 'authorization_code', $authorizationRequest->getClient());
     } catch (OAuthServerException $exception) {
       return $this->convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
     } catch (Throwable $exception) {
@@ -162,18 +158,28 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     $authorizationRequest->setUser($userEntity);
     $authorizationRequest->setAuthorizationApproved((bool) $approved);
 
-    try {
-      $psrResponse = $this->authorizationServer->completeAuthorizationRequest(
-        authRequest: $authorizationRequest,
-        response: new Psr7Response(),
-      );
-    } catch (OAuthServerException $exception) {
-      return $this->convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
+    $request = $this->requestStack->getCurrentRequest();
+    if (null === $request) {
+      throw new UnauthorizedHttpException(challenge: 'Bearer', message: 'Authentication required.');
     }
 
-    $this->storeNonceFromResponse($data, $psrResponse);
+    return $this->grantCompletion->complete($request, $userId, function () use ($approved, $userId, $data, $scopes, $authorizationRequest): Response {
+      if ($approved) {
+        $this->commandBus->dispatch(new GrantConsentCommand(userId: $userId, clientId: (string) $data->clientId, scopes: $scopes));
+      }
 
-    return $this->convertPsrResponse($psrResponse);
+      try {
+        $psrResponse = $this->authorizationServer->completeAuthorizationRequest(
+          authRequest: $authorizationRequest,
+          response: new Psr7Response(),
+        );
+      } catch (OAuthServerException $exception) {
+        return $this->convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
+      }
+      $this->storeNonceFromResponse($data, $psrResponse);
+
+      return $this->convertPsrResponse($psrResponse);
+    });
   }
 
   /**

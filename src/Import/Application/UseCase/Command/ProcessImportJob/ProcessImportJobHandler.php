@@ -122,7 +122,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
   private function processIfAvailable(ProcessImportJobCommand $command): void
   {
     $id = ImportJobId::fromString($command->importJobId);
-    $existing = $this->repository->findById($id);
+    $existing = $this->repository->findForExecution($id);
     if (null === $existing || $existing->status()->isTerminal()) {
       return;
     }
@@ -216,6 +216,9 @@ final readonly class ProcessImportJobHandler implements CommandHandler
     $resumeFrom = $job->processedRows();
     $projection = new DryRunProjection();
     $wouldCreate = [];
+    foreach ($this->repository->confirmedSimulationRows($job->id()) as $rowNumber) {
+      $wouldCreate[$rowNumber] = true;
+    }
     foreach ($job->errorReport() as $report) {
       if ('would_create' === $report->code) {
         $wouldCreate[$report->rowNumber] = true;

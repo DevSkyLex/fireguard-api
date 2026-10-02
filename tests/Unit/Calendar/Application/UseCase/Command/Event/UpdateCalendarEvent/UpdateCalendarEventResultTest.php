@@ -52,7 +52,7 @@ final class UpdateCalendarEventResultTest extends TestCase
     self::assertSame(self::ORGANIZATION_ID, $result->organizationId);
     self::assertSame('Fire drill', $result->title);
     self::assertNull($result->description);
-    self::assertSame($startsAt, $result->startsAt);
+    self::assertSame($event->startsAt(), $result->startsAt);
     self::assertNull($result->endsAt);
     self::assertTrue($result->allDay);
     self::assertNull($result->facilityId);

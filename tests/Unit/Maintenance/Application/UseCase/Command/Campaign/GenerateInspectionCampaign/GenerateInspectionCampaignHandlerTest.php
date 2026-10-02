@@ -22,6 +22,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
+use function array_fill;
+
 /**
  * Test GenerateInspectionCampaignHandlerTest.
  *
@@ -189,6 +191,45 @@ final class GenerateInspectionCampaignHandlerTest extends TestCase
       equipmentType: null,
       dueBefore: new DateTimeImmutable(),
     ));
+  }
+
+  #[Test]
+  public function oversizedCampaignIsRejectedBeforeFetchingOrCreatingAnything(): void
+  {
+    $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
+    $schedules->expects(self::once())->method('countDueForCampaign')->willReturn(26);
+    $schedules->expects(self::never())->method('listDueForCampaign');
+    $drafts = $this->createMock(InterventionDraftFactoryPort::class);
+    $drafts->expects(self::never())->method('create');
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $handler = new GenerateInspectionCampaignHandler($schedules, $drafts, $authorization, $this->createStub(EventDispatcherPort::class));
+
+    $this->expectException(MaintenanceValidationException::class);
+    $handler(new GenerateInspectionCampaignCommand(self::ORG_ID, self::USER_ID, 'Too large', null, null, new DateTimeImmutable()));
+  }
+
+  #[Test]
+  public function campaignAcceptsTheConfiguredLimitAndRejectsGrowthBetweenCountAndRead(): void
+  {
+    foreach ([25, 26] as $selected) {
+      $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
+      $schedules->method('countDueForCampaign')->willReturn(25);
+      $schedules->expects(self::once())->method('listDueForCampaign')->with(self::ORG_ID, null, null, self::isInstanceOf(DateTimeImmutable::class), 26)->willReturn(array_fill(0, $selected, $this->makeSchedule('equipment-a')));
+      $drafts = $this->createMock(InterventionDraftFactoryPort::class);
+      $drafts->expects(25 === $selected ? self::once() : self::never())->method('create')->willReturn(new CreatedInterventionDraft('draft', 1, 25));
+      $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+      $authorization->method('isMemberOf')->willReturn(true);
+      $handler = new GenerateInspectionCampaignHandler($schedules, $drafts, $authorization, $this->createStub(EventDispatcherPort::class));
+
+      try {
+        $result = $handler(new GenerateInspectionCampaignCommand(self::ORG_ID, self::USER_ID, 'Bounded', null, null, new DateTimeImmutable()));
+        self::assertSame(25, $result->workItemsCount);
+        self::assertSame(25, $selected);
+      } catch (MaintenanceValidationException) {
+        self::assertSame(26, $selected);
+      }
+    }
   }
 
   private function makeSchedule(string $equipmentId): MaintenanceScheduleView

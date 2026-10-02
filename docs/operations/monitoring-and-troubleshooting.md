@@ -1,5 +1,26 @@
 # Monitoring and troubleshooting
 
+Production Compose bounds memory, CPU, process counts and Docker log retention.
+API defaults are 768 MiB/1 CPU; consumers 384 MiB/0.75 CPU each; PostgreSQL
+512 MiB/1 CPU each; Redis and Mercure 256 MiB/0.5 CPU each. The corresponding
+`*_MEMORY_LIMIT` and `*_CPU_LIMIT` Compose inputs allow reviewed installation
+budgets. These are per-service ceilings, not reserved capacity. Measure actual
+usage, concurrency and host headroom before increasing them. Inspect OOM/restart
+counts together with receiver, queue and sweep checks; HTTP availability alone
+does not prove worker health. Docker logs keep five 10 MiB files per service;
+`LOG_MAX_SIZE` and `LOG_MAX_FILES` allow reviewed retention overrides on API/web.
+The generated API environment retains these optional budgets and their defaults.
+PostgreSQL defaults to the verified PostgreSQL 16 digest in both Compose stacks.
+Reviewed image overrides use `POSTGRES_IMAGE` with a compatible immutable digest;
+the former `POSTGRES_VERSION` tag selector no longer selects the image. Confirm
+the database major before changing that override or performing a restore exercise.
+
+The web runtime uses the unprivileged `node` user, a 768 MiB/1 CPU default limit,
+128 processes, bounded logs and a 25-second stop grace period. Its SIGTERM handler
+stops accepting connections, drains accepted requests for up to 15 seconds and
+closes remaining connections. `/healthz` does not depend on SSR rendering or
+runtime configuration and reports unavailable once shutdown begins.
+
 Use bounded diagnostics for the specific environment and revision. Separate application, dependency, security and asynchronous health.
 
 **Authoritative references:** [Shared health](../../src/Shared/MODULE.md) · [Deployment](../../DEPLOYMENT.md) · [Security](../../SECURITY.md).

@@ -34,6 +34,7 @@ final class DisableTotpHandlerTest extends TestCase
 
     /** @var TotpEnrollmentRepositoryPort&MockObject $repository */
     $repository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $repository->expects(self::once())
       ->method('findByUserId')
       ->with('user-1')
@@ -76,6 +77,7 @@ final class DisableTotpHandlerTest extends TestCase
 
     /** @var TotpEnrollmentRepositoryPort&MockObject $repository */
     $repository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $repository->expects(self::once())
       ->method('findByUserId')
       ->willReturn($enrollment);
@@ -109,6 +111,7 @@ final class DisableTotpHandlerTest extends TestCase
   {
     /** @var TotpEnrollmentRepositoryPort&MockObject $repository */
     $repository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $repository->expects(self::once())
       ->method('findByUserId')
       ->willReturn(null);

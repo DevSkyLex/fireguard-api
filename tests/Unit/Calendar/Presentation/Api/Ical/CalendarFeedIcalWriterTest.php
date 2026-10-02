@@ -7,7 +7,7 @@ namespace Tests\Unit\Calendar\Presentation\Api\Ical;
 use Calendar\Application\Contract\Feed\CalendarFeedItem;
 use Calendar\Presentation\Api\Ical\CalendarFeedIcalWriter;
 use DateTimeImmutable;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
 use function explode;
@@ -35,7 +35,7 @@ final class CalendarFeedIcalWriterTest extends TestCase
   #[Test]
   public function itFramesAValidEmptyCalendar(): void
   {
-    $document = $this->writer()->write([], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'));
+    $document = $this->writer()->write([], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'), 'UTC');
 
     self::assertStringStartsWith("BEGIN:VCALENDAR\r\n", $document);
     self::assertStringEndsWith("END:VCALENDAR\r\n", $document);
@@ -47,7 +47,7 @@ final class CalendarFeedIcalWriterTest extends TestCase
   #[Test]
   public function itWritesATimedEventWithStableUidTypedSummaryAndDeepUrl(): void
   {
-    $document = $this->writer()->write([$this->item()], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'));
+    $document = $this->writer()->write([$this->item()], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'), 'UTC');
 
     self::assertSame(1, substr_count($document, 'BEGIN:VEVENT'));
     self::assertSame(1, substr_count($document, 'END:VEVENT'));
@@ -73,7 +73,7 @@ final class CalendarFeedIcalWriterTest extends TestCase
       description: "ligne 1\nligne 2",
     );
 
-    $document = $this->writer()->write([$item], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'));
+    $document = $this->writer()->write([$item], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'), 'UTC');
 
     self::assertStringContainsString('SUMMARY:[Inspection] Salle A\\; aile B\\, c\\\\d', $document);
     self::assertStringContainsString('DESCRIPTION:ligne 1\\nligne 2', $document);
@@ -88,11 +88,35 @@ final class CalendarFeedIcalWriterTest extends TestCase
       endsAt: new DateTimeImmutable('2026-09-02T00:00:00+00:00'),
     );
 
-    $document = $this->writer()->write([$item], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'));
+    $document = $this->writer()->write([$item], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'), 'UTC');
 
     self::assertStringContainsString("DTSTART;VALUE=DATE:20260901\r\n", $document);
     // RFC 5545: DTEND is non-inclusive for all-day events — one day is added.
     self::assertStringContainsString("DTEND;VALUE=DATE:20260903\r\n", $document);
+  }
+
+  #[Test]
+  #[DataProvider('organizationDates')]
+  public function itExportsUtcStoredAllDayInstantsInTheOrganizationTimezone(string $startsAt, string $endsAt, string $startDate, string $exclusiveEndDate): void
+  {
+    $document = $this->writer()->write(
+      [$this->item(allDay: true, startsAt: new DateTimeImmutable($startsAt), endsAt: new DateTimeImmutable($endsAt))],
+      self::ORGANIZATION_ID,
+      new DateTimeImmutable('2026-01-01T00:00:00Z'),
+      'Europe/Paris',
+    );
+
+    self::assertStringContainsString('DTSTART;VALUE=DATE:' . $startDate . "\r\n", $document);
+    self::assertStringContainsString('DTEND;VALUE=DATE:' . $exclusiveEndDate . "\r\n", $document);
+  }
+
+  /**
+   * @return iterable<string, array{string, string, string, string}>
+   */
+  public static function organizationDates(): iterable
+  {
+    yield 'spring transition with preceding UTC start date' => ['2026-03-28T23:00:00Z', '2026-03-29T22:00:00Z', '20260329', '20260331'];
+    yield 'autumn transition with preceding UTC start date' => ['2026-10-24T22:00:00Z', '2026-10-25T23:00:00Z', '20261025', '20261027'];
   }
 
   #[Test]
@@ -103,7 +127,7 @@ final class CalendarFeedIcalWriterTest extends TestCase
       description: 'Une description délibérément interminable pour forcer le pliage de ligne du sérialiseur iCalendar au-delà de soixante-quinze octets, accents compris.',
     );
 
-    $document = $this->writer()->write([$item], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'));
+    $document = $this->writer()->write([$item], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'), 'UTC');
 
     foreach (explode("\r\n", $document) as $line) {
       self::assertLessThanOrEqual(75, strlen($line), 'RFC 5545 content lines must be at most 75 octets: ' . $line);
@@ -118,7 +142,7 @@ final class CalendarFeedIcalWriterTest extends TestCase
   #[Test]
   public function itCarriesTheRawStatusAsAPrivateProperty(): void
   {
-    $document = $this->writer()->write([$this->item(status: 'overdue')], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'));
+    $document = $this->writer()->write([$this->item(status: 'overdue')], self::ORGANIZATION_ID, new DateTimeImmutable('2026-08-28T10:00:00+00:00'), 'UTC');
 
     self::assertStringContainsString('X-FIREGUARD-STATUS:overdue', $document);
   }

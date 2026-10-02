@@ -6,12 +6,13 @@ namespace Assistant\Infrastructure\Persistence\Doctrine\Repository;
 
 use Assistant\Application\Port\Outbound\AssistantMessageRepositoryPort;
 use Assistant\Domain\Model\Message\AssistantMessage;
-use Assistant\Domain\ValueObject\AssistantMessageId;
+use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
 use Assistant\Infrastructure\Persistence\Doctrine\Mapper\AssistantMessageMapper;
 use Assistant\Infrastructure\Persistence\Doctrine\Record\{AssistantMessageRecord, AssistantThreadRecord};
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 
 use function array_map;
+use function array_reverse;
 
 /**
  * Repository AssistantMessageRepository.
@@ -148,6 +149,50 @@ final readonly class AssistantMessageRepository implements AssistantMessageRepos
       ->setParameter('threadId', $threadId)
       ->getQuery()
       ->getSingleScalarResult();
+  }
+
+  /**
+   * Method listCompletedThroughQuestion.
+   *
+   * Selects a completed suffix and its inclusive user-question boundary in one bounded main-database query.
+   * Both sides are thread-scoped before pagination; the question is always the final returned message.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @param string $threadId the owning thread identifier
+   * @param string $questionMessageId the inclusive user question anchor
+   * @param int $limit maximum number of completed messages to hydrate
+   *
+   * @return list<AssistantMessage> the bounded transcript in chronological order
+   */
+  public function listCompletedThroughQuestion(string $threadId, string $questionMessageId, int $limit): array
+  {
+    if ($limit < 1) {
+      return [];
+    }
+
+    /** @var list<AssistantMessageRecord> $records */
+    $records = $this->repository->createQueryBuilder('m')
+      ->from(AssistantMessageRecord::class, 'question')
+      ->where('IDENTITY(m.thread) = :threadId')
+      ->andWhere('IDENTITY(question.thread) = :threadId')
+      ->andWhere('question.id = :questionId')
+      ->andWhere('question.role = :userRole')
+      ->andWhere('question.status = :complete')
+      ->andWhere('m.status = :complete')
+      ->andWhere('m.createdAt < question.createdAt OR (m.createdAt = question.createdAt AND m.id <= question.id)')
+      ->setParameter('threadId', $threadId)
+      ->setParameter('questionId', $questionMessageId)
+      ->setParameter('userRole', AssistantMessageRole::USER->value)
+      ->setParameter('complete', AssistantMessageStatus::COMPLETE->value)
+      ->orderBy('m.createdAt', 'DESC')
+      ->addOrderBy('m.id', 'DESC')
+      ->setMaxResults($limit)
+      ->getQuery()
+      ->getResult();
+
+    return array_map(AssistantMessageMapper::toDomain(...), array_reverse($records));
   }
   // #endregion
 }

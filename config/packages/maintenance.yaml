@@ -1,0 +1,2 @@
+parameters:
+  maintenance.max_campaign_work_items: 25

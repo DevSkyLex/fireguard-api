@@ -1,0 +1,24 @@
+{
+  "$schema": "./vendor/infection/infection/resources/schema.json",
+  "source": {
+    "directories": [
+      "src/Auth/Application/UseCase/Query/Session/RefreshToken",
+      "src/Billing/Application/UseCase/Command/HandleStripeWebhook"
+    ]
+  },
+  "logs": {
+    "text": "var/infection/sensitive.log",
+    "summary": "var/infection/sensitive-summary.log",
+    "perMutator": "var/infection/sensitive-mutators.md"
+  },
+  "mutators": { "LogicalAnd": true, "LogicalOr": true, "Identical": true, "NotIdentical": true },
+  "phpUnit": { "configDir": ".", "customPath": "vendor/bin/phpunit" },
+  "testFramework": "phpunit",
+  "testFrameworkOptions": "--testsuite=General Unit Tests --filter=RefreshTokenHandlerTest|HandleStripeWebhookHandlerTest|HandleStripeWebhookBasicScenariosTest",
+  "initialTestsPhpOptions": "-d memory_limit=1G",
+  "timeout": 15,
+  "threads": 2,
+  "tmpDir": "var/infection/sensitive-tmp",
+  "minMsi": 90,
+  "minCoveredMsi": 90
+}

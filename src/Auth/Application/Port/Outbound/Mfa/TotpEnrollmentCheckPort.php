@@ -21,7 +21,8 @@ interface TotpEnrollmentCheckPort
   /**
    * Method isEnrolled.
    *
-   * Checks whether the user has an active TOTP enrollment.
+   * Checks whether the user has an active TOTP enrollment. Technical lookup failures
+   * propagate; false means a successful lookup found no active factor.
    *
    * @since 1.0.0
    *

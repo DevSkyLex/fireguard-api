@@ -75,7 +75,7 @@ final readonly class ListImportJobsHandler implements QueryHandler
     $total = $this->repository->countByOrganization($query->organizationId, $kind, $allowedKinds);
 
     return new ListImportJobsResult(
-      items: array_map(GetImportJobResult::fromDomain(...), $jobs),
+      items: array_map(static fn ($job): GetImportJobResult => GetImportJobResult::fromDomain($job, report: [], reportTotal: $job->isDryRun() ? $job->processedRows() : $job->failedRows()), $jobs),
       page: $query->page,
       itemsPerPage: $itemsPerPage,
       total: $total,

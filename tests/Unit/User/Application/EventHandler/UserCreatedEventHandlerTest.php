@@ -33,8 +33,6 @@ final class UserCreatedEventHandlerTest extends TestCase
         'User created',
         [
           'user_id' => 'user-1',
-          'username' => 'jdoe',
-          'email' => 'jdoe@example.com',
         ],
       );
 

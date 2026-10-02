@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\AddAttachment;
 
 use Equipment\Application\Port\Outbound\{AttachmentRepositoryPort, EquipmentRepositoryPort};
-use Equipment\Domain\Exception\EquipmentNotFoundException;
+use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId};
 use Shared\Application\Factory\UuidFactory;
@@ -73,16 +73,21 @@ final readonly class AddAttachmentHandler implements CommandHandler
       ? $this->uuidFactory->create(AttachmentId::class)
       : AttachmentId::fromString($command->attachmentId);
 
-    // A client-supplied id that already exists is a retry overwriting its own
-    // row, not a new attachment — it must not be rejected at the cap.
-    if (null === $this->attachmentRepository->findById($attachmentId)) {
-      AttachmentConstraints::validateCount($this->attachmentRepository->countByEquipmentId($equipmentId));
+    $existing = $this->attachmentRepository->findById($attachmentId);
+    if (null !== $existing) {
+      if ((string) $existing->equipmentId() !== (string) $equipmentId) {
+        throw AttachmentNotFoundException::withId((string) $attachmentId);
+      }
+
+      return $this->result($existing);
     }
+    AttachmentConstraints::validateCount($this->attachmentRepository->countByEquipmentId($equipmentId));
 
     $storagePath = sprintf(
-      'equipment/%s/attachments/%s_%s',
+      'equipment/%s/attachments/%s/%s_%s',
       $command->equipmentId,
       (string) $attachmentId,
+      $this->uuidFactory->generateRaw(),
       basename($command->fileName),
     );
 
@@ -99,13 +104,29 @@ final readonly class AddAttachmentHandler implements CommandHandler
     $this->fileStorage->write($storagePath, $command->contents);
 
     try {
-      $this->attachmentRepository->save($attachment);
+      $persisted = $this->attachmentRepository->saveIfAbsent($attachment);
     } catch (Throwable $dbException) {
       $this->fileStorage->delete($storagePath);
 
       throw $dbException;
     }
 
+    if ($persisted->storagePath() !== $storagePath) {
+      $this->fileStorage->delete($storagePath);
+    }
+
+    return $this->result($persisted);
+  }
+
+  /**
+   * Maps the stored upload, including idempotent replay, to its response.
+   *
+   * @param EquipmentAttachment $attachment stored attachment
+   *
+   * @return AddAttachmentResult upload metadata
+   */
+  private function result(EquipmentAttachment $attachment): AddAttachmentResult
+  {
     return new AddAttachmentResult(
       attachmentId: (string) $attachment->id(),
       equipmentId: (string) $attachment->equipmentId(),

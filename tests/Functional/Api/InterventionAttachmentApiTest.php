@@ -7,7 +7,7 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord, InterventionWorkItemRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Outbound\FileStoragePort;
@@ -71,6 +71,8 @@ final class InterventionAttachmentApiTest extends WebTestCase
 
   private const string OTHER_INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655480011';
 
+  private const string CLIENT_ATTACHMENT_ID = '550e8400-e29b-41d4-a716-446655480040';
+
   private const string WORK_ITEM_ID = '550e8400-e29b-41d4-a716-446655480030';
 
   private const string OTHER_WORK_ITEM_ID = '550e8400-e29b-41d4-a716-446655480031';
@@ -95,6 +97,102 @@ final class InterventionAttachmentApiTest extends WebTestCase
       haystack: [401, 403],
       message: 'Expected 401 or 403 for unauthenticated POST /interventions/{id}/attachments, got ' . $statusCode,
     );
+  }
+
+  #[Test]
+  public function testStoredClientIdReplayKeepsTheCommittedFileWithoutMultipartData(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('draft');
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $contents = $this->minimalJpegBytes();
+    $attachmentId = $this->uploadAttachment($client, 'original.jpg', $contents, self::CLIENT_ATTACHMENT_ID);
+    self::assertSame(self::CLIENT_ATTACHMENT_ID, $attachmentId);
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $original = $entityManager->find(InterventionAttachmentRecord::class, $attachmentId);
+    self::assertInstanceOf(InterventionAttachmentRecord::class, $original);
+    $originalPath = $original->storagePath;
+    $this->updateInterventionStatus('published');
+
+    static::ensureKernelShutdown();
+    $replayClient = static::createClient();
+    $this->loginAs($replayClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $replayClient->request('POST', '/api/interventions/' . self::INTERVENTION_ID . '/attachments', ['clientId' => $attachmentId, 'label' => 'ignored replay label']);
+    self::assertSame(201, $replayClient->getResponse()->getStatusCode(), (string) $replayClient->getResponse()->getContent());
+    $decoded = json_decode((string) $replayClient->getResponse()->getContent(), true);
+    self::assertIsArray($decoded);
+    self::assertSame($attachmentId, $decoded['id'] ?? null);
+    self::assertSame('original.jpg', $decoded['fileName'] ?? null);
+    self::assertNull($decoded['label'] ?? null);
+
+    /** @var EntityManagerInterface $reloadedManager */
+    $reloadedManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $reloaded = $reloadedManager->find(InterventionAttachmentRecord::class, $attachmentId);
+    self::assertInstanceOf(InterventionAttachmentRecord::class, $reloaded);
+    self::assertSame($originalPath, $reloaded->storagePath);
+    self::assertSame(1, $reloadedManager->getRepository(InterventionAttachmentRecord::class)->count(['intervention' => self::INTERVENTION_ID]));
+    /** @var FileStoragePort $storage */
+    $storage = static::getContainer()->get(FileStoragePort::class);
+    self::assertSame($contents, $storage->read($originalPath));
+  }
+
+  #[Test]
+  public function testStoredClientIdReplayRejectsAnOwningMemberWithoutReadPermission(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('draft');
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $this->uploadAttachment($client, 'original.jpg', $this->minimalJpegBytes(), self::CLIENT_ATTACHMENT_ID);
+
+    static::ensureKernelShutdown();
+    $memberClient = static::createClient();
+    $this->loginAs($memberClient, self::PLAIN_MEMBER_USER_ID, 'attachment-plain-member@example.com');
+    $memberClient->request('POST', '/api/interventions/' . self::INTERVENTION_ID . '/attachments', ['clientId' => self::CLIENT_ATTACHMENT_ID]);
+    self::assertSame(403, $memberClient->getResponse()->getStatusCode(), (string) $memberClient->getResponse()->getContent());
+  }
+
+  #[Test]
+  public function testStoredClientIdReplayForAnOutsiderIsIndistinguishableFromAnUnknownClientId(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('draft');
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $this->uploadAttachment($client, 'original.jpg', $this->minimalJpegBytes(), self::CLIENT_ATTACHMENT_ID);
+
+    static::ensureKernelShutdown();
+    $outsiderClient = static::createClient();
+    $this->loginAs($outsiderClient, self::OUTSIDER_USER_ID, 'attachment-outsider@example.com');
+    $outsiderClient->request('POST', '/api/interventions/' . self::INTERVENTION_ID . '/attachments', ['clientId' => self::CLIENT_ATTACHMENT_ID]);
+    self::assertSame(404, $outsiderClient->getResponse()->getStatusCode(), (string) $outsiderClient->getResponse()->getContent());
+    $existingProblem = $this->normalizedProblem($outsiderClient, self::CLIENT_ATTACHMENT_ID);
+
+    static::ensureKernelShutdown();
+    $unknownClient = static::createClient();
+    $this->loginAs($unknownClient, self::OUTSIDER_USER_ID, 'attachment-outsider@example.com');
+    $unknownClient->request('POST', '/api/interventions/' . self::INTERVENTION_ID . '/attachments', ['clientId' => self::DUMMY_UUID]);
+    self::assertSame(404, $unknownClient->getResponse()->getStatusCode(), (string) $unknownClient->getResponse()->getContent());
+    self::assertSame($existingProblem, $this->normalizedProblem($unknownClient, self::DUMMY_UUID));
+  }
+
+  #[Test]
+  public function testStoredClientIdReplayAtAnUnknownInterventionReturns404(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('draft');
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $this->uploadAttachment($client, 'original.jpg', $this->minimalJpegBytes(), self::CLIENT_ATTACHMENT_ID);
+
+    static::ensureKernelShutdown();
+    $ownerClient = static::createClient();
+    $this->loginAs($ownerClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $ownerClient->request('POST', '/api/interventions/' . self::DUMMY_UUID . '/attachments', ['clientId' => self::CLIENT_ATTACHMENT_ID]);
+    self::assertSame(404, $ownerClient->getResponse()->getStatusCode(), (string) $ownerClient->getResponse()->getContent());
   }
 
   #[Test]
@@ -357,7 +455,11 @@ final class InterventionAttachmentApiTest extends WebTestCase
     // object is gone from storage (e.g. an out-of-band bucket deletion).
     /** @var FileStoragePort $fileStorage */
     $fileStorage = static::getContainer()->get(FileStoragePort::class);
-    $fileStorage->delete('intervention/' . self::INTERVENTION_ID . '/attachments/' . $attachmentId . '_evidence.jpg');
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $attachment = $entityManager->find(InterventionAttachmentRecord::class, $attachmentId);
+    self::assertInstanceOf(InterventionAttachmentRecord::class, $attachment);
+    $fileStorage->delete($attachment->storagePath);
 
     static::ensureKernelShutdown();
     $downloadClient = static::createClient();
@@ -776,7 +878,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
    * Uploads a real multipart file to {@see self::INTERVENTION_ID} as the
    * currently logged-in client and returns the created attachment id.
    */
-  private function uploadAttachment(KernelBrowser $client, string $fileName, string $contents): string
+  private function uploadAttachment(KernelBrowser $client, string $fileName, string $contents, ?string $clientId = null): string
   {
     $path = tempnam(sys_get_temp_dir(), 'ivn-attach-');
     self::assertIsString($path);
@@ -792,6 +894,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $client->request(
       method: 'POST',
       uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: null === $clientId ? [] : ['clientId' => $clientId],
       files: ['file' => $uploadedFile],
     );
 

@@ -12,7 +12,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 /**
  * Subscriber EventLogSubscriber.
  *
- * Logs OAuth-related events for audit/tracing.
+ * Logs OAuth-related outcomes and technical identifiers without raw request IP addresses.
  *
  * @category Subscriber
  * @version 1.0.0
@@ -77,7 +77,6 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
         'grant_type' => $event->grantType,
         'client_id' => $event->clientId,
         'user_id' => $event->userId,
-        'ip' => $event->ipAddress,
       ],
     );
   }
@@ -100,7 +99,6 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
       context: [
         'grant_type' => $event->grantType,
         'client_id' => $event->clientId,
-        'ip' => $event->ipAddress,
         'reason' => $event->reason,
       ],
     );
@@ -123,7 +121,6 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
       message: 'Token refreshed successfully',
       context: [
         'user_id' => $event->userId,
-        'ip' => $event->ipAddress,
       ],
     );
   }
@@ -145,7 +142,6 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
       message: 'Token refresh failed',
       context: [
         'user_id' => $event->userId,
-        'ip' => $event->ipAddress,
         'reason' => $event->reason,
       ],
     );

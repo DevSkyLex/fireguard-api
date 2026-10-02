@@ -230,6 +230,30 @@ final class ImportExecutionConcurrencyTest extends KernelTestCase
     $this->execution->resume($this->id(), static function (): void {});
   }
 
+  #[Test]
+  public function reportsAreAppendedOnceAndWorkerReadsStayBoundedAfterHundredsOfRows(): void
+  {
+    $this->execution->claim($this->id(), self::OWNER_A);
+    for ($row = 1; $row <= 240; ++$row) {
+      $current = $this->execution->run($this->id(), self::OWNER_A, static function (ImportJob $job) use ($row): ?string {
+        self::assertSame([], $job->errorReport(), 'Worker reads must not reload previous row reports.');
+        $job->recordRowError(new ImportRowError($row, 'invalid', 'Bad row ' . $row));
+
+        return null;
+      }, $row);
+      self::assertCount(1, $current->errorReport());
+    }
+    $this->execution->run($this->id(), self::OWNER_A, static fn () => throw new RuntimeException('Confirmed row must not be run again'), 240);
+    self::assertSame(240, $this->receiptCount());
+    self::assertSame(240, $this->jobs->countReport($this->id()));
+    self::assertNull($this->b->fetchOne('SELECT error_report FROM import_jobs WHERE id = ?', [self::JOB]));
+    self::assertCount(100, $this->jobs->findById($this->id())?->errorReport() ?? []);
+    $page = $this->jobs->reportPage($this->id(), 3, 100);
+    self::assertCount(40, $page);
+    self::assertSame(201, $page[0]->rowNumber);
+    self::assertSame(240, $page[39]->rowNumber);
+  }
+
   private function id(): ImportJobId
   {
     return ImportJobId::fromString(self::JOB);
@@ -245,6 +269,7 @@ final class ImportExecutionConcurrencyTest extends KernelTestCase
 
   private function clean(): void
   {
+    $this->a->executeStatement('DELETE FROM import_row_reports WHERE import_job_id = ?', [self::JOB]);
     $this->a->executeStatement('DELETE FROM import_row_receipts WHERE import_job_id = ?', [self::JOB]);
     $this->a->executeStatement('DELETE FROM import_jobs WHERE id = ?', [self::JOB]);
     $this->a->executeStatement('DELETE FROM equipment WHERE organization_id = ?', [self::ORG]);

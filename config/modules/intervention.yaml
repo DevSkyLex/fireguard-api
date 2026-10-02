@@ -149,9 +149,23 @@ services:
     arguments:
       $messageBus: '@messenger.default_bus'
 
-  Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter:
+  Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Service\InterventionDraftFactory:
+    arguments:
+      $transactions: '@Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter'
+
+  Intervention\Infrastructure\Service\Workflow\InterventionWorkflowInterventionWriter:
+    arguments:
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+
+  Intervention\Infrastructure\Service\Workflow\InterventionWorkflowWorkItemWriter:
+    arguments:
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+
+  Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter: ~
 
   # Workflow collaborators share the gateway's main entity manager and
   # participate in its single transaction; never fall back to auth.
@@ -297,6 +311,12 @@ services:
   Intervention\Application\UseCase\Command\Recurrence\DeleteInterventionRecurrence\DeleteInterventionRecurrenceHandler:
     tags: ['messenger.message_handler']
 
+  Intervention\Application\UseCase\Command\Recurrence\RecoverReservedRecurrence\RecoverReservedRecurrenceHandler:
+    arguments:
+      $transactions: '@Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: ['messenger.message_handler']
+
   Intervention\Application\UseCase\Query\Recurrence\GetInterventionRecurrence\GetInterventionRecurrenceHandler:
     tags: ['messenger.message_handler']
 
@@ -304,6 +324,9 @@ services:
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesHandler:
+    arguments:
+      $transactions: '@Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Command\Sweep\SendDueReminders\SendDueRemindersHandler:

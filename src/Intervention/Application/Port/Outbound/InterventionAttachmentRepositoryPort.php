@@ -20,6 +20,23 @@ interface InterventionAttachmentRepositoryPort
 {
   // #region Methods
   /**
+   * Method withUploadLock
+   *
+   * Serializes attachment identity, capacity and signature writes before any blob is written.
+   *
+   * @access public
+   *
+   * @template T
+   *
+   * @param string $interventionId owning intervention identifier
+   * @param string $attachmentId client or generated attachment identifier
+   * @param callable(): T $operation upload performed while the locks are held
+   *
+   * @return T the committed upload result
+   */
+  public function withUploadLock(string $interventionId, string $attachmentId, callable $operation): mixed;
+
+  /**
    * Method save.
    *
    * Persists an intervention attachment.

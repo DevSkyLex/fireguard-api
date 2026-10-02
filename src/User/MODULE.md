@@ -7,6 +7,12 @@
 User manages account lifecycle (provisioning, profile updates, lookup, and deletion).
 It owns the User aggregate and exposes Api Platform resources for CRUD operations.
 User deletion also purges linked auth data (sessions, consents, tokens, OTPs, trusted devices).
+The Otp-owned `TotpEnrollmentPurgePort` removes the complete TOTP enrollment, including
+active/pending plaintext or encrypted secrets and attempt state, from the auth database.
+This purge does not access business records in the main database. The DELETE operation
+checks `users.delete` before its command performs the authoritative user lookup, returning
+204 after deletion/purge, 403 uniformly for unauthorized callers, and 404 for an authorized
+request targeting a missing account.
 
 ## API Endpoints
 
@@ -35,6 +41,10 @@ Removed 2026-08-20: `GET /api/users/statuses` (unconsumed reference catalog; the
 frontend's localized typed registries are the source of these values).
 
 ## Flows
+
+Creation and email-verification INFO logs retain only the technical user identifier.
+They omit email addresses and usernames; account events and notification delivery
+contracts retain their existing behavior.
 
 ### Email-change request location
 
@@ -137,6 +147,13 @@ Key folders:
 - `src/User/Application/Contract/User/UserView.php`
 
 ### Cross-module reads
+
+`AccountStatusPort` publishes only whether the current stored account is active.
+Its auth-bound scalar adapter returns false for missing, invalid, inactive, locked or
+pending-verification accounts and bypasses managed-entity/permission caches. Calendar
+uses this capability on each public ICS fetch so deactivation immediately denies the
+still-active feed secret without modifying organization memberships or calendar tokens.
+
 
 - `GetCurrentUserProfileHandler` depends directly on `Otp\Application\Port\Inbound\Totp\TotpStatusPort`
   (an inbound port owned by the Otp module) to expose `totpEnabled` on `/api/me`,
@@ -300,6 +317,14 @@ pending and effective notices retain their best-effort policy and class-only err
   `BULK_STAFF_COUNT` (40) generated accounts on top of those push the user
   directory — and, via `OrganizationFixtures::BULK_MEMBER_COUNT`, the member
   roster — past 50 rows so their admin lists actually paginate.
+
+## Account deletion and authenticator concurrency
+
+The hard-delete handler enters the auth-only transaction and enrollment user lock published
+through `UserDataPurgePort` before removing the account or its linked auth records. Otp setup
+uses the same lock and a fresh published account-status query, so a request authenticated before
+deletion cannot recreate a secret after the purge commits. If auth cleanup fails, account removal
+and completed cleanup writes roll back together. Main database records remain outside this seam.
 
 ## Testing
 

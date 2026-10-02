@@ -17,6 +17,14 @@ the required application/encryption configuration before real API use. Example
 URLs can use `https://api.example.com` and `https://app.example.com`; the configured
 issuer, cookies, CORS and Mercure origins must describe the same environment.
 
+Dependency updates receive a dedicated PR at least monthly and promptly for a
+relevant advisory. Record the review date, PHP/Composer versions and advisory status,
+review upstream notes and `composer.json`/`composer.lock` together, then run the normal
+quality gate. CI audits the complete locked runtime/build dependency graph and retains
+that audit plus `composer licenses --no-dev --format=json` in the same-revision
+`api-dependency-evidence` artifact. License declarations require review; the inventory
+does not decide compatibility. Repeat the evidence after a lockfile change.
+
 The local stack publishes the application on 8000, auth PostgreSQL on 5433, main
 PostgreSQL on 5434, Redis on 6379 and Mailpit UI on 8025. Compose definitions remain
 the source of truth for overrides. Use `make docker-logs` and `make docker-shell`

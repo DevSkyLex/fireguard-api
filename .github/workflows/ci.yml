@@ -20,7 +20,8 @@ on:
     branches: [main, develop]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A reusable CI invocation inherits the caller's github.workflow name.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -48,11 +49,12 @@ jobs:
           python-version: '3.13'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22'
+          node-version: '22.23.3'
       - name: Validate local tooling and declarations
         run: |
           python -B .codex/scripts/validate.py --local-only
           python -B .github/scripts/check_agent_parity.py --local-only
+          python -B .github/scripts/check-action-pins.py
       - name: Test tooling failure paths and hooks
         run: |
           python -B -m unittest discover -s .codex/scripts -p 'test_*.py'
@@ -64,14 +66,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Configure the temporary browser cache
         run: echo "PUPPETEER_CACHE_DIR=$RUNNER_TEMP/documentation-browser" >> "$GITHUB_ENV"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: '22.23.3'
           cache: npm
           cache-dependency-path: .github/documentation/package-lock.json
+      - name: Pin npm on the disposable CI runner
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
       - name: Install isolated documentation tools
         run: npm ci
         working-directory: .github/documentation
@@ -86,7 +90,7 @@ jobs:
         working-directory: .github/documentation
       - name: Retain diagram review artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: documentation-diagrams
           path: ${{ runner.temp }}/documentation-diagrams
@@ -100,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PHP workspace
         uses: ./.github/actions/prepare-php-workspace
@@ -119,7 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PHP workspace
         uses: ./.github/actions/prepare-php-workspace
@@ -137,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PHP workspace
         uses: ./.github/actions/prepare-php-workspace
@@ -176,7 +180,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PostgreSQL test environment
         uses: ./.github/actions/prepare-postgres-test-environment
@@ -197,8 +201,11 @@ jobs:
             --coverage-text \
             --only-summary-for-coverage-text
 
+      - name: Require complete test discovery
+        run: python3 -B .github/scripts/check-test-discovery.py
+
       - name: Preserve unit and architecture coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: api-coverage-unit
           path: var/coverage/unit-and-architecture.php
@@ -215,7 +222,7 @@ jobs:
 
       - name: Upload push context for deployment
         if: ${{ github.event_name == 'push' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ci-push-context
           path: ci-push-context.json
@@ -246,7 +253,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PostgreSQL test environment
         uses: ./.github/actions/prepare-postgres-test-environment
@@ -267,13 +274,56 @@ jobs:
             --coverage-text \
             --only-summary-for-coverage-text
 
+      - name: Check the exported HTTP contract
+        run: make openapi-check
+
       - name: Preserve integration and functional coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: api-coverage-integration
           path: var/coverage/integration-and-functional.php
           if-no-files-found: error
           retention-days: 3
+
+  tests-performance:
+    name: Performance Budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: test
+      APP_DEBUG: 0
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fireguard_auth_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: ./.github/actions/prepare-postgres-test-environment
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          postgres-service-id: ${{ job.services.postgres.id }}
+          auth-database-url: ${{ env.AUTH_DATABASE_URL }}
+          main-database-url: ${{ env.MAIN_DATABASE_URL }}
+      - name: Enforce query, time, memory and repeatability budgets
+        run: make benchmark
+      - name: Retain measured performance samples
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: performance-samples
+          path: |
+            var/workload-benchmark.json
+            var/maintenance-sweep-benchmark.json
+            var/import-report-benchmark.json
+          if-no-files-found: warn
+          retention-days: 7
 
   # ==========================================================================
   # End-to-End Flow Tests
@@ -316,7 +366,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PostgreSQL test environment
         uses: ./.github/actions/prepare-postgres-test-environment
@@ -361,7 +411,7 @@ jobs:
             --only-summary-for-coverage-text
 
       - name: Preserve end-to-end coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: api-coverage-e2e
           path: var/coverage/e2e.php
@@ -390,7 +440,7 @@ jobs:
           exit 1
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PHP workspace
         uses: ./.github/actions/prepare-php-workspace
@@ -400,19 +450,19 @@ jobs:
       # Exact names, no run-id/token override: only this workflow run is trusted.
       # Ubuntu jobs use the same checkout path embedded in PHPUnit's reports.
       - name: Download unit and architecture coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: api-coverage-unit
           path: var/coverage/parts
 
       - name: Download integration and functional coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: api-coverage-integration
           path: var/coverage/parts
 
       - name: Download end-to-end coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: api-coverage-e2e
           path: var/coverage/parts
@@ -431,7 +481,7 @@ jobs:
 
       - name: Preserve complete coverage report
         if: ${{ !cancelled() && steps.merge.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: api-coverage-complete
           path: var/coverage/full/clover.xml
@@ -439,7 +489,7 @@ jobs:
           retention-days: 7
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         if: ${{ !cancelled() && steps.merge.outcome == 'success' }}
         with:
           files: var/coverage/full/clover.xml
@@ -463,12 +513,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout analyzed commit with full history
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Download complete coverage from this run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: api-coverage-complete
           path: var/coverage/full
@@ -533,10 +583,10 @@ jobs:
     name: Deployment Verifier Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: '22.23.3'
       - run: node --test .github/scripts/*.test.mjs
 
   # ==========================================================================
@@ -547,7 +597,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PHP workspace
         uses: ./.github/actions/prepare-php-workspace
@@ -569,7 +619,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Prepare PHP workspace
         uses: ./.github/actions/prepare-php-workspace
@@ -578,8 +628,25 @@ jobs:
           install-dependencies: 'false'
 
       - name: Check for security vulnerabilities
-        # --locked audits composer.lock: this job installs no dependencies.
-        run: composer audit --locked
+        # Audit the complete reviewed lock before the production-only license install.
+        run: |
+          mkdir -p var/dependencies
+          composer audit --locked --format=json > var/dependencies/composer-audit.json
+
+      - name: Produce production license declarations
+        if: ${{ always() }}
+        run: |
+          composer install --no-dev --prefer-dist --no-progress --no-scripts --no-interaction
+          composer licenses --no-dev --format=json > var/dependencies/composer-licenses.json
+
+      - name: Retain dependency evidence from this revision
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: api-dependency-evidence
+          path: var/dependencies/
+          if-no-files-found: error
+          retention-days: 14
 
   # ===========================================================================
   # Deployment contracts
@@ -614,7 +681,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install Ansible
         run: python3 -m pip install --user ansible-core
@@ -637,28 +704,44 @@ jobs:
   mutation:
     name: Mutation Testing
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: github.event_name == 'workflow_dispatch' && inputs.run_mutation == true
     needs: [tests-unit]
+    env:
+      APP_ENV: test
+      APP_DEBUG: 0
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fireguard_auth_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Prepare PHP workspace
-        uses: ./.github/actions/prepare-php-workspace
+      - name: Prepare PostgreSQL mutation environment
+        uses: ./.github/actions/prepare-postgres-test-environment
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: pdo_sqlite, intl, bcmath, zip
           coverage-driver: pcov
-
-      - name: Create JWT keys for tests
-        run: |
-          mkdir -p config/jwt
-          openssl genrsa -out config/jwt/private.key 2048
-          openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
+          postgres-service-id: ${{ job.services.postgres.id }}
+          auth-database-url: ${{ env.AUTH_DATABASE_URL }}
+          main-database-url: ${{ env.MAIN_DATABASE_URL }}
 
       - name: Run Infection
-        run: php -d memory_limit=1G vendor/bin/infection --show-mutations --only-covering-test-cases
-        env:
-          APP_ENV: test
-          APP_DEBUG: 0
+        run: php -d memory_limit=1G vendor/bin/infection --configuration=infection-sensitive.json5 --show-mutations --only-covering-test-cases
+      - name: Retain bounded mutation evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sensitive-mutation
+          path: var/infection/sensitive*
+          if-no-files-found: warn
+          retention-days: 7

@@ -68,6 +68,10 @@ final readonly class GetImportJobResult implements ResultMessage
     public bool $canResume = false,
     public bool $canConfirm = false,
     public ?string $confirmedJobId = null,
+    public int $reportPage = 1,
+    public int $reportItemsPerPage = 100,
+    public int $reportTotal = 0,
+    public bool $reportHasNextPage = false,
   ) {
   }
   // #endregion
@@ -83,10 +87,11 @@ final readonly class GetImportJobResult implements ResultMessage
    * @since 1.0.0
    *
    * @param ImportJob $job the import job aggregate
+   * @param ?list<\Import\Domain\ValueObject\ImportRowError> $report bounded report page
    *
    * @return self the read view
    */
-  public static function fromDomain(ImportJob $job, bool $canResume = false, bool $canConfirm = false): self
+  public static function fromDomain(ImportJob $job, bool $canResume = false, bool $canConfirm = false, ?array $report = null, int $reportPage = 1, int $reportItemsPerPage = 100, int $reportTotal = 0): self
   {
     return new self(
       importJobId: (string) $job->id(),
@@ -106,7 +111,7 @@ final readonly class GetImportJobResult implements ResultMessage
           'code' => $error->code,
           'message' => $error->message,
         ],
-        $job->errorReport(),
+        $report ?? $job->errorReport(),
       ),
       jobError: $job->jobError(),
       createdBy: $job->createdBy(),
@@ -117,6 +122,10 @@ final readonly class GetImportJobResult implements ResultMessage
       canResume: $canResume,
       canConfirm: $canConfirm && $job->canConfirm(),
       confirmedJobId: $job->confirmedJobId(),
+      reportPage: $reportPage,
+      reportItemsPerPage: $reportItemsPerPage,
+      reportTotal: $reportTotal,
+      reportHasNextPage: $reportPage * $reportItemsPerPage < $reportTotal,
     );
   }
   // #endregion

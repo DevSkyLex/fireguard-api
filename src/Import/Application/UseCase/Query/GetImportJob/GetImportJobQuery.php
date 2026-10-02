@@ -28,6 +28,8 @@ final readonly class GetImportJobQuery implements QueryMessage
   public function __construct(
     public string $userId,
     public string $importJobId,
+    public int $reportPage = 1,
+    public int $reportItemsPerPage = 100,
   ) {
   }
   // #endregion

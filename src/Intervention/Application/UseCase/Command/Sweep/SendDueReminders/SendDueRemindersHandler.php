@@ -107,10 +107,10 @@ final readonly class SendDueRemindersHandler implements CommandHandler
   {
     $threshold = $now->modify(sprintf('+%d hours', self::DUE_SOON_WINDOW_HOURS));
     $count = 0;
-    $offset = 0;
+    $afterId = null;
 
     do {
-      $page = $this->reminders->pageDueSoon($now, $threshold, self::PAGE_SIZE, $offset);
+      $page = $this->reminders->pageDueSoon($now, $threshold, self::PAGE_SIZE, $afterId);
 
       foreach ($page->items as $candidate) {
         $this->notifications->dueSoon(
@@ -123,9 +123,9 @@ final readonly class SendDueRemindersHandler implements CommandHandler
         );
         $this->reminders->markDueSoonNotified($candidate->id, $now);
         ++$count;
+        $afterId = $candidate->id;
       }
 
-      $offset += self::PAGE_SIZE;
     } while (self::PAGE_SIZE === count($page->items));
 
     return $count;
@@ -143,10 +143,10 @@ final readonly class SendDueRemindersHandler implements CommandHandler
   private function sweepOverdue(DateTimeImmutable $now): int
   {
     $count = 0;
-    $offset = 0;
+    $afterId = null;
 
     do {
-      $page = $this->reminders->pageOverdue($now, self::PAGE_SIZE, $offset);
+      $page = $this->reminders->pageOverdue($now, self::PAGE_SIZE, $afterId);
 
       foreach ($page->items as $candidate) {
         $this->notifications->overdue(
@@ -159,9 +159,9 @@ final readonly class SendDueRemindersHandler implements CommandHandler
         );
         $this->reminders->markOverdueNotified($candidate->id, $now);
         ++$count;
+        $afterId = $candidate->id;
       }
 
-      $offset += self::PAGE_SIZE;
     } while (self::PAGE_SIZE === count($page->items));
 
     return $count;

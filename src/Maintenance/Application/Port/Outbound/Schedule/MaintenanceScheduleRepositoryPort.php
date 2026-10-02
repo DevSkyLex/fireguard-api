@@ -26,6 +26,18 @@ use Maintenance\Application\Contract\Schedule\{MaintenanceSchedulePage, Maintena
  */
 interface MaintenanceScheduleRepositoryPort
 {
+  /**
+   * @param list<string> $equipmentIds
+   *
+   * @return array<string, MaintenanceScheduleView>
+   */
+  public function findForEquipment(string $organizationId, array $equipmentIds): array;
+
+  /**
+   * @param list<MaintenanceScheduleSnapshot> $snapshots stores one bounded batch without ORM flush
+   */
+  public function saveBatch(array $snapshots): void;
+
   // #region Methods
   /**
    * Method findById.
@@ -99,7 +111,13 @@ interface MaintenanceScheduleRepositoryPort
     ?string $facilityId,
     ?string $equipmentType,
     DateTimeImmutable $dueBefore,
+    int $limit = 201,
   ): array;
+
+  /**
+   * Counts campaign candidates before any rows or draft are materialized.
+   */
+  public function countDueForCampaign(string $organizationId, ?string $facilityId, ?string $equipmentType, DateTimeImmutable $dueBefore): int;
 
   /**
    * Method pageForSweep.

@@ -6,11 +6,11 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\React
 
 use DateTimeImmutable;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Inbound\{OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\{ReactivateOrganizationMemberCommand, ReactivateOrganizationMemberHandler, ReactivateOrganizationMemberResult};
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationMemberNotFoundException, OrganizationMemberNotInactiveException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationArchivedException, OrganizationMemberNotFoundException, OrganizationMemberNotInactiveException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -85,7 +85,10 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
           && [self::ROLE_ID] === $event->roleIds;
       }));
 
+    $grantGuard = $this->createMock(OrganizationPermissionGrantGuardPort::class);
+    $grantGuard->expects(self::once())->method('assertCanAssignRoles')->with(self::USER_ID, self::ORG_ID, [self::ROLE_ID]);
     $handler = new ReactivateOrganizationMemberHandler(
+      grantGuard: $grantGuard,
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       quota: $quota,
@@ -94,6 +97,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     );
 
     $result = $handler->__invoke(new ReactivateOrganizationMemberCommand(
+      actorUserId: self::USER_ID,
       organizationId: self::ORG_ID,
       memberId: self::MEMBER_ID,
     ));
@@ -150,6 +154,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new ReactivateOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       quota: $quota,
@@ -160,11 +165,37 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationQuotaExceededException::class);
 
     $handler->__invoke(new ReactivateOrganizationMemberCommand(
+      actorUserId: self::USER_ID,
       organizationId: self::ORG_ID,
       memberId: self::MEMBER_ID,
     ));
 
     self::assertFalse($member->isActive(), 'The member must stay inactive when the quota check rejects the reactivation.');
+  }
+
+  #[Test]
+  public function retainedRolesAreAuthorizedBeforeActivationOrAnyPersistence(): void
+  {
+    $organizations = $this->createStub(OrganizationRepositoryPort::class);
+    $organizations->method('findById')->willReturn(Organization::create(new OrganizationId(self::ORG_ID), new OrganizationName('Readmission'), self::USER_ID));
+    $member = OrganizationMember::reconstitute(new OrganizationMemberId(self::MEMBER_ID), new OrganizationId(self::ORG_ID), self::USER_ID, false, new DateTimeImmutable('-1 day'));
+    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($member);
+    $members->expects(self::once())->method('findRoleIdsForMember')->with($member->id())->willReturn([self::ROLE_ID]);
+    $members->expects(self::never())->method('save');
+    $guard = $this->createMock(OrganizationPermissionGrantGuardPort::class);
+    $guard->expects(self::once())->method('assertCanAssignRoles')->with('limited-actor', self::ORG_ID, [self::ROLE_ID])
+      ->willThrowException(OrganizationAccessDeniedException::cannotGrantPermission('organization.roles.manage'));
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $handler = new ReactivateOrganizationMemberHandler($organizations, $members, $this->createStub(OrganizationQuotaPort::class), $this->fakeTransactionManager(), $events, $guard);
+
+    try {
+      $handler(new ReactivateOrganizationMemberCommand(self::ORG_ID, self::MEMBER_ID, 'limited-actor'));
+      self::fail('An unauthorized retained role must prevent activation.');
+    } catch (OrganizationAccessDeniedException) {
+      self::assertFalse($member->isActive());
+    }
   }
 
   #[Test]
@@ -188,6 +219,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new ReactivateOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       quota: $quota,
@@ -198,6 +230,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationNotFoundException::class);
 
     $handler->__invoke(new ReactivateOrganizationMemberCommand(
+      actorUserId: self::USER_ID,
       organizationId: self::ORG_ID,
       memberId: self::MEMBER_ID,
     ));
@@ -237,6 +270,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new ReactivateOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       quota: $quota,
@@ -247,6 +281,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationArchivedException::class);
 
     $handler->__invoke(new ReactivateOrganizationMemberCommand(
+      actorUserId: self::USER_ID,
       organizationId: self::ORG_ID,
       memberId: self::MEMBER_ID,
     ));
@@ -283,6 +318,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new ReactivateOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       quota: $quota,
@@ -293,6 +329,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationMemberNotFoundException::class);
 
     $handler->__invoke(new ReactivateOrganizationMemberCommand(
+      actorUserId: self::USER_ID,
       organizationId: self::ORG_ID,
       memberId: self::MEMBER_ID,
     ));
@@ -337,6 +374,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new ReactivateOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       quota: $quota,
@@ -347,6 +385,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationMemberNotFoundException::class);
 
     $handler->__invoke(new ReactivateOrganizationMemberCommand(
+      actorUserId: self::USER_ID,
       organizationId: self::ORG_ID,
       memberId: self::MEMBER_ID,
     ));
@@ -391,6 +430,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new ReactivateOrganizationMemberHandler(
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       quota: $quota,
@@ -401,6 +441,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationMemberNotInactiveException::class);
 
     $handler->__invoke(new ReactivateOrganizationMemberCommand(
+      actorUserId: self::USER_ID,
       organizationId: self::ORG_ID,
       memberId: self::MEMBER_ID,
     ));

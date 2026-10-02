@@ -16,6 +16,13 @@ Main goals:
 
 ## API Endpoints
 
+Equipment attachment retries with the same client id return the first stored
+upload metadata without replacing its bytes. Every new attempt writes a unique
+blob path. `saveIfAbsent` serializes on the owning equipment, checks the 25-file
+cap under that lock, and inserts the id once. A concurrent loser removes only its
+own attempt blob; it cannot delete the winning upload. Reusing an id from another
+equipment answers 404. Storage/database failures still remove the attempt blob.
+
 | Method       | Path                                                                                              | Description                                                                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | POST         | `/api/organizations/{organizationId}/equipment`                                                   | Create equipment                                                                                                                                               |

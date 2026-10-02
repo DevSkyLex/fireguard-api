@@ -13,9 +13,15 @@ use Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenc
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecurrenceRecord, InterventionTemplateRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
+use function array_unique;
+use function count;
+use function str_pad;
+
+use const STR_PAD_LEFT;
 
 /**
  * Test DoctrineInterventionRecurrenceAdapter.
@@ -332,7 +338,7 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
     // In window with an end date still ahead of the occurrence: still selected.
     $this->persistRecurrence('rec-ending', 'Ending', true, $now->modify('+1 day'), 10, $now->modify('+1 year'));
 
-    $page = $this->adapter->pageDueForMaterialization($now, 50, 0);
+    $page = $this->adapter->pageDueForMaterialization($now, 50);
 
     self::assertSame(0, $page->page);
     self::assertSame(50, $page->itemsPerPage);
@@ -466,6 +472,146 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
     $this->adapter->advanceNextOccurrence(self::MISSING_ID, new DateTimeImmutable('2026-07-01 09:00:00'), null);
   }
 
+  #[Test]
+  public function testKeysetVisitsAll401RecurrencesWhileTheScheduleAdvances(): void
+  {
+    $now = new DateTimeImmutable('2026-06-15 12:00:00');
+    $expected = [];
+    for ($index = 0; $index < 401; ++$index) {
+      $expected[] = $this->persistRecurrence('cursor-' . str_pad((string) $index, 4, '0', STR_PAD_LEFT), 'Cursor', true, $now);
+    }
+    $seen = [];
+    $afterId = null;
+    do {
+      $page = $this->adapter->pageDueForMaterialization($now, 200, $afterId);
+      foreach ($page->items as $recurrence) {
+        $seen[] = $recurrence->id;
+        $afterId = $recurrence->id;
+        $this->adapter->advanceNextOccurrence($recurrence->id, $now->modify('+1 month'), $now);
+      }
+    } while (200 === count($page->items));
+    self::assertSame($expected, $seen);
+    self::assertCount(401, array_unique($seen));
+  }
+
+  #[Test]
+  public function testInterruptionAfterDraftCreationRollsBackEverythingAndReplayCreatesOnce(): void
+  {
+    $now = new DateTimeImmutable('2026-06-15 12:00:00');
+    $recurrenceId = $this->persistRecurrence('atomic-crash', 'Atomic crash', true, $now);
+    $factory = $this->service(\Intervention\Application\Service\InterventionDraftFactory::class);
+    self::assertInstanceOf(\Intervention\Application\Service\InterventionDraftFactory::class, $factory);
+    $interruptedFactory = $this->createStub(\Intervention\Application\Port\Inbound\InterventionDraftFactoryPort::class);
+    $interruptedFactory->method('create')->willReturnCallback(static function (\Intervention\Application\Contract\Draft\CreateInterventionDraftRequest $request) use ($factory): \Intervention\Application\Contract\Draft\CreatedInterventionDraft {
+      $factory->create($request);
+
+      throw new RuntimeException('Interrupted after the complete draft, before occurrence confirmation.');
+    });
+    $sender = $this->atomicSender();
+    $events = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($this->entityManager->getConnection(), $sender, $this->service(\Shared\Application\Factory\UuidFactory::class), $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
+
+    try {
+      $this->materializer($interruptedFactory, $events, $now)(new \Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand());
+      self::fail('The interruption must propagate for retry.');
+    } catch (RuntimeException $exception) {
+      self::assertStringContainsString('Interrupted after', $exception->getMessage());
+    }
+    $connection = $this->entityManager->getConnection();
+    self::assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM intervention_recurrence_runs WHERE recurrence_id = ?', [$recurrenceId]));
+    self::assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM interventions WHERE organization_id = ?', [self::ORGANIZATION_ID]));
+    self::assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM intervention_activities WHERE organization_id = ?', [self::ORGANIZATION_ID]));
+    self::assertSame(0, $sender->getMessageCount());
+    $handler = $this->materializer($factory, $events, $now);
+    $handler(new \Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand());
+    $handler(new \Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand());
+    self::assertSame(1, $connection->fetchOne('SELECT COUNT(*) FROM intervention_recurrence_runs WHERE recurrence_id = ? AND status = ?', [$recurrenceId, 'succeeded']));
+    self::assertSame(1, $connection->fetchOne('SELECT COUNT(*) FROM interventions WHERE organization_id = ?', [self::ORGANIZATION_ID]));
+    self::assertSame(1, $sender->getMessageCount());
+  }
+
+  #[Test]
+  public function testOutboxEnqueueFailureRollsBackDraftRunAndSchedule(): void
+  {
+    $now = new DateTimeImmutable('2026-06-15 12:00:00');
+    $recurrenceId = $this->persistRecurrence('atomic-outbox', 'Atomic outbox', true, $now);
+    $factory = $this->service(\Intervention\Application\Service\InterventionDraftFactory::class);
+    $events = $this->createStub(\Shared\Application\Port\Outbound\EventDispatcherPort::class);
+    $events->method('dispatch')->willThrowException(new RuntimeException('Outbox enqueue failed.'));
+
+    try {
+      $this->materializer($factory, $events, $now)(new \Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand());
+      self::fail('The enqueue failure must propagate for retry.');
+    } catch (RuntimeException $exception) {
+      self::assertSame('Outbox enqueue failed.', $exception->getMessage());
+    }
+    $connection = $this->entityManager->getConnection();
+    self::assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM intervention_recurrence_runs WHERE recurrence_id = ?', [$recurrenceId]));
+    self::assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM interventions WHERE organization_id = ?', [self::ORGANIZATION_ID]));
+    self::assertEquals($now, $this->adapter->find($recurrenceId)?->nextOccurrenceAt);
+  }
+
+  #[Test]
+  public function testLegacyRecoveryRequiresAReconciledDecisionAndIsReplaySafe(): void
+  {
+    $now = new DateTimeImmutable('2026-06-15 12:00:00');
+    $recurrenceId = $this->persistRecurrence('atomic-legacy', 'Legacy marker', true, $now);
+    $runId = $this->adapter->reserveRun($recurrenceId, $now);
+    self::assertIsString($runId);
+    $sender = $this->atomicSender();
+    $events = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($this->entityManager->getConnection(), $sender, $this->service(\Shared\Application\Factory\UuidFactory::class), $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
+    $clock = $this->createStub(\Shared\Application\Port\Outbound\ClockPort::class);
+    $clock->method('now')->willReturn($now);
+    $handler = new \Intervention\Application\UseCase\Command\Recurrence\RecoverReservedRecurrence\RecoverReservedRecurrenceHandler($this->adapter, $this->service(\Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort::class), $this->service(\Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter::class), $events, $clock);
+
+    try {
+      $handler(new \Intervention\Application\UseCase\Command\Recurrence\RecoverReservedRecurrence\RecoverReservedRecurrenceCommand($runId));
+      self::fail('An ambiguous legacy reservation requires an explicit decision.');
+    } catch (\Intervention\Domain\Exception\InterventionValidationException) {
+      self::assertSame(0, $sender->getMessageCount());
+    }
+    $command = new \Intervention\Application\UseCase\Command\Recurrence\RecoverReservedRecurrence\RecoverReservedRecurrenceCommand($runId, failureReason: 'Operator reconciled and removed the partial legacy draft.');
+    $handler($command);
+    $handler($command);
+    self::assertSame(1, $sender->getMessageCount());
+    self::assertSame('2026-07-01', $this->adapter->find($recurrenceId)?->nextOccurrenceAt->format('Y-m-d'));
+  }
+
+  private function materializer(\Intervention\Application\Port\Inbound\InterventionDraftFactoryPort $factory, \Shared\Application\Port\Outbound\EventDispatcherPort $events, DateTimeImmutable $now): \Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesHandler
+  {
+    $clock = $this->createStub(\Shared\Application\Port\Outbound\ClockPort::class);
+    $clock->method('now')->willReturn($now);
+    $instantiator = new \Intervention\Application\Service\InterventionTemplateInstantiator($this->service(\Intervention\Application\Port\Outbound\InterventionTemplatePort::class), $factory, $this->service(\Intervention\Application\Port\Outbound\InterventionLabelPort::class), $this->service(\Intervention\Application\Service\InterventionMemberPolicy::class));
+
+    return new \Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesHandler($this->adapter, $instantiator, $events, $clock, $this->service(\Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter::class));
+  }
+
+  private function atomicSender(): \Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransport
+  {
+    $registry = $this->createStub(\Doctrine\Persistence\ConnectionRegistry::class);
+    $registry->method('getConnection')->willReturn($this->entityManager->getConnection());
+    $sender = new \Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransportFactory($registry)->createTransport('doctrine://main?queue_name=intervention_atomic_regression&auto_setup=false', ['use_notify' => false], new \Symfony\Component\Messenger\Transport\Serialization\PhpSerializer());
+    self::assertInstanceOf(\Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransport::class, $sender);
+    $sender->setup();
+    $this->entityManager->getConnection()->executeStatement('DELETE FROM messenger_messages WHERE queue_name = ?', ['intervention_atomic_regression']);
+
+    return $sender;
+  }
+
+  /**
+   * @template T of object
+   *
+   * @param class-string<T> $type service class or port
+   *
+   * @return T the verified service
+   */
+  private function service(string $type): object
+  {
+    $service = static::getContainer()->get($type);
+    self::assertInstanceOf($type, $service);
+
+    return $service;
+  }
+
   private function createOrganization(): void
   {
     $organization = new OrganizationRecord();
@@ -557,6 +703,7 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
       'DELETE FROM intervention_templates WHERE organization_id = :organizationId',
       ['organizationId' => self::ORGANIZATION_ID],
     );
+    $connection->executeStatement('DELETE FROM interventions WHERE organization_id = ?', [self::ORGANIZATION_ID]);
     $connection->executeStatement(
       'DELETE FROM organizations WHERE id = :organizationId',
       ['organizationId' => self::ORGANIZATION_ID],

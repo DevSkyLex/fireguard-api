@@ -67,4 +67,7 @@ services:
 
   # Command handlers
   Compliance\Application\UseCase\Command\Snapshot\CreateSafetyRegisterSnapshot\CreateSafetyRegisterSnapshotHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']

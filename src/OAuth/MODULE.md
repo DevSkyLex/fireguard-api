@@ -31,6 +31,10 @@ League's protocol grant handling and token persistence remain distinct.
 
 ## API Endpoints
 
+Operational token-event logs retain the event, technical client/user identifiers
+and failure reason, and omit the raw request IP. This log minimization does not
+change token events or the persisted Audit contract.
+
 Client-management operation names use the `oauth_client_` prefix. They are globally
 unique Symfony route names; client-management URLs and OAuth2 protocol operations
 remain unchanged.
@@ -367,6 +371,44 @@ Token input validation is defined in `src/OAuth/Presentation/Api/Dto/Input/Token
 
 > [!CAUTION]
 > Always align discovery metadata with the enabled grants; clients rely on it to negotiate flows.
+
+## Delegation and revocation invariants
+
+Authorization and token issuance enforce the active registered client's grant and
+scope allowlists. Missing or inactive clients fail closed, including requests with
+no scopes. Empty delegation and requests without a configured default fail with
+`invalid_scope`, preserving the domain requirement for at least one explicit scope
+and adding no implicit business capability. Refresh requests may keep or
+narrow the original scopes; League rejects expansion, and finalization rechecks the
+current client allowlist. The token DTO treats a blank refresh scope as omitted,
+retaining the already-granted scopes. Issued signed JWT scopes are authoritative for token output,
+OIDC claims and issuance audit metadata;
+refresh narrowing cannot restore the original identity claims. Endpoint capabilities additionally intersect the existing
+RBAC and organization checks as documented in Auth.
+
+User-wide revocation uses an explicit auth entity manager and one transaction for
+access tokens, linked refresh tokens and authorization codes. Grant exchange holds
+the same per-user PostgreSQL transaction lock from the fresh code/refresh decision
+through both token writes. Bulk revocation waits for an in-flight exchange, then
+includes its new token pair. A waiting exchange rechecks stored state after taking
+the lock. Authorization code creation holds that lock while rechecking the verified
+interactive session or OAuth anchor, persisting the code and updating its nonce.
+The authorization and consent-completion routes share this guard. Consent writes
+follow client allowlist validation and the fresh locked principal check.
+Issuance audit and OIDC claim dispatch run after the grant transaction commits. Refresh tokens remain
+included when their original access token was already revoked or expired. Other
+users and client-only grants remain unchanged. Cache invalidation follows the
+storage commit, and introspection checks durable revocation/expiry before using a
+cached active response.
+
+Access-token revocation verifies the JWT signature before trusting its identifier
+or revoking its issuing session. Invalid token input keeps the opaque OAuth
+revocation response and cannot mutate stored grants.
+
+`IssueTokenResult.tokenId` and `TokenIssuedEvent.tokenId` carry the issued JWT's
+opaque `jti`, never its bearer value. The ID-token issuer owns its registered subject/audience/issuer/time identifiers and
+request nonce; additional claims cannot replace those values. Issuance rejects absent or unusable identifiers
+instead of substituting a credential. The HTTP token response is unchanged.
 
 ## Testing
 

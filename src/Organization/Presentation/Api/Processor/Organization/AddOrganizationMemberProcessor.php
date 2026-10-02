@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
+use Organization\Application\Contract\Member\OrganizationMemberGrant;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
@@ -115,6 +116,7 @@ final readonly class AddOrganizationMemberProcessor implements ProcessorInterfac
       $result = $this->commandBus->dispatch(new AddOrganizationMemberCommand(
         organizationId: $organizationId,
         userId: $data->userId,
+        grant: OrganizationMemberGrant::forActor($user->getId()),
         roleIds: $data->roleIds,
       ));
     } catch (OrganizationAccessDeniedException $exception) {

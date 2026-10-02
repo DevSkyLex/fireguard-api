@@ -22,4 +22,11 @@ interface MaintenanceInspectionHistoryPort
    * @return DateTimeImmutable|null the latest closure time, when recorded
    */
   public function latestClosedAt(string $organizationId, string $equipmentId): ?DateTimeImmutable;
+
+  /**
+   * @param list<string> $equipmentIds
+   *
+   * @return array<string, DateTimeImmutable>
+   */
+  public function latestClosedAtForEquipment(string $organizationId, array $equipmentIds): array;
 }

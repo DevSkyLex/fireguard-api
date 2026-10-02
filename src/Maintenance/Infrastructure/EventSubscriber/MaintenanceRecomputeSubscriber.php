@@ -84,9 +84,7 @@ final readonly class MaintenanceRecomputeSubscriber implements EventSubscriberIn
     $offset = 0;
     do {
       $page = $this->directory->listEquipmentPage(200, $offset, $event->organizationId);
-      foreach ($page as $equipment) {
-        $this->schedules->refreshEquipment($event->organizationId, $equipment->equipmentId);
-      }
+      $this->schedules->refreshPage($page);
       $offset += 200;
     } while (200 === count($page));
   }

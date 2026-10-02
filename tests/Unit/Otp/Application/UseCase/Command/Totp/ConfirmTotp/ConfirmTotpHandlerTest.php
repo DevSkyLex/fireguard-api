@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Otp\Application\UseCase\Command\Totp\ConfirmTotp;
 
+use DateTimeImmutable;
 use Otp\Application\Exception\TotpPendingEnrollmentNotFoundException;
 use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\UseCase\Command\Totp\ConfirmTotp\{ConfirmTotpCommand, ConfirmTotpHandler};
@@ -33,6 +34,7 @@ final class ConfirmTotpHandlerTest extends TestCase
 
     /** @var TotpEnrollmentRepositoryPort&MockObject $repository */
     $repository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $repository->expects(self::once())
       ->method('findByUserId')
       ->with('user-1')
@@ -74,6 +76,7 @@ final class ConfirmTotpHandlerTest extends TestCase
 
     /** @var TotpEnrollmentRepositoryPort&MockObject $repository */
     $repository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $repository->expects(self::once())
       ->method('findByUserId')
       ->willReturn($enrollment);
@@ -108,6 +111,7 @@ final class ConfirmTotpHandlerTest extends TestCase
   {
     /** @var TotpEnrollmentRepositoryPort&MockObject $repository */
     $repository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $repository->expects(self::once())
       ->method('findByUserId')
       ->willReturn(null);
@@ -135,6 +139,7 @@ final class ConfirmTotpHandlerTest extends TestCase
 
     /** @var TotpEnrollmentRepositoryPort&MockObject $repository */
     $repository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $repository->expects(self::once())
       ->method('findByUserId')
       ->willReturn($enrollment);
@@ -154,5 +159,26 @@ final class ConfirmTotpHandlerTest extends TestCase
 
     self::assertFalse($result->success);
     self::assertSame(0, $result->attemptsRemaining);
+  }
+
+  #[Test]
+  public function testLegacyPendingSecretCannotReplaceAnActiveFactor(): void
+  {
+    $now = new DateTimeImmutable();
+    $enrollment = TotpEnrollment::reconstitute(
+      'user-1',
+      new \Otp\Domain\Model\Totp\TotpEnrollmentSecrets(new TotpSecret('BBBBBBBBBBBBBBBB'), $now, new TotpSecret('AAAAAAAAAAAAAAAA'), $now),
+      new \Otp\Domain\Model\Totp\TotpEnrollmentAttempts(0, 5),
+      $now,
+      $now,
+    );
+    $repository = $this->createStub(TotpEnrollmentRepositoryPort::class);
+    $repository->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
+    $repository->method('findByUserId')->willReturn($enrollment);
+    $service = $this->createStub(TotpServicePort::class);
+    $service->method('verify')->willReturn(true);
+    $handler = new ConfirmTotpHandler($repository, $service, $this->createStub(EventDispatcherPort::class));
+    $this->expectException(\Shared\Domain\Exception\DomainException::class);
+    $handler->__invoke(new ConfirmTotpCommand('user-1', '123456'));
   }
 }

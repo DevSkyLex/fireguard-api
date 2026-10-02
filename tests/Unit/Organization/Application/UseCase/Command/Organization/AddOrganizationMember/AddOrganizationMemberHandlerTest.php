@@ -174,7 +174,16 @@ final class AddOrganizationMemberHandlerTest extends TestCase
           && $userId === $event->userId;
       }));
 
+    $grantGuard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class);
+    $grantGuard->expects(self::once())->method('assertCanGrant')->with(
+      self::callback(static fn (\Organization\Application\Contract\Member\OrganizationMemberGrant $grant): bool => 'actor' === $grant->reference),
+      $organizationId,
+      'member@example.com',
+      [$defaultRoleId],
+    );
+
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $grantGuard,
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -188,6 +197,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [],
@@ -263,7 +273,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
         self::callback(static fn (OrganizationMemberId $id): bool => $memberId === (string) $id),
         self::callback(static fn (OrganizationRoleId $id): bool => $roleId === (string) $id),
       );
-    $memberRepository->expects(self::once())
+    $memberRepository->expects(self::exactly(2))
       ->method('findRoleIdsForMember')
       ->willReturn([$roleId]);
 
@@ -301,6 +311,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       }));
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -314,6 +325,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [$roleId],
@@ -426,6 +438,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       }));
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -439,6 +452,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [$roleId],
@@ -557,6 +571,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
         && 'technician' === $event->roleName));
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -570,6 +585,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [$roleId, $roleId],
@@ -600,6 +616,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $logger->expects(self::never())->method('warning');
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
@@ -615,6 +632,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationNotFoundException::class);
 
     $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: '550e8400-e29b-41d4-a716-446655440100',
       userId: '550e8400-e29b-41d4-a716-446655440102',
       roleIds: [],
@@ -647,6 +665,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $transactionManager->expects(self::never())->method('transactional');
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
@@ -663,6 +682,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $this->expectExceptionMessage('User not found.');
 
     $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: '550e8400-e29b-41d4-a716-446655440102',
       roleIds: [],
@@ -706,6 +726,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $transactionManager->expects(self::never())->method('transactional');
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $roleRepository,
@@ -721,6 +742,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationRoleNotFoundException::class);
 
     $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [],
@@ -778,6 +800,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $logger->expects(self::never())->method('warning');
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -793,6 +816,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationRoleNotFoundException::class);
 
     $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: ['550e8400-e29b-41d4-a716-446655440300'],
@@ -896,6 +920,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       );
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -909,6 +934,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [],
@@ -940,6 +966,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $quota->expects(self::never())->method('assertCanAdd');
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -953,6 +980,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     );
 
     $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [$roleId],
@@ -985,6 +1013,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5));
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -1000,6 +1029,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $this->expectException(OrganizationQuotaExceededException::class);
 
     $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [$roleId],
@@ -1025,6 +1055,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new AddOrganizationMemberHandler(
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -1038,6 +1069,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
+      grant: \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor'),
       organizationId: $organizationId,
       userId: $userId,
       roleIds: [$roleId],
@@ -1045,6 +1077,96 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     ));
 
     self::assertTrue($result->isActive);
+  }
+
+  #[Test]
+  public function deniedProgrammaticGrantCannotModifyAnActiveMembership(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-4466554408c0';
+    $userId = '550e8400-e29b-41d4-a716-4466554408c2';
+    $roleId = '550e8400-e29b-41d4-a716-4466554408c3';
+    [$organizations, $users, , $roles] = $this->activeMemberFixtures($organizationId, '550e8400-e29b-41d4-a716-4466554408c1', $userId, $roleId);
+    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $members->expects(self::never())->method('save');
+    $members->expects(self::never())->method('assignRole');
+    $transactions = $this->createMock(TransactionManagerPort::class);
+    $transactions->expects(self::never())->method('transactional');
+    $grant = \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor');
+    $guard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class);
+    $guard->expects(self::once())->method('assertCanGrant')->with($grant, $organizationId, self::anything(), [$roleId])
+      ->willThrowException(\Organization\Domain\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.read'));
+    $handler = new AddOrganizationMemberHandler(
+      $organizations,
+      $members,
+      $roles,
+      $users,
+      $this->createStub(NotificationPort::class),
+      $this->createStub(LoggerPort::class),
+      $this->createStub(UuidFactory::class),
+      $transactions,
+      $this->createStub(OrganizationQuotaPort::class),
+      $this->createStub(EventDispatcherPort::class),
+      $guard,
+    );
+
+    $this->expectException(\Organization\Domain\Exception\OrganizationAccessDeniedException::class);
+    $handler(new AddOrganizationMemberCommand($organizationId, $userId, $grant, [$roleId]));
+  }
+
+  #[Test]
+  public function permittedRequestedRolesCannotRestoreUnauthorizedRetainedRoles(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-4466554408d0';
+    $memberId = '550e8400-e29b-41d4-a716-4466554408d1';
+    $userId = '550e8400-e29b-41d4-a716-4466554408d2';
+    $roleId = '550e8400-e29b-41d4-a716-4466554408d3';
+    $retainedRoleId = '550e8400-e29b-41d4-a716-4466554408d4';
+    [$organizations, $users, , $roles] = $this->activeMemberFixtures($organizationId, $memberId, $userId, $roleId);
+    $inactive = OrganizationMember::reconstitute(new OrganizationMemberId($memberId), new OrganizationId($organizationId), $userId, false, new DateTimeImmutable('-1 day'));
+    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $members->method('findByOrganizationAndUser')->willReturn($inactive);
+    $members->expects(self::once())->method('findRoleIdsForMember')->with($inactive->id())->willReturn([$retainedRoleId]);
+    $members->expects(self::never())->method('save');
+    $members->expects(self::never())->method('assignRole');
+    $members->expects(self::never())->method('unassignRole');
+    $guard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class);
+    $calls = 0;
+    $guard->expects(self::exactly(2))->method('assertCanGrant')->willReturnCallback(
+      static function (\Organization\Application\Contract\Member\OrganizationMemberGrant $grant, string $organization, string $email, array $effectiveRoles) use (&$calls, $roleId, $retainedRoleId): void {
+        self::assertSame('limited-actor', $grant->reference);
+        ++$calls;
+        if (1 === $calls) {
+          self::assertSame([$roleId], $effectiveRoles);
+
+          return;
+        }
+        self::assertSame([$roleId, $retainedRoleId], $effectiveRoles);
+
+        throw \Organization\Domain\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.roles.manage');
+      },
+    );
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $handler = new AddOrganizationMemberHandler(
+      $organizations,
+      $members,
+      $roles,
+      $users,
+      $this->createStub(NotificationPort::class),
+      $this->createStub(LoggerPort::class),
+      $this->createStub(UuidFactory::class),
+      $this->passthroughTransactionManager(),
+      $this->createStub(OrganizationQuotaPort::class),
+      $events,
+      $guard,
+    );
+
+    try {
+      $handler(new AddOrganizationMemberCommand($organizationId, $userId, \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('limited-actor'), [$roleId]));
+      self::fail('The retained administrative grant must prevent activation.');
+    } catch (\Organization\Domain\Exception\OrganizationAccessDeniedException) {
+      self::assertFalse($inactive->isActive());
+    }
   }
 
   /**

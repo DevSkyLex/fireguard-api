@@ -18,6 +18,7 @@ use Shared\Domain\Attachment\{AttachmentCategory, AttachmentConstraints, Storage
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
+use function array_unique;
 use function in_array;
 use function sprintf;
 
@@ -113,21 +114,6 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
    */
   public function __invoke(AddInterventionAttachmentCommand $command): AddInterventionAttachmentResult
   {
-    $context = $this->interventionResourceManager->interventionContext($command->interventionId);
-
-    if (null === $context) {
-      throw InterventionNotFoundException::withId($command->interventionId);
-    }
-
-    $this->authorizeAttachment($command, $context);
-
-    $kind = InterventionAttachmentKind::tryFrom($command->kind);
-    if (null === $kind) {
-      throw new InterventionValidationException(sprintf('Unknown attachment kind "%s".', $command->kind));
-    }
-
-    self::assertSignatureAllowed($command, $context, $kind);
-
     try {
       /** @var InterventionAttachmentId $attachmentId */
       $attachmentId = null === $command->attachmentId
@@ -137,6 +123,80 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
+    $storagePath = StoragePathScheme::build(
+      module: 'intervention',
+      parentId: $command->interventionId,
+      attachmentId: (string) $attachmentId . '_' . $this->uuidFactory->generateRaw(),
+      fileName: $command->fileName,
+    );
+
+    $obsoletePaths = [];
+
+    try {
+      $result = $this->attachmentRepository->withUploadLock(
+        $command->interventionId,
+        (string) $attachmentId,
+        function () use ($command, $attachmentId, $storagePath, &$obsoletePaths): AddInterventionAttachmentResult {
+          // The resource gateway takes a row lock, so its reads and all permission
+          // checks must run inside the upload transaction rather than before it.
+          $context = $this->interventionResourceManager->interventionContext($command->interventionId);
+          if (null === $context) {
+            throw InterventionNotFoundException::withId($command->interventionId);
+          }
+          $this->authorizeAttachment($command, $context);
+          $kind = InterventionAttachmentKind::tryFrom($command->kind);
+          if (null === $kind) {
+            throw new InterventionValidationException(sprintf('Unknown attachment kind "%s".', $command->kind));
+          }
+          self::assertSignatureAllowed($command, $context, $kind);
+
+          return $this->upload($command, $attachmentId, $kind, $storagePath, $obsoletePaths);
+        },
+      );
+    } catch (Throwable $exception) {
+      $this->fileStorage->delete($storagePath);
+
+      throw $exception;
+    }
+    foreach (array_unique($obsoletePaths) as $obsoletePath) {
+      $this->fileStorage->delete($obsoletePath);
+    }
+
+    return $result;
+  }
+
+  /**
+   * Method upload
+   *
+   * Stores one attempt under the identity and parent locks; cleanup only owns this attempt's key.
+   *
+   * @access private
+   *
+   * @param AddInterventionAttachmentCommand $command authorized upload
+   * @param InterventionAttachmentId $attachmentId serialized attachment identity
+   * @param InterventionAttachmentKind $kind validated attachment kind
+   * @param string $storagePath unique blob key owned by this attempt
+   * @param list<string> $obsoletePaths blob keys to delete after commit
+   *
+   * @return AddInterventionAttachmentResult the committed upload summary
+   */
+  private function upload(AddInterventionAttachmentCommand $command, InterventionAttachmentId $attachmentId, InterventionAttachmentKind $kind, string $storagePath, array &$obsoletePaths): AddInterventionAttachmentResult
+  {
+    $existing = $this->attachmentRepository->findById($attachmentId);
+    if (null !== $existing && $existing->interventionId() !== $command->interventionId) {
+      throw new InterventionConflictException('The attachment identifier belongs to another intervention.');
+    }
+    if (null !== $existing) {
+      return $this->result($existing);
+    }
+
+    $currentContext = $this->interventionResourceManager->interventionContext($command->interventionId);
+    if (null === $currentContext) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+    $this->authorizeAttachment($command, $currentContext);
+    self::assertSignatureAllowed($command, $currentContext, $kind);
+
     // The signature about to be replaced (see class docblock). Resolved
     // before the count-cap check so the replaced row does not count twice
     // against the cap, and before the write so a failed save leaves the
@@ -145,16 +205,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       ? $this->attachmentRepository->findSignatureByInterventionId($command->interventionId)
       : null;
 
-    // A client-supplied id that already exists is a retry overwriting its own
-    // row, not a new attachment — it must not be rejected at the cap.
-    $this->assertAttachmentCapacity($command->interventionId, $attachmentId, $previousSignature);
-
-    $storagePath = StoragePathScheme::build(
-      module: 'intervention',
-      parentId: $command->interventionId,
-      attachmentId: (string) $attachmentId,
-      fileName: $command->fileName,
-    );
+    $this->assertAttachmentCapacity($command->interventionId, $previousSignature);
 
     $attachment = InterventionAttachment::create(
       $attachmentId,
@@ -165,29 +216,33 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
 
     $this->fileStorage->write($storagePath, $command->contents);
 
-    try {
-      if (InterventionAttachmentKind::SIGNATURE === $kind) {
-        // Delete-then-save, atomically — see the class docblock. A conflict
-        // here (InterventionConflictException, e.g. a genuine concurrent
-        // duplicate) propagates unchanged; the catch below only cleans up
-        // the just-written file, it never suppresses the exception.
-        $this->attachmentRepository->saveReplacingSignature($attachment, $previousSignature?->id());
-      } else {
-        $this->attachmentRepository->save($attachment);
-      }
-    } catch (Throwable $dbException) {
-      $this->fileStorage->delete($storagePath);
-
-      throw $dbException;
+    if (InterventionAttachmentKind::SIGNATURE === $kind) {
+      $this->attachmentRepository->saveReplacingSignature($attachment, $previousSignature?->id());
+    } else {
+      $this->attachmentRepository->save($attachment);
     }
 
-    // The previous signature's DATABASE row is already gone — removed
-    // inside the same transaction as the new row above. Only its stored
-    // FILE remains to be cleaned up, now that the transaction has committed.
+    // Collect obsolete blobs here; the caller removes them only after commit.
     if (null !== $previousSignature && (string) $previousSignature->id() !== (string) $attachment->id()) {
-      $this->fileStorage->delete($previousSignature->storagePath());
+      $obsoletePaths[] = $previousSignature->storagePath();
     }
 
+    return $this->result($attachment);
+  }
+
+  /**
+   * Method result
+   *
+   * Returns the persisted attachment snapshot for creation and identity replay.
+   *
+   * @access private
+   *
+   * @param InterventionAttachment $attachment persisted attachment
+   *
+   * @return AddInterventionAttachmentResult attachment summary
+   */
+  private function result(InterventionAttachment $attachment): AddInterventionAttachmentResult
+  {
     return new AddInterventionAttachmentResult(
       attachmentId: (string) $attachment->id(),
       interventionId: $attachment->interventionId(),
@@ -272,17 +327,12 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
    * @access private
    *
    * @param string $interventionId intervention whose attachment count is checked
-   * @param InterventionAttachmentId $attachmentId identifier used by the incoming attachment
    * @param InterventionAttachment|null $previousSignature signature row that will be replaced, if any
    *
    * @return void
    */
-  private function assertAttachmentCapacity(string $interventionId, InterventionAttachmentId $attachmentId, ?InterventionAttachment $previousSignature): void
+  private function assertAttachmentCapacity(string $interventionId, ?InterventionAttachment $previousSignature): void
   {
-    // A retry overwrites its own row, while a replaced signature frees one slot.
-    if (null !== $this->attachmentRepository->findById($attachmentId)) {
-      return;
-    }
     $currentCount = $this->attachmentRepository->countByInterventionId($interventionId);
     if (null !== $previousSignature) {
       --$currentCount;

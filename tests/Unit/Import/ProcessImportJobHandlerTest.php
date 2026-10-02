@@ -27,6 +27,10 @@ use RuntimeException;
 use Shared\Application\Message\VoidResult;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, FileStoragePort};
 
+use function array_slice;
+use function count;
+use function max;
+
 /**
  * Test ProcessImportJobHandlerTest.
  *
@@ -271,7 +275,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     // claim() succeeded but the row vanished — should not happen, but the
     // handler must degrade to a logged no-op rather than dereference null.
     $repository = $this->createStub(ImportJobRepositoryPort::class);
-    $repository->method('findById')->willReturn(null);
+    $repository->method('findForExecution')->willReturn(null);
 
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('read');
@@ -994,6 +998,33 @@ final class InMemoryImportJobRepositoryFake implements ImportJobRepositoryPort
   public function findById(ImportJobId $id): ?ImportJob
   {
     return (string) $this->job->id() === (string) $id ? $this->job : null;
+  }
+
+  public function findForExecution(ImportJobId $id): ?ImportJob
+  {
+    return $this->findById($id);
+  }
+
+  public function reportPage(ImportJobId $id, int $page, int $itemsPerPage): array
+  {
+    return array_slice($this->job->errorReport(), (max(1, $page) - 1) * $itemsPerPage, $itemsPerPage);
+  }
+
+  public function countReport(ImportJobId $id): int
+  {
+    return count($this->job->errorReport());
+  }
+
+  public function confirmedSimulationRows(ImportJobId $id): array
+  {
+    $rows = [];
+    foreach ($this->job->errorReport() as $report) {
+      if ('would_create' === $report->code) {
+        $rows[] = $report->rowNumber;
+      }
+    }
+
+    return $rows;
   }
 
   public function listByOrganization(string $organizationId, ?ImportKind $kind, int $limit, int $offset, ?array $allowedKinds = null): array

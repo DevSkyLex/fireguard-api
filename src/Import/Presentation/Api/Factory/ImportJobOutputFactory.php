@@ -73,6 +73,10 @@ final class ImportJobOutputFactory
     $output->successfulRows = $view->successfulRows;
     $output->failedRows = $view->failedRows;
     $output->errorReport = array_map(self::rowErrorOutput(...), $view->errorReport);
+    $output->reportPage = $view->reportPage;
+    $output->reportItemsPerPage = $view->reportItemsPerPage;
+    $output->reportTotal = $view->reportTotal;
+    $output->reportHasNextPage = $view->reportHasNextPage;
     $output->jobError = $view->jobError;
     $output->createdAt = $view->createdAt->format('c');
     $output->startedAt = $view->startedAt?->format('c');

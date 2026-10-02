@@ -9,7 +9,7 @@ use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCreateRequest, InterventionRecurrencePage, InterventionRecurrenceUpdateRequest, InterventionRecurrenceView};
 use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
-use Intervention\Domain\Exception\InterventionNotFoundException;
+use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Factory\UuidFactory;
@@ -260,14 +260,13 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
    *
    * @param DateTimeImmutable $now cutoff instant for lead-time eligibility
    * @param int $limit maximum number of recurrences returned
-   * @param int $offset zero-based row offset
+   * @param ?string $afterId last processed identifier, null for the first page
    *
    * @return InterventionRecurrencePage due recurrence page
    */
-  public function pageDueForMaterialization(DateTimeImmutable $now, int $limit, int $offset): InterventionRecurrencePage
+  public function pageDueForMaterialization(DateTimeImmutable $now, int $limit, ?string $afterId = null): InterventionRecurrencePage
   {
     $limit = max(1, $limit);
-    $offset = max(0, $offset);
 
     $qb = $this->entityManager->createQueryBuilder()
       ->select('r')
@@ -277,8 +276,11 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
       ->andWhere('r.endAt IS NULL OR r.nextOccurrenceAt <= r.endAt')
       ->setParameter('now', $now)
       ->orderBy('r.id', 'ASC')
-      ->setFirstResult($offset)
       ->setMaxResults($limit);
+
+    if (null !== $afterId) {
+      $qb->andWhere('r.id > :afterId')->setParameter('afterId', $afterId);
+    }
 
     /** @var list<InterventionRecurrenceRecord> $records */
     $records = $qb->getQuery()->getResult();
@@ -342,6 +344,44 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     }
 
     return $runId;
+  }
+
+  /**
+   * Method lockReservedRun
+   *
+   * Reads an unresolved legacy marker under row locks without automatically creating another draft.
+   *
+   * @access public
+   *
+   * @param string $runId run identifier selected by the operator
+   *
+   * @return ?InterventionRecurrenceView the matching scheduled occurrence, null for resolved runs
+   */
+  public function lockReservedRun(string $runId): ?InterventionRecurrenceView
+  {
+    $row = $this->entityManager->getConnection()->fetchAssociative(
+      'SELECT run.recurrence_id, run.occurrence_date, run.status, run.error, run.intervention_id '
+      . 'FROM intervention_recurrence_runs run JOIN intervention_recurrences recurrence ON recurrence.id = run.recurrence_id '
+      . 'WHERE run.id = :id FOR UPDATE OF run, recurrence',
+      ['id' => $runId],
+    );
+    if (false === $row) {
+      throw InterventionNotFoundException::withId($runId);
+    }
+    if ('failed' !== $row['status'] || 'Materialization reserved but not yet completed.' !== $row['error'] || null !== $row['intervention_id']) {
+      return null;
+    }
+    $recurrence = $this->entityManager->find(InterventionRecurrenceRecord::class, $row['recurrence_id']);
+    if (!$recurrence instanceof InterventionRecurrenceRecord) {
+      throw InterventionNotFoundException::withId($runId);
+    }
+    $this->entityManager->refresh($recurrence);
+    $scheduledDate = $recurrence->nextOccurrenceAt->setTimezone(new DateTimeZone($recurrence->timezone))->format('Y-m-d');
+    if ($scheduledDate !== $row['occurrence_date']) {
+      throw new InterventionConflictException('The legacy reservation no longer matches the scheduled occurrence; reconcile it before recovery.');
+    }
+
+    return $this->view($recurrence);
   }
 
   /**

@@ -369,6 +369,15 @@ whole map, so a future entry cannot quietly admit a prose or credential key.
 - Export row cap: `ExportAuditEventsHandler::MAX_EXPORT_ROWS` (50,000),
   enforced in code, not an env var.
 
+## OAuth token identifiers
+
+OAuth issuance audit subjects contain only the issued token's opaque `jti`; neither
+access nor refresh bearer credentials enter the event. League currently issues
+80-character identifiers, so auth migration `Version20261002120000` widens
+`audit_events.subject_id` to 100 characters without truncation or changes to existing
+hash-covered ledger data. Rollback refuses to shorten stored identifiers longer
+than the previous 64-character limit.
+
 ## Testing
 
 - Unit: `tests/Unit/Audit` — includes `ExportAuditEventsHandlerTest` (row-cap

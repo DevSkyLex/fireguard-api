@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\Adapter\Token;
 
 use Auth\Application\Port\Outbound\TokenRevocationPort as AuthTokenRevocationPort;
-use Lcobucci\JWT\Encoding\JoseEncoder;
-use Lcobucci\JWT\Token\{Parser, Plain};
 use League\OAuth2\Server\CryptTrait;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, RefreshTokenRepositoryPort, TokenCachePort, TokenRevocationPort as OAuthTokenRevocationPort};
+use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort, RefreshTokenRepositoryPort, TokenCachePort, TokenRevocationPort as OAuthTokenRevocationPort, UserTokenRevocationPort};
 use OAuth\Domain\Event\Token\TokenRevokedEvent;
 use Psr\Log\LoggerInterface;
 use Session\Application\Port\Inbound\Tracking\SessionTrackingPort;
@@ -24,7 +22,7 @@ use function json_decode;
  * Class TokenRevocationAdapter
  *
  * Revokes individual stored OAuth or interactive-session tokens, invalidates token-cache entries and publishes
- * revocation events. Bulk user-token requests are logged but do not revoke tokens.
+ * revocation events. Bulk revocation commits every user-bound OAuth grant family before invalidating caches.
  *
  * @category Adapter
  * @version 1.0.0
@@ -52,6 +50,8 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
    * @param EventDispatcherPort $eventDispatcher publishes token-revoked events
    * @param LoggerInterface $logger records revocation outcomes on the security channel
    * @param string $encryptionKey key used to decrypt refresh-token payloads
+   * @param UserTokenRevocationPort $userTokenRevocation atomically revokes every stored user grant
+   * @param JwtParserPort $jwtParser validates signed access tokens before revocation
    *
    * @return void
    */
@@ -65,6 +65,8 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
     private readonly LoggerInterface $logger,
     #[Autowire('%env(OAUTH_ENCRYPTION_KEY)%')]
     string $encryptionKey,
+    private readonly UserTokenRevocationPort $userTokenRevocation,
+    private readonly JwtParserPort $jwtParser,
   ) {
     $this->setEncryptionKey($encryptionKey);
   }
@@ -161,24 +163,12 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
     }
 
     try {
-      $parser = new Parser(new JoseEncoder());
-      $parsedToken = $parser->parse($jwtToken);
-
-      // @codeCoverageIgnoreStart
-      // Unreachable: Plain is lcobucci/jwt's only concrete Token, and the parser
-      // is constructed right above, so nothing else can be returned here.
-      if (!$parsedToken instanceof Plain) {
+      if (!$this->jwtParser->validate($jwtToken)) {
         return false;
       }
-      // @codeCoverageIgnoreEnd
-
-      $claims = $parsedToken->claims();
-      if (!$claims->has('jti')) {
-        return false;
-      }
-
-      $tokenId = $claims->get('jti');
-      if (!is_string($tokenId)) {
+      $claims = $this->jwtParser->parse($jwtToken);
+      $tokenId = $claims['jti'] ?? null;
+      if (!is_string($tokenId) || '' === $tokenId) {
         return false;
       }
       $this->revokeSessionByTokenIds(refreshTokenId: null, accessTokenId: $tokenId);
@@ -193,14 +183,14 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
           'token_id' => $tokenId,
         ]);
 
-        $userId = $claims->has('sub') ? $claims->get('sub') : null;
-        $clientId = $claims->has('client_id') ? $claims->get('client_id') : null;
+        $userId = $token->userIdentifier();
+        $clientId = (string) $token->clientIdentifier();
 
         $this->eventDispatcher->dispatch(new TokenRevokedEvent(
           tokenId: $tokenId,
           tokenType: 'access_token',
           reason: null,
-          clientId: is_string($clientId) ? $clientId : null,
+          clientId: $clientId,
           userId: is_string($userId) ? $userId : null,
           ipAddress: null,
         ));
@@ -221,7 +211,7 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
   /**
    * Method revokeAllUserTokens
    *
-   * Logs the requested bulk revocation; repository support for revoking every user token is not implemented here.
+   * Atomically revokes all user-bound OAuth grants and invalidates their cached introspection data.
    *
    * @access public
    *
@@ -231,9 +221,11 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
    */
   public function revokeAllUserTokens(string $userId): void
   {
-    // This would require additional repository methods
-    // For now, this is a placeholder for future implementation
-    $this->logger->info('Revoking all tokens for user', [
+    foreach ($this->userTokenRevocation->revokeForUser($userId) as $tokenId) {
+      $this->tokenCache->invalidate($tokenId);
+    }
+
+    $this->logger->info('All OAuth grants revoked for user', [
       'user_id' => $userId,
     ]);
   }

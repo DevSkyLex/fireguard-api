@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\User\Infrastructure\Adapter\User;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
@@ -42,7 +43,9 @@ final class UserDataPurgeAdapterIntegrationTest extends KernelTestCase
     $this->entityManager = $entityManager;
 
     $this->sessions = new SessionRepository(entityManager: $this->entityManager);
-    $this->adapter = new UserDataPurgeAdapter($this->entityManager);
+    $purge = $container->get(TotpEnrollmentPurgePort::class);
+    self::assertInstanceOf(TotpEnrollmentPurgePort::class, $purge);
+    $this->adapter = new UserDataPurgeAdapter($this->entityManager, $purge);
   }
 
   protected function tearDown(): void
@@ -99,6 +102,26 @@ final class UserDataPurgeAdapterIntegrationTest extends KernelTestCase
 
     self::assertCount(1, $this->sessions->findByUserId($userId));
   }
+
+  #[Test]
+  public function testPurgeRemovesAllTotpSecretSlotsAndPreservesTheOtherAccount(): void
+  {
+    $connection = $this->entityManager->getConnection();
+    $targetId = '8a2d3b01-5e3f-4b2c-9d40-000000000205';
+    $otherId = '8a2d3b01-5e3f-4b2c-9d40-000000000206';
+    foreach ([$targetId, $otherId] as $userId) {
+      $connection->insert('totp_enrollments', [
+        'user_id' => $userId, 'active_secret' => 'TEST-ACTIVE-LEGACY', 'pending_secret' => 'TEST-PENDING-LEGACY',
+        'active_secret_ciphertext' => 'synthetic-active-envelope', 'pending_secret_ciphertext' => 'synthetic-pending-envelope',
+        'secrets_encrypted' => 1, 'attempts' => 0, 'max_attempts' => 5, 'created_at' => '2026-01-01 00:00:00', 'updated_at' => '2026-01-01 00:00:00',
+      ]);
+    }
+    self::assertSame($targetId, $connection->fetchOne('SELECT user_id FROM totp_enrollments WHERE user_id = ?', [$targetId]));
+    $this->adapter->purgeForUser($targetId);
+    self::assertFalse($connection->fetchOne('SELECT user_id FROM totp_enrollments WHERE user_id = ?', [$targetId]));
+    self::assertSame($otherId, $connection->fetchOne('SELECT user_id FROM totp_enrollments WHERE user_id = ?', [$otherId]));
+  }
+
   // #endregion
 
   // #region Helpers

@@ -16,11 +16,28 @@ compose() {
 }
 
 case "${1-}" in
-  geoip-update|geoip-purge|auth-retention) task="$1" ;;
+  geoip-update|geoip-purge|auth-retention|worker-observe) task="$1" ;;
   *) fail 64 'Unknown maintenance task' ;;
 esac
 
 cd {{ fireguard_app_dir | quote }} || fail 78 'Maintenance application directory is unavailable'
+
+# The same atomic directory mutex is held throughout rollout and consistent backup.
+mkdir .fireguard-operation.lock 2>/dev/null || fail 75 'Maintenance deferred while another installation operation holds the lock'
+trap 'rmdir .fireguard-operation.lock 2>/dev/null || :' 0
+trap 'exit 75' 1 2 15
+
+if [ "$task" = 'worker-observe' ]; then
+  for service in async_worker webhook_worker assistant_worker scheduler_worker; do
+    compose exec -T "$service" php bin/worker-health.php >/dev/null 2>&1 \
+      || fail "$?" 'A consumer receiver heartbeat is unavailable or stale'
+  done
+  compose exec -T async_worker php bin/worker-health.php --sweeps >/dev/null 2>&1 \
+    || fail "$?" 'A scheduled sweep has no recent successful completion'
+  compose exec -T app php -d memory_limit=1G bin/console app:workers:queues --env=prod >/dev/null 2>&1 \
+    || fail "$?" 'Durable queue age or failed message threshold exceeded'
+  exit 0
+fi
 
 if [ "$task" = 'auth-retention' ]; then
   compose run --rm --no-deps --entrypoint php app -d memory_limit=1G bin/console app:cleanup:auth-data --env=prod >/dev/null 2>&1 \

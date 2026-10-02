@@ -52,26 +52,33 @@ final readonly class DisableTotpHandler implements CommandHandler
    */
   public function __invoke(DisableTotpCommand $command): DisableTotpResult
   {
-    $enrollment = $this->enrollmentRepository->findByUserId($command->userId);
+    $result = $this->enrollmentRepository->withUserLock($command->userId, function () use ($command): DisableTotpResult {
+      $enrollment = $this->enrollmentRepository->findByUserId($command->userId);
 
-    if (null === $enrollment || !$enrollment->isActive()) {
-      throw TotpEnrollmentNotEnabledException::forUser($command->userId);
-    }
+      if (null === $enrollment || !$enrollment->isActive()) {
+        throw TotpEnrollmentNotEnabledException::forUser($command->userId);
+      }
 
-    $activeSecret = $enrollment->activeSecret();
-    $codeValid = null !== $activeSecret && $this->totpService->verify($command->code, $activeSecret);
+      $activeSecret = $enrollment->activeSecret();
+      $codeValid = null !== $activeSecret && $this->totpService->verify($command->code, $activeSecret);
 
-    $disabled = $enrollment->disable($codeValid);
+      $disabled = $enrollment->disable($codeValid);
 
-    $this->enrollmentRepository->save($enrollment);
+      $this->enrollmentRepository->save($enrollment);
 
-    if (!$disabled) {
-      return DisableTotpResult::failed(error: 'Invalid verification code.');
+      if (!$disabled) {
+        return DisableTotpResult::failed(error: 'Invalid verification code.');
+      }
+
+      return DisableTotpResult::success();
+    });
+    if (!$result->success) {
+      return $result;
     }
 
     $this->eventDispatcher->dispatch(new TotpEnrollmentDisabledEvent(userId: $command->userId));
 
-    return DisableTotpResult::success();
+    return $result;
   }
   // #endregion
 }

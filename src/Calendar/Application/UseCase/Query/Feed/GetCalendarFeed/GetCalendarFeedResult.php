@@ -28,6 +28,7 @@ final readonly class GetCalendarFeedResult implements ResultMessage
    * @param DateTimeImmutable $from the resolved inclusive range lower bound
    * @param DateTimeImmutable $to the resolved inclusive range upper bound
    * @param list<CalendarFeedSourceState> $sources authorized source states
+   * @param string $timezone organization IANA timezone for all-day export dates
    */
   public function __construct(
     public array $items,
@@ -35,6 +36,7 @@ final readonly class GetCalendarFeedResult implements ResultMessage
     public DateTimeImmutable $to,
     public array $sources = [],
     public bool $complete = true,
+    public string $timezone = 'UTC',
   ) {
   }
   // #endregion

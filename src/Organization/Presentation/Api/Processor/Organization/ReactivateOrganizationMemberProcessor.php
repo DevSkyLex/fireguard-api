@@ -89,6 +89,7 @@ final readonly class ReactivateOrganizationMemberProcessor implements ProcessorI
     $result = $this->commandBus->dispatch(new ReactivateOrganizationMemberCommand(
       organizationId: $organizationId,
       memberId: $memberId,
+      actorUserId: $user->getId(),
     ));
 
     $output = new OrganizationMemberOutput();

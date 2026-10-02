@@ -9,10 +9,12 @@ use Calendar\Domain\ValueObject\CalendarEventId;
 use Calendar\Infrastructure\Persistence\Doctrine\Repository\CalendarEventRepository;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
+
+use const DATE_ATOM;
 
 /**
  * Test CalendarEventRepositoryTest.
@@ -100,6 +102,44 @@ final class CalendarEventRepositoryTest extends KernelTestCase
     self::assertSame(self::ORGANIZATION_ID, $found->organizationId());
     self::assertSame('Fire drill', $found->title());
     self::assertSame(self::MEMBER_ID, $found->createdByMemberId());
+  }
+
+  #[Test]
+  #[DataProvider('offsetSchedules')]
+  public function testCreateAndUpdateOffsetSchedulesPreserveInstantsAfterDatabaseReload(string $startsAt, string $endsAt, string $utcStart, string $utcEnd, bool $allDay): void
+  {
+    $event = CalendarEvent::create(
+      new CalendarEventIdentity(CalendarEventId::fromString(self::EVENT_FULLY_INSIDE_ID), self::ORGANIZATION_ID, self::MEMBER_ID),
+      new CalendarEventContent('Offset schedule', null, new DateTimeImmutable($startsAt), new DateTimeImmutable($endsAt), $allDay, null),
+    );
+    $this->repository->save($event);
+    $this->entityManager->clear();
+    $found = $this->repository->findById($event->id());
+
+    self::assertNotNull($found);
+    self::assertSame($utcStart, $found->startsAt()->format(DATE_ATOM));
+    self::assertSame($utcEnd, $found->endsAt()?->format(DATE_ATOM));
+    self::assertSame(new DateTimeImmutable($startsAt)->getTimestamp(), $found->startsAt()->getTimestamp());
+
+    $found->update('Updated offset schedule', null, new DateTimeImmutable($startsAt), new DateTimeImmutable($endsAt), $allDay, null);
+    $this->repository->save($found);
+    $this->entityManager->clear();
+    $updated = $this->repository->findById($event->id());
+
+    self::assertNotNull($updated);
+    self::assertSame('Updated offset schedule', $updated->title());
+    self::assertSame($utcStart, $updated->startsAt()->format(DATE_ATOM));
+    self::assertSame($utcEnd, $updated->endsAt()?->format(DATE_ATOM));
+  }
+
+  /**
+   * @return iterable<string, array{string, string, string, string, bool}>
+   */
+  public static function offsetSchedules(): iterable
+  {
+    yield 'Paris spring all day' => ['2026-03-29T00:00:00+01:00', '2026-03-30T00:00:00+02:00', '2026-03-28T23:00:00+00:00', '2026-03-29T22:00:00+00:00', true];
+    yield 'Paris autumn all day' => ['2026-10-25T00:00:00+02:00', '2026-10-26T00:00:00+01:00', '2026-10-24T22:00:00+00:00', '2026-10-25T23:00:00+00:00', true];
+    yield 'timed positive offset with preceding UTC date' => ['2026-08-01T01:00:00+02:00', '2026-08-01T03:00:00+02:00', '2026-07-31T23:00:00+00:00', '2026-08-01T01:00:00+00:00', false];
   }
 
   #[Test]

@@ -124,9 +124,18 @@ sequenceDiagram
 
 TOTP enrollment state is stored server-side per user (`totp_enrollments`, auth
 database) with an optional ACTIVE (confirmed) secret and an optional PENDING
-(unconfirmed) secret, tracked independently. Re-calling setup only replaces
-the PENDING secret and leaves any existing ACTIVE secret usable for login
-until the new one is confirmed. The client never supplies the secret back to
+(unconfirmed) secret, tracked independently. Re-calling setup replaces
+the PENDING secret only during initial enrollment. Setup and confirmation refuse
+an ACTIVE factor with HTTP 409, including legacy rows containing both secret slots.
+Replacing an active authenticator requires the existing protected disable operation
+with its current code, followed by setup and confirmation. This intentionally offers
+no simultaneous active-factor rotation without a separate step-up proof. The first-party
+account interface already exposes this disable-then-enroll flow.
+
+Setup, confirmation and disable hold one per-user auth transaction lock around a fresh
+enrollment read, code verification and state persistence. Fresh row reads also take a
+pessimistic lock within that transaction. Concurrent initial setup/confirmation cannot
+replace a factor activated by an earlier request. Successful events follow commit. The client never supplies the secret back to
 the server for confirm/disable — only the current authenticator code.
 
 ### Mailbox possession
@@ -142,9 +151,10 @@ OTP HTTP endpoints; Auth must confirm it through the User capability.
 ## Architecture
 
 - Hexagonal module with strict layer boundaries.
-- Inbound ports: `Otp\Application\Port\Inbound\Challenge\OtpChallengePort`, `Otp\Application\Port\Inbound\Totp\TotpStatusPort` (used by the User module for `/api/me` and, via a small adapter, by the Auth module for login MFA channel selection).
+- Inbound ports: `Otp\Application\Port\Inbound\Challenge\OtpChallengePort`, `Otp\Application\Port\Inbound\Totp\TotpStatusPort` (used by the User module for `/api/me` and, via a small adapter, by the Auth module for login MFA channel selection). A technical lookup/decryption failure propagates and blocks sign-in; it does not select email as a fallback factor.
 - Outbound ports: `Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort`, `Otp\Application\Port\Outbound\Challenge\OtpNotifierPort`, `Otp\Application\Port\Outbound\Totp\TotpServicePort`, `Otp\Application\Port\Outbound\Totp\TotpEnrollmentRepositoryPort`.
 - Cross-module contracts are defined in `Otp\Application\Contract`.
+- `TotpEnrollmentPurgePort` removes all active/pending plaintext and ciphertext slots plus enrollment/lockout state on account deletion, on the auth connection only.
 - Cross-module adapter: `Otp\Infrastructure\Adapter\Auth\TotpEnrollmentCheckAdapter` implements `Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort` (Auth-owned port), delegating to `TotpStatusPort`.
 - `Otp\Application\UseCase\Command\Challenge\VerifyOtp\VerifyOtpHandler` checks the OTP's channel: for `totp`, the submitted code is verified against the user's ACTIVE TOTP secret (via `TotpEnrollmentRepositoryPort` + `TotpServicePort`) instead of the challenge's own random code; challenge-level expiry/attempt bookkeeping is unchanged (`Otp::verifyExternal()`).
 
@@ -225,6 +235,16 @@ and never creates a persistent geography history in Notification, audit or realt
    corresponding keys. A rollback must retain this compatible reader and the key ring.
    Schema rollback is explicitly refused once any enrollment has been encrypted.
 
+### Account deletion and enrollment serialization
+
+Setup reads the published User account status from auth storage after taking the per-user
+TOTP transaction lock. A principal authenticated before a completed account deletion cannot
+create a new pending secret. User deletion acquires this same lock before removing the account,
+and holds the auth transaction through deletion of all linked auth data, including every TOTP
+secret slot. Setup that commits first is included in the subsequent purge; deletion that commits
+first makes the resumed setup fail with a neutral 403. Purge failures roll back account removal.
+No main-database transaction or TOTP foreign-key migration is involved.
+
 ## Testing
 
 Tests exercise fresh resend origins, unknown browsers, non-HTTP invocation, SMS/TOTP exclusion,
@@ -242,4 +262,6 @@ chaining provider details into application logs.
 - `404 Not Found`: challenge token not found; no pending TOTP setup for confirm; TOTP not enabled for disable.
 - `422 Unprocessable Entity`: invalid/expired TOTP code on confirm or disable.
 - `429 Too Many Requests`: resend cooldown not elapsed; TOTP confirm/disable rate limit exceeded; **TOTP disable frozen after 5 wrong codes** (`Retry-After` carries the remaining seconds).
+- `409 Conflict`: setup or confirmation attempted while TOTP is already active; disable with the current factor first.
+- `403 Forbidden`: setup refuses a missing or non-active account using a fresh auth-side status check inside the enrollment mutation lock.
 - `400 Bad Request`: invalid input or unauthenticated user where required.

@@ -114,20 +114,19 @@ final class MaintenanceReminderNotifierTest extends TestCase
   }
 
   #[Test]
-  public function testRemindNeverThrowsWhenDeliveryFails(): void
+  public function testRemindPropagatesRetryableDeliveryFailure(): void
   {
     $notifications = $this->createStub(NotificationPort::class);
     $notifications->method('send')->willThrowException(new RuntimeException('unavailable'));
 
     $notifier = new MaintenanceReminderNotifier($notifications, $this->policy(), $this->recipients(['user-1']));
 
+    $this->expectException(RuntimeException::class);
     $notifier->remind(self::ORG_ID, self::EQUIP_ID, null, new DateTimeImmutable(), true);
-
-    self::addToAssertionCount(1);
   }
 
   #[Test]
-  public function testRemindNeverThrowsWhenTheNotificationPolicyIsUnreadable(): void
+  public function testRemindPropagatesUnreadablePolicyForRetry(): void
   {
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
     $policy->method('notificationPolicy')->willThrowException(new RuntimeException('policy store down'));
@@ -137,9 +136,8 @@ final class MaintenanceReminderNotifierTest extends TestCase
 
     $notifier = new MaintenanceReminderNotifier($notifications, $policy, $this->recipients(['user-1']));
 
+    $this->expectException(RuntimeException::class);
     $notifier->remind(self::ORG_ID, self::EQUIP_ID, null, new DateTimeImmutable(), true);
-
-    self::addToAssertionCount(1);
   }
 
   /**

@@ -6,11 +6,32 @@ A healthy HTTP process does not establish that queued or scheduled work is being
 
 ## Managed workers
 
-Production Compose declares assistant and asynchronous workers. The async worker
-consumes `main_outbox`, `async` and `webhook`; the assistant worker consumes its
-dedicated transport. Scheduler receivers and maintenance/billing jobs are documented
-by the owning module and Messenger configuration. Initialize transports before
-starting consumers and restart old workers after code/schema changes.
+Compose declares four supervised consumers: `async_worker` consumes `main_outbox`
+and `async`; `webhook_worker` consumes `webhook`; `assistant_worker` consumes
+`assistant`; `scheduler_worker` consumes all five `scheduler_*` receivers. Webhook
+and model calls cannot block the ordinary async receiver. Ansible initializes
+`main_outbox main_failed async webhook assistant failed` after both migrations and
+before starting any current consumer, including on fresh bootstrap.
+
+All writers stop before snapshots, migrations and development fixture resets.
+Consumers receive SIGTERM and have 120 seconds to finish their current message;
+the app has the same deployment drain deadline. A failure leaves writers stopped
+and `.fireguard-operation.lock` held for reviewed recovery. Cron maintenance and
+backups acquire the same atomic mutex and cannot overlap the rollout.
+
+Docker health checks require a recent receiver-loop heartbeat and a live recorded
+PID. Every five minutes, host maintenance also checks both durable queue histories
+for messages overdue by more than 900 seconds or any failed messages, and checks
+successful sweep timestamps. Hourly sweeps have a two-hour allowance, domain
+verification two days, and weekly digests eight days. The first scheduler start
+creates a persistent monitoring baseline for the corresponding first-run
+allowance. Worker restarts never reset it; stale sweep markers remain unhealthy.
+No payload, token or customer identifier is observed.
+
+For bounded queue metadata, run `app:workers:queues --max-age=900`; for sweep
+freshness, run `php bin/worker-health.php --sweeps` in `async_worker`. Alert on the
+fixed `fireguard-maintenance` failure messages. Do not use HTTP health as evidence
+of queue consumption or successful scheduled work.
 
 For an illustrative configured transport:
 
@@ -53,7 +74,7 @@ After the independent auth/main migrations, initialize framework-owned tables
 before starting the new worker version:
 
 ```bash
-php -d memory_limit=1G bin/console messenger:setup-transports main_outbox main_failed failed
+php -d memory_limit=1G bin/console messenger:setup-transports main_outbox main_failed async webhook assistant failed
 ```
 
 `main_outbox` is the PostgreSQL outbox on the main connection; its table is

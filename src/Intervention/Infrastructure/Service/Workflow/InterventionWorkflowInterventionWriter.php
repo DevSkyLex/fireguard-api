@@ -11,7 +11,7 @@ use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowView
 };
 use Intervention\Application\Service\InterventionDraftPublisher;
-use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
+use Intervention\Domain\Event\Workflow\{InterventionStatusTransitionedEvent, InterventionWorkflowNotificationRequestedEvent};
 use Intervention\Domain\Exception\{
   InterventionAccessDeniedException,
   InterventionConflictException,
@@ -45,7 +45,7 @@ use function implode;
 use function in_array;
 
 /**
- * Persists intervention creation, edits, transitions and their deferred effects.
+ * Persists intervention creation, edits, transitions and their durable outbox effects.
  */
 final readonly class InterventionWorkflowInterventionWriter
 {
@@ -53,7 +53,7 @@ final readonly class InterventionWorkflowInterventionWriter
   /**
    * Method __construct
    *
-   * Combines persistence runtime, transition rules, draft publication and deferred event dispatch
+   * Combines persistence runtime, transition rules, draft publication and transactional event persistence
    * for intervention workflow mutations.
    *
    * @access public
@@ -61,7 +61,7 @@ final readonly class InterventionWorkflowInterventionWriter
    * @param InterventionWorkflowWriterRuntime $runtime provides persistence and workflow collaborators
    * @param InterventionTransitionPolicy $transitionPolicy enforces valid status transitions
    * @param InterventionDraftPublisher $draftPublisher manages draft resources
-   * @param EventDispatcherPort $eventDispatcher publishes post-commit status events
+   * @param EventDispatcherPort $eventDispatcher records status and notification events in the main outbox
    *
    * @return void
    */
@@ -83,7 +83,7 @@ final readonly class InterventionWorkflowInterventionWriter
    * @since 1.0.0
    *
    * @param InterventionWorkflowMutation $mutation the mutation value
-   * @param list<callable(): void> $notifications deferred notifications dispatched after commit
+   * @param list<callable(): void> $notifications effects persisted into the outbox before commit
    *
    * @return ?InterventionWorkflowView the mutate intervention result
    */
@@ -177,14 +177,14 @@ final readonly class InterventionWorkflowInterventionWriter
   /**
    * Method updateIntervention.
    *
-   * Applies a validated workflow mutation to the persisted intervention and collects deferred status notifications.
+   * Applies a validated workflow mutation to the persisted intervention and collects durable status effects.
    *
    * @access private
    * @since 1.0.0
    *
    * @param InterventionRecord $intervention the intervention value
    * @param InterventionWorkflowMutation $mutation the mutation value
-   * @param list<callable(): void> $notifications deferred notifications dispatched after commit
+   * @param list<callable(): void> $notifications effects persisted into the outbox before commit
    *
    * @return InterventionWorkflowView the update intervention result
    */
@@ -417,8 +417,7 @@ final readonly class InterventionWorkflowInterventionWriter
       $this->runtime->memberPolicy->findMemberId($organizationId, $mutation->userId),
       new InterventionActivityContent('system', 'status_changed', null, ['from' => $previousStatus, 'to' => $nextStatus->value]),
     ));
-    // Dispatch only after the surrounding transaction commits; a rollback
-    // must not leave a ledger event for a transition that never happened.
+    // Outbox persistence and the transition share the same transaction.
     $interventionId = $intervention->id;
     $interventionNumber = $intervention->number;
     $actorUserId = $mutation->userId;
@@ -445,7 +444,7 @@ final readonly class InterventionWorkflowInterventionWriter
       $interventionId = $intervention->id;
       $interventionName = $intervention->name;
       $responsibleId = $intervention->responsibleId;
-      $notifications[] = fn () => $this->runtime->notifications->changesRequested($interventionId, $interventionName, $responsibleId);
+      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionWorkflowNotificationRequestedEvent('changes_requested', $interventionId, $interventionName, $responsibleId));
     }
     // Every submission and resubmission tells reviewers a new round awaits.
     if (InterventionStatus::SUBMITTED === $nextStatus && InterventionStatus::SUBMITTED->value !== $previousStatus) {
@@ -453,7 +452,7 @@ final readonly class InterventionWorkflowInterventionWriter
       $interventionName = $intervention->name;
       $organizationId = $this->runtime->support->organizationId($intervention);
       $actorUserId = $mutation->userId;
-      $notifications[] = fn () => $this->runtime->notifications->submitted($interventionId, $interventionName, $organizationId, $actorUserId);
+      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionWorkflowNotificationRequestedEvent('submitted', $interventionId, $interventionName, organizationId: $organizationId, actorUserId: $actorUserId));
     }
     // Abandoned interventions cannot publish their draft resources.
     if (InterventionStatus::ABANDONED === $nextStatus) {

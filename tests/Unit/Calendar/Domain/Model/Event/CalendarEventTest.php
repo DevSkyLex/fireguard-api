@@ -51,8 +51,11 @@ final class CalendarEventTest extends TestCase
     self::assertSame(self::ORGANIZATION_ID, $event->organizationId());
     self::assertSame('Fire drill', $event->title());
     self::assertSame('Quarterly exercise', $event->description());
-    self::assertSame($startsAt, $event->startsAt());
-    self::assertSame($endsAt, $event->endsAt());
+    self::assertSame($startsAt->getTimestamp(), $event->startsAt()->getTimestamp());
+    self::assertSame('UTC', $event->startsAt()->getTimezone()->getName());
+    self::assertNotNull($event->endsAt());
+    self::assertSame($endsAt->getTimestamp(), $event->endsAt()->getTimestamp());
+    self::assertSame('UTC', $event->endsAt()->getTimezone()->getName());
     self::assertFalse($event->allDay());
     self::assertSame('facility-1', $event->facilityId());
     self::assertSame('member-1', $event->createdByMemberId());
@@ -138,8 +141,11 @@ final class CalendarEventTest extends TestCase
 
     self::assertSame('Updated drill', $event->title());
     self::assertSame('New description', $event->description());
-    self::assertSame($newStart, $event->startsAt());
-    self::assertSame($newEnd, $event->endsAt());
+    self::assertSame($newStart->getTimestamp(), $event->startsAt()->getTimestamp());
+    self::assertSame('UTC', $event->startsAt()->getTimezone()->getName());
+    self::assertNotNull($event->endsAt());
+    self::assertSame($newEnd->getTimestamp(), $event->endsAt()->getTimestamp());
+    self::assertSame('UTC', $event->endsAt()->getTimezone()->getName());
     self::assertTrue($event->allDay());
     self::assertSame('facility-2', $event->facilityId());
   }

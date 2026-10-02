@@ -20,6 +20,8 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, LoggerPort};
 
+use function array_key_last;
+
 /**
  * Test GenerateAssistantReplyHandlerTest.
  *
@@ -79,8 +81,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     $messages = $this->createMock(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('listByThread')->willReturn([]);
-    $messages->method('countByThread')->willReturn(0);
+    $messages->method('listCompletedThroughQuestion')->willReturn([$this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Queued question', AssistantMessageStatus::COMPLETE)]);
     $messages->expects(self::exactly(4))->method('save')->with($message);
 
     $thread = $this->thread();
@@ -152,8 +153,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     $messages = $this->createStub(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('listByThread')->willReturn([]);
-    $messages->method('countByThread')->willReturn(0);
+    $messages->method('listCompletedThroughQuestion')->willReturn([$this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Queued question', AssistantMessageStatus::COMPLETE)]);
 
     $threads = $this->createStub(AssistantThreadRepositoryPort::class);
     $threads->method('findById')->willReturn($this->thread());
@@ -214,8 +214,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     $messages = $this->createStub(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('listByThread')->willReturn([]);
-    $messages->method('countByThread')->willReturn(0);
+    $messages->method('listCompletedThroughQuestion')->willReturn([$this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Queued question', AssistantMessageStatus::COMPLETE)]);
 
     $threads = $this->createStub(AssistantThreadRepositoryPort::class);
     $threads->method('findById')->willReturn($this->thread());
@@ -243,8 +242,8 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     self::assertNotNull($capturedPromptMessages);
     // system prompt + the fake provider's context block, both BEFORE the
-    // (empty) transcript.
-    self::assertCount(2, $capturedPromptMessages);
+    // queued question.
+    self::assertCount(3, $capturedPromptMessages);
     $contextMessage = $capturedPromptMessages[1];
     self::assertIsArray($contextMessage);
     self::assertSame('system', $contextMessage['role']);
@@ -258,8 +257,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     $messages = $this->createStub(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('listByThread')->willReturn([]);
-    $messages->method('countByThread')->willReturn(0);
+    $messages->method('listCompletedThroughQuestion')->willReturn([$this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Queued question', AssistantMessageStatus::COMPLETE)]);
 
     $threads = $this->createStub(AssistantThreadRepositoryPort::class);
     $threads->method('findById')->willReturn($this->thread());
@@ -286,7 +284,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     )(self::command());
 
     self::assertNotNull($capturedPromptMessages);
-    self::assertCount(1, $capturedPromptMessages, 'The fake provider is registered but must never be reached when the flag is off.');
+    self::assertCount(2, $capturedPromptMessages, 'The fake provider is registered but must never be reached when the flag is off.');
   }
 
   #[Test]
@@ -296,8 +294,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     $messages = $this->createStub(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('countByThread')->willReturn(3);
-    $messages->method('listByThread')->willReturn([
+    $messages->method('listCompletedThroughQuestion')->willReturn([
       $this->transcriptMessage('018f0b68-6758-7a12-8a1d-3f0d97f64d05', AssistantMessageRole::USER, 'How many extinguishers?', AssistantMessageStatus::COMPLETE),
       $this->transcriptMessage('018f0b68-6758-7a12-8a1d-3f0d97f64d06', AssistantMessageRole::ASSISTANT, 'Twelve.', AssistantMessageStatus::COMPLETE),
       // A previous attempt that never settled: must never be replayed.
@@ -305,6 +302,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
       // The reply currently being generated: excluded by id even though the
       // fake row reports itself complete.
       $this->transcriptMessage(self::ASSISTANT_MESSAGE_ID, AssistantMessageRole::ASSISTANT, 'should be excluded', AssistantMessageStatus::COMPLETE),
+      $this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Queued question', AssistantMessageStatus::COMPLETE),
     ]);
 
     $threads = $this->createStub(AssistantThreadRepositoryPort::class);
@@ -324,8 +322,8 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     $this->handler(messages: $messages, threads: $threads, client: $client)(self::command());
 
     self::assertIsArray($capturedPromptMessages);
-    // system prompt + exactly the two completed turns.
-    self::assertCount(3, $capturedPromptMessages);
+    // System prompt, two completed earlier turns and the queued question.
+    self::assertCount(4, $capturedPromptMessages);
     self::assertSame(['role' => 'user', 'content' => 'How many extinguishers?'], $capturedPromptMessages[1]);
     self::assertSame(['role' => 'assistant', 'content' => 'Twelve.'], $capturedPromptMessages[2]);
   }
@@ -337,8 +335,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     $messages = $this->createStub(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('listByThread')->willReturn([]);
-    $messages->method('countByThread')->willReturn(0);
+    $messages->method('listCompletedThroughQuestion')->willReturn([$this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Queued question', AssistantMessageStatus::COMPLETE)]);
 
     $threads = $this->createStub(AssistantThreadRepositoryPort::class);
     $threads->method('findById')->willReturn($this->thread());
@@ -383,8 +380,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     $messages = $this->createStub(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('listByThread')->willReturn([]);
-    $messages->method('countByThread')->willReturn(0);
+    $messages->method('listCompletedThroughQuestion')->willReturn([$this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Queued question', AssistantMessageStatus::COMPLETE)]);
 
     $threads = $this->createStub(AssistantThreadRepositoryPort::class);
     $threads->method('findById')->willReturn($this->thread());
@@ -420,8 +416,8 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     )(self::command());
 
     self::assertIsArray($capturedPromptMessages);
-    // Fail-closed: the system prompt alone, no business-context block.
-    self::assertCount(1, $capturedPromptMessages);
+    // Fail-closed: the system prompt and question, no business-context block.
+    self::assertCount(2, $capturedPromptMessages);
     self::assertSame(AssistantMessageStatus::COMPLETE, $message->status());
   }
 
@@ -432,8 +428,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     $messages = $this->createStub(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('listByThread')->willReturn([]);
-    $messages->method('countByThread')->willReturn(0);
+    $messages->method('listCompletedThroughQuestion')->willReturn([$this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Queued question', AssistantMessageStatus::COMPLETE)]);
 
     $threads = $this->createStub(AssistantThreadRepositoryPort::class);
     $threads->method('findById')->willReturn($this->thread());
@@ -457,6 +452,69 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     self::assertSame(AssistantMessageStatus::COMPLETE, $message->status());
     self::assertSame('Settled by another worker.', $message->body());
     self::assertNull($message->errorCode());
+  }
+
+  /**
+   * Method testGenerationLoadsABoundedHistoryWithoutCountingOrLoadingTheWholeThread.
+   *
+   * Verifies the bounded repository read and inclusion of the queued question.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testGenerationLoadsABoundedHistoryWithoutCountingOrLoadingTheWholeThread(): void
+  {
+    $message = $this->pendingMessage();
+    $question = $this->transcriptMessage(self::USER_MESSAGE_ID, AssistantMessageRole::USER, 'Latest queued question', AssistantMessageStatus::COMPLETE);
+    $messages = $this->createMock(AssistantMessageRepositoryPort::class);
+    $messages->method('findById')->willReturn($message);
+    $messages->expects(self::never())->method('countByThread');
+    $messages->expects(self::never())->method('listByThread');
+    $messages->expects(self::once())->method('listCompletedThroughQuestion')
+      ->with(self::THREAD_ID, self::USER_MESSAGE_ID, 20)->willReturn([$question]);
+    $threads = $this->createStub(AssistantThreadRepositoryPort::class);
+    $threads->method('findById')->willReturn($this->thread());
+    $client = $this->createMock(AssistantGenerationClientPort::class);
+    $client->expects(self::once())->method('streamChat')->willReturnCallback(
+      static function (string $model, array $prompt, float $temperature, int $timeout, callable $onFragment): AssistantGenerationOutcome {
+        self::assertSame(['role' => 'user', 'content' => 'Latest queued question'], $prompt[array_key_last($prompt)]);
+
+        return new AssistantGenerationOutcome('Answer', 1);
+      },
+    );
+
+    $this->handler(messages: $messages, threads: $threads, client: $client)(self::command());
+    self::assertSame(AssistantMessageStatus::COMPLETE, $message->status());
+  }
+
+  /**
+   * Method testMissingQuestionFailsWithoutSendingAQuestionlessPromptToTheModel.
+   *
+   * Verifies that a missing anchor stops generation before model transport.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testMissingQuestionFailsWithoutSendingAQuestionlessPromptToTheModel(): void
+  {
+    $message = $this->pendingMessage();
+    $messages = $this->createStub(AssistantMessageRepositoryPort::class);
+    $messages->method('findById')->willReturn($message);
+    $messages->method('listCompletedThroughQuestion')->willReturn([]);
+    $threads = $this->createStub(AssistantThreadRepositoryPort::class);
+    $threads->method('findById')->willReturn($this->thread());
+    $client = $this->createMock(AssistantGenerationClientPort::class);
+    $client->expects(self::never())->method('streamChat');
+
+    $this->handler(messages: $messages, threads: $threads, client: $client)(self::command());
+    self::assertSame(AssistantMessageStatus::FAILED, $message->status());
+    self::assertSame('assistant_generation_failed', $message->errorCode());
   }
 
   private function transcriptMessage(

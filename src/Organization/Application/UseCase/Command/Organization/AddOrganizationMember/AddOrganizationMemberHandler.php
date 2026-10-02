@@ -8,7 +8,7 @@ use Notification\Application\Contract\Notification\{NotificationChannel, SendNot
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Inbound\{OrganizationMemberGrantGuardPort, OrganizationQuotaPort};
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
@@ -65,6 +65,7 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param OrganizationMemberGrantGuardPort $grantGuard the effective-role and provenance guard
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
@@ -77,6 +78,7 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     private TransactionManagerPort $transactionManager,
     private OrganizationQuotaPort $quota,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationMemberGrantGuardPort $grantGuard,
   ) {
   }
 
@@ -126,9 +128,11 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       throw OrganizationRoleNotFoundException::withId('one-or-more-role-ids');
     }
 
+    $this->grantGuard->assertCanGrant($command->grant, $command->organizationId, (string) $user->email(), $roleIds);
+
     /** @var array{result: AddOrganizationMemberResult, shouldNotifyMember: bool, previousRoleIds: list<string>} $change */
     $change = $this->transactionManager->transactional(
-      fn (): array => $this->persistMembership($organizationId, $command, $roles),
+      fn (): array => $this->persistMembership($organizationId, $command, $roles, (string) $user->email()),
     );
     $result = $change['result'];
     $shouldNotifyMember = $change['shouldNotifyMember'];
@@ -235,10 +239,11 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
 
   /**
    * @param list<OrganizationRole> $roles
+   * @param string $recipientEmail the current account email used for grant provenance
    *
    * @return array{result: AddOrganizationMemberResult, shouldNotifyMember: bool, previousRoleIds: list<string>}
    */
-  private function persistMembership(OrganizationId $organizationId, AddOrganizationMemberCommand $command, array $roles): array
+  private function persistMembership(OrganizationId $organizationId, AddOrganizationMemberCommand $command, array $roles, string $recipientEmail): array
   {
     // Keep the quota check and member writes under the same advisory lock.
     if ($command->enforceQuota) {
@@ -258,6 +263,14 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
         foreach ($this->memberRepository->findRoleIdsForMember($member->id()) as $previousRoleId) {
           $this->memberRepository->unassignRole($member->id(), OrganizationRoleId::fromString($previousRoleId));
         }
+      } else {
+        // Activation restores retained grants as well as the requested roles.
+        // Read and authorize that full set while the membership lock is held.
+        $effectiveRoleIds = array_values(array_unique([
+          ...array_map(static fn (OrganizationRole $role): string => (string) $role->id(), $roles),
+          ...$this->memberRepository->findRoleIdsForMember($member->id()),
+        ]));
+        $this->grantGuard->assertCanGrant($command->grant, $command->organizationId, $recipientEmail, $effectiveRoleIds);
       }
       $member->activate();
       $this->memberRepository->save($member);

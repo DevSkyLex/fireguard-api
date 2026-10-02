@@ -6,6 +6,7 @@ namespace Maintenance\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Maintenance\Application\Contract\Export\MaintenanceScheduleExportCandidate;
 use Maintenance\Application\Contract\Schedule\{MaintenanceSchedulePage, MaintenanceScheduleSnapshot, MaintenanceScheduleView};
@@ -16,6 +17,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Factory\UuidFactory;
 
 use function array_map;
+use function implode;
 use function max;
 use function min;
 
@@ -101,13 +103,10 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
    */
   public function findById(string $id): ?MaintenanceScheduleView
   {
-    $record = $this->entityManager->find(MaintenanceScheduleRecord::class, $id);
+    /** @var array{id: string, organization_id: string, equipment_id: string, facility_id: ?string, equipment_type: string, interval_override: ?string, last_inspection_closed_at: ?string, next_due_at: ?string, due_status: string, last_reminded_at: ?string, reminded_for: ?string, created_at: string, updated_at: string, evaluated_at: ?string}|false $row */
+    $row = $this->entityManager->getConnection()->fetchAssociative('SELECT * FROM maintenance_schedules WHERE id = :id', ['id' => $id]);
 
-    if ($record instanceof MaintenanceScheduleRecord) {
-      $this->entityManager->refresh($record);
-    }
-
-    return $record instanceof MaintenanceScheduleRecord ? $this->view($record) : null;
+    return false === $row ? null : $this->scalarView($row);
   }
 
   /**
@@ -124,13 +123,71 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
    */
   public function findByOrganizationAndEquipment(string $organizationId, string $equipmentId): ?MaintenanceScheduleView
   {
-    $record = $this->findRecordByOrganizationAndEquipment($organizationId, $equipmentId);
+    /** @var array{id: string, organization_id: string, equipment_id: string, facility_id: ?string, equipment_type: string, interval_override: ?string, last_inspection_closed_at: ?string, next_due_at: ?string, due_status: string, last_reminded_at: ?string, reminded_for: ?string, created_at: string, updated_at: string, evaluated_at: ?string}|false $row */
+    $row = $this->entityManager->getConnection()->fetchAssociative('SELECT * FROM maintenance_schedules WHERE organization_id = :organization AND equipment_id = :equipment', ['organization' => $organizationId, 'equipment' => $equipmentId]);
 
-    if ($record instanceof MaintenanceScheduleRecord) {
-      $this->entityManager->refresh($record);
+    return false === $row ? null : $this->scalarView($row);
+  }
+
+  /**
+   * @param list<string> $equipmentIds
+   *
+   * @return array<string, MaintenanceScheduleView>
+   */
+  public function findForEquipment(string $organizationId, array $equipmentIds): array
+  {
+    if ([] === $equipmentIds) {
+      return [];
+    }
+    /** @var list<array{id: string, organization_id: string, equipment_id: string, facility_id: ?string, equipment_type: string, interval_override: ?string, last_inspection_closed_at: ?string, next_due_at: ?string, due_status: string, last_reminded_at: ?string, reminded_for: ?string, created_at: string, updated_at: string, evaluated_at: ?string}> $rows */
+    $rows = $this->entityManager->getConnection()->fetchAllAssociative(
+      'SELECT * FROM maintenance_schedules WHERE organization_id = :organization AND equipment_id IN (:equipment)',
+      ['organization' => $organizationId, 'equipment' => $equipmentIds],
+      ['equipment' => ArrayParameterType::STRING],
+    );
+    $schedules = [];
+    foreach ($rows as $row) {
+      $view = $this->scalarView($row);
+      $schedules[$view->equipmentId] = $view;
     }
 
-    return $record instanceof MaintenanceScheduleRecord ? $this->view($record) : null;
+    return $schedules;
+  }
+
+  /**
+   * @param list<MaintenanceScheduleSnapshot> $snapshots bounded, locked schedule batch
+   */
+  public function saveBatch(array $snapshots): void
+  {
+    if ([] === $snapshots) {
+      return;
+    }
+    $values = [];
+    $parameters = [];
+    $now = new DateTimeImmutable()->format('Y-m-d H:i:s');
+    foreach ($snapshots as $index => $snapshot) {
+      $row = ['id' => $snapshot->id ?? $this->uuidFactory->generateRaw(), 'organization' => $snapshot->organizationId, 'equipment' => $snapshot->equipmentId,
+        'facility' => $snapshot->facilityId, 'type' => $snapshot->equipmentType, 'override' => $snapshot->intervalOverride,
+        'closed' => $snapshot->lastInspectionClosedAt?->format('Y-m-d H:i:s'), 'due' => $snapshot->nextDueAt?->format('Y-m-d H:i:s'), 'status' => $snapshot->dueStatus,
+        'reminded' => $snapshot->lastRemindedAt?->format('Y-m-d H:i:s'), 'remindedFor' => $snapshot->remindedFor?->format('Y-m-d H:i:s'),
+        'created' => $now, 'updated' => $now, 'evaluated' => $snapshot->evaluatedAt?->format('Y-m-d H:i:s')];
+      $placeholders = [];
+      foreach ($row as $name => $value) {
+        $key = 'r' . $index . $name;
+        $placeholders[] = ':' . $key;
+        $parameters[$key] = $value;
+      }
+      $values[] = '(' . implode(', ', $placeholders) . ')';
+    }
+    $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO maintenance_schedules (id, organization_id, equipment_id, facility_id, equipment_type, interval_override,
+        last_inspection_closed_at, next_due_at, due_status, last_reminded_at, reminded_for, created_at, updated_at, evaluated_at) VALUES ' . implode(', ', $values) . '
+       ON CONFLICT (organization_id, equipment_id) DO UPDATE SET facility_id = EXCLUDED.facility_id, equipment_type = EXCLUDED.equipment_type,
+        interval_override = EXCLUDED.interval_override, last_inspection_closed_at = EXCLUDED.last_inspection_closed_at,
+        next_due_at = EXCLUDED.next_due_at, due_status = EXCLUDED.due_status, last_reminded_at = EXCLUDED.last_reminded_at,
+        reminded_for = EXCLUDED.reminded_for, updated_at = EXCLUDED.updated_at, evaluated_at = EXCLUDED.evaluated_at',
+      $parameters,
+    );
   }
 
   /**
@@ -191,6 +248,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $records = $qb
       ->orderBy('CASE WHEN s.nextDueAt IS NULL THEN 1 ELSE 0 END', 'ASC')
       ->addOrderBy('s.nextDueAt', 'ASC')
+      ->addOrderBy('s.id', 'ASC')
       ->setFirstResult(($page - 1) * $itemsPerPage)
       ->setMaxResults($itemsPerPage)
       ->getQuery()
@@ -218,6 +276,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     ?string $facilityId,
     ?string $equipmentType,
     DateTimeImmutable $dueBefore,
+    int $limit = 201,
   ): array {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
 
@@ -230,7 +289,9 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
       ->setParameter('organization', $organization)
       ->setParameter('dueStatuses', ['due_soon', 'overdue'])
       ->setParameter('dueBefore', $dueBefore)
-      ->orderBy('s.nextDueAt', 'ASC');
+      ->orderBy('s.nextDueAt', 'ASC')
+      ->addOrderBy('s.id', 'ASC')
+      ->setMaxResults(max(1, $limit));
 
     if (null !== $facilityId) {
       $qb->andWhere(self::FACILITY_PREDICATE)->setParameter('facilityId', $facilityId);
@@ -243,6 +304,17 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $records = $qb->getQuery()->getResult();
 
     return array_map($this->view(...), $records);
+  }
+
+  /**
+   * Counts campaign matches with the same predicates as the bounded read.
+   */
+  public function countDueForCampaign(string $organizationId, ?string $facilityId, ?string $equipmentType, DateTimeImmutable $dueBefore): int
+  {
+    $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, null, $dueBefore)
+      ->andWhere('s.dueStatus IN (:dueStatuses)')->setParameter('dueStatuses', ['due_soon', 'overdue']);
+
+    return (int) $qb->select('COUNT(s.id)')->getQuery()->getSingleScalarResult();
   }
 
   /**
@@ -261,18 +333,10 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
   {
     $limit = max(1, $limit);
     $offset = max(0, $offset);
+    /** @var list<array{id: string, organization_id: string, equipment_id: string, facility_id: ?string, equipment_type: string, interval_override: ?string, last_inspection_closed_at: ?string, next_due_at: ?string, due_status: string, last_reminded_at: ?string, reminded_for: ?string, created_at: string, updated_at: string, evaluated_at: ?string}> $rows */
+    $rows = $this->entityManager->getConnection()->fetchAllAssociative('SELECT * FROM maintenance_schedules ORDER BY id ASC LIMIT ' . $limit . ' OFFSET ' . $offset);
 
-    $qb = $this->entityManager->createQueryBuilder()
-      ->select('s')
-      ->from(MaintenanceScheduleRecord::class, 's')
-      ->orderBy('s.id', 'ASC')
-      ->setFirstResult($offset)
-      ->setMaxResults($limit);
-
-    /** @var list<MaintenanceScheduleRecord> $records */
-    $records = $qb->getQuery()->getResult();
-
-    return new MaintenanceSchedulePage(array_map($this->view(...), $records), 0, $limit, 0);
+    return new MaintenanceSchedulePage(array_map($this->scalarView(...), $rows), 0, $limit, 0);
   }
 
   /**
@@ -290,44 +354,28 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
    */
   public function save(MaintenanceScheduleSnapshot $snapshot): MaintenanceScheduleView
   {
-    $record = null !== $snapshot->id
-      ? $this->entityManager->find(MaintenanceScheduleRecord::class, $snapshot->id)
-      : $this->findRecordByOrganizationAndEquipment($snapshot->organizationId, $snapshot->equipmentId);
-
-    if (null !== $snapshot->id && !$record instanceof MaintenanceScheduleRecord) {
+    $existing = null !== $snapshot->id ? $this->findById($snapshot->id) : $this->findByOrganizationAndEquipment($snapshot->organizationId, $snapshot->equipmentId);
+    if (null !== $snapshot->id && null === $existing) {
       throw MaintenanceNotFoundException::withId($snapshot->id);
     }
-
+    $id = $existing->id ?? $this->uuidFactory->generateRaw();
     $now = new DateTimeImmutable();
-    $isNew = !$record instanceof MaintenanceScheduleRecord;
+    $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO maintenance_schedules (id, organization_id, equipment_id, facility_id, equipment_type, interval_override,
+        last_inspection_closed_at, next_due_at, due_status, last_reminded_at, reminded_for, created_at, updated_at, evaluated_at)
+       VALUES (:id, :organization, :equipment, :facility, :type, :override, :closed, :due, :status, :reminded, :remindedFor, :created, :updated, :evaluated)
+       ON CONFLICT (organization_id, equipment_id) DO UPDATE SET facility_id = EXCLUDED.facility_id, equipment_type = EXCLUDED.equipment_type,
+        interval_override = EXCLUDED.interval_override, last_inspection_closed_at = EXCLUDED.last_inspection_closed_at,
+        next_due_at = EXCLUDED.next_due_at, due_status = EXCLUDED.due_status, last_reminded_at = EXCLUDED.last_reminded_at,
+        reminded_for = EXCLUDED.reminded_for, updated_at = EXCLUDED.updated_at, evaluated_at = EXCLUDED.evaluated_at',
+      ['id' => $id, 'organization' => $snapshot->organizationId, 'equipment' => $snapshot->equipmentId, 'facility' => $snapshot->facilityId,
+        'type' => $snapshot->equipmentType, 'override' => $snapshot->intervalOverride, 'closed' => $snapshot->lastInspectionClosedAt?->format('Y-m-d H:i:s'),
+        'due' => $snapshot->nextDueAt?->format('Y-m-d H:i:s'), 'status' => $snapshot->dueStatus,
+        'reminded' => $snapshot->lastRemindedAt?->format('Y-m-d H:i:s'), 'remindedFor' => $snapshot->remindedFor?->format('Y-m-d H:i:s'),
+        'created' => ($existing->createdAt ?? $now)->format('Y-m-d H:i:s'), 'updated' => $now->format('Y-m-d H:i:s'), 'evaluated' => $snapshot->evaluatedAt?->format('Y-m-d H:i:s')],
+    );
 
-    if ($isNew) {
-      $record = new MaintenanceScheduleRecord();
-      $record->id = $this->uuidFactory->generateRaw();
-      /** @var OrganizationRecord $organization */
-      $organization = $this->entityManager->getReference(OrganizationRecord::class, $snapshot->organizationId);
-      $record->organization = $organization;
-      $record->equipmentId = $snapshot->equipmentId;
-      $record->createdAt = $now;
-    }
-
-    $record->facilityId = $snapshot->facilityId;
-    $record->equipmentType = $snapshot->equipmentType;
-    $record->intervalOverride = $snapshot->intervalOverride;
-    $record->lastInspectionClosedAt = $snapshot->lastInspectionClosedAt;
-    $record->nextDueAt = $snapshot->nextDueAt;
-    $record->dueStatus = $snapshot->dueStatus;
-    $record->lastRemindedAt = $snapshot->lastRemindedAt;
-    $record->remindedFor = $snapshot->remindedFor;
-    $record->updatedAt = $now;
-    $record->evaluatedAt = $snapshot->evaluatedAt;
-
-    if ($isNew) {
-      $this->entityManager->persist($record);
-    }
-    $this->entityManager->flush();
-
-    return $this->view($record);
+    return $this->findByOrganizationAndEquipment($snapshot->organizationId, $snapshot->equipmentId) ?? throw MaintenanceNotFoundException::withId($id);
   }
 
   /**
@@ -344,13 +392,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
    */
   public function removeByOrganizationAndEquipment(string $organizationId, string $equipmentId): void
   {
-    $record = $this->findRecordByOrganizationAndEquipment($organizationId, $equipmentId);
-    if (!$record instanceof MaintenanceScheduleRecord) {
-      return;
-    }
-
-    $this->entityManager->remove($record);
-    $this->entityManager->flush();
+    $this->entityManager->getConnection()->executeStatement('DELETE FROM maintenance_schedules WHERE organization_id = :organization AND equipment_id = :equipment', ['organization' => $organizationId, 'equipment' => $equipmentId]);
   }
 
   /**
@@ -411,26 +453,6 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $records = $qb->getQuery()->getResult();
 
     return array_map($this->exportCandidate(...), $records);
-  }
-
-  /**
-   * Method findRecordByOrganizationAndEquipment.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string $equipmentId the equipment identifier
-   *
-   * @return ?MaintenanceScheduleRecord the record, or null when not found
-   */
-  private function findRecordByOrganizationAndEquipment(string $organizationId, string $equipmentId): ?MaintenanceScheduleRecord
-  {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
-
-    return $this->entityManager->getRepository(MaintenanceScheduleRecord::class)->findOneBy([
-      'organization' => $organization,
-      'equipmentId' => $equipmentId,
-    ]);
   }
 
   /**
@@ -550,6 +572,35 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     }
 
     return $record->organization->id;
+  }
+
+  /**
+   * Maps a detached scalar row without retaining a Doctrine record during worker sweeps.
+   *
+   * @param array{id: string, organization_id: string, equipment_id: string, facility_id: ?string, equipment_type: string, interval_override: ?string, last_inspection_closed_at: ?string, next_due_at: ?string, due_status: string, last_reminded_at: ?string, reminded_for: ?string, created_at: string, updated_at: string, evaluated_at: ?string} $row persisted scalar row
+   *
+   * @return MaintenanceScheduleView current schedule
+   */
+  private function scalarView(array $row): MaintenanceScheduleView
+  {
+    $date = static fn (?string $value): ?DateTimeImmutable => null === $value ? null : new DateTimeImmutable($value);
+
+    return new MaintenanceScheduleView(
+      (string) $row['id'],
+      (string) $row['organization_id'],
+      (string) $row['equipment_id'],
+      $row['facility_id'],
+      (string) $row['equipment_type'],
+      $row['interval_override'],
+      $date($row['last_inspection_closed_at']),
+      $date($row['next_due_at']),
+      (string) $row['due_status'],
+      $date($row['last_reminded_at']),
+      $date($row['reminded_for']),
+      new DateTimeImmutable((string) $row['created_at']),
+      new DateTimeImmutable((string) $row['updated_at']),
+      $date($row['evaluated_at']),
+    );
   }
   // #endregion
 }

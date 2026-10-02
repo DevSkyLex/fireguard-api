@@ -6,6 +6,7 @@ namespace Organization\Application\UseCase\Command\Join\ManageOrganizationJoin;
 
 use DateTimeImmutable;
 use LogicException;
+use Organization\Application\Contract\Member\OrganizationMemberGrant;
 use Organization\Application\Port\Inbound\{OrganizationJoinAccessPort, OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
 use Organization\Application\Port\Outbound\{OrganizationDomainProofPort, OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Port\Outbound\OrganizationJoinNotificationPort;
@@ -409,7 +410,7 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
       }
       $this->assertApprovalAllowed($command, $orgId, $now, $email);
       $request->decide($targetState, $now);
-      $memberAdded = $this->addMember($orgId, $request->userId, $command->roleIds);
+      $memberAdded = $this->addMember($orgId, $request->userId, $command->roleIds, OrganizationMemberGrant::forActor($command->userId));
     } else {
       $request->decide($targetState, $now);
     }
@@ -586,7 +587,7 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
       throw new OrganizationJoinException('organization_join_approval_required');
     }
     $this->access->assertEligibleRole($orgId, $policy->roleId);
-    $memberAdded = $this->addMember($orgId, $command->userId, [$policy->roleId]);
+    $memberAdded = $this->addMember($orgId, $command->userId, [$policy->roleId], OrganizationMemberGrant::automaticJoin($policy->roleId));
     $changed = $memberAdded->wasCreatedOrReactivated;
 
     return new ManageOrganizationJoinResult(['organizationId' => $orgId]);
@@ -598,13 +599,14 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
    * @param string $orgId scope
    * @param string $userId recipient
    * @param list<string> $roles granted roles
+   * @param OrganizationMemberGrant $grant the actor or automatic-policy authorization source
    *
    * @return AddOrganizationMemberResult membership
    */
-  private function addMember(string $orgId, string $userId, array $roles): AddOrganizationMemberResult
+  private function addMember(string $orgId, string $userId, array $roles, OrganizationMemberGrant $grant): AddOrganizationMemberResult
   {
     $this->quota->assertCanAcceptMember($orgId);
-    $result = $this->commands->dispatch(new AddOrganizationMemberCommand($orgId, $userId, $roles, false, false, false, true));
+    $result = $this->commands->dispatch(new AddOrganizationMemberCommand($orgId, $userId, $grant, $roles, false, false, false, true));
     if (!$result instanceof AddOrganizationMemberResult) {
       throw new LogicException('Unexpected member command result.');
     }

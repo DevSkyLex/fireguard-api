@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\AddOrganizationMember;
 
+use Organization\Application\Contract\Member\OrganizationMemberGrant;
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -26,6 +27,7 @@ final readonly class AddOrganizationMemberCommand implements CommandMessage
    *
    * @param string $organizationId the organization identifier
    * @param string $userId the user identifier
+   * @param OrganizationMemberGrant $grant the explicit server-owned authorization source
    * @param list<string> $roleIds the role identifiers to assign
    * @param bool $sendMemberNotification whether to notify the member when access is granted by admin flow
    * @param bool $enforceQuota whether to enforce the member cap in-transaction (false on the accept path, which already counts active-only slots)
@@ -34,6 +36,7 @@ final readonly class AddOrganizationMemberCommand implements CommandMessage
   public function __construct(
     public string $organizationId,
     public string $userId,
+    public OrganizationMemberGrant $grant,
     public array $roleIds = [],
     public bool $sendMemberNotification = true,
     public bool $enforceQuota = true,

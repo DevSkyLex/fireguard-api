@@ -58,6 +58,23 @@ interface AssistantMessageRepositoryPort
   public function listByThread(string $threadId, int $limit, int $offset): array;
 
   /**
+   * Method listCompletedThroughQuestion.
+   *
+   * Returns the most recent completed messages through a completed user question in this thread,
+   * ordered by creation time and identifier ascending. Missing or foreign anchors return no history.
+   *
+   * @access public
+   * @since unreleased
+   *
+   * @param string $threadId the owning thread identifier
+   * @param string $questionMessageId the inclusive user question anchor
+   * @param int $limit maximum number of completed messages to load
+   *
+   * @return list<AssistantMessage> the bounded chronological transcript
+   */
+  public function listCompletedThroughQuestion(string $threadId, string $questionMessageId, int $limit): array;
+
+  /**
    * Method countByThread.
    *
    * @since 1.0.0

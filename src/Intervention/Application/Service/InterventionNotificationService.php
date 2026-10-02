@@ -10,6 +10,7 @@ use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\ValueObject\{OrganizationMemberId, OrganizationNotificationSettings};
+use RuntimeException;
 use Shared\Application\Port\Outbound\{DurableEventContextPort, IdempotentConsumerPort};
 use Throwable;
 
@@ -176,7 +177,7 @@ final readonly class InterventionNotificationService
         }
 
         try {
-          $this->notifications->send(new SendNotificationRequest(
+          $this->deliver(new SendNotificationRequest(
             type: 'intervention.submitted',
             subject: 'Intervention submitted for review',
             body: sprintf('"%s" was submitted and awaits review.', $interventionName),
@@ -185,8 +186,10 @@ final readonly class InterventionNotificationService
             recipientUserId: $reviewerUserId,
             organizationId: $organizationId,
           ));
-        } catch (Throwable) {
-          // Best-effort per recipient: one failed delivery must not starve the others.
+        } catch (Throwable $exception) {
+          if (null !== $this->eventContext->eventId()) {
+            throw $exception;
+          }
         }
       }
     } catch (Throwable $exception) {
@@ -303,7 +306,7 @@ final readonly class InterventionNotificationService
         return;
       }
 
-      $this->notifications->send(new SendNotificationRequest(
+      $this->deliver(new SendNotificationRequest(
         type: 'intervention.comment_mention',
         subject: 'Mentioned in a comment',
         body: 'A teammate mentioned you in an intervention comment.',
@@ -312,8 +315,10 @@ final readonly class InterventionNotificationService
         recipientUserId: $member->userId(),
         organizationId: $organizationId,
       ));
-    } catch (Throwable) {
-      // Notifications must not make a successful intervention mutation fail.
+    } catch (Throwable $exception) {
+      if (null !== $this->eventContext->eventId()) {
+        throw $exception;
+      }
     }
   }
 
@@ -432,7 +437,7 @@ final readonly class InterventionNotificationService
   private function sendReminderToUser(string $userId, SendNotificationRequest $message): void
   {
     try {
-      $this->notifications->send(new SendNotificationRequest(
+      $this->deliver(new SendNotificationRequest(
         type: $message->type,
         subject: $message->subject,
         body: $message->body,
@@ -478,7 +483,7 @@ final readonly class InterventionNotificationService
         return;
       }
 
-      $this->notifications->send(new SendNotificationRequest(
+      $this->deliver(new SendNotificationRequest(
         type: $type,
         subject: $subject,
         body: $body,
@@ -487,8 +492,40 @@ final readonly class InterventionNotificationService
         recipientUserId: $member->userId(),
         organizationId: (string) $member->organizationId(),
       ));
-    } catch (Throwable) {
-      // Notifications must not make a successful intervention mutation fail.
+    } catch (Throwable $exception) {
+      if (null !== $this->eventContext->eventId()) {
+        throw $exception;
+      }
+    }
+  }
+
+  /**
+   * Method deliver
+   *
+   * Uses the outbox event and recipient identity to retain channel acknowledgements across retry.
+   *
+   * @access private
+   *
+   * @param SendNotificationRequest $request one recipient's notification
+   *
+   * @return void
+   */
+  private function deliver(SendNotificationRequest $request): void
+  {
+    $eventId = $this->eventContext->eventId();
+    $sent = $this->notifications->send(new SendNotificationRequest(
+      type: $request->type,
+      subject: $request->subject,
+      body: $request->body,
+      channels: $request->channels,
+      payload: $request->payload,
+      recipientUserId: $request->recipientUserId,
+      recipientEmail: $request->recipientEmail,
+      organizationId: $request->organizationId,
+      idempotencyKey: null === $eventId ? null : $eventId . ':' . $request->type . ':' . ($request->recipientUserId ?? $request->recipientEmail ?? ''),
+    ));
+    if (null !== $eventId && in_array('failed', $sent->channelStatus, true)) {
+      throw new RuntimeException('Intervention notification has a failed channel; durable delivery will retry.');
     }
   }
 

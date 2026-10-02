@@ -28,6 +28,7 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
    * @since 1.0.0
    *
    * @param UserRepositoryPort $userRepository the user repository
+   * @param UserDataPurgePort $dataPurge the auth-side purge and deletion transaction
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository,
@@ -53,15 +54,18 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
   public function __invoke(DeleteUserCommand $command): DeleteUserResult
   {
     $userId = new UserId(value: $command->id);
-    $user = $this->userRepository->findById(id: $userId);
 
-    if (!$user) {
-      throw UserNotFoundException::withId(id: $userId->value);
-    }
+    return $this->dataPurge->withUserLock($userId->value, function () use ($userId): DeleteUserResult {
+      $user = $this->userRepository->findById(id: $userId);
 
-    $this->userRepository->delete(user: $user);
-    $this->dataPurge->purgeForUser($user->id()->value);
+      if (!$user) {
+        throw UserNotFoundException::withId(id: $userId->value);
+      }
 
-    return new DeleteUserResult(userId: $user->id()->value);
+      $this->userRepository->delete(user: $user);
+      $this->dataPurge->purgeForUser($user->id()->value);
+
+      return new DeleteUserResult(userId: $user->id()->value);
+    });
   }
 }

@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Ensure managed labels exist
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         continue-on-error: true
         with:
           github-token: ${{ github.token }}
@@ -76,7 +76,7 @@ jobs:
             }
 
       - name: Apply path-based labels
-        uses: actions/labeler@v6
+        uses: actions/labeler@b8dd2d9be0f68b860e7dae5dae7d772984eacd6d # v6
         continue-on-error: true
         with:
           repo-token: ${{ github.token }}
@@ -84,7 +84,7 @@ jobs:
           sync-labels: true
 
       - name: Apply size and state labels
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         continue-on-error: true
         with:
           github-token: ${{ github.token }}

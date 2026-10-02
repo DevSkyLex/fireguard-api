@@ -347,8 +347,9 @@ sequenceDiagram
 - `/api/auth/mfa/resend` is a no-op (`400 Bad Request`, `errorCode:
 "totp_not_resendable"`) when the active challenge's channel is `totp`,
   since TOTP codes are generated locally and cannot be "resent".
-- If the `TotpEnrollmentCheckPort` check fails for any reason, login falls
-  back to `email` rather than blocking the user.
+- If `TotpEnrollmentCheckPort` fails technically, sign-in fails without generating
+  an email challenge or session credentials. Email MFA is selected only after a
+  successful lookup confirms that no active TOTP factor exists.
 
 ## Integration Examples
 
@@ -430,6 +431,30 @@ Environment variables (see `.env`):
 Service wiring:
 
 - `config/modules/auth.yaml`
+
+## OAuth delegation boundaries
+
+The request scope gate runs after verified authentication and before API providers or
+processors. It intersects OAuth capabilities with the existing RBAC and organization
+checks. READ permits GET/HEAD/OPTIONS; WRITE permits POST/PUT/PATCH; DELETE permits
+DELETE. These capabilities are independent: ADMIN does not imply READ, and WRITE does
+not imply DELETE. The read-only `workload_assess` POST requires READ.
+
+Routed client, tenant, user, permission and role administration resources require
+ADMIN, including organization role assignments. OAuth authorization and consent
+operations also require ADMIN when called using a delegated OAuth bearer. Selection
+uses canonical routed resource and operation metadata, so URL encoding and format
+suffixes cannot alter the required capability. Unknown methods require ADMIN.
+
+Only OAuth UserInfo GET and token introspection/revocation POST are exempt protocol
+operations; their own identity and authentication requirements still apply. A signed
+`auth_session` token with a matching active issuing session retains interactive
+permissions. Delegated OAuth tokens cannot select that exemption.
+
+Password reset/change and email change revoke interactive sessions and all stored
+user-bound OAuth access tokens, linked refresh tokens and unused authorization codes.
+Storage revocation commits atomically before token-cache invalidation; failures
+propagate to the credential workflow.
 
 ## Testing
 

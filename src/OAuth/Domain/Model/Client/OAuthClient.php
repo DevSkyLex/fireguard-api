@@ -35,6 +35,7 @@ final readonly class OAuthClient
    * @param list<GrantType> $grantTypes the grant types
    * @param list<Scope> $scopes the scopes
    * @param string|null $secret the hashed secret (null for public clients)
+   * @param bool $isActive whether the persisted client can issue grants
    * @param bool $isConfidential whether the client is confidential
    */
   public function __construct(
@@ -45,6 +46,7 @@ final readonly class OAuthClient
     private array $scopes = [],
     private ?string $secret = null,
     private bool $isConfidential = true,
+    private bool $isActive = true,
   ) {
   }
   // #endregion
@@ -146,6 +148,18 @@ final readonly class OAuthClient
   public function isConfidential(): bool
   {
     return $this->isConfidential;
+  }
+
+  /**
+   * Method isActive
+   *
+   * @access public
+   *
+   * @return bool whether the client can issue grants
+   */
+  public function isActive(): bool
+  {
+    return $this->isActive;
   }
 
   /**

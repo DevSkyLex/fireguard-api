@@ -154,6 +154,7 @@ final class IssueTokenHandlerTest extends TestCase
       accessToken: 'access_token_value',
       tokenType: 'Bearer',
       expiresIn: 3600,
+      tokenId: 'issued-token-id',
     );
 
     $this->expectNoCalls(
@@ -181,7 +182,7 @@ final class IssueTokenHandlerTest extends TestCase
     $this->eventDispatcher
       ->expects($this->once())
       ->method('dispatch')
-      ->with($this->isInstanceOf(TokenIssuedEvent::class));
+      ->with(self::callback(static fn (TokenIssuedEvent $event): bool => 'issued-token-id' === $event->tokenId));
 
     $result = ($this->handler)($command);
 
@@ -257,6 +258,7 @@ final class IssueTokenHandlerTest extends TestCase
       accessToken: 'access-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
+      tokenId: 'issued-token-id',
       refreshToken: 'refresh-token',
       scope: 'openid profile',
     );
@@ -360,6 +362,7 @@ final class IssueTokenHandlerTest extends TestCase
       accessToken: 'access-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
+      tokenId: 'issued-token-id',
       refreshToken: 'refresh-token',
       scope: null,
     );
@@ -476,6 +479,7 @@ final class IssueTokenHandlerTest extends TestCase
       accessToken: 'access-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
+      tokenId: 'issued-token-id',
       refreshToken: 'refresh-token',
       scope: 'profile email',
     );
@@ -546,6 +550,7 @@ final class IssueTokenHandlerTest extends TestCase
       accessToken: 'access-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
+      tokenId: 'issued-token-id',
       refreshToken: 'refresh-token',
       scope: null,
     );
@@ -632,6 +637,7 @@ final class IssueTokenHandlerTest extends TestCase
       accessToken: 'access-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
+      tokenId: 'issued-token-id',
       refreshToken: 'refresh-token',
       scope: null,
     );
@@ -702,6 +708,7 @@ final class IssueTokenHandlerTest extends TestCase
       accessToken: 'access-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
+      tokenId: 'issued-token-id',
       refreshToken: 'refresh-token',
       scope: 'openid',
     );

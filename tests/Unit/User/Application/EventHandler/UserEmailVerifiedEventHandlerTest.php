@@ -66,7 +66,6 @@ final class UserEmailVerifiedEventHandlerTest extends TestCase
         'User email verified',
         [
           'user_id' => 'user-1',
-          'email' => 'jdoe@example.com',
         ],
       );
     $logger->expects(self::never())
@@ -104,7 +103,8 @@ final class UserEmailVerifiedEventHandlerTest extends TestCase
         ],
       );
     $logger->expects(self::once())
-      ->method('info');
+      ->method('info')
+      ->with('User email verified', ['user_id' => 'user-1']);
 
     $handler = new UserEmailVerifiedEventHandler($notificationPort, $logger);
 

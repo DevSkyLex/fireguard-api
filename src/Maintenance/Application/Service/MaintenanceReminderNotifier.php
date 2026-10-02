@@ -8,7 +8,10 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
+use RuntimeException;
 use Throwable;
+
+use function in_array;
 
 /**
  * Service MaintenanceReminderNotifier.
@@ -16,8 +19,8 @@ use Throwable;
  * Sends a due/overdue inspection reminder to an organization's
  * administrators, honoring the `inspectionDue` category toggle and the
  * `inAppEnabled`/`emailEnabled` channel toggles — mirrors
- * `InterventionNotificationService::send()`/`mentioned()`. Best-effort: a
- * notification failure must never fail the recurring sweep.
+ * `InterventionNotificationService::send()`/`mentioned()`. Failed recipients or
+ * channels propagate to the durable reminder consumer for retry.
  *
  * @category Service
  * @version 1.0.0
@@ -58,6 +61,8 @@ final readonly class MaintenanceReminderNotifier
    */
   public function remind(string $organizationId, string $equipmentId, ?string $facilityId, DateTimeImmutable $nextDueAt, bool $overdue): void
   {
+    $failed = false;
+
     try {
       $policy = $this->policy->notificationPolicy($organizationId);
       if (!$policy->inspectionDue) {
@@ -89,7 +94,7 @@ final readonly class MaintenanceReminderNotifier
 
       foreach ($this->recipients->organizationAdministrators($organizationId) as $userId) {
         try {
-          $this->notifications->send(new SendNotificationRequest(
+          $sent = $this->notifications->send(new SendNotificationRequest(
             type: $type,
             subject: $subject,
             body: $body,
@@ -97,13 +102,19 @@ final readonly class MaintenanceReminderNotifier
             payload: $payload,
             recipientUserId: $userId,
             organizationId: $organizationId,
+            idempotencyKey: 'maintenance:' . $organizationId . ':' . $equipmentId . ':' . $nextDueAt->format('U') . ':' . $userId,
           ));
+          $failed = $failed || in_array('failed', $sent->channelStatus, true)
+            || ([] === $sent->channelStatus && in_array(false, $sent->channelDelivery, true));
         } catch (Throwable) {
-          // Best-effort per recipient: one failed delivery must not skip the rest.
+          $failed = true;
         }
       }
-    } catch (Throwable) {
-      // Notifications must never fail the recurring sweep.
+    } catch (Throwable $exception) {
+      throw new RuntimeException('Maintenance reminder delivery could not resolve its policy or recipients.', 0, $exception);
+    }
+    if ($failed) {
+      throw new RuntimeException('Maintenance reminder has retryable delivery failures.');
     }
   }
   // #endregion

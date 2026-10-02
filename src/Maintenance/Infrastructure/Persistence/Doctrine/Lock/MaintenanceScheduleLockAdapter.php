@@ -7,6 +7,9 @@ namespace Maintenance\Infrastructure\Persistence\Doctrine\Lock;
 use Doctrine\DBAL\Connection;
 use Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort;
 
+use function implode;
+use function usort;
+
 /** Transaction-scoped lock also protects the first insert, before a row exists. */
 final readonly class MaintenanceScheduleLockAdapter implements MaintenanceScheduleLockPort
 {
@@ -49,6 +52,34 @@ final readonly class MaintenanceScheduleLockAdapter implements MaintenanceSchedu
       $this->connection->executeStatement('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', [
         'key' => 'maintenance.schedule.' . $organizationId . '.' . $equipmentId,
       ]);
+
+      return $work();
+    });
+  }
+
+  /**
+   * @template T
+   *
+   * @param list<array{organizationId: string, equipmentId: string}> $scopes lock scopes
+   * @param callable(): T $work operation
+   *
+   * @return T result
+   */
+  public function synchronizedBatch(array $scopes, callable $work): mixed
+  {
+    usort($scopes, static fn (array $left, array $right): int => [$left['organizationId'], $left['equipmentId']] <=> [$right['organizationId'], $right['equipmentId']]);
+
+    return $this->connection->transactional(function () use ($scopes, $work): mixed {
+      $values = [];
+      $parameters = [];
+      foreach ($scopes as $index => $scope) {
+        $values[] = '(:key' . $index . ')';
+        $parameters['key' . $index] = 'maintenance.schedule.' . $scope['organizationId'] . '.' . $scope['equipmentId'];
+      }
+      if ([] !== $values) {
+        $this->connection->executeStatement('SELECT pg_advisory_xact_lock(hashtextextended(lock_key, 0)) FROM
+          (SELECT DISTINCT lock_key FROM (VALUES ' . implode(', ', $values) . ') AS scopes(lock_key) ORDER BY lock_key) ordered_scopes', $parameters);
+      }
 
       return $work();
     });

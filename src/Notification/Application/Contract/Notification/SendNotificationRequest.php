@@ -40,6 +40,7 @@ final readonly class SendNotificationRequest
     public ?string $recipientUserId = null,
     public ?string $recipientEmail = null,
     public ?string $organizationId = null,
+    public ?string $idempotencyKey = null,
   ) {
   }
   // #endregion

@@ -34,6 +34,26 @@ include account roles or roles assigned in another organization.
 - Assign roles to members
 - Evaluate Organization permissions (`Organization.*`, `Organization.members.*`, `Organization.roles.*`)
 
+Member add and invitation use cases resolve the effective role set before enforcing the
+acting user's grant ceiling. Omitted `roleIds` and `[]` both select the default `member`
+role and receive the same check, including re-adds of an already-active member and
+programmatic import/onboarding invitations. Forbidden grants return 403 without persisting
+membership or invitation changes. Foreign role IDs remain 404.
+
+Reactivating an inactive member through Add also restores its retained roles unless
+the internal invitation/join flow explicitly replaces them. The use case checks the
+union of requested and retained roles before activation inside its transaction.
+Dedicated reactivation carries the authenticated actor and applies the same ceiling
+to every retained role. A member manager cannot restore an old administrator's access
+without holding those administrative permissions; owners retain that ability.
+
+Internal membership commands require an explicit server-owned `OrganizationMemberGrant`.
+Approved requests carry their reviewer actor. Acceptance preserves a pending, unexpired
+invitation's exact persisted roles for its current recipient; automatic joins preserve only
+the current eligible policy role. These provenance checks do not re-evaluate the original
+inviter's current permissions. The named operator grant is reserved for the trusted
+break-glass console command and is never mapped from an HTTP DTO.
+
 ## Verified-domain organization access
 
 Organization owns access policies, DNS proofs, discovery, join requests and memberships in `main`. Identity/address possession is consumed through User's published `EmailOwnershipPort`; no cross-database joins or browser-supplied email/domain are accepted. Historical and OAuth-only verification does not establish this capability.

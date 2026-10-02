@@ -26,6 +26,9 @@ services:
   Otp\Application\Port\Inbound\Challenge\OtpChallengePort:
     alias: Otp\Application\Service\OtpChallengeService
 
+  Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort:
+    alias: Otp\Infrastructure\Persistence\Doctrine\Repository\TotpEnrollmentRepository
+
   Otp\Application\Port\Inbound\Totp\TotpStatusPort:
     alias: Otp\Application\Service\TotpStatusService
 

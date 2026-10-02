@@ -41,7 +41,7 @@ final class IdTokenIssuerAdapterTest extends TestCase
       subject: 'user-123',
       audience: 'client-123',
       nonce: 'nonce-456',
-      claims: ['role' => 'admin', '' => 'ignored'],
+      claims: ['role' => 'admin', '' => 'ignored', 'sub' => 'another-user', 'iss' => 'https://untrusted.example', 'aud' => 'another-client', 'exp' => 0, 'jti' => 'overridden', 'nonce' => 'another-nonce'],
     );
 
     $token = $this->parseToken($jwt);
@@ -52,6 +52,7 @@ final class IdTokenIssuerAdapterTest extends TestCase
     self::assertSame('user-123', $claims->get('sub'));
     self::assertSame('nonce-456', $claims->get('nonce'));
     self::assertSame('admin', $claims->get('role'));
+    self::assertNotSame('overridden', $claims->get('jti'));
 
     $issuedAt = $claims->get('iat');
     $expiresAt = $claims->get('exp');

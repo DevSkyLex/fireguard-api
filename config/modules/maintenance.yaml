@@ -16,6 +16,7 @@ services:
     resource: '../../src/Maintenance/Infrastructure/Scheduler'
 
   Maintenance\Infrastructure\EventSubscriber\MaintenanceRecomputeSubscriber: ~
+  Maintenance\Infrastructure\EventSubscriber\MaintenanceReminderSubscriber: ~
 
   Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort:
     alias: Maintenance\Infrastructure\Persistence\Doctrine\Lock\MaintenanceScheduleLockAdapter
@@ -97,9 +98,13 @@ services:
     tags: ['messenger.message_handler']
 
   Maintenance\Application\UseCase\Command\Campaign\GenerateInspectionCampaign\GenerateInspectionCampaignHandler:
+    arguments:
+      $maxCampaignWorkItems: '%maintenance.max_campaign_work_items%'
     tags: ['messenger.message_handler']
 
   Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\RecomputeMaintenanceSchedulesHandler:
+    arguments:
+      $reminders: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']
 
   # Query handlers

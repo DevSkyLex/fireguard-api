@@ -19,6 +19,17 @@ transport. The consuming worker
 republishing every fragment to Mercure as it arrives, and drives the
 message through `pending -> streaming -> complete|failed`.
 
+Generation loads at most 20 completed messages through the queued user question in
+one bounded query, ordered by creation time and identifier. Later questions,
+unfinished replies and foreign-thread anchors are excluded before pagination.
+The prompt retains a contiguous recent suffix totaling at most 24,000 Unicode
+characters of transcript bodies, preserving the complete newest HTTP question
+(maximum 8,000 characters). An unavailable question or oversized internal prompt
+fails with the existing generation failure; it never silently sends a questionless
+or truncated question. System text and the separately bounded business context
+(4,000 characters by default) remain outside the transcript budget. Stored history
+and message-list pagination are unchanged.
+
 ## Status: L2.2 — business-context injection wired (on top of L2.3's Ollama pipeline)
 
 Lot **L2.0** scaffolded this module's touchpoints (autoload, Doctrine

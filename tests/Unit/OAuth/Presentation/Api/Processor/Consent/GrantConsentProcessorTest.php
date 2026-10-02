@@ -55,6 +55,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $this->createStub(AuthorizationServer::class),
       commandBus: $this->createStub(CommandBusPort::class),
       security: $this->createStub(Security::class),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -78,6 +81,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $this->createStub(AuthorizationServer::class),
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -148,6 +154,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $commandBus,
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -177,6 +186,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -205,6 +217,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -245,6 +260,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -282,6 +300,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $commandBus,
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -319,6 +340,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -352,6 +376,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -407,6 +434,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $commandBus,
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -446,6 +476,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -483,6 +516,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -520,6 +556,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -559,6 +598,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -598,6 +640,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -635,6 +680,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -672,6 +720,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $authCodeRepository,
     );
 
@@ -688,6 +739,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $this->createStub(AuthorizationServer::class),
       commandBus: $this->createStub(CommandBusPort::class),
       security: $this->createStub(Security::class),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -704,6 +758,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $this->createStub(AuthorizationServer::class),
       commandBus: $this->createStub(CommandBusPort::class),
       security: $this->createStub(Security::class),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
@@ -728,6 +785,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $this->createStub(AuthorizationServer::class),
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
       rateLimiter: $rateLimiter,
     );
@@ -757,6 +817,9 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
       authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
       rateLimiter: $this->createRateLimiterFactory(limit: 10),
     );
@@ -769,6 +832,64 @@ final class GrantConsentProcessorTest extends TestCase
     );
 
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testRevokedIssuingSessionCannotPersistConsentOrCreateCode(): void
+  {
+    $server = $this->createMock(AuthorizationServer::class);
+    $server->method('validateAuthorizationRequest')->willReturn($this->createStub(AuthorizationRequestInterface::class));
+    $server->expects(self::never())->method('completeAuthorizationRequest');
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::never())->method('dispatch');
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+    $locked = false;
+    $lifecycle = $this->createMock(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class);
+    $lifecycle->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+    $lifecycle->expects(self::once())->method('lockUser')->with('user-123')->willReturnCallback(static function () use (&$locked): void { $locked = true; });
+    $sessions = $this->createMock(\Auth\Application\Port\Outbound\SessionStatusPort::class);
+    $sessions->expects(self::once())->method('activeSessionId')->willReturnCallback(static function () use (&$locked): ?string {
+      self::assertTrue($locked);
+
+      return null;
+    });
+    $processor = new GrantConsentProcessor(
+      authorizationServer: $server,
+      commandBus: $commands,
+      security: $security,
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      scopeRepository: $this->createStub(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class),
+      grantCompletion: new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($lifecycle, $sessions),
+      requestStack: $this->requestStack(),
+    );
+
+    self::assertSame(401, $processor->process($this->createInput(approved: true), $this->createStub(Operation::class))->getStatusCode());
+  }
+
+  #[Test]
+  public function testDisallowedScopeCannotPersistConsentOrCreateCode(): void
+  {
+    $server = $this->createMock(AuthorizationServer::class);
+    $server->method('validateAuthorizationRequest')->willReturn($this->createStub(AuthorizationRequestInterface::class));
+    $server->expects(self::never())->method('completeAuthorizationRequest');
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::never())->method('dispatch');
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+    $scopes = $this->createMock(\League\OAuth2\Server\Repositories\ScopeRepositoryInterface::class);
+    $scopes->expects(self::once())->method('finalizeScopes')->willThrowException(OAuthServerException::invalidScope('ADMIN'));
+    $processor = new GrantConsentProcessor(
+      authorizationServer: $server,
+      commandBus: $commands,
+      security: $security,
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      scopeRepository: $scopes,
+      grantCompletion: $this->grantCompletion(),
+      requestStack: $this->requestStack(),
+    );
+
+    self::assertSame(400, $processor->process($this->createInput(approved: true), $this->createStub(Operation::class))->getStatusCode());
   }
 
   private function createSecurityUser(): SecurityUser
@@ -934,6 +1055,27 @@ final class GrantConsentProcessorTest extends TestCase
 
       }
     };
+  }
+
+  private function grantCompletion(): \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion
+  {
+    $lifecycle = $this->createStub(\OAuth\Application\Port\Outbound\Token\GrantLifecyclePort::class);
+    $lifecycle->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+    $sessions = $this->createStub(\Auth\Application\Port\Outbound\SessionStatusPort::class);
+    $sessions->method('activeSessionId')->willReturn('active-session');
+
+    return new \OAuth\Presentation\Api\Service\AuthorizationGrantCompletion($lifecycle, $sessions);
+  }
+
+  private function requestStack(): \Symfony\Component\HttpFoundation\RequestStack
+  {
+    $request = new \Symfony\Component\HttpFoundation\Request();
+    $request->attributes->set('_fireguard_verified_token_id', 'verified-token-id');
+    $request->attributes->set('_fireguard_verified_token_use', 'auth_session');
+    $requests = new \Symfony\Component\HttpFoundation\RequestStack();
+    $requests->push($request);
+
+    return $requests;
   }
   // #endregion
 }

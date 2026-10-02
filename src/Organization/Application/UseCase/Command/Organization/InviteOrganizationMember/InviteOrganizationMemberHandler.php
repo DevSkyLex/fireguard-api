@@ -9,7 +9,7 @@ use Notification\Application\Contract\Notification\NotificationChannel;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Inbound\{OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
 use Organization\Application\Port\Outbound\InvitationDeliveryQueuePort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
@@ -87,6 +87,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param OrganizationPermissionGrantGuardPort $grantGuard the effective invitation-role grant ceiling
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
@@ -101,6 +102,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     private OrganizationQuotaPort $quota,
     private EventDispatcherPort $eventDispatcher,
     private InvitationDeliveryQueuePort $deliveryQueue,
+    private OrganizationPermissionGrantGuardPort $grantGuard,
     private ?OrganizationSetupPort $setup = null,
   ) {
   }
@@ -134,11 +136,6 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
 
     $existingUser = $this->userRepository->findByEmail($email);
     $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
-    if (null === $command->setupContext) {
-      $this->assertCanInvite($organizationId, $email, $recipientUserId);
-    }
-    $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale()->value);
-
     /** @var list<string> $resolvedRoleIds */
     $resolvedRoleIds = $this->resolveRoleIds($organizationId, $command->roleIds);
 
@@ -152,6 +149,13 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     if (count($roles) !== count($roleIdsAsVo)) {
       throw OrganizationRoleNotFoundException::withId('one-or-more-role-ids');
     }
+
+    $this->grantGuard->assertCanAssignRoles($command->invitedByUserId, $command->organizationId, $resolvedRoleIds);
+
+    if (null === $command->setupContext) {
+      $this->assertCanInvite($organizationId, $email, $recipientUserId);
+    }
+    $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale()->value);
 
     $token = $this->invitationNotifier->generateToken();
     $tokenHash = $this->invitationNotifier->hashToken($token);

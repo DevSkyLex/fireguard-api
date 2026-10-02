@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Import\Application\Port\Outbound;
 
 use Import\Domain\Model\ImportJob\ImportJob;
-use Import\Domain\ValueObject\{ImportJobId, ImportKind};
+use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError};
 
 /**
  * Port ImportJobRepositoryPort.
@@ -39,6 +39,29 @@ interface ImportJobRepositoryPort
    * @return ?ImportJob the import job, or null when not found
    */
   public function findById(ImportJobId $id): ?ImportJob;
+
+  /**
+   * Loads counters without reading any accumulated row report.
+   */
+  public function findForExecution(ImportJobId $id): ?ImportJob;
+
+  /**
+   * @param int $page one-based report page
+   * @param int $itemsPerPage report window, bounded by the adapter
+   *
+   * @return list<ImportRowError> confirmed report rows in file order
+   */
+  public function reportPage(ImportJobId $id, int $page, int $itemsPerPage): array;
+
+  /**
+   * Counts report rows without hydrating them.
+   */
+  public function countReport(ImportJobId $id): int;
+
+  /**
+   * @return list<int> successful simulation row identities for one resume projection
+   */
+  public function confirmedSimulationRows(ImportJobId $id): array;
 
   /**
    * Method listByOrganization.

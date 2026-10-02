@@ -99,11 +99,11 @@ interface InterventionRecurrencePort
    *
    * @param DateTimeImmutable $now the current instant
    * @param int $limit the maximum number of results
-   * @param int $offset the result offset
+   * @param ?string $afterId last processed identifier, null for the first page
    *
    * @return InterventionRecurrencePage the due recurrence page result
    */
-  public function pageDueForMaterialization(DateTimeImmutable $now, int $limit, int $offset): InterventionRecurrencePage;
+  public function pageDueForMaterialization(DateTimeImmutable $now, int $limit, ?string $afterId = null): InterventionRecurrencePage;
 
   /**
    * Method reserveRun.
@@ -113,7 +113,8 @@ interface InterventionRecurrencePort
    * {@see self::markRunSucceeded()} or {@see self::markRunFailed()}. Returns
    * `null` when the pair is already claimed (a previous tick already
    * materialized or is materializing this occurrence), so the caller must
-   * skip the occurrence entirely rather than reprocess it.
+   * skip the occurrence entirely rather than reprocess it. The caller owns one main
+   * transaction covering reservation, full draft, outcome and schedule advance.
    *
    * @since 1.0.0
    *
@@ -123,6 +124,20 @@ interface InterventionRecurrencePort
    * @return ?string the reserved run id, or null when already claimed
    */
   public function reserveRun(string $recurrenceId, DateTimeImmutable $occurrenceDate): ?string;
+
+  /**
+   * Method lockReservedRun
+   *
+   * Locks an ambiguous legacy reservation and its recurrence for explicit operator resolution.
+   * Completed runs return null. The reserved local date must still match the scheduled occurrence.
+   *
+   * @access public
+   *
+   * @param string $runId ambiguous legacy run identifier
+   *
+   * @return ?InterventionRecurrenceView the locked scheduled occurrence
+   */
+  public function lockReservedRun(string $runId): ?InterventionRecurrenceView;
 
   /**
    * Method markRunSucceeded.
