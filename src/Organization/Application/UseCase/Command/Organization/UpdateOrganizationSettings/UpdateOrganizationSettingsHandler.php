@@ -206,6 +206,26 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
    */
   private function applyLegalChanges(Organization $organization, UpdateOrganizationSettingsCommand $command): bool
   {
+    $identityChanged = $this->applyLegalIdentityChanges($organization, $command);
+    $contactChanged = $this->applyLegalContactChanges($organization, $command);
+
+    return $identityChanged || $contactChanged;
+  }
+
+  /**
+   * Method applyLegalIdentityChanges
+   *
+   * Applies independently supplied identity fields, preserving null as omission and empty strings as clearing.
+   *
+   * @access private
+   *
+   * @param Organization $organization the organization aggregate being updated
+   * @param UpdateOrganizationSettingsCommand $command the requested settings changes
+   *
+   * @return bool whether any identity field was supplied
+   */
+  private function applyLegalIdentityChanges(Organization $organization, UpdateOrganizationSettingsCommand $command): bool
+  {
     $changed = false;
     if (null !== $command->country) {
       $organization->changeCountry('' === $command->country ? null : new OrganizationCountry($command->country));
@@ -227,10 +247,29 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
       $organization->changeVatNumber('' === $command->vatNumber ? null : new OrganizationVatNumber($command->vatNumber));
       $changed = true;
     }
+
+    return $changed;
+  }
+
+  /**
+   * Method applyLegalContactChanges
+   *
+   * Replaces the supplied office address and privacy contact, reporting only changes to their normalized values.
+   *
+   * @access private
+   *
+   * @param Organization $organization the organization aggregate being updated
+   * @param UpdateOrganizationSettingsCommand $command the requested settings changes
+   *
+   * @return bool whether an address or contact value changed
+   */
+  private function applyLegalContactChanges(Organization $organization, UpdateOrganizationSettingsCommand $command): bool
+  {
+    $changed = false;
     if (null !== $command->registeredAddress) {
       $previousAddress = $organization->registeredAddress()?->toArray();
       $organization->changeRegisteredAddress(OrganizationRegisteredAddress::fromArray($command->registeredAddress));
-      $changed = $changed || $previousAddress !== $organization->registeredAddress()?->toArray();
+      $changed = $previousAddress !== $organization->registeredAddress()?->toArray();
     }
     if (null !== $command->privacyContactEmail) {
       $previousEmail = $organization->privacyContactEmail()?->__toString();

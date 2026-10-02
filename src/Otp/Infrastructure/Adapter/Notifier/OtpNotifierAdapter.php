@@ -10,8 +10,8 @@ use Otp\Domain\ValueObject\{
   OtpChannel,
   OtpPurpose
 };
+use Otp\Infrastructure\Exception\OtpEmailDeliveryException;
 use Otp\Infrastructure\Notification\OtpNotification;
-use RuntimeException;
 use Shared\Application\Contract\Notification\EmailRequestDetails;
 use Shared\Application\Port\Outbound\RequestOriginPort;
 use Symfony\Component\Mailer\MailerInterface;
@@ -120,7 +120,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
     } catch (Throwable $exception) {
       if (null !== $details?->location) {
         // No previous exception: its message could echo the rendered location into logs.
-        throw new RuntimeException('OTP email delivery failed: ' . $exception::class);
+        throw new OtpEmailDeliveryException('OTP email delivery failed: ' . $exception::class);
       }
 
       throw $exception;

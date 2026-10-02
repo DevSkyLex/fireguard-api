@@ -186,8 +186,16 @@ final readonly class SendNotificationHandler implements CommandHandler
   }
 
   /**
-   * @param list<NotificationChannel> $channels
-   * @param array<string, mixed> $deliveryPayload
+   * Method deliverChannels
+   *
+   * Delivers each enabled channel independently so one transport failure cannot prevent the others.
+   *
+   * @access private
+   *
+   * @param Notification $notification the persisted notification
+   * @param list<NotificationChannel> $channels the normalized requested channels
+   * @param NotificationPreference|null $preference the recipient's optional category preference
+   * @param array<string, mixed> $deliveryPayload the ephemeral per-channel delivery payload
    *
    * @return array<string, bool> delivery outcome for each requested channel
    */
@@ -217,26 +225,53 @@ final readonly class SendNotificationHandler implements CommandHandler
         $channelDelivery[$channel->value] = true;
       } catch (Throwable $exception) {
         $channelDelivery[$channel->value] = false;
-        $context = $channelPayload['context'] ?? null;
-        $privateEmailContext = NotificationChannel::EMAIL === $channel
-          && is_array($context)
-          && ($context['requestDetails'] ?? null) instanceof EmailRequestDetails;
-        $cause = $exception->getPrevious();
-        // Transport errors can echo rendered email content; retain only exception types.
-        $this->logger->warning('Notification channel delivery failed.', [
-          'notificationId' => (string) $notification->id(),
-          'channel' => $channel->value,
-          'type' => $notification->type(),
-          'recipientUserId' => $notification->recipientUserId(),
-          'recipientEmail' => null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
-          'error' => $privateEmailContext ? $exception::class : $exception->getMessage(),
-          'cause' => $privateEmailContext ? (null === $cause ? null : $cause::class) : $cause?->getMessage(),
-        ]);
+        $this->logChannelFailure($notification, $channel, $channelPayload, $exception);
         // Best-effort delivery: notification creation must not fail on channel errors.
       }
     }
 
     return $channelDelivery;
+  }
+
+  /**
+   * Method logChannelFailure
+   *
+   * Retains diagnostic messages for ordinary deliveries but only exception types for private security emails.
+   * Transport messages and their causes can contain rendered request details.
+   *
+   * @access private
+   *
+   * @param Notification $notification the persisted notification whose delivery failed
+   * @param NotificationChannel $channel the failed channel
+   * @param array<string, mixed> $channelPayload the ephemeral payload sent to that channel
+   * @param Throwable $exception the transport failure
+   *
+   * @return void no return value
+   */
+  private function logChannelFailure(Notification $notification, NotificationChannel $channel, array $channelPayload, Throwable $exception): void
+  {
+    $context = $channelPayload['context'] ?? null;
+    $privateEmailContext = NotificationChannel::EMAIL === $channel
+      && is_array($context)
+      && ($context['requestDetails'] ?? null) instanceof EmailRequestDetails;
+    $cause = $exception->getPrevious();
+    if ($privateEmailContext) {
+      $error = $exception::class;
+      $causeDescription = null === $cause ? null : $cause::class;
+    } else {
+      $error = $exception->getMessage();
+      $causeDescription = $cause?->getMessage();
+    }
+
+    $this->logger->warning('Notification channel delivery failed.', [
+      'notificationId' => (string) $notification->id(),
+      'channel' => $channel->value,
+      'type' => $notification->type(),
+      'recipientUserId' => $notification->recipientUserId(),
+      'recipientEmail' => null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
+      'error' => $error,
+      'cause' => $causeDescription,
+    ]);
   }
 
   /**

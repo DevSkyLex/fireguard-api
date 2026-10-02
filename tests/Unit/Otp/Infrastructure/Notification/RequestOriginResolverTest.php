@@ -48,6 +48,30 @@ final class RequestOriginResolverTest extends TestCase
   }
 
   #[Test]
+  public function testItKeepsTheMainRequestOriginWhenASubrequestIsActive(): void
+  {
+    $stack = $this->stackWith(self::CHROME_ON_WINDOWS);
+    $mainRequest = $stack->getMainRequest();
+    self::assertNotNull($mainRequest);
+    $mainRequest->server->set('REMOTE_ADDR', '8.8.8.8');
+    $mainRequest->setLocale('es');
+
+    $subrequest = Request::create('/internal', 'GET', server: ['REMOTE_ADDR' => '1.1.1.1']);
+    $subrequest->headers->set('User-Agent', 'Mozilla/5.0 (Linux) Firefox/127.0');
+    $subrequest->setLocale('fr');
+    $stack->push($subrequest);
+    $resolver = new RequestOriginResolver($stack);
+
+    self::assertSame(['browser' => 'Chrome', 'operatingSystem' => 'Windows'], $resolver->resolve());
+    $origin = $resolver->current();
+    self::assertNotNull($origin);
+    self::assertSame('8.8.8.8', $origin->ipAddress);
+    self::assertSame('es', $origin->locale);
+    self::assertSame('Chrome', $origin->browser);
+    self::assertSame('Windows', $origin->operatingSystem);
+  }
+
+  #[Test]
   public function testItReturnsNullWhenNothingIsRecognised(): void
   {
     self::assertNull(new RequestOriginResolver($this->stackWith('curl/8.4.0'))->resolve());

@@ -7,8 +7,8 @@ namespace Shared\Infrastructure\Adapter\GeoIp;
 use DateTimeImmutable;
 use DateTimeZone;
 use MaxMind\Db\Reader;
-use RuntimeException;
 use Shared\Application\Port\Outbound\ClockPort;
+use Shared\Infrastructure\Exception\GeoIpDatabaseException;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Lock\{LockFactory, Store\FlockStore};
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -39,6 +39,8 @@ use function strtolower;
 use function tempnam;
 
 /**
+ * Class DbIpDatabaseUpdaterAdapter
+ *
  * Bounded, locked download and atomic replacement of the monthly DB-IP Lite database.
  *
  * @category Infrastructure
@@ -50,11 +52,19 @@ final readonly class DbIpDatabaseUpdaterAdapter
 {
   // #region Constants
   /**
+   * Constant MAX_ARCHIVE_BYTES
+   *
+   * Caps compressed payloads at 256 MiB by default.
+   *
    * @since 1.0.0
    */
   private const int MAX_ARCHIVE_BYTES = 268435456;
 
   /**
+   * Constant MAX_DATABASE_BYTES
+   *
+   * Caps expanded payloads at 1 GiB by default.
+   *
    * @since 1.0.0
    */
   private const int MAX_DATABASE_BYTES = 1073741824;
@@ -62,6 +72,11 @@ final readonly class DbIpDatabaseUpdaterAdapter
 
   // #region Constructor
   /**
+   * Method __construct
+   *
+   * Configures bounded maintenance without exposing a download client to request lookups.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param HttpClientInterface $client download client, never used by request lookups
@@ -69,6 +84,8 @@ final readonly class DbIpDatabaseUpdaterAdapter
    * @param string $databasePath private persistent database file
    * @param int $maxArchiveBytes compressed download limit
    * @param int $maxDatabaseBytes expanded database limit
+   *
+   * @return void
    */
   public function __construct(
     private HttpClientInterface $client,
@@ -82,6 +99,11 @@ final readonly class DbIpDatabaseUpdaterAdapter
 
   // #region Methods
   /**
+   * Method update
+   *
+   * Serializes monthly replacement and retains the installed file when candidate validation fails.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param bool $force replace even when the current month's edition is already installed
@@ -96,7 +118,7 @@ final readonly class DbIpDatabaseUpdaterAdapter
     // The lock lives on the database volume, shared by concurrent one-shot containers.
     $lock = new LockFactory(new FlockStore($directory))->createLock('dbip-update-' . hash('sha256', $this->databasePath));
     if (!$lock->acquire()) {
-      throw new RuntimeException('Another GeoIP update is running.');
+      throw new GeoIpDatabaseException('Another GeoIP update is running.');
     }
 
     $archive = null;
@@ -119,7 +141,7 @@ final readonly class DbIpDatabaseUpdaterAdapter
       $this->download($month, $archive);
       $this->expand($archive, $expanded);
       if ($this->inspect($expanded)->format('Y-m') !== $month) {
-        throw new RuntimeException('The downloaded database does not match the requested release.');
+        throw new GeoIpDatabaseException('The downloaded database does not match the requested release.');
       }
 
       chmod($expanded, 0640);
@@ -138,6 +160,11 @@ final readonly class DbIpDatabaseUpdaterAdapter
   }
 
   /**
+   * Method databaseBuild
+   *
+   * Validates the installed local file without downloading or using request addresses.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @return DateTimeImmutable validated database build time for operational monitoring
@@ -148,6 +175,11 @@ final readonly class DbIpDatabaseUpdaterAdapter
   }
 
   /**
+   * Method temporaryFile
+   *
+   * Allocates candidates on the destination filesystem so publication can remain atomic.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param string $directory private directory on the same filesystem as the destination
@@ -158,13 +190,18 @@ final readonly class DbIpDatabaseUpdaterAdapter
   {
     $file = tempnam($directory, '.dbip-');
     if (false === $file || realpath(dirname($file)) !== realpath($directory)) {
-      throw new RuntimeException('Cannot allocate a GeoIP temporary file.');
+      throw new GeoIpDatabaseException('Cannot allocate a GeoIP temporary file.');
     }
 
     return $file;
   }
 
   /**
+   * Method download
+   *
+   * Streams only the official monthly HTTPS archive under fixed time and byte limits.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param string $month UTC release month
@@ -185,12 +222,12 @@ final readonly class DbIpDatabaseUpdaterAdapter
 
     try {
       if (200 !== $response->getStatusCode()) {
-        throw new RuntimeException('The monthly DB-IP download is unavailable.');
+        throw new GeoIpDatabaseException('The monthly DB-IP download is unavailable.');
       }
 
       $handle = fopen($archive, 'wb');
       if (false === $handle) {
-        throw new RuntimeException('Cannot write the GeoIP archive.');
+        throw new GeoIpDatabaseException('Cannot write the GeoIP archive.');
       }
 
       $bytes = 0;
@@ -198,7 +235,7 @@ final readonly class DbIpDatabaseUpdaterAdapter
         $content = $chunk->getContent();
         $bytes += strlen($content);
         if ($bytes > $this->maxArchiveBytes || strlen($content) !== fwrite($handle, $content)) {
-          throw new RuntimeException('The GeoIP archive exceeds its limit or could not be written.');
+          throw new GeoIpDatabaseException('The GeoIP archive exceeds its limit or could not be written.');
         }
       }
     } finally {
@@ -210,6 +247,11 @@ final readonly class DbIpDatabaseUpdaterAdapter
   }
 
   /**
+   * Method expand
+   *
+   * Streams bounded decompression and verifies archive integrity before publication.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param string $archive downloaded gzip archive
@@ -220,7 +262,7 @@ final readonly class DbIpDatabaseUpdaterAdapter
   private function expand(string $archive, string $expanded): void
   {
     if ("\x1f\x8b" !== file_get_contents($archive, false, null, 0, 2)) {
-      throw new RuntimeException('The GeoIP download is not a gzip archive.');
+      throw new GeoIpDatabaseException('The GeoIP download is not a gzip archive.');
     }
 
     $input = gzopen($archive, 'rb');
@@ -233,7 +275,7 @@ final readonly class DbIpDatabaseUpdaterAdapter
         fclose($output);
       }
 
-      throw new RuntimeException('Cannot expand the GeoIP archive.');
+      throw new GeoIpDatabaseException('Cannot expand the GeoIP archive.');
     }
 
     try {
@@ -243,22 +285,18 @@ final readonly class DbIpDatabaseUpdaterAdapter
       while (!gzeof($input)) {
         $content = @gzread($input, 1048576);
         if (false === $content) {
-          throw new RuntimeException('The GeoIP gzip stream is corrupt.');
+          throw new GeoIpDatabaseException('The GeoIP gzip stream is corrupt.');
         }
         if ('' === $content) {
           break;
         }
         $bytes += strlen($content);
         if (hrtime(true) > $deadline || $bytes > $this->maxDatabaseBytes || strlen($content) !== fwrite($output, $content)) {
-          throw new RuntimeException('The expanded GeoIP database exceeds its limit or could not be written.');
+          throw new GeoIpDatabaseException('The expanded GeoIP database exceeds its limit or could not be written.');
         }
         hash_update($checksum, $content);
       }
-      $trailer = file_get_contents($archive, false, null, -8);
-      $expected = pack('V', (int) hexdec(hash_final($checksum))) . pack('V', $bytes);
-      if ($trailer !== $expected) {
-        throw new RuntimeException('The GeoIP gzip checksum or length is invalid.');
-      }
+      $this->verifyGzipTrailer($archive, $bytes, hash_final($checksum));
     } finally {
       gzclose($input);
       fclose($output);
@@ -266,6 +304,33 @@ final readonly class DbIpDatabaseUpdaterAdapter
   }
 
   /**
+   * Method verifyGzipTrailer
+   *
+   * Verifies integrity against the streamed payload before the candidate database is published.
+   *
+   * @access private
+   *
+   * @param string $archive downloaded gzip archive
+   * @param int $bytes expanded payload length in bytes
+   * @param string $checksum hexadecimal CRC32 of the expanded payload
+   *
+   * @return void
+   */
+  private function verifyGzipTrailer(string $archive, int $bytes, string $checksum): void
+  {
+    $trailer = file_get_contents($archive, false, null, -8);
+    $expected = pack('V', (int) hexdec($checksum)) . pack('V', $bytes);
+    if ($trailer !== $expected) {
+      throw new GeoIpDatabaseException('The GeoIP gzip checksum or length is invalid.');
+    }
+  }
+
+  /**
+   * Method inspect
+   *
+   * Checks local metadata and both address-family search paths before accepting a database.
+   *
+   * @access private
    * @since 1.0.0
    *
    * @param string $path candidate MMDB file
@@ -279,7 +344,7 @@ final readonly class DbIpDatabaseUpdaterAdapter
     try {
       $metadata = $reader->metadata();
       if ('dbip-city-lite' !== strtolower($metadata->databaseType) || 6 !== $metadata->ipVersion || $metadata->buildEpoch > $this->clock->now()->getTimestamp()) {
-        throw new RuntimeException('Unexpected GeoIP database metadata.');
+        throw new GeoIpDatabaseException('Unexpected GeoIP database metadata.');
       }
       // Exercise both search paths before publishing; no user IP participates in validation.
       $reader->get('8.8.8.8');

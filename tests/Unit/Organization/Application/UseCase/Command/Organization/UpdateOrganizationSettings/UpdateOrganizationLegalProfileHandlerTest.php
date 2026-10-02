@@ -19,6 +19,71 @@ final class UpdateOrganizationLegalProfileHandlerTest extends TestCase
 {
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440010';
 
+  /**
+   * Method testMixedLegalIdentityAndContactPatchPreservesIndependentFields
+   *
+   * Verifies that an identity change cannot short-circuit the contact update and later omission preserves the populated profile.
+   *
+   * @access public
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testMixedLegalIdentityAndContactPatchPreservesIndependentFields(): void
+  {
+    $organization = $this->organization();
+    $repository = $this->createMock(OrganizationRepositoryPort::class);
+    $repository->method('findById')->willReturn($organization);
+    $repository->expects(self::exactly(3))->method('save')->with($organization);
+    $transaction = $this->createMock(TransactionManagerPort::class);
+    $transaction->expects(self::exactly(3))->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+    $dispatcher = $this->createMock(EventDispatcherPort::class);
+    $dispatcher->expects(self::exactly(2))->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof OrganizationSettingsUpdatedEvent
+        && self::ORGANIZATION_ID === $event->organizationId
+        && ['legal'] === $event->changedFields,
+    ));
+    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher);
+
+    $handler(new UpdateOrganizationSettingsCommand(
+      organizationId: self::ORGANIZATION_ID,
+      country: 'fr',
+      legalType: 'limited_liability_company',
+      legalName: 'Fireguard Paris SARL',
+      registrationNumber: 'RCS PARIS 812345678',
+      vatNumber: 'FR12345678901',
+      registeredAddress: ['city' => ' Paris ', 'countryCode' => 'fr'],
+      privacyContactEmail: ' privacy@example.com ',
+    ));
+    $expectedAddress = ['line1' => null, 'line2' => null, 'postalCode' => null, 'city' => 'Paris', 'region' => null, 'countryCode' => 'FR'];
+    $this->assertProfile($organization, $expectedAddress, 'privacy@example.com');
+
+    $handler(new UpdateOrganizationSettingsCommand(
+      organizationId: self::ORGANIZATION_ID,
+      country: null,
+      registeredAddress: null,
+      privacyContactEmail: null,
+    ));
+    self::assertSame('FR', (string) $organization->country());
+    self::assertSame('limited_liability_company', $organization->legalType()?->value);
+    self::assertSame('Fireguard Paris SARL', $organization->legalName());
+    self::assertSame('RCS PARIS 812345678', (string) $organization->registrationNumber());
+    self::assertSame('FR12345678901', (string) $organization->vatNumber());
+    $this->assertProfile($organization, $expectedAddress, 'privacy@example.com');
+
+    $handler(new UpdateOrganizationSettingsCommand(
+      organizationId: self::ORGANIZATION_ID,
+      country: '',
+      privacyContactEmail: '',
+    ));
+    self::assertNull($organization->country());
+    self::assertSame('Fireguard Paris SARL', $organization->legalName());
+    self::assertSame('limited_liability_company', $organization->legalType()?->value);
+    self::assertSame('RCS PARIS 812345678', (string) $organization->registrationNumber());
+    self::assertSame('FR12345678901', (string) $organization->vatNumber());
+    $this->assertProfile($organization, $expectedAddress, null);
+  }
+
   #[Test]
   public function testReplacementOmissionClearAndReplayPreserveTheEventGuarantee(): void
   {
