@@ -7,8 +7,8 @@ to the task. Plans should make the intended result, decisions, changes and valid
 these are useful information, not mandatory headings. Use Mermaid, tables and other Markdown
 when they help explain a relationship, comparison or sequence. There is no required format,
 quota or need to justify the absence of a visual. Follow the user's language and explicit
-format or brevity requests. See the [planning guide](docs/guides/planning.md) for guidance
-and examples when preparing a plan or clarifying a complex change.
+format or brevity requests. Use [fg-api-plan](.agents/skills/fg-api-plan/SKILL.md) when preparing or revising a plan.
+AI-facing procedures belong in `.agents` or the appropriate tooling directories, outside `docs/`.
 
 ## Git naming
 

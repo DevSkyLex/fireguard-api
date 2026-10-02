@@ -10,6 +10,11 @@ to list and revoke sessions.
 
 ## API Endpoints
 
+`SessionOutput` includes nullable `country` (ISO country code) and `city` in the read group.
+Listing remains scoped to the authenticated account. Reading a foreign or missing session by ID
+returns the same 404, including for callers with the coarse `sessions.read` permission.
+
+
 | Resource | Method | Path                          | Description                                                             |
 | -------- | ------ | ----------------------------- | ----------------------------------------------------------------------- |
 | Session  | GET    | `/api/sessions`               | List active sessions for the current user                               |
@@ -19,6 +24,19 @@ to list and revoke sessions.
 | Session  | POST   | `/api/sessions/revoke-others` | Revoke every session except the current one; returns `{ revokedCount }` |
 
 ## Flows
+
+### Sign-in location and erasure
+
+`CreateSessionHandler` snapshots server-side GeoIP once, overriding supplied country/city even
+when the lookup returns null. It reuses auth JSON `SessionMetadata`; no schema migration or
+legacy backfill occurs. Reads and token rotations do not recalculate geography.
+The aggregate clears geography on revoke, including an idempotent revoke. Persistence performs
+individual and bulk revocation/erasure atomically, preserving current token pairs and unrelated
+JSON metadata. Conditional token rotation cannot revive a revoked row.
+`app:geoip:purge-session-locations` clears retained geography of already revoked rows at deployment
+and daily. Its CLI-only `--user-id=<verified UUID>` also erases active snapshots for a manually
+authorized rights request. It returns counts without exposing account IDs or geography.
+
 
 ### Track Session (Command)
 
@@ -142,9 +160,19 @@ An unresolved current session cannot silently turn revoke-others into revoke-all
 
 ## Configuration
 
+Collection shares the disabled-by-default Shared GeoIP configuration. Session storage and the
+purge handler use the explicitly wired auth entity manager. Ansible schedules existing
+`app:cleanup:auth-data` daily; the current 90-day inactivity policy requires operator justification.
+
+
 - Service wiring: `config/modules/session.yaml`
 
 ## Testing
+
+GeoIP coverage proves creation override, owner-only API projection, no read/renewal lookup,
+all revocation scopes, preserved device metadata and PostgreSQL token-rotation races. Legacy
+revoked-location cleanup and account-specific erasure are tested against PostgreSQL.
+
 
 - Unit: `tests/Unit/Session`
 - Integration: `tests/Integration/Session` (Doctrine repository, executed against a

@@ -1,10 +1,22 @@
 {# Common PDF layout for generated documents (dompdf, A4 portrait).
 
    Expects in context:
-   - org: { name, logoDataUri?, legalName?, registrationNumber?, vatNumber? }
+   - org: { name, logoDataUri?, legalName?, registrationNumber?, vatNumber?, registeredAddress? }
    - lang: two-letter translation language (catalog domain "pdf", fallback "en")
    - generatedAtFormatted: generation date/time already formatted per the
      organization regional settings (timezone + date format)
+
+   Visual language mirrors the web app (fireguard-web DESIGN.md): neutral zinc
+   ramp, hairline separators instead of boxed cells, status pills that always
+   carry a text label, vermilion reserved for the Fireguard mark. Hex values are
+   the sRGB conversions of the `src/styles.css` oklch tokens; status text uses a
+   darker shade of each status hue so small print keeps a 5:1+ contrast on its
+   tint. Typeface stays DejaVu Sans: dompdf cannot read the variable Geist the
+   app ships, and DejaVu covers the Unicode of organization-supplied data.
+
+   dompdf is CSS 2.1 plus a few CSS3 bits: no flexbox, no grid, no custom
+   properties. Layout is tables, rounding uses border-radius on blocks and
+   inline-blocks only (it is ignored on collapsed table cells).
 
    Page numbering ("X / Y") is stamped by the renderer adapters through
    dompdf's canvas `page_text()` ({PAGE_NUM}/{PAGE_COUNT} substitution) at
@@ -12,15 +24,24 @@
    off). CSS `counter(pages)` was measured to render 0 in dompdf 3.x, hence
    the canvas technique. The logo, when present, is a base64 data URI:
    remote loading (`isRemoteEnabled`) also stays off. #}
+{# Reserve extra space only for unusually long legal profiles; fixed footers do not
+   participate in body pagination. Keep their right edge clear of canvas page numbers. #}
+{% set footerTextLength = (org.legalName|default(''))|length + (org.registrationNumber|default(''))|length + (org.vatNumber|default(''))|length %}
+{% for field in ['line1', 'line2', 'postalCode', 'city', 'region', 'countryCode'] %}
+  {% set footerTextLength = footerTextLength + (org.registeredAddress[field]|default(''))|length %}
+{% endfor %}
+{% set extraFooterBlocks = ((footerTextLength - 400) / 100)|round(0, 'ceil') %}
+{% set footerMargin = footerTextLength > 400 ? min(300, 132 + extraFooterBlocks * 20) : (org.registeredAddress|default(null) is not empty ? 132 : 88) %}
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
   <title>{% block title %}{% endblock %}</title>
   <style>
-    @page { margin: 96px 48px 88px 48px; }
-    * { margin: 0; padding: 0; }
-    body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #1f2933; }
+    @page { margin: 96px 48px {{ footerMargin }}px 48px; }
+    /* Do not reset html/page: Dompdf also applies universal margins to its page frame. */
+    body, div, h1, h2, p, table, tr, td, th { margin: 0; padding: 0; }
+    body { font-family: DejaVu Sans, sans-serif; font-size: 10px; line-height: 1.4; color: #09090b; }
 
     .pdf-header {
       position: fixed;
@@ -28,40 +49,87 @@
       left: 0;
       right: 0;
       height: 48px;
-      border-bottom: 2px solid #1f2933;
+      border-bottom: 1px solid #d4d4d8;
       padding-bottom: 6px;
     }
     .pdf-header table { width: 100%; border-collapse: collapse; }
     .pdf-header td { border: none; padding: 0; vertical-align: middle; }
     .pdf-header .logo-cell { width: 56px; }
     .pdf-header .logo-cell img { max-height: 40px; max-width: 48px; }
-    .pdf-header .org-name { font-size: 13px; font-weight: bold; }
-    .pdf-header .doc-title { text-align: right; font-size: 10px; color: #52606d; text-transform: uppercase; letter-spacing: 0.06em; }
+    .pdf-header .org-name { font-size: 12px; font-weight: bold; color: #09090b; }
+    .pdf-header .doc-title { text-align: right; font-size: 8px; font-weight: bold; color: #71717b; text-transform: uppercase; letter-spacing: 0.08em; }
 
     .pdf-footer {
       position: fixed;
-      bottom: -64px;
+      bottom: -{{ footerMargin - 24 }}px;
       left: 0;
-      right: 0;
-      border-top: 1px solid #cbd2d9;
+      right: 80px;
+      border-top: 1px solid #e4e4e7;
       padding-top: 5px;
-      font-size: 8px;
-      color: #7b8794;
+      font-size: 7.5px;
+      line-height: 1.4;
+      color: #71717b;
     }
     .pdf-footer table { width: 100%; border-collapse: collapse; }
-    .pdf-footer td { border: none; padding: 0; vertical-align: top; }
+    .pdf-footer td { border: none; padding: 0; vertical-align: top; overflow-wrap: anywhere; }
+    .pdf-footer td.brand { width: 62px; text-align: right; vertical-align: bottom; white-space: nowrap; font-weight: bold; color: #09090b; }
+    .pdf-footer td.brand img { width: 11px; height: 9px; margin-right: 3px; vertical-align: middle; }
 
-    h1 { font-size: 16px; margin-bottom: 4px; }
-    h2 { font-size: 12px; margin-top: 16px; margin-bottom: 6px; border-bottom: 1px solid #cbd2d9; padding-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; color: #323f4b; }
-    .meta { color: #52606d; margin-bottom: 12px; margin-top: 6px; }
-    .meta table { border-collapse: collapse; }
-    .meta td { border: none; padding: 1px 0; }
-    .meta td.meta-label { padding-right: 12px; color: #7b8794; }
+    h1 { font-size: 18px; font-weight: bold; line-height: 1.2; letter-spacing: -0.01em; margin-bottom: 4px; color: #09090b; }
+    h2 { font-size: 11px; font-weight: bold; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #e4e4e7; padding-bottom: 5px; color: #09090b; }
+    h2 .count { font-weight: normal; color: #71717b; }
+
+    /* Property list: label column + value, hairline rows inside one rounded surface. */
+    .meta { margin-top: 10px; margin-bottom: 14px; padding: 2px 12px; border: 1px solid #e4e4e7; border-radius: 6px; color: #09090b; }
+    .meta table { width: 100%; border-collapse: collapse; }
+    .meta td { border: none; border-bottom: 1px solid #e4e4e7; padding: 5px 0; vertical-align: top; }
+    .meta tr:last-child td { border-bottom: none; }
+    .meta td.meta-label { width: 28%; padding-right: 12px; font-size: 9px; color: #71717b; }
+
     table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-    table.data th, table.data td { border: 1px solid #cbd2d9; padding: 4px 6px; text-align: left; }
-    table.data th { background-color: #f5f7fa; text-transform: uppercase; font-size: 8px; letter-spacing: 0.04em; color: #52606d; }
-    .doc-note { margin-top: 16px; font-size: 8px; color: #7b8794; }
-    .empty { color: #7b8794; font-style: italic; }
+    table.data thead { display: table-header-group; }
+    table.data tr { page-break-inside: avoid; }
+    table.data th { background-color: #f4f4f5; border-bottom: 1px solid #d4d4d8; padding: 5px 8px; text-align: left; font-size: 7.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: #52525b; }
+    table.data td { border-bottom: 1px solid #e4e4e7; padding: 6px 8px; text-align: left; vertical-align: top; font-size: 9px; }
+    table.data th:first-child, table.data td:first-child { padding-left: 4px; }
+    table.data th:last-child, table.data td:last-child { padding-right: 4px; }
+
+    table.data th.num, table.data td.num { text-align: right; }
+    table.data td.nowrap { white-space: nowrap; }
+    table.data th.num + th, table.data td.num + td { padding-left: 16px; }
+
+    /* KPI band: one bordered tile per figure, label above value (the web app's StatTile). */
+    table.stats { width: 100%; margin-bottom: 10px; border-collapse: separate; border-spacing: 0; }
+    table.stats td { vertical-align: top; }
+    table.stats td.stat { padding: 8px 10px; border: 1px solid #e4e4e7; border-radius: 6px; }
+    table.stats td.gap { width: 1.5%; padding: 0; border: none; }
+    .stat-label { font-size: 7.5px; color: #71717b; }
+    .stat-value { margin-top: 3px; font-size: 16px; font-weight: bold; line-height: 1.1; color: #09090b; }
+    .stat-value.zero { color: #a1a1aa; }
+
+    .empty { padding: 9px 12px; border: 1px dashed #d4d4d8; border-radius: 6px; font-size: 9px; color: #71717b; }
+    .doc-note { margin-top: 18px; padding-top: 8px; border-top: 1px solid #e4e4e7; font-size: 7.5px; color: #71717b; }
+    .doc-note + .doc-note { margin-top: 4px; padding-top: 0; border-top: none; }
+
+    /* Status pill: tinted fill, dark text of the same hue, label always present. */
+    .pill { display: inline-block; padding: 1px 6px; border: 1px solid transparent; border-radius: 8px; font-size: 7.5px; font-weight: bold; line-height: 1.3; white-space: nowrap; }
+    .pill-destructive { background-color: #ffe7e0; color: #b30000; }
+    .pill-warning { background-color: #ffeeda; color: #953600; }
+    .pill-success { background-color: #e1fbed; color: #006d42; }
+    .pill-info { background-color: #e0f8ff; color: #006485; }
+    .pill-muted { background-color: #f4f4f5; border-color: #e4e4e7; color: #52525b; }
+    .chip { display: inline-block; padding: 1px 6px; margin-right: 3px; border: 1px solid #d4d4d8; border-radius: 8px; font-size: 7.5px; color: #3f3f46; }
+
+    /* Status dot paired with a count or a legend entry. */
+    .dot { display: inline-block; width: 5px; height: 5px; margin-right: 3px; border-radius: 3px; background-color: #a1a1aa; vertical-align: 1px; }
+    .dot-destructive { background-color: #e7000b; }
+    .dot-warning { background-color: #e17100; }
+    .dot-success { background-color: #009966; }
+    .dot-info { background-color: #0092b8; }
+    .dot-muted { background-color: #a1a1aa; }
+    .legend { margin-bottom: 6px; font-size: 7.5px; color: #71717b; }
+    .legend span.item { margin-right: 10px; white-space: nowrap; }
+    .zero { color: #a1a1aa; }
     {% block styles %}{% endblock %}
   </style>
 </head>
@@ -81,7 +149,7 @@
   <div class="pdf-footer">
     <table>
       <tr>
-        <td>
+        <td colspan="2">
           {%- set legalParts = [] -%}
           {%- if org.legalName is defined and org.legalName is not empty -%}
             {%- set legalParts = legalParts|merge([org.legalName]) -%}
@@ -95,8 +163,22 @@
           {%- if legalParts is not empty -%}
             <div>{{ legalParts|join(' · ') }}</div>
           {%- endif -%}
-          <div>{{ 'layout.generatedAt'|trans({ '%date%': generatedAtFormatted }, 'pdf', lang) }}</div>
+          {%- set addressParts = [] -%}
+          {%- if org.registeredAddress is defined and org.registeredAddress is not empty -%}
+            {%- for field in ['line1', 'line2', 'postalCode', 'city', 'region', 'countryCode'] -%}
+              {%- if org.registeredAddress[field]|default('') is not empty -%}
+                {%- set addressParts = addressParts|merge([org.registeredAddress[field]]) -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endif -%}
+          {%- if addressParts is not empty -%}
+            <div>{{ 'layout.registeredAddress'|trans({}, 'pdf', lang) }} : {{ addressParts|join(', ') }}</div>
+          {%- endif -%}
         </td>
+      </tr>
+      <tr>
+        <td>{{ 'layout.generatedAt'|trans({ '%date%': generatedAtFormatted }, 'pdf', lang) }}</td>
+        <td class="brand"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjIgMTQgOTIgNzQiIGZpbGw9IiNGNDUxMUUiPjxwYXRoIGQ9Ik00IDQ3UTQgNDAgOC45NSAzNS4wNUwyMy4wNSAyMC45NVEyOCAxNiAzNSAxNmgyUTQ0IDE2IDM5LjA1IDIwLjk1TDI0Ljk1IDM1LjA1UTIwIDQwIDIwIDQ3djE2UTIwIDcwIDE1LjA1IDc0Ljk1TDguOTUgODEuMDVRNCA4NiA0IDc5VjQ3WiIvPjxwYXRoIGQ9Ik0yOCA0N1EyOCA0MCAzMi45NSAzNS4wNUw0Ny4wNSAyMC45NVE1MiAxNiA1OSAxNmgyUTY4IDE2IDYzLjA1IDIwLjk1TDQ4Ljk1IDM1LjA1UTQ0IDQwIDQ0IDQ3djE2UTQ0IDcwIDM5LjA1IDc0Ljk1TDMyLjk1IDgxLjA1UTI4IDg2IDI4IDc5VjQ3WiIvPjxwYXRoIGQ9Ik01MiA0N1E1MiA0MCA1Ni45NSAzNS4wNUw3MS4wNSAyMC45NVE3NiAxNiA4MyAxNmgyUTkyIDE2IDg3LjA1IDIwLjk1TDcyLjk1IDM1LjA1UTY4IDQwIDY4IDQ3djE2UTY4IDcwIDYzLjA1IDc0Ljk1TDU2Ljk1IDgxLjA1UTUyIDg2IDUyIDc5VjQ3WiIvPjwvc3ZnPg==" alt="">Fireguard</td>
       </tr>
     </table>
   </div>

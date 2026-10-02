@@ -8,8 +8,10 @@ use Auth\Application\Port\Outbound\TokenRevocationPort;
 use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Shared\Application\Contract\Notification\EmailRequestDetails;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, LoggerPort};
+use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
 use Shared\Domain\Service\EventIdProvider;
 use Throwable;
 use User\Application\Port\Outbound\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
@@ -70,6 +72,8 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    * @param EventIdProvider $eventIdProvider the event ID provider
    * @param LoggerPort $logger the logger port
+   * @param ?GeoIpLookupPort $geoIp optional local email enrichment
+   * @param ?RequestOriginPort $requestOrigin transient browser context at confirmation
    */
   public function __construct(
     private EmailChangeRequestRepositoryPort $emailChangeRequests,
@@ -82,6 +86,8 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
     private EventIdProvider $eventIdProvider,
     private LoggerPort $logger,
+    private ?GeoIpLookupPort $geoIp = null,
+    private ?RequestOriginPort $requestOrigin = null,
   ) {
   }
   // #endregion
@@ -117,7 +123,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
       );
     }
 
-    return $this->confirmActiveRequest($request, $now);
+    return $this->confirmActiveRequest($request, $now, $command->ipAddress);
   }
 
   /**
@@ -128,7 +134,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
    *
    * @return ConfirmEmailChangeResult the confirmation result
    */
-  private function confirmActiveRequest(EmailChangeRequest $request, DateTimeImmutable $now): ConfirmEmailChangeResult
+  private function confirmActiveRequest(EmailChangeRequest $request, DateTimeImmutable $now, ?string $ipAddress): ConfirmEmailChangeResult
   {
     $user = $this->userRepository->findById($request->userId());
 
@@ -159,7 +165,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
         );
     }
 
-    return $this->applyChange($request, $user, $now);
+    return $this->applyChange($request, $user, $now, $ipAddress);
   }
 
   /**
@@ -171,7 +177,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
    *
    * @return ConfirmEmailChangeResult the confirmation result
    */
-  private function applyChange(EmailChangeRequest $request, User $user, DateTimeImmutable $now): ConfirmEmailChangeResult
+  private function applyChange(EmailChangeRequest $request, User $user, DateTimeImmutable $now, ?string $ipAddress): ConfirmEmailChangeResult
   {
     // Apply the change to the user FIRST. The `existsByEmail` pre-check
     // above races with concurrent registrations, so the users.email
@@ -233,17 +239,20 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
     // Announce only after the durable saves and the revocation.
     $this->eventDispatcher->dispatchAll(array_values($user->releaseEvents()));
 
+    $requestDetails = $this->requestDetails($ipAddress);
+
     // Notifying the old mailbox is best-effort: the change is already
     // durable and must not be undone by a mailer failure.
     try {
       $this->notifier->sendChangedNotice(
         previousEmail: $previousEmail,
         locale: $this->notifier->clampLocale($user->locale()->value),
+        requestDetails: $requestDetails,
       );
     } catch (Throwable $exception) {
       $this->logger->warning('Email change confirmation notice could not be sent.', [
         'user_id' => $user->id()->value,
-        'error' => $exception->getMessage(),
+        'error' => $exception::class,
       ]);
     }
 
@@ -278,6 +287,38 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
     }
 
     return false;
+  }
+
+  /**
+   * Method requestDetails
+   *
+   * Resolves independent optional enrichments without affecting notification delivery.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param ?string $ipAddress the command's trusted client IP
+   *
+   * @return EmailRequestDetails transient context, including an empty fallback
+   */
+  private function requestDetails(?string $ipAddress): EmailRequestDetails
+  {
+    $origin = null;
+    $location = null;
+
+    try {
+      $origin = $this->requestOrigin?->current();
+    } catch (Throwable) {
+      // An unavailable origin must not suppress the security email.
+    }
+
+    try {
+      $location = null === $ipAddress ? null : $this->geoIp?->locate($ipAddress);
+    } catch (Throwable) {
+      // Preserve any known device labels when local geography is unavailable.
+    }
+
+    return EmailRequestDetails::fromOrigin($origin, $location);
   }
   // #endregion
 }

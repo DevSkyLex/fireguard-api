@@ -185,6 +185,20 @@ class OrganizationRecord
   public ?string $vatNumber = null;
 
   /**
+   * Property registeredAddress
+   *
+   * @var array{line1: ?string, line2: ?string, postalCode: ?string, city: ?string, region: ?string, countryCode: ?string}|null
+   */
+  #[ORM\Column(name: 'registered_address', type: 'json', nullable: true, options: ['jsonb' => true])]
+  public ?array $registeredAddress = null;
+
+  /**
+   * Property privacyContactEmail
+   */
+  #[ORM\Column(name: 'privacy_contact_email', type: 'string', length: 254, nullable: true)]
+  public ?string $privacyContactEmail = null;
+
+  /**
    * Property purgeScheduledAt.
    *
    * NULL means "not scheduled for purge". Archiving an organization does

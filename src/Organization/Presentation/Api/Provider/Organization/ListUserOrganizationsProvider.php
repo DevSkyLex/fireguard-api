@@ -12,7 +12,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
 use Organization\Domain\ValueObject\OrganizationSettings;
-use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMembershipRoleOutput, OrganizationOutput, OrganizationSettingsOutput};
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMembershipRoleOutput, OrganizationOutput, OrganizationRegisteredAddressOutput, OrganizationSettingsOutput};
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\SearchExtractor;
@@ -129,6 +129,8 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
       $output->legalName = $organization->legalName;
       $output->registrationNumber = $organization->registrationNumber;
       $output->vatNumber = $organization->vatNumber;
+      $output->registeredAddress = OrganizationRegisteredAddressOutput::fromArray($organization->registeredAddress);
+      $output->privacyContactEmail = $organization->privacyContactEmail;
       $output->createdAt = $organization->createdAt->format('c');
       $output->updatedAt = $organization->updatedAt->format('c');
       $outputs[] = $output;

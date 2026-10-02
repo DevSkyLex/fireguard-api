@@ -1,4 +1,5 @@
 layout:
+  registeredAddress: "Siège social"
   generatedAt: "Généré le %date%"
   registrationNumber: "N° d'enregistrement %number%"
   vatNumber: "TVA %number%"
@@ -8,6 +9,7 @@ common:
   "no": "Non"
 
 compliance:
+  configuredRulesNote: "État du suivi selon les règles configurées dans cette organisation. Ce registre ne constitue pas une certification réglementaire."
   title: "Registre de sécurité"
   scope:
     organization: "Rapport d'organisation"
@@ -32,14 +34,14 @@ compliance:
     dueSoon: "Échéance proche"
     overdue: "En retard"
     unscheduled: "Non planifiés"
-    openNonConformities: "NC ouvertes (faible/moy./haute/critique)"
+    openNonConformities: "NC ouvertes"
   facilities:
     heading: "Établissements"
     facility: "Établissement"
     type: "Type"
     status: "Statut"
-    equipment: "Équipements (à jour / échéance proche / en retard / non planifiés)"
-    openNonConformities: "NC ouvertes (faible/moy./haute/critique)"
+    equipment: "Équipements"
+    openNonConformities: "NC ouvertes"
     lastInspection: "Dernière inspection"
   note: "Registre généré le %date%. La fraîcheur des évaluations et les équipements en attente sont indiqués séparément. Le registre courant peut évoluer ; les archives conservent leur document original."
 
@@ -188,3 +190,45 @@ equipment:
 equipmentLabels:
   title: "Étiquettes QR équipements"
   serialNumber: "N° série %serial%"
+status:
+  intervention:
+    draft: "Brouillon"
+    planned: "Planifiée"
+    in_progress: "En cours"
+    submitted: "Soumise"
+    changes_requested: "Modifications demandées"
+    published: "Publiée"
+    abandoned: "Abandonnée"
+  priority:
+    low: "Faible"
+    normal: "Normale"
+    high: "Élevée"
+    urgent: "Urgente"
+  interventionType:
+    site_setup: "Configuration de site"
+    inventory: "Inventaire"
+    inspection_campaign: "Campagne d'inspection"
+  workItem:
+    planned: "Planifié"
+    in_progress: "En cours"
+    completed: "Terminé"
+    skipped: "Ignoré"
+  inspection:
+    draft: "Brouillon"
+    submitted: "Soumise"
+    closed: "Clôturée"
+    cancelled: "Annulée"
+  inspectionResult:
+    pass: "Conforme"
+    partial: "Partiel"
+    fail: "Non conforme"
+  equipment:
+    in_stock: "En stock"
+    operational: "Opérationnel"
+    under_maintenance: "En maintenance"
+    decommissioned: "Retiré du service"
+  maintenanceDue:
+    unscheduled: "Non planifiée"
+    up_to_date: "À jour"
+    due_soon: "Échéance proche"
+    overdue: "En retard"

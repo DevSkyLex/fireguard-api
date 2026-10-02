@@ -8,6 +8,7 @@ use Session\Application\Port\Outbound\SessionRepositoryPort;
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\{SessionId, SessionMetadata};
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\GeoIpLookupPort;
 use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 
 use function array_merge;
@@ -31,10 +32,12 @@ final readonly class CreateSessionHandler implements \Shared\Application\Message
    *
    * @param SessionRepositoryPort $sessionRepository the session repository
    * @param UuidFactory $uuidFactory the UUID factory
+   * @param GeoIpLookupPort $geoIp optional local location enrichment
    */
   public function __construct(
     private SessionRepositoryPort $sessionRepository,
     private UuidFactory $uuidFactory,
+    private GeoIpLookupPort $geoIp,
   ) {
   }
   // #endregion
@@ -78,6 +81,11 @@ final readonly class CreateSessionHandler implements \Shared\Application\Message
     if (null !== $command->metadata) {
       $metadata = array_merge($metadata, $command->metadata);
     }
+
+    // Request metadata cannot supply or override server-derived geography.
+    $location = $this->geoIp->locate($ipAddress);
+    $metadata['country'] = $location?->countryCode;
+    $metadata['city'] = $location?->city;
 
     $session = Session::create(
       id: $sessionId,

@@ -87,7 +87,7 @@ final readonly class PingWebhookSubscriptionHandler implements CommandHandler
       created: $now->format('c'),
       organizationId: $command->organizationId,
       data: [
-        'message' => 'This is a test delivery from FireGuard.',
+        'message' => 'This is a test delivery from Fireguard.',
         'subscriptionId' => $command->subscriptionId,
       ],
     );

@@ -1,9 +1,41 @@
 {% extends 'notification/email/layout.html.twig' %}
 
+{# Optional context:
+   - requestedAt: DateTimeInterface, when the code was requested (shown in UTC, the account holder's timezone is not known here)
+   - origin: { browser?, operatingSystem? } describing the request that asked for the code; absent outside an HTTP request
+     (console, worker). Only fixed labels are passed, never the raw User-Agent. #}
 {% block content %}
+  {% set lang = locale|default('en') %}
   <h1>{{ subject }}</h1>
   <p>{{ instruction }}</p>
-  <div style="font-size:32px;font-weight:700;letter-spacing:8px;color:#ea580c;text-align:center;padding:20px;background:#f1f5f9;border-radius:8px;margin:24px 0;">{{ code }}</div>
+  <p class="section-title">Verification code</p>
+  <div class="code">{{ code }}</div>
   <p>This code expires in <strong>{{ expiresInMinutes }} minutes</strong>.</p>
-  <p class="muted">If you didn't request this code, please ignore this email.</p>
+  <p class="muted">If the code has expired, return to Fireguard and request a new code.</p>
+  <p class="muted">Keep this code private. Never share it with anyone, even someone claiming to be support.</p>
+  {% if origin is defined and origin is not empty %}
+    <p style="margin: 0 0 8px;"><span class="section-title">Request details</span></p>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="details-card" bgcolor="#fcfcfc">
+      {% if requestedAt is defined and requestedAt is not empty %}
+        <tr>
+          <td class="label">Date and time</td>
+          <td>{{ requestedAt|date('j F Y, H:i', 'UTC') }} UTC</td>
+        </tr>
+      {% endif %}
+      {% if origin.browser is not empty %}
+        <tr>
+          <td class="label">Browser</td>
+          <td>{{ origin.browser }}</td>
+        </tr>
+      {% endif %}
+      {% if origin.operatingSystem is not empty %}
+        <tr>
+          <td class="label">Operating system</td>
+          <td>{{ origin.operatingSystem }}</td>
+        </tr>
+      {% endif %}
+    </table>
+  {% endif %}
+  {% include 'notification/email/request_location.html.twig' %}
+  <p class="muted">If you didn't request this code, do not enter or share it. You can ignore this email; receiving it alone does not confirm the request.</p>
 {% endblock %}

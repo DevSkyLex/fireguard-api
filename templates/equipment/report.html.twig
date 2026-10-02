@@ -1,12 +1,9 @@
 {% extends 'pdf/layout.html.twig' %}
+{% import 'pdf/components.html.twig' as ui %}
 
 {% block title %}{{ 'equipment.title'|trans({}, 'pdf', lang) }}{% endblock %}
 
 {% block headerTitle %}{{ 'equipment.title'|trans({}, 'pdf', lang) }}{% endblock %}
-
-{% block styles %}
-    .tag-chip { display: inline-block; padding: 1px 6px; margin-right: 4px; border-radius: 3px; border: 1px solid #cbd2d9; font-size: 8px; }
-{% endblock %}
 
 {% block content %}
   <h1>{{ 'equipment.title'|trans({}, 'pdf', lang) }}</h1>
@@ -30,7 +27,7 @@
       </tr>
       <tr>
         <td class="meta-label">{{ 'equipment.meta.status'|trans({}, 'pdf', lang) }}</td>
-        <td>{{ status }}</td>
+        <td>{{ ui.status('equipment', status, lang) }}</td>
       </tr>
       <tr>
         <td class="meta-label">{{ 'equipment.meta.site'|trans({}, 'pdf', lang) }}</td>
@@ -52,14 +49,14 @@
       </tr>
       <tr>
         <td class="meta-label">{{ 'equipment.meta.maintenanceDueStatus'|trans({}, 'pdf', lang) }}</td>
-        <td>{{ maintenanceDueStatus }}</td>
+        <td>{{ ui.status('maintenanceDue', maintenanceDueStatus, lang) }}</td>
       </tr>
       {% if tags is not empty %}
         <tr>
           <td class="meta-label">{{ 'equipment.meta.tags'|trans({}, 'pdf', lang) }}</td>
           <td>
             {% for tag in tags %}
-              <span class="tag-chip">{{ tag }}</span>
+              <span class="chip">{{ tag }}</span>
             {% endfor %}
           </td>
         </tr>
@@ -85,10 +82,10 @@
       <tbody>
         {% for log in maintenanceLogs %}
           <tr>
-            <td>{{ log.startedAt|default('—') }}</td>
-            <td>{{ log.completedAt|default('—') }}</td>
-            <td>{{ log.source|default('—') }}</td>
-            <td>{% if log.interventionNumber is not empty %}FG-{{ log.interventionNumber }}{% else %}—{% endif %}</td>
+            <td class="nowrap">{{ log.startedAt|default('—') }}</td>
+            <td class="nowrap">{{ log.completedAt|default('—') }}</td>
+            <td>{{ log.source is not empty ? log.source|replace({'_': ' '})|capitalize : '—' }}</td>
+            <td class="nowrap">{% if log.interventionNumber is not empty %}FG-{{ log.interventionNumber }}{% else %}—{% endif %}</td>
             <td>{{ log.workItemAction|default('—') }}</td>
             <td>{{ log.summary|default('—') }}</td>
           </tr>
@@ -116,7 +113,7 @@
             <td>{{ attachment.fileName }}</td>
             <td>{{ attachment.label|default('—') }}</td>
             <td>{{ attachment.mimeType }}</td>
-            <td>{{ attachment.uploadedAt|default('—') }}</td>
+            <td class="nowrap">{{ attachment.uploadedAt|default('—') }}</td>
           </tr>
         {% endfor %}
       </tbody>

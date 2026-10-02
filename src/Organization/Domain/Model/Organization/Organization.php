@@ -17,6 +17,7 @@ use Organization\Domain\ValueObject\{
   OrganizationName,
   OrganizationNotificationSettings,
   OrganizationRegionalSettings,
+  OrganizationRegisteredAddress,
   OrganizationRegistrationNumber,
   OrganizationSettings,
   OrganizationSlug,
@@ -24,7 +25,10 @@ use Organization\Domain\ValueObject\{
   OrganizationVatNumber,
   PlanId
 };
+use Shared\Domain\Exception\InvalidValueException;
+use Shared\Domain\ValueObject\Email;
 
+use function mb_strlen;
 use function trim;
 
 /**
@@ -73,6 +77,8 @@ final class Organization
    * @param ?string $legalName the optional registered legal name
    * @param ?OrganizationRegistrationNumber $registrationNumber the optional company/registration number
    * @param ?OrganizationVatNumber $vatNumber the optional VAT number
+   * @param ?OrganizationRegisteredAddress $registeredAddress the optional registered office
+   * @param ?Email $privacyContactEmail the optional organization privacy contact
    */
   private function __construct(
     private OrganizationId $id,
@@ -92,6 +98,8 @@ final class Organization
     private ?string $legalName = null,
     private ?OrganizationRegistrationNumber $registrationNumber = null,
     private ?OrganizationVatNumber $vatNumber = null,
+    private ?OrganizationRegisteredAddress $registeredAddress = null,
+    private ?Email $privacyContactEmail = null,
   ) {
     $this->settings = $settings ?? OrganizationSettings::default();
   }
@@ -179,6 +187,8 @@ final class Organization
       legalName: $legal->legalName,
       registrationNumber: $legal->registrationNumber,
       vatNumber: $legal->vatNumber,
+      registeredAddress: $legal->registeredAddress,
+      privacyContactEmail: $legal->privacyContactEmail,
     );
   }
 
@@ -779,6 +789,76 @@ final class Organization
   public function changeVatNumber(?OrganizationVatNumber $vatNumber): void
   {
     $this->vatNumber = $vatNumber;
+    $this->touch();
+  }
+
+  /**
+   * Method registeredAddress
+   *
+   * @access public
+   *
+   * @return ?OrganizationRegisteredAddress the registered office, separate from facilities
+   */
+  public function registeredAddress(): ?OrganizationRegisteredAddress
+  {
+    return $this->registeredAddress;
+  }
+
+  /**
+   * Method changeRegisteredAddress
+   *
+   * Replaces the entire registered office; empty addresses clear it.
+   *
+   * @access public
+   *
+   * @param ?OrganizationRegisteredAddress $registeredAddress the replacement address
+   *
+   * @return void
+   */
+  public function changeRegisteredAddress(?OrganizationRegisteredAddress $registeredAddress): void
+  {
+    $registeredAddress = $registeredAddress?->isEmpty() ? null : $registeredAddress;
+    if ($this->registeredAddress?->toArray() === $registeredAddress?->toArray()) {
+      return;
+    }
+    $this->registeredAddress = $registeredAddress;
+    $this->touch();
+  }
+
+  /**
+   * Method privacyContactEmail
+   *
+   * @access public
+   *
+   * @return ?Email the contact for this organization's personal data processing
+   */
+  public function privacyContactEmail(): ?Email
+  {
+    return $this->privacyContactEmail;
+  }
+
+  /**
+   * Method changePrivacyContactEmail
+   *
+   * Validates the organization contact and normalizes whitespace-only values to null.
+   *
+   * @access public
+   *
+   * @param ?string $privacyContactEmail the contact email or an empty value to clear it
+   *
+   * @return void
+   */
+  public function changePrivacyContactEmail(?string $privacyContactEmail): void
+  {
+    $normalized = null !== $privacyContactEmail ? trim($privacyContactEmail) : null;
+    if (null !== $normalized && mb_strlen($normalized) > 254) {
+      throw InvalidValueException::because('Organization privacy contact email is too long.');
+    }
+    $email = null !== $normalized && '' !== $normalized ? new Email($normalized) : null;
+    if ($this->privacyContactEmail?->__toString() === $email?->__toString()) {
+      return;
+    }
+    $this->privacyContactEmail = $email;
     $this->touch();
   }
 

@@ -23,6 +23,37 @@ use Shared\Application\Factory\UuidFactory;
 final class CreateSessionHandlerTest extends TestCase
 {
   // #region Methods
+  #[Test]
+  public function testServerLocationOverridesCommandMetadataAndIsRemovedOnRevocation(): void
+  {
+    $uuid = $this->createStub(UuidFactory::class);
+    $uuid->method('create')->willReturn(new SessionId('123e4567-e89b-12d3-a456-426614174100'));
+    $geo = $this->createMock(\Shared\Application\Port\Outbound\GeoIpLookupPort::class);
+    $geo->expects(self::once())->method('locate')->with('8.8.8.8')
+      ->willReturn(new \Shared\Application\Contract\GeoIp\IpLocation('FR', 'Paris'));
+    $repository = $this->createMock(SessionRepositoryPort::class);
+    $repository->expects(self::once())->method('save')->willReturnCallback(static function (Session $session): void {
+      self::assertSame('FR', $session->metadata()->country);
+      self::assertSame('Paris', $session->metadata()->city);
+      $browser = $session->metadata()->browser;
+      $session->revoke();
+      $session->revoke();
+      self::assertNull($session->metadata()->country);
+      self::assertNull($session->metadata()->city);
+      self::assertSame($browser, $session->metadata()->browser);
+      self::assertTrue($session->metadata()->rememberMe);
+    });
+    (new CreateSessionHandler($repository, $uuid, $geo))(new CreateSessionCommand(
+      userId: 'user-123',
+      ipAddress: '8.8.8.8',
+      userAgent: 'Mozilla/5.0',
+      accessTokenId: null,
+      refreshTokenId: null,
+      rememberMe: true,
+      metadata: ['country' => 'ES', 'city' => 'Madrid'],
+    ));
+  }
+
   /**
    * Method testInvokeCreatesNewSession.
    *
@@ -59,6 +90,7 @@ final class CreateSessionHandlerTest extends TestCase
     $handler = new CreateSessionHandler(
       sessionRepository: $repository,
       uuidFactory: $uuidFactory,
+      geoIp: $this->createStub(\Shared\Application\Port\Outbound\GeoIpLookupPort::class),
     );
 
     // Execute
@@ -88,7 +120,7 @@ final class CreateSessionHandlerTest extends TestCase
 
         return '127.0.0.1' === $session->ipAddress()->value
           && 'unknown' === $session->userAgent()->value
-          && 'FR' === ($metadata['country'] ?? null)
+          && null === ($metadata['country'] ?? null)
           && true === ($metadata['remember_me'] ?? false);
       }));
 
@@ -105,6 +137,7 @@ final class CreateSessionHandlerTest extends TestCase
     $handler = new CreateSessionHandler(
       sessionRepository: $repository,
       uuidFactory: $uuidFactory,
+      geoIp: $this->createStub(\Shared\Application\Port\Outbound\GeoIpLookupPort::class),
     );
 
     $result = $handler->__invoke(command: $command);

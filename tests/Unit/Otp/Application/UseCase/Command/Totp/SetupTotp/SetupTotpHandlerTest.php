@@ -26,7 +26,7 @@ final class SetupTotpHandlerTest extends TestCase
   public function testInvokeGeneratesTotpSecretAndStartsNewPendingEnrollment(): void
   {
     $secret = new TotpSecret('JBSWY3DPEHPK3PXP');
-    $qrCodeUri = 'otpauth://totp/FireGuard%20Auth:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=FireGuard%20Auth';
+    $qrCodeUri = 'otpauth://totp/Fireguard%20Auth:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Fireguard%20Auth';
 
     $totpService = $this->createMock(TotpServicePort::class);
     $totpService->expects(self::once())
@@ -34,7 +34,7 @@ final class SetupTotpHandlerTest extends TestCase
       ->willReturn($secret);
     $totpService->expects(self::once())
       ->method('getProvisioningUri')
-      ->with($secret, 'test@example.com', 'FireGuard Auth')
+      ->with($secret, 'test@example.com', 'Fireguard Auth')
       ->willReturn($qrCodeUri);
 
     /** @var TotpEnrollmentRepositoryPort&MockObject $enrollmentRepository */

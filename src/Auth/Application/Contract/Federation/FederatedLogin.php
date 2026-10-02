@@ -28,7 +28,7 @@ final readonly class FederatedLogin
    *
    * @param LoginResult $login authentication result produced for the federated identity
    * @param string $returnUrl validated application URL to use after login
-   * @param bool $newAccount whether this login created a FireGuard account
+   * @param bool $newAccount whether this login created a Fireguard account
    *
    * @return void
    */

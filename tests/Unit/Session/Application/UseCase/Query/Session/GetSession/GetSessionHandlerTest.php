@@ -24,6 +24,25 @@ use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 final class GetSessionHandlerTest extends TestCase
 {
   // #region Methods
+  #[Test]
+  public function testForeignAccountCannotReadSessionLocation(): void
+  {
+    $sessionId = '123e4567-e89b-12d3-a456-426614174001';
+    $session = Session::create(
+      new SessionId($sessionId),
+      'another-user',
+      new IpAddress('8.8.8.8'),
+      new UserAgent('unknown'),
+      new SessionMetadata(country: 'FR', city: 'Paris'),
+      null,
+      null,
+    );
+    $repository = $this->createStub(SessionRepositoryPort::class);
+    $repository->method('findById')->willReturn($session);
+    $this->expectException(SessionNotFoundException::class);
+    (new GetSessionHandler($repository, $this->actor()))(new GetSessionQuery($sessionId));
+  }
+
   /**
    * Method testInvokeReturnsSession.
    *
@@ -51,7 +70,7 @@ final class GetSessionHandlerTest extends TestCase
 
     $query = new GetSessionQuery(sessionId: $sessionId);
 
-    $handler = new GetSessionHandler(sessionRepository: $repository);
+    $handler = new GetSessionHandler(sessionRepository: $repository, actor: $this->actor());
     $result = $handler->__invoke(query: $query);
 
     self::assertInstanceOf(GetSessionResult::class, $result);
@@ -80,10 +99,23 @@ final class GetSessionHandlerTest extends TestCase
 
     $query = new GetSessionQuery(sessionId: $sessionId);
 
-    $handler = new GetSessionHandler(sessionRepository: $repository);
+    $handler = new GetSessionHandler(sessionRepository: $repository, actor: $this->actor());
 
     $this->expectException(SessionNotFoundException::class);
     $handler->__invoke(query: $query);
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @return \Shared\Application\Port\Outbound\CurrentActorPort the account requesting the session
+   */
+  private function actor(): \Shared\Application\Port\Outbound\CurrentActorPort
+  {
+    $actor = $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class);
+    $actor->method('userId')->willReturn('user-123');
+
+    return $actor;
   }
   // #endregion
 }

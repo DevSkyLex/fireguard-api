@@ -1,15 +1,12 @@
 {% extends 'pdf/layout.html.twig' %}
+{% import 'pdf/components.html.twig' as ui %}
+
+{% set statusTones = { compliant: 'success', at_risk: 'warning', non_compliant: 'destructive', not_applicable: 'muted' } %}
+{% set severityTones = { critical: 'destructive', high: 'destructive', medium: 'warning', low: 'muted' } %}
 
 {% block title %}{{ 'compliance.title'|trans({}, 'pdf', lang) }}{% endblock %}
 
 {% block headerTitle %}{{ 'compliance.title'|trans({}, 'pdf', lang) }}{% endblock %}
-
-{% block styles %}
-    .status-compliant { color: #1a7f37; font-weight: bold; }
-    .status-at_risk { color: #9a6700; font-weight: bold; }
-    .status-non_compliant { color: #b3261e; font-weight: bold; }
-    .status-not_applicable { color: #52606d; font-weight: bold; }
-{% endblock %}
 
 {% block content %}
   <h1>
@@ -47,7 +44,7 @@
       {% if organizationStatus is defined %}
         <tr>
           <td class="meta-label">{{ 'compliance.meta.overallStatus'|trans({}, 'pdf', lang) }}</td>
-          <td><span class="status-{{ organizationStatus }}">{{ ('compliance.status.' ~ organizationStatus)|trans({}, 'pdf', lang) }}</span></td>
+          <td>{{ ui.tag(('compliance.status.' ~ organizationStatus)|trans({}, 'pdf', lang), statusTones[organizationStatus]|default('muted'), false, organizationStatus) }}</td>
         </tr>
       {% endif %}
     </table>
@@ -55,48 +52,98 @@
 
   {% if totals is defined and totals is not empty %}
     <h2>{{ 'compliance.totals.heading'|trans({}, 'pdf', lang) }}</h2>
-    <table class="data">
+    <table class="stats">
       <tr>
-        <th>{{ 'compliance.totals.equipmentTotal'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'compliance.totals.upToDate'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'compliance.totals.dueSoon'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'compliance.totals.overdue'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'compliance.totals.unscheduled'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'compliance.totals.openNonConformities'|trans({}, 'pdf', lang) }}</th>
+        <td class="stat" style="width: 18.8%;">
+          <div class="stat-label">{{ 'compliance.totals.equipmentTotal'|trans({}, 'pdf', lang) }}</div>
+          <div class="stat-value">{{ totals.totalEquipmentCount }}</div>
+        </td>
+        <td class="gap"></td>
+        <td class="stat" style="width: 18.8%;">
+          <div class="stat-label"><span class="dot dot-success"></span>{{ 'compliance.totals.upToDate'|trans({}, 'pdf', lang) }}</div>
+          <div class="stat-value{% if totals.upToDateEquipmentCount == 0 %} zero{% endif %}">{{ totals.upToDateEquipmentCount }}</div>
+        </td>
+        <td class="gap"></td>
+        <td class="stat" style="width: 18.8%;">
+          <div class="stat-label"><span class="dot dot-warning"></span>{{ 'compliance.totals.dueSoon'|trans({}, 'pdf', lang) }}</div>
+          <div class="stat-value{% if totals.dueSoonEquipmentCount == 0 %} zero{% endif %}">{{ totals.dueSoonEquipmentCount }}</div>
+        </td>
+        <td class="gap"></td>
+        <td class="stat" style="width: 18.8%;">
+          <div class="stat-label"><span class="dot dot-destructive"></span>{{ 'compliance.totals.overdue'|trans({}, 'pdf', lang) }}</div>
+          <div class="stat-value{% if totals.overdueEquipmentCount == 0 %} zero{% endif %}">{{ totals.overdueEquipmentCount }}</div>
+        </td>
+        <td class="gap"></td>
+        <td class="stat" style="width: 18.8%;">
+          <div class="stat-label"><span class="dot dot-muted"></span>{{ 'compliance.totals.unscheduled'|trans({}, 'pdf', lang) }}</div>
+          <div class="stat-value{% if totals.unscheduledEquipmentCount == 0 %} zero{% endif %}">{{ totals.unscheduledEquipmentCount }}</div>
+        </td>
       </tr>
+    </table>
+    <div class="legend"><strong>{{ 'compliance.totals.openNonConformities'|trans({}, 'pdf', lang) }}</strong></div>
+    <table class="stats">
       <tr>
-        <td>{{ totals.totalEquipmentCount }}</td>
-        <td>{{ totals.upToDateEquipmentCount }}</td>
-        <td>{{ totals.dueSoonEquipmentCount }}</td>
-        <td>{{ totals.overdueEquipmentCount }}</td>
-        <td>{{ totals.unscheduledEquipmentCount }}</td>
-        <td>{{ totals.openLowNonConformityCount }} / {{ totals.openMediumNonConformityCount }} / {{ totals.openHighNonConformityCount }} / {{ totals.openCriticalNonConformityCount }}</td>
+        {% for severity, count in { critical: totals.openCriticalNonConformityCount, high: totals.openHighNonConformityCount, medium: totals.openMediumNonConformityCount, low: totals.openLowNonConformityCount } %}
+          {% if not loop.first %}<td class="gap"></td>{% endif %}
+          <td class="stat" style="width: 23.8%;">
+            <div class="stat-label"><span class="dot dot-{{ severityTones[severity] }}"></span>{{ ('nonConformities.severity.' ~ severity)|trans({}, 'pdf', lang) }}</div>
+            <div class="stat-value{% if count == 0 %} zero{% endif %}">{{ count }}</div>
+          </td>
+        {% endfor %}
       </tr>
     </table>
   {% endif %}
 
   <h2>{{ 'compliance.facilities.heading'|trans({}, 'pdf', lang) }}</h2>
+  <div class="legend">
+    <strong>{{ 'compliance.facilities.equipment'|trans({}, 'pdf', lang) }}</strong>
+    <span class="item"><span class="dot dot-success"></span>{{ 'compliance.totals.upToDate'|trans({}, 'pdf', lang) }}</span>
+    <span class="item"><span class="dot dot-warning"></span>{{ 'compliance.totals.dueSoon'|trans({}, 'pdf', lang) }}</span>
+    <span class="item"><span class="dot dot-destructive"></span>{{ 'compliance.totals.overdue'|trans({}, 'pdf', lang) }}</span>
+    <span class="item"><span class="dot dot-muted"></span>{{ 'compliance.totals.unscheduled'|trans({}, 'pdf', lang) }}</span>
+  </div>
   <table class="data">
-    <tr>
-      <th>{{ 'compliance.facilities.facility'|trans({}, 'pdf', lang) }}</th>
-      <th>{{ 'compliance.facilities.type'|trans({}, 'pdf', lang) }}</th>
-      <th>{{ 'compliance.facilities.status'|trans({}, 'pdf', lang) }}</th>
-      <th>{{ 'compliance.facilities.equipment'|trans({}, 'pdf', lang) }}</th>
-      <th>{{ 'compliance.facilities.openNonConformities'|trans({}, 'pdf', lang) }}</th>
-      <th>{{ 'compliance.facilities.lastInspection'|trans({}, 'pdf', lang) }}</th>
-    </tr>
-    {% for facility in facilities %}
+    <thead>
       <tr>
-        <td>{{ facility.path }}</td>
-        <td>{{ facility.type }}</td>
-        <td class="status-{{ facility.status }}">{{ ('compliance.status.' ~ facility.status)|trans({}, 'pdf', lang) }}</td>
-        <td>{{ facility.upToDateEquipmentCount }} / {{ facility.dueSoonEquipmentCount }} / {{ facility.overdueEquipmentCount }} / {{ facility.unscheduledEquipmentCount }}</td>
-        <td>{{ facility.openLowNonConformityCount }} / {{ facility.openMediumNonConformityCount }} / {{ facility.openHighNonConformityCount }} / {{ facility.openCriticalNonConformityCount }}</td>
-        <td>{{ facility.lastInspectionAt|default('—') }}</td>
+        <th>{{ 'compliance.facilities.facility'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'compliance.facilities.type'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'compliance.facilities.status'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'compliance.facilities.equipment'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'compliance.facilities.openNonConformities'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'compliance.facilities.lastInspection'|trans({}, 'pdf', lang) }}</th>
       </tr>
-    {% endfor %}
+    </thead>
+    <tbody>
+      {% for facility in facilities %}
+        <tr>
+          <td>{{ facility.path }}</td>
+          <td>{{ facility.type|replace({'_': ' '})|capitalize }}</td>
+          <td>{{ ui.tag(('compliance.status.' ~ facility.status)|trans({}, 'pdf', lang), statusTones[facility.status]|default('muted'), false, facility.status) }}</td>
+          <td class="nowrap">
+            <span style="margin-right: 6px;">{{ ui.count(facility.upToDateEquipmentCount, 'success') }}</span>
+            <span style="margin-right: 6px;">{{ ui.count(facility.dueSoonEquipmentCount, 'warning') }}</span>
+            <span style="margin-right: 6px;">{{ ui.count(facility.overdueEquipmentCount, 'destructive') }}</span>
+            <span>{{ ui.count(facility.unscheduledEquipmentCount, 'muted') }}</span>
+          </td>
+          <td>
+            {%- set openCounts = { critical: facility.openCriticalNonConformityCount, high: facility.openHighNonConformityCount, medium: facility.openMediumNonConformityCount, low: facility.openLowNonConformityCount } -%}
+            {%- if openCounts|filter(count => count > 0) is empty -%}
+              <span class="zero">—</span>
+            {%- else -%}
+              {%- for severity, count in openCounts|filter(count => count > 0) -%}
+                {{ ui.tag(('nonConformities.severity.' ~ severity)|trans({}, 'pdf', lang) ~ ' ' ~ count, severityTones[severity], true) }}{{ ' ' }}
+              {%- endfor -%}
+            {%- endif -%}
+          </td>
+          <td class="nowrap">{{ facility.lastInspectionAt|default('—') }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
   </table>
 
+  <div class="doc-note">
+    {{ 'compliance.configuredRulesNote'|trans({}, 'pdf', lang) }}
+  </div>
   <div class="doc-note">
     {{ 'compliance.note'|trans({ '%date%': generatedAtFormatted }, 'pdf', lang) }}
   </div>

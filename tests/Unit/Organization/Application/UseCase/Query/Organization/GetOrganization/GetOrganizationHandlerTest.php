@@ -11,7 +11,7 @@ use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrga
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRegisteredAddress};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -33,6 +33,9 @@ final class GetOrganizationHandlerTest extends TestCase
         createdAt: $createdAt,
       ),
     );
+
+    $organization->changeRegisteredAddress(OrganizationRegisteredAddress::fromArray(['city' => 'Rennes', 'countryCode' => 'FR']));
+    $organization->changePrivacyContactEmail('privacy@example.com');
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
@@ -69,6 +72,8 @@ final class GetOrganizationHandlerTest extends TestCase
     self::assertTrue($result->isActive);
     self::assertSame($createdAt, $result->createdAt);
     self::assertSame(5, $result->memberCount);
+    self::assertSame($organization->registeredAddress()?->toArray(), $result->registeredAddress);
+    self::assertSame('privacy@example.com', $result->privacyContactEmail);
     // No callerUserId on the query: caller-membership fields stay unresolved,
     // matching every pre-existing caller of this query (plan change, logo upload).
     self::assertNull($result->isOwner);

@@ -109,10 +109,10 @@ final readonly class CalendarFeedIcalWriter
     $lines = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//FireGuard//Calendar Feed//FR',
+      'PRODID:-//Fireguard//Calendar Feed//FR',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
-      $this->fold('X-WR-CALNAME:' . $this->escape('FireGuard')),
+      $this->fold('X-WR-CALNAME:' . $this->escape('Fireguard')),
     ];
 
     $dtStamp = $this->formatUtc($generatedAt);

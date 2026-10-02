@@ -1,81 +1,105 @@
 {% extends 'notification/email/layout.html.twig' %}
+{% import 'notification/email/components.html.twig' as ui %}
 
 {% set lang = locale|default('en') %}
+{% set severityBadges = { critical: { tone: 'destructive', variant: 'destructive' }, high: { tone: 'destructive' }, medium: { tone: 'warning' }, low: { tone: 'muted' } } %}
 
 {% block lang %}{{ lang }}{% endblock %}
 
+{# Each section is a heading with its count badges, then one card holding its items. The text around the
+   cards (title, intro, "and N more", call to action) stays outside them. #}
 {% block content %}
   <h1>{{ 'digest.heading'|trans({ '%org%': organizationName }, 'emails', lang) }}</h1>
   <p>{{ 'digest.intro'|trans({ '%org%': organizationName|e }, 'emails', lang)|raw }}</p>
 
   {% if overdueInterventionsCount > 0 %}
-    <h2 style="font-size: 16px; margin: 24px 0 8px; color: #0f172a;">
-      {{ 'digest.interventionsTitle'|trans({}, 'emails', lang) }} ({{ overdueInterventionsCount }})
-    </h2>
-    <ul style="margin: 0 0 8px; padding-left: 20px; color: #334155; font-size: 14px; line-height: 1.6;">
-      {% for intervention in overdueInterventions %}
-        <li>
-          #{{ intervention.number }} — {{ intervention.name }}{% if intervention.dueAt %}
-            ({{ 'digest.interventionDue'|trans({ '%date%': intervention.dueAt }, 'emails', lang) }}){% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-    {% if overdueInterventionsCount > overdueInterventions|length %}
-      <p class="muted">{{ 'digest.andMore'|trans({ '%count%': overdueInterventionsCount - overdueInterventions|length }, 'emails', lang) }}</p>
-    {% endif %}
+    <div class="section">
+      <span class="section-title">{{ 'digest.interventionsTitle'|trans({}, 'emails', lang) }}</span>
+      {{ ui.badge(overdueInterventionsCount, 'destructive', 'destructive') }}
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="item-card" bgcolor="#fcfcfc">
+        {% for intervention in overdueInterventions %}
+          <tr>
+            <td>
+              <span class="ref">#{{ intervention.number }}</span> {{ intervention.name }}
+              {% if intervention.dueAt %}
+                <span class="sub">{{ 'digest.interventionDue'|trans({ '%date%': intervention.dueAt }, 'emails', lang) }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+      {% if overdueInterventionsCount > overdueInterventions|length %}
+        <p class="muted" style="margin: 8px 0 0;">{{ 'digest.andMore'|trans({ '%count%': overdueInterventionsCount - overdueInterventions|length }, 'emails', lang) }}</p>
+      {% endif %}
+    </div>
   {% endif %}
 
   {% if maintenanceDueSoonCount > 0 or maintenanceOverdueCount > 0 %}
-    <h2 style="font-size: 16px; margin: 24px 0 8px; color: #0f172a;">
-      {{ 'digest.maintenanceTitle'|trans({}, 'emails', lang) }}
-    </h2>
-    <p style="margin: 0 0 8px; color: #334155; font-size: 14px;">
-      {% if maintenanceOverdueCount > 0 %}{{ 'digest.maintenanceOverdueCount'|trans({ '%count%': maintenanceOverdueCount }, 'emails', lang) }}{% endif %}
-      {%- if maintenanceOverdueCount > 0 and maintenanceDueSoonCount > 0 %} · {% endif -%}
-      {% if maintenanceDueSoonCount > 0 %}{{ 'digest.maintenanceDueSoonCount'|trans({ '%count%': maintenanceDueSoonCount }, 'emails', lang) }}{% endif %}
-    </p>
-    <ul style="margin: 0 0 8px; padding-left: 20px; color: #334155; font-size: 14px; line-height: 1.6;">
-      {% for deadline in maintenanceDeadlines %}
-        <li>
-          {{ deadline.equipmentType }} —
-          {% if deadline.overdue %}
-            {{ 'digest.maintenanceOverdueTag'|trans({}, 'emails', lang) }} ({{ deadline.nextDueAt }})
-          {% else %}
-            {{ 'digest.maintenanceDueTag'|trans({ '%date%': deadline.nextDueAt }, 'emails', lang) }}
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-    {% if maintenanceDueSoonCount + maintenanceOverdueCount > maintenanceDeadlines|length %}
-      <p class="muted">{{ 'digest.andMore'|trans({ '%count%': maintenanceDueSoonCount + maintenanceOverdueCount - maintenanceDeadlines|length }, 'emails', lang) }}</p>
-    {% endif %}
+    <div class="section">
+      <span class="section-title">{{ 'digest.maintenanceTitle'|trans({}, 'emails', lang) }}</span>
+      {% if maintenanceOverdueCount > 0 %}
+        {{ ui.badge('digest.maintenanceOverdueCount'|trans({ '%count%': maintenanceOverdueCount }, 'emails', lang), 'destructive', 'destructive') }}
+      {% endif %}
+      {% if maintenanceDueSoonCount > 0 %}
+        {{ ui.badge('digest.maintenanceDueSoonCount'|trans({ '%count%': maintenanceDueSoonCount }, 'emails', lang), 'warning') }}
+      {% endif %}
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="item-card" bgcolor="#fcfcfc">
+        {% for deadline in maintenanceDeadlines %}
+          <tr>
+            <td>{{ deadline.equipmentType }}</td>
+            <td class="side">
+              {% if deadline.overdue %}
+                {{ ui.badge('digest.maintenanceOverdueTag'|trans({}, 'emails', lang), 'destructive') }}
+                <span class="sub">{{ deadline.nextDueAt }}</span>
+              {% else %}
+                {{ ui.badge('digest.maintenanceDueTag'|trans({ '%date%': deadline.nextDueAt }, 'emails', lang), 'warning') }}
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+      {% if maintenanceDueSoonCount + maintenanceOverdueCount > maintenanceDeadlines|length %}
+        <p class="muted" style="margin: 8px 0 0;">{{ 'digest.andMore'|trans({ '%count%': maintenanceDueSoonCount + maintenanceOverdueCount - maintenanceDeadlines|length }, 'emails', lang) }}</p>
+      {% endif %}
+    </div>
   {% endif %}
 
   {% if openNonConformitiesCount > 0 or slaBreachedNonConformitiesCount > 0 %}
-    <h2 style="font-size: 16px; margin: 24px 0 8px; color: #0f172a;">
-      {{ 'digest.ncTitle'|trans({}, 'emails', lang) }}
-    </h2>
-    <p style="margin: 0 0 8px; color: #334155; font-size: 14px;">
-      {% if openNonConformitiesCount > 0 %}{{ 'digest.ncOpenCount'|trans({ '%count%': openNonConformitiesCount }, 'emails', lang) }}{% endif %}
-      {%- if openNonConformitiesCount > 0 and slaBreachedNonConformitiesCount > 0 %} · {% endif -%}
-      {% if slaBreachedNonConformitiesCount > 0 %}{{ 'digest.ncSlaBreachedCount'|trans({ '%count%': slaBreachedNonConformitiesCount }, 'emails', lang) }}{% endif %}
-    </p>
-    <ul style="margin: 0 0 8px; padding-left: 20px; color: #334155; font-size: 14px; line-height: 1.6;">
-      {% for nonConformity in openNonConformities %}
-        <li>
-          [{{ nonConformity.severity }}] {{ nonConformity.description|length > 80 ? nonConformity.description|slice(0, 80) ~ '…' : nonConformity.description }}
-          ({{ 'digest.ncOpenedAt'|trans({ '%date%': nonConformity.openedAt }, 'emails', lang) }})
-        </li>
-      {% endfor %}
-    </ul>
-    {% if openNonConformitiesCount > openNonConformities|length %}
-      <p class="muted">{{ 'digest.andMore'|trans({ '%count%': openNonConformitiesCount - openNonConformities|length }, 'emails', lang) }}</p>
-    {% endif %}
+    <div class="section">
+      <span class="section-title">{{ 'digest.ncTitle'|trans({}, 'emails', lang) }}</span>
+      {% if openNonConformitiesCount > 0 %}
+        {{ ui.badge('digest.ncOpenCount'|trans({ '%count%': openNonConformitiesCount }, 'emails', lang), 'muted', 'secondary') }}
+      {% endif %}
+      {% if slaBreachedNonConformitiesCount > 0 %}
+        {{ ui.badge('digest.ncSlaBreachedCount'|trans({ '%count%': slaBreachedNonConformitiesCount }, 'emails', lang), 'destructive', 'destructive') }}
+      {% endif %}
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="item-card" bgcolor="#fcfcfc">
+        {% for nonConformity in openNonConformities %}
+          <tr>
+            <td>
+              {{ nonConformity.description|length > 80 ? nonConformity.description|slice(0, 80) ~ '…' : nonConformity.description }}
+              <span class="sub">{{ 'digest.ncOpenedAt'|trans({ '%date%': nonConformity.openedAt }, 'emails', lang) }}</span>
+            </td>
+            <td class="side">
+              {% if nonConformity.severity in severityBadges|keys %}
+                {% set severityBadge = severityBadges[nonConformity.severity] %}
+                {{ ui.badge(('digest.severity.' ~ nonConformity.severity)|trans({}, 'emails', lang), severityBadge.tone, severityBadge.variant|default('outline')) }}
+              {% else %}
+                {{ ui.badge(nonConformity.severity, 'muted') }}
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+      {% if openNonConformitiesCount > openNonConformities|length %}
+        <p class="muted" style="margin: 8px 0 0;">{{ 'digest.andMore'|trans({ '%count%': openNonConformitiesCount - openNonConformities|length }, 'emails', lang) }}</p>
+      {% endif %}
+    </div>
   {% endif %}
 
-  <div class="btn-wrap">
-    <a href="{{ dashboardUrl }}" class="btn">{{ 'digest.cta'|trans({}, 'emails', lang) }}</a>
+  <div class="section">
+    {{ ui.button(dashboardUrl, 'digest.cta'|trans({}, 'emails', lang)) }}
+    {{ ui.linkFallback('digest.fallback'|trans({}, 'emails', lang), dashboardUrl) }}
+    <p class="muted">{{ 'digest.footnote'|trans({ '%org%': organizationName }, 'emails', lang) }}</p>
   </div>
-  <p class="muted">{{ 'digest.fallback'|trans({}, 'emails', lang) }}</p>
-  <p class="link-fallback"><a href="{{ dashboardUrl }}">{{ dashboardUrl }}</a></p>
 {% endblock %}

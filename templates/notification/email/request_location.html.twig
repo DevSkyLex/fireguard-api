@@ -1,0 +1,8 @@
+{# Only transient delivery context reaches this partial. Values are escaped by Twig. #}
+{% set location = requestDetails.location|default(null) %}
+{% if location %}
+  <p class="section-title">{{ 'geoIp.location'|trans({}, 'emails', lang|default('en')) }}</p>
+  <p>{% if location.city %}{{ location.city }} · {% endif %}{{ location.countryCode }}</p>
+  <p class="muted">{{ 'geoIp.approximate'|trans({}, 'emails', lang|default('en')) }}</p>
+  <p class="muted"><a href="https://db-ip.com/" rel="noopener noreferrer">{{ 'geoIp.attribution'|trans({}, 'emails', lang|default('en')) }}</a></p>
+{% endif %}

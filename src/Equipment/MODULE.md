@@ -167,6 +167,11 @@ entry — not wired here, matching the layering every other module's own
 `*ExportedEvent` follows.
 
 **PDF equipment sheet (plan-gated, added 2026-08-27).**
+
+The optional registered office is consumed as scalar Application branding data
+and labelled explicitly in the common legal footer, separately from the facility
+address. An absent address preserves the existing document rendering.
+
 `GET .../equipment/{equipmentId}/report` (`EXPORT_EQUIPMENT_REPORT`, on a
 dedicated `EquipmentReportExportResource` for the same route-collision reason
 as the CSV export) streams a synchronous PDF on the shared PDF socle
@@ -262,7 +267,22 @@ the physical die-cut grid of an Avery L7159 / J8159 sheet exactly: A4,
 top/bottom margins 12.9 mm (the `@page` margins ARE the sheet margins). Each
 label carries the QR (24 mm), the type/sub-type, the serial number and the
 facility/location in small print. Page numbering is deliberately absent — a
-sheet is cut apart.
+sheet is cut apart. Text occupies a fixed 32.6 mm column, vertically centred beside
+the QR, with a maximum visible height of 27.9 mm. Longer content is clipped within
+its own label instead of widening columns or creating extra pages. A relative slot
+and absolute text descendant exclude content from table sizing and page-break checks;
+the non-absolute inner block owns the height limit because dompdf does not apply
+`max-height` to absolute blocks.
+
+**Geometry is measured, not assumed.** dompdf silently breaks this grid in
+three ways, all of which shipped once: a universal `* { margin: 0 }` reset
+overwrites the `@page` margins (the sheet starts at 0,0), `table-layout: fixed`
+makes dompdf 3.1 read every cell width as 0 and split the table into equal
+columns (pitch 78 mm instead of 66 mm), and `padding: 0` on `table.sheet td`
+also overrides the inner label cells' padding. The template header documents
+each one, and `DompdfEquipmentLabelSheetRendererTest` asserts the rendered
+label and QR positions, translated text painting coordinates, clipping regions and
+the page count, including maximal field values in the final row.
 
 **Decision — no entitlement gate.** Unlike the equipment sheet and the
 safety register (both `pro`/`max`), the label sheet checks **no plan**: the

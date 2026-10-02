@@ -18,7 +18,7 @@ use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrga
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationPlanUsageExceededException, PlanNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationSettings, PlanId};
 use Organization\Presentation\Api\Dto\Input\Organization\ChangeOrganizationPlanInput;
-use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationRegisteredAddressOutput, OrganizationSettingsOutput};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
@@ -228,6 +228,8 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
     $output->legalName = $result->legalName;
     $output->registrationNumber = $result->registrationNumber;
     $output->vatNumber = $result->vatNumber;
+    $output->registeredAddress = OrganizationRegisteredAddressOutput::fromArray($result->registeredAddress);
+    $output->privacyContactEmail = $result->privacyContactEmail;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
 

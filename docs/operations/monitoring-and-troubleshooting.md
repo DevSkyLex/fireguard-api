@@ -25,6 +25,18 @@ bearer-token logs, private event payloads and unbounded container inspection.
 
 ## Alert policy
 
+GeoIP is optional for authentication. Monitor the daily update/freshness-check result and
+the independent revoked-session cleanup and auth-retention results. Alert on
+`fireguard-maintenance` errors in the system journal, nonzero job exits and an inactive
+host `cron`/`crond` service. A failed download retains the installed
+file; a build older than `GEOIP_MAX_AGE_DAYS` (45 by default) suspends new enrichments.
+Do not put searched IPs or locations in logs, traces, metrics or alert payloads. Use the
+[GeoIP runbook](../guides/geoip-operations-and-privacy.md) for checks and recovery.
+After a historical rollback, GeoIP tasks may successfully skip a valid Compose configuration
+without `geoip_maintenance`. That skip must not suppress auth retention. A Compose parsing
+failure is an error, even when GeoIP collection is disabled; inspect configuration privately
+without dumping its resolved environment.
+
 Set latency, error, queue age, dependency-health and capacity thresholds from the
 installation's service objectives. Example operational guidance is not a configured
 production alert. Authentication failures, ledger integrity failures and repeated

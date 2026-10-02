@@ -108,6 +108,8 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
         $output->userAgent = $session->userAgent;
         $output->deviceType = $session->deviceType;
         $output->browser = $session->browser;
+        $output->country = $session->isRevoked ? null : $session->country;
+        $output->city = $session->isRevoked ? null : $session->city;
         $output->createdAt = $session->createdAt->format('c');
         $output->lastActivityAt = $session->lastActivityAt->format('c');
         $output->isActive = !$session->isRevoked;

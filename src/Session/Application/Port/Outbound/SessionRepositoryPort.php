@@ -20,6 +20,17 @@ use Session\Domain\ValueObject\SessionId;
 interface SessionRepositoryPort
 {
   /**
+   * Removes only location keys, for revoked sessions or every session of one account.
+   *
+   * @since 1.0.0
+   *
+   * @param string|null $userId account for an authorized manual erasure, otherwise revoked rows only
+   *
+   * @return int number of updated rows
+   */
+  public function purgeLocations(?string $userId = null): int;
+
+  /**
    * Atomically rotate the current pair of a live session; a replay returns false.
    */
   public function rotateTokens(string $currentRefreshTokenId, string $currentAccessTokenId, string $newAccessTokenId, string $newRefreshTokenId): bool;

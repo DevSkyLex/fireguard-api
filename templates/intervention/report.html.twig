@@ -1,15 +1,11 @@
 {% extends 'pdf/layout.html.twig' %}
+{% import 'pdf/components.html.twig' as ui %}
+
+{% set issueTones = { blocker: 'destructive', warning: 'warning', recommendation: 'info' } %}
 
 {% block title %}{{ 'intervention.title'|trans({ '%number%': number }, 'pdf', lang) }}{% endblock %}
 
 {% block headerTitle %}{{ 'intervention.title'|trans({ '%number%': number }, 'pdf', lang) }}{% endblock %}
-
-{% block styles %}
-    .label-chip { display: inline-block; padding: 1px 6px; margin-right: 4px; border-radius: 3px; border: 1px solid #cbd2d9; font-size: 8px; }
-    .severity-blocker { color: #b3261e; font-weight: bold; }
-    .severity-warning { color: #9a6700; font-weight: bold; }
-    .severity-recommendation { color: #52606d; font-weight: bold; }
-{% endblock %}
 
 {% block content %}
   <h1>{{ 'intervention.title'|trans({ '%number%': number }, 'pdf', lang) }}</h1>
@@ -21,15 +17,15 @@
       </tr>
       <tr>
         <td class="meta-label">{{ 'intervention.meta.type'|trans({}, 'pdf', lang) }}</td>
-        <td>{{ type }}</td>
+        <td>{{ ui.status('interventionType', type, lang) }}</td>
       </tr>
       <tr>
         <td class="meta-label">{{ 'intervention.meta.status'|trans({}, 'pdf', lang) }}</td>
-        <td>{{ status }}</td>
+        <td>{{ ui.status('intervention', status, lang) }}</td>
       </tr>
       <tr>
         <td class="meta-label">{{ 'intervention.meta.priority'|trans({}, 'pdf', lang) }}</td>
-        <td>{{ priority }}</td>
+        <td>{{ ui.status('priority', priority, lang) }}</td>
       </tr>
       <tr>
         <td class="meta-label">{{ 'intervention.meta.site'|trans({}, 'pdf', lang) }}</td>
@@ -66,7 +62,7 @@
           <td class="meta-label">{{ 'intervention.meta.labels'|trans({}, 'pdf', lang) }}</td>
           <td>
             {% for label in labels %}
-              <span class="label-chip">{{ label.name }}</span>
+              <span class="chip">{{ label.name }}</span>
             {% endfor %}
           </td>
         </tr>
@@ -83,26 +79,30 @@
     <p class="empty">{{ 'intervention.workItems.empty'|trans({}, 'pdf', lang) }}</p>
   {% else %}
     <table class="data">
-      <tr>
-        <th>{{ 'intervention.workItems.action'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.workItems.target'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.workItems.assignee'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.workItems.status'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.workItems.required'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.workItems.skipReason'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.workItems.evidence'|trans({}, 'pdf', lang) }}</th>
-      </tr>
-      {% for workItem in workItems %}
+      <thead>
         <tr>
-          <td>{{ workItem.action }}</td>
-          <td>{{ workItem.target }}</td>
-          <td>{{ workItem.assigneeName|default('—') }}</td>
-          <td>{{ workItem.status }}</td>
-          <td>{{ (workItem.required ? 'common.yes' : 'common.no')|trans({}, 'pdf', lang) }}</td>
-          <td>{{ workItem.skipReason|default('—') }}</td>
-          <td>{{ workItem.evidenceCount }}</td>
+          <th>{{ 'intervention.workItems.action'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.workItems.target'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.workItems.assignee'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.workItems.status'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.workItems.required'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.workItems.skipReason'|trans({}, 'pdf', lang) }}</th>
+          <th class="num">{{ 'intervention.workItems.evidence'|trans({}, 'pdf', lang) }}</th>
         </tr>
-      {% endfor %}
+      </thead>
+      <tbody>
+        {% for workItem in workItems %}
+          <tr>
+            <td>{{ workItem.action }}</td>
+            <td>{{ workItem.target }}</td>
+            <td>{{ workItem.assigneeName|default('—') }}</td>
+            <td>{{ ui.status('workItem', workItem.status, lang) }}</td>
+            <td>{{ (workItem.required ? 'common.yes' : 'common.no')|trans({}, 'pdf', lang) }}</td>
+            <td>{{ workItem.skipReason|default('—') }}</td>
+            <td class="num">{{ workItem.evidenceCount }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
     </table>
   {% endif %}
 
@@ -111,30 +111,40 @@
     <p class="empty">{{ 'intervention.issues.empty'|trans({}, 'pdf', lang) }}</p>
   {% else %}
     <table class="data">
-      <tr>
-        <th>{{ 'intervention.issues.severity'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.issues.message'|trans({}, 'pdf', lang) }}</th>
-      </tr>
-      {% for issue in issues %}
+      <thead>
         <tr>
-          <td class="severity-{{ issue.severity }}">{{ ('intervention.severity.' ~ issue.severity)|trans({}, 'pdf', lang) }}</td>
-          <td>{{ issue.message }}</td>
+          <th>{{ 'intervention.issues.severity'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.issues.message'|trans({}, 'pdf', lang) }}</th>
         </tr>
-      {% endfor %}
+      </thead>
+      <tbody>
+        {% for issue in issues %}
+          <tr>
+            <td>{{ ui.tag(('intervention.severity.' ~ issue.severity)|trans({}, 'pdf', lang), issueTones[issue.severity]|default('muted')) }}</td>
+            <td>{{ issue.message }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
     </table>
   {% endif %}
 
   <h2>{{ 'intervention.changes.heading'|trans({}, 'pdf', lang) }}</h2>
-  <table class="data">
+  <table class="stats">
     <tr>
-      <th>{{ 'intervention.changes.proposed'|trans({}, 'pdf', lang) }}</th>
-      <th>{{ 'intervention.changes.applied'|trans({}, 'pdf', lang) }}</th>
-      <th>{{ 'intervention.changes.rejected'|trans({}, 'pdf', lang) }}</th>
-    </tr>
-    <tr>
-      <td>{{ proposedChangesCount }}</td>
-      <td>{{ appliedChangesCount }}</td>
-      <td>{{ rejectedChangesCount }}</td>
+      <td class="stat" style="width: 32%;">
+        <div class="stat-label">{{ 'intervention.changes.proposed'|trans({}, 'pdf', lang) }}</div>
+        <div class="stat-value{% if proposedChangesCount == 0 %} zero{% endif %}">{{ proposedChangesCount }}</div>
+      </td>
+      <td class="gap"></td>
+      <td class="stat" style="width: 32%;">
+        <div class="stat-label"><span class="dot dot-success"></span>{{ 'intervention.changes.applied'|trans({}, 'pdf', lang) }}</div>
+        <div class="stat-value{% if appliedChangesCount == 0 %} zero{% endif %}">{{ appliedChangesCount }}</div>
+      </td>
+      <td class="gap"></td>
+      <td class="stat" style="width: 32%;">
+        <div class="stat-label"><span class="dot dot-destructive"></span>{{ 'intervention.changes.rejected'|trans({}, 'pdf', lang) }}</div>
+        <div class="stat-value{% if rejectedChangesCount == 0 %} zero{% endif %}">{{ rejectedChangesCount }}</div>
+      </td>
     </tr>
   </table>
 
@@ -143,16 +153,20 @@
     <p class="empty">{{ 'intervention.attachments.empty'|trans({}, 'pdf', lang) }}</p>
   {% else %}
     <table class="data">
-      <tr>
-        <th>{{ 'intervention.attachments.fileName'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.attachments.kind'|trans({}, 'pdf', lang) }}</th>
-      </tr>
-      {% for attachment in attachments %}
+      <thead>
         <tr>
-          <td>{{ attachment.fileName }}</td>
-          <td>{{ attachment.kind }}</td>
+          <th>{{ 'intervention.attachments.fileName'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.attachments.kind'|trans({}, 'pdf', lang) }}</th>
         </tr>
-      {% endfor %}
+      </thead>
+      <tbody>
+        {% for attachment in attachments %}
+          <tr>
+            <td>{{ attachment.fileName }}</td>
+            <td>{{ attachment.kind|replace({'_': ' '})|capitalize }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
     </table>
   {% endif %}
 
@@ -161,22 +175,26 @@
     <p class="empty">{{ 'intervention.activities.empty'|trans({}, 'pdf', lang) }}</p>
   {% else %}
     <table class="data">
-      <tr>
-        <th>{{ 'intervention.activities.date'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.activities.kind'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.activities.event'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.activities.actor'|trans({}, 'pdf', lang) }}</th>
-        <th>{{ 'intervention.activities.comment'|trans({}, 'pdf', lang) }}</th>
-      </tr>
-      {% for activity in activities %}
+      <thead>
         <tr>
-          <td>{{ activity.createdAt|default('—') }}</td>
-          <td>{{ activity.kind }}</td>
-          <td>{{ activity.event }}</td>
-          <td>{{ activity.actorName|default('—') }}</td>
-          <td>{{ activity.body|default('—') }}</td>
+          <th>{{ 'intervention.activities.date'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.activities.kind'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.activities.event'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.activities.actor'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'intervention.activities.comment'|trans({}, 'pdf', lang) }}</th>
         </tr>
-      {% endfor %}
+      </thead>
+      <tbody>
+        {% for activity in activities %}
+          <tr>
+            <td class="nowrap">{{ activity.createdAt|default('—') }}</td>
+            <td>{{ activity.kind|replace({'_': ' '})|capitalize }}</td>
+            <td>{{ activity.event|replace({'_': ' '})|capitalize }}</td>
+            <td>{{ activity.actorName|default('—') }}</td>
+            <td>{{ activity.body|default('—') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
     </table>
   {% endif %}
 

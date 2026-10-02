@@ -198,6 +198,20 @@ final class OrganizationOutput
   public ?string $vatNumber = null;
 
   /**
+   * Property registeredAddress
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Optional registered office, distinct from facility addresses')]
+  public ?OrganizationRegisteredAddressOutput $registeredAddress = null;
+
+  /**
+   * Property privacyContactEmail
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Optional contact for this organization personal data processing')]
+  public ?string $privacyContactEmail = null;
+
+  /**
    * Property isOwner.
    *
    * Whether the authenticated user (the caller) is the owner of this

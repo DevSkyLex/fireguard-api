@@ -48,7 +48,7 @@ final readonly class UserAgent implements Stringable
    */
   public function __construct(public string $value)
   {
-    if (empty($value)) {
+    if ('' === $value) {
       throw InvalidValueException::because(
         message: 'User-Agent cannot be empty.',
       );
@@ -122,13 +122,15 @@ final readonly class UserAgent implements Stringable
    */
   public function getBrowser(): ?string
   {
+    // Order matters: each engine's UA also carries the tokens of the ones below it
+    // (Edge and Opera say "Chrome", Chrome says "Safari"), so the most specific comes first.
     $browsers = [
-      'Chrome' => '/Chrome\/[\d.]+/i',
-      'Firefox' => '/Firefox\/[\d.]+/i',
+      'Edge' => '/(Edge|Edg|EdgA|EdgiOS)\/[\d.]+/i',
+      'Opera' => '/(OPR|Opera)\/[\d.]+/i',
+      'Firefox' => '/(Firefox|FxiOS)\/[\d.]+/i',
+      'Chrome' => '/(Chrome|CriOS)\/[\d.]+/i',
       'Safari' => '/Safari\/[\d.]+/i',
-      'Edge' => '/Edg\/[\d.]+/i',
-      'Opera' => '/Opera\/[\d.]+/i',
-      'IE' => '/MSIE [\d.]+/i',
+      'IE' => '/(MSIE |Trident\/)[\d.]+/i',
     ];
 
     foreach ($browsers as $name => $pattern) {
@@ -151,12 +153,13 @@ final readonly class UserAgent implements Stringable
    */
   public function getOS(): ?string
   {
+    // Order matters: Android UAs also say "Linux", and iOS UAs say "like Mac OS X".
     $operatingSystems = [
       'Windows' => '/Windows NT [\d.]+/i',
+      'iOS' => '/(iPhone|iPad|iPod).*OS [\d_]+/i',
+      'Android' => '/Android [\d.]+/i',
       'macOS' => '/Mac OS X [\d_]+/i',
       'Linux' => '/Linux/i',
-      'Android' => '/Android [\d.]+/i',
-      'iOS' => '/(iPhone|iPad|iPod).*OS [\d_]+/i',
     ];
 
     foreach ($operatingSystems as $name => $pattern) {

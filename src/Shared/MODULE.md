@@ -34,6 +34,25 @@ health check endpoint.
 
 ## Flows
 
+### Optional local GeoIP
+
+`GeoIpLookupPort` resolves public IPv4/IPv6 addresses against DB-IP City Lite MMDB locally.
+It returns immutable `IpLocation(countryCode, city)` or null. Disabled collection, invalid or
+reserved addresses, missing/corrupt/stale files and unknown records never prevent security flows.
+The reader opens and closes per call, including long-lived FrankenPHP workers; no IP is sent to DB-IP.
+`RequestOriginPort` publishes trusted `getClientIp()`, fixed browser/OS labels and locale from the
+main HTTP request, or null outside HTTP. `EmailRequestDetails` omits the IP and is delivery-only.
+Both HTTP origin adapters trim and bound the User-Agent to 512 bytes; unknown values, including
+`0`, preserve the trusted IP and locale without inventing browser or operating-system labels.
+Security email handlers treat origin and geography as independent optional enrichments: an
+unavailable port leaves partial or empty delivery context and cannot prevent the email send.
+
+`app:geoip:update` selects the UTC monthly official HTTPS archive, uses a shared-volume lock,
+streams bounded bytes, validates gzip integrity and MMDB metadata/search, and replaces atomically.
+Failed download/validation retains the installed file. `--check` reports validity/freshness;
+`--if-enabled` skips scheduled work while disabled. Operational output contains no lookup data.
+
+
 ### Outbound Port -> Adapter
 
 Application code invokes a contract; an infrastructure adapter implements the external operation. Dependency ownership stays inward even when runtime calls go outward.
@@ -104,6 +123,17 @@ Key folders:
 - `src/Shared/Infrastructure/Symfony/Adapter`
 
 ## Configuration
+
+GeoIP defaults live in `config/packages/geoip.yaml`: `GEOIP_ENABLED=false`,
+`GEOIP_DATABASE_PATH=%kernel.project_dir%/var/geoip/dbip-city-lite.mmdb`, `GEOIP_MAX_AGE_DAYS=45`.
+`TRUSTED_PROXIES` is an explicit comma-separated IP/CIDR allowlist, empty by default. Only
+forwarded-for/proto/port headers are trusted from those proxies. Aliases and adapter arguments
+are in `config/modules/shared.yaml`. Symfony HttpClient/Lock and `maxmind-db/reader` are used
+without a bundle. Production mounts the database read-only in the app and writable in maintenance.
+Local Compose forwards `GEOIP_ENABLED` to the app and both workers; recreate these services
+after changing the flag. The local database is retained in the persistent `app_var` volume.
+See [GeoIP operations and privacy](../../docs/guides/geoip-operations-and-privacy.md) before activation.
+
 
 ### Durable events and local consumer receipts
 
@@ -256,6 +286,12 @@ to ship this lot and was left untouched to minimize blast radius. Equipment
 all five attachment slices at once so the number cannot diverge.
 
 ## Testing
+
+Synthetic MMDB fixtures exercise IPv4/IPv6, partial records, unsupported addresses,
+corruption and age, reader reopening, bounded downloads, interruption, checksum, monthly reuse
+and competing updater locks. Proxy tests distinguish direct connections and explicit trusted hops.
+Tests never download the provider database.
+
 
 - Unit: `tests/Unit/Shared`
   - `Infrastructure/Storage/FlysystemFactoryTest` — DSN parsing (local vs s3

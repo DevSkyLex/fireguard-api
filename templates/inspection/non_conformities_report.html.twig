@@ -1,13 +1,12 @@
 {% extends 'pdf/layout.html.twig' %}
+{% import 'pdf/components.html.twig' as ui %}
+
+{% set severityDots = { critical: 'destructive', high: 'destructive', medium: 'warning', low: 'muted' } %}
+{% set statusTones = { done: 'success' } %}
 
 {% block title %}{{ 'nonConformities.title'|trans({}, 'pdf', lang) }}{% endblock %}
 
 {% block headerTitle %}{{ 'nonConformities.title'|trans({}, 'pdf', lang) }}{% endblock %}
-
-{% block styles %}
-    .severity-critical h2, .severity-critical .group-count { color: #b3261e; }
-    .group-count { font-weight: bold; }
-{% endblock %}
 
 {% block content %}
   <h1>{{ 'nonConformities.title'|trans({}, 'pdf', lang) }}</h1>
@@ -33,9 +32,7 @@
   </div>
 
   {% for group in severityGroups %}
-    <div class="severity-{{ group.severity }}">
-      <h2>{{ ('nonConformities.severity.' ~ group.severity)|trans({}, 'pdf', lang) }} <span class="group-count">({{ group.count }})</span></h2>
-    </div>
+    <h2><span class="dot dot-{{ severityDots[group.severity]|default('muted') }}"></span>{{ ('nonConformities.severity.' ~ group.severity)|trans({}, 'pdf', lang) }} <span class="count">({{ group.count }})</span></h2>
     {% if group.rows is empty %}
       <p class="empty">{{ 'nonConformities.table.empty'|trans({}, 'pdf', lang) }}</p>
     {% else %}
@@ -43,7 +40,7 @@
         <thead>
           <tr>
             <th>{{ 'nonConformities.table.status'|trans({}, 'pdf', lang) }}</th>
-            <th>{{ 'nonConformities.table.age'|trans({}, 'pdf', lang) }}</th>
+            <th class="num">{{ 'nonConformities.table.age'|trans({}, 'pdf', lang) }}</th>
             <th>{{ 'nonConformities.table.site'|trans({}, 'pdf', lang) }}</th>
             <th>{{ 'nonConformities.table.equipment'|trans({}, 'pdf', lang) }}</th>
             <th>{{ 'nonConformities.table.createdAt'|trans({}, 'pdf', lang) }}</th>
@@ -53,12 +50,12 @@
         <tbody>
           {% for row in group.rows %}
             <tr>
-              <td>{{ ('nonConformities.status.' ~ row.status)|trans({}, 'pdf', lang) }}</td>
-              <td>{{ row.ageInDays }}</td>
+              <td>{{ ui.tag(('nonConformities.status.' ~ row.status)|trans({}, 'pdf', lang), statusTones[row.status]|default('muted')) }}</td>
+              <td class="num">{{ row.ageInDays }}</td>
               <td>{{ row.facilityName|default('—') }}</td>
               <td>{{ row.equipmentSerialNumber|default('—') }}</td>
-              <td>{{ row.createdAt|default('—') }}</td>
-              <td>{{ row.resolvedAt|default('—') }}</td>
+              <td class="nowrap">{{ row.createdAt|default('—') }}</td>
+              <td class="nowrap">{{ row.resolvedAt|default('—') }}</td>
             </tr>
           {% endfor %}
         </tbody>

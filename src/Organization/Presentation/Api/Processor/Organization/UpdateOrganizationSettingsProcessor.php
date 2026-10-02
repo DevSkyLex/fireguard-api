@@ -8,6 +8,8 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
+use JsonException;
+use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\EquipmentTypeCatalogPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{
@@ -35,7 +37,9 @@ use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Domain\Exception\InvalidValueException;
+use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
@@ -46,10 +50,14 @@ use ValueError;
 
 use function array_key_exists;
 use function array_keys;
+use function get_object_vars;
 use function implode;
 use function in_array;
 use function is_string;
+use function json_decode;
 use function sprintf;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Processor UpdateOrganizationSettingsProcessor.
@@ -142,6 +150,8 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
       throw new AccessDeniedHttpException('Missing organization.settings.write permission.');
     }
 
+    self::validateRegisteredAddressShape($context);
+
     try {
       /** @var UpdateOrganizationSettingsResult $result */
       $result = $this->commandBus->dispatch(new UpdateOrganizationSettingsCommand(
@@ -161,6 +171,8 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
         legalName: $data->legalName,
         registrationNumber: $data->registrationNumber,
         vatNumber: $data->vatNumber,
+        registeredAddress: $data->registeredAddress?->toArray(),
+        privacyContactEmail: $data->privacyContactEmail,
       ));
     } catch (OrganizationArchivedException|OrganizationSlugAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
@@ -191,6 +203,47 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
     }
 
     return $this->buildOutput($result->organizationId, $user->getId());
+  }
+
+  /**
+   * Method validateRegisteredAddressShape.
+   *
+   * Checks the original JSON before dispatch because DTO denormalization loses
+   * the distinction between an empty object and an empty array.
+   *
+   * @param array<string, mixed> $context the API Platform request context
+   */
+  private static function validateRegisteredAddressShape(array $context): void
+  {
+    $request = $context['request'] ?? null;
+    if (!$request instanceof Request) {
+      throw new LogicException('Organization settings require the HTTP request context.');
+    }
+
+    try {
+      $payload = json_decode($request->getContent(), false, 512, JSON_THROW_ON_ERROR);
+    } catch (JsonException $exception) {
+      throw new BadRequestHttpException('Organization settings must contain valid JSON.', $exception);
+    }
+
+    if (!$payload instanceof stdClass) {
+      throw new BadRequestHttpException('Organization settings must be a JSON object.');
+    }
+
+    $address = $payload->registeredAddress ?? null;
+    if (null === $address) {
+      return;
+    }
+
+    if (!$address instanceof stdClass) {
+      throw new BadRequestHttpException('registeredAddress must be a JSON object or null.');
+    }
+
+    foreach (array_keys(get_object_vars($address)) as $field) {
+      if (!in_array($field, ['line1', 'line2', 'postalCode', 'city', 'region', 'countryCode'], true)) {
+        throw new BadRequestHttpException('registeredAddress contains an unsupported property.');
+      }
+    }
   }
 
   /**

@@ -80,7 +80,7 @@ node --test .codex/hooks/adapter.test.mjs
 The validator checks manifests, links, skills, native roles, peer registrations, and forbidden
 global settings. Native-policy tests use fixtures; they do not invoke a real model.
 Reviewers, auditors, and explorers remain read-only; other agents inherit
-session permissions. Counts are dynamic: the current target is **17 skills
+session permissions. Counts are dynamic: the current target is **18 skills
 and 22 agents**, with no hard-coded assertion in the validator.
 
 Both validators check the shared catalog by default. On an API-only checkout, add

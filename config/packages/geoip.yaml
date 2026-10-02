@@ -1,0 +1,11 @@
+# Collection is opt-in. The local database is never a required authentication service.
+parameters:
+  env(GEOIP_ENABLED): 'false'
+  env(GEOIP_DATABASE_PATH): '%kernel.project_dir%/var/geoip/dbip-city-lite.mmdb'
+  env(GEOIP_MAX_AGE_DAYS): '45'
+  env(TRUSTED_PROXIES): ''
+
+framework:
+  trusted_proxies: '%env(csv:TRUSTED_PROXIES)%'
+  # Traefik supplies these headers; host forwarding is deliberately not trusted.
+  trusted_headers: ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-port']

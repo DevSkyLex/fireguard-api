@@ -60,7 +60,7 @@ interface TotpServicePort
   public function getProvisioningUri(
     TotpSecret $secret,
     string $accountName,
-    string $issuer = 'FireGuard Auth',
+    string $issuer = 'Fireguard Auth',
   ): string;
   // #endregion
 }

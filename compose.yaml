@@ -16,6 +16,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-dev}
       APP_DEBUG: ${APP_DEBUG:-1}
+      GEOIP_ENABLED: ${GEOIP_ENABLED:-false}
       AUTH_DATABASE_URL: postgresql://${POSTGRES_AUTH_USER:-admin}:${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}@auth_database:5432/${POSTGRES_AUTH_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
       MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
       REDIS_URL: redis://redis:6379
@@ -61,6 +62,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-dev}
       APP_DEBUG: ${APP_DEBUG:-1}
+      GEOIP_ENABLED: ${GEOIP_ENABLED:-false}
       AUTH_DATABASE_URL: postgresql://${POSTGRES_AUTH_USER:-admin}:${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}@auth_database:5432/${POSTGRES_AUTH_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
       MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
       REDIS_URL: redis://redis:6379
@@ -110,6 +112,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-dev}
       APP_DEBUG: ${APP_DEBUG:-1}
+      GEOIP_ENABLED: ${GEOIP_ENABLED:-false}
       AUTH_DATABASE_URL: postgresql://${POSTGRES_AUTH_USER:-admin}:${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}@auth_database:5432/${POSTGRES_AUTH_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
       MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
       REDIS_URL: redis://redis:6379

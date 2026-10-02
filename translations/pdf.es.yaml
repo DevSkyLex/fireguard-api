@@ -1,4 +1,5 @@
 layout:
+  registeredAddress: "Domicilio social"
   generatedAt: "Generado el %date%"
   registrationNumber: "N.º de registro %number%"
   vatNumber: "IVA %number%"
@@ -8,6 +9,7 @@ common:
   "no": "No"
 
 compliance:
+  configuredRulesNote: "Estado del seguimiento según las reglas configuradas en esta organización. Este registro no constituye una certificación reglamentaria."
   title: "Registro de seguridad"
   scope:
     organization: "Informe de organización"
@@ -32,14 +34,14 @@ compliance:
     dueSoon: "Vencimiento próximo"
     overdue: "Atrasados"
     unscheduled: "Sin planificar"
-    openNonConformities: "NC abiertas (baja/media/alta/crítica)"
+    openNonConformities: "NC abiertas"
   facilities:
     heading: "Establecimientos"
     facility: "Establecimiento"
     type: "Tipo"
     status: "Estado"
-    equipment: "Equipos (al día / vencimiento próximo / atrasados / sin planificar)"
-    openNonConformities: "NC abiertas (baja/media/alta/crítica)"
+    equipment: "Equipos"
+    openNonConformities: "NC abiertas"
     lastInspection: "Última inspección"
   note: "Registro generado el %date%. La antigüedad de las evaluaciones y los equipos pendientes se indican por separado. El registro actual puede cambiar; los archivos conservan su documento original."
 
@@ -188,3 +190,45 @@ equipment:
 equipmentLabels:
   title: "Etiquetas QR de equipos"
   serialNumber: "N.º serie %serial%"
+status:
+  intervention:
+    draft: "Borrador"
+    planned: "Planificada"
+    in_progress: "En curso"
+    submitted: "Enviada"
+    changes_requested: "Cambios solicitados"
+    published: "Publicada"
+    abandoned: "Abandonada"
+  priority:
+    low: "Baja"
+    normal: "Normal"
+    high: "Alta"
+    urgent: "Urgente"
+  interventionType:
+    site_setup: "Configuración del sitio"
+    inventory: "Inventario"
+    inspection_campaign: "Campaña de inspección"
+  workItem:
+    planned: "Planificado"
+    in_progress: "En curso"
+    completed: "Completado"
+    skipped: "Omitido"
+  inspection:
+    draft: "Borrador"
+    submitted: "Enviada"
+    closed: "Cerrada"
+    cancelled: "Cancelada"
+  inspectionResult:
+    pass: "Apto"
+    partial: "Parcial"
+    fail: "No apto"
+  equipment:
+    in_stock: "En stock"
+    operational: "Operativo"
+    under_maintenance: "En mantenimiento"
+    decommissioned: "Retirado de servicio"
+  maintenanceDue:
+    unscheduled: "Sin programar"
+    up_to_date: "Al día"
+    due_soon: "Vence pronto"
+    overdue: "Atrasado"

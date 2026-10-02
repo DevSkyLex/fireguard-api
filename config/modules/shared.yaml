@@ -66,6 +66,24 @@ services:
   # Port to Adapter bindings (Outbound Ports)
   Shared\Application\Port\Outbound\CachePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter'
   Shared\Application\Port\Outbound\ClockPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter'
+  Shared\Application\Port\Outbound\GeoIpLookupPort: '@Shared\Infrastructure\Adapter\GeoIp\DbIpGeoIpAdapter'
+  Shared\Application\Port\Outbound\RequestOriginPort: '@Shared\Infrastructure\Adapter\Http\SymfonyRequestOriginAdapter'
+
+  Shared\Infrastructure\Adapter\GeoIp\DbIpGeoIpAdapter:
+    arguments:
+      $databasePath: '%env(resolve:GEOIP_DATABASE_PATH)%'
+      $enabled: '%env(bool:GEOIP_ENABLED)%'
+      $maxAgeDays: '%env(int:GEOIP_MAX_AGE_DAYS)%'
+
+  Shared\Infrastructure\Adapter\GeoIp\DbIpDatabaseUpdaterAdapter:
+    arguments:
+      $databasePath: '%env(resolve:GEOIP_DATABASE_PATH)%'
+
+  Shared\Infrastructure\Console\UpdateGeoIpCommand:
+    arguments:
+      $enabled: '%env(bool:GEOIP_ENABLED)%'
+      $maxAgeDays: '%env(int:GEOIP_MAX_AGE_DAYS)%'
+
   Shared\Application\Port\Outbound\EventBusPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter'
   Shared\Application\Port\Outbound\FileStoragePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\FlysystemFileStorageAdapter'
   Shared\Application\Port\Outbound\LoggerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\LoggerAdapter'

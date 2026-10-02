@@ -7,9 +7,11 @@ namespace Organization\Domain\Model\Organization;
 use Organization\Domain\ValueObject\{
   OrganizationCountry,
   OrganizationLegalType,
+  OrganizationRegisteredAddress,
   OrganizationRegistrationNumber,
   OrganizationVatNumber
 };
+use Shared\Domain\ValueObject\Email;
 
 /** Optional legal identity fields persisted with an organization. */
 final readonly class RestoredOrganizationLegal
@@ -27,6 +29,8 @@ final readonly class RestoredOrganizationLegal
    * @param ?string $legalName optional registered legal name
    * @param ?OrganizationRegistrationNumber $registrationNumber optional organization registration number
    * @param ?OrganizationVatNumber $vatNumber optional VAT registration number
+   * @param ?OrganizationRegisteredAddress $registeredAddress optional registered office
+   * @param ?Email $privacyContactEmail optional organization privacy contact
    *
    * @return void
    */
@@ -36,6 +40,8 @@ final readonly class RestoredOrganizationLegal
     public ?string $legalName = null,
     public ?OrganizationRegistrationNumber $registrationNumber = null,
     public ?OrganizationVatNumber $vatNumber = null,
+    public ?OrganizationRegisteredAddress $registeredAddress = null,
+    public ?Email $privacyContactEmail = null,
   ) {
   }
   // #endregion

@@ -8,6 +8,7 @@ use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, Safet
 use Compliance\Application\Service\SafetyRegisterContextBuilder;
 use Compliance\Application\UseCase\Command\Snapshot\CreateSafetyRegisterSnapshot\{CreateSafetyRegisterSnapshotCommand, CreateSafetyRegisterSnapshotHandler};
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
+use Compliance\Application\UseCase\Query\Snapshot\GetSafetyRegisterSnapshotContent\{GetSafetyRegisterSnapshotContentHandler, GetSafetyRegisterSnapshotContentQuery};
 use Compliance\Domain\Event\SafetyRegisterSnapshotCreatedEvent;
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceExportNotEntitledException, ComplianceNotFoundException};
 use Compliance\Domain\Model\Snapshot\SafetyRegisterSnapshot;
@@ -23,7 +24,10 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, FileStoragePort, UuidGeneratorPort};
 
 use function hash;
+use function json_encode;
 use function strlen;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Test CreateSafetyRegisterSnapshotHandler.
@@ -202,6 +206,76 @@ final class CreateSafetyRegisterSnapshotHandlerTest extends TestCase
     $handler->__invoke($this->command());
   }
 
+  /**
+   * Method itArchivesTheCreationTimeAddressAndDownloadsThoseBytesAfterBrandingChanges
+   *
+   * Verifies archived content remains immutable for absent and populated registered offices.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function itArchivesTheCreationTimeAddressAndDownloadsThoseBytesAfterBrandingChanges(): void
+  {
+    foreach ([null, ['line1' => 'Original office', 'line2' => null, 'postalCode' => null, 'city' => null, 'region' => null, 'countryCode' => 'FR']] as $address) {
+      $currentBranding = new OrganizationDocumentBranding('Acme', null, null, null, null, 'UTC', 'en-US', 'yyyy-MM-dd', $address);
+      $branding = $this->createMock(OrganizationDocumentBrandingPort::class);
+      $branding->expects(self::once())->method('getDocumentBranding')->willReturnCallback(
+        static function () use (&$currentBranding): OrganizationDocumentBranding {
+          return $currentBranding;
+        },
+      );
+      $renderer = $this->createMock(SafetyRegisterPdfRendererPort::class);
+      $renderer->expects(self::once())->method('render')->willReturnCallback(
+        static function (array $context) use ($address): string {
+          $org = $context['org'];
+          self::assertIsArray($org);
+          self::assertSame($address, $org['registeredAddress']);
+
+          return '%PDF-' . json_encode($org, JSON_THROW_ON_ERROR);
+        },
+      );
+      $storedBytes = '';
+      $storage = $this->createMock(FileStoragePort::class);
+      $storage->expects(self::once())->method('write')->willReturnCallback(
+        static function (string $path, string $contents) use (&$storedBytes): void {
+          $storedBytes = $contents;
+        },
+      );
+      $storage->expects(self::once())->method('read')->willReturnCallback(
+        static function () use (&$storedBytes): string {
+          return $storedBytes;
+        },
+      );
+      $snapshot = null;
+      $repository = $this->createMock(SafetyRegisterSnapshotRepositoryPort::class);
+      $repository->expects(self::once())->method('save')->willReturnCallback(
+        static function (SafetyRegisterSnapshot $saved) use (&$snapshot): void {
+          $snapshot = $saved;
+        },
+      );
+      $repository->expects(self::once())->method('findForOrganization')->willReturnCallback(
+        static function () use (&$snapshot): ?SafetyRegisterSnapshot {
+          return $snapshot;
+        },
+      );
+      $this->handler(fileStorage: $storage, repository: $repository, renderer: $renderer, branding: $branding)->__invoke($this->command());
+      $archivedBytes = $storedBytes;
+      $currentBranding = new OrganizationDocumentBranding('Renamed', null, null, null, null, 'UTC', 'en-US', 'yyyy-MM-dd', ['line1' => 'Updated office', 'line2' => null, 'postalCode' => null, 'city' => null, 'region' => null, 'countryCode' => 'ES']);
+      $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+      $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+      $entitlement = $this->createStub(ComplianceExportEntitlementPort::class);
+      $entitlement->method('isExportEntitled')->willReturn(true);
+      $download = new GetSafetyRegisterSnapshotContentHandler($authorization, $entitlement, $repository, $storage);
+      $result = $download->__invoke(new GetSafetyRegisterSnapshotContentQuery(self::ORGANIZATION_ID, self::GENERATED_ID, self::USER_ID));
+
+      self::assertSame($archivedBytes, $result->contents);
+      self::assertStringNotContainsString('Updated office', $result->contents);
+      self::assertSame(hash('sha256', $archivedBytes), $result->contentHash);
+    }
+  }
+
   // #region Helpers
 
   private function command(): CreateSafetyRegisterSnapshotCommand
@@ -220,6 +294,7 @@ final class CreateSafetyRegisterSnapshotHandlerTest extends TestCase
     ?SafetyRegisterSnapshotRepositoryPort $repository = null,
     ?SafetyRegisterPdfRendererPort $renderer = null,
     ?EventDispatcherPort $eventDispatcher = null,
+    ?OrganizationDocumentBrandingPort $branding = null,
   ): CreateSafetyRegisterSnapshotHandler {
     if (!$authorization instanceof OrganizationAuthorizationPort) {
       $stub = $this->createMock(OrganizationAuthorizationPort::class);
@@ -270,17 +345,19 @@ final class CreateSafetyRegisterSnapshotHandlerTest extends TestCase
       $renderer = $stub;
     }
 
-    $branding = $this->createStub(OrganizationDocumentBrandingPort::class);
-    $branding->method('getDocumentBranding')->willReturn(new OrganizationDocumentBranding(
-      organizationName: 'Fireguard Seed Organization',
-      logoDataUri: null,
-      legalName: null,
-      registrationNumber: null,
-      vatNumber: null,
-      timezone: 'Europe/Paris',
-      locale: 'fr_FR',
-      dateFormat: 'dd/MM/yyyy',
-    ));
+    if (null === $branding) {
+      $branding = $this->createStub(OrganizationDocumentBrandingPort::class);
+      $branding->method('getDocumentBranding')->willReturn(new OrganizationDocumentBranding(
+        organizationName: 'Fireguard Seed Organization',
+        logoDataUri: null,
+        legalName: null,
+        registrationNumber: null,
+        vatNumber: null,
+        timezone: 'Europe/Paris',
+        locale: 'fr_FR',
+        dateFormat: 'dd/MM/yyyy',
+      ));
+    }
 
     $uuidGenerator = $this->createStub(UuidGeneratorPort::class);
     $uuidGenerator->method('generate')->willReturn(self::GENERATED_ID);

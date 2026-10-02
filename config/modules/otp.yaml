@@ -60,6 +60,8 @@ services:
   Otp\Infrastructure\Adapter\Auth\TotpEnrollmentCheckAdapter: ~
 
   # OTP Notifier
+  Otp\Infrastructure\Notification\RequestOriginResolver: ~
+
   Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter:
     arguments:
       $senderEmail: '%env(MAILER_FROM)%'

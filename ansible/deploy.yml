@@ -39,6 +39,9 @@
       - FIREGUARD_FIXTURES_IMAGE
       - AUTH_DATABASE_URL
       - MAIN_DATABASE_URL
+    # Empty explicitly trusts no forwarded client address; require operator review before enabling.
+    fireguard_optional_blank_env_keys:
+      - TRUSTED_PROXIES
     # Provider credentials are intentionally blank while their switch is false.
     # They become mandatory together as soon as the provider is enabled.
     fireguard_federated_provider_credentials:
@@ -81,6 +84,31 @@
 
     - name: Validate curl is available
       ansible.builtin.command: curl --version
+      changed_when: false
+
+    - name: Require an installed crontab executable
+      ansible.builtin.shell: command -v crontab >/dev/null
+      args:
+        executable: /bin/sh
+      changed_when: false
+
+    - name: Inspect host scheduler services before changing services
+      ansible.builtin.service_facts:
+
+    - name: Require a running cron scheduler before changing services
+      ansible.builtin.assert:
+        that:
+          - >-
+            (ansible_facts.services | dict2items
+             | selectattr('key', 'in', ['cron', 'crond', 'cron.service', 'crond.service'])
+             | selectattr('value.state', 'equalto', 'running') | list | length) > 0
+        fail_msg: >-
+          A running cron or crond service is required for daily maintenance.
+          Provision the scheduler before deployment; no application service has been changed.
+
+    - name: Identify the deployment user for host maintenance ownership
+      ansible.builtin.command: id -un
+      register: fireguard_deployment_user
       changed_when: false
 
     - name: Validate VPS capacity
@@ -156,6 +184,8 @@
         create: false
         mode: "0600"
       when: not fireguard_managed_env
+      no_log: true
+      diff: false
 
     - name: Ensure deployment env file permissions are private
       ansible.builtin.file:
@@ -175,6 +205,7 @@
       ansible.builtin.slurp:
         src: "{{ fireguard_env_file }}"
       register: fireguard_env_contents
+      no_log: true
 
     # Three required-key sources feed the managed file. `.env.example` is the
     # application's declared contract. `compose.prod.yaml` adds the Postgres identity
@@ -224,6 +255,7 @@
     - name: Collect the env keys the deployment file sets
       ansible.builtin.set_fact:
         fireguard_present_env_keys: "{{ fireguard_env_contents.content | b64decode | regex_findall('(?m)^([A-Z][A-Z0-9_]*)=') }}"
+      no_log: true
 
     - name: Stop before changing services if a declared key is missing
       ansible.builtin.fail:
@@ -251,6 +283,15 @@
     # Provider credentials are the deliberate exception: when the matching switch is
     # false, blank values keep the adapter disabled and still satisfy Symfony's env
     # resolution. The switch itself always has an explicit true/false value.
+    - name: Validate managed GeoIP configuration
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'GEOIP_ENABLED') in ['true', 'false']
+          - lookup('env', 'GEOIP_MAX_AGE_DAYS') is match('^[1-9][0-9]*$')
+        fail_msg: >-
+          GeoIP needs an explicit true/false switch and a positive maximum age.
+      when: fireguard_managed_env
+
     - name: Validate federated provider switches
       ansible.builtin.assert:
         that:
@@ -328,7 +369,8 @@
              + ([item] if (lookup('env', item) is search('[\r\n\x27]')
                            or lookup('env', item) != (lookup('env', item) | trim))
                 else []) }}
-      loop: "{{ fireguard_non_blank_env_keys | list }}"
+      # Values allowed to stay blank must still be safe to quote when populated.
+      loop: "{{ fireguard_required_env_keys | difference(fireguard_computed_env_keys) | list }}"
       loop_control:
         label: "{{ item }}"
       when: fireguard_managed_env
@@ -361,6 +403,8 @@
         remote_src: true
         mode: "0600"
       when: fireguard_managed_env
+      no_log: true
+      diff: false
 
     - name: Generate the deployment env file
       ansible.builtin.template:
@@ -368,6 +412,73 @@
         dest: "{{ fireguard_env_file }}"
         mode: "0600"
       when: fireguard_managed_env
+      no_log: true
+      diff: false
+
+    # Compose resolves environment: overrides, env_file and interpolation here.
+    # Validate the value actually delivered to app, regardless of env ownership.
+    - name: Resolve and validate the effective application proxy configuration
+      block:
+        - name: Resolve effective Compose configuration privately
+          ansible.builtin.command: "{{ fireguard_compose_command }} config --format json"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+          register: fireguard_resolved_compose
+          changed_when: false
+          no_log: true
+
+        - name: Validate only explicit addresses in the application proxy list
+          ansible.builtin.set_fact:
+            fireguard_effective_proxies_valid: >-
+              {{ (fireguard_resolved_compose.stdout | from_json).services.app.environment.TRUSTED_PROXIES
+                 | fireguard_trusted_proxies_valid }}
+          no_log: true
+      rescue:
+        - name: Stop on an unresolved effective proxy configuration
+          ansible.builtin.fail:
+            msg: >-
+              The effective application proxy configuration could not be validated.
+              Review Compose configuration privately. No application service has been stopped.
+
+    - name: Require an explicit effective application proxy list
+      ansible.builtin.fail:
+        msg: >-
+          TRUSTED_PROXIES must be blank or a CSV list of reviewed IP addresses or CIDRs without whitespace.
+          Framework aliases, empty elements and hostnames are forbidden.
+          No application service has been stopped.
+      when: not fireguard_effective_proxies_valid
+
+    # Install before either legacy-project shutdown or application shutdown.
+    # Historical playbooks only copy known files, so rollback leaves this helper
+    # and its crons available to inspect the older Compose configuration.
+    - name: Install the stable host maintenance helper
+      ansible.builtin.template:
+        src: templates/maintenance.sh.j2
+        dest: "{{ fireguard_app_dir }}/fireguard-maintenance.sh"
+        owner: "{{ fireguard_deployment_user.stdout }}"
+        mode: "0750"
+        validate: /bin/sh -n %s
+
+    - name: Install daily GeoIP update and freshness check
+      ansible.builtin.cron:
+        name: "Fireguard {{ fireguard_deployment_environment }} GeoIP maintenance"
+        minute: "17"
+        hour: "3"
+        job: "{{ (fireguard_app_dir + '/fireguard-maintenance.sh') | quote }} geoip-update"
+
+    - name: Install daily revoked-session location cleanup
+      ansible.builtin.cron:
+        name: "Fireguard {{ fireguard_deployment_environment }} revoked-session location cleanup"
+        minute: "37"
+        hour: "3"
+        job: "{{ (fireguard_app_dir + '/fireguard-maintenance.sh') | quote }} geoip-purge"
+
+    - name: Install daily authentication retention
+      ansible.builtin.cron:
+        name: "Fireguard {{ fireguard_deployment_environment }} auth retention"
+        minute: "47"
+        hour: "3"
+        job: "{{ (fireguard_app_dir + '/fireguard-maintenance.sh') | quote }} auth-retention"
 
     - name: Check Traefik Docker network
       ansible.builtin.command: "docker network inspect {{ fireguard_traefik_network }}"
@@ -430,6 +541,11 @@
 
     - name: Ensure application runtime volume permissions
       ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm app_var_init"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Ensure private GeoIP volume permissions
+      ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm --no-deps geoip_volume_init"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
@@ -832,6 +948,11 @@
 
     - name: Synchronize RBAC permissions
       ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console app:authz:sync-permissions --update-roles --no-interaction --env=prod -vvv"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Remove locations from previously revoked sessions before serving
+      ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm --no-deps geoip_maintenance app:geoip:purge-session-locations --env=prod"
       args:
         chdir: "{{ fireguard_app_dir }}"
 

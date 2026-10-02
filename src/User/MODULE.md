@@ -36,6 +36,15 @@ frontend's localized typed registries are the source of these values).
 
 ## Flows
 
+### Email-change request location
+
+Initial confirmation and old-address pending notices use the request command's IP. The
+post-confirmation old-address notice uses the confirmation command's IP. Handlers obtain browser
+context through `RequestOriginPort`, resolve locally, and supply typed `EmailRequestDetails`
+only in Notification's transient `deliveryPayload`. Persistent payloads, bodies and domain/audit
+events do not include geography. Existing durable-save and best-effort notice policies remain.
+
+
 ### Global presence preference
 
 Authenticated users can GET/PATCH `/api/me/presence-preference` without `profile.update`.
@@ -259,6 +268,14 @@ used.` — for both "taken" and "identical to the current address", so the
 
 ## Configuration
 
+Email-change notifications use the Shared translation and GeoIP ports. GeoIP is optional and
+disabled by default; privacy and deployment prerequisites are described in the Shared module.
+Origin and GeoIP failures are independent and cannot suppress confirmation or old-mailbox
+notices. Geography is still attempted from the command IP when origin extraction fails;
+known device labels survive a lookup failure. Confirmation delivery errors propagate, while
+pending and effective notices retain their best-effort policy and class-only error logging.
+
+
 - Service wiring: `config/modules/user.yaml`
 - Rate limiters (`config/packages/rate_limiter.yaml`): `email_change_request`
   (per user, 5/min) **and** `email_change_request_ip` (per IP, 5/min) on
@@ -285,6 +302,10 @@ used.` — for both "taken" and "identical to the current address", so the
   roster — past 50 rows so their admin lists actually paginate.
 
 ## Testing
+
+Email-change tests verify which request IP supplies each notice and that geography exists
+only in transient delivery context, with no persistent payload or event addition.
+
 
 Presence coverage includes handler/provider/processor and Mercure adapter unit tests,
 `UserPresenceApiTest` HTTP success/denial/validation contracts, and PostgreSQL integration

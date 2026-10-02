@@ -108,6 +108,10 @@ age_in_days, facility, equipment, inspection_id, created_at, resolved_at`.
 
 **PDF reports — inspection report and non-conformities report (plan-gated).**
 
+The optional registered office is consumed as scalar Application branding data
+and labelled explicitly in the common legal footer, separately from the facility
+address. An absent address preserves the existing document rendering.
+
 Two synchronous PDF exports on the shared PDF socle (`templates/pdf/layout.html.twig`,
 translator domain `pdf`, `OrganizationDocumentBrandingPort` for letterhead +
 regional date formatting, dompdf renderer adapters with `isRemoteEnabled`/

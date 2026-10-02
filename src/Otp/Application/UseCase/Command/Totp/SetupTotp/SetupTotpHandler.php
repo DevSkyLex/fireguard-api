@@ -89,7 +89,7 @@ final readonly class SetupTotpHandler implements CommandHandler
     $qrCodeUri = $this->totpService->getProvisioningUri(
       secret: $secret,
       accountName: $command->accountName,
-      issuer: 'FireGuard Auth',
+      issuer: 'Fireguard Auth',
     );
 
     return new SetupTotpResult(

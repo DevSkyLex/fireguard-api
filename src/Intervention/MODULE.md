@@ -710,8 +710,8 @@ uses); the site is resolved through `InterventionSiteNamingPort::findNamesByIds(
 This is translation, not a decision — the Presentation layer maps IRIs to
 labels and tallies counts, it does not enforce or branch on any business rule.
 
-**Report content**: FG-number, name, type/status/priority (raw string
-values), site name, responsible/participant names, planned start/due dates,
+**Report content**: FG-number, name, type/status/priority (translated display
+labels), site name, responsible/participant names, planned start/due dates,
 review note when present, a "completion signature captured" statement
 (`hasSignature`), assigned labels; a work-items table (action, target,
 assignee name, status, required, skip reason, evidence count); the computed
@@ -723,7 +723,9 @@ attachments list (file name + kind only); and activity highlights
 common `templates/pdf/layout.html.twig` socle: fixed header (organization
 logo inlined as a base64 `data:` URI when stored — dompdf keeps remote
 loading off — plus display name), fixed footer with the legal identity block
-(legal name, registration number, VAT — only the filled fields), the
+(legal name, registration number, VAT and optional registered office — only the
+filled fields; the registered office has its own label, distinct from the site
+address), the
 formatted generation date, and `X / Y` page numbering stamped by the
 renderer adapter through dompdf's canvas `page_text()`
 (`{PAGE_NUM}`/`{PAGE_COUNT}` substitution — adapter-side API, no
@@ -735,8 +737,10 @@ through `Shared\Application\Document\DocumentDateFormatter`. All fixed
 strings go through the Symfony translator, domain `pdf`
 (`translations/pdf.{en,fr,es}.yaml`); the language is the org regional
 `locale`'s language subtag (`fr-FR` → `fr`), falling back to `en`. Dynamic
-enum-ish values coming from the workflow data (`type`/`status`/`priority`,
-work-item statuses) stay raw; the fixed issue severities are translated. The
+enum values coming from the workflow data (`type`/`status`/`priority` and
+work-item statuses) use `ui.status()` and the corresponding `status.<family>.*`
+PDF catalogue labels, with a humanised fallback for unknown values; fixed issue
+severities are translated as well. The
 layout carries no normative claim by product decision.
 
 **Audit** — `InterventionReportExportedEvent` (intervention id, organization

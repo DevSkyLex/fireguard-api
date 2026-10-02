@@ -1,0 +1,44 @@
+#!/bin/sh
+# This stable host-side helper remains installed when an older playbook is deployed.
+# Inspect the currently installed Compose files on every run, not deployment history.
+set -u
+
+fail() {
+  status="$1"
+  message="$2"
+  printf '%s\n' "$message" >&2
+  logger -p daemon.err -t fireguard-maintenance -- "$message" || :
+  exit "$status"
+}
+
+compose() {
+  {{ fireguard_compose_command }} "$@"
+}
+
+case "${1-}" in
+  geoip-update|geoip-purge|auth-retention) task="$1" ;;
+  *) fail 64 'Unknown maintenance task' ;;
+esac
+
+cd {{ fireguard_app_dir | quote }} || fail 78 'Maintenance application directory is unavailable'
+
+if [ "$task" = 'auth-retention' ]; then
+  compose run --rm --no-deps --entrypoint php app -d memory_limit=1G bin/console app:cleanup:auth-data --env=prod >/dev/null 2>&1 \
+    || fail "$?" 'Authentication retention task failed'
+  exit 0
+fi
+
+# An invalid Compose configuration must not be mistaken for an absent service.
+services=$(compose --profile tools config --services 2>/dev/null) \
+  || fail "$?" 'Maintenance Compose configuration failed'
+printf '%s\n' "$services" | grep -qx 'geoip_maintenance' || exit 0
+
+if [ "$task" = 'geoip-update' ]; then
+  compose --profile tools run --rm --no-deps geoip_maintenance app:geoip:update --if-enabled --env=prod >/dev/null 2>&1 \
+    || fail "$?" 'GeoIP update failed'
+  compose --profile tools run --rm --no-deps geoip_maintenance app:geoip:update --check --if-enabled --env=prod >/dev/null 2>&1 \
+    || fail "$?" 'GeoIP freshness check failed'
+else
+  compose --profile tools run --rm --no-deps geoip_maintenance app:geoip:purge-session-locations --env=prod >/dev/null 2>&1 \
+    || fail "$?" 'Revoked-session location cleanup failed'
+fi

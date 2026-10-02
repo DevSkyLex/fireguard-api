@@ -1,0 +1,30 @@
+{# Email building blocks shared by the transactional templates.
+
+   Usage: {% import 'notification/email/components.html.twig' as ui %}
+
+   Styles live in `layout.html.twig`; these macros only own the markup, which is
+   table-based so the primary button keeps its fill and padding in Outlook. #}
+
+{# Primary call to action: vermilion fill, white label (the web app's primary button). #}
+{% macro button(url, label) %}
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn-wrap">
+    <tr>
+      <td class="btn-cell" bgcolor="#f4511e">
+        <a href="{{ url }}" class="btn">{{ label }}</a>
+      </td>
+    </tr>
+  </table>
+{% endmacro %}
+
+{# "Button does not work?" hint followed by the raw link, neutral and underlined like every text link in the app. #}
+{% macro linkFallback(text, url) %}
+  <p class="muted">{{ text }}</p>
+  <p class="link-fallback"><a href="{{ url }}">{{ url }}</a></p>
+{% endmacro %}
+
+{# Badge, modelled on the app's `hlmBadge`. variant: outline (default, for statuses: a dot carries the tone) |
+   secondary (neutral counts) | destructive (the one alert fill). tone: destructive | warning | success | info | muted,
+   only used by the outline variant. The label always carries the meaning; colour is supplemental. #}
+{% macro badge(label, tone = 'muted', variant = 'outline') -%}
+  <span class="badge badge-{{ variant }}">{% if variant == 'outline' %}<span class="dot dot-{{ tone }}"></span>{% endif %}{{ label }}</span>
+{%- endmacro %}

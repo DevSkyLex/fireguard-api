@@ -7,9 +7,12 @@ namespace Otp\Application\UseCase\Command\Challenge\GenerateOtp;
 use Otp\Application\Port\Outbound\Challenge\{OtpNotifierPort, OtpRepositoryPort};
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{OtpChannel as DomainOtpChannel, OtpGenerationOptions, OtpId, OtpPurpose as DomainOtpPurpose};
+use Shared\Application\Contract\Notification\EmailRequestDetails;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Throwable;
 
 /**
  * Handler GenerateOtpHandler.
@@ -33,6 +36,8 @@ final readonly class GenerateOtpHandler implements CommandHandler
    * @param OtpNotifierPort $otpNotifier the OTP notifier
    * @param UuidFactory $uuidFactory the UUID factory
    * @param int $otpCodeLength the OTP code length
+   * @param ?GeoIpLookupPort $geoIp optional local email enrichment
+   * @param ?RequestOriginPort $requestOrigin transient origin of the email request
    */
   public function __construct(
     private readonly OtpRepositoryPort $otpRepository,
@@ -40,6 +45,8 @@ final readonly class GenerateOtpHandler implements CommandHandler
     private readonly UuidFactory $uuidFactory,
     #[Autowire('%env(int:OTP_CODE_LENGTH)%')]
     private readonly int $otpCodeLength = 6,
+    private ?GeoIpLookupPort $geoIp = null,
+    private ?RequestOriginPort $requestOrigin = null,
   ) {
   }
   // #endregion
@@ -84,7 +91,26 @@ final readonly class GenerateOtpHandler implements CommandHandler
 
     // Send notification (if channel requires it)
     if ($channel->requiresDelivery()) {
-      $this->otpNotifier->send(otp: $otp);
+      $details = null;
+      if (DomainOtpChannel::EMAIL === $channel) {
+        $origin = null;
+        $location = null;
+
+        try {
+          $origin = $this->requestOrigin?->current();
+        } catch (Throwable) {
+          // Optional request context must never prevent code delivery.
+        }
+
+        try {
+          $location = null === $origin?->ipAddress ? null : $this->geoIp?->locate($origin->ipAddress);
+        } catch (Throwable) {
+          // Keep the known browser and locale when local geography is unavailable.
+        }
+        $details = EmailRequestDetails::fromOrigin($origin, $location);
+      }
+
+      $this->otpNotifier->send(otp: $otp, details: $details);
     }
 
     return new GenerateOtpResult(

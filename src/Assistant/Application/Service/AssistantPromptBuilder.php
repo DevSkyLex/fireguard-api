@@ -44,7 +44,7 @@ final class AssistantPromptBuilder
    *
    * @var string SYSTEM_PROMPT
    */
-  private const string SYSTEM_PROMPT = 'You are the FireGuard assistant, helping an organization member with '
+  private const string SYSTEM_PROMPT = 'You are the Fireguard assistant, helping an organization member with '
     . 'fire-safety compliance questions about their facilities, equipment, and interventions. '
     . 'Answer concisely and only from information you are actually given; say so plainly when you do not know.';
   // #endregion

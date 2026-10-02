@@ -42,6 +42,23 @@ final readonly class SessionMetadata
 
   // #region Methods
   /**
+   * Removes location on revocation while preserving device and persistence settings.
+   *
+   * @since 1.0.0
+   *
+   * @return self metadata without geographic information
+   */
+  public function withoutLocation(): self
+  {
+    return new self(
+      deviceType: $this->deviceType,
+      browser: $this->browser,
+      operatingSystem: $this->operatingSystem,
+      rememberMe: $this->rememberMe,
+    );
+  }
+
+  /**
    * Method toArray.
    *
    * Returns the metadata as an array.

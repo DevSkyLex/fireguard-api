@@ -81,3 +81,10 @@ For tooling-only work run the [maintenance checks](maintenance.md) instead of ap
 Return the resulting behavior, files changed, actual command results, unverified areas and any
 blocking dependency. Review output prioritizes actionable findings with exact evidence and
 impact. Do not claim a browser/runtime/new-session check from static files alone.
+
+## Planning
+
+For preparation or revision of a plan, load [fg-api-plan](../.agents/skills/fg-api-plan/SKILL.md).
+It guides the principal agent in read-only source exploration and concrete validation choices.
+It does not automatically delegate. Keep AI-facing procedures in `.agents` or tooling
+directories, outside `docs/`; human operating and product documentation remains in its owning area.

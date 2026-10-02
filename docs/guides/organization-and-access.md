@@ -12,6 +12,11 @@ or cross-organization identifiers cannot turn a denied item into a disclosed rec
 Published capability projections help the frontend compose actions; mutation-time
 checks remain authoritative.
 
+The organization's protection-of-personal-data contact is readable by members
+without settings-edit permission. Requests are handled through the
+[manual personal data procedure](organization-personal-data-requests.md), including
+requests from former members and external people through official channels.
+
 ## Admission and discovery
 
 Organization's module contract defines domain verification, invitation, admission

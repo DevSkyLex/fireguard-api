@@ -145,6 +145,24 @@ final class SessionOutput
   public ?string $browser = null;
 
   /**
+   * Approximate country at session creation, absent for unavailable or legacy enrichment.
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [SessionSerializationGroup::READ])]
+  #[ApiProperty(description: 'Approximate ISO 3166-1 alpha-2 country at sign-in.', writable: false, example: 'FR', openapiContext: ['type' => 'string', 'nullable' => true, 'readOnly' => true])]
+  public ?string $country = null;
+
+  /**
+   * Approximate city at session creation, never a live device location.
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [SessionSerializationGroup::READ])]
+  #[ApiProperty(description: 'Approximate city at sign-in, when available.', writable: false, example: 'Paris', openapiContext: ['type' => 'string', 'nullable' => true, 'readOnly' => true])]
+  public ?string $city = null;
+
+  /**
    * Property createdAt.
    *
    * The creation timestamp.

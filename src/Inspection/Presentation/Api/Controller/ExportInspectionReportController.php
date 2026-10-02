@@ -329,6 +329,7 @@ final class ExportInspectionReportController extends AbstractController
       'legalName' => $branding->legalName,
       'registrationNumber' => $branding->registrationNumber,
       'vatNumber' => $branding->vatNumber,
+      'registeredAddress' => $branding->registeredAddress,
     ];
     $context['lang'] = $branding->language();
 

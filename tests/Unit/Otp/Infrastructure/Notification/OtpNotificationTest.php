@@ -46,7 +46,7 @@ final class OtpNotificationTest extends TestCase
 
     self::assertInstanceOf(SmsMessage::class, $message);
     self::assertSame('+12025550123', $message->getPhone());
-    self::assertStringContainsString('FireGuard', $message->getSubject());
+    self::assertStringContainsString('Fireguard', $message->getSubject());
   }
 
   #[Test]

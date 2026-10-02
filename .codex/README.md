@@ -1,6 +1,6 @@
 # FireGuard API in Codex
 
-The repository includes **17 skills and 22 specialist agents**. Native role files
+The repository includes **18 skills and 22 specialist agents**. Native role files
 define their model, effort and service tier directly. The primary configuration also
 registers the 25 frontend roles, forming a shared **47-agent catalog**. See the
 [workflow](workflow.md#native-agent-settings).
@@ -68,6 +68,7 @@ invocation of every role.
 
 | Task                                   | Skill or reference                                       | Agent                                             | Relevant validation                                      |
 | -------------------------------------- | -------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------- |
+| Prepare or revise a plan | `fg-api-plan` | Principal agent; no automatic delegation | Verified sources, contracts and proposed checks |
 | Complete requested change review       | `fg-api-review`                                          | Parent; specialists only when delegation is authorized | Separate staged/unstaged/untracked evidence, P0–P3 findings |
 | Diagnose the active tooling session    | `fg-api-tooling-diagnose`                                | Parent                                            | Files, discovered catalogs, availability, observed execution |
 | Comments and PHPDoc                    | [shared convention](../docs/guides/code-comments.md)     | `fg-api-comment-maintainer` (luna / medium, Fast) | Scoped docs-lint, annotation review and token comparison |

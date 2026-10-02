@@ -39,6 +39,19 @@ to write the reason down rather than to delete the endpoints.
 
 ## Flows
 
+### Email request location
+
+For email challenges only, `GenerateOtpHandler` captures the current request through
+`RequestOriginPort` and resolves its IP through `GeoIpLookupPort`. Every generation, including
+resends, gets its own typed temporary `EmailRequestDetails`; no location is stored with the OTP.
+`OtpNotifierPort` accepts this context and Twig displays geography independently of recognized
+browser labels, escaping values and including approximate-location wording and DB-IP attribution.
+Outside HTTP the geography is absent. SMS and TOTP never invoke lookup or receive email context.
+Origin and lookup failures are isolated from delivery. If origin extraction fails, no IP lookup
+is attempted; if lookup fails, known device labels and locale remain. Email delivery always
+receives an explicit context object, even empty, and notifier failures still propagate.
+
+
 ### Challenge (Email/SMS)
 
 Resend cooldowns and HTTP rate limits expose `rate_limit_exceeded` and
@@ -137,9 +150,22 @@ OTP HTTP endpoints; Auth must confirm it through the User capability.
 
 ## Configuration
 
+Email enrichment uses Shared's GeoIP switch and local database. It is disabled by default
+and never creates a persistent geography history in Notification, audit or realtime events.
+
+
 - Services: `config/modules/otp.yaml`.
 - Notification sender: `MAILER_FROM` (used by `OtpNotifierAdapter`).
 - Email template: `templates/otp/email/code.html.twig` (rendered by Twig in `OtpNotifierAdapter`).
+- **Request details in the code email.** Next to the code, the email shows the date and time (UTC,
+  from `Otp::createdAt()`), the browser and the operating system of the request that asked for it, so the
+  recipient can tell their own sign-in from someone else's.
+  `RequestOriginPort` supplies parsed browser and OS labels from the main HTTP request. Only fixed
+  labels reach the template, never the raw `User-Agent`; an unrecognised field is omitted.
+  `GenerateOtpHandler` resolves the request IP through Shared's local GeoIP port and passes the
+  country and optional city in temporary `EmailRequestDetails`, independently of browser recognition.
+  The location block includes approximate-location wording and DB-IP attribution when available.
+  Disabled enrichment, a missing database, private IPs and non-HTTP requests leave it absent.
 - OTP code length: `OTP_CODE_LENGTH` (applies to challenge OTPs like SMS/email).
 - TOTP code length: `TOTP_DIGITS` (applies to authenticator app codes). Changing this will invalidate existing TOTP enrollments.
 - TOTP confirmation max attempts: fixed at 5 (`SetupTotpHandler::DEFAULT_MAX_ATTEMPTS`), reset each time setup is called again.
@@ -200,6 +226,12 @@ OTP HTTP endpoints; Auth must confirm it through the User capability.
    Schema rollback is explicitly refused once any enrollment has been encrypted.
 
 ## Testing
+
+Tests exercise fresh resend origins, unknown browsers, non-HTTP invocation, SMS/TOTP exclusion,
+real Twig escaping and the en/fr/es geography catalogs. A location-bearing delivery failure
+still fails the caller but exposes only a fixed message and the exception type, without
+chaining provider details into application logs.
+
 
 - Unit: `tests/Unit/Otp` (handlers, domain, adapters).
 - Functional: `tests/Functional/Api/OtpTotpApiTest.php`.

@@ -7,7 +7,8 @@ namespace User\Application\Service;
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, NotificationType, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Symfony\Contracts\Translation\TranslatorInterface;
+use Shared\Application\Contract\Notification\EmailRequestDetails;
+use Shared\Application\Port\Outbound\TranslationPort;
 
 use function in_array;
 use function rtrim;
@@ -45,12 +46,12 @@ final readonly class EmailChangeNotifier
    *
    * @param NotificationPort $notificationPort the notification module port
    * @param string $frontendUrl the public frontend base URL for the confirm link
-   * @param TranslatorInterface $translator the translator for the localized subject and body
+   * @param TranslationPort $translator the translator for the localized subject and body
    */
   public function __construct(
     private NotificationPort $notificationPort,
     private string $frontendUrl,
-    private TranslatorInterface $translator,
+    private TranslationPort $translator,
   ) {
   }
   // #endregion
@@ -89,6 +90,7 @@ final readonly class EmailChangeNotifier
    * @param string $confirmUrl the confirmation link carrying the raw token
    * @param DateTimeImmutable $expiresAt when the token expires
    * @param string $locale the recipient locale for the email template (en/fr/es)
+   * @param ?EmailRequestDetails $requestDetails transient request context, never persisted
    *
    * @return SentNotification the sent notification result
    */
@@ -97,15 +99,16 @@ final readonly class EmailChangeNotifier
     string $confirmUrl,
     DateTimeImmutable $expiresAt,
     string $locale = 'en',
+    ?EmailRequestDetails $requestDetails = null,
   ): SentNotification {
-    $subject = $this->translator->trans('emailChange.confirmSubject', [], 'emails', $locale);
+    $subject = $this->translator->translate('emailChange.confirmSubject', [], 'emails', $locale);
 
     return $this->notificationPort->send(new SendNotificationRequest(
       type: NotificationType::USER_EMAIL_CHANGE_REQUESTED,
       subject: $subject,
       body: sprintf(
         '<p>%s</p>',
-        $this->translator->trans('emailChange.confirmHeading', [], 'emails', $locale),
+        $this->translator->translate('emailChange.confirmHeading', [], 'emails', $locale),
       ),
       channels: [NotificationChannel::EMAIL],
       payload: [
@@ -118,6 +121,7 @@ final readonly class EmailChangeNotifier
             'confirmUrl' => $confirmUrl,
             'expiresAt' => $this->formatExpiresAt($expiresAt, $locale),
             'locale' => $locale,
+            'requestDetails' => $requestDetails,
           ],
         ],
       ],
@@ -135,10 +139,11 @@ final readonly class EmailChangeNotifier
    *
    * @param string $currentEmail the current (old) address (recipient)
    * @param string $locale the recipient locale for the email template (en/fr/es)
+   * @param ?EmailRequestDetails $requestDetails transient request context, never persisted
    *
    * @return SentNotification the sent notification result
    */
-  public function sendPendingNotice(string $currentEmail, string $locale = 'en'): SentNotification
+  public function sendPendingNotice(string $currentEmail, string $locale = 'en', ?EmailRequestDetails $requestDetails = null): SentNotification
   {
     return $this->sendNotice(
       recipientEmail: $currentEmail,
@@ -147,6 +152,7 @@ final readonly class EmailChangeNotifier
       headingKey: 'emailChange.pendingHeading',
       bodyKey: 'emailChange.pendingBody',
       locale: $locale,
+      requestDetails: $requestDetails,
     );
   }
 
@@ -160,10 +166,11 @@ final readonly class EmailChangeNotifier
    *
    * @param string $previousEmail the previous (old) address (recipient)
    * @param string $locale the recipient locale for the email template (en/fr/es)
+   * @param ?EmailRequestDetails $requestDetails transient confirmation context, never persisted
    *
    * @return SentNotification the sent notification result
    */
-  public function sendChangedNotice(string $previousEmail, string $locale = 'en'): SentNotification
+  public function sendChangedNotice(string $previousEmail, string $locale = 'en', ?EmailRequestDetails $requestDetails = null): SentNotification
   {
     return $this->sendNotice(
       recipientEmail: $previousEmail,
@@ -172,6 +179,7 @@ final readonly class EmailChangeNotifier
       headingKey: 'emailChange.changedHeading',
       bodyKey: 'emailChange.changedBody',
       locale: $locale,
+      requestDetails: $requestDetails,
     );
   }
 
@@ -206,6 +214,7 @@ final readonly class EmailChangeNotifier
    * @param string $headingKey the translation key for the heading
    * @param string $bodyKey the translation key for the body paragraph
    * @param string $locale the recipient locale (en/fr/es)
+   * @param ?EmailRequestDetails $requestDetails email-only delivery context
    *
    * @return SentNotification the sent notification result
    */
@@ -216,15 +225,16 @@ final readonly class EmailChangeNotifier
     string $headingKey,
     string $bodyKey,
     string $locale,
+    ?EmailRequestDetails $requestDetails,
   ): SentNotification {
-    $subject = $this->translator->trans($subjectKey, [], 'emails', $locale);
+    $subject = $this->translator->translate($subjectKey, [], 'emails', $locale);
 
     return $this->notificationPort->send(new SendNotificationRequest(
       type: $type,
       subject: $subject,
       body: sprintf(
         '<p>%s</p>',
-        $this->translator->trans($bodyKey, [], 'emails', $locale),
+        $this->translator->translate($bodyKey, [], 'emails', $locale),
       ),
       channels: [NotificationChannel::EMAIL],
       deliveryPayload: [
@@ -234,6 +244,7 @@ final readonly class EmailChangeNotifier
             'headingKey' => $headingKey,
             'bodyKey' => $bodyKey,
             'locale' => $locale,
+            'requestDetails' => $requestDetails,
           ],
         ],
       ],

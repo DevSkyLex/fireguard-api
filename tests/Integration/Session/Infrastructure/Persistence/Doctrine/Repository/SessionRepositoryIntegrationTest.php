@@ -12,6 +12,10 @@ use Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository;
 use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function json_decode;
+
+use const JSON_THROW_ON_ERROR;
+
 /**
  * Test SessionRepositoryIntegrationTest.
  *
@@ -51,6 +55,32 @@ final class SessionRepositoryIntegrationTest extends KernelTestCase
 
   // #region Tests
   #[Test]
+  public function testPurgeKeepsActiveLocationsUntilAuthorizedAccountErasure(): void
+  {
+    $active = $this->createSession('123e4567-e89b-12d3-a456-426614174099', 'geo-owner');
+    $legacy = $this->createSession('123e4567-e89b-12d3-a456-426614174098', 'geo-owner');
+    $other = $this->createSession('123e4567-e89b-12d3-a456-426614174097', 'other-owner');
+    foreach ([$active, $legacy, $other] as $session) {
+      $this->repository->save($session);
+    }
+    $connection = $this->entityManager->getConnection();
+    $connection->executeStatement('UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id = ?', [$legacy->id()->value]);
+    self::assertSame(1, $this->repository->purgeLocations());
+    self::assertSame(0, $this->repository->purgeLocations());
+    $raw = $connection->fetchOne('SELECT metadata FROM sessions WHERE id = ?', [$legacy->id()->value]);
+    self::assertIsString($raw);
+    $metadata = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($metadata);
+    self::assertArrayNotHasKey('country', $metadata);
+    self::assertArrayNotHasKey('city', $metadata);
+    self::assertSame('Test', $metadata['browser']);
+    self::assertSame(1, $this->repository->purgeLocations('geo-owner'));
+    $this->entityManager->clear();
+    self::assertNull($this->repository->findById($active->id())?->metadata()->city);
+    self::assertSame('Paris', $this->repository->findById($other->id())?->metadata()->city);
+  }
+
+  #[Test]
   public function testSaveAndFindById(): void
   {
     $session = $this->createSession(
@@ -81,6 +111,7 @@ final class SessionRepositoryIntegrationTest extends KernelTestCase
     $this->repository->save($session);
 
     $session->updateTokens('access-new', 'refresh-new');
+    $this->repository->save($session);
     $session->revoke();
     $this->repository->save($session);
 
@@ -192,6 +223,14 @@ final class SessionRepositoryIntegrationTest extends KernelTestCase
     $active = $this->repository->findActiveByUserId('user-7');
     self::assertCount(1, $active);
     self::assertSame($keptSession->id()->value, $active[0]->id()->value);
+    $this->entityManager->clear();
+    self::assertSame('Paris', $this->repository->findById($keptSession->id())?->metadata()->city);
+    $other = $this->repository->findById($otherSession->id());
+    self::assertNotNull($other);
+    self::assertNull($other->metadata()->city);
+    self::assertNull($other->metadata()->country);
+    self::assertSame('Test', $other->metadata()->browser);
+    self::assertTrue($other->metadata()->rememberMe);
   }
 
   #[Test]
@@ -252,6 +291,7 @@ final class SessionRepositoryIntegrationTest extends KernelTestCase
       userAgent: new UserAgent('test-agent'),
       accessTokenId: $accessTokenId,
       refreshTokenId: $refreshTokenId,
+      metadata: new \Session\Domain\ValueObject\SessionMetadata(browser: 'Test', country: 'FR', city: 'Paris', rememberMe: true),
     );
   }
   // #endregion

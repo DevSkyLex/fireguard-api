@@ -1,5 +1,5 @@
 api_platform:
-  title: FireGuard API
+  title: Fireguard API
   description: Fire-safety compliance platform API — identity, organizations, facilities, equipment, inspections, interventions, maintenance and compliance
   version: 1.0.0
   # Domain exception -> HTTP status, declaratively.

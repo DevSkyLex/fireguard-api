@@ -1,0 +1,56 @@
+{# PDF building blocks shared by the report templates.
+
+   Usage: {% import 'pdf/components.html.twig' as ui %}
+
+   Tone semantics are ported from the web app's tag registries
+   (`intervention-tag.util.ts`, `equipment-status-tag.util.ts`): colour means "this
+   needs attention or is settled", so only end states and alert states are tinted and
+   every in-between state stays plain text. Styles live in `pdf/layout.html.twig`. #}
+
+{# Renders a label as a tinted pill, or as plain text for the neutral tone unless `always` keeps the neutral pill (outlined),
+   which a cell mixing several levels needs to stay visually uniform. `code` keeps the raw enum value on the element as a
+   `status-<code>` class, a stable hook next to the translated label. The label always carries the meaning. #}
+{% macro tag(label, tone = 'muted', always = false, code = null) -%}
+  {%- set codeClass = code is empty ? '' : ' status-' ~ code -%}
+  {%- if tone == 'muted' and not always -%}
+    {%- if code is empty -%}
+      {{ label }}
+    {%- else -%}
+      <span class="{{ codeClass|trim }}">{{ label }}</span>
+    {%- endif -%}
+  {%- else -%}
+    <span class="pill pill-{{ tone }}{{ codeClass }}">{{ label }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{# Renders an enum value of one of the `status.<family>` catalog families (domain "pdf"). Unknown values fall back
+   to a humanised label, like the web app, instead of leaking the raw snake_case code. #}
+{% macro status(family, code, lang) -%}
+  {%- if code is empty -%}
+    —
+  {%- else -%}
+    {%- set tones = {
+      intervention: { published: 'success', abandoned: 'destructive' },
+      priority: { normal: 'info', high: 'warning', urgent: 'destructive' },
+      workItem: { completed: 'success' },
+      inspection: { closed: 'success', cancelled: 'destructive' },
+      inspectionResult: { pass: 'success', partial: 'warning', fail: 'destructive' },
+      equipment: { operational: 'success', under_maintenance: 'warning', decommissioned: 'destructive' },
+      maintenanceDue: { up_to_date: 'success', due_soon: 'warning', overdue: 'destructive' },
+    } -%}
+    {%- set key = 'status.' ~ family ~ '.' ~ code -%}
+    {%- set translated = key|trans({}, 'pdf', lang) -%}
+    {%- set label = translated != key ? translated : (code|replace({'_': ' '})|capitalize) -%}
+    {%- set tone = tones[family][code]|default('muted') -%}
+    {%- if tone == 'muted' -%}
+      {{ label }}
+    {%- else -%}
+      <span class="pill pill-{{ tone }}">{{ label }}</span>
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
+{# Colored dot followed by a value, e.g. the equipment counts of a facility row. #}
+{% macro count(value, tone) -%}
+  <span class="dot dot-{{ tone }}"></span><span{% if value == 0 %} class="zero"{% endif %}>{{ value }}</span>
+{%- endmacro %}

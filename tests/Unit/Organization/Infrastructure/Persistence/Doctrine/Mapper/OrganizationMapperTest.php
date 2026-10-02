@@ -55,6 +55,8 @@ final class OrganizationMapperTest extends TestCase
     $record->legalName = 'Fireguard Paris SARL';
     $record->registrationNumber = 'RCS PARIS 812345678';
     $record->vatNumber = 'FR12345678901';
+    $record->registeredAddress = ['line1' => '10 rue du Test', 'line2' => null, 'postalCode' => null, 'city' => 'Paris', 'region' => null, 'countryCode' => 'FR'];
+    $record->privacyContactEmail = 'privacy@example.com';
     $record->createdAt = new DateTimeImmutable('2026-02-12T08:00:00+00:00');
     $record->updatedAt = new DateTimeImmutable('2026-02-12T09:00:00+00:00');
 
@@ -65,6 +67,8 @@ final class OrganizationMapperTest extends TestCase
     self::assertSame('Fireguard Paris SARL', $organization->legalName());
     self::assertSame('RCS PARIS 812345678', (string) $organization->registrationNumber());
     self::assertSame('FR12345678901', (string) $organization->vatNumber());
+    self::assertSame($record->registeredAddress, $organization->registeredAddress()?->toArray());
+    self::assertSame('privacy@example.com', $organization->privacyContactEmail()?->__toString());
   }
 
   #[Test]
@@ -89,6 +93,8 @@ final class OrganizationMapperTest extends TestCase
     self::assertNull($organization->legalName());
     self::assertNull($organization->registrationNumber());
     self::assertNull($organization->vatNumber());
+    self::assertNull($organization->registeredAddress());
+    self::assertNull($organization->privacyContactEmail());
   }
 
   #[Test]
@@ -108,6 +114,8 @@ final class OrganizationMapperTest extends TestCase
     $record->legalName = 'Fireguard Paris SARL';
     $record->registrationNumber = 'RCS PARIS 812345678';
     $record->vatNumber = 'FR12345678901';
+    $record->registeredAddress = ['line1' => null, 'line2' => null, 'postalCode' => null, 'city' => 'Paris', 'region' => null, 'countryCode' => 'FR'];
+    $record->privacyContactEmail = 'privacy@example.com';
     $record->createdAt = new DateTimeImmutable('2026-02-12T08:00:00+00:00');
     $record->updatedAt = new DateTimeImmutable('2026-02-12T09:00:00+00:00');
 
@@ -119,5 +127,7 @@ final class OrganizationMapperTest extends TestCase
     self::assertSame('Fireguard Paris SARL', $roundTripped->legalName);
     self::assertSame('RCS PARIS 812345678', $roundTripped->registrationNumber);
     self::assertSame('FR12345678901', $roundTripped->vatNumber);
+    self::assertSame($record->registeredAddress, $roundTripped->registeredAddress);
+    self::assertSame('privacy@example.com', $roundTripped->privacyContactEmail);
   }
 }

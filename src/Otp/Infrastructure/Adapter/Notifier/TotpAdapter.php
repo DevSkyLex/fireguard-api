@@ -149,7 +149,7 @@ final readonly class TotpAdapter implements TotpServicePort
   public function getProvisioningUri(
     TotpSecret $secret,
     string $accountName,
-    string $issuer = 'FireGuard Auth',
+    string $issuer = 'Fireguard Auth',
   ): string {
     return $secret->getProvisioningUri($accountName, $issuer, $this->digits);
   }
