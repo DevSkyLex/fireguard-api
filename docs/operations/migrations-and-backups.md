@@ -79,6 +79,12 @@ Other privileged operators must refrain from maintenance during recovery.
 Missing or ambiguous evidence aborts before
 releasing the mutex. It never restores or changes either database during inspection.
 
+An identity refusal includes only bounded filesystem metadata: directory/symlink
+flags, numeric owner and process IDs, permission bits, device/inode and timestamps.
+Use that evidence to review the original lock; no directory contents, environment
+values or private command output are reported. Do not chmod or chown the retained
+lock to pass the check: that changes its ctime and destroys the original provenance.
+
 After repeating those checks, recovery replaces the reviewed empty lock and
 immediately acquires it once. A competing owner is never removed or retried.
 The regular backup, auth/main migrations, transport setup, startup and health checks

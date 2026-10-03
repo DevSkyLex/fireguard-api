@@ -20,6 +20,7 @@ import signal
 import stat
 import subprocess
 import sys
+from typing import Literal, TypedDict
 import urllib.request
 
 
@@ -41,6 +42,48 @@ POTENTIAL_OWNER = re.compile(r"(?:python.*|ansible.*|sh|bash|dash|zsh|fish|ssh|s
 
 class RecoveryBlocked(RuntimeError):
     """A public, fixed diagnostic; never include child stderr, argv or secret values."""
+
+
+class LockIdentityDiagnostic(TypedDict):
+    appDir: Literal["/srv/apps/fireguard/development/back"]
+    isDirectory: bool
+    isSymlink: bool
+    lockUid: int
+    processUid: int
+    effectiveUid: int | None
+    mode: int
+    modeOctal: str
+    groupWritable: bool
+    worldWritable: bool
+    device: int
+    inode: int
+    mtimeNs: int
+    ctimeNs: int
+    empty: bool | None
+
+
+class LockWindowDiagnostic(TypedDict):
+    appDir: Literal["/srv/apps/fireguard/development/back"]
+    device: int
+    inode: int
+    uid: int
+    mtimeNs: int
+    ctimeNs: int
+    expectedStartSeconds: float
+    expectedEndSeconds: float
+
+
+class LockInspectionBlocked(RecoveryBlocked):
+    """Only bounded filesystem metadata; never resolve a link or export entry names."""
+
+    def __init__(self, code: Literal["lock-identity-unverified", "historical-lock-not-empty",
+                                   "lock-not-from-reviewed-failure-window"],
+                 diagnostic: LockIdentityDiagnostic | LockWindowDiagnostic):
+        super().__init__(code)
+        self.diagnostic = diagnostic
+
+    def __str__(self):
+        return super().__str__() + " " + json.dumps(self.diagnostic, sort_keys=True)
 
 
 def require(condition, code):
@@ -327,9 +370,22 @@ class Host:
         require(app.resolve(strict=True) == app and not any(path.is_symlink() for path in [app, *app.parents]),
                 "installation-path-not-canonical")
         value = lock.lstat()
-        require(stat.S_ISDIR(value.st_mode) and not stat.S_ISLNK(value.st_mode) and value.st_uid == os.getuid()
-                and not value.st_mode & 0o022, "lock-identity-unverified")
-        require(not any(lock.iterdir()), "historical-lock-not-empty")
+        process_uid = os.getuid()
+        diagnostic: LockIdentityDiagnostic = {
+            "appDir": APP_DIR, "isDirectory": stat.S_ISDIR(value.st_mode), "isSymlink": stat.S_ISLNK(value.st_mode),
+            "lockUid": value.st_uid, "processUid": process_uid,
+            "effectiveUid": os.geteuid() if hasattr(os, "geteuid") else None,
+            "mode": stat.S_IMODE(value.st_mode), "modeOctal": format(stat.S_IMODE(value.st_mode), "04o"),
+            "groupWritable": bool(value.st_mode & 0o020), "worldWritable": bool(value.st_mode & 0o002),
+            "device": value.st_dev, "inode": value.st_ino, "mtimeNs": value.st_mtime_ns, "ctimeNs": value.st_ctime_ns,
+            "empty": None,
+        }
+        if not (stat.S_ISDIR(value.st_mode) and not stat.S_ISLNK(value.st_mode) and value.st_uid == process_uid
+                and not value.st_mode & 0o022):
+            raise LockInspectionBlocked("lock-identity-unverified", diagnostic)
+        if any(lock.iterdir()):
+            diagnostic["empty"] = False
+            raise LockInspectionBlocked("historical-lock-not-empty", diagnostic)
         return {"device": value.st_dev, "inode": value.st_ino, "uid": value.st_uid,
                 "mtimeNs": value.st_mtime_ns, "ctimeNs": value.st_ctime_ns}
 
@@ -404,8 +460,11 @@ def recover(proof, host, *, app_dir, project, prefix, current_pid, current_uid):
     validate_proof(proof, app_dir=app_dir, project=project, prefix=prefix)
     identity = host.lock_identity()
     started, completed = proof["lockWindow"]
-    require(all(started <= identity[field] / 1e9 <= completed for field in ["mtimeNs", "ctimeNs"]),
-            "lock-not-from-reviewed-failure-window")
+    if not all(started <= identity[field] / 1e9 <= completed for field in ["mtimeNs", "ctimeNs"]):
+        diagnostic: LockWindowDiagnostic = {"appDir": APP_DIR, "device": identity["device"], "inode": identity["inode"],
+                                            "uid": identity["uid"], "mtimeNs": identity["mtimeNs"], "ctimeNs": identity["ctimeNs"],
+                                            "expectedStartSeconds": started, "expectedEndSeconds": completed}
+        raise LockInspectionBlocked("lock-not-from-reviewed-failure-window", diagnostic)
     check_processes(host.processes(), current_pid, current_uid)
     databases = check_containers(host.containers())
     require(host.image_manifest(proof) == proof["migrations"], "image-migration-manifest-mismatch")
