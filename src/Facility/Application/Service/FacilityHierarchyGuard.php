@@ -66,7 +66,7 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
     foreach ($proposedNodes as $node) {
       if (!$this->retainsPublishedRelationship($node, $originalNodes[$node->id] ?? null)) {
         $this->assertNode($node, $graph);
-        $this->assertSubtreeDepth($node, $graph);
+        $this->assertDepth($node, $graph, $this->subtreeHeight($node->id, $graph));
       }
       $original = $originalNodes[$node->id] ?? $previous[$node->id] ?? null;
       if (null !== $original && $original->type !== $node->type) {
@@ -289,7 +289,11 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
   private function allowsInGraph(array $graph, string $type, ?string $parentId, ?string $facilityId, ?int $height = null, ?string $interventionId = null): bool
   {
     $previous = null === $facilityId ? null : ($graph[$facilityId] ?? null);
-    if (!$this->candidateIsInScope($facilityId, $previous, $interventionId)) {
+    $outsideDraftContext = null !== $previous
+      && null !== $interventionId
+      && 'draft' === $previous->publicationState
+      && $interventionId !== $previous->interventionId;
+    if ((null !== $facilityId && null === $previous) || $outsideDraftContext) {
       return false;
     }
     $node = new FacilityHierarchyNode(
@@ -310,28 +314,6 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
     }
 
     return true;
-  }
-
-  /**
-   * Method candidateIsInScope.
-   *
-   * A supplied facility must exist in the scoped graph and cannot borrow another intervention's draft context.
-   *
-   * @access private
-   *
-   * @param ?string $facilityId the existing child, absent when creating a new child
-   * @param ?FacilityHierarchyNode $previous its current scoped row, when found
-   * @param ?string $interventionId the requested preparation context
-   *
-   * @return bool whether the child can be evaluated in this context
-   */
-  private function candidateIsInScope(?string $facilityId, ?FacilityHierarchyNode $previous, ?string $interventionId): bool
-  {
-    if (null !== $facilityId && null === $previous) {
-      return false;
-    }
-
-    return null === $previous || null === $interventionId || 'draft' !== $previous->publicationState || $interventionId === $previous->interventionId;
   }
 
   /**
@@ -421,18 +403,6 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
     if (!$this->hasCompatiblePublicationParent($node, $parent)) {
       throw FacilityHierarchyException::parentPublicationIncompatible();
     }
-  }
-
-  /**
-   * Method assertSubtreeDepth.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, FacilityHierarchyNode> $graph proposed final rows
-   */
-  private function assertSubtreeDepth(FacilityHierarchyNode $node, array $graph): void
-  {
-    $this->assertDepth($node, $graph, $this->subtreeHeight($node->id, $graph));
   }
 
   /**
