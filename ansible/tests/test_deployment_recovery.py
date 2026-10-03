@@ -183,7 +183,8 @@ def legacy_fixture(**credentials):
     for depth, path in enumerate(chain):
         path.is_symlink.return_value = False
         path.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o755, st_uid=1001 if depth == 0 else 0,
-                                                 st_gid=1001 if depth == 0 else 0, st_dev=2049, st_ino=100 + depth)
+                                                 st_gid=1001 if depth == 0 else 0, st_dev=2049, st_ino=100 + depth,
+                                                 st_mtime_ns=200 + depth, st_ctime_ns=300 + depth)
     observed = RECOVERY.REVIEWED_LEGACY_LOCK
     lock.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | observed["mode"], st_uid=observed["uid"],
                                              st_gid=observed["gid"], st_dev=observed["device"], st_ino=observed["inode"],
@@ -194,6 +195,8 @@ def legacy_fixture(**credentials):
          patch.object(RECOVERY.os, "geteuid", return_value=credentials.get("euid", 1001), create=True), \
          patch.object(RECOVERY.os, "getgid", return_value=credentials.get("gid", 1001), create=True), \
          patch.object(RECOVERY.os, "getegid", return_value=credentials.get("egid", 1001), create=True), \
+         patch.object(RECOVERY.os, "getpid", return_value=3), \
+         patch.object(RECOVERY, "process_status_records", return_value=[]), \
          patch.object(RECOVERY.os, "chmod") as chmod, patch.object(RECOVERY.os, "chown", create=True) as chown:
         yield app, lock, chain
         chmod.assert_not_called()
@@ -212,6 +215,32 @@ def legacy_host():
 def foreign_peer():
     return {"pid": 4, "ppid": 1, "uid": 1002, "uids": [1002] * 4, "gids": [1002] * 4, "groups": [],
             "comm": "other", "cwd": "/", "fds": []}
+
+
+def observed_shared_ancestor(chain):
+    node = chain[2].lstat.return_value
+    node.st_uid, node.st_gid, node.st_mode = 1000, 1010, RECOVERY.stat.S_IFDIR | 0o775
+    node.st_dev, node.st_ino, node.st_mtime_ns, node.st_ctime_ns = 2049, 3161822, 400, 500
+
+
+def status_only_path(statuses):
+    class StatusPath:
+        def __init__(self, value):
+            self.value = str(value)
+            self.name = self.value.rsplit("/", 1)[-1]
+        def __truediv__(self, value):
+            return StatusPath(self.value + "/" + str(value))
+        def iterdir(self):
+            if self.value != "/proc":
+                raise AssertionError("Diagnostic accessed a directory other than /proc")
+            return (StatusPath("/proc/" + str(pid)) for pid in statuses)
+        def open(self, mode, *, encoding):
+            if not self.value.endswith("/status"):
+                raise AssertionError("Diagnostic accessed non-status process data")
+            return io.StringIO(statuses[int(self.value.split("/")[2])])
+        def exists(self):
+            return True
+    return StatusPath
 
 
 class WorkflowAndPlaybookTests(unittest.TestCase):
@@ -775,9 +804,162 @@ class ReviewedLegacyLockTests(unittest.TestCase):
                 self.assertFalse(host.released)
 
 
+class NamespaceRefusalDiagnosticTests(unittest.TestCase):
+    def test_cli_shared_ancestor_diagnostic_exits_78_without_release_or_nonmetadata_reads(self):
+        evidence = proof()
+        statuses = {pid: f"PPid: {parent}\nUid: {uid} {uid} {uid} {uid}\nGid: {uid} {uid} {uid} {uid}\nGroups:\n"
+                    for pid, parent, uid in [(1, 0, 0), (2, 1, 1001), (3, 2, 1001), (4, 1, 1000)]}
+        proc_path = status_only_path(statuses)
+        with legacy_fixture() as (app, lock, chain):
+            observed_shared_ancestor(chain)
+            proof_file = MagicMock()
+            proof_file.read_text.return_value = json.dumps(evidence)
+            def path(value):
+                if str(value) == RECOVERY.APP_DIR:
+                    return app
+                if str(value) == "fixture.json":
+                    return proof_file
+                return proc_path(value) if str(value) == "/proc" else Path(value)
+            arguments = [str(HELPER), "acquire-reviewed-lock", "--proof", "fixture.json", "--app-dir", RECOVERY.APP_DIR,
+                         "--project", RECOVERY.PROJECT, "--volume-prefix", RECOVERY.PREFIX]
+            stderr, stdout = io.StringIO(), io.StringIO()
+            with patch("pathlib.Path", side_effect=path), patch.object(sys, "argv", arguments), \
+                 patch.object(RECOVERY.os, "readlink") as links, patch.object(RECOVERY.os, "rmdir") as remove, \
+                 patch.object(RECOVERY.os, "mkdir") as acquire, patch.object(RECOVERY.subprocess, "run") as commands, \
+                 redirect_stderr(stderr), redirect_stdout(stdout):
+                with self.assertRaises(SystemExit) as caught:
+                    runpy.run_path(str(HELPER), run_name="__main__")
+            self.assertEqual(78, caught.exception.code)
+            self.assertEqual("", stdout.getvalue())
+            prefix = "Reviewed recovery blocked: lock-identity-unverified "
+            self.assertTrue(stderr.getvalue().startswith(prefix), stderr.getvalue())
+            diagnostic = json.loads(stderr.getvalue()[len(prefix):])
+            self.assertEqual(1000, diagnostic["namespaceUid"])
+            self.assertEqual(1010, diagnostic["namespaceGid"])
+            self.assertEqual(6, len(diagnostic["namespaceChain"]))
+            self.assertEqual("available", diagnostic["namespacePeerCounts"]["status"])
+            self.assertEqual(1, diagnostic["namespacePeerCounts"]["peerCount"])
+            for call in [links, remove, acquire, commands]:
+                call.assert_not_called()
+            lock.iterdir.assert_not_called()
+
+    def test_actual_shared_ancestor_stays_refused_with_full_numeric_chain_and_metadata_only_peer_counts(self):
+        with legacy_fixture() as (app, lock, chain):
+            observed_shared_ancestor(chain)
+            host = legacy_host()
+            records = copy.deepcopy(host.process_records)
+            records += [foreign_peer() | {"pid": 4, "uid": 1000, "uids": [1000] * 4},
+                        foreign_peer() | {"pid": 5, "gids": [1002, 1002, 1002, 1010]},
+                        foreign_peer() | {"pid": 6, "uids": [1002, 1002, 1002, 1000]},
+                        foreign_peer() | {"pid": 7, "groups": [1010]},
+                        foreign_peer() | {"pid": 8, "uid": 1001, "uids": [1001] * 4},
+                        foreign_peer() | {"pid": 9, "uid": 0, "uids": [0] * 4}]
+            with patch.object(RECOVERY, "process_status_records", return_value=records) as reader, \
+                 patch.object(RECOVERY.os, "readlink") as links, patch.object(RECOVERY.os, "rmdir") as remove, \
+                 patch.object(RECOVERY.os, "mkdir") as acquire, patch.object(RECOVERY.subprocess, "run") as commands:
+                with self.assertRaisesRegex(RECOVERY.LockInspectionBlocked, "lock-identity-unverified") as caught:
+                    recover(host, current_uid=1001)
+            diagnostic = caught.exception.diagnostic
+            self.assertEqual(2, diagnostic["namespaceRefusalDepth"])
+            self.assertEqual(1000, diagnostic["namespaceUid"])
+            self.assertEqual(1010, diagnostic["namespaceGid"])
+            self.assertEqual(0o775, diagnostic["namespaceMode"])
+            nodes = diagnostic["namespaceChain"]
+            self.assertEqual(list(range(6)), [node["depth"] for node in nodes])
+            for depth, node in enumerate(nodes):
+                value = chain[depth].lstat.return_value
+                self.assertEqual({"depth": depth, "status": "available", "uid": value.st_uid, "gid": value.st_gid,
+                                  "mode": RECOVERY.stat.S_IMODE(value.st_mode), "device": value.st_dev, "inode": value.st_ino,
+                                  "mtimeNs": value.st_mtime_ns, "ctimeNs": value.st_ctime_ns,
+                                  "isDirectory": True, "isSymlink": False}, node)
+            self.assertEqual({"status": "available", "reason": "none", "peerCount": 6,
+                              "uidCounts": [{"identity": 0, "processCount": 1}, {"identity": 1000, "processCount": 2},
+                                            {"identity": 1001, "processCount": 1}],
+                              "writableGidCounts": [{"identity": 1010, "processCount": 2}]}, diagnostic["namespacePeerCounts"])
+            reader.assert_called_once_with(include_names=False, bounded=True)
+            for call in [links, remove, acquire, commands]:
+                call.assert_not_called()
+            lock.iterdir.assert_not_called()
+            self.assertFalse(host.released)
+            self.assertEqual(0, host.process_reads)
+            self.assertEqual(0, host.container_reads)
+
+    def test_zero_authority_peers_cannot_authorize_the_refused_ancestor(self):
+        with legacy_fixture() as (app, lock, chain):
+            observed_shared_ancestor(chain)
+            host = legacy_host()
+            with patch.object(RECOVERY, "process_status_records", return_value=host.process_records):
+                with self.assertRaises(RECOVERY.LockInspectionBlocked) as caught:
+                    recover(host, current_uid=1001)
+            self.assertEqual(0, caught.exception.diagnostic["namespacePeerCounts"]["peerCount"])
+            self.assertFalse(host.released)
+
+    def test_unavailable_or_malformed_peer_metadata_keeps_original_refusal_without_private_error(self):
+        failures = [PermissionError("PRIVATE_PERMISSION"), ValueError("PRIVATE_FORMAT"),
+                    RECOVERY.RecoveryBlocked("PRIVATE_FAILURE"), RECOVERY.RecoveryBlocked("diagnostic-peer-limit")]
+        for failure in failures:
+            with self.subTest(failure=type(failure)), legacy_fixture() as (app, lock, chain):
+                observed_shared_ancestor(chain)
+                host = legacy_host()
+                with patch.object(RECOVERY, "process_status_records", side_effect=failure):
+                    with self.assertRaises(RECOVERY.LockInspectionBlocked) as caught:
+                        recover(host, current_uid=1001)
+                reason = "bounded_limit" if str(failure) == "diagnostic-peer-limit" else "peer_metadata"
+                self.assertEqual({"status": "unavailable", "reason": reason}, caught.exception.diagnostic["namespacePeerCounts"])
+                self.assertNotIn("PRIVATE", str(caught.exception))
+                self.assertFalse(host.released)
+
+    def test_unavailable_later_ancestor_retains_six_depths_and_never_reads_peers(self):
+        with legacy_fixture() as (app, lock, chain):
+            observed_shared_ancestor(chain)
+            chain[4].lstat.side_effect = PermissionError("PRIVATE_PERMISSION")
+            with patch.object(RECOVERY, "process_status_records") as reader:
+                with self.assertRaises(RECOVERY.LockInspectionBlocked) as caught:
+                    RECOVERY.Host().lock_identity()
+            diagnostic = caught.exception.diagnostic
+            self.assertEqual(list(range(6)), [node["depth"] for node in diagnostic["namespaceChain"]])
+            self.assertEqual({"depth": 4, "status": "unavailable"}, diagnostic["namespaceChain"][4])
+            self.assertEqual({"status": "unavailable", "reason": "namespace_metadata"}, diagnostic["namespacePeerCounts"])
+            reader.assert_not_called()
+            lock.iterdir.assert_not_called()
+
+    def test_status_only_reader_counts_quartets_without_names_fd_cwd_or_other_data(self):
+        statuses = {pid: f"Name: PRIVATE_PROCESS_NAME\nPPid: {parent}\nUid: {uid} {uid} {uid} {uid}\n"
+                         f"Gid: {uid} {uid} {uid} {uid}\nGroups:\n" for pid, parent, uid in [(1, 0, 0), (2, 1, 1001), (3, 2, 1001)]}
+        statuses[4] = "PPid: 1\nUid: 1002 1002 1002 1000\nGid: 1002 1002 1002 1010\nGroups: 1010 1011\n"
+        chain = [{"depth": 0, "status": "available", "uid": 1000, "gid": 1010, "mode": 0o775}]
+        with patch.object(RECOVERY, "Path", status_only_path(statuses)), patch.object(RECOVERY.os, "getpid", return_value=3), \
+             patch.object(RECOVERY.os, "readlink") as links, patch.object(RECOVERY.subprocess, "run") as commands:
+            records = RECOVERY.process_status_records(include_names=False, bounded=True)
+            diagnostic = RECOVERY.namespace_peer_counts(chain)
+        self.assertTrue(all("comm" not in item and "cwd" not in item and "fds" not in item for item in records))
+        self.assertNotIn("PRIVATE", json.dumps(records))
+        self.assertEqual({"status": "available", "reason": "none", "peerCount": 1,
+                          "uidCounts": [{"identity": 1000, "processCount": 1}],
+                          "writableGidCounts": [{"identity": 1010, "processCount": 1}]}, diagnostic)
+        links.assert_not_called()
+        commands.assert_not_called()
+
+    def test_status_only_format_permission_and_size_limits_report_fixed_unavailable(self):
+        samples = ["PPid: 0\nUid: 1001\nGid: 1001 1001 1001 1001\nGroups:\n",
+                   "PPid: 0\nUid: 1001 1001 1001 1001\nGid: 1001 1001 1001 1001\nGroups: PRIVATE_VALUE\n",
+                   "PRIVATE_VALUE" * (512 * 1024)]
+        chain = [{"depth": 0, "status": "available", "uid": 1000, "gid": 1010, "mode": 0o775}]
+        for sample in samples:
+            with self.subTest(size=len(sample)), patch.object(RECOVERY, "Path", status_only_path({3: sample})):
+                result = RECOVERY.namespace_peer_counts(chain)
+                self.assertEqual("unavailable", result["status"])
+                self.assertNotIn("PRIVATE", json.dumps(result))
+        path = MagicMock()
+        path.iterdir.side_effect = PermissionError("PRIVATE_PERMISSION")
+        with patch.object(RECOVERY, "Path", return_value=path):
+            self.assertEqual({"status": "unavailable", "reason": "peer_metadata"}, RECOVERY.namespace_peer_counts(chain))
+
+
 class AdapterTests(unittest.TestCase):
     def test_real_lock_validator_requires_owned_empty_directory_canonical_path_and_private_writes(self):
-        self.assertEqual({"namespaceRefusalDepth", "namespaceUid", "namespaceMode", "namespaceDevice", "namespaceInode"},
+        self.assertEqual({"namespaceRefusalDepth", "namespaceUid", "namespaceGid", "namespaceMode", "namespaceDevice", "namespaceInode",
+                          "namespaceChain", "namespacePeerCounts"},
                          RECOVERY.LockIdentityDiagnostic.__optional_keys__)
         self.assertIn("lockUid", RECOVERY.LockIdentityDiagnostic.__required_keys__)
         self.assertIn("empty", RECOVERY.LockIdentityDiagnostic.__required_keys__)
