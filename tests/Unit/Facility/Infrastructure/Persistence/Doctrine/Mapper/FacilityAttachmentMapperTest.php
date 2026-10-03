@@ -43,12 +43,12 @@ final class FacilityAttachmentMapperTest extends TestCase
 
     self::assertSame(self::ATTACHMENT_ID, (string) $attachment->id());
     self::assertSame(self::FACILITY_ID, (string) $attachment->facilityId());
-    self::assertSame('plan.pdf', $attachment->fileName());
-    self::assertSame('facilities/plan.pdf', $attachment->storagePath());
-    self::assertSame('application/pdf', $attachment->mimeType());
-    self::assertSame(2048, $attachment->size());
+    self::assertSame('plan.pdf', $attachment->file()->fileName);
+    self::assertSame('facilities/plan.pdf', $attachment->file()->storagePath);
+    self::assertSame('application/pdf', $attachment->file()->mimeType);
+    self::assertSame(2048, $attachment->file()->size);
     self::assertSame('Floor plan', $attachment->label());
-    self::assertEquals(new DateTimeImmutable('2026-01-05T10:00:00+00:00'), $attachment->uploadedAt());
+    self::assertEquals(new DateTimeImmutable('2026-01-05T10:00:00+00:00'), $attachment->file()->uploadedAt);
     self::assertSame(AttachmentKind::DOCUMENT, $attachment->kind());
     self::assertFalse($attachment->isPrimaryPlan());
     self::assertNull($attachment->imageWidth());

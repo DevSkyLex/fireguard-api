@@ -90,28 +90,7 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
     }
     $pagination = PaginationExtractor::fromContext($context);
     $query = $this->listQuery($operation, $context, $organizationId, $pagination->offset, $pagination->itemsPerPage, $decision->isGranted());
-    if (null === $query->interventionId) {
-      if (!$decision->isGranted()) {
-        throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
-      }
-    } else {
-      if (null === $query->parentForType && null === $query->parentForFacilityId) {
-        throw new BadRequestHttpException('interventionId requires parentForType or parentForFacilityId.');
-      }
-
-      try {
-        \Facility\Domain\ValueObject\FacilityId::fromString($query->interventionId);
-      } catch (InvalidArgumentException $exception) {
-        throw new BadRequestHttpException($exception->getMessage(), $exception);
-      }
-      $access = $this->interventions->preparationAccess($organizationId, $query->interventionId, $user->getId());
-      if (InterventionParentAccess::NOT_FOUND === $access) {
-        throw new NotFoundHttpException('Intervention not found.');
-      }
-      if (InterventionParentAccess::GRANTED !== $access) {
-        throw new AccessDeniedHttpException('Intervention preparation access required.');
-      }
-    }
+    $this->assertCollectionAccess($query, $decision->isGranted(), $user->getId(), $organizationId);
 
     try {
       /** @var PaginatedResult<GetFacilityResult> $result */
@@ -141,6 +120,47 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
   }
 
   /**
+   * Method assertCollectionAccess
+   *
+   * Enforces the collection read gate or the contextual intervention preparation capability.
+   *
+   * @access private
+   *
+   * @param ListFacilitiesQuery $query the requested collection and parent-selection context
+   * @param bool $canReadPublished whether the actor can read published facilities
+   * @param string $userId the authenticated actor identifier
+   * @param string $organizationId the route organization identifier
+   *
+   * @return void
+   */
+  private function assertCollectionAccess(ListFacilitiesQuery $query, bool $canReadPublished, string $userId, string $organizationId): void
+  {
+    if (null === $query->interventionId) {
+      if (!$canReadPublished) {
+        throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
+      }
+
+      return;
+    }
+    if (null === $query->parentForType && null === $query->parentForFacilityId) {
+      throw new BadRequestHttpException('interventionId requires parentForType or parentForFacilityId.');
+    }
+
+    try {
+      \Facility\Domain\ValueObject\FacilityId::fromString($query->interventionId);
+    } catch (InvalidArgumentException $exception) {
+      throw new BadRequestHttpException($exception->getMessage(), $exception);
+    }
+    $access = $this->interventions->preparationAccess($organizationId, $query->interventionId, $userId);
+    if (InterventionParentAccess::NOT_FOUND === $access) {
+      throw new NotFoundHttpException('Intervention not found.');
+    }
+    if (InterventionParentAccess::GRANTED !== $access) {
+      throw new AccessDeniedHttpException('Intervention preparation access required.');
+    }
+  }
+
+  /**
    * @param array<string, mixed> $context
    */
   private function listQuery(Operation $operation, array $context, string $organizationId, int $offset, int $itemsPerPage, bool $includePublishedParents): ListFacilitiesQuery
@@ -158,20 +178,36 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
       organizationId: $organizationId,
       includeArchived: $query->getBoolean('includeArchived', false),
       pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
-      type: is_string($type) && '' !== $type ? $type : null,
-      status: is_string($status) && '' !== $status ? $status : null,
-      parentFacilityId: is_string($parentFacilityId) && '' !== $parentFacilityId ? $parentFacilityId : null,
+      type: $this->optionalString($type),
+      status: $this->optionalString($status),
+      parentFacilityId: $this->optionalString($parentFacilityId),
       rootsOnly: $query->getBoolean('rootsOnly', false),
-      code: is_string($code) && '' !== $code ? $code : null,
+      code: $this->optionalString($code),
       hasCoordinates: $query->has('hasCoordinates') ? $query->getBoolean('hasCoordinates') : null,
       search: SearchExtractor::fromContext($context),
       sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'updatedAt', 'code'], 'name'),
       includePath: $query->getBoolean('includePath', false),
-      parentForType: is_string($parentForType) && '' !== $parentForType ? $parentForType : null,
-      parentForFacilityId: is_string($parentForFacilityId) && '' !== $parentForFacilityId ? $parentForFacilityId : null,
-      interventionId: is_string($interventionId) && '' !== $interventionId ? $interventionId : null,
+      parentForType: $this->optionalString($parentForType),
+      parentForFacilityId: $this->optionalString($parentForFacilityId),
+      interventionId: $this->optionalString($interventionId),
       includePublishedParents: $includePublishedParents,
     );
+  }
+
+  /**
+   * Method optionalString
+   *
+   * Preserves the collection contract's empty and non-string filter normalization.
+   *
+   * @access private
+   *
+   * @param mixed $value the raw query parameter
+   *
+   * @return ?string the non-empty string filter, otherwise null
+   */
+  private function optionalString(mixed $value): ?string
+  {
+    return is_string($value) && '' !== $value ? $value : null;
   }
 
   /**

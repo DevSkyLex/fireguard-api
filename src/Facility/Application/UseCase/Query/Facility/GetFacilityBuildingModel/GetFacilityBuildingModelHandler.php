@@ -42,6 +42,12 @@ use function min;
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ *
+ * @phpstan-type FloorRow array{facilityId: string, name: string, status: string, levelIndex: ?int, elevationMeters: ?float, heightMeters: ?float, planGeometry: ?array{attachmentId: string, points: list<array{0: float, 1: float}>}, primaryPlanAttachmentId: ?string, primaryPlanImageWidth: ?int, primaryPlanImageHeight: ?int, primaryPlanCalibration: ?array{widthMeters: float, rotationDegrees: float, offsetXMeters: float, offsetZMeters: float}, primaryPlanCalibrationBuildingId: ?string}
+ * @phpstan-type RoomRow array{floorId: string, facilityId: string, parentFacilityId: ?string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>, attachmentId: string}
+ * @phpstan-type EquipmentRow array{floorId: string, equipmentId: string, facilityId: string, type: string, serialNumber: ?string, locationLabel: ?string, status: string, position: ?array{attachmentId: string, x: float, y: float}, invalidPosition: bool}
+ * @phpstan-type GeometryIssue array{facilityId: string, code: 'invalid_geometry'|'plan_unavailable'|'outside_ancestry'|'other_plan'}
+ * @phpstan-type RenderedFloor array{facilityId: string, name: string, levelIndex: ?int, elevationMeters: ?float, heightMeters: ?float, status: string, hierarchyIssues: list<string>, plan: ?array{attachmentId: string, imageWidth: ?int, imageHeight: ?int, calibration: ?array{widthMeters: float, rotationDegrees: float, offsetXMeters: float, offsetZMeters: float}, calibrationBuildingId: ?string, calibrationIssue: 'building_changed'|'unverified_frame'|null}, outline: ?array{source: string, points: list<array{0: float, 1: float}>}, rooms: list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>}>, equipment: list<array{equipmentId: string, facilityId: string, type: string, serialNumber: ?string, locationLabel: ?string, status: string, position: ?array{attachmentId: string, x: float, y: float}, placementIssue: 'missing_plan'|'unplaced'|'other_plan'|'invalid_position'|'outside_ancestry'|null}>, diagnostics: array{invalidGeometryCount: int, unpositionedEquipmentCount: int, geometryIssues: list<GeometryIssue>}}
  */
 final readonly class GetFacilityBuildingModelHandler implements QueryHandler
 {
@@ -107,6 +113,42 @@ final readonly class GetFacilityBuildingModelHandler implements QueryHandler
 
     $roomsByFloorId = $this->fetchRoomsGroupedByFloor($organizationId, $floors);
     $equipmentByFloorId = $query->includeEquipment ? $this->fetchEquipmentGroupedByFloor($organizationId, $floors) : [];
+    $context = $this->spatialContext($organizationId, $floors, $roomsByFloorId, $equipmentByFloorId);
+
+    $resultFloors = [];
+    foreach ($floors as $floor) {
+      $resultFloors[] = $this->buildFloor(
+        $floor,
+        $roomsByFloorId[$floor['facilityId']] ?? [],
+        $equipmentByFloorId[$floor['facilityId']] ?? [],
+        $context,
+        $hierarchyIssues[$floor['facilityId']] ?? [],
+      );
+    }
+
+    return new GetFacilityBuildingModelResult(
+      buildingId: (string) $facilityId,
+      buildingName: (string) $facility->name(),
+      floors: $resultFloors,
+    );
+  }
+
+  /**
+   * Method spatialContext.
+   *
+   * Collects all original geometry and placement references for one organization-scoped validity read.
+   *
+   * @access private
+   *
+   * @param FacilityOrganizationId $organizationId owning organization
+   * @param list<FloorRow> $floors ordered floor records
+   * @param array<string, list<RoomRow>> $roomsByFloorId room geometries grouped by floor
+   * @param array<string, list<EquipmentRow>> $equipmentByFloorId authorized equipment grouped by floor
+   *
+   * @return FacilitySpatialContext validity context shared by every projected floor
+   */
+  private function spatialContext(FacilityOrganizationId $organizationId, array $floors, array $roomsByFloorId, array $equipmentByFloorId): FacilitySpatialContext
+  {
     $facilityIds = array_column($floors, 'facilityId');
     $attachmentIds = [];
     foreach ($floors as $floor) {
@@ -131,69 +173,98 @@ final readonly class GetFacilityBuildingModelHandler implements QueryHandler
         }
       }
     }
-    $context = $this->spatial->context((string) $organizationId, $facilityIds, $attachmentIds);
 
-    $resultFloors = [];
-    foreach ($floors as $floor) {
-      $rawRooms = $roomsByFloorId[$floor['facilityId']] ?? [];
-      $validRooms = [];
-      $invalidGeometryCount = 0;
-      $geometryIssues = [];
-      foreach ($rawRooms as $room) {
-        $issue = $this->spatial->geometryIssue($context, $room['facilityId'], ['attachmentId' => $room['attachmentId'], 'points' => $room['points']], $floor['primaryPlanAttachmentId']);
-        if (null === $issue) {
-          $validRooms[] = $room;
-        } else {
-          $geometryIssues[] = ['facilityId' => $room['facilityId'], 'code' => $issue];
-          if ('invalid_geometry' === $issue) {
-            ++$invalidGeometryCount;
-          }
-        }
-      }
-      $floorIssue = $this->spatial->geometryIssue($context, $floor['facilityId'], $floor['planGeometry'], $floor['primaryPlanAttachmentId']);
-      if (null !== $floorIssue) {
-        $geometryIssues[] = ['facilityId' => $floor['facilityId'], 'code' => $floorIssue];
-        if ('invalid_geometry' === $floorIssue) {
-          ++$invalidGeometryCount;
-        }
-        $floor['planGeometry'] = null;
-      }
-      $leafRooms = $this->filterGeometricLeaves($validRooms);
-      $plan = $this->buildPlan($floor, $context);
-      $outline = $this->buildOutline($floor, $leafRooms);
-      $equipment = $this->mapEquipment($equipmentByFloorId[$floor['facilityId']] ?? [], $floor['primaryPlanAttachmentId'], $context);
-      $unpositionedCount = 0;
-      foreach ($equipment as $item) {
-        if (null !== $item['placementIssue']) {
-          ++$unpositionedCount;
-        }
-      }
+    return $this->spatial->context((string) $organizationId, $facilityIds, $attachmentIds);
+  }
 
-      $resultFloors[] = [
-        'facilityId' => $floor['facilityId'],
-        'name' => $floor['name'],
-        'levelIndex' => $floor['levelIndex'],
-        'elevationMeters' => $floor['elevationMeters'],
-        'heightMeters' => $floor['heightMeters'],
-        'status' => $floor['status'],
-        'hierarchyIssues' => $hierarchyIssues[$floor['facilityId']] ?? [],
-        'plan' => $plan,
-        'outline' => $outline,
-        'rooms' => $this->mapRooms($leafRooms),
-        'equipment' => $equipment,
-        'diagnostics' => [
-          'invalidGeometryCount' => $invalidGeometryCount,
-          'unpositionedEquipmentCount' => $unpositionedCount,
-          'geometryIssues' => $geometryIssues,
-        ],
-      ];
+  /**
+   * Method buildFloor.
+   *
+   * Excludes unusable geometry and equipment pins while keeping their typed diagnostics discoverable.
+   *
+   * @access private
+   *
+   * @param FloorRow $floor original floor record
+   * @param list<RoomRow> $rooms original room geometries
+   * @param list<EquipmentRow> $items authorized equipment assigned to the floor
+   * @param FacilitySpatialContext $context shared spatial validity
+   * @param list<string> $hierarchyIssues historical hierarchy warnings
+   *
+   * @return RenderedFloor schematic and metric floor projection
+   */
+  private function buildFloor(array $floor, array $rooms, array $items, FacilitySpatialContext $context, array $hierarchyIssues): array
+  {
+    [$validRooms, $geometryIssues, $invalidGeometryCount] = $this->validRooms($rooms, $floor['primaryPlanAttachmentId'], $context);
+    $floorIssue = $this->spatial->geometryIssue($context, $floor['facilityId'], $floor['planGeometry'], $floor['primaryPlanAttachmentId']);
+    if (null !== $floorIssue) {
+      $geometryIssues[] = ['facilityId' => $floor['facilityId'], 'code' => $floorIssue];
+      if ('invalid_geometry' === $floorIssue) {
+        ++$invalidGeometryCount;
+      }
+      $floor['planGeometry'] = null;
+    }
+    $leafRooms = $this->filterGeometricLeaves($validRooms);
+    $plan = $this->buildPlan($floor, $context);
+    $outline = $this->buildOutline($floor, $leafRooms);
+    $equipment = $this->mapEquipment($items, $floor['primaryPlanAttachmentId'], $context);
+    $unpositionedCount = 0;
+    foreach ($equipment as $item) {
+      if (null !== $item['placementIssue']) {
+        ++$unpositionedCount;
+      }
     }
 
-    return new GetFacilityBuildingModelResult(
-      buildingId: (string) $facilityId,
-      buildingName: (string) $facility->name(),
-      floors: $resultFloors,
-    );
+    return [
+      'facilityId' => $floor['facilityId'],
+      'name' => $floor['name'],
+      'levelIndex' => $floor['levelIndex'],
+      'elevationMeters' => $floor['elevationMeters'],
+      'heightMeters' => $floor['heightMeters'],
+      'status' => $floor['status'],
+      'hierarchyIssues' => $hierarchyIssues,
+      'plan' => $plan,
+      'outline' => $outline,
+      'rooms' => $this->mapRooms($leafRooms),
+      'equipment' => $equipment,
+      'diagnostics' => [
+        'invalidGeometryCount' => $invalidGeometryCount,
+        'unpositionedEquipmentCount' => $unpositionedCount,
+        'geometryIssues' => $geometryIssues,
+      ],
+    ];
+  }
+
+  /**
+   * Method validRooms.
+   *
+   * Keeps usable room contours and counts only malformed polygons among all placement diagnostics.
+   *
+   * @access private
+   *
+   * @param list<RoomRow> $rooms original geometries for a floor
+   * @param ?string $primaryPlanId primary coordinate frame
+   * @param FacilitySpatialContext $context shared spatial validity
+   *
+   * @return array{list<RoomRow>, list<GeometryIssue>, int} usable rooms, diagnostics and malformed count
+   */
+  private function validRooms(array $rooms, ?string $primaryPlanId, FacilitySpatialContext $context): array
+  {
+    $validRooms = [];
+    $issues = [];
+    $invalidCount = 0;
+    foreach ($rooms as $room) {
+      $issue = $this->spatial->geometryIssue($context, $room['facilityId'], ['attachmentId' => $room['attachmentId'], 'points' => $room['points']], $primaryPlanId);
+      if (null === $issue) {
+        $validRooms[] = $room;
+      } else {
+        $issues[] = ['facilityId' => $room['facilityId'], 'code' => $issue];
+        if ('invalid_geometry' === $issue) {
+          ++$invalidCount;
+        }
+      }
+    }
+
+    return [$validRooms, $issues, $invalidCount];
   }
 
   /**

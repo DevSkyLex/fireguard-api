@@ -405,13 +405,7 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
       ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization);
 
-    if (null !== $criteria->parentInterventionId && null !== $criteria->eligibleParentIds) {
-      $draftPredicate = "(f.recordStatus = 'draft' AND f.interventionId = :parentInterventionId)";
-      $queryBuilder->andWhere($criteria->includePublishedParents ? "(f.recordStatus = 'published' OR " . $draftPredicate . ')' : $draftPredicate)
-        ->setParameter('parentInterventionId', $criteria->parentInterventionId);
-    } else {
-      $queryBuilder->andWhere("f.recordStatus = 'published'");
-    }
+    $this->applyRecordVisibility($queryBuilder, $criteria);
 
     if (null === $criteria->status && !$includeArchived) {
       $queryBuilder
@@ -425,14 +419,7 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
         ->setParameter('type', $criteria->type);
     }
 
-    if (null !== $criteria->eligibleParentIds) {
-      if ([] === $criteria->eligibleParentIds) {
-        $queryBuilder->andWhere('1 = 0');
-      } else {
-        $queryBuilder->andWhere('f.id IN (:eligibleParentIds)')
-          ->setParameter('eligibleParentIds', $criteria->eligibleParentIds);
-      }
-    }
+    $this->applyEligibleParents($queryBuilder, $criteria);
 
     if (null !== $criteria->status) {
       $queryBuilder
@@ -552,6 +539,55 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
       'code' => 'f.code',
       default => 'f.name',
     };
+  }
+
+  /**
+   * Method applyRecordVisibility.
+   *
+   * Keeps intervention drafts visible only in the authorized parent-selector context.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param QueryBuilder $queryBuilder the organization-scoped list query
+   * @param FacilityListCriteria $criteria the already authorized parent scope
+   *
+   * @return void
+   */
+  private function applyRecordVisibility(QueryBuilder $queryBuilder, FacilityListCriteria $criteria): void
+  {
+    if (null !== $criteria->parentInterventionId && null !== $criteria->eligibleParentIds) {
+      $draftPredicate = "(f.recordStatus = 'draft' AND f.interventionId = :parentInterventionId)";
+      $queryBuilder->andWhere($criteria->includePublishedParents ? "(f.recordStatus = 'published' OR " . $draftPredicate . ')' : $draftPredicate)
+        ->setParameter('parentInterventionId', $criteria->parentInterventionId);
+    } else {
+      $queryBuilder->andWhere("f.recordStatus = 'published'");
+    }
+  }
+
+  /**
+   * Method applyEligibleParents.
+   *
+   * Applies the hierarchy-policy result without treating an empty candidate set as no filter.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param QueryBuilder $queryBuilder the organization-scoped list query
+   * @param FacilityListCriteria $criteria the optional eligible parent identifiers
+   *
+   * @return void
+   */
+  private function applyEligibleParents(QueryBuilder $queryBuilder, FacilityListCriteria $criteria): void
+  {
+    if (null !== $criteria->eligibleParentIds) {
+      if ([] === $criteria->eligibleParentIds) {
+        $queryBuilder->andWhere('1 = 0');
+      } else {
+        $queryBuilder->andWhere('f.id IN (:eligibleParentIds)')
+          ->setParameter('eligibleParentIds', $criteria->eligibleParentIds);
+      }
+    }
   }
 
   /**

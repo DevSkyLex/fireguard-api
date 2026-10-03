@@ -256,36 +256,7 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
         throw new InterventionConflictException('Intervention organization is unavailable.');
       }
 
-      $changes = $this->entityManager->getRepository(InterventionChangeRecord::class)->findBy([
-        'intervention' => $intervention,
-        'status' => InterventionChangeStatus::PROPOSED->value,
-      ]);
-      $applyResources = function () use ($intervention, $changes): void {
-        // Facility drafts publish first so a proposed published-resource relation
-        // can target a facility published by this same atomic operation.
-        $this->draftPublisher->publish($intervention->id);
-        foreach ($changes as $change) {
-          $this->changeApplication->apply($intervention->organization->id, $change->resource, $change->patch);
-          $this->changePolicy->assertTransitionAllowed(InterventionChangeStatus::from($change->status), InterventionChangeStatus::APPLIED);
-          $change->status = InterventionChangeStatus::APPLIED->value;
-          ++$change->revision;
-          $change->updatedAt = new DateTimeImmutable();
-        }
-        // All ordered business patches have been consumed. The final owner
-        // guards now read these changes inside the same main transaction;
-        // any retained dependency aborts the flush and every earlier mutation.
-        $this->entityManager->flush();
-      };
-      if (null !== $this->validation) {
-        $this->validation->publication(
-          $intervention->organization->id,
-          $intervention->id,
-          array_map(static fn (InterventionChangeRecord $change): array => ['resource' => $change->resource, 'patch' => $change->patch], $changes),
-          $applyResources,
-        );
-      } else {
-        $applyResources();
-      }
+      $this->applyPublicationResources($intervention, $intervention->organization->id);
       $intervention->status = InterventionStatus::PUBLISHED->value;
       ++$intervention->revision;
       $intervention->updatedAt = new DateTimeImmutable();
@@ -335,6 +306,50 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
     }
 
     return $affected > 0;
+  }
+
+  /**
+   * Method applyPublicationResources.
+   *
+   * Publishes drafts before proposals under the final-graph guards within the caller's locked main transaction.
+   *
+   * @access private
+   *
+   * @param InterventionRecord $intervention locked intervention with its revision already checked
+   * @param string $organizationId verified owning organization
+   *
+   * @return void
+   */
+  private function applyPublicationResources(InterventionRecord $intervention, string $organizationId): void
+  {
+    $changes = $this->entityManager->getRepository(InterventionChangeRecord::class)->findBy([
+      'intervention' => $intervention,
+      'status' => InterventionChangeStatus::PROPOSED->value,
+    ]);
+    $applyResources = function () use ($intervention, $organizationId, $changes): void {
+      // Facility drafts publish first so a proposed published-resource relation
+      // can target a facility published by this same atomic operation.
+      $this->draftPublisher->publish($intervention->id);
+      foreach ($changes as $change) {
+        $this->changeApplication->apply($organizationId, $change->resource, $change->patch);
+        $this->changePolicy->assertTransitionAllowed(InterventionChangeStatus::from($change->status), InterventionChangeStatus::APPLIED);
+        $change->status = InterventionChangeStatus::APPLIED->value;
+        ++$change->revision;
+        $change->updatedAt = new DateTimeImmutable();
+      }
+      // Final guards inspect the flushed mutations inside the same transaction.
+      $this->entityManager->flush();
+    };
+    if (null !== $this->validation) {
+      $this->validation->publication(
+        $organizationId,
+        $intervention->id,
+        array_map(static fn (InterventionChangeRecord $change): array => ['resource' => $change->resource, 'patch' => $change->patch], $changes),
+        $applyResources,
+      );
+    } else {
+      $applyResources();
+    }
   }
 
   /**

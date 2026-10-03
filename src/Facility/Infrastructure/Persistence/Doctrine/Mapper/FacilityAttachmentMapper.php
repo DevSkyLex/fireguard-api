@@ -58,12 +58,12 @@ final class FacilityAttachmentMapper
   {
     $record = new FacilityAttachmentRecord();
     $record->id = (string) $attachment->id();
-    $record->fileName = $attachment->fileName();
-    $record->storagePath = $attachment->storagePath();
-    $record->mimeType = $attachment->mimeType();
-    $record->size = $attachment->size();
+    $record->fileName = $attachment->file()->fileName;
+    $record->storagePath = $attachment->file()->storagePath;
+    $record->mimeType = $attachment->file()->mimeType;
+    $record->size = $attachment->file()->size;
     $record->label = $attachment->label();
-    $record->uploadedAt = $attachment->uploadedAt();
+    $record->uploadedAt = $attachment->file()->uploadedAt;
     $record->kind = $attachment->kind()->value;
     $record->isPrimaryPlan = $attachment->isPrimaryPlan();
     $record->imageWidth = $attachment->imageWidth();

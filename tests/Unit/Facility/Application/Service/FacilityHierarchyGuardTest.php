@@ -8,7 +8,7 @@ use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Port\Outbound\FacilityHierarchySnapshotPort;
 use Facility\Application\Service\FacilityHierarchyGuard;
 use Facility\Domain\Exception\FacilityHierarchyException;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -374,6 +374,39 @@ final class FacilityHierarchyGuardTest extends TestCase
   }
 
   /**
+   * Method testDiagnosticsPreserveAncestryFailurePrecedenceWithoutExposingParentIds.
+   *
+   * @access public
+   *
+   * @param list<FacilityHierarchyNode> $nodes the organization-scoped historical graph
+   * @param int $maxDepth the configured ancestry cap
+   * @param list<string> $expected the public diagnostic codes
+   *
+   * @return void
+   */
+  #[Test]
+  #[DataProvider('diagnosticCases')]
+  public function testDiagnosticsPreserveAncestryFailurePrecedenceWithoutExposingParentIds(array $nodes, int $maxDepth, array $expected): void
+  {
+    self::assertSame(['node' => $expected], $this->guard($nodes, $maxDepth)->issuesFor('organization', ['node', 'unavailable-private-parent']));
+  }
+
+  /**
+   * Method testAnUnknownFacilityCannotBorrowThePublishedParentContext.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testAnUnknownFacilityCannotBorrowThePublishedParentContext(): void
+  {
+    $guard = $this->guard([new FacilityHierarchyNode('site', 'site', null)]);
+    self::assertFalse($guard->allowsParent('organization', 'building', 'site', 'unknown', 'intervention'));
+    self::assertSame([], $guard->eligibleParentIds('organization', 'building', 'unknown', 'intervention'));
+  }
+
+  /**
    * Method testArchivedParentsAreNotEligible.
    *
    * @since 1.0.0
@@ -399,6 +432,34 @@ final class FacilityHierarchyGuardTest extends TestCase
   // #endregion
 
   // #region Helpers
+  /**
+   * Method diagnosticCases.
+   *
+   * Covers public diagnostic precedence across malformed historical relationships.
+   *
+   * @access public
+   *
+   * @return iterable<string, array{list<FacilityHierarchyNode>, int, list<string>}> scoped graphs and their public diagnostics
+   */
+  public static function diagnosticCases(): iterable
+  {
+    return [
+      'valid site root' => [[new FacilityHierarchyNode('node', 'site', null)], 8, []],
+      'cycle precedes depth' => [[new FacilityHierarchyNode('node', 'zone', 'node')], 1, ['cycle']],
+      'depth before visiting the next ancestor' => [[new FacilityHierarchyNode('node', 'building', 'site'), new FacilityHierarchyNode('site', 'site', null)], 1, ['depth_exceeded']],
+      'invalid direct taxonomy' => [[new FacilityHierarchyNode('node', 'building', null)], 8, ['invalid_parent_type']],
+      'invalid ancestor taxonomy' => [[new FacilityHierarchyNode('node', 'zone', 'building'), new FacilityHierarchyNode('building', 'building', null)], 8, ['invalid_ancestor']],
+      'unavailable scoped parent' => [[new FacilityHierarchyNode('node', 'zone', 'unavailable-private-parent')], 8, ['missing_parent']],
+      'unavailable ancestor' => [[new FacilityHierarchyNode('node', 'zone', 'area'), new FacilityHierarchyNode('area', 'area', 'unavailable-private-parent')], 8, ['missing_parent']],
+      'inactive parent precedes publication mismatch' => [[new FacilityHierarchyNode('node', 'zone', 'site'), new FacilityHierarchyNode('site', 'site', null, 'archived', 'draft', 'other')], 8, ['invalid_ancestor']],
+      'published child of a draft' => [[new FacilityHierarchyNode('node', 'zone', 'site'), new FacilityHierarchyNode('site', 'site', null, publicationState: 'draft', interventionId: 'current')], 8, ['unpublished_parent']],
+      'same intervention drafts' => [[new FacilityHierarchyNode('node', 'zone', 'site', publicationState: 'draft', interventionId: 'current'), new FacilityHierarchyNode('site', 'site', null, publicationState: 'draft', interventionId: 'current')], 8, []],
+      'different intervention drafts' => [[new FacilityHierarchyNode('node', 'zone', 'site', publicationState: 'draft', interventionId: 'current'), new FacilityHierarchyNode('site', 'site', null, publicationState: 'draft', interventionId: 'other')], 8, ['unpublished_parent']],
+      'unsupported child type' => [[new FacilityHierarchyNode('node', 'unknown', null)], 8, ['invalid_parent_type']],
+      'unsupported immediate parent type' => [[new FacilityHierarchyNode('node', 'zone', 'parent'), new FacilityHierarchyNode('parent', 'unknown', null)], 8, ['invalid_parent_type']],
+    ];
+  }
+
   /**
    * Method guard.
    *

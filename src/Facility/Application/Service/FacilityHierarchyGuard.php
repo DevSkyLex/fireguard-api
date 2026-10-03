@@ -11,7 +11,6 @@ use Facility\Domain\Exception\FacilityHierarchyException;
 use Facility\Domain\ValueObject\{FacilityHierarchyPolicy, FacilityType};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-use function array_key_exists;
 use function count;
 
 /**
@@ -67,7 +66,7 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
     foreach ($proposedNodes as $node) {
       if (!$this->retainsPublishedRelationship($node, $originalNodes[$node->id] ?? null)) {
         $this->assertNode($node, $graph);
-        $this->assertSubtreeDepth($node, $graph);
+        $this->assertDepth($node, $graph, $this->subtreeHeight($node->id, $graph));
       }
       $original = $originalNodes[$node->id] ?? $previous[$node->id] ?? null;
       if (null !== $original && $original->type !== $node->type) {
@@ -172,35 +171,112 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
   {
     $current = $node;
     $seen = [];
-    while (true) {
-      if (isset($seen[$current->id])) {
-        return ['cycle'];
+    $issue = null;
+    while (null !== $current && null === $issue) {
+      $issue = $this->traversalIssue($current, $seen);
+      if (null !== $issue) {
+        break;
       }
       $seen[$current->id] = true;
-      if (count($seen) > $this->maxDepth) {
-        return ['depth_exceeded'];
-      }
       $parent = null === $current->parentFacilityId ? null : ($graph[$current->parentFacilityId] ?? null);
-      if (null !== $current->parentFacilityId && null === $parent) {
-        return ['missing_parent'];
-      }
-      $type = FacilityType::tryFrom($current->type);
-      $parentType = null === $parent ? null : FacilityType::tryFrom($parent->type);
-      if (null === $type || !FacilityHierarchyPolicy::allowsParent($type, $parentType)) {
-        return [$current->id === $node->id ? 'invalid_parent_type' : 'invalid_ancestor'];
-      }
-      if (null === $parent) {
-        return [];
-      }
-      if ('active' !== $parent->status) {
-        return ['invalid_ancestor'];
-      }
-      if ('published' !== $parent->publicationState
-        && ('draft' !== $current->publicationState || null === $current->interventionId || $current->interventionId !== $parent->interventionId)) {
-        return ['unpublished_parent'];
+      $issue = $this->relationshipIssue($current, $parent);
+      if ('invalid_parent_type' === $issue && $current->id !== $node->id) {
+        $issue = 'invalid_ancestor';
       }
       $current = $parent;
     }
+
+    return null === $issue ? [] : [$issue];
+  }
+
+  /**
+   * Method traversalIssue.
+   *
+   * Gives cycles precedence over depth overflow before another ancestor is visited.
+   *
+   * @access private
+   *
+   * @param FacilityHierarchyNode $node the next ancestor to visit
+   * @param array<string, true> $seen ancestors already visited
+   *
+   * @return ?string the bounded-walk diagnostic without resource identifiers
+   */
+  private function traversalIssue(FacilityHierarchyNode $node, array $seen): ?string
+  {
+    return match (true) {
+      isset($seen[$node->id]) => 'cycle',
+      count($seen) + 1 > $this->maxDepth => 'depth_exceeded',
+      default => null,
+    };
+  }
+
+  /**
+   * Method relationshipIssue.
+   *
+   * Separates an unavailable scoped parent from an incompatible taxonomy.
+   *
+   * @access private
+   *
+   * @param FacilityHierarchyNode $node the relationship being inspected
+   * @param ?FacilityHierarchyNode $parent its organization-scoped parent, if present
+   *
+   * @return ?string the public relationship diagnostic without parent identifiers
+   */
+  private function relationshipIssue(FacilityHierarchyNode $node, ?FacilityHierarchyNode $parent): ?string
+  {
+    if (null !== $node->parentFacilityId && null === $parent) {
+      return 'missing_parent';
+    }
+    $type = FacilityType::tryFrom($node->type);
+    $parentType = null === $parent ? null : FacilityType::tryFrom($parent->type);
+    if (null === $type || !FacilityHierarchyPolicy::allowsParent($type, $parentType)) {
+      return 'invalid_parent_type';
+    }
+
+    return $this->parentAvailabilityIssue($node, $parent);
+  }
+
+  /**
+   * Method parentAvailabilityIssue.
+   *
+   * Checks lifecycle before publication scope after taxonomy has been validated.
+   *
+   * @access private
+   *
+   * @param FacilityHierarchyNode $node the child whose parent is being inspected
+   * @param ?FacilityHierarchyNode $parent its compatible parent, absent for a root
+   *
+   * @return ?string the lifecycle or publication diagnostic
+   */
+  private function parentAvailabilityIssue(FacilityHierarchyNode $node, ?FacilityHierarchyNode $parent): ?string
+  {
+    if (null === $parent) {
+      return null;
+    }
+
+    return match (true) {
+      'active' !== $parent->status => 'invalid_ancestor',
+      !$this->hasCompatiblePublicationParent($node, $parent) => 'unpublished_parent',
+      default => null,
+    };
+  }
+
+  /**
+   * Method hasCompatiblePublicationParent.
+   *
+   * Published children require published parents; draft children may retain their own intervention's parent.
+   *
+   * @access private
+   *
+   * @param FacilityHierarchyNode $node the child publication state
+   * @param FacilityHierarchyNode $parent the parent publication scope
+   *
+   * @return bool whether the two publication scopes permit the relationship
+   */
+  private function hasCompatiblePublicationParent(FacilityHierarchyNode $node, FacilityHierarchyNode $parent): bool
+  {
+    return 'published' === $parent->publicationState
+      || ('draft' === $node->publicationState && null !== $node->interventionId && $node->interventionId === $parent->interventionId);
   }
 
   /**
@@ -212,11 +288,12 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
    */
   private function allowsInGraph(array $graph, string $type, ?string $parentId, ?string $facilityId, ?int $height = null, ?string $interventionId = null): bool
   {
-    if (null !== $facilityId && !isset($graph[$facilityId])) {
-      return false;
-    }
-    $previous = null === $facilityId ? null : $graph[$facilityId];
-    if (null !== $previous && null !== $interventionId && 'draft' === $previous->publicationState && $interventionId !== $previous->interventionId) {
+    $previous = null === $facilityId ? null : ($graph[$facilityId] ?? null);
+    $outsideDraftContext = null !== $previous
+      && null !== $interventionId
+      && 'draft' === $previous->publicationState
+      && $interventionId !== $previous->interventionId;
+    if ((null !== $facilityId && null === $previous) || $outsideDraftContext) {
       return false;
     }
     $node = new FacilityHierarchyNode(
@@ -250,43 +327,82 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
   {
     $seen = [];
     $current = $node;
-    while (true) {
-      if (array_key_exists($current->id, $seen)) {
-        throw FacilityHierarchyException::hierarchyCycleDetected();
-      }
+    while (null !== $current) {
+      $this->assertTraversalAllowed($current, $seen);
       $seen[$current->id] = true;
-      if (count($seen) > $this->maxDepth) {
-        throw FacilityHierarchyException::maxDepthExceeded($this->maxDepth);
-      }
-      $parent = null === $current->parentFacilityId ? null : ($graph[$current->parentFacilityId] ?? null);
-      if (null !== $current->parentFacilityId && null === $parent) {
-        throw FacilityHierarchyException::parentUnavailable();
-      }
-      FacilityHierarchyPolicy::assertParent($this->type($current->type), null === $parent ? null : $this->type($parent->type));
-      if (null === $parent) {
-        return;
-      }
-      if ('active' !== $parent->status) {
-        throw FacilityHierarchyException::parentInactive();
-      }
-      if ('published' !== $parent->publicationState
-        && ('draft' !== $current->publicationState || null === $current->interventionId || $current->interventionId !== $parent->interventionId)) {
-        throw FacilityHierarchyException::parentPublicationIncompatible();
-      }
-      $current = $parent;
+      $current = $this->validatedParent($current, $graph);
     }
   }
 
   /**
-   * Method assertSubtreeDepth.
+   * Method assertTraversalAllowed.
    *
-   * @since 1.0.0
+   * Applies the same ordered cycle/depth decisions as descriptive diagnostics.
    *
-   * @param array<string, FacilityHierarchyNode> $graph proposed final rows
+   * @access private
+   *
+   * @param FacilityHierarchyNode $node the next ancestor to visit
+   * @param array<string, true> $seen ancestors already visited
+   *
+   * @return void
    */
-  private function assertSubtreeDepth(FacilityHierarchyNode $node, array $graph): void
+  private function assertTraversalAllowed(FacilityHierarchyNode $node, array $seen): void
   {
-    $this->assertDepth($node, $graph, $this->subtreeHeight($node->id, $graph));
+    $issue = $this->traversalIssue($node, $seen);
+    if ('cycle' === $issue) {
+      throw FacilityHierarchyException::hierarchyCycleDetected();
+    }
+    if ('depth_exceeded' === $issue) {
+      throw FacilityHierarchyException::maxDepthExceeded($this->maxDepth);
+    }
+  }
+
+  /**
+   * Method validatedParent.
+   *
+   * Validates one strict relationship before advancing to the next ancestor.
+   *
+   * @access private
+   *
+   * @param FacilityHierarchyNode $node the relationship being validated
+   * @param array<string, FacilityHierarchyNode> $graph the final organization graph
+   *
+   * @return ?FacilityHierarchyNode the next ancestor, absent for a valid root
+   */
+  private function validatedParent(FacilityHierarchyNode $node, array $graph): ?FacilityHierarchyNode
+  {
+    $parent = null === $node->parentFacilityId ? null : ($graph[$node->parentFacilityId] ?? null);
+    if (null !== $node->parentFacilityId && null === $parent) {
+      throw FacilityHierarchyException::parentUnavailable();
+    }
+    FacilityHierarchyPolicy::assertParent($this->type($node->type), null === $parent ? null : $this->type($parent->type));
+    if (null !== $parent) {
+      $this->assertParentAvailability($node, $parent);
+    }
+
+    return $parent;
+  }
+
+  /**
+   * Method assertParentAvailability.
+   *
+   * Lifecycle failures precede publication-scope failures for strict relationships.
+   *
+   * @access private
+   *
+   * @param FacilityHierarchyNode $node the child publication state
+   * @param FacilityHierarchyNode $parent the resolved compatible parent
+   *
+   * @return void
+   */
+  private function assertParentAvailability(FacilityHierarchyNode $node, FacilityHierarchyNode $parent): void
+  {
+    if ('active' !== $parent->status) {
+      throw FacilityHierarchyException::parentInactive();
+    }
+    if (!$this->hasCompatiblePublicationParent($node, $parent)) {
+      throw FacilityHierarchyException::parentPublicationIncompatible();
+    }
   }
 
   /**

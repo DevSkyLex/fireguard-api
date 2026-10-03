@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Domain\ValueObject;
 
 use DateTimeImmutable;
+use Facility\Domain\Model\Facility\{Facility, FacilityGeometryState};
 use Facility\Domain\ValueObject\PlanGeometry;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,8 @@ use function array_reverse;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(PlanGeometry::class)]
+#[CoversClass(Facility::class)]
+#[CoversClass(FacilityGeometryState::class)]
 final class PlanGeometryTest extends TestCase
 {
   private const string ATTACHMENT_ID = '550e8400-e29b-41d4-a716-446655440001';
@@ -164,13 +167,13 @@ final class PlanGeometryTest extends TestCase
   public function testUnusableLegacyGeometrySurvivesUnrelatedEditsUntilExplicitlyRepaired(): void
   {
     $raw = ['attachmentId' => self::ATTACHMENT_ID, 'points' => [[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]]];
-    $facility = \Facility\Domain\Model\Facility\Facility::reconstitute(
+    $facility = Facility::reconstitute(
       \Facility\Domain\ValueObject\FacilityId::fromString('550e8400-e29b-41d4-a716-446655440002'),
       \Facility\Domain\ValueObject\FacilityOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440003'),
       \Facility\Domain\ValueObject\FacilityType::FLOOR,
       new \Facility\Domain\ValueObject\FacilityName('Legacy floor'),
       new \Facility\Domain\Model\Facility\FacilityLifecycle(\Facility\Domain\ValueObject\FacilityStatus::ACTIVE, new DateTimeImmutable(), new DateTimeImmutable()),
-      unusablePlanGeometry: $raw,
+      geometryState: new FacilityGeometryState(unusablePlanGeometry: $raw),
     );
     $facility->rename(new \Facility\Domain\ValueObject\FacilityName('Renamed floor'));
     self::assertNull($facility->planGeometry());

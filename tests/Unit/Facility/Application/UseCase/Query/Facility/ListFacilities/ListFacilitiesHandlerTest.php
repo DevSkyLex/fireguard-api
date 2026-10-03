@@ -9,7 +9,7 @@ use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, Facilit
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
@@ -19,6 +19,99 @@ use Shared\Domain\Exception\InvalidValueException;
 #[CoversClass(ListFacilitiesHandler::class)]
 final class ListFacilitiesHandlerTest extends TestCase
 {
+  /**
+   * Method testDraftOnlyPathsExcludePublishedAndForeignDraftAncestors.
+   *
+   * Preserves the parent selector's visibility boundary when batched path projection is reorganized.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testDraftOnlyPathsExcludePublishedAndForeignDraftAncestors(): void
+  {
+    $organization = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441800');
+    $interventionId = '550e8400-e29b-41d4-a716-446655441804';
+    $id = '550e8400-e29b-41d4-a716-446655441801';
+    $publishedId = '550e8400-e29b-41d4-a716-446655441802';
+    $draftId = '550e8400-e29b-41d4-a716-446655441803';
+    $foreignId = '550e8400-e29b-41d4-a716-446655441805';
+    $facility = Facility::create(new FacilityId($id), $organization, FacilityType::BUILDING, new FacilityName('Prepared building'));
+    $draftAncestor = ['id' => $draftId, 'name' => 'Prepared site', 'type' => 'site'];
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([$facility]);
+    $repository->expects(self::once())->method('findAncestorsByFacilityIds')->with($organization, [$id])->willReturn([$id => [
+      ['id' => $publishedId, 'name' => 'Published site', 'type' => 'site'],
+      $draftAncestor,
+      ['id' => $foreignId, 'name' => 'Another draft', 'type' => 'site'],
+    ]]);
+    $repository->expects(self::once())->method('findProjectionContextsByFacilityIds')->with($organization, [$id, $publishedId, $draftId, $foreignId])->willReturn([
+      $id => ['recordStatus' => 'draft', 'interventionId' => $interventionId, 'revision' => 4],
+      $publishedId => ['recordStatus' => 'published', 'interventionId' => null, 'revision' => 1],
+      $draftId => ['recordStatus' => 'draft', 'interventionId' => $interventionId, 'revision' => 2],
+      $foreignId => ['recordStatus' => 'draft', 'interventionId' => $foreignId, 'revision' => 1],
+    ]);
+    $result = (new ListFacilitiesHandler($repository, $this->createStub(FacilityEquipmentDependencyPort::class), $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class)))(
+      new ListFacilitiesQuery((string) $organization, includePath: true, parentForType: 'floor', interventionId: $interventionId, includePublishedParents: false),
+    );
+    self::assertSame([$draftAncestor], $result->items[0]->path);
+    self::assertSame('draft', $result->items[0]->recordStatus);
+    self::assertSame($interventionId, $result->items[0]->interventionId);
+    self::assertSame(4, $result->items[0]->revision);
+  }
+
+  /**
+   * Method testMoveOriginOutsidePublicationContextIsConcealedBeforeEligibilityReads.
+   *
+   * Refuses unreadable move origins before querying or counting parent candidates.
+   *
+   * @access public
+   *
+   * @param ?string $recordStatus stored publication state, or absent projection
+   * @param ?string $contextInterventionId intervention retaining the draft
+   * @param bool $includePublished whether the caller can see published parents
+   *
+   * @return void
+   */
+  #[Test]
+  #[DataProvider('unreadableMovingContexts')]
+  public function testMoveOriginOutsidePublicationContextIsConcealedBeforeEligibilityReads(?string $recordStatus, ?string $contextInterventionId, bool $includePublished): void
+  {
+    $organization = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441800');
+    $id = new FacilityId('550e8400-e29b-41d4-a716-446655441801');
+    $interventionId = '550e8400-e29b-41d4-a716-446655441804';
+    $facility = Facility::create($id, $organization, FacilityType::BUILDING, new FacilityName('Move origin'));
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('findById')->with($id)->willReturn($facility);
+    $contexts = null === $recordStatus ? [] : [(string) $id => ['recordStatus' => $recordStatus, 'interventionId' => $contextInterventionId, 'revision' => 3]];
+    $repository->expects(self::once())->method('findProjectionContextsByFacilityIds')->with($organization, [(string) $id])->willReturn($contexts);
+    $repository->expects(self::never())->method('findByOrganizationId');
+    $repository->expects(self::never())->method('countByOrganizationId');
+    $hierarchy = $this->createMock(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class);
+    $hierarchy->expects(self::never())->method('eligibleParentIds');
+    $handler = new ListFacilitiesHandler($repository, $this->createStub(FacilityEquipmentDependencyPort::class), $hierarchy);
+    $this->expectException(\Facility\Domain\Exception\FacilityNotFoundException::class);
+    $handler(new ListFacilitiesQuery((string) $organization, parentForFacilityId: (string) $id, interventionId: $interventionId, includePublishedParents: $includePublished));
+  }
+
+  /**
+   * Method unreadableMovingContexts.
+   *
+   * Supplies absent, hidden published, foreign draft and removed origins.
+   *
+   * @access public
+   *
+   * @return iterable<string, array{?string, ?string, bool}> publication visibility denial cases
+   */
+  public static function unreadableMovingContexts(): iterable
+  {
+    yield 'missing projection' => [null, null, true];
+    yield 'published parents unreadable' => ['published', null, false];
+    yield 'another intervention draft' => ['draft', '550e8400-e29b-41d4-a716-446655441805', true];
+    yield 'removed row' => ['removed', '550e8400-e29b-41d4-a716-446655441804', true];
+  }
+
   #[Test]
   public function candidateEligibilityIsAppliedBeforeSearchCountAndPagination(): void
   {

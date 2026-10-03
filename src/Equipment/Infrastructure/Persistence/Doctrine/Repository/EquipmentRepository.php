@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
-use DateTimeImmutable;
 use DateTimeInterface;
-use DateTimeZone;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
@@ -15,10 +13,8 @@ use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
-use Equipment\Infrastructure\Exception\InvalidStorageTimeZoneException;
-use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
+use Equipment\Infrastructure\Persistence\Doctrine\Mapper\{EquipmentMapper, EquipmentTimelineParametersMapper};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Exception;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
@@ -411,8 +407,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $type = null,
     ?string $status = null,
   ): array {
-    $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $createdAtFrom);
-    $storageTimeZone = $this->resolveStorageTimeZone();
+    $parameters = new EquipmentTimelineParametersMapper($this->storageTimeZone)->forRange($createdAtFrom, $createdAtTo, $timeZone);
     $sql = <<<'SQL'
         SELECT
           TO_CHAR(((created_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
@@ -422,13 +417,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
           AND created_at >= :createdAtFrom
           AND created_at <= :createdAtTo
       SQL;
-    $parameters = [
-      'storageTimeZone' => $storageTimeZone->getName(),
-      'bucketTimeZone' => $bucketTimeZone->getName(),
-      'organizationId' => (string) $organizationId,
-      'createdAtFrom' => $this->normalizeTimestampForStorageTimeZone($createdAtFrom, $storageTimeZone),
-      'createdAtTo' => $this->normalizeTimestampForStorageTimeZone($createdAtTo, $storageTimeZone),
-    ];
+    $parameters['organizationId'] = (string) $organizationId;
 
     if (null !== $type) {
       $sql .= "\n  AND type = :type";
@@ -703,67 +692,6 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     );
 
     return $queryBuilder;
-  }
-
-  /**
-   * Method resolveBucketTimeZone.
-   *
-   * Uses the requested bucket timezone or the timezone embedded in the lower-bound timestamp.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param ?string $timeZone the time zone value
-   * @param string $lowerBound the lower bound value
-   *
-   * @return DateTimeZone the resolve bucket time zone result
-   */
-  private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
-  {
-    if (null !== $timeZone && '' !== $timeZone) {
-      return new DateTimeZone($timeZone);
-    }
-
-    return new DateTimeImmutable($lowerBound)->getTimezone();
-  }
-
-  /**
-   * Method resolveStorageTimeZone.
-   *
-   * Parses the configured database storage timezone and reports invalid configuration explicitly.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @return DateTimeZone the resolve storage time zone result
-   */
-  private function resolveStorageTimeZone(): DateTimeZone
-  {
-    try {
-      return new DateTimeZone($this->storageTimeZone);
-    } catch (Exception $exception) {
-      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
-    }
-  }
-
-  /**
-   * Method normalizeTimestampForStorageTimeZone.
-   *
-   * Converts an input timestamp to the database storage timezone and preserves microsecond precision.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param string $value the value value
-   * @param DateTimeZone $storageTimeZone the storage time zone value
-   *
-   * @return string the normalize timestamp for storage time zone result
-   */
-  private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
-  {
-    return new DateTimeImmutable($value)
-      ->setTimezone($storageTimeZone)
-      ->format('Y-m-d H:i:s.u');
   }
 
   /**

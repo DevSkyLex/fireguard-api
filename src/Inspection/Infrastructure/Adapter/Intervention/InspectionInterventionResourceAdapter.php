@@ -9,7 +9,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, InspectionResponseRecord};
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort};
-use Intervention\Application\Port\Outbound\InterventionPublicationGuardPort;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
 
@@ -31,7 +30,7 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class InspectionInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort, InterventionPublicationGuardPort
+final readonly class InspectionInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort
 {
   /**
    * Constant INTERVENTION_PREDICATE
@@ -67,6 +66,16 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
     'cancelled' => [],
   ];
 
+  // #region Properties
+  /**
+   * Property publicationGuard.
+   *
+   * Owns publication reference and draft dependency checks on the main database.
+   */
+  private InspectionInterventionPublicationGuardAdapter $publicationGuard;
+  // #endregion
+
+  // #region Constructor
   /**
    * Constructor.
    *
@@ -75,15 +84,23 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
+   * @param ?\Facility\Application\Port\Inbound\FacilityLifecycleReferencePort $facilities validates lifecycle references
+   * @param ?\Facility\Application\Port\Inbound\FacilityDraftReferencesPort $facilityDrafts resolves draft facilities
+   * @param ?\Intervention\Application\Port\Inbound\InterventionDraftResourcesPort $draftResources resolves draft resources
+   * @param ?InspectionInterventionPublicationGuardAdapter $publicationGuard the publication reference guard
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private ?\Facility\Application\Port\Inbound\FacilityLifecycleReferencePort $facilities = null,
-    private ?\Facility\Application\Port\Inbound\FacilityDraftReferencesPort $facilityDrafts = null,
-    private ?\Intervention\Application\Port\Inbound\InterventionDraftResourcesPort $draftResources = null,
+    ?\Facility\Application\Port\Inbound\FacilityDraftReferencesPort $facilityDrafts = null,
+    ?\Intervention\Application\Port\Inbound\InterventionDraftResourcesPort $draftResources = null,
+    ?InspectionInterventionPublicationGuardAdapter $publicationGuard = null,
   ) {
+    $this->publicationGuard = $publicationGuard ?? new InspectionInterventionPublicationGuardAdapter($entityManager, $facilities, $facilityDrafts, $draftResources);
   }
+  // #endregion
 
+  // #region Methods
   /**
    * Method supports.
    *
@@ -318,7 +335,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
    */
   public function publishDrafts(string $interventionId): void
   {
-    $this->assertPublicationReferences($interventionId, null);
+    $this->publicationGuard->assertPublicationReferences($interventionId, null);
     $this->entityManager->createQueryBuilder()
       ->update(InspectionRecord::class, 'record')
       ->set('record.recordStatus', ':published')
@@ -373,71 +390,6 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   /**
    * {@inheritDoc}
    */
-  public function beginPublication(string $organizationId, string $interventionId, array $changes): void
-  {
-    $this->assertPublicationReferences($interventionId, $interventionId);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function finishPublication(string $organizationId, string $interventionId): void
-  {
-    $this->assertPublicationReferences($interventionId, null);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function endPublication(): void
-  {
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function assertCanDiscard(string $interventionId, bool $interventionRetained = true): void
-  {
-    $ids = $this->facilityDrafts?->draftIds($interventionId) ?? [];
-    $iris = $this->draftResources?->draftResourceIris($interventionId) ?? [];
-    $equipmentIds = [];
-    $inspectionIds = [];
-    foreach ($iris as $iri) {
-      if (1 === preg_match('#^/api/equipment/([^/]+)$#', $iri, $match)) {
-        $equipmentIds[] = $match[1];
-      } elseif (1 === preg_match('#^/api/inspections/([^/]+)$#', $iri, $match)) {
-        $inspectionIds[] = $match[1];
-      }
-    }
-    if ([] === $ids && [] === $equipmentIds && [] === $inspectionIds) {
-      return;
-    }
-    /** @var list<InspectionRecord> $records */
-    $records = $this->entityManager->createQueryBuilder()->select('inspection')->from(InspectionRecord::class, 'inspection')
-      ->where('inspection.facilityId IN (:ids) OR inspection.equipmentId IN (:equipmentIds)')
-      ->setParameter('ids', $ids)->setParameter('equipmentIds', $equipmentIds)->getQuery()->getResult();
-    $references = [];
-    foreach ($records as $record) {
-      if ('draft' !== $record->recordStatus || $record->interventionId !== $interventionId) {
-        $references[] = ['resourceType' => 'inspection', 'resourceId' => $record->id, 'relatedResourceId' => in_array($record->equipmentId, $equipmentIds, true) ? $record->equipmentId : ($record->facilityId ?? '')];
-      }
-    }
-    /** @var list<InspectionResponseRecord> $responses */
-    $responses = $this->entityManager->createQueryBuilder()->select('response')->from(InspectionResponseRecord::class, 'response')
-      ->where('response.inspectionId IN (:ids)')->setParameter('ids', $inspectionIds)->getQuery()->getResult();
-    foreach ($responses as $response) {
-      if ('draft' !== $response->recordStatus || $response->interventionId !== $interventionId) {
-        $references[] = ['resourceType' => 'inspection_response', 'resourceId' => $response->id, 'relatedResourceId' => $response->inspectionId];
-      }
-    }
-    if ([] !== $references) {
-      throw new \Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict($references);
-    }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   public function draftResourceIris(string $interventionId): array
   {
     /** @var list<InspectionRecord> $records */
@@ -449,30 +401,6 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
       ...array_map(static fn (InspectionRecord $record): string => '/api/inspections/' . $record->id, $records),
       ...array_map(static fn (InspectionResponseRecord $response): string => '/api/inspection-responses/' . $response->id, $responses),
     ];
-  }
-
-  /**
-   * @since 1.0.0
-   *
-   * @param string $interventionId the owning intervention
-   * @param ?string $publishingId its pending facility publication scope
-   */
-  private function assertPublicationReferences(string $interventionId, ?string $publishingId): void
-  {
-    if (null === $this->facilities) {
-      return;
-    }
-    /** @var list<InspectionRecord> $records */
-    $records = $this->entityManager->getRepository(InspectionRecord::class)->findBy(['interventionId' => $interventionId]);
-    foreach ($records as $record) {
-      if (null !== $record->facilityId) {
-        if (in_array($record->status, ['closed', 'cancelled'], true)) {
-          $this->facilities->assertRetainedReference($record->organizationId(), $record->facilityId, null, $publishingId);
-        } else {
-          $this->facilities->assertReference($record->organizationId(), $record->facilityId, null, $publishingId);
-        }
-      }
-    }
   }
 
   /**
@@ -561,4 +489,5 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
       throw new InterventionConflictException(sprintf('Unsupported inspection patch fields: %s.', implode(', ', $unknown)));
     }
   }
+  // #endregion
 }

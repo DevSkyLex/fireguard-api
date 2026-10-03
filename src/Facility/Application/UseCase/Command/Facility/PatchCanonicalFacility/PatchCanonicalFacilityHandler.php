@@ -113,30 +113,11 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
         $patch = self::patch($command);
         $patch->assertDescriptiveFieldsAreValid();
 
-        if ($patch->hasMetadata) {
-          // `required` is enforced on CREATE only — a canonical PATCH is
-          // never rejected for a required key it never touched. The type the
-          // schema is resolved against is the one the patch LEAVES behind.
-          $this->metadataSchemaGuard->assertValid(
-            (string) $facility->organizationId(),
-            $patch->metadata ?? [],
-            $patch->hasType && null !== $patch->type ? $patch->type : $facility->type()->value,
-            false,
-          );
-        }
+        $this->assertMetadata($facility, $patch);
 
         $patch->assertStatusIsPresent();
 
-        if ((($patch->hasParent && $patch->parentFacilityId !== $facility->parentFacilityId()) || ($patch->hasType && $patch->type !== $facility->type()->value)) && null !== $this->hierarchy) {
-          $this->hierarchy->assertGraph((string) $facility->organizationId(), [new FacilityHierarchyNode(
-            (string) $facility->id(),
-            $patch->hasType ? ($patch->type ?? $facility->type()->value) : $facility->type()->value,
-            $patch->hasParent ? $patch->parentFacilityId : $facility->parentFacilityId(),
-            $facility->status()->value,
-            $facility->recordStatus()->value,
-            $facility->interventionId(),
-          )]);
-        }
+        $this->assertChangedHierarchy($facility, $patch);
 
         $parent = $this->resolveParent($facility, $patch);
         $change = $facility->applyPatch($patch, $parent);
@@ -168,6 +149,58 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
       parentMoved: $change->parentMoved,
       changedFields: $change->changedFields,
     );
+  }
+
+  /**
+   * Method assertMetadata.
+   *
+   * Checks supplied metadata against the effective type without enforcing creation-only required keys.
+   *
+   * @access private
+   *
+   * @param CanonicalFacility $facility current aggregate
+   * @param CanonicalFacilityPatch $patch requested changes
+   *
+   * @return void
+   */
+  private function assertMetadata(CanonicalFacility $facility, CanonicalFacilityPatch $patch): void
+  {
+    if ($patch->hasMetadata) {
+      $this->metadataSchemaGuard->assertValid(
+        (string) $facility->organizationId(),
+        $patch->metadata ?? [],
+        $patch->hasType && null !== $patch->type ? $patch->type : $facility->type()->value,
+        false,
+      );
+    }
+  }
+
+  /**
+   * Method assertChangedHierarchy.
+   *
+   * Revalidates relationship mutations while allowing descriptive repairs of unchanged historical structures.
+   *
+   * @access private
+   *
+   * @param CanonicalFacility $facility current aggregate
+   * @param CanonicalFacilityPatch $patch requested changes
+   *
+   * @return void
+   */
+  private function assertChangedHierarchy(CanonicalFacility $facility, CanonicalFacilityPatch $patch): void
+  {
+    $parentChanged = $patch->hasParent && $patch->parentFacilityId !== $facility->parentFacilityId();
+    $typeChanged = $patch->hasType && $patch->type !== $facility->type()->value;
+    if (($parentChanged || $typeChanged) && null !== $this->hierarchy) {
+      $this->hierarchy->assertGraph((string) $facility->organizationId(), [new FacilityHierarchyNode(
+        (string) $facility->id(),
+        $patch->hasType ? ($patch->type ?? $facility->type()->value) : $facility->type()->value,
+        $patch->hasParent ? $patch->parentFacilityId : $facility->parentFacilityId(),
+        $facility->status()->value,
+        $facility->recordStatus()->value,
+        $facility->interventionId(),
+      )]);
+    }
   }
 
   /**

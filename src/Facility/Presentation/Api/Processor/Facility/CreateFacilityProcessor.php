@@ -122,13 +122,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
    */
   private function processCreation(CreateFacilityInput $data, array $uriVariables): FacilityOutput
   {
-    $resourceId = $uriVariables['id'] ?? null;
-    if (is_string($resourceId)) {
-      $this->creationPreconditionGuard?->assertCreateOnly();
-      $data->clientId = $resourceId;
-    } else {
-      $resourceId = null;
-    }
+    $resourceId = $this->creationResourceId($data, $uriVariables);
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');
@@ -205,6 +199,31 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->revision = $assignment->revision;
 
     return $output;
+  }
+
+  /**
+   * Method creationResourceId
+   *
+   * Applies the canonical create-only precondition before forwarding an optional client identifier.
+   *
+   * @access private
+   *
+   * @param CreateFacilityInput $data the creation transport input
+   * @param array<string, mixed> $uriVariables identifiers extracted from the request route
+   *
+   * @return ?string the canonical resource identifier, or null for the collection route
+   */
+  private function creationResourceId(CreateFacilityInput $data, array $uriVariables): ?string
+  {
+    $resourceId = $uriVariables['id'] ?? null;
+    if (!is_string($resourceId)) {
+      return null;
+    }
+
+    $this->creationPreconditionGuard?->assertCreateOnly();
+    $data->clientId = $resourceId;
+
+    return $resourceId;
   }
 
   /**

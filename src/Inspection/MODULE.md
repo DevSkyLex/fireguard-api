@@ -1062,6 +1062,12 @@ and reachable on its own; only which of the two failures wins moved.
 
 - Service wiring: `config/modules/inspection.yaml`
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
+- Intervention publication uses a dedicated `intervention.publication_guard` adapter,
+  separate from inspection mutations and draft publication. Both use the main entity
+  manager within the existing publication transaction. Ongoing inspections require
+  active facility references; closed and cancelled history retains its scoped facility
+  relation. Discard checks preserve published and foreign-intervention dependents while
+  allowing inspections and responses owned by the discarded draft to be removed together.
 - `Equipment\Application\Port\Outbound\NonConformityStatisticsPort`'s adapter
   (`EquipmentNonConformityStatisticsAdapter`) is aliased here — see L2.11 above.
 - `Inspection\Application\Port\Outbound\InterventionScopePort` is aliased to

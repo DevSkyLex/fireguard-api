@@ -13,6 +13,7 @@ use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use Equipment\Infrastructure\Exception\InvalidStorageTimeZoneException;
+use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentTimelineParametersMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -39,6 +40,7 @@ use function array_map;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(EquipmentRepository::class)]
+#[CoversClass(EquipmentTimelineParametersMapper::class)]
 final class EquipmentRepositoryCoverageTest extends KernelTestCase
 {
   private const string ORGANIZATION_ID = '770e8400-e29b-41d4-a716-4466554e0001';

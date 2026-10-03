@@ -6,6 +6,7 @@ namespace Equipment\Infrastructure\Adapter\Intervention;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
+use Equipment\Application\Service\EquipmentPublicationFacilityValidator;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Application\Port\Inbound\{FacilityDraftReferencesPort, FacilityLifecycleReferencePort};
 use Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict;
@@ -26,6 +27,13 @@ use function preg_match;
  */
 final readonly class EquipmentPublicationGuardAdapter implements InterventionPublicationGuardPort
 {
+  // #region Properties
+  /**
+   * Validates retained assignments against the final publication graph.
+   */
+  private EquipmentPublicationFacilityValidator $publicationFacilities;
+  // #endregion
+
   // #region Constructor
   /**
    * @since 1.0.0
@@ -35,8 +43,9 @@ final readonly class EquipmentPublicationGuardAdapter implements InterventionPub
    * @param FacilityDraftReferencesPort $drafts the facility drafts owned by the discarded intervention
    * @param FacilityLifecycleReferencePort $retainedReferences the scope policy for terminal historical assignments
    */
-  public function __construct(private EntityManagerInterface $entityManager, private FacilityValidationPort $facilities, private FacilityDraftReferencesPort $drafts, private FacilityLifecycleReferencePort $retainedReferences)
+  public function __construct(private EntityManagerInterface $entityManager, private FacilityValidationPort $facilities, private FacilityDraftReferencesPort $drafts, FacilityLifecycleReferencePort $retainedReferences)
   {
+    $this->publicationFacilities = new EquipmentPublicationFacilityValidator($facilities, $retainedReferences);
   }
   // #endregion
 
@@ -52,13 +61,7 @@ final readonly class EquipmentPublicationGuardAdapter implements InterventionPub
       if ($record->organization?->id !== $organizationId) {
         throw new InvalidArgumentException('Publication equipment organization is invalid.');
       }
-      if (null !== $record->facilityId) {
-        if ('decommissioned' === $record->status) {
-          $this->retainedReferences->assertRetainedReference($organizationId, $record->facilityId, null, $interventionId);
-        } else {
-          $this->facilities->assertFacilityIsAssignable($record->facilityId, $organizationId, null, $interventionId);
-        }
-      }
+      $this->publicationFacilities->assertReference($organizationId, $record->facilityId, $record->status, $interventionId);
     }
     foreach ($changes as $change) {
       if (1 !== preg_match('#^/api/equipment/([^/]+)$#', $change['resource'])
@@ -82,11 +85,7 @@ final readonly class EquipmentPublicationGuardAdapter implements InterventionPub
     $records = $this->entityManager->getRepository(EquipmentRecord::class)->findBy(['interventionId' => $interventionId]);
     foreach ($records as $record) {
       if (null !== $record->facilityId && $record->organization?->id === $organizationId) {
-        if ('decommissioned' === $record->status) {
-          $this->retainedReferences->assertRetainedReference($organizationId, $record->facilityId);
-        } else {
-          $this->facilities->assertFacilityIsAssignable($record->facilityId, $organizationId);
-        }
+        $this->publicationFacilities->assertReference($organizationId, $record->facilityId, $record->status);
       }
     }
   }

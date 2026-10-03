@@ -6,7 +6,7 @@ namespace Tests\Unit\Facility\Domain\Model\Attachment;
 
 use DateTimeImmutable;
 use Facility\Domain\Exception\FacilityAttachmentNotFloorPlanException;
-use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions, FacilityAttachmentRestoredState};
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions, FacilityAttachmentFile, FacilityAttachmentRestoredState};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -20,6 +20,7 @@ use Shared\Domain\Attachment\InvalidAttachmentException;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(FacilityAttachment::class)]
+#[CoversClass(FacilityAttachmentFile::class)]
 final class FacilityAttachmentTest extends TestCase
 {
   private const string ATTACHMENT_ID = '550e8400-e29b-41d4-a716-446655440100';
@@ -46,13 +47,14 @@ final class FacilityAttachmentTest extends TestCase
 
     self::assertSame($id, $attachment->id());
     self::assertSame($facilityId, $attachment->facilityId());
-    self::assertSame('plan.pdf', $attachment->fileName());
-    self::assertSame('facilities/plan.pdf', $attachment->storagePath());
-    self::assertSame('application/pdf', $attachment->mimeType());
-    self::assertSame(2048, $attachment->size());
+    self::assertSame('plan.pdf', $attachment->file()->fileName);
+    self::assertSame('facilities/plan.pdf', $attachment->file()->storagePath);
+    self::assertSame('application/pdf', $attachment->file()->mimeType);
+    self::assertSame(2048, $attachment->file()->size);
     self::assertSame('Floor plan', $attachment->label());
-    self::assertGreaterThanOrEqual($before->getTimestamp(), $attachment->uploadedAt()->getTimestamp());
-    self::assertLessThanOrEqual($after->getTimestamp(), $attachment->uploadedAt()->getTimestamp());
+    self::assertSame($attachment->file(), $attachment->file());
+    self::assertGreaterThanOrEqual($before->getTimestamp(), $attachment->file()->uploadedAt->getTimestamp());
+    self::assertLessThanOrEqual($after->getTimestamp(), $attachment->file()->uploadedAt->getTimestamp());
   }
 
   #[Test]
@@ -85,10 +87,10 @@ final class FacilityAttachmentTest extends TestCase
       state: new FacilityAttachmentRestoredState($uploadedAt, new FacilityAttachmentCreationOptions(label: 'Report')),
     );
 
-    self::assertSame($uploadedAt, $attachment->uploadedAt());
-    self::assertSame('report.pdf', $attachment->fileName());
+    self::assertSame($uploadedAt, $attachment->file()->uploadedAt);
+    self::assertSame('report.pdf', $attachment->file()->fileName);
     self::assertSame('Report', $attachment->label());
-    self::assertSame(4096, $attachment->size());
+    self::assertSame(4096, $attachment->file()->size);
   }
 
   #[Test]

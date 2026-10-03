@@ -91,21 +91,7 @@ final readonly class PatchCanonicalEquipmentHandler implements CommandHandler
         $patch = self::patch($command);
         $patch->assertNonNullableFieldsArePresent();
 
-        if ($patch->hasFacility && null !== $patch->facilityId
-          && !$this->facilityValidation->belongsToOrganization($patch->facilityId, (string) $equipment->organizationId())) {
-          throw CanonicalEquipmentValidationException::facilityOutsideOrganization();
-        }
-        if ($patch->hasFacility && null !== $patch->facilityId) {
-          try {
-            $this->facilityValidation->assertFacilityIsAssignable(
-              $patch->facilityId,
-              (string) $equipment->organizationId(),
-              \Equipment\Domain\ValueObject\EquipmentRecordStatus::DRAFT === $equipment->recordStatus() ? $equipment->interventionId() : null,
-            );
-          } catch (InvalidArgumentException $exception) {
-            throw new CanonicalEquipmentValidationException($exception->getMessage());
-          }
-        }
+        $this->assertFacilityPatch($equipment, $patch);
 
         $previousStatus = $equipment->applyPatch($patch);
 
@@ -138,6 +124,39 @@ final readonly class PatchCanonicalEquipmentHandler implements CommandHandler
       revision: $equipment->revision(),
       previousStatus: $previousStatus,
     );
+  }
+
+  /**
+   * Method assertFacilityPatch.
+   *
+   * Validates an explicit facility assignment before applying domain fields.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param CanonicalEquipment $equipment the equipment before mutation
+   * @param CanonicalEquipmentPatch $patch the validated merge patch
+   *
+   * @return void no return value
+   */
+  private function assertFacilityPatch(CanonicalEquipment $equipment, CanonicalEquipmentPatch $patch): void
+  {
+    if (!$patch->hasFacility || null === $patch->facilityId) {
+      return;
+    }
+    if (!$this->facilityValidation->belongsToOrganization($patch->facilityId, (string) $equipment->organizationId())) {
+      throw CanonicalEquipmentValidationException::facilityOutsideOrganization();
+    }
+
+    try {
+      $this->facilityValidation->assertFacilityIsAssignable(
+        $patch->facilityId,
+        (string) $equipment->organizationId(),
+        \Equipment\Domain\ValueObject\EquipmentRecordStatus::DRAFT === $equipment->recordStatus() ? $equipment->interventionId() : null,
+      );
+    } catch (InvalidArgumentException $exception) {
+      throw new CanonicalEquipmentValidationException($exception->getMessage());
+    }
   }
 
   /**

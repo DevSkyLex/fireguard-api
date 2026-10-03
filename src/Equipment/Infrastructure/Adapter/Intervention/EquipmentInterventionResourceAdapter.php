@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
+use Equipment\Application\Service\EquipmentPublicationFacilityValidator;
 use Equipment\Domain\ValueObject\PlanPosition;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Application\Port\Inbound\FacilityLifecycleReferencePort;
@@ -40,6 +41,8 @@ use function sprintf;
  */
 final readonly class EquipmentInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionEquipmentDraftProviderPort, InterventionResourceOwnerPort
 {
+  // #endregion
+
   // #region Constants
   /**
    * Constant PATCHABLE_FIELDS.
@@ -75,6 +78,12 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     'under_maintenance' => ['in_stock', 'operational', 'decommissioned'],
     'decommissioned' => [],
   ];
+
+  // #region Properties
+  /**
+   * Validates retained assignments when drafts become published resources.
+   */
+  private EquipmentPublicationFacilityValidator $publicationFacilities;
   // #endregion
 
   /**
@@ -94,8 +103,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     private FacilityValidationPort $facilityValidation,
     private EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer,
     private \Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort $floorPlans,
-    private ?FacilityLifecycleReferencePort $retainedReferences = null,
+    ?FacilityLifecycleReferencePort $retainedReferences = null,
   ) {
+    $this->publicationFacilities = new EquipmentPublicationFacilityValidator($facilityValidation, $retainedReferences);
   }
 
   /**
@@ -361,18 +371,12 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
 
     foreach ($records as $record) {
       if (null !== $record->facilityId) {
-        if ('decommissioned' === $record->status && null !== $this->retainedReferences) {
-          $this->retainedReferences->assertRetainedReference($this->organizationId($record->organization), $record->facilityId);
-        } else {
-          $this->facilityValidation->assertFacilityIsAssignable($record->facilityId, $this->organizationId($record->organization));
-        }
+        $this->publicationFacilities->assertReference($this->organizationId($record->organization), $record->facilityId, $record->status);
       }
-      if (null !== $record->planPosition) {
-        if (null === $record->facilityId || 'decommissioned' === $record->status) {
-          throw new InterventionConflictException('The equipment cannot be placed on a plan in its current state.');
-        }
-        // Retained placements are diagnosed after hierarchy moves; explicit
-        // placement writes continue to be validated by applyPlanPosition().
+      // Retained placements are diagnosed after hierarchy moves; explicit
+      // placement writes continue to be validated by applyPlanPosition().
+      if (null !== $record->planPosition && (null === $record->facilityId || 'decommissioned' === $record->status)) {
+        throw new InterventionConflictException('The equipment cannot be placed on a plan in its current state.');
       }
       // Materialize the side-effects the record skipped while it was a draft
       // scratchpad (drafts are exempt from them on the canonical surface). A draft

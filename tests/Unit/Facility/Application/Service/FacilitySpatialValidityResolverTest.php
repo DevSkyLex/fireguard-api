@@ -7,8 +7,11 @@ namespace Tests\Unit\Facility\Application\Service;
 use Facility\Application\Contract\Spatial\FacilitySpatialContext;
 use Facility\Application\Port\Outbound\FacilitySpatialReadPort;
 use Facility\Application\Service\FacilitySpatialValidityResolver;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
+
+use const INF;
+use const NAN;
 
 /**
  * Test FacilitySpatialValidityResolverTest.
@@ -78,6 +81,97 @@ final class FacilitySpatialValidityResolverTest extends TestCase
     self::assertSame(['a', 'b'], $context->ancestors('a'));
     self::assertNull($context->nearest('a', 'building'));
     self::assertSame('unverified_frame', $resolver->calibrationIssue($context, 'a', 'building-a', true));
+  }
+
+  /**
+   * Method testUnreadablePlanTakesPrecedenceOverInvalidPolygonData.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testUnreadablePlanTakesPrecedenceOverInvalidPolygonData(): void
+  {
+    $resolver = new FacilitySpatialValidityResolver($this->createStub(FacilitySpatialReadPort::class));
+    $geometry = ['attachmentId' => '550e8400-e29b-41d4-a716-446655440999', 'points' => []];
+    self::assertSame('plan_unavailable', $resolver->geometryIssue($this->context(), 'room', $geometry, self::PLAN_B));
+    self::assertFalse($resolver->geometryIsAuthorized($this->context(), $geometry));
+    self::assertNull($resolver->geometryIssue($this->context(), 'room', null, self::PLAN_B));
+  }
+
+  /**
+   * Method testInvalidPolygonPrecedesAncestryAndRenderedPlanDiagnostics.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testInvalidPolygonPrecedesAncestryAndRenderedPlanDiagnostics(): void
+  {
+    $resolver = new FacilitySpatialValidityResolver($this->createStub(FacilitySpatialReadPort::class));
+    $geometry = ['attachmentId' => self::PLAN_A, 'points' => [[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]]];
+    self::assertSame('invalid_geometry', $resolver->geometryIssue($this->context(), 'room', $geometry, self::PLAN_B));
+  }
+
+  /**
+   * Method testCoordinateFailuresPrecedeMissingPlanAndAncestryDiagnostics.
+   *
+   * @access public
+   *
+   * @param float $x the persisted horizontal coordinate
+   * @param float $y the persisted vertical coordinate
+   *
+   * @return void
+   */
+  #[Test]
+  #[DataProvider('invalidPositions')]
+  public function testCoordinateFailuresPrecedeMissingPlanAndAncestryDiagnostics(float $x, float $y): void
+  {
+    $resolver = new FacilitySpatialValidityResolver($this->createStub(FacilitySpatialReadPort::class));
+    $position = ['attachmentId' => self::PLAN_A, 'x' => $x, 'y' => $y];
+    self::assertSame('invalid_position', $resolver->positionIssue($this->context(), 'room', $position, null));
+    self::assertSame('invalid_position', $resolver->positionIssue($this->context(), 'room', $position, self::PLAN_B));
+  }
+
+  /**
+   * Method testMissingFrameAndPlacementRemainDistinctAndCoordinatesIncludeTheirBoundaries.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testMissingFrameAndPlacementRemainDistinctAndCoordinatesIncludeTheirBoundaries(): void
+  {
+    $resolver = new FacilitySpatialValidityResolver($this->createStub(FacilitySpatialReadPort::class));
+    self::assertSame('invalid_position', $resolver->positionIssue($this->context(), 'room', null, null, true));
+    self::assertSame('missing_plan', $resolver->positionIssue($this->context(), 'room', null, null));
+    self::assertSame('unplaced', $resolver->positionIssue($this->context(), 'room', null, self::PLAN_B));
+    self::assertNull($resolver->positionIssue($this->context(), 'room', ['attachmentId' => self::PLAN_B, 'x' => 0.0, 'y' => 1.0], self::PLAN_B));
+    self::assertSame('other_plan', $resolver->positionIssue($this->context(), 'room', ['attachmentId' => self::PLAN_B, 'x' => 0.0, 'y' => 1.0], self::PLAN_A));
+  }
+
+  /**
+   * Method invalidPositions.
+   *
+   * Includes both non-finite values and each side of the normalized coordinate range.
+   *
+   * @access public
+   *
+   * @return iterable<string, array{float, float}> persisted positions that must be omitted
+   */
+  public static function invalidPositions(): iterable
+  {
+    return [
+      'non-finite x' => [NAN, 0.5],
+      'non-finite y' => [0.5, INF],
+      'negative x' => [-0.1, 0.5],
+      'x exceeds the frame' => [1.1, 0.5],
+      'negative y' => [0.5, -0.1],
+      'y exceeds the frame' => [0.5, 1.1],
+    ];
   }
 
   private function context(): FacilitySpatialContext

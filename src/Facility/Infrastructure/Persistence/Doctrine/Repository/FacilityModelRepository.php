@@ -27,6 +27,15 @@ use const JSON_THROW_ON_ERROR;
  */
 final readonly class FacilityModelRepository implements FacilityModelRepositoryPort
 {
+  // #region Constants
+  /**
+   * Constant STORAGE_DATE_FORMAT.
+   *
+   * Timestamp format used by the existing timezone-free database columns.
+   */
+  private const string STORAGE_DATE_FORMAT = 'Y-m-d H:i:s';
+
+  // #endregion
   // #region Constructor
   /**
    * Method __construct.
@@ -147,7 +156,7 @@ final readonly class FacilityModelRepository implements FacilityModelRepositoryP
        WHERE id = :id AND organization_id = :organization AND building_id = :building AND revision = :expected',
       ['transform' => json_encode($model->transform->toArray(), JSON_THROW_ON_ERROR),
         'bindings' => json_encode($model->bindings, JSON_THROW_ON_ERROR), 'revision' => $model->revision,
-        'updated' => $model->updatedAt->format('Y-m-d H:i:s'), 'id' => $model->id,
+        'updated' => $model->updatedAt->format(self::STORAGE_DATE_FORMAT), 'id' => $model->id,
         'organization' => $model->organizationId, 'building' => $model->buildingId, 'expected' => $expectedRevision],
     );
     if (1 !== $rows) {
@@ -183,13 +192,13 @@ final readonly class FacilityModelRepository implements FacilityModelRepositoryP
       $connection->executeStatement(
         'UPDATE facility_models SET active = FALSE, active_building_id = NULL, revision = revision + 1, updated_at = :updated
         WHERE building_id = :building AND organization_id = :organization AND id != :id AND active = TRUE',
-        ['updated' => $model->updatedAt->format('Y-m-d H:i:s'), 'building' => $model->buildingId,
+        ['updated' => $model->updatedAt->format(self::STORAGE_DATE_FORMAT), 'building' => $model->buildingId,
           'organization' => $model->organizationId, 'id' => $model->id],
       );
       $connection->executeStatement(
         'UPDATE facility_models SET active = TRUE, active_building_id = :building, revision = :revision, updated_at = :updated WHERE id = :id',
         ['building' => $model->buildingId, 'revision' => $model->revision,
-          'updated' => $model->updatedAt->format('Y-m-d H:i:s'), 'id' => $model->id],
+          'updated' => $model->updatedAt->format(self::STORAGE_DATE_FORMAT), 'id' => $model->id],
       );
     });
   }

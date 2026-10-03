@@ -104,7 +104,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
     $found = $this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID));
 
     self::assertNotNull($found);
-    self::assertSame('floor-plan.pdf', $found->fileName());
+    self::assertSame('floor-plan.pdf', $found->file()->fileName);
     self::assertSame('Ground floor', $found->label());
     self::assertSame(self::FACILITY_ID, (string) $found->facilityId());
   }
@@ -190,10 +190,10 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
     $found = $this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID));
 
     self::assertNotNull($found);
-    self::assertSame('final.png', $found->fileName());
-    self::assertSame('facility/' . self::FACILITY_ID . '/attachments/final.png', $found->storagePath());
-    self::assertSame('image/png', $found->mimeType());
-    self::assertSame(8192, $found->size());
+    self::assertSame('final.png', $found->file()->fileName);
+    self::assertSame('facility/' . self::FACILITY_ID . '/attachments/final.png', $found->file()->storagePath);
+    self::assertSame('image/png', $found->file()->mimeType);
+    self::assertSame(8192, $found->file()->size);
     self::assertSame('Final revision', $found->label());
     self::assertCount(1, $this->repository->findByFacilityId(FacilityId::fromString(self::FACILITY_ID)));
   }

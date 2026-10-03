@@ -21,6 +21,15 @@ use function in_array;
  */
 final class FacilityAttachment
 {
+  // #region Properties
+  /**
+   * Property file
+   *
+   * Immutable metadata of the stored file, shared by each projection without another allocation.
+   */
+  private readonly FacilityAttachmentFile $file;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -43,11 +52,11 @@ final class FacilityAttachment
   private function __construct(
     private FacilityAttachmentId $id,
     private FacilityId $facilityId,
-    private string $fileName,
-    private string $storagePath,
-    private string $mimeType,
-    private int $size,
-    private DateTimeImmutable $uploadedAt,
+    string $fileName,
+    string $storagePath,
+    string $mimeType,
+    int $size,
+    DateTimeImmutable $uploadedAt,
     private ?string $label = null,
     private AttachmentKind $kind = AttachmentKind::DOCUMENT,
     private bool $isPrimaryPlan = false,
@@ -57,6 +66,7 @@ final class FacilityAttachment
     private int $revision = 1,
     private ?string $calibrationBuildingId = null,
   ) {
+    $this->file = new FacilityAttachmentFile($fileName, $storagePath, $mimeType, $size, $uploadedAt);
     $this->assertInvariants();
   }
   // #endregion
@@ -174,43 +184,18 @@ final class FacilityAttachment
   }
 
   /**
-   * Method fileName.
+   * Method file
    *
-   * @since 1.0.0
-   */
-  public function fileName(): string
-  {
-    return $this->fileName;
-  }
-
-  /**
-   * Method storagePath.
+   * Returns the immutable metadata of the original stored file.
    *
+   * @access public
    * @since 1.0.0
-   */
-  public function storagePath(): string
-  {
-    return $this->storagePath;
-  }
-
-  /**
-   * Method mimeType.
    *
-   * @since 1.0.0
+   * @return FacilityAttachmentFile persisted file metadata
    */
-  public function mimeType(): string
+  public function file(): FacilityAttachmentFile
   {
-    return $this->mimeType;
-  }
-
-  /**
-   * Method size.
-   *
-   * @since 1.0.0
-   */
-  public function size(): int
-  {
-    return $this->size;
+    return $this->file;
   }
 
   /**
@@ -221,16 +206,6 @@ final class FacilityAttachment
   public function label(): ?string
   {
     return $this->label;
-  }
-
-  /**
-   * Method uploadedAt.
-   *
-   * @since 1.0.0
-   */
-  public function uploadedAt(): DateTimeImmutable
-  {
-    return $this->uploadedAt;
   }
 
   /**
@@ -377,8 +352,8 @@ final class FacilityAttachment
   private function assertInvariants(): void
   {
     $allowedMimeTypes = $this->kind->allowedMimeTypes();
-    if (null !== $allowedMimeTypes && !in_array($this->mimeType, $allowedMimeTypes, true)) {
-      throw InvalidAttachmentException::forMimeType($this->mimeType);
+    if (null !== $allowedMimeTypes && !in_array($this->file->mimeType, $allowedMimeTypes, true)) {
+      throw InvalidAttachmentException::forMimeType($this->file->mimeType);
     }
 
     if ($this->isPrimaryPlan && AttachmentKind::FLOOR_PLAN !== $this->kind) {

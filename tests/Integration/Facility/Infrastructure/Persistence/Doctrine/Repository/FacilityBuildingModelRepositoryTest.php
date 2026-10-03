@@ -15,7 +15,7 @@ use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCrea
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId};
 use Facility\Infrastructure\Adapter\Spatial\FacilitySpatialReadAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
-use Facility\Infrastructure\Persistence\Doctrine\Repository\{FacilityAttachmentRepository, FacilityRepository};
+use Facility\Infrastructure\Persistence\Doctrine\Repository\{FacilityAttachmentRepository, FacilityHierarchyQueryRepository, FacilityRepository};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -35,6 +35,7 @@ use function array_column;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(FacilityRepository::class)]
+#[CoversClass(FacilityHierarchyQueryRepository::class)]
 final class FacilityBuildingModelRepositoryTest extends KernelTestCase
 {
   private const string ORGANIZATION_ID = '770e8400-e29b-41d4-a716-446655470001';

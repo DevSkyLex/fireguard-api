@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Facility\Domain\Model\Facility\{Facility, FacilityDetails, FacilityLifecycle};
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails, FacilityGeometryState, FacilityLifecycle};
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
   FacilityId,
@@ -70,8 +70,7 @@ final class FacilityMapper
         elevationMeters: $record->elevationMeters,
         heightMeters: $record->heightMeters,
       ),
-      planGeometry: $planGeometry,
-      unusablePlanGeometry: null === $planGeometry ? $record->planGeometry : null,
+      geometryState: new FacilityGeometryState($planGeometry, null === $planGeometry ? $record->planGeometry : null),
     );
   }
 

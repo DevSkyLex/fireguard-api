@@ -204,40 +204,58 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
         $exception,
       );
     } catch (MessengerRuntimeException $exception) {
-      $identityConflict = $this->findException($exception, ClientResourceAlreadyExistsException::class);
-      if ($identityConflict instanceof ClientResourceAlreadyExistsException) {
-        throw new ClientResourceAlreadyExistsHttpException(
-          null !== $resourceId ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
-          $identityConflict,
-        );
-      }
-      foreach ([InterventionNotFoundException::class, InterventionResourceNotFoundException::class] as $type) {
-        $missing = $this->findException($exception, $type);
-        if (null !== $missing) {
-          throw new NotFoundHttpException($missing->getMessage(), $exception);
-        }
-      }
-      $conflict = $this->findException($exception, InterventionConflictException::class);
-      if (null !== $conflict) {
-        throw new ConflictHttpException($conflict->getMessage(), $exception);
-      }
-      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
-      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
-        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
-      }
-
-      $serial = $this->findEquipmentSerialNumberAlreadyExistsException($exception);
-      if ($serial instanceof EquipmentSerialNumberAlreadyExistsException) {
-        throw new ConflictHttpException($serial->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      $this->rethrowWrappedCreationException($exception, $resourceId);
     }
+  }
+
+  /**
+   * Method rethrowWrappedCreationException.
+   *
+   * Maps wrapped handler failures in the same precedence as direct failures.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param MessengerRuntimeException $exception the command-bus failure chain
+   * @param ?string $resourceId the offline creation precondition identifier
+   *
+   * @return never the mapped HTTP failure is always thrown
+   */
+  private function rethrowWrappedCreationException(MessengerRuntimeException $exception, ?string $resourceId): never
+  {
+    $identityConflict = $this->findException($exception, ClientResourceAlreadyExistsException::class);
+    if ($identityConflict instanceof ClientResourceAlreadyExistsException) {
+      throw new ClientResourceAlreadyExistsHttpException(
+        null !== $resourceId ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
+        $identityConflict,
+      );
+    }
+    foreach ([InterventionNotFoundException::class, InterventionResourceNotFoundException::class] as $type) {
+      $missing = $this->findException($exception, $type);
+      if (null !== $missing) {
+        throw new NotFoundHttpException($missing->getMessage(), $exception);
+      }
+    }
+    $conflict = $this->findException($exception, InterventionConflictException::class);
+    if (null !== $conflict) {
+      throw new ConflictHttpException($conflict->getMessage(), $exception);
+    }
+    $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+    if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+      throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+    }
+
+    $serial = $this->findEquipmentSerialNumberAlreadyExistsException($exception);
+    if ($serial instanceof EquipmentSerialNumberAlreadyExistsException) {
+      throw new ConflictHttpException($serial->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    throw $exception;
   }
 
   /**

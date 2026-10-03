@@ -66,61 +66,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
    */
   public function __invoke(ListFacilitiesQuery $query): PaginatedResult
   {
-    try {
-      $organizationId = FacilityOrganizationId::fromString($query->organizationId);
-      $type = null !== $query->type ? FacilityType::from($query->type)->value : null;
-      $status = null !== $query->status ? FacilityStatus::from($query->status)->value : null;
-      $parentFacilityId = null !== $query->parentFacilityId
-        ? (string) FacilityId::fromString($query->parentFacilityId)
-        : null;
-      $parentForType = null !== $query->parentForType ? FacilityType::from($query->parentForType)->value : null;
-      $parentForFacilityId = null !== $query->parentForFacilityId ? FacilityId::fromString($query->parentForFacilityId) : null;
-      $interventionId = null !== $query->interventionId ? (string) FacilityId::fromString($query->interventionId) : null;
-    } catch (InvalidValueException|ValueError $exception) {
-      throw InvalidValueException::because($exception->getMessage(), $exception);
-    }
-
-    if ($query->rootsOnly && null !== $parentFacilityId) {
-      throw InvalidValueException::because('rootsOnly cannot be combined with parentFacilityId.');
-    }
-
-    if (null !== $parentForType && null !== $parentForFacilityId) {
-      throw InvalidValueException::because('parentForType cannot be combined with parentForFacilityId.');
-    }
-    if (null !== $interventionId && null === $parentForType && null === $parentForFacilityId) {
-      throw InvalidValueException::because('interventionId requires parentForType or parentForFacilityId.');
-    }
-
-    $eligibleParentIds = null;
-    if (null !== $parentForFacilityId) {
-      $movingFacility = null === $interventionId ? $this->facilityRepository->findPublishedById($parentForFacilityId) : $this->facilityRepository->findById($parentForFacilityId);
-      if (null === $movingFacility || (string) $movingFacility->organizationId() !== (string) $organizationId) {
-        throw \Facility\Domain\Exception\FacilityNotFoundException::withId((string) $parentForFacilityId);
-      }
-      if (null !== $interventionId) {
-        $movingContext = $this->facilityRepository->findProjectionContextsByFacilityIds($organizationId, [(string) $parentForFacilityId])[(string) $parentForFacilityId] ?? null;
-        if (null === $movingContext || ('published' === $movingContext['recordStatus'] ? !$query->includePublishedParents : ('draft' !== $movingContext['recordStatus'] || $interventionId !== $movingContext['interventionId']))) {
-          throw \Facility\Domain\Exception\FacilityNotFoundException::withId((string) $parentForFacilityId);
-        }
-      }
-      $parentForType = $movingFacility->type()->value;
-    }
-    if (null !== $parentForType) {
-      $eligibleParentIds = $this->hierarchy->eligibleParentIds((string) $organizationId, $parentForType, $parentForFacilityId?->__toString(), $interventionId);
-    }
-
-    $criteria = new FacilityListCriteria(
-      type: $type,
-      status: $status,
-      parentFacilityId: $parentFacilityId,
-      code: $query->code,
-      search: $query->search,
-      rootsOnly: $query->rootsOnly,
-      hasCoordinates: $query->hasCoordinates,
-      eligibleParentIds: $eligibleParentIds,
-      parentInterventionId: $interventionId,
-      includePublishedParents: $query->includePublishedParents,
-    );
+    [$organizationId, $criteria] = $this->criteria($query);
 
     $facilities = $this->facilityRepository->findByOrganizationId(
       organizationId: $organizationId,
@@ -147,7 +93,148 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       (string) $organizationId,
       array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($facilities)),
     );
+    [$paths, $projectionContexts] = $this->pathsAndContexts($organizationId, $facilities, $query);
+    $hierarchyIssues = $this->hierarchy->issuesFor((string) $organizationId, array_map(
+      static fn (FacilityId $id): string => (string) $id,
+      $this->facilityIds($facilities),
+    ));
 
+    $results = [];
+    foreach ($facilities as $facility) {
+      $results[] = $this->projectFacility($facility, $childCounts, $equipmentCounts, $paths, $hierarchyIssues, $projectionContexts);
+    }
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
+    );
+  }
+
+  /**
+   * Method criteria.
+   *
+   * Parses filters before resolving eligible parents, retaining the collection's validation order.
+   *
+   * @access private
+   *
+   * @param ListFacilitiesQuery $query requested collection filters
+   *
+   * @return array{FacilityOrganizationId, FacilityListCriteria} organization and validated criteria
+   */
+  private function criteria(ListFacilitiesQuery $query): array
+  {
+    try {
+      $organizationId = FacilityOrganizationId::fromString($query->organizationId);
+      $type = null !== $query->type ? FacilityType::from($query->type)->value : null;
+      $status = null !== $query->status ? FacilityStatus::from($query->status)->value : null;
+      $parentFacilityId = null !== $query->parentFacilityId
+        ? (string) FacilityId::fromString($query->parentFacilityId)
+        : null;
+      $parentForType = null !== $query->parentForType ? FacilityType::from($query->parentForType)->value : null;
+      $parentForFacilityId = null !== $query->parentForFacilityId ? FacilityId::fromString($query->parentForFacilityId) : null;
+      $interventionId = null !== $query->interventionId ? (string) FacilityId::fromString($query->interventionId) : null;
+    } catch (InvalidValueException|ValueError $exception) {
+      throw InvalidValueException::because($exception->getMessage(), $exception);
+    }
+
+    $this->assertCompatibleFilters($query);
+
+    $eligibleParentIds = null;
+    $movingFacilityId = $parentForFacilityId?->__toString();
+    if (null !== $parentForFacilityId) {
+      $parentForType = $this->movingFacilityType($organizationId, $parentForFacilityId, $interventionId, $query->includePublishedParents);
+    }
+    if (null !== $parentForType) {
+      $eligibleParentIds = $this->hierarchy->eligibleParentIds((string) $organizationId, $parentForType, $movingFacilityId, $interventionId);
+    }
+
+    $criteria = new FacilityListCriteria(
+      type: $type,
+      status: $status,
+      parentFacilityId: $parentFacilityId,
+      code: $query->code,
+      search: $query->search,
+      rootsOnly: $query->rootsOnly,
+      hasCoordinates: $query->hasCoordinates,
+      eligibleParentIds: $eligibleParentIds,
+      parentInterventionId: $interventionId,
+      includePublishedParents: $query->includePublishedParents,
+    );
+
+    return [$organizationId, $criteria];
+  }
+
+  /**
+   * Method assertCompatibleFilters.
+   *
+   * Rejects mutually exclusive collection scopes after all identifiers and enums have been parsed.
+   *
+   * @access private
+   *
+   * @param ListFacilitiesQuery $query parsed filter values
+   *
+   * @return void
+   */
+  private function assertCompatibleFilters(ListFacilitiesQuery $query): void
+  {
+    if ($query->rootsOnly && null !== $query->parentFacilityId) {
+      throw InvalidValueException::because('rootsOnly cannot be combined with parentFacilityId.');
+    }
+    if (null !== $query->parentForType && null !== $query->parentForFacilityId) {
+      throw InvalidValueException::because('parentForType cannot be combined with parentForFacilityId.');
+    }
+    if (null !== $query->interventionId && null === $query->parentForType && null === $query->parentForFacilityId) {
+      throw InvalidValueException::because('interventionId requires parentForType or parentForFacilityId.');
+    }
+  }
+
+  /**
+   * Method movingFacilityType.
+   *
+   * Resolves the move origin only when its publication context is readable in the requested scope.
+   *
+   * @access private
+   *
+   * @param FacilityOrganizationId $organizationId owning organization
+   * @param FacilityId $facilityId move origin
+   * @param ?string $interventionId authorized draft context, or published-only scope
+   * @param bool $includePublished whether published parents are readable
+   *
+   * @return string type used by the hierarchy policy
+   */
+  private function movingFacilityType(FacilityOrganizationId $organizationId, FacilityId $facilityId, ?string $interventionId, bool $includePublished): string
+  {
+    $facility = null === $interventionId ? $this->facilityRepository->findPublishedById($facilityId) : $this->facilityRepository->findById($facilityId);
+    if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
+      throw \Facility\Domain\Exception\FacilityNotFoundException::withId((string) $facilityId);
+    }
+    if (null !== $interventionId) {
+      $context = $this->facilityRepository->findProjectionContextsByFacilityIds($organizationId, [(string) $facilityId])[(string) $facilityId] ?? null;
+      if (null === $context || ('published' === $context['recordStatus'] ? !$includePublished : ('draft' !== $context['recordStatus'] || $interventionId !== $context['interventionId']))) {
+        throw \Facility\Domain\Exception\FacilityNotFoundException::withId((string) $facilityId);
+      }
+    }
+
+    return $facility->type()->value;
+  }
+
+  /**
+   * Method pathsAndContexts.
+   *
+   * Loads breadcrumbs and publication contexts in batches and removes inaccessible published ancestors.
+   *
+   * @access private
+   *
+   * @param FacilityOrganizationId $organizationId owning organization
+   * @param list<Facility> $facilities current result page
+   * @param ListFacilitiesQuery $query path and publication visibility
+   *
+   * @return array{array<string, list<array{id: string, name: string, type: string}>>, array<string, array{recordStatus: string, interventionId: ?string, revision: int}>} paths and contexts for the page
+   */
+  private function pathsAndContexts(FacilityOrganizationId $organizationId, array $facilities, ListFacilitiesQuery $query): array
+  {
     $paths = $query->includePath ? $this->facilityRepository->findAncestorsByFacilityIds(
       $organizationId,
       array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($facilities)),
@@ -159,52 +246,58 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       }
     }
     $projectionContexts = $this->facilityRepository->findProjectionContextsByFacilityIds($organizationId, array_values(array_unique($contextIds)));
-    if (null !== $interventionId && !$query->includePublishedParents) {
+    if (null !== $query->interventionId && !$query->includePublishedParents) {
       foreach ($paths as $id => $path) {
         $paths[$id] = array_values(array_filter($path, static fn (array $ancestor): bool => isset($projectionContexts[$ancestor['id']])
-          && 'draft' === $projectionContexts[$ancestor['id']]['recordStatus'] && $interventionId === $projectionContexts[$ancestor['id']]['interventionId']));
+          && 'draft' === $projectionContexts[$ancestor['id']]['recordStatus'] && $query->interventionId === $projectionContexts[$ancestor['id']]['interventionId']));
       }
     }
-    $hierarchyIssues = $this->hierarchy->issuesFor((string) $organizationId, array_map(
-      static fn (FacilityId $id): string => (string) $id,
-      $this->facilityIds($facilities),
-    ));
 
-    $results = [];
+    return [$paths, $projectionContexts];
+  }
 
-    foreach ($facilities as $facility) {
-      $results[] = new GetFacilityResult(
-        facilityId: (string) $facility->id(),
-        organizationId: (string) $facility->organizationId(),
-        parentFacilityId: $facility->parentFacilityId()?->__toString(),
-        type: $facility->type()->value,
-        name: (string) $facility->name(),
-        code: $facility->code(),
-        status: $facility->status()->value,
-        address: $facility->address(),
-        metadata: $facility->metadata(),
-        createdAt: $facility->createdAt(),
-        updatedAt: $facility->updatedAt(),
-        hasChildren: ($childCounts[(string) $facility->id()] ?? 0) > 0,
-        latitude: $facility->coordinates()?->latitude(),
-        longitude: $facility->coordinates()?->longitude(),
-        equipmentCount: $equipmentCounts[(string) $facility->id()] ?? 0,
-        path: $paths[(string) $facility->id()] ?? [],
-        hierarchyIssues: $hierarchyIssues[(string) $facility->id()] ?? [],
-        levelIndex: $facility->levelIndex(),
-        elevationMeters: $facility->elevationMeters(),
-        heightMeters: $facility->heightMeters(),
-        recordStatus: $projectionContexts[(string) $facility->id()]['recordStatus'] ?? 'published',
-        interventionId: $projectionContexts[(string) $facility->id()]['interventionId'] ?? null,
-        revision: $projectionContexts[(string) $facility->id()]['revision'] ?? 1,
-      );
-    }
-
-    return new PaginatedResult(
-      items: $results,
-      total: $total,
-      limit: $query->pagination->limit,
-      offset: $query->pagination->offset,
+  /**
+   * Method projectFacility.
+   *
+   * Builds the canonical list projection from already-batched counts, paths and diagnostics.
+   *
+   * @access private
+   *
+   * @param Facility $facility result aggregate
+   * @param array<string, int> $childCounts direct child counts
+   * @param array<string, int> $equipmentCounts equipment counts
+   * @param array<string, list<array{id: string, name: string, type: string}>> $paths readable breadcrumbs
+   * @param array<string, list<string>> $hierarchyIssues hierarchy diagnostics
+   * @param array<string, array{recordStatus: string, interventionId: ?string, revision: int}> $projectionContexts publication metadata
+   *
+   * @return GetFacilityResult canonical facility list item
+   */
+  private function projectFacility(Facility $facility, array $childCounts, array $equipmentCounts, array $paths, array $hierarchyIssues, array $projectionContexts): GetFacilityResult
+  {
+    return new GetFacilityResult(
+      facilityId: (string) $facility->id(),
+      organizationId: (string) $facility->organizationId(),
+      parentFacilityId: $facility->parentFacilityId()?->__toString(),
+      type: $facility->type()->value,
+      name: (string) $facility->name(),
+      code: $facility->code(),
+      status: $facility->status()->value,
+      address: $facility->address(),
+      metadata: $facility->metadata(),
+      createdAt: $facility->createdAt(),
+      updatedAt: $facility->updatedAt(),
+      hasChildren: ($childCounts[(string) $facility->id()] ?? 0) > 0,
+      latitude: $facility->coordinates()?->latitude(),
+      longitude: $facility->coordinates()?->longitude(),
+      equipmentCount: $equipmentCounts[(string) $facility->id()] ?? 0,
+      path: $paths[(string) $facility->id()] ?? [],
+      hierarchyIssues: $hierarchyIssues[(string) $facility->id()] ?? [],
+      levelIndex: $facility->levelIndex(),
+      elevationMeters: $facility->elevationMeters(),
+      heightMeters: $facility->heightMeters(),
+      recordStatus: $projectionContexts[(string) $facility->id()]['recordStatus'] ?? 'published',
+      interventionId: $projectionContexts[(string) $facility->id()]['interventionId'] ?? null,
+      revision: $projectionContexts[(string) $facility->id()]['revision'] ?? 1,
     );
   }
 

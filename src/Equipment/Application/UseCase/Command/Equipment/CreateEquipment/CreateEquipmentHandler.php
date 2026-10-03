@@ -140,20 +140,9 @@ final readonly class CreateEquipmentHandler implements CommandHandler
    */
   private function persist(CreateEquipmentCommand $command, Equipment $equipment): Equipment
   {
-    if (null !== $command->setupContext) {
-      $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_first_equipment', $command->organizationId, [
-        'type' => $command->type, 'subType' => $command->subType, 'brand' => $command->brand,
-        'model' => $command->model, 'serialNumber' => $command->serialNumber, 'locationLabel' => $command->locationLabel,
-        'facility' => null !== $command->facilityId ? '/api/facilities/' . $command->facilityId : null,
-      ]);
-      if (null !== $operation->resourceId) {
-        $existing = $this->equipmentRepository->findById(EquipmentId::fromString($operation->resourceId));
-        if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
-          throw OrganizationSetupConflict::because('The created equipment is no longer available.');
-        }
-
-        return $existing;
-      }
+    $existing = $this->findSetupReplay($command);
+    if (null !== $existing) {
+      return $existing;
     }
     if (null !== $command->facilityId) {
       if (null === $this->facilityValidation) {
@@ -175,6 +164,39 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     }
 
     return $equipment;
+  }
+
+  /**
+   * Method findSetupReplay.
+   *
+   * Begins setup journaling and resolves a previously committed equipment.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param CreateEquipmentCommand $command the creation protocol and prepared input
+   *
+   * @return ?Equipment the original equipment for a replay
+   */
+  private function findSetupReplay(CreateEquipmentCommand $command): ?Equipment
+  {
+    if (null === $command->setupContext) {
+      return null;
+    }
+    $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_first_equipment', $command->organizationId, [
+      'type' => $command->type, 'subType' => $command->subType, 'brand' => $command->brand,
+      'model' => $command->model, 'serialNumber' => $command->serialNumber, 'locationLabel' => $command->locationLabel,
+      'facility' => null !== $command->facilityId ? '/api/facilities/' . $command->facilityId : null,
+    ]);
+    if (null === $operation->resourceId) {
+      return null;
+    }
+    $existing = $this->equipmentRepository->findById(EquipmentId::fromString($operation->resourceId));
+    if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
+      throw OrganizationSetupConflict::because('The created equipment is no longer available.');
+    }
+
+    return $existing;
   }
 
   /**
