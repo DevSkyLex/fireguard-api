@@ -589,7 +589,7 @@ class AdapterTests(unittest.TestCase):
             app.is_symlink.return_value = False
             app.__truediv__.return_value = lock
             lock.iterdir.return_value = iter([])
-            metadata = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o755, st_uid=MEMBER,
+            metadata = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o755, st_uid=MEMBER, st_gid=MEMBER + 11,
                                        st_dev=1, st_ino=42, st_mtime_ns=123, st_ctime_ns=123)
             lock.lstat.return_value = metadata
             if invalid == "symlink":
@@ -610,7 +610,9 @@ class AdapterTests(unittest.TestCase):
                 app.is_symlink.return_value = True
             with self.subTest(invalid=invalid), patch.object(RECOVERY, "Path", return_value=app), \
                  patch.object(RECOVERY.os, "getuid", return_value=MEMBER, create=True), \
-                 patch.object(RECOVERY.os, "geteuid", return_value=MEMBER, create=True):
+                 patch.object(RECOVERY.os, "geteuid", return_value=MEMBER, create=True), \
+                 patch.object(RECOVERY.os, "getgid", return_value=MEMBER + 12, create=True), \
+                 patch.object(RECOVERY.os, "getegid", return_value=MEMBER + 13, create=True):
                 if invalid:
                     with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
                         RECOVERY.Host().lock_identity()
@@ -620,6 +622,7 @@ class AdapterTests(unittest.TestCase):
                         self.assertEqual({"appDir": RECOVERY.APP_DIR, "isDirectory": RECOVERY.stat.S_ISDIR(metadata.st_mode),
                                           "isSymlink": RECOVERY.stat.S_ISLNK(metadata.st_mode), "lockUid": metadata.st_uid,
                                           "processUid": MEMBER, "effectiveUid": MEMBER, "mode": RECOVERY.stat.S_IMODE(metadata.st_mode),
+                                          "lockGid": MEMBER + 11, "processGid": MEMBER + 12, "effectiveGid": MEMBER + 13,
                                           "modeOctal": format(RECOVERY.stat.S_IMODE(metadata.st_mode), "04o"),
                                           "groupWritable": invalid == "group-writable", "worldWritable": invalid == "world-writable",
                                           "device": 1, "inode": 42, "mtimeNs": 123, "ctimeNs": 123,
@@ -639,7 +642,7 @@ class AdapterTests(unittest.TestCase):
         app.is_symlink.return_value = False
         app.__truediv__.return_value = lock
         app.read_text.return_value = json.dumps(proof())
-        lock.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o775, st_uid=MEMBER,
+        lock.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o775, st_uid=MEMBER, st_gid=MEMBER + 11,
                                                  st_dev=1, st_ino=42, st_mtime_ns=123, st_ctime_ns=456)
         stderr, stdout = io.StringIO(), io.StringIO()
         arguments = [str(HELPER), "acquire-reviewed-lock", "--proof", "fixture.json", "--app-dir", RECOVERY.APP_DIR,
@@ -647,6 +650,8 @@ class AdapterTests(unittest.TestCase):
         with patch("pathlib.Path", return_value=app), patch.object(sys, "argv", arguments), \
              patch.object(RECOVERY.os, "getuid", return_value=MEMBER, create=True), \
              patch.object(RECOVERY.os, "geteuid", return_value=MEMBER, create=True), \
+             patch.object(RECOVERY.os, "getgid", return_value=MEMBER + 12, create=True), \
+             patch.object(RECOVERY.os, "getegid", return_value=MEMBER + 13, create=True), \
              patch.object(RECOVERY.os, "getpid", return_value=3), \
              patch.object(RECOVERY.os, "rmdir") as remove, patch.object(RECOVERY.os, "mkdir") as acquire, \
              patch.object(RECOVERY.subprocess, "run") as commands, redirect_stderr(stderr), redirect_stdout(stdout):
@@ -661,6 +666,9 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(0o775, diagnostic["mode"])
         self.assertEqual(MEMBER, diagnostic["lockUid"])
         self.assertEqual(MEMBER, diagnostic["processUid"])
+        self.assertEqual(MEMBER + 11, diagnostic["lockGid"])
+        self.assertEqual(MEMBER + 12, diagnostic["processGid"])
+        self.assertEqual(MEMBER + 13, diagnostic["effectiveGid"])
         self.assertIs(True, diagnostic["groupWritable"])
         self.assertIsNone(diagnostic["empty"])
         lock.iterdir.assert_not_called()

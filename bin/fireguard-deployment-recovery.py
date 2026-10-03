@@ -51,6 +51,9 @@ class LockIdentityDiagnostic(TypedDict):
     lockUid: int
     processUid: int
     effectiveUid: int | None
+    lockGid: int
+    processGid: int | None
+    effectiveGid: int | None
     mode: int
     modeOctal: str
     groupWritable: bool
@@ -375,6 +378,8 @@ class Host:
             "appDir": APP_DIR, "isDirectory": stat.S_ISDIR(value.st_mode), "isSymlink": stat.S_ISLNK(value.st_mode),
             "lockUid": value.st_uid, "processUid": process_uid,
             "effectiveUid": os.geteuid() if hasattr(os, "geteuid") else None,
+            "lockGid": value.st_gid, "processGid": os.getgid() if hasattr(os, "getgid") else None,
+            "effectiveGid": os.getegid() if hasattr(os, "getegid") else None,
             "mode": stat.S_IMODE(value.st_mode), "modeOctal": format(stat.S_IMODE(value.st_mode), "04o"),
             "groupWritable": bool(value.st_mode & 0o020), "worldWritable": bool(value.st_mode & 0o002),
             "device": value.st_dev, "inode": value.st_ino, "mtimeNs": value.st_mtime_ns, "ctimeNs": value.st_ctime_ns,
