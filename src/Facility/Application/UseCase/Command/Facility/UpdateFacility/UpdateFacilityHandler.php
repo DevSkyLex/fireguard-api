@@ -208,25 +208,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
    */
   private function applyChanges(Facility $facility, UpdateFacilityCommand $command): void
   {
-    if ($command->hasType) {
-      if (null === $command->type) {
-        throw InvalidValueException::because('Field "type" cannot be null when provided.');
-      }
-
-      $facility->changeType(FacilityType::from($command->type));
-    }
-
-    if ($command->hasName) {
-      if (null === $command->name) {
-        throw InvalidValueException::because('Field "name" cannot be null when provided.');
-      }
-
-      $facility->rename(new FacilityName($command->name));
-    }
-
-    if ($command->hasCode) {
-      $facility->changeCode($command->code);
-    }
+    $this->applyIdentityChanges($facility, $command);
 
     if ($command->hasAddress) {
       $facility->changeAddress($command->address);
@@ -249,6 +231,41 @@ final readonly class UpdateFacilityHandler implements CommandHandler
         $command->hasElevationMeters ? $command->elevationMeters : $facility->elevationMeters(),
         $command->hasHeightMeters ? $command->heightMeters : $facility->heightMeters(),
       );
+    }
+  }
+
+  /**
+   * Method applyIdentityChanges.
+   *
+   * Applies type, display name and code before the remaining descriptive fields, preserving validation order.
+   *
+   * @access private
+   *
+   * @param Facility $facility aggregate being updated
+   * @param UpdateFacilityCommand $command supplied values and presence flags
+   *
+   * @return void
+   */
+  private function applyIdentityChanges(Facility $facility, UpdateFacilityCommand $command): void
+  {
+    if ($command->hasType) {
+      if (null === $command->type) {
+        throw InvalidValueException::because('Field "type" cannot be null when provided.');
+      }
+
+      $facility->changeType(FacilityType::from($command->type));
+    }
+
+    if ($command->hasName) {
+      if (null === $command->name) {
+        throw InvalidValueException::because('Field "name" cannot be null when provided.');
+      }
+
+      $facility->rename(new FacilityName($command->name));
+    }
+
+    if ($command->hasCode) {
+      $facility->changeCode($command->code);
     }
   }
 

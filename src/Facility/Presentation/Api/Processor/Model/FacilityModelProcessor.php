@@ -87,29 +87,7 @@ final readonly class FacilityModelProcessor implements ProcessorInterface
       throw new AccessDeniedHttpException('Authentication required.');
     }
     if (FacilityModelOperations::UPLOAD === $operation->getName()) {
-      $request = $this->requests->getCurrentRequest();
-      $file = $request?->files->get('file');
-      if ($file instanceof UploadedFile && in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
-        throw new UnprocessableEntityHttpException('The HTTP upload size limit was exceeded.');
-      }
-      if (!$file instanceof UploadedFile || !$file->isValid()) {
-        throw new BadRequestHttpException('Multipart field "file" must be a valid uploaded GLB.');
-      }
-      $size = $file->getSize();
-      if (false === $size || $size < 20 || $size > 10 * 1024 * 1024) {
-        throw new UnprocessableEntityHttpException('A GLB of at most 10 MiB is required.');
-      }
-      /** @var UploadFacilityModelResult $result */
-      $result = $this->commands->dispatch(new UploadFacilityModelCommand(
-        $user->getId(),
-        $this->identifier($uriVariables, 'organizationId'),
-        $this->identifier($uriVariables, 'buildingId'),
-        $file->getClientOriginalName(),
-        $file->getContent(),
-      ));
-      $request?->attributes->set('_api_write_item_iri', '/api/facility-models/' . $result->model->id);
-
-      return FacilityModelOutput::fromView($result->model);
+      return $this->upload($user->getId(), $uriVariables);
     }
     $id = $this->identifier($uriVariables, 'id');
     $revision = $this->revisions->expectedRevision();
@@ -128,6 +106,45 @@ final readonly class FacilityModelProcessor implements ProcessorInterface
       /** @var UpdateFacilityModelResult $result */
       $result = $this->commands->dispatch(new UpdateFacilityModelCommand($user->getId(), $id, $revision, $data->transform, $data->bindings, $data->removeBindingNodeIndices));
     }
+
+    return FacilityModelOutput::fromView($result->model);
+  }
+
+  /**
+   * Method upload
+   *
+   * Validates the multipart envelope and translates its immutable file into the upload command.
+   *
+   * @access private
+   *
+   * @param string $userId the authenticated actor identifier
+   * @param array<string, mixed> $uriVariables identifiers extracted from the upload route
+   *
+   * @return FacilityModelOutput the uploaded draft metadata
+   */
+  private function upload(string $userId, array $uriVariables): FacilityModelOutput
+  {
+    $request = $this->requests->getCurrentRequest();
+    $file = $request?->files->get('file');
+    if ($file instanceof UploadedFile && in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+      throw new UnprocessableEntityHttpException('The HTTP upload size limit was exceeded.');
+    }
+    if (!$file instanceof UploadedFile || !$file->isValid()) {
+      throw new BadRequestHttpException('Multipart field "file" must be a valid uploaded GLB.');
+    }
+    $size = $file->getSize();
+    if (false === $size || $size < 20 || $size > 10 * 1024 * 1024) {
+      throw new UnprocessableEntityHttpException('A GLB of at most 10 MiB is required.');
+    }
+    /** @var UploadFacilityModelResult $result */
+    $result = $this->commands->dispatch(new UploadFacilityModelCommand(
+      $userId,
+      $this->identifier($uriVariables, 'organizationId'),
+      $this->identifier($uriVariables, 'buildingId'),
+      $file->getClientOriginalName(),
+      $file->getContent(),
+    ));
+    $request?->attributes->set('_api_write_item_iri', '/api/facility-models/' . $result->model->id);
 
     return FacilityModelOutput::fromView($result->model);
   }

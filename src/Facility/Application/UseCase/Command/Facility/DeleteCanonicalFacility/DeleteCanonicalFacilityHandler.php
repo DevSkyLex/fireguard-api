@@ -93,29 +93,11 @@ final readonly class DeleteCanonicalFacilityHandler implements CommandHandler
         }
 
         $facility->assertRevisionMatches($command->expectedRevision);
-        $organizationId = (string) $facility->organizationId();
-        $facilityId = (string) $facility->id();
-
         if ($facility->isScratchpad()) {
-          if ($this->facilities->countChildren($facility->id()) > 0) {
-            throw CanonicalFacilityConflictException::stillHasChildren();
-          }
-
-          $this->archivalGuard->assertNoActiveDependents($organizationId, $facilityId);
-          $this->facilities->delete($facility->id());
+          $this->deleteScratchpad($facility);
           $hardDeleted = true;
         } else {
-          // Only guard a facility that is actually about to move: a repeat
-          // DELETE on an already-archived one must stay a no-op, not start
-          // failing because a dependent appeared since.
-          if (!$facility->isAlreadyArchived()) {
-            $this->archivalGuard->assertNoActiveDependents($organizationId, $facilityId);
-          }
-
-          $archived = $facility->archive();
-          if ($archived) {
-            $this->facilities->save($facility);
-          }
+          $archived = $this->archivePublished($facility);
         }
 
         $this->interventions->touchDraft($facility->interventionId());
@@ -138,6 +120,50 @@ final readonly class DeleteCanonicalFacilityHandler implements CommandHandler
       hardDeleted: $hardDeleted,
       archived: $archived,
     );
+  }
+
+  /**
+   * Method deleteScratchpad.
+   *
+   * Checks child references before active dependents so hard deletion never promotes orphaned descendants.
+   *
+   * @access private
+   *
+   * @param CanonicalFacility $facility draft facility being removed
+   *
+   * @return void
+   */
+  private function deleteScratchpad(CanonicalFacility $facility): void
+  {
+    if ($this->facilities->countChildren($facility->id()) > 0) {
+      throw CanonicalFacilityConflictException::stillHasChildren();
+    }
+    $this->archivalGuard->assertNoActiveDependents((string) $facility->organizationId(), (string) $facility->id());
+    $this->facilities->delete($facility->id());
+  }
+
+  /**
+   * Method archivePublished.
+   *
+   * Guards actual retirement transitions while keeping repeated deletion idempotent.
+   *
+   * @access private
+   *
+   * @param CanonicalFacility $facility published facility being retired
+   *
+   * @return bool whether a persisted archival transition occurred
+   */
+  private function archivePublished(CanonicalFacility $facility): bool
+  {
+    if (!$facility->isAlreadyArchived()) {
+      $this->archivalGuard->assertNoActiveDependents((string) $facility->organizationId(), (string) $facility->id());
+    }
+    $archived = $facility->archive();
+    if ($archived) {
+      $this->facilities->save($facility);
+    }
+
+    return $archived;
   }
 
   /**

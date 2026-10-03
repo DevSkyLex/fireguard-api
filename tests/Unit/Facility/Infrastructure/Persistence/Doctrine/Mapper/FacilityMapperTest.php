@@ -195,6 +195,7 @@ final class FacilityMapperTest extends TestCase
     $record->latitude = 43.2965;
     $record->longitude = 5.3698;
     $record->metadata = ['priority' => 1];
+    $record->planGeometry = ['attachmentId' => '550e8400-e29b-41d4-a716-446655441612', 'points' => [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9]]];
     $record->createdAt = new DateTimeImmutable('2026-02-12T08:00:00+00:00');
     $record->updatedAt = new DateTimeImmutable('2026-02-12T09:00:00+00:00');
 
@@ -212,8 +213,32 @@ final class FacilityMapperTest extends TestCase
     self::assertSame($record->latitude, $roundTripped->latitude);
     self::assertSame($record->longitude, $roundTripped->longitude);
     self::assertSame($record->metadata, $roundTripped->metadata);
+    self::assertNotNull($facility->planGeometry());
+    self::assertSame($record->planGeometry, $roundTripped->planGeometry);
     self::assertEquals($record->createdAt, $roundTripped->createdAt);
     self::assertEquals($record->updatedAt, $roundTripped->updatedAt);
+  }
+
+  #[Test]
+  public function testRetainsInvalidHistoricalGeometryOnRoundTrip(): void
+  {
+    $record = new FacilityRecord();
+    $organization = new OrganizationRecord();
+    $organization->id = '550e8400-e29b-41d4-a716-446655441621';
+    $record->id = '550e8400-e29b-41d4-a716-446655441622';
+    $record->organization = $organization;
+    $record->type = 'zone';
+    $record->name = 'Historical zone';
+    $record->status = 'active';
+    $record->createdAt = new DateTimeImmutable('2026-02-12T08:00:00+00:00');
+    $record->updatedAt = $record->createdAt;
+    $record->planGeometry = ['attachmentId' => '550e8400-e29b-41d4-a716-446655441623', 'points' => [[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]]];
+
+    $facility = FacilityMapper::toDomain($record);
+
+    self::assertNull($facility->planGeometry());
+    self::assertSame($record->planGeometry, $facility->planGeometryData());
+    self::assertSame($record->planGeometry, FacilityMapper::toRecord($facility)->planGeometry);
   }
 
   #[Test]

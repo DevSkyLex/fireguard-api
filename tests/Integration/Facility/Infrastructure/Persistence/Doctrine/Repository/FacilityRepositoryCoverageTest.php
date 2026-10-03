@@ -17,8 +17,9 @@ use Facility\Domain\ValueObject\{
   FacilityType
 };
 use Facility\Infrastructure\Exception\InvalidStorageTimeZoneException;
+use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityPersistenceExceptionMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
+use Facility\Infrastructure\Persistence\Doctrine\Repository\{FacilityOrganizationQueryRepository, FacilityRepository};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -40,6 +41,8 @@ use function ksort;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(FacilityRepository::class)]
+#[CoversClass(FacilityOrganizationQueryRepository::class)]
+#[CoversClass(FacilityPersistenceExceptionMapper::class)]
 final class FacilityRepositoryCoverageTest extends KernelTestCase
 {
   private const string ORGANIZATION_ID = '660e8400-e29b-41d4-a716-446655443000';

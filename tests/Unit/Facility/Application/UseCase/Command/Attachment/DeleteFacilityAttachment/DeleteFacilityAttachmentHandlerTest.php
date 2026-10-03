@@ -44,7 +44,7 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::once())->method('delete')->with($attachment->storagePath());
+    $fileStorage->expects(self::once())->method('delete')->with($attachment->file()->storagePath);
 
     $handler = new DeleteFacilityAttachmentHandler(
       facilityRepository: $facilityRepository,

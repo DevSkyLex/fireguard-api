@@ -88,9 +88,9 @@ final readonly class SetPrimaryFacilityAttachmentHandler implements CommandHandl
     return new SetPrimaryFacilityAttachmentResult(
       attachmentId: (string) $attachment->id(),
       facilityId: (string) $attachment->facilityId(),
-      fileName: $attachment->fileName(),
-      mimeType: $attachment->mimeType(),
-      size: $attachment->size(),
+      fileName: $attachment->file()->fileName,
+      mimeType: $attachment->file()->mimeType,
+      size: $attachment->file()->size,
       label: $attachment->label(),
       kind: $attachment->kind()->value,
       isPrimaryPlan: $attachment->isPrimaryPlan(),

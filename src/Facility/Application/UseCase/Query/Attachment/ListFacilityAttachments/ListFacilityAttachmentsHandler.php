@@ -76,11 +76,11 @@ final readonly class ListFacilityAttachmentsHandler implements QueryHandler
     foreach ($attachments as $attachment) {
       $result[] = [
         'id' => (string) $attachment->id(),
-        'fileName' => $attachment->fileName(),
-        'mimeType' => $attachment->mimeType(),
-        'size' => $attachment->size(),
+        'fileName' => $attachment->file()->fileName,
+        'mimeType' => $attachment->file()->mimeType,
+        'size' => $attachment->file()->size,
         'label' => $attachment->label(),
-        'uploadedAt' => $attachment->uploadedAt()->format('c'),
+        'uploadedAt' => $attachment->file()->uploadedAt->format('c'),
         'kind' => $attachment->kind()->value,
         'isPrimaryPlan' => $attachment->isPrimaryPlan(),
         'imageWidth' => $attachment->imageWidth(),

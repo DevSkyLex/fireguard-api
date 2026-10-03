@@ -21,6 +21,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityHierarchyQueryRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'

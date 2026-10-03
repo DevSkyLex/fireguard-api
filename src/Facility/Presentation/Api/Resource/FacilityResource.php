@@ -118,7 +118,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ),
         'includePath' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'Resolve ancestor breadcrumbs for this page in one organization-scoped read.',
+          description: self::INCLUDE_PATH_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -520,7 +520,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       parameters: [
         'includePath' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'Resolve ancestor breadcrumbs for this page in one organization-scoped read.',
+          description: self::INCLUDE_PATH_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -575,7 +575,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       parameters: [
         'includePath' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'Resolve ancestor breadcrumbs for this page in one organization-scoped read.',
+          description: self::INCLUDE_PATH_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -851,6 +851,11 @@ final class FacilityResource
    * Constant INCLUDE_ARCHIVED_DESCRIPTION
    */
   private const string INCLUDE_ARCHIVED_DESCRIPTION = 'When true, archived facilities are included. Default: false.';
+
+  /**
+   * Constant INCLUDE_PATH_DESCRIPTION
+   */
+  private const string INCLUDE_PATH_DESCRIPTION = 'Resolve ancestor breadcrumbs for this page in one organization-scoped read.';
 
   /**
    * Constant TYPE_FILTER_DESCRIPTION

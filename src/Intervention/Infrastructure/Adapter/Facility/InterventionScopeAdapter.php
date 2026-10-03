@@ -6,6 +6,7 @@ namespace Intervention\Infrastructure\Adapter\Facility;
 
 use Facility\Application\Contract\Hierarchy\InterventionParentAccess;
 use Facility\Application\Port\Outbound\InterventionScopePort;
+use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionMemberPolicy;
 use Intervention\Domain\Exception\InterventionAccessDeniedException;
@@ -73,19 +74,39 @@ final readonly class InterventionScopeAdapter implements InterventionScopePort
     if (!in_array($intervention->status, ['draft', 'planned', 'in_progress', 'changes_requested'], true)) {
       return InterventionParentAccess::DENIED;
     }
+
+    return $this->hasPreparationPermission($intervention, $userId) ? InterventionParentAccess::GRANTED : InterventionParentAccess::DENIED;
+  }
+
+  /**
+   * Method hasPreparationPermission.
+   *
+   * Keeps planning permission independent of execution participation while checking entitlement before membership.
+   *
+   * @access private
+   *
+   * @param InterventionAssignmentContext $intervention organization-scoped mutable intervention
+   * @param string $userId authenticated user
+   *
+   * @return bool whether preparation is authorized
+   */
+  private function hasPreparationPermission(InterventionAssignmentContext $intervention, string $userId): bool
+  {
+    $organizationId = $intervention->organizationId;
     $permission = 'draft' === $intervention->status ? 'organization.interventions.plan' : 'organization.interventions.execute';
     if (!$this->authorization->hasPermission($userId, $organizationId, $permission)) {
-      return InterventionParentAccess::DENIED;
+      return false;
     }
+    $granted = true;
     if ('draft' !== $intervention->status) {
       try {
         $this->members->assertCanExecuteIntervention($organizationId, $userId, $intervention->responsibleId, $intervention->participants);
       } catch (InterventionAccessDeniedException) {
-        return InterventionParentAccess::DENIED;
+        $granted = false;
       }
     }
 
-    return InterventionParentAccess::GRANTED;
+    return $granted;
   }
   // #endregion
 }

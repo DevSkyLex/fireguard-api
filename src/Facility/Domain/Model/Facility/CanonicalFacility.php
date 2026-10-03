@@ -512,8 +512,14 @@ final class CanonicalFacility
     $type = $patch->hasType && null !== $patch->type
       ? (FacilityType::tryFrom($patch->type) ?? throw CanonicalFacilityValidationException::unsupportedValue('type', $patch->type))
       : $this->type;
-    $elevation = $patch->hasElevationMeters ? $patch->elevationMeters : (FacilityType::FLOOR === $type ? $this->elevationMeters : null);
-    $height = $patch->hasHeightMeters ? $patch->heightMeters : (FacilityType::FLOOR === $type ? $this->heightMeters : null);
+    $elevation = FacilityType::FLOOR === $type ? $this->elevationMeters : null;
+    $height = FacilityType::FLOOR === $type ? $this->heightMeters : null;
+    if ($patch->hasElevationMeters) {
+      $elevation = $patch->elevationMeters;
+    }
+    if ($patch->hasHeightMeters) {
+      $height = $patch->heightMeters;
+    }
     FacilityFloorMetrics::assertValid($type, $elevation, $height);
     $this->elevationMeters = $elevation;
     $this->heightMeters = $height;

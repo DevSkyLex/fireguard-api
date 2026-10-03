@@ -50,50 +50,11 @@ final readonly class FacilityPublicationGuardAdapter implements InterventionPubl
   public function beginPublication(string $organizationId, string $interventionId, array $changes): void
   {
     $this->hierarchy->lock($organizationId);
-    $nodes = [];
+    $nodes = $this->draftNodes($organizationId, $interventionId);
     $originalNodes = [];
-    /** @var list<FacilityRecord> $records */
-    $records = $this->entityManager->getRepository(FacilityRecord::class)->findBy(['interventionId' => $interventionId, 'recordStatus' => 'draft']);
-    foreach ($records as $record) {
-      if ($record->organization?->id !== $organizationId) {
-        throw new InvalidArgumentException('Publication facility organization is invalid.');
-      }
-      $nodes[$record->id] = $this->node($record);
-    }
-    foreach ($changes as $change) {
-      if (1 !== preg_match('#^/api/facilities/([^/]+)$#', $change['resource'], $match)) {
-        continue;
-      }
-      $patch = $change['patch'];
-      if (!array_key_exists('type', $patch) && !array_key_exists('parent', $patch) && !array_key_exists('status', $patch)) {
-        continue;
-      }
-      $record = $this->entityManager->find(FacilityRecord::class, $match[1]);
-      if (!$record instanceof FacilityRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
-        throw new InvalidArgumentException('Publication facility target is invalid.');
-      }
-      $originalNodes[$record->id] ??= $this->node($record);
-      $previous = $nodes[$record->id] ?? $this->node($record);
-      $type = $patch['type'] ?? $previous->type;
-      $status = $patch['status'] ?? $previous->status;
-      if (!is_string($type) || !is_string($status)) {
-        throw new InvalidArgumentException('Publication hierarchy fields must be strings.');
-      }
-      $parentId = $previous->parentFacilityId;
-      if (array_key_exists('parent', $patch)) {
-        $parentId = $this->parentId($patch['parent']);
-      }
-      $nodes[$record->id] = new FacilityHierarchyNode($record->id, $type, $parentId, $status);
-    }
+    $this->applyProposedChanges($organizationId, $changes, $nodes, $originalNodes);
     $this->hierarchy->assertGraph($organizationId, array_values($nodes), $originalNodes);
-    $archives = [];
-    foreach ($nodes as $id => $node) {
-      $record = $this->entityManager->find(FacilityRecord::class, $id);
-      if ('archived' === $node->status && $record instanceof FacilityRecord
-        && ('archived' !== $record->status || 'draft' === $record->recordStatus)) {
-        $archives[] = $id;
-      }
-    }
+    $archives = $this->archivedTransitions($nodes);
     $this->context->enter($organizationId, array_values($nodes), $archives, $originalNodes);
   }
 
@@ -159,6 +120,123 @@ final readonly class FacilityPublicationGuardAdapter implements InterventionPubl
     if ([] !== $references) {
       throw new InterventionDraftDependencyConflict($references);
     }
+  }
+
+  /**
+   * Method draftNodes.
+   *
+   * Reads the intervention's draft graph before applying published proposals.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param string $organizationId the authorized publication organization
+   * @param string $interventionId the publication scratchpad
+   *
+   * @return array<string, FacilityHierarchyNode> the draft nodes keyed by identifier
+   */
+  private function draftNodes(string $organizationId, string $interventionId): array
+  {
+    $nodes = [];
+    /** @var list<FacilityRecord> $records */
+    $records = $this->entityManager->getRepository(FacilityRecord::class)->findBy(['interventionId' => $interventionId, 'recordStatus' => 'draft']);
+    foreach ($records as $record) {
+      if ($record->organization?->id !== $organizationId) {
+        throw new InvalidArgumentException('Publication facility organization is invalid.');
+      }
+      $nodes[$record->id] = $this->node($record);
+    }
+
+    return $nodes;
+  }
+
+  /**
+   * Method applyProposedChanges.
+   *
+   * Merges proposals in order while retaining each published node's original relationship baseline.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param string $organizationId the authorized organization
+   * @param list<array{resource: string, patch: array<string, mixed>}> $changes the publication proposals
+   * @param array<string, FacilityHierarchyNode> $nodes the merged graph
+   * @param array<string, FacilityHierarchyNode> $originalNodes the unchanged historical edge baseline
+   *
+   * @return void
+   */
+  private function applyProposedChanges(string $organizationId, array $changes, array &$nodes, array &$originalNodes): void
+  {
+    foreach ($changes as $change) {
+      if (1 !== preg_match('#^/api/facilities/([^/]+)$#', $change['resource'], $match)) {
+        continue;
+      }
+      $patch = $change['patch'];
+      if (!array_key_exists('type', $patch) && !array_key_exists('parent', $patch) && !array_key_exists('status', $patch)) {
+        continue;
+      }
+      $record = $this->entityManager->find(FacilityRecord::class, $match[1]);
+      if (!$record instanceof FacilityRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
+        throw new InvalidArgumentException('Publication facility target is invalid.');
+      }
+      $originalNodes[$record->id] ??= $this->node($record);
+      $previous = $nodes[$record->id] ?? $this->node($record);
+      $nodes[$record->id] = $this->proposedNode($previous, $patch);
+    }
+  }
+
+  /**
+   * Method proposedNode.
+   *
+   * Builds the next scalar relation state without losing explicit parent clearing.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param FacilityHierarchyNode $previous the state after earlier proposals
+   * @param array<string, mixed> $patch the current proposed fields
+   *
+   * @return FacilityHierarchyNode the merged node
+   */
+  private function proposedNode(FacilityHierarchyNode $previous, array $patch): FacilityHierarchyNode
+  {
+    $type = $patch['type'] ?? $previous->type;
+    $status = $patch['status'] ?? $previous->status;
+    if (!is_string($type) || !is_string($status)) {
+      throw new InvalidArgumentException('Publication hierarchy fields must be strings.');
+    }
+    $parentId = $previous->parentFacilityId;
+    if (array_key_exists('parent', $patch)) {
+      $parentId = $this->parentId($patch['parent']);
+    }
+
+    return new FacilityHierarchyNode($previous->id, $type, $parentId, $status);
+  }
+
+  /**
+   * Method archivedTransitions.
+   *
+   * Retains final dependency checks only for newly archived published nodes and archived drafts.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param array<string, FacilityHierarchyNode> $nodes the merged graph
+   *
+   * @return list<string> the nodes whose archival must be checked after publication
+   */
+  private function archivedTransitions(array $nodes): array
+  {
+    $archives = [];
+    foreach ($nodes as $id => $node) {
+      $record = $this->entityManager->find(FacilityRecord::class, $id);
+      if ('archived' === $node->status && $record instanceof FacilityRecord
+        && ('archived' !== $record->status || 'draft' === $record->recordStatus)) {
+        $archives[] = $id;
+      }
+    }
+
+    return $archives;
   }
 
   /**

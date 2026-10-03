@@ -10,7 +10,7 @@ use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType, PlanGeometry};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
+use Facility\Infrastructure\Persistence\Doctrine\Repository\{FacilityHierarchyQueryRepository, FacilityRepository};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -18,6 +18,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use function array_column;
 
 #[CoversClass(FacilityRepository::class)]
+#[CoversClass(FacilityHierarchyQueryRepository::class)]
 final class FacilityRepositoryTest extends KernelTestCase
 {
   private EntityManagerInterface $entityManager;

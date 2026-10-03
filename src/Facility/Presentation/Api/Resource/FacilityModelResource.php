@@ -46,7 +46,7 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
           'multipart/form-data' => ['schema' => ['type' => 'object', 'required' => ['file'],
             'properties' => ['file' => ['type' => 'string', 'format' => 'binary']]]],
         ])),
-        responses: [201 => new Response(description: 'Draft model uploaded'), 403 => new Response(description: 'Missing facilities write permission'),
+        responses: [201 => new Response(description: 'Draft model uploaded'), 403 => new Response(description: self::WRITE_FORBIDDEN_DESCRIPTION),
           404 => new Response(description: 'Building outside organization scope or missing'), 409 => new Response(description: 'Two models already exist'),
           422 => new Response(description: 'Invalid GLB, unsupported required extension or file over 10 MiB')],
       ),
@@ -58,23 +58,23 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
       output: FacilityModelOutput::class,
       provider: FacilityModelProvider::class,
       openapi: new Operation(tags: ['Facility'], summary: 'List a building active and draft models', responses: [
-        200 => new Response(description: 'Building model collection'), 403 => new Response(description: 'Missing facilities read permission'),
+        200 => new Response(description: 'Building model collection'), 403 => new Response(description: self::READ_FORBIDDEN_DESCRIPTION),
         404 => new Response(description: 'Building outside organization scope or missing'),
       ]),
     ),
     new Get(
       name: FacilityModelOperations::GET,
-      uriTemplate: '/facility-models/{id}',
+      uriTemplate: self::ITEM_URI_TEMPLATE,
       output: FacilityModelOutput::class,
       provider: FacilityModelProvider::class,
       openapi: new Operation(tags: ['Facility'], summary: 'Read model metadata, transformation and node associations', responses: [
-        200 => new Response(description: 'Model metadata with revision ETag'), 403 => new Response(description: 'Missing facilities read permission'),
-        404 => new Response(description: 'Model outside organization scope or missing'),
+        200 => new Response(description: 'Model metadata with revision ETag'), 403 => new Response(description: self::READ_FORBIDDEN_DESCRIPTION),
+        404 => new Response(description: self::NOT_FOUND_DESCRIPTION),
       ]),
     ),
     new Patch(
       name: FacilityModelOperations::UPDATE,
-      uriTemplate: '/facility-models/{id}',
+      uriTemplate: self::ITEM_URI_TEMPLATE,
       status: 200,
       read: false,
       input: UpdateFacilityModelInput::class,
@@ -84,7 +84,7 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
         tags: ['Facility'],
         summary: 'Update a model transformation and associations',
         description: 'Requires If-Match: "revision-N" and a complete transform. Omitted or null bindings preserve stored associations; unavailable historical nodes remain until explicitly removed or reassigned. New associations must belong to the nearest building frame.',
-        parameters: [new Parameter(name: 'If-Match', in: 'header', required: true, schema: ['type' => 'string', 'pattern' => '^"revision-[0-9]+"$'])],
+        parameters: [new Parameter(name: 'If-Match', in: 'header', required: true, schema: ['type' => 'string', 'pattern' => self::REVISION_PATTERN])],
         requestBody: new RequestBody(required: true, content: new ArrayObject([
           'application/merge-patch+json' => ['schema' => [
             'type' => 'object', 'required' => ['transform'],
@@ -110,8 +110,8 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
           ]],
         ])),
         responses: [200 => new Response(description: 'Settings saved'), 403 => new Response(description: 'Missing permission'),
-          404 => new Response(description: 'Model outside scope or missing'), 412 => new Response(description: 'Stale revision'),
-          428 => new Response(description: 'If-Match required'), 422 => new Response(description: 'Invalid transformation or association')],
+          404 => new Response(description: 'Model outside scope or missing'), 412 => new Response(description: self::STALE_REVISION_DESCRIPTION),
+          428 => new Response(description: self::PRECONDITION_REQUIRED_DESCRIPTION), 422 => new Response(description: 'Invalid transformation or association')],
       ),
     ),
     new Post(
@@ -127,15 +127,15 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
         tags: ['Facility'],
         summary: 'Activate a model and atomically deactivate the previous model',
         description: 'Requires If-Match: "revision-N".',
-        parameters: [new Parameter(name: 'If-Match', in: 'header', required: true, schema: ['type' => 'string', 'pattern' => '^"revision-[0-9]+"$'])],
-        responses: [200 => new Response(description: 'Model activated'), 403 => new Response(description: 'Missing facilities write permission'),
-          404 => new Response(description: 'Model outside organization scope or missing'), 412 => new Response(description: 'Stale revision'),
-          428 => new Response(description: 'If-Match required'), 422 => new Response(description: 'Association outside building subtree')],
+        parameters: [new Parameter(name: 'If-Match', in: 'header', required: true, schema: ['type' => 'string', 'pattern' => self::REVISION_PATTERN])],
+        responses: [200 => new Response(description: 'Model activated'), 403 => new Response(description: self::WRITE_FORBIDDEN_DESCRIPTION),
+          404 => new Response(description: self::NOT_FOUND_DESCRIPTION), 412 => new Response(description: self::STALE_REVISION_DESCRIPTION),
+          428 => new Response(description: self::PRECONDITION_REQUIRED_DESCRIPTION), 422 => new Response(description: 'Association outside building subtree')],
       ),
     ),
     new Delete(
       name: FacilityModelOperations::DELETE,
-      uriTemplate: '/facility-models/{id}',
+      uriTemplate: self::ITEM_URI_TEMPLATE,
       status: 204,
       read: false,
       input: false,
@@ -145,10 +145,10 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
         tags: ['Facility'],
         summary: 'Delete a model and its immutable file',
         description: 'Requires If-Match: "revision-N".',
-        parameters: [new Parameter(name: 'If-Match', in: 'header', required: true, schema: ['type' => 'string', 'pattern' => '^"revision-[0-9]+"$'])],
-        responses: [204 => new Response(description: 'Model deleted'), 403 => new Response(description: 'Missing facilities write permission'),
-          404 => new Response(description: 'Model outside organization scope or missing'), 412 => new Response(description: 'Stale revision'),
-          428 => new Response(description: 'If-Match required')],
+        parameters: [new Parameter(name: 'If-Match', in: 'header', required: true, schema: ['type' => 'string', 'pattern' => self::REVISION_PATTERN])],
+        responses: [204 => new Response(description: 'Model deleted'), 403 => new Response(description: self::WRITE_FORBIDDEN_DESCRIPTION),
+          404 => new Response(description: self::NOT_FOUND_DESCRIPTION), 412 => new Response(description: self::STALE_REVISION_DESCRIPTION),
+          428 => new Response(description: self::PRECONDITION_REQUIRED_DESCRIPTION)],
       ),
     ),
     // Raw-byte response follows the existing API Platform attachment download exception to DTO serialization.
@@ -165,7 +165,7 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
       openapi: new Operation(tags: ['Facility'], summary: 'Download the authenticated GLB file', responses: [
         200 => new Response(description: 'Immutable GLB file content', content: new ArrayObject([
           'model/gltf-binary' => ['schema' => ['type' => 'string', 'format' => 'binary']],
-        ])), 403 => new Response(description: 'Missing facilities read permission'),
+        ])), 403 => new Response(description: self::READ_FORBIDDEN_DESCRIPTION),
         404 => new Response(description: 'Model outside scope or missing'),
       ]),
     ),
@@ -173,4 +173,38 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
 )]
 final class FacilityModelResource
 {
+  /**
+   * Constant WRITE_FORBIDDEN_DESCRIPTION.
+   */
+  private const string WRITE_FORBIDDEN_DESCRIPTION = 'Missing facilities write permission';
+
+  /**
+   * Constant READ_FORBIDDEN_DESCRIPTION.
+   */
+  private const string READ_FORBIDDEN_DESCRIPTION = 'Missing facilities read permission';
+
+  /**
+   * Constant ITEM_URI_TEMPLATE.
+   */
+  private const string ITEM_URI_TEMPLATE = '/facility-models/{id}';
+
+  /**
+   * Constant NOT_FOUND_DESCRIPTION.
+   */
+  private const string NOT_FOUND_DESCRIPTION = 'Model outside organization scope or missing';
+
+  /**
+   * Constant REVISION_PATTERN.
+   */
+  private const string REVISION_PATTERN = '^"revision-[0-9]+"$';
+
+  /**
+   * Constant STALE_REVISION_DESCRIPTION.
+   */
+  private const string STALE_REVISION_DESCRIPTION = 'Stale revision';
+
+  /**
+   * Constant PRECONDITION_REQUIRED_DESCRIPTION.
+   */
+  private const string PRECONDITION_REQUIRED_DESCRIPTION = 'If-Match required';
 }

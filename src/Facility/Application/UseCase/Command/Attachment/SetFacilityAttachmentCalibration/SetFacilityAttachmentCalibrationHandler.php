@@ -7,6 +7,8 @@ namespace Facility\Application\UseCase\Command\Attachment\SetFacilityAttachmentC
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityAttachmentNotFoundException, FacilityRevisionMismatchException};
+use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, PlanCalibration};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
@@ -47,18 +49,7 @@ final readonly class SetFacilityAttachmentCalibrationHandler implements CommandH
   public function __invoke(SetFacilityAttachmentCalibrationCommand $command): SetFacilityAttachmentCalibrationResult
   {
     return $this->transactionManager->transactional(function () use ($command): SetFacilityAttachmentCalibrationResult {
-      $attachment = $this->attachmentRepository->findById(FacilityAttachmentId::fromString($command->attachmentId));
-      $facility = null === $attachment ? null : $this->facilityRepository->findById($attachment->facilityId());
-      if (null === $attachment || null === $facility) {
-        throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
-      }
-      $decision = $this->authorization->resolveAccess($command->userId, (string) $facility->organizationId(), 'organization.facilities.write');
-      if ($decision->isOutsideScope()) {
-        throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
-      }
-      if (!$decision->isGranted()) {
-        throw new FacilityAccessDeniedException('Missing organization.facilities.write permission.');
-      }
+      [$attachment, $facility] = $this->authorizedAttachment($command);
       if ($attachment->revision() !== $command->expectedRevision) {
         throw FacilityRevisionMismatchException::stale();
       }
@@ -71,21 +62,50 @@ final readonly class SetFacilityAttachmentCalibrationHandler implements CommandH
       return new SetFacilityAttachmentCalibrationResult(
         id: (string) $attachment->id(),
         facilityId: (string) $attachment->facilityId(),
-        fileName: $attachment->fileName(),
-        mimeType: $attachment->mimeType(),
-        size: $attachment->size(),
+        fileName: $attachment->file()->fileName,
+        mimeType: $attachment->file()->mimeType,
+        size: $attachment->file()->size,
         label: $attachment->label(),
         revision: $attachment->revision(),
         kind: $attachment->kind()->value,
         isPrimaryPlan: $attachment->isPrimaryPlan(),
         imageWidth: $attachment->imageWidth(),
         imageHeight: $attachment->imageHeight(),
-        uploadedAt: $attachment->uploadedAt()->format('c'),
+        uploadedAt: $attachment->file()->uploadedAt->format('c'),
         calibration: $attachment->calibration()?->toArray(),
         calibrationBuildingId: $attachment->calibrationBuildingId(),
         calibrationIssue: null !== $attachment->calibration() && null === $attachment->calibrationBuildingId() ? 'unverified_frame' : null,
       );
     });
+  }
+
+  /**
+   * Method authorizedAttachment.
+   *
+   * Resolves ownership before checking entitlement, concealing attachments outside the caller's scope.
+   *
+   * @access private
+   *
+   * @param SetFacilityAttachmentCalibrationCommand $command caller and requested attachment
+   *
+   * @return array{FacilityAttachment, Facility} authorized attachment and owning facility
+   */
+  private function authorizedAttachment(SetFacilityAttachmentCalibrationCommand $command): array
+  {
+    $attachment = $this->attachmentRepository->findById(FacilityAttachmentId::fromString($command->attachmentId));
+    $facility = null === $attachment ? null : $this->facilityRepository->findById($attachment->facilityId());
+    if (null === $attachment || null === $facility) {
+      throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
+    }
+    $decision = $this->authorization->resolveAccess($command->userId, (string) $facility->organizationId(), 'organization.facilities.write');
+    if ($decision->isOutsideScope()) {
+      throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
+    }
+    if (!$decision->isGranted()) {
+      throw new FacilityAccessDeniedException('Missing organization.facilities.write permission.');
+    }
+
+    return [$attachment, $facility];
   }
   // #endregion
 }

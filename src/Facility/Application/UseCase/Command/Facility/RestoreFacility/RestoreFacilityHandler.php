@@ -87,18 +87,7 @@ final readonly class RestoreFacilityHandler implements CommandHandler
       // on an already-active facility stay silent).
       $wasArchived = !$facility->status()->isActive();
 
-      $parentId = $facility->parentFacilityId();
-      if (null !== $parentId) {
-        $parent = $this->facilityRepository->findById($parentId);
-
-        if (null === $parent || (string) $parent->organizationId() !== (string) $organizationId) {
-          throw FacilityNotFoundException::withId((string) $parentId);
-        }
-
-        if (!$parent->status()->isActive()) {
-          throw FacilityArchivedException::withId((string) $parentId);
-        }
-      }
+      $this->assertActiveParent($facility, $organizationId);
 
       $facility->restore();
 
@@ -138,6 +127,33 @@ final readonly class RestoreFacilityHandler implements CommandHandler
       createdAt: $facility->createdAt(),
       updatedAt: $facility->updatedAt(),
     );
+  }
+
+  /**
+   * Method assertActiveParent.
+   *
+   * Validates the retained parent within the organization before restoring its child.
+   *
+   * @access private
+   *
+   * @param Facility $facility facility being restored
+   * @param FacilityOrganizationId $organizationId owning organization
+   *
+   * @return void
+   */
+  private function assertActiveParent(Facility $facility, FacilityOrganizationId $organizationId): void
+  {
+    $parentId = $facility->parentFacilityId();
+    if (null === $parentId) {
+      return;
+    }
+    $parent = $this->facilityRepository->findById($parentId);
+    if (null === $parent || (string) $parent->organizationId() !== (string) $organizationId) {
+      throw FacilityNotFoundException::withId((string) $parentId);
+    }
+    if (!$parent->status()->isActive()) {
+      throw FacilityArchivedException::withId((string) $parentId);
+    }
   }
 
   /**

@@ -84,6 +84,90 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     }
   }
 
+  /**
+   * Method testDiscardPreservesOrderedTypedReferencesAndExcludesForeignOrRemovedOwners.
+   *
+   * Exercises all three dependency reads and exact IRI matching against the real main database.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testDiscardPreservesOrderedTypedReferencesAndExcludesForeignOrRemovedOwners(): void
+  {
+    $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449151', 'building', self::FACILITY_ID, true);
+    $intervention = $this->entityManager->find(InterventionRecord::class, self::INTERVENTION_ID);
+    self::assertInstanceOf(InterventionRecord::class, $intervention);
+    self::assertInstanceOf(OrganizationRecord::class, $intervention->organization);
+    $intervention->siteId = $draft->id;
+    $facilityIri = '/api/facilities/' . $draft->id;
+    $equipmentId = '880e8400-e29b-41d4-a716-446655449152';
+    $equipmentIri = '/api/equipment/' . $equipmentId;
+    $inspectionId = '880e8400-e29b-41d4-a716-446655449153';
+    $inspectionIri = '/api/inspections/' . $inspectionId;
+    $item = new \Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionWorkItemRecord();
+    $item->id = '880e8400-e29b-41d4-a716-446655449154';
+    $item->intervention = $intervention;
+    $item->action = 'create';
+    $item->target = $facilityIri;
+    $item->resultResource = $equipmentIri;
+    $item->createdAt = new DateTimeImmutable();
+    $item->updatedAt = $item->createdAt;
+    $this->entityManager->persist($item);
+    $change = new InterventionChangeRecord();
+    $change->id = '880e8400-e29b-41d4-a716-446655449155';
+    $change->intervention = $intervention;
+    $change->resource = $facilityIri;
+    $change->patch = ['facility' => $facilityIri, 'parent' => ['invalid' => $facilityIri], 'equipment' => $equipmentIri, 'inspection' => $inspectionIri];
+    $change->createdAt = $item->createdAt;
+    $change->updatedAt = $item->createdAt;
+    $this->entityManager->persist($change);
+    $appliedChange = clone $change;
+    $appliedChange->id = '880e8400-e29b-41d4-a716-446655449156';
+    $appliedChange->status = 'applied';
+    $this->entityManager->persist($appliedChange);
+    $foreignOrganization = clone $intervention->organization;
+    $foreignOrganization->id = '880e8400-e29b-41d4-a716-446655449157';
+    $foreignOrganization->slug = 'foreign-discard-reference';
+    $this->entityManager->persist($foreignOrganization);
+    $foreignIntervention = clone $intervention;
+    $foreignIntervention->id = '880e8400-e29b-41d4-a716-446655449158';
+    $foreignIntervention->organization = $foreignOrganization;
+    $this->entityManager->persist($foreignIntervention);
+    $foreignItem = clone $item;
+    $foreignItem->id = '880e8400-e29b-41d4-a716-446655449159';
+    $foreignItem->intervention = $foreignIntervention;
+    $this->entityManager->persist($foreignItem);
+    $foreignChange = clone $change;
+    $foreignChange->id = '880e8400-e29b-41d4-a716-44665544915a';
+    $foreignChange->intervention = $foreignIntervention;
+    $this->entityManager->persist($foreignChange);
+    $this->entityManager->flush();
+    $drafts = $this->createStub(\Facility\Application\Port\Inbound\FacilityDraftReferencesPort::class);
+    $drafts->method('draftIds')->willReturn([$draft->id]);
+    $resources = $this->createStub(\Intervention\Application\Port\Inbound\InterventionDraftResourcesPort::class);
+    $resources->method('draftResourceIris')->willReturn([$facilityIri, $equipmentIri, $inspectionIri]);
+    $guard = new \Intervention\Infrastructure\Adapter\Resource\InterventionDraftReferenceGuardAdapter($this->entityManager, $drafts, draftResources: $resources);
+
+    try {
+      $guard->assertCanDiscard(self::INTERVENTION_ID);
+      self::fail('Retained resources must block discarding their referenced drafts.');
+    } catch (\Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict $exception) {
+      self::assertSame([
+        ['resourceType' => 'intervention', 'resourceId' => self::INTERVENTION_ID, 'relatedResourceId' => $draft->id],
+        ['resourceType' => 'work_item', 'resourceId' => $item->id, 'relatedResourceId' => $draft->id],
+        ['resourceType' => 'work_item', 'resourceId' => $item->id, 'relatedResourceId' => $equipmentId],
+        ['resourceType' => 'change', 'resourceId' => $change->id, 'relatedResourceId' => $draft->id],
+        ['resourceType' => 'change', 'resourceId' => $change->id, 'relatedResourceId' => $draft->id],
+        ['resourceType' => 'change', 'resourceId' => $change->id, 'relatedResourceId' => $equipmentId],
+        ['resourceType' => 'change', 'resourceId' => $change->id, 'relatedResourceId' => $inspectionId],
+      ], $exception->references);
+    }
+    $guard->assertCanDiscard(self::INTERVENTION_ID, false);
+    self::assertSame(1, $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM facilities WHERE id = ?', [$draft->id]));
+  }
+
   #[Test]
   public function testPublicationValidatesDraftsAndProposedParentsAsOneFinalGraph(): void
   {

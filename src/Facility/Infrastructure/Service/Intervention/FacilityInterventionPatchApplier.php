@@ -128,19 +128,7 @@ final readonly class FacilityInterventionPatchApplier
       throw new FacilityPatchConflictException('Proposed facility change target is invalid.');
     }
     $previousStatus = $record->status;
-    if (null !== $this->hierarchy && (array_key_exists('type', $patch) || array_key_exists('parent', $patch))
-      && !$this->publicationContext?->covers($organizationId, $record->id)) {
-      $type = $patch['type'] ?? $record->type;
-      if (array_key_exists('parent', $patch) && null !== $patch['parent'] && !is_string($patch['parent'])) {
-        throw new FacilityPatchConflictException('Proposed parent facility must be an IRI or null.');
-      }
-      $parent = $patch['parent'] ?? null;
-      $parentId = array_key_exists('parent', $patch) ? (is_string($parent) ? $this->id($parent) : null) : $record->parentFacility?->id;
-      if (is_string($type)) {
-        $this->hierarchy->lock($organizationId);
-        $this->hierarchy->assertGraph($organizationId, [new \Facility\Application\Contract\Hierarchy\FacilityHierarchyNode($record->id, $type, $parentId, $record->status)]);
-      }
-    }
+    $this->assertHierarchyChangeAllowed($organizationId, $record, $patch);
 
     $this->applyTypeAndName($record, $patch);
     $this->applyFloorMetrics($record, $patch);
@@ -191,6 +179,59 @@ final readonly class FacilityInterventionPatchApplier
     } catch (\Facility\Domain\Exception\FacilityAttachmentNotAncestorException|InvalidValueException) {
       throw new FacilityPatchConflictException('The proposed floor plan does not belong to the facility ancestry.');
     }
+  }
+
+  /**
+   * Method assertHierarchyChangeAllowed.
+   *
+   * Validates standalone relation mutations while the merged publication context owns grouped changes.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param string $organizationId the authorized organization
+   * @param FacilityRecord $record the published target
+   * @param array<string, mixed> $patch the explicit proposed fields
+   *
+   * @return void
+   */
+  private function assertHierarchyChangeAllowed(string $organizationId, FacilityRecord $record, array $patch): void
+  {
+    if (null !== $this->hierarchy && (array_key_exists('type', $patch) || array_key_exists('parent', $patch))
+      && !$this->publicationContext?->covers($organizationId, $record->id)) {
+      $type = $patch['type'] ?? $record->type;
+      if (array_key_exists('parent', $patch) && null !== $patch['parent'] && !is_string($patch['parent'])) {
+        throw new FacilityPatchConflictException('Proposed parent facility must be an IRI or null.');
+      }
+      $parentId = $this->proposedParentId($record, $patch);
+      if (is_string($type)) {
+        $this->hierarchy->lock($organizationId);
+        $this->hierarchy->assertGraph($organizationId, [new \Facility\Application\Contract\Hierarchy\FacilityHierarchyNode($record->id, $type, $parentId, $record->status)]);
+      }
+    }
+  }
+
+  /**
+   * Method proposedParentId.
+   *
+   * Distinguishes a retained parent from an explicitly cleared relation.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param FacilityRecord $record the current relationship
+   * @param array<string, mixed> $patch the proposed parent when present
+   *
+   * @return ?string the effective parent identifier
+   */
+  private function proposedParentId(FacilityRecord $record, array $patch): ?string
+  {
+    if (!array_key_exists('parent', $patch)) {
+      return $record->parentFacility?->id;
+    }
+    $parent = $patch['parent'];
+
+    return is_string($parent) ? $this->id($parent) : null;
   }
 
   /**

@@ -72,7 +72,7 @@ final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
       $this->referenceCleanup->clearForAttachment($command->organizationId, $command->attachmentId);
       $this->attachmentRepository->delete($attachmentId);
     });
-    $this->fileStorage->delete($attachment->storagePath());
+    $this->fileStorage->delete($attachment->file()->storagePath);
 
     return new DeleteFacilityAttachmentResult(
       attachmentId: (string) $attachmentId,

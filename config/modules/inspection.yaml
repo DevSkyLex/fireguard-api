@@ -90,7 +90,12 @@ services:
   Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner', 'intervention.publication_guard']
+    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
+
+  Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionPublicationGuardAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['intervention.publication_guard']
 
   Inspection\Infrastructure\Adapter\Messaging\InspectionMessagingSubjectResolverAdapter:
     arguments:

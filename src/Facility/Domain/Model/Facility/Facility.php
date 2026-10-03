@@ -139,8 +139,9 @@ final class Facility
    * @param FacilityOrganizationId $organizationId the organization identifier
    * @param FacilityType $type the facility type
    * @param FacilityName $name the facility name
-   * @param ?PlanGeometry $planGeometry the optional spatial geometry bound to an ancestor's floor plan
-   * @param ?array{attachmentId: string, points: list<array{0: float, 1: float}>} $unusablePlanGeometry retained legacy geometry awaiting explicit repair
+   * @param FacilityLifecycle $lifecycle the persisted status and timestamps
+   * @param ?FacilityDetails $details persisted placement and descriptive fields
+   * @param ?FacilityGeometryState $geometryState the validated or retained legacy spatial geometry
    *
    * @return self the reconstituted facility aggregate
    */
@@ -151,8 +152,7 @@ final class Facility
     FacilityName $name,
     FacilityLifecycle $lifecycle,
     ?FacilityDetails $details = null,
-    ?PlanGeometry $planGeometry = null,
-    ?array $unusablePlanGeometry = null,
+    ?FacilityGeometryState $geometryState = null,
   ): self {
     $details ??= new FacilityDetails();
     FacilityFloorMetrics::assertValid($type, $details->elevationMeters, $details->heightMeters);
@@ -170,8 +170,8 @@ final class Facility
       address: self::normalizeAddress($details->address),
       metadata: self::normalizeMetadata($details->metadata),
       coordinates: $details->coordinates,
-      planGeometry: $planGeometry,
-      unusablePlanGeometry: $unusablePlanGeometry,
+      planGeometry: $geometryState?->planGeometry,
+      unusablePlanGeometry: $geometryState?->unusablePlanGeometry,
       levelIndex: self::normalizeLevelIndex($details->levelIndex),
       elevationMeters: $details->elevationMeters,
       heightMeters: $details->heightMeters,

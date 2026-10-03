@@ -92,7 +92,7 @@ final class FacilityModel
    */
   public static function create(string $id, string $organizationId, string $buildingId, string $fileName, int $fileSize, array $nodes): self
   {
-    new Uuid($id);
+    $id = (string) new Uuid($id);
     FacilityOrganizationId::fromString($organizationId);
     FacilityId::fromString($buildingId);
     $fileName = trim(str_replace(['/', '\\', "\r", "\n", "\0"], '_', $fileName));
