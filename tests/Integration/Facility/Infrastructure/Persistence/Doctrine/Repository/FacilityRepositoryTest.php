@@ -415,7 +415,7 @@ final class FacilityRepositoryTest extends KernelTestCase
   }
 
   #[Test]
-  public function testFindZonesForPlanAttachmentReturnsSelfAndDescendantsBoundToTheAttachmentOnly(): void
+  public function testFindZonesForPlanAttachmentRetainsOtherPlanDescendantsForDiagnostics(): void
   {
     $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-plan-overlay-a');
     $otherOrganization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443001', 'facility-repository-plan-overlay-b');
@@ -427,24 +427,32 @@ final class FacilityRepositoryTest extends KernelTestCase
 
     $root = $this->planZone('550e8400-e29b-41d4-a716-446655443080', $organizationId, null, 'Root Zone', $attachmentId, [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]);
     $child = $this->planZone('550e8400-e29b-41d4-a716-446655443081', $organizationId, $root->id(), 'Child Zone', $attachmentId, [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]]);
-    // Sibling of the root, bound to a DIFFERENT attachment — proves the
-    // JSONB filter, not just the subtree walk, excludes it.
-    $this->planZone('550e8400-e29b-41d4-a716-446655443082', $organizationId, null, 'Unrelated Sibling', $otherAttachmentId, [[0.2, 0.2], [0.5, 0.2], [0.5, 0.5]]);
+    $otherPlanChild = $this->planZone('550e8400-e29b-41d4-a716-446655443084', $organizationId, $root->id(), 'Retained Other Plan', $otherAttachmentId, [[0.2, 0.2], [0.5, 0.2], [0.5, 0.5]]);
+    $unrelatedSibling = $this->planZone('550e8400-e29b-41d4-a716-446655443082', $organizationId, null, 'Unrelated Sibling', $otherAttachmentId, [[0.2, 0.2], [0.5, 0.2], [0.5, 0.5]]);
     // A facility in another organization, coincidentally bound to the same
     // attachment id — must never leak across the organization boundary.
-    $this->planZone('550e8400-e29b-41d4-a716-446655443083', new FacilityOrganizationId($otherOrganization->id), null, 'Cross-Org Zone', $attachmentId, [[0.3, 0.3], [0.6, 0.3], [0.6, 0.6]]);
+    $foreignZone = $this->planZone('550e8400-e29b-41d4-a716-446655443083', new FacilityOrganizationId($otherOrganization->id), null, 'Cross-Org Zone', $attachmentId, [[0.3, 0.3], [0.6, 0.3], [0.6, 0.6]]);
 
     $repository = new FacilityRepository($this->entityManager);
     $repository->save($root);
     $repository->save($child);
+    $repository->save($otherPlanChild);
+    $repository->save($unrelatedSibling);
+    $repository->save($foreignZone);
     $this->entityManager->clear();
 
     $zones = $repository->findZonesForPlanAttachment($organizationId, $root->id(), $attachmentId);
 
-    self::assertCount(2, $zones);
+    self::assertCount(3, $zones);
     $ids = array_column($zones, 'facilityId');
     self::assertContains((string) $root->id(), $ids);
     self::assertContains((string) $child->id(), $ids);
+    self::assertContains((string) $otherPlanChild->id(), $ids);
+    self::assertNotContains((string) $unrelatedSibling->id(), $ids);
+    self::assertNotContains((string) $foreignZone->id(), $ids);
+    $attachments = array_column($zones, 'attachmentId', 'facilityId');
+    self::assertSame($otherAttachmentId, $attachments[(string) $otherPlanChild->id()]);
+    self::assertEqualsCanonicalizing($zones, $repository->findZonesForPlanAttachment($organizationId, $root->id(), $otherAttachmentId));
   }
 
   /**

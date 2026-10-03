@@ -417,7 +417,7 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
     FacilityId $rootFacilityId,
     string $attachmentId,
   ): array {
-    return new FacilityHierarchyQueryRepository($this->entityManager)->findZonesForPlanAttachment($organizationId, $rootFacilityId, $attachmentId);
+    return new FacilityHierarchyQueryRepository($this->entityManager)->findSpatialCandidatesForSubtree($organizationId, $rootFacilityId);
   }
 
   /**

@@ -192,20 +192,21 @@ final readonly class FacilityHierarchyQueryRepository
   }
 
   /**
-   * Method findZonesForPlanAttachment.
+   * Method findSpatialCandidatesForSubtree.
    *
+   * Retains all recorded plan associations so the overlay resolver can diagnose incompatible geometry.
+   *
+   * @access public
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the scoped organization
    * @param FacilityId $rootFacilityId the projected subtree root
-   * @param string $attachmentId the current display plan
    *
    * @return list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>, attachmentId: string}> the retained spatial candidates
    */
-  public function findZonesForPlanAttachment(
+  public function findSpatialCandidatesForSubtree(
     FacilityOrganizationId $organizationId,
     FacilityId $rootFacilityId,
-    string $attachmentId,
   ): array {
     $sql = <<<'SQL'
       WITH RECURSIVE subtree AS (
