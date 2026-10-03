@@ -173,6 +173,47 @@ def recover(host, evidence=None, **overrides):
     return RECOVERY.recover(evidence or proof(), host, **options)
 
 
+@contextmanager
+def legacy_fixture(**credentials):
+    app, lock = MagicMock(), MagicMock()
+    app.resolve.return_value = app
+    app.__truediv__.return_value = lock
+    chain = [app] + [MagicMock() for unused in range(5)]
+    app.parents = chain[1:]
+    for depth, path in enumerate(chain):
+        path.is_symlink.return_value = False
+        path.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o755, st_uid=1001 if depth == 0 else 0,
+                                                 st_gid=1001 if depth == 0 else 0, st_dev=2049, st_ino=100 + depth)
+    observed = RECOVERY.REVIEWED_LEGACY_LOCK
+    lock.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | observed["mode"], st_uid=observed["uid"],
+                                             st_gid=observed["gid"], st_dev=observed["device"], st_ino=observed["inode"],
+                                             st_mtime_ns=observed["mtimeNs"], st_ctime_ns=observed["ctimeNs"])
+    lock.iterdir.side_effect = lambda: iter([])
+    with patch.object(RECOVERY, "Path", side_effect=lambda value: app if str(value) == RECOVERY.APP_DIR else Path(value)), \
+         patch.object(RECOVERY.os, "getuid", return_value=credentials.get("uid", 1001), create=True), \
+         patch.object(RECOVERY.os, "geteuid", return_value=credentials.get("euid", 1001), create=True), \
+         patch.object(RECOVERY.os, "getgid", return_value=credentials.get("gid", 1001), create=True), \
+         patch.object(RECOVERY.os, "getegid", return_value=credentials.get("egid", 1001), create=True), \
+         patch.object(RECOVERY.os, "chmod") as chmod, patch.object(RECOVERY.os, "chown", create=True) as chown:
+        yield app, lock, chain
+        chmod.assert_not_called()
+        chown.assert_not_called()
+
+
+def legacy_host():
+    host = FakeHost()
+    host.lock_identity = RECOVERY.Host().lock_identity
+    for item in host.process_records:
+        item["uid"] = 1001 if item["pid"] in {2, 3} else 0
+        item.update(uids=[item["uid"]] * 4, gids=[item["uid"]] * 4, groups=[])
+    return host
+
+
+def foreign_peer():
+    return {"pid": 4, "ppid": 1, "uid": 1002, "uids": [1002] * 4, "gids": [1002] * 4, "groups": [],
+            "comm": "other", "cwd": "/", "fds": []}
+
+
 class WorkflowAndPlaybookTests(unittest.TestCase):
     """Applied CI reads the real bin helper and tracked YAML, never draft snapshots."""
 
@@ -579,8 +620,167 @@ class RecoveryTests(unittest.TestCase):
             self.assertFalse(host.released)
 
 
+class ReviewedLegacyLockTests(unittest.TestCase):
+    def test_only_exact_observed_lock_with_protected_namespace_completes_existing_recovery(self):
+        with legacy_fixture() as (app, lock, chain):
+            identity = RECOVERY.Host().lock_identity()
+            self.assertEqual(RECOVERY.REVIEWED_LEGACY_LOCK["inode"], identity["inode"])
+            self.assertEqual(1001, identity["reviewedLegacy"]["gid"])
+            self.assertRegex(identity["reviewedLegacy"]["namespaceSha256"], r"^[a-f0-9]{64}$")
+            self.assertEqual(list(range(6)), [item["depth"] for item in identity["reviewedLegacy"]["namespace"]])
+            self.assertTrue(all(type(value) is int for item in identity["reviewedLegacy"]["namespace"] for value in item.values()))
+            host = legacy_host()
+            self.assertEqual("reviewed-lock-reacquired-awaiting-rollout", recover(host, current_uid=1001)["result"])
+            self.assertTrue(host.reacquired)
+            self.assertEqual(2, host.process_reads)
+            self.assertEqual(2, host.container_reads)
+            for path in chain:
+                self.assertEqual(3, path.lstat.call_count, "Identity and namespace rechecked before release")
+            app.read_text.assert_not_called()
+
+    def test_every_observed_pin_field_is_required_without_enumerating_or_unlocking(self):
+        fields = {"st_dev": 2050, "st_ino": 3149774, "st_uid": 1002, "st_gid": 1002,
+                  "st_mtime_ns": RECOVERY.REVIEWED_LEGACY_LOCK["mtimeNs"] + 1,
+                  "st_ctime_ns": RECOVERY.REVIEWED_LEGACY_LOCK["ctimeNs"] + 1,
+                  "st_mode": RECOVERY.stat.S_IFDIR | 0o777}
+        for field, value in fields.items():
+            with self.subTest(field=field), legacy_fixture() as (app, lock, chain):
+                setattr(lock.lstat.return_value, field, value)
+                host = legacy_host()
+                with self.assertRaisesRegex(RECOVERY.LockInspectionBlocked, "lock-identity-unverified"):
+                    recover(host, current_uid=1001)
+                self.assertFalse(host.released)
+                self.assertEqual(0, host.process_reads)
+                lock.iterdir.assert_not_called()
+
+    def test_only_exact_0775_permission_case_can_use_exception(self):
+        for mode in [0o773, 0o777, 0o2775, 0o1775, 0o757, 0o770]:
+            with self.subTest(mode=mode), legacy_fixture() as (app, lock, chain):
+                lock.lstat.return_value.st_mode = RECOVERY.stat.S_IFDIR | mode
+                with self.assertRaises(RECOVERY.LockInspectionBlocked):
+                    RECOVERY.Host().lock_identity()
+                lock.iterdir.assert_not_called()
+
+    def test_real_effective_uid_and_primary_effective_gid_must_match_observed_owner(self):
+        for field in ["uid", "euid", "gid", "egid"]:
+            with self.subTest(field=field), legacy_fixture(**{field: 1002}) as (app, lock, chain):
+                with self.assertRaises(RECOVERY.LockInspectionBlocked):
+                    RECOVERY.Host().lock_identity()
+                lock.iterdir.assert_not_called()
+
+    def test_each_ancestor_must_be_real_protected_and_owned_only_by_root_or_deployment_uid(self):
+        for depth in range(6):
+            for field, value in [("st_uid", 1002), ("st_mode", RECOVERY.stat.S_IFDIR | 0o775),
+                                 ("st_mode", RECOVERY.stat.S_IFDIR | 0o757),
+                                 ("st_mode", RECOVERY.stat.S_IFREG | 0o755), ("st_mode", RECOVERY.stat.S_IFLNK | 0o755)]:
+                with self.subTest(depth=depth, field=field, value=value), legacy_fixture() as (app, lock, chain):
+                    setattr(chain[depth].lstat.return_value, field, value)
+                    host = legacy_host()
+                    with self.assertRaises(RECOVERY.LockInspectionBlocked) as caught:
+                        recover(host, current_uid=1001)
+                    self.assertEqual(depth, caught.exception.diagnostic["namespaceRefusalDepth"])
+                    self.assertFalse(host.released)
+                    lock.iterdir.assert_not_called()
+        with legacy_fixture() as (app, lock, chain):
+            app.lstat.return_value.st_uid = 0
+            with self.assertRaises(RECOVERY.LockInspectionBlocked):
+                RECOVERY.Host().lock_identity()
+
+    def test_each_symlink_alias_or_missing_ancestor_metadata_blocks_before_release(self):
+        for depth in range(6):
+            for kind in ["symlink", "permission"]:
+                with self.subTest(depth=depth, kind=kind), legacy_fixture() as (app, lock, chain):
+                    if kind == "symlink":
+                        chain[depth].is_symlink.return_value = True
+                    else:
+                        chain[depth].lstat.side_effect = PermissionError("PRIVATE_PERMISSION")
+                    host = legacy_host()
+                    with self.assertRaises((RECOVERY.RecoveryBlocked, PermissionError)):
+                        recover(host, current_uid=1001)
+                    self.assertFalse(host.released)
+                    lock.iterdir.assert_not_called()
+
+    def test_namespace_identity_or_security_change_at_final_review_never_releases(self):
+        for field, value in [("st_ino", 9000), ("st_uid", 1002), ("st_mode", RECOVERY.stat.S_IFDIR | 0o775)]:
+            with self.subTest(field=field), legacy_fixture() as (app, lock, chain):
+                host = legacy_host()
+                host.before_final_process = lambda unused: setattr(chain[2].lstat.return_value, field, value)
+                with self.assertRaises(RECOVERY.RecoveryBlocked):
+                    recover(host, current_uid=1001)
+                self.assertFalse(host.released)
+
+    def test_lock_change_at_final_review_never_releases_even_within_original_window(self):
+        with legacy_fixture() as (app, lock, chain):
+            host = legacy_host()
+            host.before_final_process = lambda unused: setattr(lock.lstat.return_value, "st_ctime_ns",
+                                                               RECOVERY.REVIEWED_LEGACY_LOCK["ctimeNs"] + 1)
+            with self.assertRaises(RECOVERY.LockInspectionBlocked):
+                recover(host, current_uid=1001)
+            self.assertFalse(host.released)
+
+    def test_peer_real_effective_saved_fs_uid_or_gid_and_supplementary_group_blocks(self):
+        for kind in ["uids", "gids", "groups", "mixed_owner"]:
+            for index in range(4 if kind in {"uids", "gids"} else 1):
+                with self.subTest(kind=kind, index=index), legacy_fixture():
+                    host = legacy_host()
+                    peer = foreign_peer()
+                    if kind in {"uids", "gids"}:
+                        peer[kind][index] = 1001
+                        peer["uid"] = peer["uids"][0]
+                    elif kind == "groups":
+                        peer["groups"] = [1001]
+                    else:
+                        peer.update(uid=1001, uids=[1001, 1001, 1002, 1001])
+                    host.process_records.append(peer)
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "peer-group-writer"):
+                        recover(host, current_uid=1001)
+                    self.assertFalse(host.released)
+
+    def test_peer_group_permission_appearing_before_final_review_blocks(self):
+        with legacy_fixture():
+            host = legacy_host()
+            peer = foreign_peer() | {"groups": [1001]}
+            host.before_final_process = lambda value: value.process_records.append(peer)
+            with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "peer-group-writer"):
+                recover(host, current_uid=1001)
+            self.assertFalse(host.released)
+
+    def test_missing_or_ambiguous_peer_credentials_block_without_release(self):
+        mutations = [lambda peer: peer.pop("uids"), lambda peer: peer.pop("gids"), lambda peer: peer.pop("groups"),
+                     lambda peer: peer.update(uids=[1002]), lambda peer: peer.update(gids=[1002]),
+                     lambda peer: peer.update(groups=["1001"]), lambda peer: peer.update(groups=[-1]),
+                     lambda peer: peer.update(uid=1003)]
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), legacy_fixture():
+                host = legacy_host()
+                peer = foreign_peer()
+                mutation(peer)
+                host.process_records.append(peer)
+                with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "peer-group-metadata-unverified"):
+                    recover(host, current_uid=1001)
+                self.assertFalse(host.released)
+
+    def test_unrelated_foreign_peers_remain_allowed_and_same_uid_owner_checks_stay_active(self):
+        with legacy_fixture():
+            host = legacy_host()
+            host.process_records.append(foreign_peer())
+            recover(host, current_uid=1001)
+            self.assertTrue(host.reacquired)
+        for comm, cwd in [("python3", "/"), ("other", RECOVERY.APP_DIR)]:
+            with self.subTest(comm=comm), legacy_fixture():
+                host = legacy_host()
+                host.process_records.append(foreign_peer() | {"uid": 1001, "uids": [1001] * 4, "comm": comm, "cwd": cwd})
+                with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "concurrent-host-owner"):
+                    recover(host, current_uid=1001)
+                self.assertFalse(host.released)
+
+
 class AdapterTests(unittest.TestCase):
     def test_real_lock_validator_requires_owned_empty_directory_canonical_path_and_private_writes(self):
+        self.assertEqual({"namespaceRefusalDepth", "namespaceUid", "namespaceMode", "namespaceDevice", "namespaceInode"},
+                         RECOVERY.LockIdentityDiagnostic.__optional_keys__)
+        self.assertIn("lockUid", RECOVERY.LockIdentityDiagnostic.__required_keys__)
+        self.assertIn("empty", RECOVERY.LockIdentityDiagnostic.__required_keys__)
         for invalid in [None, "symlink", "not-directory", "foreign-uid", "group-writable", "world-writable",
                         "not-empty", "app-alias", "app-symlink"]:
             app, lock = MagicMock(), MagicMock()
@@ -690,7 +890,7 @@ class AdapterTests(unittest.TestCase):
             def read_text(self):
                 pid = int(self.value.split("/")[2])
                 name, parent, kernel = records[pid]
-                return f"Name:\t{name}\nPPid:\t{parent}\nUid:\t0 0 0 0\nKthread:\t{kernel}\n"
+                return f"Name:\t{name}\nPPid:\t{parent}\nUid:\t0 0 0 0\nGid:\t0 0 0 0\nGroups:\t\nKthread:\t{kernel}\n"
             def exists(self):
                 return True
         links = []
@@ -702,6 +902,50 @@ class AdapterTests(unittest.TestCase):
             observed = RECOVERY.Host().processes()
         self.assertEqual(["/proc/4/cwd", "/proc/4/fd/1"], links)
         RECOVERY.check_processes(observed, 3, 0)
+
+    def test_proc_reader_preserves_uid_gid_quartets_and_groups_without_foreign_fd_reads(self):
+        class ProcPath:
+            def __init__(self, value):
+                self.value = str(value)
+                self.name = self.value.rsplit("/", 1)[-1]
+            def __truediv__(self, value):
+                return ProcPath(self.value + "/" + str(value))
+            def iterdir(self):
+                return [ProcPath("/proc/" + str(pid)) for pid in [1, 2, 3, 4]]
+            def read_text(self):
+                pid = int(self.value.split("/")[2])
+                uid = 1001 if pid in {2, 3} else 0
+                identity = f"Uid:\t{uid} {uid} {uid} {uid}\nGid:\t{uid} {uid} {uid} {uid}\nGroups:\t\n"
+                if pid == 4:
+                    identity = "Uid:\t1002 1002 1002 1002\nGid:\t1002 1002 1002 1001\nGroups:\t1002 1003\n"
+                return f"Name:\tother\nPPid:\t{pid - 1}\n" + identity + "Kthread:\t0\n"
+        with patch.object(RECOVERY, "Path", ProcPath), patch.object(RECOVERY.os, "getuid", return_value=1001, create=True), \
+             patch.object(RECOVERY.os, "getpid", return_value=3), patch.object(RECOVERY.os, "readlink") as readlink:
+            records = RECOVERY.Host().processes()
+        peer = next(item for item in records if item["pid"] == 4)
+        self.assertEqual([1002] * 4, peer["uids"])
+        self.assertEqual([1002, 1002, 1002, 1001], peer["gids"])
+        self.assertEqual([1002, 1003], peer["groups"])
+        readlink.assert_not_called()
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "peer-group-writer"):
+            RECOVERY.check_processes(records, 3, 1001, group_gid=1001)
+
+    def test_proc_reader_rejects_missing_duplicate_malformed_or_incomplete_credentials(self):
+        samples = ["Uid: 1001\nGid: 1001 1001 1001 1001\nGroups:\n",
+                   "Uid: 1001 1001 1001 1001\nGroups:\n",
+                   "Uid: 1001 1001 1001 1001\nGid: 1001 1001 1001 1001\n",
+                   "Uid: 1001 1001 1001 1001\nGid: 1001 1001 1001 1001\nGroups: 1001\nGroups: 1002\n",
+                   "Uid: 1001 1001 1001 1001\nGid: 1001 1001 1001\nGroups:\n",
+                   "Uid: 1001 1001 1001 1001\nGid: 1001 1001 1001 1001\nGroups: PRIVATE_VALUE\n"]
+        for sample in samples:
+            path, process = MagicMock(), MagicMock()
+            process.name = "3"
+            path.iterdir.return_value = [process]
+            (process / "status").read_text.return_value = "Name: other\nPPid: 0\n" + sample
+            with self.subTest(sample=sample), patch.object(RECOVERY, "Path", return_value=path):
+                with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                    RECOVERY.Host().processes()
+                self.assertNotIn("PRIVATE", str(caught.exception))
 
     def test_private_child_error_never_reaches_public_diagnostic(self):
         completed = subprocess.CompletedProcess(["fixture"], 1, stdout=b"PRIVATE_VALUE", stderr=b"PRIVATE_PASSWORD")

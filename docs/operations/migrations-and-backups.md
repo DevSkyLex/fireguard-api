@@ -85,6 +85,18 @@ Use that evidence to review the original lock; no directory contents, environmen
 values or private command output are reported. Do not chmod or chown the retained
 lock to pass the check: that changes its ctime and destroys the original provenance.
 
+The historical mutex was created with mode `0775` and the deployment user's
+UID/GID `1001`; its mtime/ctime are both `2026-10-03T00:09:10.159681219Z`, inside the
+reviewed failed job. The exception is pinned to that exact device, inode, owner,
+group, mode and nanosecond timestamps. It also requires the deployment user's real
+and effective identities, a protected canonical installation directory and
+ancestor chain, and no active peer process with access through any UID/GID or
+supplementary group. The protected parent directory owns the mutex namespace;
+group access inside the empty historical directory does not allow another UID to
+acquire or replace it. These proofs are repeated before removal. An altered
+identity, writable ancestor, active peer or ambiguous process metadata still
+blocks recovery; this is not a general exception for group-writable locks.
+
 After repeating those checks, recovery replaces the reviewed empty lock and
 immediately acquires it once. A competing owner is never removed or retried.
 The regular backup, auth/main migrations, transport setup, startup and health checks
