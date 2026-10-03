@@ -22,6 +22,7 @@ final readonly class GetFacilityDescendantsResult implements ResultMessage
    */
   public function __construct(
     public array $items,
+    public ?int $total = null,
   ) {
   }
   // #endregion

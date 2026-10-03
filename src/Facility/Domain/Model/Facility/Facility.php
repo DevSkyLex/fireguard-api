@@ -7,6 +7,7 @@ namespace Facility\Domain\Model\Facility;
 use DateTimeImmutable;
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
+  FacilityFloorMetrics,
   FacilityId,
   FacilityLevelIndex,
   FacilityName,
@@ -54,7 +55,10 @@ final class Facility
    * @param array<string, mixed> $metadata the optional metadata
    * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
    * @param ?PlanGeometry $planGeometry the optional spatial geometry bound to an ancestor's floor plan
+   * @param ?array{attachmentId: string, points: list<array{0: float, 1: float}>} $unusablePlanGeometry retained legacy geometry awaiting explicit repair
    * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
+   * @param ?float $elevationMeters optional physical floor elevation in meters
+   * @param ?float $heightMeters optional physical floor height in meters
    */
   private function __construct(
     private FacilityId $id,
@@ -71,6 +75,9 @@ final class Facility
     private ?FacilityCoordinates $coordinates = null,
     private ?PlanGeometry $planGeometry = null,
     private ?int $levelIndex = null,
+    private ?float $elevationMeters = null,
+    private ?float $heightMeters = null,
+    private ?array $unusablePlanGeometry = null,
   ) {
   }
   // #endregion
@@ -99,6 +106,7 @@ final class Facility
   ): self {
     $now = new DateTimeImmutable();
     $details ??= new FacilityDetails();
+    FacilityFloorMetrics::assertValid($type, $details->elevationMeters, $details->heightMeters);
 
     return new self(
       id: $id,
@@ -115,6 +123,8 @@ final class Facility
       coordinates: $details->coordinates,
       planGeometry: null,
       levelIndex: self::normalizeLevelIndex($details->levelIndex),
+      elevationMeters: $details->elevationMeters,
+      heightMeters: $details->heightMeters,
     );
   }
 
@@ -130,6 +140,7 @@ final class Facility
    * @param FacilityType $type the facility type
    * @param FacilityName $name the facility name
    * @param ?PlanGeometry $planGeometry the optional spatial geometry bound to an ancestor's floor plan
+   * @param ?array{attachmentId: string, points: list<array{0: float, 1: float}>} $unusablePlanGeometry retained legacy geometry awaiting explicit repair
    *
    * @return self the reconstituted facility aggregate
    */
@@ -141,8 +152,10 @@ final class Facility
     FacilityLifecycle $lifecycle,
     ?FacilityDetails $details = null,
     ?PlanGeometry $planGeometry = null,
+    ?array $unusablePlanGeometry = null,
   ): self {
     $details ??= new FacilityDetails();
+    FacilityFloorMetrics::assertValid($type, $details->elevationMeters, $details->heightMeters);
 
     return new self(
       id: $id,
@@ -158,7 +171,10 @@ final class Facility
       metadata: self::normalizeMetadata($details->metadata),
       coordinates: $details->coordinates,
       planGeometry: $planGeometry,
+      unusablePlanGeometry: $unusablePlanGeometry,
       levelIndex: self::normalizeLevelIndex($details->levelIndex),
+      elevationMeters: $details->elevationMeters,
+      heightMeters: $details->heightMeters,
     );
   }
 
@@ -181,6 +197,10 @@ final class Facility
   public function changeType(FacilityType $type): void
   {
     $this->type = $type;
+    if (FacilityType::FLOOR !== $type) {
+      $this->elevationMeters = null;
+      $this->heightMeters = null;
+    }
     $this->touch();
   }
 
@@ -229,6 +249,28 @@ final class Facility
   }
 
   /**
+   * Method changeFloorMetrics
+   *
+   * Changes the physical dimensions together, preserving a coherent floor state.
+   *
+   * @access public
+   *
+   * @param ?float $elevationMeters physical floor elevation in meters, null clearing it
+   * @param ?float $heightMeters physical floor height in meters, null clearing it
+   *
+   * @return void
+   *
+   * @throws InvalidValueException when the physical dimensions are invalid
+   */
+  public function changeFloorMetrics(?float $elevationMeters, ?float $heightMeters): void
+  {
+    FacilityFloorMetrics::assertValid($this->type, $elevationMeters, $heightMeters);
+    $this->elevationMeters = $elevationMeters;
+    $this->heightMeters = $heightMeters;
+    $this->touch();
+  }
+
+  /**
    * Method changeLevelIndex.
    *
    * @since 1.0.0
@@ -252,6 +294,7 @@ final class Facility
   public function assignPlanGeometry(PlanGeometry $planGeometry): void
   {
     $this->planGeometry = $planGeometry;
+    $this->unusablePlanGeometry = null;
     $this->touch();
   }
 
@@ -267,6 +310,7 @@ final class Facility
   public function clearPlanGeometry(): void
   {
     $this->planGeometry = null;
+    $this->unusablePlanGeometry = null;
     $this->touch();
   }
 
@@ -414,6 +458,21 @@ final class Facility
   }
 
   /**
+   * Method planGeometryData.
+   *
+   * Retains unusable legacy shapes during unrelated changes. Only an explicit
+   * plan assignment or removal replaces them; rendering uses planGeometry().
+   *
+   * @since 1.0.0
+   *
+   * @return ?array{attachmentId: string, points: list<array{0: float, 1: float}>}
+   */
+  public function planGeometryData(): ?array
+  {
+    return $this->planGeometry?->toArray() ?? $this->unusablePlanGeometry;
+  }
+
+  /**
    * Method levelIndex.
    *
    * @since 1.0.0
@@ -421,6 +480,34 @@ final class Facility
   public function levelIndex(): ?int
   {
     return $this->levelIndex;
+  }
+
+  /**
+   * Method elevationMeters
+   *
+   * Returns the optional physical floor elevation in meters.
+   *
+   * @access public
+   *
+   * @return ?float optional physical dimension in meters
+   */
+  public function elevationMeters(): ?float
+  {
+    return $this->elevationMeters;
+  }
+
+  /**
+   * Method heightMeters
+   *
+   * Returns the optional physical floor height in meters.
+   *
+   * @access public
+   *
+   * @return ?float optional physical dimension in meters
+   */
+  public function heightMeters(): ?float
+  {
+    return $this->heightMeters;
   }
 
   /**

@@ -127,5 +127,21 @@ class FacilityAttachmentRecord
    */
   #[ORM\Column(name: 'uploaded_at', type: 'datetime_immutable')]
   public DateTimeImmutable $uploadedAt;
+
+  /**
+   * Metric calibration retained on this immutable plan image.
+   *
+   * @var ?array{widthMeters: float, rotationDegrees: float, offsetXMeters: float, offsetZMeters: float}
+   */
+  #[ORM\Column(type: 'json', nullable: true, options: ['jsonb' => true])]
+  public ?array $calibration = null;
+
+  /**
+   * Property calibrationBuildingId
+   *
+   * Preserves the original building frame independently of later hierarchy moves or building deletion.
+   */
+  #[ORM\Column(name: 'calibration_building_id', type: 'string', length: 36, nullable: true)]
+  public ?string $calibrationBuildingId = null;
   // #endregion
 }

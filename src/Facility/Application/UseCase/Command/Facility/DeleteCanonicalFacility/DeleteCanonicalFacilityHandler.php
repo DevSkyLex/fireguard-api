@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility;
 
-use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Application\Port\Inbound\{FacilityArchivalGuardPort, FacilityHierarchyPort};
 use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, InterventionScopePort};
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\{CanonicalFacilityConflictException, FacilityNotFoundException};
@@ -58,6 +58,7 @@ final readonly class DeleteCanonicalFacilityHandler implements CommandHandler
     private InterventionScopePort $interventions,
     private EventDispatcherPort $eventDispatcher,
     private TransactionManagerPort $transactionManager,
+    private ?FacilityHierarchyPort $hierarchy = null,
   ) {
   }
   // #endregion
@@ -83,6 +84,12 @@ final readonly class DeleteCanonicalFacilityHandler implements CommandHandler
         $facility = $this->facilities->findById($this->identifier($command->facilityId));
         if (null === $facility) {
           throw FacilityNotFoundException::withId($command->facilityId);
+        }
+
+        if (null !== $this->hierarchy) {
+          $this->hierarchy->lock((string) $facility->organizationId());
+          $facility = $this->facilities->findById($this->identifier($command->facilityId))
+            ?? throw FacilityNotFoundException::withId($command->facilityId);
         }
 
         $facility->assertRevisionMatches($command->expectedRevision);

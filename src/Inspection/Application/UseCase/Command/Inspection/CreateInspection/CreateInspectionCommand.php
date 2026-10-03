@@ -50,6 +50,7 @@ final readonly class CreateInspectionCommand implements CommandMessage
     public ?string $notes = null,
     public ?string $signature = null,
     public ?string $resourceId = null,
+    public ?string $interventionId = null,
   ) {
   }
   // #endregion

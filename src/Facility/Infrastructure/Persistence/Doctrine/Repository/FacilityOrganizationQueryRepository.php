@@ -403,9 +403,15 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
       ->select('f')
       ->from(FacilityRecord::class, 'f')
       ->where(self::ORGANIZATION_PREDICATE)
-      ->andWhere('f.recordStatus = :publishedRecordStatus')
-      ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
+
+    if (null !== $criteria->parentInterventionId && null !== $criteria->eligibleParentIds) {
+      $draftPredicate = "(f.recordStatus = 'draft' AND f.interventionId = :parentInterventionId)";
+      $queryBuilder->andWhere($criteria->includePublishedParents ? "(f.recordStatus = 'published' OR " . $draftPredicate . ')' : $draftPredicate)
+        ->setParameter('parentInterventionId', $criteria->parentInterventionId);
+    } else {
+      $queryBuilder->andWhere("f.recordStatus = 'published'");
+    }
 
     if (null === $criteria->status && !$includeArchived) {
       $queryBuilder
@@ -417,6 +423,15 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
       $queryBuilder
         ->andWhere('f.type = :type')
         ->setParameter('type', $criteria->type);
+    }
+
+    if (null !== $criteria->eligibleParentIds) {
+      if ([] === $criteria->eligibleParentIds) {
+        $queryBuilder->andWhere('1 = 0');
+      } else {
+        $queryBuilder->andWhere('f.id IN (:eligibleParentIds)')
+          ->setParameter('eligibleParentIds', $criteria->eligibleParentIds);
+      }
     }
 
     if (null !== $criteria->status) {

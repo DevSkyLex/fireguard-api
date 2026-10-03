@@ -25,6 +25,8 @@ final readonly class UpdateFacilityResult implements ResultMessage
    *
    * @param array<string, mixed> $metadata the optional metadata
    * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
+   * @param ?float $elevationMeters optional physical floor elevation in meters
+   * @param ?float $heightMeters optional physical floor height in meters
    */
   public function __construct(
     public string $facilityId,
@@ -41,6 +43,8 @@ final readonly class UpdateFacilityResult implements ResultMessage
     public ?float $latitude = null,
     public ?float $longitude = null,
     public ?int $levelIndex = null,
+    public ?float $elevationMeters = null,
+    public ?float $heightMeters = null,
   ) {
   }
   // #endregion

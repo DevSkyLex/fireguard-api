@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Command\Facility\RestoreFacility;
 
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
+use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Event\Facility\FacilityRestoredEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException, FacilityOrganizationNotFoundException};
+use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Throwable;
 
 use function str_contains;
@@ -41,6 +43,9 @@ final readonly class RestoreFacilityHandler implements CommandHandler
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private EventDispatcherPort $eventDispatcher,
+    private ?FacilityHierarchyPort $hierarchy = null,
+    private ?TransactionManagerPort $transactionManager = null,
+    private ?CanonicalFacilityRepositoryPort $canonicalFacilities = null,
   ) {
   }
 
@@ -67,41 +72,49 @@ final readonly class RestoreFacilityHandler implements CommandHandler
     $facilityId = FacilityId::fromString($command->facilityId);
     $organizationId = FacilityOrganizationId::fromString($command->organizationId);
 
-    $facility = $this->facilityRepository->findPublishedById($facilityId);
+    $wasArchived = false;
+    $operation = function () use ($facilityId, $organizationId, $command, &$wasArchived): Facility {
+      $this->hierarchy?->lock($command->organizationId);
+      $this->canonicalFacilities?->findById($facilityId);
+      $facility = $this->facilityRepository->findPublishedById($facilityId);
 
-    if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
-      throw FacilityNotFoundException::withId($command->facilityId);
-    }
-
-    // Captured BEFORE the mutation: the restored event is only emitted when
-    // the facility actually transitions back to active (idempotent repeats
-    // on an already-active facility stay silent).
-    $wasArchived = !$facility->status()->isActive();
-
-    $parentId = $facility->parentFacilityId();
-    if (null !== $parentId) {
-      $parent = $this->facilityRepository->findById($parentId);
-
-      if (null === $parent || (string) $parent->organizationId() !== (string) $organizationId) {
-        throw FacilityNotFoundException::withId((string) $parentId);
+      if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
+        throw FacilityNotFoundException::withId($command->facilityId);
       }
 
-      if (!$parent->status()->isActive()) {
-        throw FacilityArchivedException::withId((string) $parentId);
+      // Captured BEFORE the mutation: the restored event is only emitted when
+      // the facility actually transitions back to active (idempotent repeats
+      // on an already-active facility stay silent).
+      $wasArchived = !$facility->status()->isActive();
+
+      $parentId = $facility->parentFacilityId();
+      if (null !== $parentId) {
+        $parent = $this->facilityRepository->findById($parentId);
+
+        if (null === $parent || (string) $parent->organizationId() !== (string) $organizationId) {
+          throw FacilityNotFoundException::withId((string) $parentId);
+        }
+
+        if (!$parent->status()->isActive()) {
+          throw FacilityArchivedException::withId((string) $parentId);
+        }
       }
-    }
 
-    $facility->restore();
+      $facility->restore();
 
-    try {
-      $this->facilityRepository->save($facility);
-    } catch (Throwable $exception) {
-      if ($this->isOrganizationConstraintViolation($exception)) {
-        throw FacilityOrganizationNotFoundException::create();
+      try {
+        $this->facilityRepository->save($facility);
+      } catch (Throwable $exception) {
+        if ($this->isOrganizationConstraintViolation($exception)) {
+          throw FacilityOrganizationNotFoundException::create();
+        }
+
+        throw $exception;
       }
 
-      throw $exception;
-    }
+      return $facility;
+    };
+    $facility = null === $this->transactionManager ? $operation() : $this->transactionManager->transactional($operation);
 
     // Post-commit: the repository save above flushed the transition, so the
     // audit event can no longer be rolled back from under its consumers.

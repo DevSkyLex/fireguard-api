@@ -95,4 +95,21 @@ final class PatchCanonicalFacilityInput
    */
   #[Assert\Range(min: -100, max: 200)]
   public ?int $levelIndex = null;
+
+  /**
+   * Property elevationMeters
+   *
+   * Optional physical elevation; explicit null clears it.
+   */
+  #[Assert\Range(min: -10000, max: 10000)]
+  public ?float $elevationMeters = null;
+
+  /**
+   * Property heightMeters
+   *
+   * Optional physical height; explicit null clears it.
+   */
+  #[Assert\GreaterThan(0)]
+  #[Assert\LessThanOrEqual(1000)]
+  public ?float $heightMeters = null;
 }

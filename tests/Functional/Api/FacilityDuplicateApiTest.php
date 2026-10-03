@@ -18,6 +18,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\{
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
+use function is_numeric;
 use function json_decode;
 use function sprintf;
 
@@ -34,6 +35,31 @@ use function sprintf;
  */
 final class FacilityDuplicateApiTest extends WebTestCase
 {
+  #[Test]
+  public function testDuplicateRejectsIncompatibleReparentingAfterArchivedIntermediatesAreOmitted(): void
+  {
+    $client = static::createClient();
+    $entityManager = $this->entityManager();
+    $now = new DateTimeImmutable('2026-10-03');
+    $organizationId = '550e8400-e29b-41d4-a716-448010000101';
+    $ownerId = '550e8400-e29b-41d4-a716-448010000102';
+    $organization = $this->seedOrganization($entityManager, $organizationId, $ownerId, $now);
+    $this->seedUnlimitedPlan($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000105', $now);
+    $role = $this->seedFullAccessRole($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000103', $now);
+    $member = $this->seedMember($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000104', $ownerId, $now);
+    $this->assignRole($entityManager, $member, $role, $now);
+    $source = $this->seedFacility($entityManager, '550e8400-e29b-41d4-a716-448010000110', $organization, 'site', 'Source site', $now);
+    $archived = $this->seedFacility($entityManager, '550e8400-e29b-41d4-a716-448010000111', $organization, 'building', 'Archived building', $now, parent: $source, status: 'archived');
+    $this->seedFacility($entityManager, '550e8400-e29b-41d4-a716-448010000112', $organization, 'floor', 'Preserved floor', $now, parent: $archived);
+    $entityManager->flush();
+    $client->loginUser($this->securityUser($ownerId), 'api');
+    $client->request('POST', '/api/organizations/' . $organizationId . '/facilities/' . $source->id . '/duplicate', server: ['CONTENT_TYPE' => 'application/ld+json'], content: '{}');
+    self::assertSame(422, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $count = $entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM facilities WHERE organization_id = ?', [$organizationId]);
+    self::assertTrue(is_numeric($count));
+    self::assertSame(3, (int) $count, 'Rejected copies must leave the existing subtree intact without partial clones.');
+  }
+
   #[Test]
   public function testDuplicateReturns201AndClonesTheTwoLevelSubtreeWithNullCodes(): void
   {
@@ -58,7 +84,7 @@ final class FacilityDuplicateApiTest extends WebTestCase
     $source = $this->seedFacility($entityManager, $sourceId, $organization, 'site', 'Original Site', $now, code: 'SRC-01');
     $this->seedFacility($entityManager, $childId, $organization, 'building', 'Building A', $now, parent: $source, code: 'BLDG-A');
     $archivedChild = $this->seedFacility($entityManager, $archivedChildId, $organization, 'building', 'Archived Building', $now, parent: $source, status: 'archived');
-    $this->seedFacility($entityManager, $grandchildId, $organization, 'floor', 'Floor Under Archived', $now, parent: $archivedChild);
+    $this->seedFacility($entityManager, $grandchildId, $organization, 'zone', 'Zone Under Archived', $now, parent: $archivedChild);
 
     $entityManager->flush();
 
@@ -84,9 +110,8 @@ final class FacilityDuplicateApiTest extends WebTestCase
     self::assertIsString($newRootId);
     self::assertNotSame($sourceId, $newRootId);
 
-    // Two clones expected: the new root, and Building A's clone reattached
-    // directly to it (the archived building is skipped, and its live child,
-    // the floor, is reattached to the new root too).
+    // The archived building is omitted. Its zone remains compatible when
+    // reattached to the copied site, alongside the active building.
     /** @var list<FacilityRecord> $clones */
     $clones = $entityManager->getRepository(FacilityRecord::class)->findBy(['organization' => $organization]);
     $newRootClones = [];
@@ -112,7 +137,7 @@ final class FacilityDuplicateApiTest extends WebTestCase
       $cloneNames[] = $clone->name;
     }
     self::assertContains('Building A', $cloneNames);
-    self::assertContains('Floor Under Archived', $cloneNames);
+    self::assertContains('Zone Under Archived', $cloneNames);
   }
 
   #[Test]

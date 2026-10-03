@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\GetFacilityChildren;
 
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Domain\Exception\FacilityNotFoundException;
@@ -33,12 +34,14 @@ final readonly class GetFacilityChildrenHandler implements QueryHandler
    *
    * @param FacilityRepositoryPort $facilityRepository loads facilities and their children
    * @param FacilityEquipmentDependencyPort $equipmentDependency supplies child equipment counts
+   * @param FacilityHierarchyPort $hierarchy resolves historical diagnostics in one organization graph read
    *
    * @return void
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,
+    private FacilityHierarchyPort $hierarchy,
   ) {
   }
   // #endregion
@@ -78,6 +81,19 @@ final readonly class GetFacilityChildrenHandler implements QueryHandler
       array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($children)),
     );
 
+    $paths = $query->includePath ? $this->facilityRepository->findAncestorsByFacilityIds(
+      $organizationId,
+      array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($children)),
+    ) : [];
+    $projectionContexts = $this->facilityRepository->findProjectionContextsByFacilityIds($organizationId, array_map(
+      static fn (FacilityId $id): string => (string) $id,
+      $this->facilityIds($children),
+    ));
+    $hierarchyIssues = $this->hierarchy->issuesFor((string) $organizationId, array_map(
+      static fn (FacilityId $id): string => (string) $id,
+      $this->facilityIds($children),
+    ));
+
     $results = [];
     foreach ($children as $child) {
       $results[] = new GetFacilityResult(
@@ -94,7 +110,14 @@ final readonly class GetFacilityChildrenHandler implements QueryHandler
         updatedAt: $child->updatedAt(),
         hasChildren: ($childCounts[(string) $child->id()] ?? 0) > 0,
         equipmentCount: $equipmentCounts[(string) $child->id()] ?? 0,
+        path: $paths[(string) $child->id()] ?? [],
+        hierarchyIssues: $hierarchyIssues[(string) $child->id()] ?? [],
         levelIndex: $child->levelIndex(),
+        elevationMeters: $child->elevationMeters(),
+        heightMeters: $child->heightMeters(),
+        recordStatus: $projectionContexts[(string) $child->id()]['recordStatus'] ?? 'published',
+        interventionId: $projectionContexts[(string) $child->id()]['interventionId'] ?? null,
+        revision: $projectionContexts[(string) $child->id()]['revision'] ?? 1,
       );
     }
 

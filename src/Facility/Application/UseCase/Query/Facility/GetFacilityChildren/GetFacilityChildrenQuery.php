@@ -31,6 +31,7 @@ final readonly class GetFacilityChildrenQuery implements QueryMessage
    * @param Pagination $pagination the optional pagination
    * @param ?string $search the optional search
    * @param Sorting $sorting the optional sort configuration
+   * @param bool $includePath whether to resolve ancestor breadcrumbs for the page
    *
    * @return void
    */
@@ -41,6 +42,7 @@ final readonly class GetFacilityChildrenQuery implements QueryMessage
     public Pagination $pagination = new Pagination(),
     public ?string $search = null,
     public Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    public bool $includePath = false,
   ) {
   }
   // #endregion

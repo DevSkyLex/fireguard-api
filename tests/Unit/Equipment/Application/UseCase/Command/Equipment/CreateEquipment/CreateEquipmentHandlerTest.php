@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
+use DateTimeImmutable;
+use Equipment\Application\Contract\Equipment\EquipmentCreationState;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, FacilityValidationPort};
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
+use Intervention\Application\Port\Inbound\InterventionCreationPort;
 use InvalidArgumentException;
 use Onboarding\Application\Contract\Setup\{OrganizationSetupContext, OrganizationSetupOperation};
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
@@ -389,6 +393,72 @@ final class CreateEquipmentHandlerTest extends TestCase
     self::assertSame($equipmentId, $result->equipmentId);
   }
 
+  #[Test]
+  public function itAttachesTheOfflineIdentityAndInterventionBeforeTheCreationCommits(): void
+  {
+    $org = '550e8400-e29b-41d4-a716-446655440981';
+    $id = '550e8400-e29b-41d4-a716-446655440905';
+    $intervention = '550e8400-e29b-41d4-a716-446655440995';
+    $calls = [];
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static function (callable $operation) use (&$calls): mixed {
+      $calls[] = 'begin';
+      $result = $operation();
+      $calls[] = 'commit';
+
+      return $result;
+    });
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())->method('save')->willReturnCallback(static function () use (&$calls): void { $calls[] = 'save'; });
+    $repository->method('creationState')->willReturn(new EquipmentCreationState($intervention, 'draft', 2, new DateTimeImmutable('2026-10-03T12:00:00+00:00')));
+    $creation = $this->createMock(InterventionCreationPort::class);
+    $creation->expects(self::once())->method('assertOfflineCreate')->with('equipment', $id);
+    $creation->expects(self::once())->method('attach')->with('equipment', $id, $org, $intervention, $id)->willReturnCallback(
+      static function () use (&$calls, $intervention): InterventionResourceAssignment {
+        $calls[] = 'attach';
+
+        return new InterventionResourceAssignment($intervention, 'draft', 2);
+      },
+    );
+    $result = ($this->handler($repository, $this->createStub(UuidFactory::class), transactionManager: $transactions, creationContext: $creation))(
+      new CreateEquipmentCommand($org, 'fire_extinguisher', resourceId: $id, interventionId: $intervention, clientId: $id),
+    );
+    self::assertSame(['begin', 'save', 'attach', 'commit'], $calls);
+    self::assertSame($intervention, $result->interventionId);
+    self::assertSame('draft', $result->recordStatus);
+    self::assertSame(2, $result->revision);
+    self::assertSame('2026-10-03T12:00:00+00:00', $result->updatedAt->format('c'));
+  }
+
+  #[Test]
+  public function itReturnsReceiptMetadataWithoutRevalidatingTheFacilityOrAttachingAgain(): void
+  {
+    $org = '550e8400-e29b-41d4-a716-446655440981';
+    $id = '550e8400-e29b-41d4-a716-446655440905';
+    $context = new OrganizationSetupContext('user', 'session', 'item');
+    $existing = Equipment::create(new EquipmentId($id), new EquipmentOrganizationId($org), EquipmentType::FIRE_EXTINGUISHER);
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->method('findById')->willReturn($existing);
+    $repository->method('creationState')->willReturn(new EquipmentCreationState(null, 'published', 7, $existing->updatedAt()));
+    $repository->expects(self::never())->method('save');
+    $setup = $this->createStub(OrganizationSetupPort::class);
+    $setup->method('begin')->willReturn(new OrganizationSetupOperation('create_first_equipment', 'item', [], $id));
+    $validation = $this->createMock(FacilityValidationPort::class);
+    $validation->expects(self::never())->method('assertFacilityIsAssignable');
+    $creation = $this->createMock(InterventionCreationPort::class);
+    $creation->expects(self::never())->method('attach');
+    $creation->expects(self::never())->method('assertOfflineCreate');
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+    $uuid = $this->createStub(UuidFactory::class);
+    $uuid->method('create')->willReturn(new EquipmentId($id));
+    $result = ($this->handler($repository, $uuid, $quota, $validation, $setup, creationContext: $creation))(
+      new CreateEquipmentCommand($org, 'fire_extinguisher', setupContext: $context, facilityId: '550e8400-e29b-41d4-a716-446655440990'),
+    );
+    self::assertSame($id, $result->equipmentId);
+    self::assertSame(7, $result->revision);
+  }
+
   /**
    * Builds the handler with a pass-through transaction manager (invokes the
    * operation inline) and a permissive quota port unless one is supplied.
@@ -400,6 +470,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     ?FacilityValidationPort $facilityValidation = null,
     ?OrganizationSetupPort $setup = null,
     ?TransactionManagerPort $transactionManager = null,
+    ?InterventionCreationPort $creationContext = null,
   ): CreateEquipmentHandler {
     if (null === $transactionManager) {
       $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -416,6 +487,7 @@ final class CreateEquipmentHandlerTest extends TestCase
       transactionManager: $transactionManager,
       facilityValidation: $facilityValidation,
       setup: $setup,
+      creationContext: $creationContext,
     );
   }
 }

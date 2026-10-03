@@ -8,14 +8,12 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\{AssignToFacilityCommand, AssignToFacilityResult};
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
-use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{
   ClientResourceAlreadyExistsException,
@@ -151,22 +149,9 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     $result = $this->dispatchCreation($data, $organizationId, $resourceId, $user->getId());
 
     $output = $this->outputFactory->fromView($result);
-    if (null !== $data->facility && null === $data->onboardingSessionId) {
-      /** @var AssignToFacilityResult $assigned */
-      $assigned = $this->commandBus->dispatch(new AssignToFacilityCommand(
-        organizationId: $organizationId,
-        equipmentId: $result->equipmentId,
-        facilityId: ResourceIriParser::id($data->facility, 'facilities'),
-      ));
-      $output->facilityId = $assigned->facilityId;
-      $output->facilityName = $assigned->facilityName;
-      $output->installedAt = $assigned->installedAt;
-      $output->updatedAt = $assigned->updatedAt->format('c');
-    }
-    $assignment = $this->attachToIntervention($result->equipmentId, $organizationId, $data->intervention, $data->clientId);
-    $output->intervention = null === $assignment->interventionId ? null : '/api/interventions/' . $assignment->interventionId;
-    $output->recordStatus = $assignment->recordStatus;
-    $output->revision = $assignment->revision;
+    $output->intervention = null === $result->interventionId ? null : '/api/interventions/' . $result->interventionId;
+    $output->recordStatus = $result->recordStatus;
+    $output->revision = $result->revision;
 
     return $output;
   }
@@ -193,7 +178,9 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
       /** @var CreateEquipmentResult */
       return $this->commandBus->dispatch(new CreateEquipmentCommand(
         setupContext: OrganizationSetupContext::fromOptional($userId, $data->onboardingSessionId, $data->onboardingItemKey),
-        facilityId: null !== $data->onboardingSessionId && null !== $data->facility ? ResourceIriParser::id($data->facility, 'facilities') : null,
+        facilityId: null !== $data->facility ? ResourceIriParser::id($data->facility, 'facilities') : null,
+        interventionId: null !== $data->intervention ? ResourceIriParser::id($data->intervention, 'interventions') : null,
+        clientId: $data->clientId,
         organizationId: $organizationId,
         type: $data->type,
         subType: $data->subType,
@@ -207,7 +194,33 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (InterventionNotFoundException|InterventionResourceNotFoundException $exception) {
+      throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (InterventionConflictException $exception) {
+      throw new ConflictHttpException($exception->getMessage(), $exception);
+    } catch (ClientResourceAlreadyExistsException $exception) {
+      throw new ClientResourceAlreadyExistsHttpException(
+        null !== $resourceId ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
+        $exception,
+      );
     } catch (MessengerRuntimeException $exception) {
+      $identityConflict = $this->findException($exception, ClientResourceAlreadyExistsException::class);
+      if ($identityConflict instanceof ClientResourceAlreadyExistsException) {
+        throw new ClientResourceAlreadyExistsHttpException(
+          null !== $resourceId ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
+          $identityConflict,
+        );
+      }
+      foreach ([InterventionNotFoundException::class, InterventionResourceNotFoundException::class] as $type) {
+        $missing = $this->findException($exception, $type);
+        if (null !== $missing) {
+          throw new NotFoundHttpException($missing->getMessage(), $exception);
+        }
+      }
+      $conflict = $this->findException($exception, InterventionConflictException::class);
+      if (null !== $conflict) {
+        throw new ConflictHttpException($conflict->getMessage(), $exception);
+      }
       $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
       if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
         throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
@@ -277,45 +290,6 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     try {
       return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId, $organizationId);
     } catch (InterventionNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InterventionConflictException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    }
-  }
-
-  /**
-   * Method attachToIntervention.
-   *
-   * Executes the attach to intervention operation.
-   *
-   * @since 1.0.0
-   *
-   * @param string $equipmentId the equipment id value
-   * @param string $organizationId the organization id value
-   * @param ?string $intervention the intervention value
-   * @param ?string $clientId the client id value
-   *
-   * @return InterventionResourceAssignment the attach to intervention result
-   */
-  private function attachToIntervention(
-    string $equipmentId,
-    string $organizationId,
-    ?string $intervention,
-    ?string $clientId,
-  ): InterventionResourceAssignment {
-    if (null === $this->interventionResourceManager) {
-      return new InterventionResourceAssignment(null, 'published', 1);
-    }
-
-    try {
-      return $this->interventionResourceManager->attach(
-        InterventionResourceType::EQUIPMENT,
-        $equipmentId,
-        $organizationId,
-        null === $intervention ? null : ResourceIriParser::id($intervention, 'interventions'),
-        $clientId,
-      );
-    } catch (InterventionNotFoundException|InterventionResourceNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);

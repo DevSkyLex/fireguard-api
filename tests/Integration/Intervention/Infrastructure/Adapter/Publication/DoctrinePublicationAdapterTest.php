@@ -85,6 +85,339 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  public function testPublicationValidatesDraftsAndProposedParentsAsOneFinalGraph(): void
+  {
+    $building = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449101', 'building', self::FACILITY_ID, true);
+    $floor = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449102', 'floor', $building->id, true);
+    $zone = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449103', 'zone', self::FACILITY_ID, false);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449104', $zone->id, ['parent' => '/api/facilities/' . $floor->id]);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
+    self::assertTrue($this->adapter->publish(self::PUBLICATION_ID));
+    $connection = $this->entityManager->getConnection();
+    self::assertSame('published', $connection->fetchOne('SELECT record_status FROM facilities WHERE id = ?', [$floor->id]));
+    self::assertSame($floor->id, $connection->fetchOne('SELECT parent_facility_id FROM facilities WHERE id = ?', [$zone->id]));
+    self::assertSame(2, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$zone->id]));
+  }
+
+  #[Test]
+  public function testPublicationRejectsAMergedCycleWithoutPublishingAnyDraft(): void
+  {
+    $first = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449111', 'zone', self::FACILITY_ID, false);
+    $second = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449112', 'zone', self::FACILITY_ID, false);
+    $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449113', 'building', self::FACILITY_ID, true);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449114', $first->id, ['parent' => '/api/facilities/' . $second->id]);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449115', $second->id, ['parent' => '/api/facilities/' . $first->id]);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $connection = $this->entityManager->getConnection();
+
+    try {
+      $this->adapter->publish(self::PUBLICATION_ID);
+      self::fail('A cycle in the combined proposals must reject publication.');
+    } catch (\Facility\Domain\Exception\FacilityHierarchyException) {
+      self::assertSame('draft', $connection->fetchOne('SELECT record_status FROM facilities WHERE id = ?', [$draft->id]));
+      self::assertSame(self::FACILITY_ID, $connection->fetchOne('SELECT parent_facility_id FROM facilities WHERE id = ?', [$first->id]));
+      self::assertSame('submitted', $connection->fetchOne('SELECT status FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
+    }
+  }
+
+  #[Test]
+  public function testDiscardRefusesPublishedEquipmentReferencesBeforeDeletingFacilities(): void
+  {
+    $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449121', 'building', self::FACILITY_ID, true);
+    $equipment = new \Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord();
+    $equipment->id = '880e8400-e29b-41d4-a716-446655449122';
+    $equipment->organization = $draft->organization;
+    $equipment->facilityId = $draft->id;
+    $equipment->type = 'fire_extinguisher';
+    $equipment->createdAt = new DateTimeImmutable();
+    $equipment->updatedAt = $equipment->createdAt;
+    $this->entityManager->persist($equipment);
+    $this->entityManager->flush();
+    $publisher = self::getContainer()->get(\Intervention\Application\Service\InterventionDraftPublisher::class);
+    self::assertInstanceOf(\Intervention\Application\Service\InterventionDraftPublisher::class, $publisher);
+
+    try {
+      $publisher->discard(self::INTERVENTION_ID);
+      self::fail('A retained equipment must prevent discarding its draft facility.');
+    } catch (\Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict $exception) {
+      self::assertSame('equipment', $exception->references[0]['resourceType']);
+      self::assertSame(1, $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM facilities WHERE id = ?', [$draft->id]));
+      self::assertSame($draft->id, $this->entityManager->getConnection()->fetchOne('SELECT facility_id FROM equipment WHERE id = ?', [$equipment->id]));
+    }
+  }
+
+  #[Test]
+  public function testDiscardProtectsTheAbandonedInterventionsOwnRetainedTargets(): void
+  {
+    $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449131', 'building', self::FACILITY_ID, true);
+    $intervention = $this->entityManager->find(InterventionRecord::class, self::INTERVENTION_ID);
+    self::assertInstanceOf(InterventionRecord::class, $intervention);
+    $item = new \Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionWorkItemRecord();
+    $item->id = '880e8400-e29b-41d4-a716-446655449132';
+    $item->intervention = $intervention;
+    $item->action = 'create';
+    $item->target = '/api/facilities/' . $draft->id;
+    $item->createdAt = new DateTimeImmutable();
+    $item->updatedAt = $item->createdAt;
+    $this->entityManager->persist($item);
+    $this->entityManager->flush();
+    $validation = self::getContainer()->get(\Intervention\Application\Service\InterventionPublicationValidation::class);
+    self::assertInstanceOf(\Intervention\Application\Service\InterventionPublicationValidation::class, $validation);
+    // A complete intervention deletion removes this work item by cascade.
+    $validation->assertCanDiscard(self::INTERVENTION_ID, false);
+    $publisher = self::getContainer()->get(\Intervention\Application\Service\InterventionDraftPublisher::class);
+    self::assertInstanceOf(\Intervention\Application\Service\InterventionDraftPublisher::class, $publisher);
+
+    try {
+      $publisher->discard(self::INTERVENTION_ID);
+      self::fail('Abandonment must preserve drafts referenced by retained work items.');
+    } catch (\Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict $exception) {
+      self::assertSame('work_item', $exception->references[0]['resourceType']);
+      self::assertSame(1, $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM facilities WHERE id = ?', [$draft->id]));
+      self::assertSame($item->target, $this->entityManager->getConnection()->fetchOne('SELECT target FROM intervention_work_items WHERE id = ?', [$item->id]));
+    }
+  }
+
+  #[Test]
+  public function testDiscardProtectsRetainedInspectionReferences(): void
+  {
+    $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449141', 'building', self::FACILITY_ID, true);
+    $inspection = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord();
+    $inspection->id = '880e8400-e29b-41d4-a716-446655449142';
+    $inspection->organization = $draft->organization;
+    $inspection->equipmentId = '880e8400-e29b-41d4-a716-446655449143';
+    $inspection->facilityId = $draft->id;
+    $inspection->inspectorType = 'user';
+    $inspection->inspectorName = 'Draft reference test';
+    $inspection->result = 'compliant';
+    $inspection->status = 'closed';
+    $inspection->performedAt = new DateTimeImmutable();
+    $inspection->createdAt = $inspection->performedAt;
+    $inspection->updatedAt = $inspection->performedAt;
+    $this->entityManager->persist($inspection);
+    $this->entityManager->flush();
+    $publisher = self::getContainer()->get(\Intervention\Application\Service\InterventionDraftPublisher::class);
+    self::assertInstanceOf(\Intervention\Application\Service\InterventionDraftPublisher::class, $publisher);
+
+    try {
+      $publisher->discard(self::INTERVENTION_ID);
+      self::fail('A retained inspection must preserve its referenced draft facility.');
+    } catch (\Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict $exception) {
+      self::assertSame('inspection', $exception->references[0]['resourceType']);
+      self::assertSame(1, $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM facilities WHERE id = ?', [$draft->id]));
+      self::assertSame($draft->id, $this->entityManager->getConnection()->fetchOne('SELECT facility_id FROM inspections WHERE id = ?', [$inspection->id]));
+    }
+  }
+
+  #[Test]
+  public function testDiscardProtectsAnInspectionOfDraftEquipmentWithoutDraftFacilities(): void
+  {
+    $organization = $this->entityManager->find(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $equipment = new \Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord();
+    $equipment->id = '880e8400-e29b-41d4-a716-446655449151';
+    $equipment->organization = $organization;
+    $equipment->interventionId = self::INTERVENTION_ID;
+    $equipment->recordStatus = 'draft';
+    $equipment->type = 'fire_extinguisher';
+    $equipment->createdAt = new DateTimeImmutable();
+    $equipment->updatedAt = $equipment->createdAt;
+    $this->entityManager->persist($equipment);
+    $inspection = $this->retainedInspection('880e8400-e29b-41d4-a716-446655449152', $equipment->id, $organization);
+    $this->entityManager->flush();
+    $publisher = self::getContainer()->get(\Intervention\Application\Service\InterventionDraftPublisher::class);
+    self::assertInstanceOf(\Intervention\Application\Service\InterventionDraftPublisher::class, $publisher);
+
+    try {
+      $publisher->discard(self::INTERVENTION_ID);
+      self::fail('A retained inspection must preserve its draft equipment.');
+    } catch (\Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict $exception) {
+      self::assertSame('inspection', $exception->references[0]['resourceType']);
+      self::assertSame($equipment->id, $this->entityManager->getConnection()->fetchOne('SELECT equipment_id FROM inspections WHERE id = ?', [$inspection->id]));
+      self::assertSame('draft', $this->entityManager->getConnection()->fetchOne('SELECT record_status FROM equipment WHERE id = ?', [$equipment->id]));
+    }
+  }
+
+  #[Test]
+  public function testDiscardProtectsAResponseOfDraftInspection(): void
+  {
+    $organization = $this->entityManager->find(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $inspection = $this->retainedInspection('880e8400-e29b-41d4-a716-446655449161', self::FACILITY_ID, $organization);
+    $inspection->interventionId = self::INTERVENTION_ID;
+    $inspection->recordStatus = 'draft';
+    $response = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionResponseRecord();
+    $response->id = '880e8400-e29b-41d4-a716-446655449162';
+    $response->organization = $organization;
+    $response->inspectionId = $inspection->id;
+    $response->itemKey = 'draft-dependency';
+    $response->createdAt = new DateTimeImmutable();
+    $response->updatedAt = $response->createdAt;
+    $this->entityManager->persist($response);
+    $this->entityManager->flush();
+    $publisher = self::getContainer()->get(\Intervention\Application\Service\InterventionDraftPublisher::class);
+    self::assertInstanceOf(\Intervention\Application\Service\InterventionDraftPublisher::class, $publisher);
+
+    try {
+      $publisher->discard(self::INTERVENTION_ID);
+      self::fail('A retained response must preserve its draft inspection.');
+    } catch (\Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict $exception) {
+      self::assertSame('inspection_response', $exception->references[0]['resourceType']);
+      self::assertSame(1, $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM inspections WHERE id = ?', [$inspection->id]));
+      self::assertSame($inspection->id, $this->entityManager->getConnection()->fetchOne('SELECT inspection_id FROM inspection_responses WHERE id = ?', [$response->id]));
+    }
+  }
+
+  #[Test]
+  public function testPublicationArchivesTheParentAfterApplyingItsChildsLaterMove(): void
+  {
+    $parent = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449171', 'building', self::FACILITY_ID, false);
+    $destination = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449172', 'building', self::FACILITY_ID, false);
+    $child = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449173', 'floor', $parent->id, false);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449174', $parent->id, ['status' => 'archived']);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449175', $child->id, ['parent' => '/api/facilities/' . $destination->id]);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
+    self::assertTrue($this->adapter->publish(self::PUBLICATION_ID));
+    $connection = $this->entityManager->getConnection();
+    self::assertSame('archived', $connection->fetchOne('SELECT status FROM facilities WHERE id = ?', [$parent->id]));
+    self::assertSame($destination->id, $connection->fetchOne('SELECT parent_facility_id FROM facilities WHERE id = ?', [$child->id]));
+    self::assertSame(2, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$parent->id]));
+    self::assertSame(2, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$child->id]));
+  }
+
+  #[Test]
+  public function testPublicationRefusesArchivingRetainedActiveDependentsAndRollsBackTheWholePublication(): void
+  {
+    $parent = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449181', 'building', self::FACILITY_ID, false);
+    $child = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449182', 'floor', $parent->id, false);
+    $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449183', 'zone', self::FACILITY_ID, true);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449184', $parent->id, ['status' => 'archived']);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
+    $connection = $this->entityManager->getConnection();
+
+    try {
+      $this->adapter->publish(self::PUBLICATION_ID);
+      self::fail('Retained active dependents must still block the final archive.');
+    } catch (\Facility\Domain\Exception\FacilityHasActiveDependentsException) {
+      self::assertSame('active', $connection->fetchOne('SELECT status FROM facilities WHERE id = ?', [$parent->id]));
+      self::assertSame(1, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$parent->id]));
+      self::assertSame($parent->id, $connection->fetchOne('SELECT parent_facility_id FROM facilities WHERE id = ?', [$child->id]));
+      self::assertSame('draft', $connection->fetchOne('SELECT record_status FROM facilities WHERE id = ?', [$draft->id]));
+      self::assertSame('proposed', $connection->fetchOne('SELECT status FROM intervention_changes WHERE id = ?', ['880e8400-e29b-41d4-a716-446655449184']));
+      self::assertSame('submitted', $connection->fetchOne('SELECT status FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
+    }
+  }
+
+  #[Test]
+  public function testPublicationRestoresTheChildBeforeItsParentsLaterRestore(): void
+  {
+    $parent = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449191', 'building', self::FACILITY_ID, false);
+    $parent->status = 'archived';
+    $child = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449192', 'floor', $parent->id, false);
+    $child->status = 'archived';
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449193', $child->id, ['status' => 'active']);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449194', $parent->id, ['status' => 'active']);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
+    self::assertTrue($this->adapter->publish(self::PUBLICATION_ID));
+    $connection = $this->entityManager->getConnection();
+    self::assertSame('active', $connection->fetchOne('SELECT status FROM facilities WHERE id = ?', [$parent->id]));
+    self::assertSame('active', $connection->fetchOne('SELECT status FROM facilities WHERE id = ?', [$child->id]));
+    self::assertSame(2, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$parent->id]));
+    self::assertSame(2, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$child->id]));
+  }
+
+  /**
+   * Method testPublicationArchivesBothParentAndChildWithoutChangingTheirRelationship.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testPublicationArchivesBothParentAndChildWithoutChangingTheirRelationship(): void
+  {
+    $parent = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449201', 'building', self::FACILITY_ID, false);
+    $child = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449202', 'floor', $parent->id, false);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449203', $parent->id, ['status' => 'archived']);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449204', $child->id, ['status' => 'archived']);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
+
+    self::assertTrue($this->adapter->publish(self::PUBLICATION_ID));
+    $connection = $this->entityManager->getConnection();
+    self::assertSame('archived', $connection->fetchOne('SELECT status FROM facilities WHERE id = ?', [$parent->id]));
+    self::assertSame('archived', $connection->fetchOne('SELECT status FROM facilities WHERE id = ?', [$child->id]));
+    self::assertSame($parent->id, $connection->fetchOne('SELECT parent_facility_id FROM facilities WHERE id = ?', [$child->id]));
+    self::assertSame(2, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$parent->id]));
+    self::assertSame(2, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$child->id]));
+  }
+
+  /**
+   * Method testPublicationRetainsLegacyRelationshipsWhenDescriptiveChangesRepeatHierarchyFields.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testPublicationRetainsLegacyRelationshipsWhenDescriptiveChangesRepeatHierarchyFields(): void
+  {
+    $legacy = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449211', 'building', self::FACILITY_ID, false);
+    $legacy->parentFacility = null;
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449212', $legacy->id, ['name' => 'Updated legacy building', 'type' => 'building', 'parent' => null]);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
+
+    self::assertTrue($this->adapter->publish(self::PUBLICATION_ID));
+    $connection = $this->entityManager->getConnection();
+    self::assertSame('Updated legacy building', $connection->fetchOne('SELECT name FROM facilities WHERE id = ?', [$legacy->id]));
+    self::assertSame('building', $connection->fetchOne('SELECT type FROM facilities WHERE id = ?', [$legacy->id]));
+    self::assertNull($connection->fetchOne('SELECT parent_facility_id FROM facilities WHERE id = ?', [$legacy->id]));
+    self::assertSame(2, $connection->fetchOne('SELECT revision FROM facilities WHERE id = ?', [$legacy->id]));
+  }
+
+  /**
+   * Method testArchivalDoesNotPermitANewRelationshipToAnArchivedParent.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testArchivalDoesNotPermitANewRelationshipToAnArchivedParent(): void
+  {
+    $destination = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449221', 'zone', self::FACILITY_ID, false);
+    $zone = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449222', 'zone', self::FACILITY_ID, false);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449223', $destination->id, ['status' => 'archived']);
+    $this->hierarchyChange('880e8400-e29b-41d4-a716-446655449224', $zone->id, ['status' => 'archived', 'parent' => '/api/facilities/' . $destination->id]);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $connection = $this->entityManager->getConnection();
+
+    try {
+      $this->adapter->publish(self::PUBLICATION_ID);
+      self::fail('Archival cannot bypass validation of a newly assigned parent.');
+    } catch (\Facility\Domain\Exception\FacilityHierarchyException $exception) {
+      self::assertSame('The parent facility must be active.', $exception->getMessage());
+      self::assertSame('active', $connection->fetchOne('SELECT status FROM facilities WHERE id = ?', [$destination->id]));
+      self::assertSame('active', $connection->fetchOne('SELECT status FROM facilities WHERE id = ?', [$zone->id]));
+      self::assertSame(self::FACILITY_ID, $connection->fetchOne('SELECT parent_facility_id FROM facilities WHERE id = ?', [$zone->id]));
+      self::assertSame('submitted', $connection->fetchOne('SELECT status FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
+    }
+  }
+
+  #[Test]
   public function testCompletedPublicationQueuesOneEventAndAuditReplayIsIdempotent(): void
   {
     $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
@@ -423,6 +756,48 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     $this->adapter->publish(self::PUBLICATION_ID);
   }
 
+  /**
+   * Builds a hierarchy row for publication invariants, without implicit repair.
+   *
+   * @param string $id the fixture identifier
+   * @param string $type the facility type
+   * @param string $parentId its existing parent
+   * @param bool $draft whether it belongs to this intervention's publication
+   */
+  private function hierarchyFacility(string $id, string $type, string $parentId, bool $draft): FacilityRecord
+  {
+    $record = new FacilityRecord();
+    $record->id = $id;
+    $record->organization = $this->entityManager->find(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $record->parentFacility = $this->entityManager->find(FacilityRecord::class, $parentId);
+    $record->name = 'Publication ' . $type;
+    $record->type = $type;
+    $record->recordStatus = $draft ? 'draft' : 'published';
+    $record->interventionId = $draft ? self::INTERVENTION_ID : null;
+    $record->createdAt = new DateTimeImmutable();
+    $record->updatedAt = $record->createdAt;
+    $this->entityManager->persist($record);
+
+    return $record;
+  }
+
+  /**
+   * @param string $id the proposed change identifier
+   * @param string $facilityId the target facility
+   * @param array<string, mixed> $patch the proposed final changes
+   */
+  private function hierarchyChange(string $id, string $facilityId, array $patch): void
+  {
+    $change = new InterventionChangeRecord();
+    $change->id = $id;
+    $change->intervention = $this->entityManager->find(InterventionRecord::class, self::INTERVENTION_ID);
+    $change->resource = '/api/facilities/' . $facilityId;
+    $change->patch = $patch;
+    $change->createdAt = new DateTimeImmutable();
+    $change->updatedAt = $change->createdAt;
+    $this->entityManager->persist($change);
+  }
+
   private function executionHandler(EventDispatcherPort $events): ExecutePublicationHandler
   {
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
@@ -465,6 +840,31 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
       [self::ORPHAN_PUBLICATION_ID, 'pending', '2026-05-04T10:00:00'],
     );
     $this->entityManager->clear();
+  }
+
+  /**
+   * @param string $id the retained inspection identity
+   * @param string $equipmentId its referenced equipment
+   * @param OrganizationRecord $organization the owning organization
+   *
+   * @return \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord the persisted inspection
+   */
+  private function retainedInspection(string $id, string $equipmentId, OrganizationRecord $organization): \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord
+  {
+    $inspection = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord();
+    $inspection->id = $id;
+    $inspection->organization = $organization;
+    $inspection->equipmentId = $equipmentId;
+    $inspection->inspectorType = 'user';
+    $inspection->inspectorName = 'Draft dependency inspection';
+    $inspection->result = 'compliant';
+    $inspection->status = 'closed';
+    $inspection->performedAt = new DateTimeImmutable();
+    $inspection->createdAt = $inspection->performedAt;
+    $inspection->updatedAt = $inspection->performedAt;
+    $this->entityManager->persist($inspection);
+
+    return $inspection;
   }
 
   private function seedOrganizationAndIntervention(): void

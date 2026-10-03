@@ -269,6 +269,9 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
 
     $provider = $this->provider(query: ['organization' => '/api/organizations/' . self::ORGANIZATION_ID]);
 
+    $firstPage = $provider->provide(new GetCollection(), [], ['filters' => ['page' => '1', 'itemsPerPage' => '1']]);
+    self::assertInstanceOf(TraversablePaginator::class, $firstPage);
+    self::assertSame([self::PUBLISHED_A_ID], $this->identifiers($firstPage), 'Equal creation timestamps must have a deterministic page boundary.');
     $secondPage = $provider->provide(new GetCollection(), [], ['filters' => ['page' => '2', 'itemsPerPage' => '1']]);
     self::assertInstanceOf(TraversablePaginator::class, $secondPage);
     self::assertSame([self::PUBLISHED_B_ID], $this->identifiers($secondPage));

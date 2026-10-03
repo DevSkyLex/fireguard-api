@@ -10,6 +10,7 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
 
+use function in_array;
 use function sprintf;
 
 /**
@@ -39,6 +40,10 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
+    private ?\Doctrine\ORM\EntityManagerInterface $entityManager = null,
+    private ?\Facility\Application\Service\FacilityHierarchyPublicationContext $publicationContext = null,
+    private ?\Facility\Application\Port\Inbound\FacilityLifecycleReferencePort $lifecycle = null,
+    private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
   ) {
   }
   // #endregion
@@ -47,17 +52,31 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
   /**
    * {@inheritDoc}
    */
-  public function assertFacilityIsAssignable(string $facilityId, string $organizationId): void
+  public function assertFacilityIsAssignable(string $facilityId, string $organizationId, ?string $interventionId = null, ?string $publishingInterventionId = null): void
   {
+    if ($this->entityManager?->getConnection()->isTransactionActive()) {
+      $this->hierarchy?->lock($organizationId);
+    }
     $facility = $this->facilityRepository->findById(FacilityId::fromString($facilityId));
 
     if (null === $facility || (string) $facility->organizationId() !== $organizationId) {
       throw new InvalidArgumentException(sprintf('Facility with ID "%s" not found.', $facilityId));
     }
 
-    if (!$facility->status()->isActive()) {
+    $merged = $this->publicationContext?->node($organizationId, $facilityId);
+    if (null === $merged ? !$facility->status()->isActive() : 'active' !== $merged->status) {
       throw new InvalidArgumentException(sprintf('Facility with ID "%s" is archived and cannot be used.', $facilityId));
     }
+    if (null !== $this->entityManager) {
+      $record = $this->entityManager->find(\Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord::class, $facilityId);
+      if (null === $merged && (!$record instanceof \Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord
+        || ('published' !== $record->recordStatus
+          && ('draft' !== $record->recordStatus || null === $record->interventionId
+            || !in_array($record->interventionId, [$interventionId, $publishingInterventionId], true))))) {
+        throw new InvalidArgumentException('The facility publication state is incompatible with this resource.');
+      }
+    }
+    $this->lifecycle?->assertReference($organizationId, $facilityId, $interventionId, $publishingInterventionId);
   }
 
   /**

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Domain\ValueObject;
 
+use DateTimeImmutable;
 use Facility\Domain\ValueObject\PlanGeometry;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
+
+use function array_reverse;
 
 /**
  * Test PlanGeometryTest.
@@ -132,5 +135,49 @@ final class PlanGeometryTest extends TestCase
     $second = new PlanGeometry('550e8400-e29b-41d4-a716-446655440099', [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]]);
 
     self::assertFalse($first->equals($second));
+  }
+
+  #[Test]
+  public function testRejectsCollinearAndIntersectingPolygonsAndSafelyReadsLegacyShapes(): void
+  {
+    foreach ([
+      [[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]],
+      [[0.0, 0.0], [1.0, 1.0], [0.0, 1.0], [1.0, 0.0]],
+      [[0.0, 0.0], [1.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+      [[0.0, 0.0], [1.0, 0.0], [0.5, 0.0], [0.5, 1.0]],
+    ] as $points) {
+      $data = ['attachmentId' => self::ATTACHMENT_ID, 'points' => $points];
+      self::assertFalse(PlanGeometry::isUsable($data));
+      self::assertNull(PlanGeometry::fromPersistedArray($data));
+    }
+  }
+
+  #[Test]
+  public function testConcavePolygonAndEitherWindingRemainUsable(): void
+  {
+    $points = [[0.0, 0.0], [1.0, 0.0], [0.5, 0.5], [1.0, 1.0], [0.0, 1.0]];
+    self::assertTrue(PlanGeometry::isUsable(['attachmentId' => self::ATTACHMENT_ID, 'points' => $points]));
+    self::assertTrue(PlanGeometry::isUsable(['attachmentId' => self::ATTACHMENT_ID, 'points' => array_reverse($points)]));
+  }
+
+  #[Test]
+  public function testUnusableLegacyGeometrySurvivesUnrelatedEditsUntilExplicitlyRepaired(): void
+  {
+    $raw = ['attachmentId' => self::ATTACHMENT_ID, 'points' => [[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]]];
+    $facility = \Facility\Domain\Model\Facility\Facility::reconstitute(
+      \Facility\Domain\ValueObject\FacilityId::fromString('550e8400-e29b-41d4-a716-446655440002'),
+      \Facility\Domain\ValueObject\FacilityOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440003'),
+      \Facility\Domain\ValueObject\FacilityType::FLOOR,
+      new \Facility\Domain\ValueObject\FacilityName('Legacy floor'),
+      new \Facility\Domain\Model\Facility\FacilityLifecycle(\Facility\Domain\ValueObject\FacilityStatus::ACTIVE, new DateTimeImmutable(), new DateTimeImmutable()),
+      unusablePlanGeometry: $raw,
+    );
+    $facility->rename(new \Facility\Domain\ValueObject\FacilityName('Renamed floor'));
+    self::assertNull($facility->planGeometry());
+    self::assertSame($raw, $facility->planGeometryData());
+    $facility->clearPlanGeometry();
+    self::assertNull($facility->planGeometryData());
+    $facility->assignPlanGeometry(new PlanGeometry(self::ATTACHMENT_ID, [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]));
+    self::assertSame($facility->planGeometry()?->toArray(), $facility->planGeometryData());
   }
 }

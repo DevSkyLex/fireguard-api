@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Query\Facility\ListFacilities;
 
 use Facility\Application\Contract\Facility\FacilityListCriteria;
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Domain\Model\Facility\Facility;
@@ -14,7 +15,10 @@ use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
+use function array_filter;
 use function array_map;
+use function array_unique;
+use function array_values;
 
 /**
  * UseCase ListFacilitiesHandler.
@@ -36,12 +40,14 @@ final readonly class ListFacilitiesHandler implements QueryHandler
    *
    * @param FacilityRepositoryPort $facilityRepository port used to retrieve facilities matching the list criteria
    * @param FacilityEquipmentDependencyPort $equipmentDependency port used to include equipment-dependent facility information
+   * @param FacilityHierarchyPort $hierarchy resolves eligible parent candidates against the full organization graph
    *
    * @return void
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,
+    private FacilityHierarchyPort $hierarchy,
   ) {
   }
   // #endregion
@@ -67,12 +73,40 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       $parentFacilityId = null !== $query->parentFacilityId
         ? (string) FacilityId::fromString($query->parentFacilityId)
         : null;
+      $parentForType = null !== $query->parentForType ? FacilityType::from($query->parentForType)->value : null;
+      $parentForFacilityId = null !== $query->parentForFacilityId ? FacilityId::fromString($query->parentForFacilityId) : null;
+      $interventionId = null !== $query->interventionId ? (string) FacilityId::fromString($query->interventionId) : null;
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     if ($query->rootsOnly && null !== $parentFacilityId) {
       throw InvalidValueException::because('rootsOnly cannot be combined with parentFacilityId.');
+    }
+
+    if (null !== $parentForType && null !== $parentForFacilityId) {
+      throw InvalidValueException::because('parentForType cannot be combined with parentForFacilityId.');
+    }
+    if (null !== $interventionId && null === $parentForType && null === $parentForFacilityId) {
+      throw InvalidValueException::because('interventionId requires parentForType or parentForFacilityId.');
+    }
+
+    $eligibleParentIds = null;
+    if (null !== $parentForFacilityId) {
+      $movingFacility = null === $interventionId ? $this->facilityRepository->findPublishedById($parentForFacilityId) : $this->facilityRepository->findById($parentForFacilityId);
+      if (null === $movingFacility || (string) $movingFacility->organizationId() !== (string) $organizationId) {
+        throw \Facility\Domain\Exception\FacilityNotFoundException::withId((string) $parentForFacilityId);
+      }
+      if (null !== $interventionId) {
+        $movingContext = $this->facilityRepository->findProjectionContextsByFacilityIds($organizationId, [(string) $parentForFacilityId])[(string) $parentForFacilityId] ?? null;
+        if (null === $movingContext || ('published' === $movingContext['recordStatus'] ? !$query->includePublishedParents : ('draft' !== $movingContext['recordStatus'] || $interventionId !== $movingContext['interventionId']))) {
+          throw \Facility\Domain\Exception\FacilityNotFoundException::withId((string) $parentForFacilityId);
+        }
+      }
+      $parentForType = $movingFacility->type()->value;
+    }
+    if (null !== $parentForType) {
+      $eligibleParentIds = $this->hierarchy->eligibleParentIds((string) $organizationId, $parentForType, $parentForFacilityId?->__toString(), $interventionId);
     }
 
     $criteria = new FacilityListCriteria(
@@ -83,6 +117,9 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       search: $query->search,
       rootsOnly: $query->rootsOnly,
       hasCoordinates: $query->hasCoordinates,
+      eligibleParentIds: $eligibleParentIds,
+      parentInterventionId: $interventionId,
+      includePublishedParents: $query->includePublishedParents,
     );
 
     $facilities = $this->facilityRepository->findByOrganizationId(
@@ -111,6 +148,28 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($facilities)),
     );
 
+    $paths = $query->includePath ? $this->facilityRepository->findAncestorsByFacilityIds(
+      $organizationId,
+      array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($facilities)),
+    ) : [];
+    $contextIds = array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($facilities));
+    foreach ($paths as $path) {
+      foreach ($path as $ancestor) {
+        $contextIds[] = $ancestor['id'];
+      }
+    }
+    $projectionContexts = $this->facilityRepository->findProjectionContextsByFacilityIds($organizationId, array_values(array_unique($contextIds)));
+    if (null !== $interventionId && !$query->includePublishedParents) {
+      foreach ($paths as $id => $path) {
+        $paths[$id] = array_values(array_filter($path, static fn (array $ancestor): bool => isset($projectionContexts[$ancestor['id']])
+          && 'draft' === $projectionContexts[$ancestor['id']]['recordStatus'] && $interventionId === $projectionContexts[$ancestor['id']]['interventionId']));
+      }
+    }
+    $hierarchyIssues = $this->hierarchy->issuesFor((string) $organizationId, array_map(
+      static fn (FacilityId $id): string => (string) $id,
+      $this->facilityIds($facilities),
+    ));
+
     $results = [];
 
     foreach ($facilities as $facility) {
@@ -130,7 +189,14 @@ final readonly class ListFacilitiesHandler implements QueryHandler
         latitude: $facility->coordinates()?->latitude(),
         longitude: $facility->coordinates()?->longitude(),
         equipmentCount: $equipmentCounts[(string) $facility->id()] ?? 0,
+        path: $paths[(string) $facility->id()] ?? [],
+        hierarchyIssues: $hierarchyIssues[(string) $facility->id()] ?? [],
         levelIndex: $facility->levelIndex(),
+        elevationMeters: $facility->elevationMeters(),
+        heightMeters: $facility->heightMeters(),
+        recordStatus: $projectionContexts[(string) $facility->id()]['recordStatus'] ?? 'published',
+        interventionId: $projectionContexts[(string) $facility->id()]['interventionId'] ?? null,
+        revision: $projectionContexts[(string) $facility->id()]['revision'] ?? 1,
       );
     }
 

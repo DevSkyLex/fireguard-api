@@ -1029,9 +1029,18 @@
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Initialize every persisted Messenger transport before starting consumers
-      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps --entrypoint php app -d memory_limit=1G bin/console messenger:setup-transports main_outbox main_failed async webhook assistant failed --env=prod --no-interaction"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps --entrypoint php app -d memory_limit=1G bin/console messenger:setup-transports {{ item }} --env=prod --no-interaction"
       args:
         chdir: "{{ fireguard_app_dir }}"
+      loop:
+        - main_outbox
+        - main_failed
+        - async
+        - webhook
+        - assistant
+        - failed
+      loop_control:
+        label: "{{ item }}"
 
     - name: Warm production cache
       ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d memory_limit=1G -d display_errors=1 -d error_reporting=E_ALL bin/console cache:warmup --env=prod -vvv"

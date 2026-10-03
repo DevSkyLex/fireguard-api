@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree;
 
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Event\Facility\FacilitySubtreeDuplicatedEvent;
 use Facility\Domain\Exception\{
@@ -75,6 +77,7 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
+    private ?FacilityHierarchyPort $hierarchy = null,
   ) {
   }
 
@@ -188,6 +191,12 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
   private function persistClones(FacilityOrganizationId $organizationId, array $clones, int $nodeCount): void
   {
     $this->transactionManager->transactional(function () use ($organizationId, $clones, $nodeCount): void {
+      $this->hierarchy?->lock((string) $organizationId);
+      $nodes = [];
+      foreach ($clones as $clone) {
+        $nodes[] = new FacilityHierarchyNode((string) $clone->id(), $clone->type()->value, $clone->parentFacilityId()?->__toString());
+      }
+      $this->hierarchy?->assertGraph((string) $organizationId, $nodes);
       $this->quota->assertCanAddMultiple((string) $organizationId, OrganizationQuotaResource::FACILITIES, $nodeCount);
 
       foreach ($clones as $clone) {
@@ -255,6 +264,9 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
         address: $original->address(),
         metadata: $original->metadata(),
         coordinates: $original->coordinates(),
+        levelIndex: $original->levelIndex(),
+        elevationMeters: $original->elevationMeters(),
+        heightMeters: $original->heightMeters(),
       ),
     );
   }

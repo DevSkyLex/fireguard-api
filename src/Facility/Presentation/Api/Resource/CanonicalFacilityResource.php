@@ -35,6 +35,15 @@ use Symfony\Component\HttpFoundation\Response;
       paginationItemsPerPage: 50,
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'includePath' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Resolve ancestor breadcrumbs for this page in one organization-scoped read.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'includePath', in: 'query', schema: ['type' => 'boolean', 'default' => false]),
+        ),
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
           description: 'Organization IRI. Required when intervention is omitted.',

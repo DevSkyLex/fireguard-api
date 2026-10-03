@@ -58,5 +58,55 @@ final class FacilityHierarchyException extends InvalidArgumentException
   {
     return new self('Facility hierarchy depth cap of ' . $cap . ' levels exceeded.');
   }
+
+  /**
+   * Method incompatibleParentType.
+   *
+   * @since 1.0.0
+   */
+  public static function incompatibleParentType(string $type, ?string $parentType): self
+  {
+    return new self('Facility type "' . $type . '" cannot have parent type "' . ($parentType ?? 'none') . '".');
+  }
+
+  /**
+   * Method parentUnavailable.
+   *
+   * @since 1.0.0
+   */
+  public static function parentUnavailable(): self
+  {
+    return new self('The parent facility is unavailable in this organization.');
+  }
+
+  /**
+   * Method parentInactive.
+   *
+   * @since 1.0.0
+   */
+  public static function parentInactive(): self
+  {
+    return new self('The parent facility must be active.');
+  }
+
+  /**
+   * Method parentPublicationIncompatible.
+   *
+   * @since 1.0.0
+   */
+  public static function parentPublicationIncompatible(): self
+  {
+    return new self('Published facilities require published parents; draft parents must belong to the same intervention.');
+  }
+
+  /**
+   * Method unsupportedType.
+   *
+   * @since 1.0.0
+   */
+  public static function unsupportedType(string $type): self
+  {
+    return new self('Unsupported facility type "' . $type . '".');
+  }
   // #endregion
 }

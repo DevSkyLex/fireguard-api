@@ -69,6 +69,7 @@ final class SpatialMutationContractTest extends KernelTestCase
     $org->createdAt = $org->updatedAt = new DateTimeImmutable();
     $this->em->persist($org);
     $root = $this->facility(self::ROOT, $org);
+    $root->type = 'site';
     $zone = $this->facility(self::ZONE, $org);
     $zone->type = 'zone';
     $zone->parentFacility = $root;
@@ -204,10 +205,16 @@ final class SpatialMutationContractTest extends KernelTestCase
   #[Test]
   public function publicationValidatesGeometryAgainstTheProposedParent(): void
   {
+    $organization = $this->em->find(OrganizationRecord::class, self::ORG);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $outside = $this->facility('d6000000-0000-4000-8000-000000000008', $organization);
+    $outside->type = 'site';
+    $this->em->flush();
     $facility = self::getContainer()->get(FacilityInterventionResourceAdapter::class);
     self::assertInstanceOf(FacilityInterventionResourceAdapter::class, $facility);
     $this->expectException(InterventionConflictException::class);
-    $facility->apply(self::ORG, '/api/facilities/' . self::ZONE, ['parent' => null, 'planGeometry' => ['attachmentId' => self::PLAN, 'points' => [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]]]]);
+    $this->expectExceptionMessage('The proposed floor plan does not belong to the facility ancestry.');
+    $this->em->wrapInTransaction(fn () => $facility->apply(self::ORG, '/api/facilities/' . self::ZONE, ['parent' => '/api/facilities/' . $outside->id, 'planGeometry' => ['attachmentId' => self::PLAN, 'points' => [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]]]]));
   }
 
   private function facility(string $id, OrganizationRecord $org): FacilityRecord

@@ -24,6 +24,7 @@ final readonly class EquipmentListCriteria
    * @param ?string $model optional model filter
    * @param ?string $subType optional equipment subtype filter
    * @param ?string $search optional text search applied to equipment fields
+   * @param ?list<string> $facilityIds optional resolved subtree filter; an empty list matches nothing
    *
    * @return void
    */
@@ -35,6 +36,7 @@ final readonly class EquipmentListCriteria
     public ?string $model = null,
     public ?string $subType = null,
     public ?string $search = null,
+    public ?array $facilityIds = null,
   ) {
   }
   // #endregion

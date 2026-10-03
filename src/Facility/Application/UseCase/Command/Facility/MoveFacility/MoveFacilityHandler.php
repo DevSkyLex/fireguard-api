@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Command\Facility\MoveFacility;
 
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
+use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Event\Facility\FacilityMovedEvent;
 use Facility\Domain\Exception\{
   FacilityArchivedException,
@@ -13,9 +15,10 @@ use Facility\Domain\Exception\{
   FacilityNotFoundException,
   FacilityOrganizationNotFoundException
 };
+use Facility\Domain\ValueObject\{CanonicalFacilityParent, CanonicalFacilityPatch, FacilityStatus};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
@@ -52,6 +55,9 @@ final readonly class MoveFacilityHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
+    private ?FacilityHierarchyPort $hierarchy = null,
+    private ?TransactionManagerPort $transactionManager = null,
+    private ?CanonicalFacilityRepositoryPort $canonicalFacilities = null,
   ) {
   }
   // #endregion
@@ -73,6 +79,10 @@ final readonly class MoveFacilityHandler implements CommandHandler
     $facilityId = FacilityId::fromString($command->facilityId);
     $organizationId = FacilityOrganizationId::fromString($command->organizationId);
     $parentId = $this->resolveParentId($command->parentFacilityId);
+
+    if (null !== $this->hierarchy && null !== $this->transactionManager && null !== $this->canonicalFacilities) {
+      return $this->moveCanonical($command, $facilityId, $parentId, $this->hierarchy, $this->transactionManager, $this->canonicalFacilities);
+    }
 
     // Published-only lookup: draft intervention scratchpads fall through to
     // the not-found path and can neither be moved nor audited.
@@ -132,6 +142,72 @@ final readonly class MoveFacilityHandler implements CommandHandler
       address: $facility->address(),
       metadata: $facility->metadata(),
       createdAt: $facility->createdAt(),
+      updatedAt: $facility->updatedAt(),
+    );
+  }
+
+  /**
+   * Method moveCanonical.
+   *
+   * Performs the revision check and graph revalidation while holding the
+   * organization relationship lock on the main connection.
+   *
+   * @since 1.0.0
+   */
+  private function moveCanonical(
+    MoveFacilityCommand $command,
+    FacilityId $id,
+    ?FacilityId $parentId,
+    FacilityHierarchyPort $hierarchy,
+    TransactionManagerPort $transactionManager,
+    CanonicalFacilityRepositoryPort $canonicalFacilities,
+  ): MoveFacilityResult {
+    $previousParent = null;
+    $facility = $transactionManager->transactional(function () use ($command, $id, $parentId, $hierarchy, $canonicalFacilities, &$previousParent) {
+      $hierarchy->lock($command->organizationId);
+      $facility = $canonicalFacilities->findById($id);
+      if (null === $facility || !$facility->isPublished() || (string) $facility->organizationId() !== $command->organizationId) {
+        throw FacilityNotFoundException::withId($command->facilityId);
+      }
+      $facility->assertRevisionMatches($command->expectedRevision ?? 0);
+      $hierarchy->assertGraph($command->organizationId, [new FacilityHierarchyNode(
+        $command->facilityId,
+        $facility->type()->value,
+        $parentId?->__toString(),
+        $facility->status()->value,
+      )]);
+      $previousParent = $facility->parentFacilityId();
+      if ($previousParent !== $parentId?->__toString()) {
+        $facility->applyPatch(
+          new CanonicalFacilityPatch(hasParent: true, parentFacilityId: $parentId?->__toString()),
+          null === $parentId ? null : new CanonicalFacilityParent((string) $parentId, FacilityStatus::ACTIVE),
+        );
+        $canonicalFacilities->save($facility);
+      }
+
+      return $facility;
+    });
+    if ($previousParent !== $facility->parentFacilityId()) {
+      $this->eventDispatcher->dispatch(new FacilityMovedEvent(
+        $command->organizationId,
+        $command->facilityId,
+        $previousParent,
+        $facility->parentFacilityId(),
+      ));
+    }
+    $detail = $this->facilityRepository->findPublishedById($id) ?? throw FacilityNotFoundException::withId($command->facilityId);
+
+    return new MoveFacilityResult(
+      facilityId: $command->facilityId,
+      organizationId: $command->organizationId,
+      parentFacilityId: $facility->parentFacilityId(),
+      type: $facility->type()->value,
+      name: $facility->name(),
+      code: $facility->code(),
+      status: $facility->status()->value,
+      address: $facility->address(),
+      metadata: $facility->metadata(),
+      createdAt: $detail->createdAt(),
       updatedAt: $facility->updatedAt(),
     );
   }

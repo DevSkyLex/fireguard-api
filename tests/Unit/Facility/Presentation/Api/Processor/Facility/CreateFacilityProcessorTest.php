@@ -29,7 +29,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
@@ -338,9 +338,9 @@ final class CreateFacilityProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessMapsDirectHierarchyExceptionToHttp400(): void
+  public function testProcessMapsDirectHierarchyExceptionToHttp422(): void
   {
-    $this->expectException(BadRequestHttpException::class);
+    $this->expectException(UnprocessableEntityHttpException::class);
 
     $this->dispatch($this->processor(exception: FacilityHierarchyException::cannotUseSelfAsParent()));
   }
@@ -376,7 +376,7 @@ final class CreateFacilityProcessorTest extends TestCase
   #[Test]
   public function testProcessUnwrapsDirectlyWrappedHierarchyException(): void
   {
-    $this->expectException(BadRequestHttpException::class);
+    $this->expectException(UnprocessableEntityHttpException::class);
     $this->expectExceptionMessage('Parent facility must belong to the same organization.');
 
     $this->dispatch($this->processor(exception: MessengerRuntimeException::wrap(
@@ -387,7 +387,7 @@ final class CreateFacilityProcessorTest extends TestCase
   #[Test]
   public function testProcessUnwrapsHandlerWrappedHierarchyException(): void
   {
-    $this->expectException(BadRequestHttpException::class);
+    $this->expectException(UnprocessableEntityHttpException::class);
 
     $this->dispatch($this->processor(exception: $this->handlerFailure(FacilityHierarchyException::hierarchyCycleDetected())));
   }
@@ -422,6 +422,24 @@ final class CreateFacilityProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testSetupReplayPreservesTheCurrentRevisionWithoutAnotherAssignment(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willReturn($this->makeResult(replayed: true, revision: 7));
+    $gateway = $this->createMock(InterventionResourceGatewayPort::class);
+    $gateway->expects(self::never())->method('assign');
+    $processor = new CreateFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $this->permissiveAuthorization(),
+      security: $this->authenticatedSecurity(),
+      interventionResourceManager: new InterventionResourceManager($gateway),
+    );
+    $output = $processor->process($this->makeInput(), new Post(), ['organizationId' => self::ORG_ID]);
+    self::assertSame(7, $output->revision);
+    self::assertSame('published', $output->recordStatus);
+  }
+
+  #[Test]
   public function testProcessAdoptsTheUriIdentifierAsTheClientIdAndAssertsCreateOnly(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
@@ -438,7 +456,7 @@ final class CreateFacilityProcessorTest extends TestCase
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
     $gateway->method('clientIdExists')->willReturn(false);
-    $gateway->method('resourceExists')->willReturn(true);
+    $gateway->method('resourceExists')->willReturnOnConsecutiveCalls(false, true);
     $gateway->method('assign')->willReturn(new InterventionResourceAssignment(null, 'published', 1));
 
     $processor = new CreateFacilityProcessor(
@@ -673,7 +691,7 @@ final class CreateFacilityProcessorTest extends TestCase
     return $input;
   }
 
-  private function makeResult(): CreateFacilityResult
+  private function makeResult(bool $replayed = false, int $revision = 1): CreateFacilityResult
   {
     $now = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
 
@@ -689,6 +707,8 @@ final class CreateFacilityProcessorTest extends TestCase
       metadata: [],
       createdAt: $now,
       updatedAt: $now,
+      replayed: $replayed,
+      revision: $revision,
     );
   }
 

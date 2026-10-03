@@ -42,6 +42,9 @@ final readonly class CreateEquipmentResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
     public ?string $facilityName = null,
+    public ?string $interventionId = null,
+    public string $recordStatus = 'published',
+    public int $revision = 1,
   ) {
   }
   // #endregion

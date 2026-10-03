@@ -7,12 +7,15 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\{KernelBrowser, Test\WebTestCase};
 
 use function json_decode;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Test FacilityBuildingModelApiTest.
@@ -62,6 +65,98 @@ final class FacilityBuildingModelApiTest extends WebTestCase
   private const string OUTSIDER_FACILITY_ID = '880e8400-e29b-41d4-a716-446655470030';
 
   private const string ATTACHMENT_ID = '880e8400-e29b-41d4-a716-446655470040';
+
+  #[Test]
+  public function testLegacyFloorsRemainVisibleWithSafeHierarchyWarnings(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacilities();
+    $em = $this->mainEntityManager();
+    $building = $em->find(FacilityRecord::class, self::BUILDING_ID);
+    $site = $em->find(FacilityRecord::class, self::SITE_ID);
+    $floor = $em->find(FacilityRecord::class, self::FLOOR_WITH_CONTENT_ID);
+    self::assertInstanceOf(FacilityRecord::class, $building);
+    self::assertInstanceOf(FacilityRecord::class, $site);
+    self::assertInstanceOf(FacilityRecord::class, $floor);
+    $building->parentFacility = $site;
+    $zone = new FacilityRecord();
+    $zone->id = '880e8400-e29b-41d4-a716-446655470085';
+    $zone->organization = $building->organization;
+    $zone->parentFacility = $building;
+    $zone->name = 'Legacy intermediary';
+    $zone->type = 'zone';
+    $zone->createdAt = $zone->updatedAt = new DateTimeImmutable();
+    $em->persist($zone);
+    $floor->parentFacility = $zone;
+    $em->flush();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'building-model-admin@example.com');
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::BUILDING_ID . '/building-model');
+    self::assertResponseIsSuccessful();
+    /** @var array{floors: list<array{facilityId: string, hierarchyIssues: list<string>}>} $result */
+    $result = json_decode((string) $client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    $found = false;
+    foreach ($result['floors'] as $entry) {
+      if (self::FLOOR_WITH_CONTENT_ID === $entry['facilityId']) {
+        self::assertSame(['invalid_parent_type'], $entry['hierarchyIssues']);
+        $found = true;
+      }
+    }
+    self::assertTrue($found, 'The legacy floor must remain discoverable in its nearest building.');
+    self::assertStringNotContainsString($zone->id, (string) $client->getResponse()->getContent());
+  }
+
+  #[Test]
+  public function testBuildingModelIncludesNestedEquipmentAndPreservesOldPlanPins(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacilities();
+    $this->seedBuildingEquipment();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'building-model-admin@example.com');
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::BUILDING_ID . '/building-model');
+
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $decoded = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($decoded);
+    $floors = $decoded['floors'];
+    self::assertIsArray($floors);
+    /** @var array{equipment: list<array{facilityId: string, position: ?array{attachmentId: string, x: float, y: float}, placementIssue: ?string}>, diagnostics: array{unpositionedEquipmentCount: int}} $floor */
+    $floor = $floors[0];
+    self::assertCount(3, $floor['equipment']);
+    self::assertSame('880e8400-e29b-41d4-a716-446655470080', $floor['equipment'][0]['facilityId']);
+    self::assertSame(['attachmentId' => self::ATTACHMENT_ID, 'x' => 0.42, 'y' => 0.17], $floor['equipment'][0]['position']);
+    self::assertSame('other_plan', $floor['equipment'][1]['placementIssue']);
+    self::assertNull($floor['equipment'][1]['position']);
+    self::assertSame('unplaced', $floor['equipment'][2]['placementIssue']);
+    self::assertSame(2, $floor['diagnostics']['unpositionedEquipmentCount']);
+  }
+
+  #[Test]
+  public function testFacilitiesOnlyMemberReceivesNoEquipmentData(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacilities();
+    $this->seedBuildingEquipment();
+    $entityManager = $this->mainEntityManager();
+    $role = $entityManager->find(OrganizationRoleRecord::class, '880e8400-e29b-41d4-a716-446655470050');
+    self::assertInstanceOf(OrganizationRoleRecord::class, $role);
+    $role->permissions = ['organization.facilities.read'];
+    $entityManager->flush();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'building-model-admin@example.com');
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::BUILDING_ID . '/building-model');
+
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $decoded = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($decoded);
+    $floors = $decoded['floors'];
+    self::assertIsArray($floors);
+    /** @var array{equipment: list<array{facilityId: string, position: ?array{attachmentId: string, x: float, y: float}, placementIssue: ?string}>, diagnostics: array{unpositionedEquipmentCount: int}} $floor */
+    $floor = $floors[0];
+    self::assertSame([], $floor['equipment']);
+    self::assertSame(0, $floor['diagnostics']['unpositionedEquipmentCount']);
+  }
 
   #[Test]
   public function testGetBuildingModelRequiresAuthentication(): void
@@ -328,6 +423,48 @@ final class FacilityBuildingModelApiTest extends WebTestCase
     // --- The archived floor: still surfaced (archived is not draft), business status must read 'archived'.
     $archivedFloor = $byFacilityId[self::ARCHIVED_FLOOR_ID];
     self::assertSame('archived', $archivedFloor['status'], 'An archived (business status) floor must remain visible and report its true status.');
+  }
+
+  /**
+   * Method seedBuildingEquipment
+   *
+   * Places equipment in a nested room while preserving an old-plan pin.
+   *
+   * @access private
+   *
+   * @return void
+   */
+  private function seedBuildingEquipment(): void
+  {
+    $entityManager = $this->mainEntityManager();
+    $area = new FacilityRecord();
+    $area->id = '880e8400-e29b-41d4-a716-446655470080';
+    $area->organization = $entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $area->parentFacility = $entityManager->getReference(FacilityRecord::class, self::ROOM_ID);
+    $area->type = 'area';
+    $area->name = 'Nested equipment area';
+    $area->status = 'active';
+    $area->metadata = [];
+    $area->createdAt = new DateTimeImmutable('2026-09-01');
+    $area->updatedAt = $area->createdAt;
+    $entityManager->persist($area);
+    foreach ([
+      ['attachmentId' => self::ATTACHMENT_ID, 'x' => 0.42, 'y' => 0.17],
+      ['attachmentId' => '880e8400-e29b-41d4-a716-446655470049', 'x' => 0.5, 'y' => 0.5],
+      null,
+    ] as $index => $position) {
+      $equipment = new EquipmentRecord();
+      $equipment->id = '880e8400-e29b-41d4-a716-44665547009' . $index;
+      $equipment->organization = $area->organization;
+      $equipment->facilityId = $area->id;
+      $equipment->type = 'fire_extinguisher';
+      $equipment->status = 'operational';
+      $equipment->planPosition = $position;
+      $equipment->createdAt = $area->createdAt->modify('+' . $index . ' seconds');
+      $equipment->updatedAt = $equipment->createdAt;
+      $entityManager->persist($equipment);
+    }
+    $entityManager->flush();
   }
 
   /**

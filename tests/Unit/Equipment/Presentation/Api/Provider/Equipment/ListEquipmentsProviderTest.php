@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
+use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Provider\Equipment\ListEquipmentsProvider;
 use InvalidArgumentException;
@@ -36,6 +37,37 @@ use function iterator_to_array;
 final class ListEquipmentsProviderTest extends TestCase
 {
   private const string ORG_ID = '550e8400-e29b-41d4-a716-446655441600';
+
+  #[Test]
+  public function testDescendantOptionAndServerPageArePassedThrough(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441601'));
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/equipment?includeDescendants=true'));
+    $bus = $this->createMock(QueryBusPort::class);
+    $bus->expects(self::once())->method('ask')->with(self::callback(
+      static fn (ListEquipmentsQuery $query): bool => $query->includeDescendants && 200 === $query->pagination->offset && 100 === $query->pagination->limit && 'Hall' === $query->search,
+    ))->willReturn(new PaginatedResult([], 205, 100, 200));
+    $provider = new ListEquipmentsProvider($bus, $authorization, $security, $requestStack, new EquipmentOutputFactory());
+    $output = $provider->provide(
+      new GetCollection(paginationMaximumItemsPerPage: 100),
+      ['organizationId' => self::ORG_ID, 'facilityId' => '550e8400-e29b-41d4-a716-446655441602'],
+      ['filters' => ['page' => 3, 'itemsPerPage' => 100, 'search' => 'Hall']],
+    );
+    self::assertSame(205.0, $output->getTotalItems());
+    self::assertSame(3.0, $output->getCurrentPage());
+  }
+
+  #[Test]
+  public function testHiddenFacilityScopeMapsToNotFound(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+    $this->providerThrowing(EquipmentNotFoundException::forFacilityScope('550e8400-e29b-41d4-a716-446655441602'))
+      ->provide(new GetCollection(), ['organizationId' => self::ORG_ID]);
+  }
 
   #[Test]
   public function testProvideReturnsEmptyListWhenNoEquipments(): void

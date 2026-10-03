@@ -112,5 +112,14 @@ interface FacilityAttachmentRepositoryPort
    * @return ?FacilityAttachment the primary floor plan attachment, when set
    */
   public function findPrimaryFloorPlan(FacilityId $facilityId): ?FacilityAttachment;
+
+  /**
+   * Method saveCalibration.
+   *
+   * Persist calibration only if its attachment revision still matches.
+   *
+   * @since 1.0.0
+   */
+  public function saveCalibration(FacilityAttachment $attachment, int $expectedRevision): void;
   // #endregion
 }

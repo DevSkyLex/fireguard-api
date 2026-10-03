@@ -9,12 +9,14 @@ use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, InspectionResponseRecord};
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort};
+use Intervention\Application\Port\Outbound\InterventionPublicationGuardPort;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
 
 use function array_diff;
 use function array_key_exists;
 use function array_keys;
+use function array_map;
 use function implode;
 use function in_array;
 use function is_string;
@@ -29,7 +31,7 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class InspectionInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort
+final readonly class InspectionInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort, InterventionPublicationGuardPort
 {
   /**
    * Constant INTERVENTION_PREDICATE
@@ -74,8 +76,12 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
    *
    * @param EntityManagerInterface $entityManager the entity manager value
    */
-  public function __construct(private EntityManagerInterface $entityManager)
-  {
+  public function __construct(
+    private EntityManagerInterface $entityManager,
+    private ?\Facility\Application\Port\Inbound\FacilityLifecycleReferencePort $facilities = null,
+    private ?\Facility\Application\Port\Inbound\FacilityDraftReferencesPort $facilityDrafts = null,
+    private ?\Intervention\Application\Port\Inbound\InterventionDraftResourcesPort $draftResources = null,
+  ) {
   }
 
   /**
@@ -189,6 +195,9 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
     $record->clientId = $clientId;
     $record->interventionId = $interventionId;
     $record->recordStatus = null === $interventionId ? 'published' : 'draft';
+    if (null !== $record->facilityId) {
+      $this->facilities?->assertReference($record->organizationId(), $record->facilityId, $interventionId);
+    }
     $record->revision = 1;
     $this->entityManager->flush();
 
@@ -309,6 +318,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
    */
   public function publishDrafts(string $interventionId): void
   {
+    $this->assertPublicationReferences($interventionId, null);
     $this->entityManager->createQueryBuilder()
       ->update(InspectionRecord::class, 'record')
       ->set('record.recordStatus', ':published')
@@ -358,6 +368,111 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
       ->setParameter('draft', 'draft')
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function beginPublication(string $organizationId, string $interventionId, array $changes): void
+  {
+    $this->assertPublicationReferences($interventionId, $interventionId);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function finishPublication(string $organizationId, string $interventionId): void
+  {
+    $this->assertPublicationReferences($interventionId, null);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function endPublication(): void
+  {
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function assertCanDiscard(string $interventionId, bool $interventionRetained = true): void
+  {
+    $ids = $this->facilityDrafts?->draftIds($interventionId) ?? [];
+    $iris = $this->draftResources?->draftResourceIris($interventionId) ?? [];
+    $equipmentIds = [];
+    $inspectionIds = [];
+    foreach ($iris as $iri) {
+      if (1 === preg_match('#^/api/equipment/([^/]+)$#', $iri, $match)) {
+        $equipmentIds[] = $match[1];
+      } elseif (1 === preg_match('#^/api/inspections/([^/]+)$#', $iri, $match)) {
+        $inspectionIds[] = $match[1];
+      }
+    }
+    if ([] === $ids && [] === $equipmentIds && [] === $inspectionIds) {
+      return;
+    }
+    /** @var list<InspectionRecord> $records */
+    $records = $this->entityManager->createQueryBuilder()->select('inspection')->from(InspectionRecord::class, 'inspection')
+      ->where('inspection.facilityId IN (:ids) OR inspection.equipmentId IN (:equipmentIds)')
+      ->setParameter('ids', $ids)->setParameter('equipmentIds', $equipmentIds)->getQuery()->getResult();
+    $references = [];
+    foreach ($records as $record) {
+      if ('draft' !== $record->recordStatus || $record->interventionId !== $interventionId) {
+        $references[] = ['resourceType' => 'inspection', 'resourceId' => $record->id, 'relatedResourceId' => in_array($record->equipmentId, $equipmentIds, true) ? $record->equipmentId : ($record->facilityId ?? '')];
+      }
+    }
+    /** @var list<InspectionResponseRecord> $responses */
+    $responses = $this->entityManager->createQueryBuilder()->select('response')->from(InspectionResponseRecord::class, 'response')
+      ->where('response.inspectionId IN (:ids)')->setParameter('ids', $inspectionIds)->getQuery()->getResult();
+    foreach ($responses as $response) {
+      if ('draft' !== $response->recordStatus || $response->interventionId !== $interventionId) {
+        $references[] = ['resourceType' => 'inspection_response', 'resourceId' => $response->id, 'relatedResourceId' => $response->inspectionId];
+      }
+    }
+    if ([] !== $references) {
+      throw new \Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict($references);
+    }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function draftResourceIris(string $interventionId): array
+  {
+    /** @var list<InspectionRecord> $records */
+    $records = $this->entityManager->getRepository(InspectionRecord::class)->findBy(['interventionId' => $interventionId, 'recordStatus' => 'draft']);
+    /** @var list<InspectionResponseRecord> $responses */
+    $responses = $this->entityManager->getRepository(InspectionResponseRecord::class)->findBy(['interventionId' => $interventionId, 'recordStatus' => 'draft']);
+
+    return [
+      ...array_map(static fn (InspectionRecord $record): string => '/api/inspections/' . $record->id, $records),
+      ...array_map(static fn (InspectionResponseRecord $response): string => '/api/inspection-responses/' . $response->id, $responses),
+    ];
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param string $interventionId the owning intervention
+   * @param ?string $publishingId its pending facility publication scope
+   */
+  private function assertPublicationReferences(string $interventionId, ?string $publishingId): void
+  {
+    if (null === $this->facilities) {
+      return;
+    }
+    /** @var list<InspectionRecord> $records */
+    $records = $this->entityManager->getRepository(InspectionRecord::class)->findBy(['interventionId' => $interventionId]);
+    foreach ($records as $record) {
+      if (null !== $record->facilityId) {
+        if (in_array($record->status, ['closed', 'cancelled'], true)) {
+          $this->facilities->assertRetainedReference($record->organizationId(), $record->facilityId, null, $publishingId);
+        } else {
+          $this->facilities->assertReference($record->organizationId(), $record->facilityId, null, $publishingId);
+        }
+      }
+    }
   }
 
   /**

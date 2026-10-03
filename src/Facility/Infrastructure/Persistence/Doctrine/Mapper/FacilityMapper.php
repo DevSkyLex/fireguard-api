@@ -46,6 +46,8 @@ final class FacilityMapper
       throw new LogicException('Facility record must reference an organization.');
     }
 
+    $planGeometry = null === $record->planGeometry ? null : PlanGeometry::fromPersistedArray($record->planGeometry);
+
     return Facility::reconstitute(
       id: FacilityId::fromString($record->id),
       organizationId: FacilityOrganizationId::fromString($record->organization->id),
@@ -65,8 +67,11 @@ final class FacilityMapper
         ? new FacilityCoordinates($record->latitude, $record->longitude)
         : null,
         levelIndex: $record->levelIndex,
+        elevationMeters: $record->elevationMeters,
+        heightMeters: $record->heightMeters,
       ),
-      planGeometry: null !== $record->planGeometry ? PlanGeometry::fromArray($record->planGeometry) : null,
+      planGeometry: $planGeometry,
+      unusablePlanGeometry: null === $planGeometry ? $record->planGeometry : null,
     );
   }
 
@@ -93,8 +98,10 @@ final class FacilityMapper
     $record->latitude = $facility->coordinates()?->latitude();
     $record->longitude = $facility->coordinates()?->longitude();
     $record->metadata = $facility->metadata();
-    $record->planGeometry = $facility->planGeometry()?->toArray();
+    $record->planGeometry = $facility->planGeometryData();
     $record->levelIndex = $facility->levelIndex();
+    $record->elevationMeters = $facility->elevationMeters();
+    $record->heightMeters = $facility->heightMeters();
     $record->createdAt = $facility->createdAt();
     $record->updatedAt = $facility->updatedAt();
 

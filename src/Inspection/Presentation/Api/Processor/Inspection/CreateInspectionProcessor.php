@@ -161,6 +161,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
         notes: $data->notes,
         signature: $data->signature,
         resourceId: $resourceId,
+        interventionId: null !== $data->intervention ? ResourceIriParser::id($data->intervention, 'interventions') : null,
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);

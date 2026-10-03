@@ -27,6 +27,9 @@ final readonly class FacilityListCriteria
    * @param ?string $search optional text search
    * @param bool $rootsOnly whether to list only root facilities
    * @param ?bool $hasCoordinates whether both coordinates must be present or absent, when specified
+   * @param ?list<string> $eligibleParentIds optional hierarchy-approved candidate identifiers; empty excludes every row
+   * @param ?string $parentInterventionId optional authorized draft parent scope
+   * @param bool $includePublishedParents whether published candidates are readable
    *
    * @return void
    */
@@ -38,6 +41,9 @@ final readonly class FacilityListCriteria
     public ?string $search = null,
     public bool $rootsOnly = false,
     public ?bool $hasCoordinates = null,
+    public ?array $eligibleParentIds = null,
+    public ?string $parentInterventionId = null,
+    public bool $includePublishedParents = true,
   ) {
   }
   // #endregion

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\CreateFacility;
 
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Shared\Application\Message\CommandMessage;
 
@@ -36,6 +37,9 @@ final readonly class CreateFacilityCommand implements CommandMessage
    * @param bool $dryRun when true, validates and projects the quota without persisting
    * @param int $quotaProjectionOffset facilities already provisionally counted earlier in the same dry run
    * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
+   * @param ?float $elevationMeters optional physical floor elevation in meters
+   * @param ?float $heightMeters optional physical floor height in meters
+   * @param list<FacilityHierarchyNode> $projectedHierarchy preceding staged rows in an import simulation
    */
   public function __construct(
     public string $organizationId,
@@ -51,7 +55,11 @@ final readonly class CreateFacilityCommand implements CommandMessage
     public bool $dryRun = false,
     public int $quotaProjectionOffset = 0,
     public ?int $levelIndex = null,
+    public ?float $elevationMeters = null,
+    public ?float $heightMeters = null,
     public ?OrganizationSetupContext $setupContext = null,
+    public ?string $interventionId = null,
+    public array $projectedHierarchy = [],
   ) {
   }
   // #endregion

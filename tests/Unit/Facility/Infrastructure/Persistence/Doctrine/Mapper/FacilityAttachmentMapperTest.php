@@ -64,6 +64,8 @@ final class FacilityAttachmentMapperTest extends TestCase
     $record->isPrimaryPlan = true;
     $record->imageWidth = 1920;
     $record->imageHeight = 1080;
+    $record->calibration = ['widthMeters' => 20.0, 'rotationDegrees' => 30.0, 'offsetXMeters' => -2.0, 'offsetZMeters' => 4.0];
+    $record->calibrationBuildingId = '550e8400-e29b-41d4-a716-446655476003';
 
     $attachment = FacilityAttachmentMapper::toDomain($record);
 
@@ -71,6 +73,10 @@ final class FacilityAttachmentMapperTest extends TestCase
     self::assertTrue($attachment->isPrimaryPlan());
     self::assertSame(1920, $attachment->imageWidth());
     self::assertSame(1080, $attachment->imageHeight());
+    self::assertSame($record->calibrationBuildingId, $attachment->calibrationBuildingId());
+    $restoredRecord = FacilityAttachmentMapper::toRecord($attachment);
+    self::assertSame($record->calibrationBuildingId, $restoredRecord->calibrationBuildingId);
+    self::assertSame($record->calibration, $restoredRecord->calibration);
   }
 
   #[Test]

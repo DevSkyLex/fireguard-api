@@ -34,6 +34,7 @@ final readonly class MoveFacilityCommand implements CommandMessage
     public string $organizationId,
     public string $facilityId,
     public ?string $parentFacilityId = null,
+    public ?int $expectedRevision = null,
   ) {
   }
   // #endregion

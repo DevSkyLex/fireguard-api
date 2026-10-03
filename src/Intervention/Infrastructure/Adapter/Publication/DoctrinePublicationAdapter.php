@@ -9,7 +9,7 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Publication\{InterventionPublicationContext, PublicationView};
 use Intervention\Application\Port\Outbound\PublicationRepositoryPort;
-use Intervention\Application\Service\{InterventionChangeApplication, InterventionDraftPublisher};
+use Intervention\Application\Service\{InterventionChangeApplication, InterventionDraftPublisher, InterventionPublicationValidation};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException, PublicationNotFoundException};
 use Intervention\Domain\Service\{InterventionChangePolicy, PublicationTransitionPolicy};
 use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionStatus, PublicationStatus};
@@ -17,6 +17,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeR
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_filter;
+use function array_map;
 use function array_values;
 
 /**
@@ -48,6 +49,7 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
     private InterventionDraftPublisher $draftPublisher,
     private PublicationTransitionPolicy $transitionPolicy,
     private InterventionChangePolicy $changePolicy,
+    private ?InterventionPublicationValidation $validation = null,
   ) {
   }
 
@@ -258,15 +260,32 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
         'intervention' => $intervention,
         'status' => InterventionChangeStatus::PROPOSED->value,
       ]);
-      foreach ($changes as $change) {
-        $this->changeApplication->apply($intervention->organization->id, $change->resource, $change->patch);
-        $this->changePolicy->assertTransitionAllowed(InterventionChangeStatus::from($change->status), InterventionChangeStatus::APPLIED);
-        $change->status = InterventionChangeStatus::APPLIED->value;
-        ++$change->revision;
-        $change->updatedAt = new DateTimeImmutable();
+      $applyResources = function () use ($intervention, $changes): void {
+        // Facility drafts publish first so a proposed published-resource relation
+        // can target a facility published by this same atomic operation.
+        $this->draftPublisher->publish($intervention->id);
+        foreach ($changes as $change) {
+          $this->changeApplication->apply($intervention->organization->id, $change->resource, $change->patch);
+          $this->changePolicy->assertTransitionAllowed(InterventionChangeStatus::from($change->status), InterventionChangeStatus::APPLIED);
+          $change->status = InterventionChangeStatus::APPLIED->value;
+          ++$change->revision;
+          $change->updatedAt = new DateTimeImmutable();
+        }
+        // All ordered business patches have been consumed. The final owner
+        // guards now read these changes inside the same main transaction;
+        // any retained dependency aborts the flush and every earlier mutation.
+        $this->entityManager->flush();
+      };
+      if (null !== $this->validation) {
+        $this->validation->publication(
+          $intervention->organization->id,
+          $intervention->id,
+          array_map(static fn (InterventionChangeRecord $change): array => ['resource' => $change->resource, 'patch' => $change->patch], $changes),
+          $applyResources,
+        );
+      } else {
+        $applyResources();
       }
-
-      $this->draftPublisher->publish($intervention->id);
       $intervention->status = InterventionStatus::PUBLISHED->value;
       ++$intervention->revision;
       $intervention->updatedAt = new DateTimeImmutable();

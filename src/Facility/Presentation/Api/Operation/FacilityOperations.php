@@ -170,5 +170,10 @@ final class FacilityOperations
    * @var string
    */
   public const string DELETE_FACILITY_METADATA_FIELD = 'facility_metadata_field_delete';
+
+  /**
+   * Metric calibration write on a retained floor plan image.
+   */
+  public const string SET_FACILITY_ATTACHMENT_CALIBRATION = 'facility_attachment_set_calibration';
   // #endregion
 }

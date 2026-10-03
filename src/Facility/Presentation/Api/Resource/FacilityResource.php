@@ -83,15 +83,48 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListFacilitiesProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
-      // 200 rather than the 100 every other collection caps at: the frontend's
-      // facility store loads every parent option in one page for the create
-      // form's picker, and a lower ceiling would silently drop options past
-      // the cut rather than fail.
+      // Parent candidates and global search remain paginated beyond this ceiling.
       paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'parentForType' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
+          description: 'Eligible active parents for creating this facility type. Published by default; interventionId also admits authorized drafts of that intervention. Mutually exclusive with parentForFacilityId.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'parentForType', in: 'query', schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']]),
+        ),
+        'parentForFacilityId' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'Eligible move destinations for this facility, excluding its subtree and invalid ancestry. Mutually exclusive with parentForType.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'parentForFacilityId', in: 'query', schema: ['type' => 'string', 'format' => 'uuid']),
+        ),
+        'interventionId' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'Parent preparation context, requiring parentForType or parentForFacilityId and intervention mutation access. Draft candidates belong only to this intervention; published candidates additionally require Facilities read.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'interventionId', in: 'query', schema: ['type' => 'string', 'format' => 'uuid']),
+        ),
+        'includePath' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Resolve ancestor breadcrumbs for this page in one organization-scoped read.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'includePath', in: 'query', schema: ['type' => 'boolean', 'default' => false]),
+        ),
         'includeArchived' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
           description: self::INCLUDE_ARCHIVED_DESCRIPTION,
@@ -485,6 +518,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'includePath' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Resolve ancestor breadcrumbs for this page in one organization-scoped read.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'includePath', in: 'query', schema: ['type' => 'boolean', 'default' => false]),
+        ),
         'includeArchived' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
           description: 'When true, archived children are included.',
@@ -524,9 +566,30 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityOutput::class,
       provider: ListFacilityDescendantsProvider::class,
       paginationEnabled: false,
+      paginationClientEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'includePath' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Resolve ancestor breadcrumbs for this page in one organization-scoped read.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'includePath', in: 'query', schema: ['type' => 'boolean', 'default' => false]),
+        ),
+        'pagination' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Opt in to server pagination; omitted requests retain the full subtree.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          openApi: new Parameter(name: 'pagination', in: 'query', required: false, schema: ['type' => 'boolean', 'default' => false]),
+        ),
         'includeArchived' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
           description: 'When true, archived descendants are included.',
@@ -549,7 +612,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'List facility descendants',
-        description: 'Lists all descendants for one facility.',
+        description: 'Lists descendants for one facility. Set pagination=true to read bounded pages with search and a total count.',
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility descendants retrieved'),
@@ -637,11 +700,20 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Move facility',
-        description: 'Moves a facility under a new parent.',
-        deprecated: true,
+        description: 'Moves a facility under a valid parent using its current revision.',
+        parameters: [new Parameter(
+          name: 'If-Match',
+          in: 'header',
+          required: true,
+          description: 'The current facility revision, for example "revision-1".',
+          schema: ['type' => 'string', 'pattern' => '^"revision-[0-9]+"$'],
+        )],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility moved'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid hierarchy'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Invalid hierarchy'),
+          HttpResponse::HTTP_PRECONDITION_FAILED => new Response(description: 'Stale revision'),
+          HttpResponse::HTTP_PRECONDITION_REQUIRED => new Response(description: 'If-Match is required'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],

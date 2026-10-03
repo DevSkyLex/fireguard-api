@@ -10,6 +10,8 @@ use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId};
 final readonly class FacilityDetails
 {
   /**
+   * @param ?float $elevationMeters optional physical floor elevation in meters
+   * @param ?float $heightMeters optional physical floor height in meters
    * @param array<string, mixed> $metadata
    */
   public function __construct(
@@ -19,6 +21,8 @@ final readonly class FacilityDetails
     public array $metadata = [],
     public ?FacilityCoordinates $coordinates = null,
     public ?int $levelIndex = null,
+    public ?float $elevationMeters = null,
+    public ?float $heightMeters = null,
   ) {
   }
 }

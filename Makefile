@@ -96,11 +96,12 @@ docs-fix:
 # the contract-of-record the frontend and /fg-contract-check read; it silently
 # went eight endpoints stale once, so freshness is part of the gate now.
 #
-# Clear the dedicated cache before exporting: a branch switch can leave compiled
-# API metadata from the previous checkout in APP_CACHE_DIR. Compare bytes in PHP
-# so the check also works on Windows without cmp and ignores file mode bits.
+# Clear the dedicated compiled cache, then the property-info and API metadata
+# pools: cache:clear alone retained old DTO property lists in a cold export.
+# Compare bytes in PHP so Windows needs no cmp and file mode bits are ignored.
 openapi-check:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) cache:clear --no-warmup
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) cache:pool:clear cache.property_info api_platform.cache.metadata.property api_platform.cache.metadata.resource api_platform.cache.metadata.resource_collection api_platform.cache.metadata.operation api_platform.cache.openapi
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) api:openapi:export --output=$(TMP_DIR)/openapi.fresh.json
 	$(PHP) bin/check-openapi.php openapi.json $(TMP_DIR)/openapi.fresh.json
 

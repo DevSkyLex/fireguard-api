@@ -78,6 +78,9 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
       name: new FacilityName('Floor Under Archived'),
       details: new FacilityDetails(
         parentFacilityId: $archivedChildId,
+        levelIndex: -1,
+        elevationMeters: -3.0,
+        heightMeters: 2.5,
       ),
     );
 
@@ -154,6 +157,9 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
     // new root rather than orphaned or dropped.
     self::assertSame((string) $rootCloneId, $grandchildClone->parentFacilityId()?->__toString());
     self::assertSame('Floor Under Archived', (string) $grandchildClone->name());
+    self::assertSame(-1, $grandchildClone->levelIndex());
+    self::assertSame(-3.0, $grandchildClone->elevationMeters());
+    self::assertSame(2.5, $grandchildClone->heightMeters());
   }
 
   #[Test]

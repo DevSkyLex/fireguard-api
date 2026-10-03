@@ -6,6 +6,7 @@ namespace Tests\Unit\Facility\Application\Service;
 
 use DateTimeImmutable;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionOutcome};
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityProvisioningService;
@@ -358,15 +359,18 @@ final class FacilityProvisioningServiceTest extends TestCase
       name: 'Building B',
       parentCode: 'HQ',
       dryRun: true,
-      knownPendingCodes: ['HQ'],
+      resourceId: '018f0b68-6758-7a12-8a1d-3f0d97f69a03',
+      pendingCodeIds: ['HQ' => self::PARENT_ID],
+      projectedHierarchy: [new FacilityHierarchyNode(self::PARENT_ID, 'site', null)],
     );
 
     $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($request);
 
     self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
     self::assertInstanceOf(CreateFacilityCommand::class, $captured);
-    // No real id exists yet for a pending intra-file parent: left unresolved.
-    self::assertNull($captured->parentFacilityId);
+    self::assertSame(self::PARENT_ID, $captured->parentFacilityId);
+    self::assertSame('018f0b68-6758-7a12-8a1d-3f0d97f69a03', $captured->resourceId);
+    self::assertSame($request->projectedHierarchy, $captured->projectedHierarchy);
   }
 
   #[Test]
@@ -384,10 +388,82 @@ final class FacilityProvisioningServiceTest extends TestCase
       name: 'Building B',
       parentCode: 'UNKNOWN',
       dryRun: true,
-      knownPendingCodes: ['HQ'],
+      resourceId: '018f0b68-6758-7a12-8a1d-3f0d97f69a03',
+      pendingCodeIds: ['HQ' => self::PARENT_ID],
+      projectedHierarchy: [new FacilityHierarchyNode(self::PARENT_ID, 'site', null)],
     );
 
     $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($request);
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+  }
+
+  #[Test]
+  public function itRejectsAPendingCodeWithoutTheReferencedHierarchyNode(): void
+  {
+    $repository = $this->createStub(FacilityRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([]);
+    $bus = $this->createMock(CommandBusPort::class);
+    $bus->expects(self::never())->method('dispatch');
+    $request = new ProvisionFacilityRequest(
+      self::ORGANIZATION_ID,
+      'building',
+      'Unverified child',
+      parentCode: 'HQ',
+      dryRun: true,
+      pendingCodeIds: ['HQ' => self::PARENT_ID],
+    );
+
+    $result = new FacilityProvisioningService($bus, $repository)->provision($request);
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+  }
+
+  #[Test]
+  public function itRestoresTheTypedSimulationWithoutDispatchingCreationOrQuotaChecks(): void
+  {
+    $repository = $this->createStub(FacilityRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([]);
+    $bus = $this->createMock(CommandBusPort::class);
+    $bus->expects(self::never())->method('dispatch');
+    $request = new ProvisionFacilityRequest(
+      self::ORGANIZATION_ID,
+      'building',
+      'Confirmed child',
+      parentCode: 'HQ',
+      dryRun: true,
+      resourceId: '018f0b68-6758-7a12-8a1d-3f0d97f69a03',
+      pendingCodeIds: ['HQ' => self::PARENT_ID],
+      projectedHierarchy: [new FacilityHierarchyNode(self::PARENT_ID, 'site', null)],
+    );
+
+    $result = new FacilityProvisioningService($bus, $repository)->restoreSimulation($request);
+
+    self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
+    self::assertSame($request->resourceId, $result->resourceId);
+    self::assertNotNull($result->projectedNode);
+    self::assertSame($request->resourceId, $result->projectedNode->id);
+    self::assertSame('building', $result->projectedNode->type);
+    self::assertSame(self::PARENT_ID, $result->projectedNode->parentFacilityId);
+  }
+
+  #[Test]
+  public function itDoesNotUseSimulationOnlyParentsForARealImport(): void
+  {
+    $repository = $this->createStub(FacilityRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([]);
+    $bus = $this->createMock(CommandBusPort::class);
+    $bus->expects(self::never())->method('dispatch');
+    $request = new ProvisionFacilityRequest(
+      self::ORGANIZATION_ID,
+      'building',
+      'Real child',
+      parentCode: 'HQ',
+      pendingCodeIds: ['HQ' => self::PARENT_ID],
+      projectedHierarchy: [new FacilityHierarchyNode(self::PARENT_ID, 'site', null)],
+    );
+
+    $result = new FacilityProvisioningService($bus, $repository)->provision($request);
 
     self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
   }

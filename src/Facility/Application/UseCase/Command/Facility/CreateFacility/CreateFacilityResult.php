@@ -37,6 +37,12 @@ final readonly class CreateFacilityResult implements ResultMessage
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
    * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
+   * @param ?float $elevationMeters optional physical floor elevation in meters
+   * @param ?float $heightMeters optional physical floor height in meters
+   * @param bool $replayed whether a completed setup receipt was reused
+   * @param ?string $interventionId the current intervention of a replayed facility
+   * @param string $recordStatus the current publication state of a replayed facility
+   * @param int $revision the current revision of a replayed facility
    */
   public function __construct(
     public string $facilityId,
@@ -53,6 +59,12 @@ final readonly class CreateFacilityResult implements ResultMessage
     public ?float $latitude = null,
     public ?float $longitude = null,
     public ?int $levelIndex = null,
+    public ?float $elevationMeters = null,
+    public ?float $heightMeters = null,
+    public bool $replayed = false,
+    public ?string $interventionId = null,
+    public string $recordStatus = 'published',
+    public int $revision = 1,
   ) {
   }
   // #endregion

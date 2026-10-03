@@ -77,6 +77,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'includeDescendants' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Include equipment assigned to published descendants of the facility filter.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          openApi: new Parameter(name: 'includeDescendants', in: 'query', required: false, schema: ['type' => 'boolean', 'default' => false]),
+        ),
         'facilityId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'uuid'],
           description: 'Filter by facility identifier.',
@@ -208,6 +216,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'includeDescendants' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Include equipment assigned to published descendants of this facility.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          openApi: new Parameter(name: 'includeDescendants', in: 'query', required: false, schema: ['type' => 'boolean', 'default' => false]),
+        ),
         'type' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
           description: self::TYPE_FILTER_DESCRIPTION,
@@ -302,11 +318,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Equipment'],
         summary: 'List facility equipment',
-        description: 'Lists equipment items directly assigned to one facility.',
+        description: 'Lists directly assigned equipment, or the published facility subtree when includeDescendants is true. Search and pagination apply before the returned page.',
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility equipment list retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization or facility identifier'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found in the organization'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),

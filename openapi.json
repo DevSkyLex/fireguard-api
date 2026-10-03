@@ -10863,6 +10863,19 @@
                         "explode": true
                     },
                     {
+                        "name": "includeDescendants",
+                        "in": "query",
+                        "description": "Include equipment assigned to published descendants of the facility filter.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
                         "name": "facilityId",
                         "in": "query",
                         "description": "Filter by facility identifier.",
@@ -12818,12 +12831,15 @@
                     "400": {
                         "description": "Invalid organization or facility identifier"
                     },
+                    "404": {
+                        "description": "Facility not found in the organization"
+                    },
                     "403": {
                         "description": "Insufficient permissions"
                     }
                 },
                 "summary": "List facility equipment",
-                "description": "Lists equipment items directly assigned to one facility.",
+                "description": "Lists directly assigned equipment, or the published facility subtree when includeDescendants is true. Search and pagination apply before the returned page.",
                 "parameters": [
                     {
                         "name": "organizationId",
@@ -12873,6 +12889,19 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "includeDescendants",
+                        "in": "query",
+                        "description": "Include equipment assigned to published descendants of this facility.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
                         },
                         "style": "form",
                         "explode": true
@@ -12951,6 +12980,76 @@
                                 "due_soon",
                                 "overdue"
                             ]
+                        },
+                        "style": "form",
+                        "explode": true
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/facilities/{facilityId}/equipment-summary": {
+            "get": {
+                "operationId": "facility_equipment_summary_get",
+                "tags": [
+                    "Equipment"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Facility equipment totals retrieved",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityEquipmentSummary.FacilityEquipmentSummaryOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid scope or identifiers"
+                    },
+                    "403": {
+                        "description": "Missing organization.equipment.read permission"
+                    },
+                    "404": {
+                        "description": "Facility not found in the organization"
+                    }
+                },
+                "summary": "Get exact facility equipment totals",
+                "description": "Counts published equipment in the same direct or subtree scope as the equipment collection, before pagination.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "FacilityEquipmentSummary identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "facilityId",
+                        "in": "path",
+                        "description": "FacilityEquipmentSummary identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "includeDescendants",
+                        "in": "query",
+                        "description": "FacilityEquipmentSummary includeDescendants",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
                         },
                         "style": "form",
                         "explode": true
@@ -13044,6 +13143,19 @@
                             "default": 50,
                             "minimum": 0,
                             "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "includePath",
+                        "in": "query",
+                        "description": "Resolve ancestor breadcrumbs for this page in one organization-scoped read.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
                         },
                         "style": "form",
                         "explode": true
@@ -13849,6 +13961,124 @@
                 ]
             }
         },
+        "/api/facility-attachments/{id}/calibration": {
+            "put": {
+                "operationId": "facility_attachment_set_calibration",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Calibration saved",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityPlanCalibration.FacilityAttachmentOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid calibration",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    },
+                    "404": {
+                        "description": "Attachment not found"
+                    },
+                    "409": {
+                        "description": "Attachment is not a floor plan"
+                    },
+                    "412": {
+                        "description": "Stale revision"
+                    },
+                    "428": {
+                        "description": "If-Match is required"
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Calibrate a floor plan in its building",
+                "description": "Sets a uniform metric scale, rotation and offset on the original floor plan image. Send calibration null to clear it. Requires organization.facilities.write and a matching attachment revision.",
+                "parameters": [
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "description": "",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false,
+                        "example": "\"revision-1\""
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityPlanCalibration identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated FacilityPlanCalibration resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FacilityPlanCalibration.SetFacilityAttachmentCalibrationInput-facility.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/facility-attachments/{id}/download": {
             "get": {
                 "operationId": "download_facility_attachment",
@@ -13975,6 +14205,436 @@
                 ]
             }
         },
+        "/api/facility-models/{id}": {
+            "get": {
+                "operationId": "get_facility_model",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Model metadata with revision ETag",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityModel.FacilityModelOutput.jsonld-facility.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Missing facilities read permission"
+                    },
+                    "404": {
+                        "description": "Model outside organization scope or missing"
+                    }
+                },
+                "summary": "Read model metadata, transformation and node associations",
+                "description": "Read model metadata, transformation and node associations",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "delete_facility_model",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Model deleted"
+                    },
+                    "403": {
+                        "description": "Missing facilities write permission"
+                    },
+                    "404": {
+                        "description": "Model outside organization scope or missing"
+                    },
+                    "412": {
+                        "description": "Stale revision"
+                    },
+                    "428": {
+                        "description": "If-Match required"
+                    }
+                },
+                "summary": "Delete a model and its immutable file",
+                "description": "Requires If-Match: \"revision-N\".",
+                "parameters": [
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "description": "",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^\"revision-[0-9]+\"$"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "update_facility_model",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Settings saved",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityModel.FacilityModelOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    },
+                    "404": {
+                        "description": "Model outside scope or missing"
+                    },
+                    "412": {
+                        "description": "Stale revision"
+                    },
+                    "428": {
+                        "description": "If-Match required"
+                    },
+                    "422": {
+                        "description": "Invalid transformation or association",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Update a model transformation and associations",
+                "description": "Requires If-Match: \"revision-N\" and a complete transform. Omitted or null bindings preserve stored associations; unavailable historical nodes remain until explicitly removed or reassigned. New associations must belong to the nearest building frame.",
+                "parameters": [
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "description": "",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^\"revision-[0-9]+\"$"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated FacilityModel resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "transform"
+                                ],
+                                "properties": {
+                                    "transform": {
+                                        "type": "object",
+                                        "required": [
+                                            "scale",
+                                            "rotationDegrees",
+                                            "translation"
+                                        ],
+                                        "properties": {
+                                            "scale": {
+                                                "type": "number",
+                                                "exclusiveMinimum": 0
+                                            },
+                                            "rotationDegrees": {
+                                                "type": "number"
+                                            },
+                                            "translation": {
+                                                "type": "object",
+                                                "required": [
+                                                    "x",
+                                                    "y",
+                                                    "z"
+                                                ],
+                                                "properties": {
+                                                    "x": {
+                                                        "type": "number"
+                                                    },
+                                                    "y": {
+                                                        "type": "number"
+                                                    },
+                                                    "z": {
+                                                        "type": "number"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "bindings": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "nodeIndex",
+                                                "facilityId"
+                                            ],
+                                            "properties": {
+                                                "nodeIndex": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                },
+                                                "facilityId": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "removeBindingNodeIndices": {
+                                        "type": "array",
+                                        "uniqueItems": true,
+                                        "items": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                        },
+                                        "description": "Explicitly remove stored node associations, including unavailable historical targets."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/facility-models/{id}/activate": {
+            "post": {
+                "operationId": "activate_facility_model",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Model activated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityModel.FacilityModelOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Missing facilities write permission"
+                    },
+                    "404": {
+                        "description": "Model outside organization scope or missing"
+                    },
+                    "412": {
+                        "description": "Stale revision"
+                    },
+                    "428": {
+                        "description": "If-Match required"
+                    },
+                    "422": {
+                        "description": "Association outside building subtree",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Activate a model and atomically deactivate the previous model",
+                "description": "Requires If-Match: \"revision-N\".",
+                "parameters": [
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "description": "",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^\"revision-[0-9]+\"$"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/facility-models/{id}/download": {
+            "get": {
+                "operationId": "download_facility_model",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Immutable GLB file content",
+                        "content": {
+                            "model/gltf-binary": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Missing facilities read permission"
+                    },
+                    "404": {
+                        "description": "Model outside scope or missing"
+                    },
+                    "204": {
+                        "description": "FacilityModel resource"
+                    }
+                },
+                "summary": "Download the authenticated GLB file",
+                "description": "Download the authenticated GLB file",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/facilities": {
             "get": {
                 "operationId": "facility_list",
@@ -14058,6 +14718,64 @@
                             "default": 30,
                             "minimum": 0,
                             "maximum": 200
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "parentForType",
+                        "in": "query",
+                        "description": "Eligible active parents for creating this facility type. Published by default; interventionId also admits authorized drafts of that intervention. Mutually exclusive with parentForFacilityId.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "site",
+                                "building",
+                                "floor",
+                                "zone",
+                                "area"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "parentForFacilityId",
+                        "in": "query",
+                        "description": "Eligible move destinations for this facility, excluding its subtree and invalid ancestry. Mutually exclusive with parentForType.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "interventionId",
+                        "in": "query",
+                        "description": "Parent preparation context, requiring parentForType or parentForFacilityId and intervention mutation access. Draft candidates belong only to this intervention; published candidates additionally require Facilities read.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "includePath",
+                        "in": "query",
+                        "description": "Resolve ancestor breadcrumbs for this page in one organization-scoped read.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
                         },
                         "style": "form",
                         "explode": true
@@ -14545,6 +15263,197 @@
                 ]
             }
         },
+        "/api/organizations/{organizationId}/facilities/{buildingId}/models": {
+            "get": {
+                "operationId": "list_facility_models",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Building model collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "FacilityModel.FacilityModelOutput.jsonld-facility.read collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchemaNoPagination"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/FacilityModel.FacilityModelOutput.jsonld-facility.read"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Missing facilities read permission"
+                    },
+                    "404": {
+                        "description": "Building outside organization scope or missing"
+                    }
+                },
+                "summary": "List a building active and draft models",
+                "description": "List a building active and draft models",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "buildingId",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "upload_facility_model",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Draft model uploaded",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityModel.FacilityModelOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Missing facilities write permission"
+                    },
+                    "404": {
+                        "description": "Building outside organization scope or missing"
+                    },
+                    "409": {
+                        "description": "Two models already exist"
+                    },
+                    "422": {
+                        "description": "Invalid GLB, unsupported required extension or file over 10 MiB",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Upload a self-contained GLB 2.0 model",
+                "description": "Upload a self-contained GLB 2.0 model",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "buildingId",
+                        "in": "path",
+                        "description": "FacilityModel identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "file"
+                                ],
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/organizations/{organizationId}/facilities/{facilityId}": {
             "get": {
                 "operationId": "facility_get",
@@ -14969,6 +15878,19 @@
                         "explode": true
                     },
                     {
+                        "name": "includePath",
+                        "in": "query",
+                        "description": "Resolve ancestor breadcrumbs for this page in one organization-scoped read.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
                         "name": "includeArchived",
                         "in": "query",
                         "description": "When true, archived children are included.",
@@ -15044,7 +15966,7 @@
                     }
                 },
                 "summary": "List facility descendants",
-                "description": "Lists all descendants for one facility.",
+                "description": "Lists descendants for one facility. Set pagination=true to read bounded pages with search and a total count.",
                 "parameters": [
                     {
                         "name": "organizationId",
@@ -15069,6 +15991,31 @@
                         },
                         "style": "simple",
                         "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "includePath",
+                        "in": "query",
+                        "description": "Resolve ancestor breadcrumbs for this page in one organization-scoped read.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "style": "form",
+                        "explode": true
                     },
                     {
                         "name": "includeArchived",
@@ -15228,7 +16175,7 @@
                         "links": {}
                     },
                     "400": {
-                        "description": "Invalid hierarchy",
+                        "description": "Invalid request",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -15248,14 +16195,8 @@
                         },
                         "links": {}
                     },
-                    "403": {
-                        "description": "Insufficient permissions"
-                    },
-                    "404": {
-                        "description": "Facility not found"
-                    },
                     "422": {
-                        "description": "An error occurred",
+                        "description": "Invalid hierarchy",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -15274,11 +16215,36 @@
                             }
                         },
                         "links": {}
+                    },
+                    "412": {
+                        "description": "Stale revision"
+                    },
+                    "428": {
+                        "description": "If-Match is required"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Facility not found"
                     }
                 },
                 "summary": "Move facility",
-                "description": "Moves a facility under a new parent.",
+                "description": "Moves a facility under a valid parent using its current revision.",
                 "parameters": [
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "description": "The current facility revision, for example \"revision-1\".",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^\"revision-[0-9]+\"$"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
                     {
                         "name": "organizationId",
                         "in": "path",
@@ -15314,8 +16280,7 @@
                         }
                     },
                     "required": true
-                },
-                "deprecated": true
+                }
             }
         },
         "/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry": {
@@ -50450,6 +51415,27 @@
                             "integer",
                             "null"
                         ]
+                    },
+                    "elevationMeters": {
+                        "minimum": -10000,
+                        "maximum": 10000,
+                        "description": "Optional floor elevation in meters",
+                        "example": -3,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "heightMeters": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 1000,
+                        "description": "Optional floor height in meters",
+                        "example": 3,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -50583,6 +51569,22 @@
                                     "null"
                                 ]
                             },
+                            "elevationMeters": {
+                                "readOnly": true,
+                                "description": "Property elevationMeters",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "heightMeters": {
+                                "readOnly": true,
+                                "description": "Property heightMeters",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
                             "planGeometry": {
                                 "readOnly": true,
                                 "description": "Optional spatial geometry bound to an ancestor floor plan (detail views only)",
@@ -50607,6 +51609,29 @@
                                     ]
                                 }
                             },
+                            "geometryIssue": {
+                                "readOnly": true,
+                                "description": "Property geometryIssue.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "invalid_geometry",
+                                    "plan_unavailable",
+                                    "outside_ancestry",
+                                    "other_plan",
+                                    null
+                                ]
+                            },
+                            "hierarchyIssues": {
+                                "readOnly": true,
+                                "description": "Property hierarchyIssues.",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
                             "createdAt": {
                                 "readOnly": true,
                                 "description": "Property createdAt.",
@@ -50621,12 +51646,33 @@
                             },
                             "path": {
                                 "readOnly": true,
-                                "description": "Ancestor breadcrumb, root first, excluding this facility",
+                                "description": "Ancestor breadcrumb, root first, excluding this facility; opt-in on collections through includePath.",
                                 "type": "array",
                                 "items": {
                                     "type": "object",
-                                    "additionalProperties": {
-                                        "type": "string"
+                                    "required": [
+                                        "id",
+                                        "name",
+                                        "type"
+                                    ],
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "type": {
+                                            "type": "string",
+                                            "enum": [
+                                                "site",
+                                                "building",
+                                                "floor",
+                                                "zone",
+                                                "area"
+                                            ]
+                                        }
                                     }
                                 }
                             }
@@ -50735,6 +51781,25 @@
                             "integer",
                             "null"
                         ]
+                    },
+                    "elevationMeters": {
+                        "minimum": -10000,
+                        "maximum": 10000,
+                        "description": "Property elevationMeters",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "heightMeters": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 1000,
+                        "description": "Property heightMeters",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -50823,11 +51888,142 @@
                                 "description": "Property uploadedAt.",
                                 "default": "",
                                 "type": "string"
+                            },
+                            "calibration": {
+                                "readOnly": true,
+                                "description": "Metric calibration of the original plan image.",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "required": [
+                                    "widthMeters",
+                                    "rotationDegrees",
+                                    "offsetXMeters",
+                                    "offsetZMeters"
+                                ],
+                                "properties": {
+                                    "widthMeters": {
+                                        "type": "number",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 100000
+                                    },
+                                    "rotationDegrees": {
+                                        "type": "number",
+                                        "minimum": -360,
+                                        "maximum": 360
+                                    },
+                                    "offsetXMeters": {
+                                        "type": "number",
+                                        "minimum": -100000,
+                                        "maximum": 100000
+                                    },
+                                    "offsetZMeters": {
+                                        "type": "number",
+                                        "minimum": -100000,
+                                        "maximum": 100000
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "calibrationBuildingId": {
+                                "readOnly": true,
+                                "description": "Property calibrationBuildingId",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "uuid"
+                            },
+                            "calibrationIssue": {
+                                "readOnly": true,
+                                "description": "Property calibrationIssue",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "building_changed",
+                                    "unverified_frame",
+                                    null
+                                ]
                             }
                         }
                     }
                 ],
                 "description": "File attachments linked to a facility."
+            },
+            "FacilityEquipmentSummary.FacilityEquipmentSummaryOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "scope": {
+                                "readOnly": true,
+                                "description": "Property scope.",
+                                "default": "subtree",
+                                "type": "string",
+                                "enum": [
+                                    "subtree",
+                                    "direct"
+                                ]
+                            },
+                            "totalItems": {
+                                "readOnly": true,
+                                "description": "Property totalItems.",
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "byStatus": {
+                                "readOnly": true,
+                                "description": "Property byStatus.",
+                                "default": {
+                                    "in_stock": 0,
+                                    "operational": 0,
+                                    "under_maintenance": 0,
+                                    "decommissioned": 0
+                                },
+                                "type": "object",
+                                "required": [
+                                    "in_stock",
+                                    "operational",
+                                    "under_maintenance",
+                                    "decommissioned"
+                                ],
+                                "properties": {
+                                    "in_stock": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "operational": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "under_maintenance": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "decommissioned": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    }
+                                }
+                            },
+                            "needingAttentionCount": {
+                                "readOnly": true,
+                                "description": "Property needingAttentionCount.",
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource FacilityEquipmentSummaryResource."
             },
             "FacilityMetadataField.CreateFacilityMetadataFieldInput-facility.write": {
                 "type": "object",
@@ -51041,6 +52237,337 @@
                             "string",
                             "null"
                         ]
+                    }
+                }
+            },
+            "FacilityModel.FacilityModelOutput.jsonld-facility.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "description": "Method __construct.",
+                                "type": "string"
+                            },
+                            "organizationId": {
+                                "description": "Method __construct.",
+                                "type": "string"
+                            },
+                            "buildingId": {
+                                "description": "Method __construct.",
+                                "type": "string"
+                            },
+                            "fileName": {
+                                "description": "Method __construct.",
+                                "type": "string"
+                            },
+                            "mimeType": {
+                                "description": "Method __construct.",
+                                "type": "string"
+                            },
+                            "fileSize": {
+                                "description": "Method __construct.",
+                                "type": "integer"
+                            },
+                            "nodeCount": {
+                                "description": "Method __construct.",
+                                "type": "integer"
+                            },
+                            "nodes": {
+                                "description": "Method __construct.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "anyOf": [
+                                            {
+                                                "type": "integer"
+                                            },
+                                            {
+                                                "type": "string"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "revision": {
+                                "description": "Method __construct.",
+                                "type": "integer"
+                            },
+                            "active": {
+                                "description": "Method __construct.",
+                                "type": "boolean"
+                            },
+                            "transform": {
+                                "description": "Method __construct.",
+                                "type": "object",
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "number"
+                                            }
+                                        },
+                                        {
+                                            "type": "number"
+                                        }
+                                    ]
+                                }
+                            },
+                            "bindings": {
+                                "description": "Method __construct.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "anyOf": [
+                                            {
+                                                "type": "integer"
+                                            },
+                                            {
+                                                "type": "string"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "downloadUrl": {
+                                "description": "Method __construct.",
+                                "type": "string"
+                            },
+                            "createdAt": {
+                                "description": "Method __construct.",
+                                "type": "string"
+                            },
+                            "updatedAt": {
+                                "description": "Method __construct.",
+                                "type": "string"
+                            },
+                            "bindingIssues": {
+                                "description": "Method __construct.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": [
+                                        "nodeIndex",
+                                        "code"
+                                    ],
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "nodeIndex": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "target_unavailable"
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Immutable self-contained GLB 2.0 building models; maximum 10 MiB and two models per building."
+            },
+            "FacilityPlanCalibration.FacilityAttachmentOutput.jsonld-facility.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "description": "Property id.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "facilityId": {
+                                "readOnly": true,
+                                "description": "Property facilityId.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "fileName": {
+                                "readOnly": true,
+                                "description": "Property fileName.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "mimeType": {
+                                "readOnly": true,
+                                "description": "Property mimeType.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "size": {
+                                "readOnly": true,
+                                "description": "Property size.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "label": {
+                                "readOnly": true,
+                                "description": "Property label.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "revision": {
+                                "readOnly": true,
+                                "description": "Property revision.",
+                                "default": 1,
+                                "type": "integer"
+                            },
+                            "kind": {
+                                "readOnly": true,
+                                "description": "Property kind.",
+                                "default": "document",
+                                "type": "string"
+                            },
+                            "isPrimaryPlan": {
+                                "readOnly": true,
+                                "description": "Property isPrimaryPlan.",
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "imageWidth": {
+                                "readOnly": true,
+                                "description": "Property imageWidth.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "imageHeight": {
+                                "readOnly": true,
+                                "description": "Property imageHeight.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "uploadedAt": {
+                                "readOnly": true,
+                                "description": "Property uploadedAt.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "calibration": {
+                                "readOnly": true,
+                                "description": "Metric calibration of the original plan image.",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "required": [
+                                    "widthMeters",
+                                    "rotationDegrees",
+                                    "offsetXMeters",
+                                    "offsetZMeters"
+                                ],
+                                "properties": {
+                                    "widthMeters": {
+                                        "type": "number",
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 100000
+                                    },
+                                    "rotationDegrees": {
+                                        "type": "number",
+                                        "minimum": -360,
+                                        "maximum": 360
+                                    },
+                                    "offsetXMeters": {
+                                        "type": "number",
+                                        "minimum": -100000,
+                                        "maximum": 100000
+                                    },
+                                    "offsetZMeters": {
+                                        "type": "number",
+                                        "minimum": -100000,
+                                        "maximum": 100000
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "calibrationBuildingId": {
+                                "readOnly": true,
+                                "description": "Property calibrationBuildingId",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "uuid"
+                            },
+                            "calibrationIssue": {
+                                "readOnly": true,
+                                "description": "Property calibrationIssue",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "building_changed",
+                                    "unverified_frame",
+                                    null
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource FacilityAttachmentCalibrationResource."
+            },
+            "FacilityPlanCalibration.SetFacilityAttachmentCalibrationInput-facility.write": {
+                "type": "object",
+                "description": "Resource FacilityAttachmentCalibrationResource.",
+                "required": [
+                    "calibration"
+                ],
+                "properties": {
+                    "calibration": {
+                        "description": "Calibration in metres, or null to remove the metric calibration.",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "required": [
+                            "widthMeters",
+                            "rotationDegrees",
+                            "offsetXMeters",
+                            "offsetZMeters"
+                        ],
+                        "properties": {
+                            "widthMeters": {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "maximum": 100000
+                            },
+                            "rotationDegrees": {
+                                "type": "number",
+                                "minimum": -360,
+                                "maximum": 360
+                            },
+                            "offsetXMeters": {
+                                "type": "number",
+                                "minimum": -100000,
+                                "maximum": 100000
+                            },
+                            "offsetZMeters": {
+                                "type": "number",
+                                "minimum": -100000,
+                                "maximum": 100000
+                            }
+                        },
+                        "additionalProperties": true
                     }
                 }
             },
@@ -55620,6 +57147,27 @@
                             "integer",
                             "null"
                         ]
+                    },
+                    "elevationMeters": {
+                        "minimum": -10000,
+                        "maximum": 10000,
+                        "description": "Optional floor elevation in meters",
+                        "example": -3,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "heightMeters": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 1000,
+                        "description": "Optional floor height in meters",
+                        "example": 3,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -55681,75 +57229,343 @@
                                 "type": "array",
                                 "items": {
                                     "type": "object",
-                                    "additionalProperties": {
-                                        "anyOf": [
-                                            {
-                                                "type": "object",
-                                                "additionalProperties": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "integer"
-                                                        },
-                                                        {
-                                                            "type": "string"
-                                                        },
-                                                        {
-                                                            "type": "null"
-                                                        }
+                                    "required": [
+                                        "facilityId",
+                                        "name",
+                                        "levelIndex",
+                                        "elevationMeters",
+                                        "heightMeters",
+                                        "status",
+                                        "hierarchyIssues",
+                                        "plan",
+                                        "outline",
+                                        "rooms",
+                                        "equipment",
+                                        "diagnostics"
+                                    ],
+                                    "properties": {
+                                        "facilityId": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "levelIndex": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "elevationMeters": {
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ]
+                                        },
+                                        "heightMeters": {
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "hierarchyIssues": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "missing_parent",
+                                                    "invalid_parent_type",
+                                                    "unpublished_parent",
+                                                    "invalid_ancestor",
+                                                    "cycle",
+                                                    "depth_exceeded"
+                                                ]
+                                            }
+                                        },
+                                        "plan": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "required": [
+                                                "attachmentId",
+                                                "imageWidth",
+                                                "imageHeight",
+                                                "calibration",
+                                                "calibrationBuildingId",
+                                                "calibrationIssue"
+                                            ],
+                                            "properties": {
+                                                "attachmentId": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "imageWidth": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
                                                     ]
+                                                },
+                                                "imageHeight": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "calibrationBuildingId": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "format": "uuid"
+                                                },
+                                                "calibrationIssue": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "enum": [
+                                                        "building_changed",
+                                                        "unverified_frame",
+                                                        null
+                                                    ]
+                                                },
+                                                "calibration": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "required": [
+                                                        "widthMeters",
+                                                        "rotationDegrees",
+                                                        "offsetXMeters",
+                                                        "offsetZMeters"
+                                                    ],
+                                                    "properties": {
+                                                        "widthMeters": {
+                                                            "type": "number"
+                                                        },
+                                                        "rotationDegrees": {
+                                                            "type": "number"
+                                                        },
+                                                        "offsetXMeters": {
+                                                            "type": "number"
+                                                        },
+                                                        "offsetZMeters": {
+                                                            "type": "number"
+                                                        }
+                                                    }
                                                 }
-                                            },
-                                            {
+                                            }
+                                        },
+                                        "outline": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "required": [
+                                                "source",
+                                                "points"
+                                            ],
+                                            "properties": {
+                                                "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "plan_geometry",
+                                                        "rooms_bbox",
+                                                        "image_rect"
+                                                    ]
+                                                },
+                                                "points": {
+                                                    "type": "array",
+                                                    "minItems": 3,
+                                                    "items": {
+                                                        "type": "array",
+                                                        "minItems": 2,
+                                                        "maxItems": 2,
+                                                        "items": {
+                                                            "type": "number",
+                                                            "minimum": 0,
+                                                            "maximum": 1
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "rooms": {
+                                            "type": "array",
+                                            "items": {
                                                 "type": "object",
-                                                "additionalProperties": {
-                                                    "anyOf": [
-                                                        {
+                                                "required": [
+                                                    "facilityId",
+                                                    "name",
+                                                    "type",
+                                                    "status",
+                                                    "points"
+                                                ],
+                                                "properties": {
+                                                    "facilityId": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "name": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    },
+                                                    "status": {
+                                                        "type": "string"
+                                                    },
+                                                    "points": {
+                                                        "type": "array",
+                                                        "minItems": 3,
+                                                        "items": {
                                                             "type": "array",
+                                                            "minItems": 2,
+                                                            "maxItems": 2,
                                                             "items": {
-                                                                "type": "array",
-                                                                "items": {
-                                                                    "type": "number"
-                                                                }
+                                                                "type": "number",
+                                                                "minimum": 0,
+                                                                "maximum": 1
                                                             }
-                                                        },
-                                                        {
-                                                            "type": "string"
                                                         }
-                                                    ]
+                                                    }
                                                 }
-                                            },
-                                            {
-                                                "type": "integer"
-                                            },
-                                            {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "object",
-                                                    "additionalProperties": {
-                                                        "anyOf": [
-                                                            {
-                                                                "type": "array",
-                                                                "items": {
-                                                                    "type": "array",
-                                                                    "items": {
-                                                                        "type": "number"
-                                                                    }
-                                                                }
+                                            }
+                                        },
+                                        "equipment": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "required": [
+                                                    "equipmentId",
+                                                    "facilityId",
+                                                    "type",
+                                                    "serialNumber",
+                                                    "locationLabel",
+                                                    "status",
+                                                    "position",
+                                                    "placementIssue"
+                                                ],
+                                                "properties": {
+                                                    "equipmentId": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "facilityId": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    },
+                                                    "serialNumber": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "locationLabel": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "status": {
+                                                        "type": "string"
+                                                    },
+                                                    "position": {
+                                                        "type": [
+                                                            "object",
+                                                            "null"
+                                                        ],
+                                                        "required": [
+                                                            "attachmentId",
+                                                            "x",
+                                                            "y"
+                                                        ],
+                                                        "properties": {
+                                                            "attachmentId": {
+                                                                "type": "string",
+                                                                "format": "uuid"
                                                             },
-                                                            {
-                                                                "type": "string"
+                                                            "x": {
+                                                                "type": "number",
+                                                                "minimum": 0,
+                                                                "maximum": 1
+                                                            },
+                                                            "y": {
+                                                                "type": "number",
+                                                                "minimum": 0,
+                                                                "maximum": 1
                                                             }
+                                                        }
+                                                    },
+                                                    "placementIssue": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ],
+                                                        "enum": [
+                                                            "missing_plan",
+                                                            "unplaced",
+                                                            "other_plan",
+                                                            "invalid_position",
+                                                            "outside_ancestry",
+                                                            null
                                                         ]
                                                     }
                                                 }
-                                            },
-                                            {
-                                                "type": "string"
-                                            },
-                                            {
-                                                "type": "null"
                                             }
-                                        ]
+                                        },
+                                        "diagnostics": {
+                                            "type": "object",
+                                            "required": [
+                                                "invalidGeometryCount",
+                                                "unpositionedEquipmentCount",
+                                                "geometryIssues"
+                                            ],
+                                            "properties": {
+                                                "invalidGeometryCount": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                },
+                                                "unpositionedEquipmentCount": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                },
+                                                "geometryIssues": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "facilityId",
+                                                            "code"
+                                                        ],
+                                                        "properties": {
+                                                            "facilityId": {
+                                                                "type": "string",
+                                                                "format": "uuid"
+                                                            },
+                                                            "code": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "invalid_geometry",
+                                                                    "plan_unavailable",
+                                                                    "outside_ancestry",
+                                                                    "other_plan"
+                                                                ]
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -55884,6 +57700,22 @@
                                     "null"
                                 ]
                             },
+                            "elevationMeters": {
+                                "readOnly": true,
+                                "description": "Property elevationMeters",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "heightMeters": {
+                                "readOnly": true,
+                                "description": "Property heightMeters",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
                             "planGeometry": {
                                 "readOnly": true,
                                 "description": "Optional spatial geometry bound to an ancestor floor plan (detail views only)",
@@ -55908,6 +57740,29 @@
                                     ]
                                 }
                             },
+                            "geometryIssue": {
+                                "readOnly": true,
+                                "description": "Property geometryIssue.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "invalid_geometry",
+                                    "plan_unavailable",
+                                    "outside_ancestry",
+                                    "other_plan",
+                                    null
+                                ]
+                            },
+                            "hierarchyIssues": {
+                                "readOnly": true,
+                                "description": "Property hierarchyIssues.",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
                             "createdAt": {
                                 "readOnly": true,
                                 "description": "Property createdAt.",
@@ -55922,12 +57777,33 @@
                             },
                             "path": {
                                 "readOnly": true,
-                                "description": "Ancestor breadcrumb, root first, excluding this facility",
+                                "description": "Ancestor breadcrumb, root first, excluding this facility; opt-in on collections through includePath.",
                                 "type": "array",
                                 "items": {
                                     "type": "object",
-                                    "additionalProperties": {
-                                        "type": "string"
+                                    "required": [
+                                        "id",
+                                        "name",
+                                        "type"
+                                    ],
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "type": {
+                                            "type": "string",
+                                            "enum": [
+                                                "site",
+                                                "building",
+                                                "floor",
+                                                "zone",
+                                                "area"
+                                            ]
+                                        }
                                     }
                                 }
                             }
@@ -56008,6 +57884,26 @@
                                                 "type": "null"
                                             }
                                         ]
+                                    }
+                                }
+                            },
+                            "geometryIssues": {
+                                "readOnly": true,
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "equipmentIssues": {
+                                "readOnly": true,
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
                                     }
                                 }
                             }
@@ -56230,6 +58126,27 @@
                         "example": -1,
                         "type": [
                             "integer",
+                            "null"
+                        ]
+                    },
+                    "elevationMeters": {
+                        "minimum": -10000,
+                        "maximum": 10000,
+                        "description": "Optional floor elevation in meters",
+                        "example": -3,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "heightMeters": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 1000,
+                        "description": "Optional floor height in meters",
+                        "example": 3,
+                        "type": [
+                            "number",
                             "null"
                         ]
                     }
@@ -65784,7 +67701,7 @@
         },
         {
             "name": "Equipment",
-            "description": "Tags associated with equipment items."
+            "description": "Resource FacilityEquipmentSummaryResource."
         },
         {
             "name": "Media",

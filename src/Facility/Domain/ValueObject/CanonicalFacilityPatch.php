@@ -62,6 +62,10 @@ final readonly class CanonicalFacilityPatch
    * @param ?string $parentFacilityId the resolved parent identifier, null detaching it
    * @param bool $hasLevelIndex whether the `levelIndex` key was present
    * @param ?int $levelIndex the requested stacking order, null erasing it
+   * @param ?float $elevationMeters optional physical floor elevation in meters
+   * @param ?float $heightMeters optional physical floor height in meters
+   * @param bool $hasElevationMeters whether elevationMeters was supplied
+   * @param bool $hasHeightMeters whether heightMeters was supplied
    */
   public function __construct(
     public bool $hasType = false,
@@ -84,6 +88,10 @@ final readonly class CanonicalFacilityPatch
     public ?string $parentFacilityId = null,
     public bool $hasLevelIndex = false,
     public ?int $levelIndex = null,
+    public bool $hasElevationMeters = false,
+    public ?float $elevationMeters = null,
+    public bool $hasHeightMeters = false,
+    public ?float $heightMeters = null,
   ) {
   }
   // #endregion

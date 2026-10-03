@@ -11,6 +11,7 @@ use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -28,6 +29,41 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
   private const string ROOT_ID = '550e8400-e29b-41d4-a716-446655440001';
 
   private const string CHILD_ID = '550e8400-e29b-41d4-a716-446655440002';
+
+  #[Test]
+  public function testPaginatedReadLoadsOnlyRequestedPageAndCountsMatchingDescendants(): void
+  {
+    $organization = new FacilityOrganizationId(self::ORG_ID);
+    $rootId = new FacilityId(self::ROOT_ID);
+    $root = Facility::create(id: $rootId, organizationId: $organization, type: FacilityType::SITE, name: new FacilityName('Site'));
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->method('findPublishedById')->willReturn($root);
+    $repository->expects(self::once())->method('findDescendants')->with(
+      self::equalTo($organization),
+      self::equalTo($rootId),
+      false,
+      'Room',
+      self::anything(),
+      100,
+      200,
+    )->willReturn([]);
+    $repository->expects(self::once())->method('countDescendants')->with(
+      self::equalTo($organization),
+      self::equalTo($rootId),
+      false,
+      'Room',
+    )->willReturn(205);
+
+    $handler = new GetFacilityDescendantsHandler($repository, $this->createStub(FacilityEquipmentDependencyPort::class), $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
+    $result = $handler(new GetFacilityDescendantsQuery(
+      self::ORG_ID,
+      self::ROOT_ID,
+      search: 'Room',
+      pagination: new Pagination(offset: 200, limit: 100),
+    ));
+    self::assertSame([], $result->items);
+    self::assertSame(205, $result->total);
+  }
 
   #[Test]
   public function testInvokeReturnsDescendantsWithChildAndEquipmentFlags(): void
@@ -54,7 +90,7 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
     );
 
     $repository = $this->createStub(FacilityRepositoryPort::class);
-    $repository->method('findById')->willReturn($root);
+    $repository->method('findPublishedById')->willReturn($root);
     $repository->method('findDescendants')->willReturn([$descendant]);
     $repository->method('countChildrenByParentIds')->willReturn([(string) $childId => 2]);
 
@@ -64,6 +100,7 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
     $handler = new GetFacilityDescendantsHandler(
       facilityRepository: $repository,
       equipmentDependency: $equipmentDependency,
+      hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class),
     );
 
     $result = $handler->__invoke(new GetFacilityDescendantsQuery(
@@ -92,7 +129,7 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
     );
 
     $repository = $this->createStub(FacilityRepositoryPort::class);
-    $repository->method('findById')->willReturn($root);
+    $repository->method('findPublishedById')->willReturn($root);
     $repository->method('findDescendants')->willReturn([]);
     $repository->method('countChildrenByParentIds')->willReturn([]);
 
@@ -102,6 +139,7 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
     $handler = new GetFacilityDescendantsHandler(
       facilityRepository: $repository,
       equipmentDependency: $equipmentDependency,
+      hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class),
     );
 
     $result = $handler->__invoke(new GetFacilityDescendantsQuery(
@@ -116,13 +154,14 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
   public function testInvokeThrowsWhenFacilityMissing(): void
   {
     $repository = $this->createStub(FacilityRepositoryPort::class);
-    $repository->method('findById')->willReturn(null);
+    $repository->method('findPublishedById')->willReturn(null);
 
     $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
 
     $handler = new GetFacilityDescendantsHandler(
       facilityRepository: $repository,
       equipmentDependency: $equipmentDependency,
+      hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class),
     );
 
     $this->expectException(FacilityNotFoundException::class);
@@ -147,13 +186,14 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
     );
 
     $repository = $this->createStub(FacilityRepositoryPort::class);
-    $repository->method('findById')->willReturn($root);
+    $repository->method('findPublishedById')->willReturn($root);
 
     $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
 
     $handler = new GetFacilityDescendantsHandler(
       facilityRepository: $repository,
       equipmentDependency: $equipmentDependency,
+      hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class),
     );
 
     $this->expectException(FacilityNotFoundException::class);
@@ -173,6 +213,7 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
     $handler = new GetFacilityDescendantsHandler(
       facilityRepository: $repository,
       equipmentDependency: $equipmentDependency,
+      hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class),
     );
 
     $this->expectException(InvalidValueException::class);

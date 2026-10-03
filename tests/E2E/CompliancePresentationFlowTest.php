@@ -289,9 +289,24 @@ final class CompliancePresentationFlowTest extends OAuth2WebTestCase
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
       ],
+      content: json_encode(['type' => 'site', 'name' => 'Campus ' . $name]) ?: '',
+    );
+    $this->assertSame(Response::HTTP_CREATED, $client->getResponse()->getStatusCode(), 'Site creation should succeed. Response: ' . $client->getResponse()->getContent());
+    $siteId = $this->extractResourceId($this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}'));
+    $this->assertNotNull($siteId);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/facilities',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
       content: json_encode([
         'type' => 'building',
         'name' => $name,
+        'parentFacilityId' => $siteId,
       ]) ?: '',
     );
 

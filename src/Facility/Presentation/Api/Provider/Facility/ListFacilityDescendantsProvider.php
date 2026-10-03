@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Application\UseCase\Query\Facility\GetFacilityDescendants\{GetFacilityDescendantsQuery, GetFacilityDescendantsResult};
@@ -13,6 +15,7 @@ use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\SearchExtractor;
@@ -25,6 +28,8 @@ use Throwable;
 
 use function array_map;
 use function is_string;
+use function max;
+use function min;
 
 /** @implements ProviderInterface<FacilityOutput> */
 final readonly class ListFacilityDescendantsProvider implements ProviderInterface
@@ -66,13 +71,13 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
    * @param array<string, mixed> $uriVariables route variables containing organizationId and facilityId
    * @param array<string, mixed> $context provider context for collection filters
    *
-   * @return list<FacilityOutput>
+   * @return list<FacilityOutput>|TraversablePaginator<FacilityOutput>
    *
    * @throws AccessDeniedHttpException when the caller is unauthenticated or lacks permission
    * @throws BadRequestHttpException when required route variables or filters are invalid
    * @throws NotFoundHttpException when the facility is outside the visible organization scope
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array|TraversablePaginator
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -96,6 +101,11 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
 
     $request = $this->requestStack->getCurrentRequest();
     $includeArchived = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
+    $parameters = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request);
+    $paginated = $parameters->getBoolean('pagination', false);
+    $page = max(1, $parameters->getInt('page', 1));
+    $itemsPerPage = min(100, max(1, $parameters->getInt('itemsPerPage', 30)));
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
 
     try {
       /** @var GetFacilityDescendantsResult $result */
@@ -103,8 +113,10 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
         organizationId: $organizationId,
         facilityId: $facilityId,
         includeArchived: $includeArchived,
-        search: SearchExtractor::fromContext($context),
-        sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'code'], 'name'),
+        search: SearchExtractor::fromContext(['filters' => $filters]),
+        sorting: SortingExtractor::fromContext(['filters' => $filters], ['name', 'type', 'status', 'createdAt', 'code'], 'name'),
+        pagination: $paginated ? new Pagination(limit: $itemsPerPage, offset: ($page - 1) * $itemsPerPage) : null,
+        includePath: $parameters->getBoolean('includePath', false),
       ));
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -124,7 +136,17 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
       throw $exception;
     }
 
-    return array_map($this->mapResult(...), $result->items);
+    $outputs = array_map($this->mapResult(...), $result->items);
+    if (!$paginated) {
+      return $outputs;
+    }
+
+    return new TraversablePaginator(
+      new ArrayIterator($outputs),
+      (float) $page,
+      (float) $itemsPerPage,
+      (float) ($result->total ?? 0),
+    );
   }
 
   /**
@@ -214,6 +236,11 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     $output->parentFacilityId = $facility->parentFacilityId;
     $output->hasChildren = $facility->hasChildren;
     $output->equipmentCount = $facility->equipmentCount;
+    $output->path = $facility->path;
+    $output->hierarchyIssues = $facility->hierarchyIssues;
+    $output->recordStatus = $facility->recordStatus;
+    $output->intervention = null === $facility->interventionId ? null : '/api/interventions/' . $facility->interventionId;
+    $output->revision = $facility->revision;
     $output->type = $facility->type;
     $output->name = $facility->name;
     $output->code = $facility->code;
@@ -225,6 +252,8 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     $output->longitude = $facility->longitude;
     $output->metadata = $facility->metadata;
     $output->levelIndex = $facility->levelIndex;
+    $output->elevationMeters = $facility->elevationMeters;
+    $output->heightMeters = $facility->heightMeters;
     $output->createdAt = $facility->createdAt->format('c');
     $output->updatedAt = $facility->updatedAt->format('c');
 

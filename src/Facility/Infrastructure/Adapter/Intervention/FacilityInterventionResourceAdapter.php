@@ -18,6 +18,7 @@ use Intervention\Domain\Exception\{InterventionConflictException, InterventionRe
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
+use function array_map;
 use function preg_match;
 
 /**
@@ -59,6 +60,8 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
     \Facility\Application\Service\FacilityAttachmentAncestryGuard $planAncestry,
     #[Autowire('%facility.hierarchy.max_depth%')]
     int $maxDepth = 8,
+    private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
+    ?\Facility\Application\Service\FacilityHierarchyPublicationContext $publicationContext = null,
   ) {
     $this->patchApplier = new FacilityInterventionPatchApplier(
       $entityManager,
@@ -68,6 +71,8 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       $attachments,
       $planAncestry,
       $maxDepth,
+      $hierarchy,
+      $publicationContext,
     );
   }
 
@@ -182,6 +187,11 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
     $record->clientId = $clientId;
     $record->interventionId = $interventionId;
     $record->recordStatus = null === $interventionId ? 'published' : 'draft';
+    if (null !== $this->hierarchy) {
+      $organizationId = $record->organizationId();
+      $this->hierarchy->lock($organizationId);
+      $this->hierarchy->assertGraph($organizationId, [new \Facility\Application\Contract\Hierarchy\FacilityHierarchyNode($record->id, $record->type, $record->parentFacility?->id, $record->status, $record->recordStatus, $record->interventionId)]);
+    }
     $this->entityManager->flush();
 
     return new InterventionResourceAssignment($interventionId, $record->recordStatus, $record->revision);
@@ -293,13 +303,6 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       'recordStatus' => 'draft',
     ]);
     foreach ($records as $record) {
-      if (null !== $record->planGeometry) {
-        try {
-          $this->patchApplier->assertPlanUsable($record);
-        } catch (FacilityPatchConflictException $exception) {
-          throw new InterventionConflictException($exception->getMessage());
-        }
-      }
       $record->recordStatus = 'published';
       $record->updatedAt = new DateTimeImmutable();
     }
@@ -326,5 +329,16 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       ->setParameter('draft', 'draft')
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function draftResourceIris(string $interventionId): array
+  {
+    /** @var list<FacilityRecord> $records */
+    $records = $this->entityManager->getRepository(FacilityRecord::class)->findBy(['interventionId' => $interventionId, 'recordStatus' => 'draft']);
+
+    return array_map(static fn (FacilityRecord $record): string => '/api/facilities/' . $record->id, $records);
   }
 }

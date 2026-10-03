@@ -101,7 +101,7 @@ final readonly class InterventionWorkflowInterventionWriter
       $this->runtime->support->assertNoTimeHistory($intervention);
       // Purge any still-draft resource records this intervention created before
       // removing it, so no orphaned drafts (and their unique client ids) survive.
-      $this->draftPublisher->discard($intervention->id);
+      $this->draftPublisher->discard($intervention->id, false);
       $this->runtime->entityManager->remove($intervention);
       $this->runtime->entityManager->flush();
 
@@ -138,7 +138,7 @@ final readonly class InterventionWorkflowInterventionWriter
     $participants = InterventionWorkflowPayload::stringList($mutation->payload['participants'] ?? []);
     $this->runtime->support->assertActiveMembers($organizationId, $responsibleId, $participants);
     $siteId = InterventionWorkflowPayload::nullableString($mutation->payload, 'siteId');
-    $this->runtime->support->assertSiteBelongsToOrganization($siteId, $organizationId);
+    $this->runtime->support->assertSiteBelongsToOrganization($siteId, $organizationId, $id);
     $aggregate = InterventionAggregate::create(new InterventionCreation(
       id: $id,
       organizationId: $organizationId,
@@ -286,7 +286,7 @@ final readonly class InterventionWorkflowInterventionWriter
       return $aggregate->siteId();
     }
     $siteId = InterventionWorkflowPayload::nullableString($payload, 'siteId');
-    $this->runtime->support->assertSiteBelongsToOrganization($siteId, $organizationId);
+    $this->runtime->support->assertSiteBelongsToOrganization($siteId, $organizationId, 'published' === $aggregate->status()->value ? null : $aggregate->id());
 
     return $siteId;
   }

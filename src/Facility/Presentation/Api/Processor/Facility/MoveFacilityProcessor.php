@@ -12,13 +12,14 @@ use Facility\Domain\Exception\{FacilityHierarchyException, FacilityNotFoundExcep
 use Facility\Presentation\Api\Dto\Input\Facility\MoveFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
+use Facility\Presentation\Api\Service\FacilityRevisionGuard;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
@@ -123,6 +124,7 @@ final readonly class MoveFacilityProcessor implements ProcessorInterface
         organizationId: $organizationId,
         facilityId: $facilityId,
         parentFacilityId: $data->parentFacilityId,
+        expectedRevision: new FacilityRevisionGuard($this->requestStack)->expectedRevision(),
       ));
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -154,7 +156,7 @@ final readonly class MoveFacilityProcessor implements ProcessorInterface
 
     return match (true) {
       $notFound instanceof FacilityNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
-      $hierarchy instanceof FacilityHierarchyException => new BadRequestHttpException($hierarchy->getMessage(), $exception),
+      $hierarchy instanceof FacilityHierarchyException => new UnprocessableEntityHttpException($hierarchy->getMessage(), $exception),
       $invalidArgument instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
       default => $exception,
     };

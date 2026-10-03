@@ -7,6 +7,7 @@ namespace Inspection\Infrastructure\Persistence\Doctrine\Record;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
+use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
@@ -210,5 +211,22 @@ class InspectionRecord
   public function __construct()
   {
     $this->nonConformities = new ArrayCollection();
+  }
+
+  /**
+   * Returns this record's scalar organization scope for owner-module adapters.
+   *
+   * @since 1.0.0
+   *
+   * @return string the persisted owning organization identifier
+   */
+  public function organizationId(): string
+  {
+    $organization = $this->organization;
+    if (null === $organization) {
+      throw new LogicException('The inspection organization is unavailable.');
+    }
+
+    return $organization->id;
   }
 }

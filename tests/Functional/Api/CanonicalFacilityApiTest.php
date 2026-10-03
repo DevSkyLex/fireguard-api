@@ -242,17 +242,23 @@ final class CanonicalFacilityApiTest extends WebTestCase
   {
     $client = static::createClient();
     $this->seed();
+    $manager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $manager);
+    $child = $manager->find(FacilityRecord::class, self::CHILD_ID);
+    self::assertInstanceOf(FacilityRecord::class, $child);
+    $child->type = 'zone';
+    $manager->flush();
     $this->loginAs($client, self::ADMIN_USER_ID, 'admin@example.com');
 
     $client->request(
       'PATCH',
       '/api/facilities/' . self::ROOT_ID,
       server: $this->headers(['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"']),
-      content: (string) json_encode(['parent' => '/api/facilities/' . self::CHILD_ID]),
+      content: (string) json_encode(['type' => 'zone', 'parent' => '/api/facilities/' . self::CHILD_ID]),
     );
 
     self::assertSame(422, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
-    self::assertStringContainsString('Parent facility would create a hierarchy cycle.', (string) $client->getResponse()->getContent());
+    self::assertStringContainsString('Cannot move facility: hierarchy cycle detected.', (string) $client->getResponse()->getContent());
   }
 
   /**
@@ -275,7 +281,7 @@ final class CanonicalFacilityApiTest extends WebTestCase
     );
 
     self::assertSame(422, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
-    self::assertStringContainsString('Parent facility is invalid.', (string) $client->getResponse()->getContent());
+    self::assertStringContainsString('The parent facility is unavailable in this organization.', (string) $client->getResponse()->getContent());
   }
 
   /**
@@ -298,7 +304,7 @@ final class CanonicalFacilityApiTest extends WebTestCase
     );
 
     self::assertSame(422, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
-    self::assertStringContainsString('Parent facility is archived.', (string) $client->getResponse()->getContent());
+    self::assertStringContainsString('The parent facility must be active.', (string) $client->getResponse()->getContent());
   }
 
   /**

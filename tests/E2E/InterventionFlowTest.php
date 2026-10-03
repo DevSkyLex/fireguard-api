@@ -786,8 +786,9 @@ final class InterventionFlowTest extends OAuth2WebTestCase
       method: 'POST',
       uri: '/api/organizations/' . $organizationId . '/facilities',
       server: $this->headers($token, self::LD_JSON),
-      content: json_encode(['type' => 'building', 'name' => 'Main Building']) ?: '',
+      content: json_encode(['type' => 'site', 'name' => 'Mission Site']) ?: '',
     );
+    self::assertSame(Response::HTTP_CREATED, $client->getResponse()->getStatusCode(), $client->getResponse()->getContent() ?: '');
 
     return $this->extractResourceId(
       $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}'),

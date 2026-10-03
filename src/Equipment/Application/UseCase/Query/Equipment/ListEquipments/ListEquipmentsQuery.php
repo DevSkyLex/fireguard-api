@@ -37,6 +37,7 @@ final readonly class ListEquipmentsQuery implements QueryMessage
    * @param ?string $search optional text search
    * @param Sorting $sorting requested equipment sort field and direction
    * @param ?string $maintenanceDueStatus optional maintenance due-state filter
+   * @param bool $includeDescendants include equipment assigned anywhere below the facility
    *
    * @return void
    */
@@ -52,6 +53,7 @@ final readonly class ListEquipmentsQuery implements QueryMessage
     public ?string $search = null,
     public Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     public ?string $maintenanceDueStatus = null,
+    public bool $includeDescendants = false,
   ) {
   }
   // #endregion

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions, FacilityAttachmentRestoredState};
-use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, PlanCalibration};
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use LogicException;
 
@@ -42,6 +42,9 @@ final class FacilityAttachmentMapper
         $record->uploadedAt,
         new FacilityAttachmentCreationOptions($record->label, AttachmentKind::from($record->kind), $record->imageWidth, $record->imageHeight),
         $record->isPrimaryPlan,
+        null === $record->calibration ? null : PlanCalibration::fromArray($record->calibration),
+        $record->revision,
+        $record->calibrationBuildingId,
       ),
     );
   }
@@ -65,6 +68,9 @@ final class FacilityAttachmentMapper
     $record->isPrimaryPlan = $attachment->isPrimaryPlan();
     $record->imageWidth = $attachment->imageWidth();
     $record->imageHeight = $attachment->imageHeight();
+    $record->calibration = $attachment->calibration()?->toArray();
+    $record->calibrationBuildingId = $attachment->calibrationBuildingId();
+    $record->revision = $attachment->revision();
 
     return $record;
   }

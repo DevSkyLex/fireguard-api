@@ -46,6 +46,17 @@ interface EquipmentRepositoryPort
   public function findById(EquipmentId $id): ?Equipment;
 
   /**
+   * Reads the final publication metadata after creation or receipt replay.
+   *
+   * @since 1.1.0
+   *
+   * @param EquipmentId $id the equipment identifier
+   *
+   * @return ?\Equipment\Application\Contract\Equipment\EquipmentCreationState the stored metadata
+   */
+  public function creationState(EquipmentId $id): ?\Equipment\Application\Contract\Equipment\EquipmentCreationState;
+
+  /**
    * Method findPublishedById.
    *
    * Finds PUBLISHED equipment by identifier. Draft intervention
@@ -122,6 +133,20 @@ interface EquipmentRepositoryPort
    * @return array<string, int> map of status => count
    */
   public function countByStatusForOrganizationId(EquipmentOrganizationId $organizationId): array;
+
+  /**
+   * Method countByStatusForCriteria.
+   *
+   * Aggregates the published collection scope before pagination.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the owning organization
+   * @param EquipmentListCriteria $criteria the same scope applied to the collection
+   *
+   * @return array<string, int> counts keyed by stored equipment status
+   */
+  public function countByStatusForCriteria(EquipmentOrganizationId $organizationId, EquipmentListCriteria $criteria): array;
 
   /**
    * Counts equipment grouped by type for an organization.

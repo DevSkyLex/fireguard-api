@@ -10,7 +10,7 @@ use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityHierarchyException, FacilityMetadataValidationException};
-use Facility\Domain\ValueObject\{FacilityId, PlanGeometry};
+use Facility\Domain\ValueObject\{FacilityFloorMetrics, FacilityId, FacilityType, PlanGeometry};
 use Facility\Infrastructure\Exception\FacilityPatchConflictException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Shared\Domain\Exception\InvalidValueException;
@@ -47,7 +47,7 @@ final readonly class FacilityInterventionPatchApplier
    *
    * @var list<string>
    */
-  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude', 'planGeometry'];
+  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude', 'planGeometry', 'elevationMeters', 'heightMeters'];
 
   /**
    * Constant STATUSES.
@@ -99,6 +99,8 @@ final readonly class FacilityInterventionPatchApplier
     private \Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort $attachments,
     private \Facility\Application\Service\FacilityAttachmentAncestryGuard $planAncestry,
     private int $maxDepth,
+    private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
+    private ?\Facility\Application\Service\FacilityHierarchyPublicationContext $publicationContext = null,
   ) {
   }
   // #endregion
@@ -126,8 +128,22 @@ final readonly class FacilityInterventionPatchApplier
       throw new FacilityPatchConflictException('Proposed facility change target is invalid.');
     }
     $previousStatus = $record->status;
+    if (null !== $this->hierarchy && (array_key_exists('type', $patch) || array_key_exists('parent', $patch))
+      && !$this->publicationContext?->covers($organizationId, $record->id)) {
+      $type = $patch['type'] ?? $record->type;
+      if (array_key_exists('parent', $patch) && null !== $patch['parent'] && !is_string($patch['parent'])) {
+        throw new FacilityPatchConflictException('Proposed parent facility must be an IRI or null.');
+      }
+      $parent = $patch['parent'] ?? null;
+      $parentId = array_key_exists('parent', $patch) ? (is_string($parent) ? $this->id($parent) : null) : $record->parentFacility?->id;
+      if (is_string($type)) {
+        $this->hierarchy->lock($organizationId);
+        $this->hierarchy->assertGraph($organizationId, [new \Facility\Application\Contract\Hierarchy\FacilityHierarchyNode($record->id, $type, $parentId, $record->status)]);
+      }
+    }
 
     $this->applyTypeAndName($record, $patch);
+    $this->applyFloorMetrics($record, $patch);
     $this->applyText($record, $patch);
     $this->applyCoordinates($record, $patch);
     $this->applyMetadata($organizationId, $record, $patch);
@@ -139,7 +155,7 @@ final readonly class FacilityInterventionPatchApplier
     // mirroring the RestoreFacility use case and the canonical mutation processor.
     $this->assertStatusChangeAllowed($organizationId, $record, $previousStatus);
 
-    if (null !== $record->planGeometry && (array_key_exists('planGeometry', $patch) || array_key_exists('parent', $patch))) {
+    if (null !== $record->planGeometry && array_key_exists('planGeometry', $patch)) {
       $this->assertPlanUsable($record);
     }
 
@@ -196,6 +212,46 @@ final readonly class FacilityInterventionPatchApplier
       }
       $record->name = trim($name);
     }
+  }
+
+  /**
+   * Method applyFloorMetrics
+   *
+   * Applies optional physical dimensions and clears them when a floor changes type.
+   *
+   * @access private
+   *
+   * @param FacilityRecord $record the proposed facility state
+   * @param array<string, mixed> $patch present fields and their proposed values
+   *
+   * @return void
+   *
+   * @throws FacilityPatchConflictException when floor dimensions are invalid
+   */
+  private function applyFloorMetrics(FacilityRecord $record, array $patch): void
+  {
+    $type = FacilityType::from($record->type);
+    $values = [];
+    foreach (['elevationMeters', 'heightMeters'] as $field) {
+      if (array_key_exists($field, $patch)) {
+        $value = $patch[$field];
+        if (null !== $value && !is_int($value) && !is_float($value)) {
+          throw new FacilityPatchConflictException(sprintf('Facility field "%s" must be a number or null.', $field));
+        }
+        $values[$field] = null === $value ? null : (float) $value;
+      } else {
+        $values[$field] = FacilityType::FLOOR === $type ? $record->{$field} : null;
+      }
+    }
+
+    try {
+      FacilityFloorMetrics::assertValid($type, $values['elevationMeters'], $values['heightMeters']);
+    } catch (InvalidValueException $exception) {
+      throw new FacilityPatchConflictException($exception->getMessage(), previous: $exception);
+    }
+
+    $record->elevationMeters = $values['elevationMeters'];
+    $record->heightMeters = $values['heightMeters'];
   }
 
   /**
@@ -339,11 +395,15 @@ final readonly class FacilityInterventionPatchApplier
       if (!$parent instanceof FacilityRecord || $parent->organization?->id !== $organizationId) {
         throw new FacilityPatchConflictException('Proposed parent facility is invalid.');
       }
-      $this->assertNoParentCycle($record, $parent);
-      if ('archived' === $parent->status) {
+      if (!$this->publicationContext?->covers($organizationId, $record->id)) {
+        $this->assertNoParentCycle($record, $parent);
+      }
+      if ('archived' === $parent->status && !$this->publicationContext?->covers($organizationId, $record->id)) {
         throw new FacilityPatchConflictException('Proposed parent facility is archived.');
       }
-      $this->assertDepthWithinCap($record, $parent);
+      if (!$this->publicationContext?->covers($organizationId, $record->id)) {
+        $this->assertDepthWithinCap($record, $parent);
+      }
       $record->parentFacility = $parent;
     } else {
       throw new FacilityPatchConflictException('Proposed parent facility must be an IRI or null.');
@@ -373,12 +433,13 @@ final readonly class FacilityInterventionPatchApplier
       && 'active' === $record->status
       && $record->parentFacility instanceof FacilityRecord
       && 'archived' === $record->parentFacility->status
+      && !$this->publicationContext?->covers($organizationId, $record->id)
     ) {
       throw new FacilityPatchConflictException('Cannot restore a facility while its parent is archived.');
     }
 
     // Archiving must not orphan a live dependent, mirroring the canonical surface.
-    if ('archived' !== $previousStatus && 'archived' === $record->status) {
+    if ('archived' !== $previousStatus && 'archived' === $record->status && !$this->publicationContext?->covers($organizationId, $record->id)) {
       try {
         $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
       } catch (FacilityHasActiveDependentsException $exception) {

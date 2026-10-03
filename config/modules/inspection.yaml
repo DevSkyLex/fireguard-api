@@ -90,7 +90,7 @@ services:
   Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
+    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner', 'intervention.publication_guard']
 
   Inspection\Infrastructure\Adapter\Messaging\InspectionMessagingSubjectResolverAdapter:
     arguments:
@@ -182,7 +182,9 @@ services:
 
   Equipment\Infrastructure\Adapter\Inspection\EquipmentValidationAdapter: ~
 
-  Facility\Infrastructure\Adapter\Inspection\FacilityValidationAdapter: ~
+  Facility\Infrastructure\Adapter\Inspection\FacilityValidationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Read-side label lookups, deliberately separate from the validation ports
   # above: resolving a name must not go through a contract that throws.

@@ -8,7 +8,6 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\{AssignToFacilityCommand, AssignToFacilityResult};
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
@@ -18,11 +17,12 @@ use Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor;
 use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, InterventionResourceAssignment};
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Intervention\Domain\Exception\ClientResourceAlreadyExistsException;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -306,34 +306,14 @@ final class CreateEquipmentProcessorTest extends TestCase
   #[Test]
   public function testProcessAssignsTheCreatedEquipmentToTheRequestedFacility(): void
   {
-    $now = new DateTimeImmutable('2026-03-02T10:00:00+00:00');
-
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::exactly(2))
+    $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(function (object $message) use ($now): object {
-        if ($message instanceof AssignToFacilityCommand) {
-          return new AssignToFacilityResult(
-            equipmentId: self::EQUIPMENT_ID,
-            organizationId: self::ORG_ID,
-            facilityId: self::FACILITY_ID,
-            type: 'smoke_detector',
-            subType: null,
-            brand: null,
-            model: null,
-            serialNumber: null,
-            locationLabel: null,
-            status: 'operational',
-            installedAt: '2026-03-02',
-            commissionedAt: null,
-            tags: [],
-            createdAt: $now,
-            updatedAt: $now,
-          );
-        }
+      ->willReturnCallback(function (CreateEquipmentCommand $message): CreateEquipmentResult {
+        self::assertSame(self::FACILITY_ID, $message->facilityId);
 
-        return $this->makeResult();
+        return $this->makeResult(facilityId: self::FACILITY_ID);
       });
 
     $input = $this->makeInput();
@@ -413,7 +393,7 @@ final class CreateEquipmentProcessorTest extends TestCase
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
     $gateway->method('clientIdExists')->willReturn(false);
-    $gateway->method('resourceExists')->willReturn(true);
+    $gateway->method('resourceExists')->willReturn(false);
     $gateway->method('assign')->willReturn(new InterventionResourceAssignment(null, 'published', 1));
 
     $processor = new CreateEquipmentProcessor(
@@ -469,11 +449,60 @@ final class CreateEquipmentProcessorTest extends TestCase
   }
 
   #[Test]
+  #[DataProvider('lateOfflineCollisions')]
+  public function testProcessPreservesOfflineStatusWhenTheIdentityCollisionIsDetectedInsideTheTransaction(bool $createOnly, bool $wrapped): void
+  {
+    $collision = new ClientResourceAlreadyExistsException('Concurrent offline create.');
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($wrapped ? MessengerRuntimeException::wrap($collision) : $collision);
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('clientIdExists')->willReturn(false);
+    $gateway->method('resourceExists')->willReturn(false);
+    $requestStack = new RequestStack();
+    $request = Request::create('/api/equipment/' . self::CLIENT_ID, $createOnly ? 'PUT' : 'POST');
+    $request->headers->set('If-None-Match', '*');
+    $requestStack->push($request);
+    $processor = new CreateEquipmentProcessor(
+      commandBus: $commandBus,
+      outputFactory: new EquipmentOutputFactory(),
+      authorization: $this->permissiveAuthorization(),
+      security: $this->authenticatedSecurity(),
+      interventionResourceManager: new InterventionResourceManager($gateway),
+      creationPreconditionGuard: new CreationPreconditionGuard($requestStack),
+    );
+    $input = $this->makeInput();
+    $input->clientId = self::CLIENT_ID;
+    $variables = ['organizationId' => self::ORG_ID, ...($createOnly ? ['id' => self::CLIENT_ID] : [])];
+
+    try {
+      $processor->process($input, new Post(), $variables);
+      self::fail('The concurrent creation must be rejected.');
+    } catch (ClientResourceAlreadyExistsHttpException $exception) {
+      self::assertSame($createOnly ? 412 : 409, $exception->getStatus());
+    }
+  }
+
+  /**
+   * @return iterable<string, array{bool, bool}>
+   */
+  public static function lateOfflineCollisions(): iterable
+  {
+    yield 'PUT direct collision' => [true, false];
+    yield 'PUT wrapped collision' => [true, true];
+    yield 'POST direct collision' => [false, false];
+    yield 'POST wrapped collision' => [false, true];
+  }
+
+  #[Test]
   public function testProcessWrapsAnInterventionScopedCreationInATransactionAndAttachesIt(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())->method('dispatch')->willReturn($this->makeResult());
+    $commandBus->expects(self::once())->method('dispatch')->willReturnCallback(function (CreateEquipmentCommand $command): CreateEquipmentResult {
+      self::assertSame(self::INTERVENTION_ID, $command->interventionId);
+
+      return $this->makeResult(interventionId: self::INTERVENTION_ID, recordStatus: 'draft', revision: 2);
+    });
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
     $gateway->method('interventionMutationContext')->willReturn(
@@ -565,7 +594,7 @@ final class CreateEquipmentProcessorTest extends TestCase
   public function testProcessReportsAVanishedEquipmentDuringAttachmentAsNotFound(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willReturn($this->makeResult());
+    $commandBus->method('dispatch')->willThrowException(\Intervention\Domain\Exception\InterventionResourceNotFoundException::withId(\Intervention\Domain\ValueObject\InterventionResourceType::EQUIPMENT, self::EQUIPMENT_ID));
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
     $gateway->method('resourceExists')->willReturn(false);
@@ -587,7 +616,7 @@ final class CreateEquipmentProcessorTest extends TestCase
   public function testProcessReportsACrossOrganizationAttachmentAsConflict(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willReturn($this->makeResult());
+    $commandBus->method('dispatch')->willThrowException(new \Intervention\Domain\Exception\InterventionConflictException('Intervention and resource must belong to the same organization.'));
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
     $gateway->method('interventionMutationContext')->willReturn(
@@ -646,14 +675,14 @@ final class CreateEquipmentProcessorTest extends TestCase
     return $input;
   }
 
-  private function makeResult(): CreateEquipmentResult
+  private function makeResult(?string $facilityId = null, ?string $interventionId = null, string $recordStatus = 'published', int $revision = 1): CreateEquipmentResult
   {
     $now = new DateTimeImmutable('2026-03-02T10:00:00+00:00');
 
     return new CreateEquipmentResult(
       equipmentId: self::EQUIPMENT_ID,
       organizationId: self::ORG_ID,
-      facilityId: null,
+      facilityId: $facilityId,
       type: 'smoke_detector',
       subType: null,
       brand: null,
@@ -661,11 +690,14 @@ final class CreateEquipmentProcessorTest extends TestCase
       serialNumber: null,
       locationLabel: null,
       status: 'in_stock',
-      installedAt: null,
+      installedAt: null !== $facilityId ? '2026-03-02' : null,
       commissionedAt: null,
       tags: [],
       createdAt: $now,
       updatedAt: $now,
+      interventionId: $interventionId,
+      recordStatus: $recordStatus,
+      revision: $revision,
     );
   }
 

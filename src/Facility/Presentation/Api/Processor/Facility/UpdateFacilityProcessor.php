@@ -121,6 +121,8 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
       && !array_key_exists('longitude', $payload)
       && !array_key_exists('metadata', $payload)
       && !array_key_exists('levelIndex', $payload)
+      && !array_key_exists('elevationMeters', $payload)
+      && !array_key_exists('heightMeters', $payload)
     ) {
       throw new BadRequestHttpException('At least one field must be provided for update.');
     }
@@ -146,6 +148,10 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
         hasMetadata: array_key_exists('metadata', $payload),
         levelIndex: $data->levelIndex,
         hasLevelIndex: array_key_exists('levelIndex', $payload),
+        elevationMeters: $data->elevationMeters,
+        hasElevationMeters: array_key_exists('elevationMeters', $payload),
+        heightMeters: $data->heightMeters,
+        hasHeightMeters: array_key_exists('heightMeters', $payload),
       ));
     } catch (FacilityCodeAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);

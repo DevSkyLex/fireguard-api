@@ -97,6 +97,7 @@ final readonly class FacilityBuildingModelProvider implements ProviderInterface
     $result = $this->queryBus->ask(new GetFacilityBuildingModelQuery(
       organizationId: $organizationId,
       facilityId: $facilityId,
+      includeEquipment: $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.equipment.read')->isGranted(),
     ));
 
     $output = new FacilityBuildingModelOutput();

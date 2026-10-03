@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Facility\Application\Port\Outbound;
 
+use Facility\Application\Contract\Hierarchy\InterventionParentAccess;
+
 /**
  * Port InterventionScopePort.
  *
@@ -38,5 +40,13 @@ interface InterventionScopePort
    * @param ?string $interventionId the intervention identifier
    */
   public function touchDraft(?string $interventionId): void;
+
+  /**
+   * Resolves read-only parent preparation access using the intervention's
+   * mutation permissions and execution membership, without locking it.
+   *
+   * @since 1.0.0
+   */
+  public function preparationAccess(string $organizationId, string $interventionId, string $userId): InterventionParentAccess;
   // #endregion
 }

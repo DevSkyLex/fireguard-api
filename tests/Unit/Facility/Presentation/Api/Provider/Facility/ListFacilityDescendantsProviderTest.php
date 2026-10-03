@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
@@ -33,6 +34,30 @@ final class ListFacilityDescendantsProviderTest extends TestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441300';
 
   private const string FACILITY_ID = '550e8400-e29b-41d4-a716-446655441301';
+
+  #[Test]
+  public function testExplicitPaginationReturnsHydraPaginatorAndPreservesTotal(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441302'));
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/descendants?pagination=true&page=3&itemsPerPage=100'));
+    $bus = $this->createMock(QueryBusPort::class);
+    $bus->expects(self::once())->method('ask')->with(self::callback(
+      static fn (GetFacilityDescendantsQuery $query): bool => null !== $query->pagination && 200 === $query->pagination->offset && 100 === $query->pagination->limit && 'Room' === $query->search,
+    ))->willReturn(new GetFacilityDescendantsResult([], 205));
+    $provider = new ListFacilityDescendantsProvider($bus, $authorization, $security, $requestStack);
+    $result = $provider->provide(
+      new GetCollection(),
+      ['organizationId' => self::ORGANIZATION_ID, 'facilityId' => self::FACILITY_ID],
+      ['filters' => ['search' => 'Room']],
+    );
+    self::assertInstanceOf(TraversablePaginator::class, $result);
+    self::assertSame(205.0, $result->getTotalItems());
+    self::assertSame(3.0, $result->getCurrentPage());
+  }
 
   #[Test]
   public function testProvideMapsResults(): void
@@ -95,6 +120,7 @@ final class ListFacilityDescendantsProviderTest extends TestCase
       uriVariables: ['organizationId' => $organizationId, 'facilityId' => $facilityId],
     );
 
+    self::assertIsArray($outputs);
     self::assertCount(2, $outputs);
     self::assertTrue($outputs[0]->hasChildren);
     self::assertSame('Floor 1', $outputs[1]->name);

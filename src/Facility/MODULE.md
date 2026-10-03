@@ -8,6 +8,64 @@ committed creations; direct non-transactional callers retain synchronous dispatc
 
 ## Overview
 
+### Hierarchy consistency (2026-10-03)
+
+`FacilityHierarchyPort` is the shared creation/relation policy. SITE is the only
+root; BUILDING requires SITE, FLOOR requires BUILDING, and ZONE/AREA may belong
+to any type, including another zone or area. Organization, active parents,
+publication scope, cycles and the existing depth cap are validated together.
+Historical invalid structures remain readable and accept descriptive edits;
+repair requires an explicit valid move. No parent/site is synthesized.
+
+Relation and archival mutations take the same PostgreSQL organization lock on
+the `main` connection, then reread revisions and the final graph. MOVE requires
+`If-Match: "revision-N"` (428 when absent, 412 when stale). Hierarchy violations
+return 422, and retained-resource dependencies return 409. Create, canonical
+PATCH, imports, duplicate and intervention publication share this policy.
+
+Publication retains unchanged relationships of existing published facilities during
+descriptive edits, including repeated type/parent values, and archival. A parent and
+its children can therefore become archived in one atomic publication once all final
+active dependents are removed. Draft publication, changed relationships/types and
+restores still require valid active ancestry. Both validation stages compare against
+the same locked baseline, including after the proposed writes are persisted.
+
+Collections support `includePath=true`, with ancestors resolved in a batch.
+Organization collections additionally accept mutually exclusive `parentForType`
+and `parentForFacilityId`, filtering eligible parents before search/count/page.
+Roots remain the unsearched browse mode; search can cover every place. These
+transport identifiers remain stable while French UI uses **Lieu / Lieux**.
+
+Parent filtering may include `interventionId` for an intervention preparation
+context. The server checks its planning/execution capability and participation:
+published parents require Facilities read permission, while same-intervention
+draft parents remain available to authorized preparers. Foreign drafts and
+inaccessible ancestor names are never projected. Collection revisions are read
+in one batch for organization, children and descendants, including published
+collections, so a parent chosen outside the first page carries its real revision.
+
+`FacilitySpatialValidityResolver` supplies identical geometry diagnostics to
+detail, 2D overlays and generated 3D through organization-scoped batch reads.
+Moving a subtree preserves polygons, equipment coordinates and GLB bindings.
+Unusable geometry is omitted from the corresponding representation and exposed
+as `invalid_geometry`, `plan_unavailable`, `outside_ancestry` or `other_plan`.
+Floor enumeration uses each floor's nearest building ancestor and reports
+historical hierarchy issues.
+
+Plans retain server-owned `calibrationBuildingId`. A move to another building
+retains scale/elevation/height but emits `calibrationIssue=building_changed`;
+unknown provenance emits `unverified_frame`. Both exclude the floor from metric
+mode until explicit recalibration. Moving a building between sites keeps its
+frame. Main migration `Version20261003120000` backfills only identifiable current
+owners; previous historical moves cannot be reconstructed.
+
+GLB output exposes only usable `bindings`, plus masked `bindingIssues` containing
+node index and `target_unavailable`. Invalid bindings remain stored and the
+active model remains readable, without facility navigation/selection/filtering.
+Activation rejects invalid bindings. Omitted/null PATCH bindings retain history;
+explicit `bindings: []` clears all. A partial replacement retains unavailable
+bindings unless their indices appear in `removeBindingNodeIndices`.
+
 Facility manages generic organizational structures such as sites, buildings,
 floors, zones, and areas. It is organization-scoped and uses
 `OrganizationAuthorizationPort` for permission checks.
@@ -335,7 +393,8 @@ direction.
 **Read — `GET /organizations/{organizationId}/facilities/{facilityId}/building-model`
 (A3).** For a `building` facility, assembles the ordered stack of floors a 3D
 viewer extrudes: `{buildingId, buildingName, floors: [{facilityId, name,
-levelIndex, status, plan, outline, rooms}]}`. `FacilityNotFoundException`
+levelIndex, elevationMeters, heightMeters, status, plan, outline, rooms,
+equipment, diagnostics}]}`. `FacilityNotFoundException`
 (unknown facility, or one belonging to another organization — same message,
 no oracle) is **404**; `FacilityNotBuildingException` (the target facility's
 `type` is not `building`) is **409**. Both are mapped centrally
@@ -366,28 +425,59 @@ shape is byte-for-byte `GetFacilityPlanOverlayResult::$zones`
 (`facilityId, name, type, status, points`) — the frontend reuses the same
 TypeScript models for both endpoints. All of this lives in
 `GetFacilityBuildingModelHandler`, over `FacilityRepositoryPort`'s
-`findBuildingFloors()`/`findRoomsForFloors()`; no new port was needed.
+`findBuildingFloors()`/`findRoomsForFloors()` and the Equipment-owned
+`FacilityEquipmentPlanPositionPort` batch projection. Equipment records are included
+only when the caller also has `organization.equipment.read`; their actual assignment
+is retained while the nearest floor resolves their display context. A position on
+another attachment is not moved to the current primary plan. Placement diagnostics
+distinguish unplaced equipment, missing plans, other plans and invalid coordinates.
 
-**Two costs of the plain-array output, both deliberate.** `floors` is a single
-array-typed property on `FacilityBuildingModelOutput`, mirroring how
-`FacilityPlanOverlayOutput` carries `zones`/`equipment`, rather than a list of
-nested DTOs. That choice buys symmetry between the two endpoints and pays for
-it twice:
+### Plan calibration and physical floor dimensions
 
-- **The generated OpenAPI describes `floors` as an opaque array of objects.**
-  Field names, the `outline.source` enum, and the `plan`/`rooms` sub-shapes are
-  absent from the published schema — a codegen client gets no types here. The
-  frontend hand-writes its mirrors under `models/` and `/fg-contract-check`
-  guards the drift, so the practical cost is low; but this is now the second
-  endpoint paying it, and a third would read as settled precedent. Revisit with
-  real sub-DTOs if either payload gains a consumer that reads only the schema.
-- **Nested nulls are emitted, not omitted.** API Platform drops a null _DTO
-  property_ — which is why `FacilityOutput.planGeometry` arrives `undefined` on
-  a collection read — but that rule does not reach inside an array-typed
-  property. `plan: null`, `outline: null` and `levelIndex: null` therefore ship
-  explicitly. Preferable for a client that would otherwise have to tell an
-  absent key from a null one, and worth knowing before assuming the omission
-  convention holds everywhere.
+Normalized zone vertices and equipment positions remain relative to their original
+attachment. An optional plan calibration contains `widthMeters`, `rotationDegrees`,
+`offsetXMeters` and `offsetZMeters`; the image aspect ratio derives the physical depth.
+`PUT /api/facility-attachments/{id}/calibration` accepts `{calibration: object|null}`
+and requires facilities-write entitlement and `If-Match: "revision-N"`. A successful
+write persists and returns the attachment's new revision. Nullable `elevationMeters`
+and positive `heightMeters` describe floors; `levelIndex` remains ordering metadata.
+Deleting a plan clears references to that attachment instead of transferring them.
+New polygons must have positive area and must not self-intersect. Invalid historical
+geometry is omitted from extrusion with a diagnostic rather than breaking the model.
+
+### Imported building models
+
+Facility models are separate immutable GLB assets, not document or floor-plan attachments.
+The building-scoped collection `/api/organizations/{organizationId}/facilities/{facilityId}/models`
+supports GET and multipart POST (`file`). `/api/facility-models/{id}` supports GET,
+PATCH of the full transform and bindings, and DELETE; `/activate` supports POST and
+`/download` supports authenticated GET. Mutations of existing models use their revision
+ETag. Authorization follows facilities-read/write and masks foreign organization records.
+
+The model transform uses positive uniform scale, rotation about Y in degrees and XYZ
+translation in metres. Associations bind immutable source node indices to existing
+facilities in the building; display names are not identifiers. Several nodes may share
+one facility. Replacement files have distinct identities and associations. Activation
+atomically selects one model for the building.
+
+Uploads accept autonomous GLB 2.0 files up to 10 MiB, validate the container and indexed
+scene content, and reject external resources and unsupported required extensions.
+The Docker PHP configuration permits 12M uploads and 16M multipart requests; any
+deployment proxy must allow the latter. IFC and separate glTF resource bundles are
+outside this contract. Storage and persistence remain on the `main` database.
+
+After `make test-db`, `php -d memory_limit=1G bin/check-facility-model-http.php` runs a socket HTTP
+smoke against private database and storage clones. It verifies a multipart upload
+at exactly 10 MiB, byte-identical authenticated download, rejected oversized and
+corrupt files, and deletion. Rebuild the PHP container to apply the upload limits.
+The test server uses the deployed 256M PHP memory limit; the higher parent limit
+is only for compiling the isolated test kernel.
+
+`floors` remains an array-typed projection rather than a list of nested DTOs.
+Its explicit OpenAPI schema documents every nested field, nullable value and
+placement diagnostic; frontend contract tests validate populated metric floors.
+Nested nulls are emitted, not omitted: `plan`, `outline`, `levelIndex`, metric
+dimensions and missing positions use explicit nulls inside the projection.
 
 ### Metadata schema (organization-defined typed fields)
 
@@ -759,7 +849,7 @@ subtreeHeight(moved) <= cap`, so the whole moved sub-tree — not just its
 
 - **Bulk CSV import v2 — dry-run mode**: `ProvisionFacilityRequest` carries an
   optional `dryRun` (default `false`), `quotaProjectionOffset` (default `0`)
-  and `knownPendingCodes` (facility-only, dry-run only). When `dryRun`,
+  and a projected graph plus pending code-to-id map (facility-only, dry-run only). When `dryRun`,
   `CreateFacilityCommand` also carries `dryRun`/`quotaProjectionOffset`, and
   `CreateFacilityHandler` takes a second branch: it still builds and
   validates the `Facility` aggregate (so every structural/domain invariant
@@ -769,14 +859,12 @@ subtreeHeight(moved) <= cap`, so the whole moved sub-tree — not just its
   a caller — Import's dry run — walking many candidate rows in one pass with
   nothing persisted yet) and returns a `CreateFacilityResult` built from the
   unsaved aggregate. `FacilityProvisioningService.provision()` additionally
-  resolves `parentCode` against `knownPendingCodes` when the database lookup
-  finds nothing: a dry run lets a child row reference a parent that would
-  itself be created earlier in the same file, mirroring how a real import
-  lets the file order parents before children — the resolved
-  `parentFacilityId` is left `null` in that case (there is no real id yet),
-  and `CreateFacilityHandler`'s parent-existence/status checks are simply
-  skipped when no parent id is present. See `src/Import/MODULE.md`'s dry-run
-  section for the full row-report shape.
+  resolves `parentCode` to the stable id of an earlier projected parent or
+  an existing database parent. Every simulated relationship and its ancestry
+  is validated through the same hierarchy guard; parent ids are never replaced
+  by null to bypass a check. Import derives UUID v5 ids from job/row identity
+  and reconstructs confirmed nodes on resume without a creation/quota/write.
+  See `src/Import/MODULE.md` for the row-report and resumption contracts.
 
 **Architecture debt — cross-module `Organization\Domain` imports (2).** The
 2026-08-18 quota-contract migration retyped `OrganizationQuotaPort`'s whole

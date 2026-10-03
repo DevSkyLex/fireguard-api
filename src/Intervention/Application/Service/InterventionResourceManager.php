@@ -101,7 +101,8 @@ final readonly class InterventionResourceManager
     if (null === $clientId || '' === $clientId) {
       return;
     }
-    if ($this->resources->clientIdExists($type, $clientId)) {
+    $this->resources->lockClientIdentity($type, $clientId);
+    if ($this->resources->clientIdExists($type, $clientId) || $this->resources->resourceExists($type, $clientId)) {
       throw new ClientResourceAlreadyExistsException('A resource with this client identifier already exists.');
     }
   }

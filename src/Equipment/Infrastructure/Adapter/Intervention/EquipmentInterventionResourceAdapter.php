@@ -10,6 +10,7 @@ use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Domain\ValueObject\PlanPosition;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Facility\Application\Port\Inbound\FacilityLifecycleReferencePort;
 use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionResourceAssignment};
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionEquipmentDraftProviderPort, InterventionResourceOwnerPort};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
@@ -86,12 +87,14 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
    * @param EntityManagerInterface $entityManager the entity manager value
    * @param FacilityValidationPort $facilityValidation the facility validation value
    * @param EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer the maintenance-log synchronizer
+   * @param ?FacilityLifecycleReferencePort $retainedReferences the scope policy for historical terminal assignments
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private FacilityValidationPort $facilityValidation,
     private EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer,
     private \Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort $floorPlans,
+    private ?FacilityLifecycleReferencePort $retainedReferences = null,
   ) {
   }
 
@@ -206,6 +209,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     $record->clientId = $clientId;
     $record->interventionId = $interventionId;
     $record->recordStatus = null === $interventionId ? 'published' : 'draft';
+    if (null !== $record->facilityId) {
+      $this->facilityValidation->assertFacilityIsAssignable($record->facilityId, $this->organizationId($record->organization), $interventionId);
+    }
     $this->entityManager->flush();
 
     return new InterventionResourceAssignment($interventionId, $record->recordStatus, $record->revision);
@@ -354,11 +360,19 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     ]);
 
     foreach ($records as $record) {
+      if (null !== $record->facilityId) {
+        if ('decommissioned' === $record->status && null !== $this->retainedReferences) {
+          $this->retainedReferences->assertRetainedReference($this->organizationId($record->organization), $record->facilityId);
+        } else {
+          $this->facilityValidation->assertFacilityIsAssignable($record->facilityId, $this->organizationId($record->organization));
+        }
+      }
       if (null !== $record->planPosition) {
         if (null === $record->facilityId || 'decommissioned' === $record->status) {
           throw new InterventionConflictException('The equipment cannot be placed on a plan in its current state.');
         }
-        $this->assertPlanUsable($record->planPosition['attachmentId'], $record->facilityId);
+        // Retained placements are diagnosed after hierarchy moves; explicit
+        // placement writes continue to be validated by applyPlanPosition().
       }
       // Materialize the side-effects the record skipped while it was a draft
       // scratchpad (drafts are exempt from them on the canonical surface). A draft
@@ -407,6 +421,17 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       ->setParameter('draft', 'draft')
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function draftResourceIris(string $interventionId): array
+  {
+    /** @var list<EquipmentRecord> $records */
+    $records = $this->entityManager->getRepository(EquipmentRecord::class)->findBy(['interventionId' => $interventionId, 'recordStatus' => 'draft']);
+
+    return array_map(static fn (EquipmentRecord $record): string => '/api/equipment/' . $record->id, $records);
   }
 
   /**
@@ -676,5 +701,23 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     }
 
     return $counts;
+  }
+
+  /**
+   * Resolves the stored owner before validating an equipment relation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?OrganizationRecord $organization the owning organization
+   *
+   * @return string the organization identifier
+   */
+  private function organizationId(?OrganizationRecord $organization): string
+  {
+    if (null === $organization) {
+      throw new InterventionConflictException('The equipment organization is unavailable.');
+    }
+
+    return $organization->id;
   }
 }

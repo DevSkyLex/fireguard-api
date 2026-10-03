@@ -15,6 +15,17 @@ namespace Intervention\Application\Port\Outbound;
 interface InterventionDraftPublisherPort
 {
   /**
+   * Identifies the owning module's drafts before any discard takes place.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the discarded intervention
+   *
+   * @return list<string> canonical draft resource IRIs
+   */
+  public function draftResourceIris(string $interventionId): array;
+
+  /**
    * Method publishDrafts.
    *
    * Executes the publish drafts operation.

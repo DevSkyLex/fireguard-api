@@ -11,7 +11,8 @@ and `async`; `webhook_worker` consumes `webhook`; `assistant_worker` consumes
 `assistant`; `scheduler_worker` consumes all five `scheduler_*` receivers. Webhook
 and model calls cannot block the ordinary async receiver. Ansible initializes
 `main_outbox main_failed async webhook assistant failed` after both migrations and
-before starting any current consumer, including on fresh bootstrap.
+before starting any current consumer, including on fresh bootstrap. Each transport
+uses a separate `messenger:setup-transports` invocation, which accepts one name.
 
 All writers stop before snapshots, migrations and development fixture resets.
 Consumers receive SIGTERM and have 120 seconds to finish their current message;
@@ -74,7 +75,9 @@ After the independent auth/main migrations, initialize framework-owned tables
 before starting the new worker version:
 
 ```bash
-php -d memory_limit=1G bin/console messenger:setup-transports main_outbox main_failed async webhook assistant failed
+for transport in main_outbox main_failed async webhook assistant failed; do
+  php -d memory_limit=1G bin/console messenger:setup-transports "$transport" --env=prod --no-interaction || exit 1
+done
 ```
 
 `main_outbox` is the PostgreSQL outbox on the main connection; its table is

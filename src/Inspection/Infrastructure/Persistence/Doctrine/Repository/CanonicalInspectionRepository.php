@@ -123,6 +123,7 @@ final readonly class CanonicalInspectionRepository implements CanonicalInspectio
       ->filtered($organizationId, $interventionId, $equipmentId, $recordStatus)
       ->select('i')
       ->orderBy('i.createdAt', 'ASC')
+      ->addOrderBy('i.id', 'ASC')
       ->setFirstResult($offset)
       ->setMaxResults($limit)
       ->getQuery()

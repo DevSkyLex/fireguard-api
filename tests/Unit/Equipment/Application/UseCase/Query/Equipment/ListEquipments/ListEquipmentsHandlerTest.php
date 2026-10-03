@@ -7,9 +7,10 @@ namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\ListEquipment
 use DateTimeImmutable;
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
-use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\{FacilityNamingPort, FacilitySubtreeScopePort};
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\{ListEquipmentsHandler, ListEquipmentsQuery};
+use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\EquipmentFacilityId;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
@@ -30,6 +31,81 @@ final class ListEquipmentsHandlerTest extends TestCase
   private const string EQUIP_ID_2 = '550e8400-e29b-41d4-a716-446655448003';
 
   #[Test]
+  public function testDescendantCandidatesShareSearchAndPageCriteriaWithTheirCount(): void
+  {
+    $rootId = '550e8400-e29b-41d4-a716-446655448010';
+    $roomId = '550e8400-e29b-41d4-a716-446655448011';
+    $scope = $this->createMock(FacilitySubtreeScopePort::class);
+    $scope->expects(self::once())->method('findPublishedSubtreeIds')->with(self::ORG_ID, $rootId)->willReturn([$rootId, $roomId]);
+    $criteria = self::callback(static fn (EquipmentListCriteria $criteria): bool => null === $criteria->facilityId
+      && [$rootId, $roomId] === $criteria->facilityIds && 'Hall' === $criteria->search);
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())->method('findByOrganizationId')->with(
+      self::equalTo(EquipmentOrganizationId::fromString(self::ORG_ID)),
+      $criteria,
+      self::anything(),
+      100,
+      200,
+    )->willReturn([]);
+    $repository->expects(self::once())->method('countByOrganizationId')->with(self::anything(), $criteria)->willReturn(205);
+
+    $handler = new ListEquipmentsHandler(
+      $repository,
+      $this->createStub(TagRepositoryPort::class),
+      $this->createStub(MaintenanceDueStatusPort::class),
+      $this->createStub(FacilityNamingPort::class),
+      $scope,
+    );
+    $result = $handler(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      facilityId: $rootId,
+      search: 'Hall',
+      pagination: new Pagination(offset: 200, limit: 100),
+      includeDescendants: true,
+    ));
+    self::assertSame(205, $result->total);
+    self::assertSame(200, $result->offset);
+  }
+
+  #[Test]
+  public function testUnknownOrForeignDescendantScopeDoesNotQueryEquipment(): void
+  {
+    $scope = $this->createStub(FacilitySubtreeScopePort::class);
+    $scope->method('findPublishedSubtreeIds')->willReturn([]);
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('findByOrganizationId');
+    $handler = new ListEquipmentsHandler(
+      $repository,
+      $this->createStub(TagRepositoryPort::class),
+      $this->createStub(MaintenanceDueStatusPort::class),
+      $this->createStub(FacilityNamingPort::class),
+      $scope,
+    );
+    $this->expectException(EquipmentNotFoundException::class);
+    $handler(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      facilityId: '550e8400-e29b-41d4-a716-446655448010',
+      includeDescendants: true,
+    ));
+  }
+
+  #[Test]
+  public function testDescendantScopeRequiresFacilityFilter(): void
+  {
+    $scope = $this->createMock(FacilitySubtreeScopePort::class);
+    $scope->expects(self::never())->method('findPublishedSubtreeIds');
+    $handler = new ListEquipmentsHandler(
+      $this->createStub(EquipmentRepositoryPort::class),
+      $this->createStub(TagRepositoryPort::class),
+      $this->createStub(MaintenanceDueStatusPort::class),
+      $this->createStub(FacilityNamingPort::class),
+      $scope,
+    );
+    $this->expectException(InvalidValueException::class);
+    $handler(new ListEquipmentsQuery(organizationId: self::ORG_ID, includeDescendants: true));
+  }
+
+  #[Test]
   public function testInvokeThrowsInvalidArgumentOnInvalidOrganizationId(): void
   {
     $handler = new ListEquipmentsHandler(
@@ -37,6 +113,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -54,6 +131,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -72,6 +150,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -111,6 +190,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -165,6 +245,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -221,6 +302,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -272,6 +354,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $handler->__invoke(new ListEquipmentsQuery(
@@ -322,6 +405,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $handler->__invoke(new ListEquipmentsQuery(
@@ -375,6 +459,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -434,6 +519,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $facilityNaming,
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -501,6 +587,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $facilityNaming,
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -541,6 +628,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
       facilityNaming: $facilityNaming,
+      facilitySubtree: $this->createStub(FacilitySubtreeScopePort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(

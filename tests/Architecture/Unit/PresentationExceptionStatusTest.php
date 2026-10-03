@@ -153,7 +153,7 @@ final class PresentationExceptionStatusTest extends TestCase
     'FacilityAttachmentNotFoundException' => 'NotFoundHttpException',
     'FacilityCodeAlreadyExistsException' => 'ConflictHttpException',
     'FacilityExportTooLargeException' => 'UnprocessableEntityHttpException',
-    'FacilityHierarchyException' => 'BadRequestHttpException',
+    'FacilityHierarchyException' => 'UnprocessableEntityHttpException',
     'FacilityMetadataFieldKeyAlreadyExistsException' => 'ConflictHttpException',
     'FacilityMetadataFieldLimitExceededException' => 'UnprocessableEntityHttpException',
     'FacilityMetadataFieldNotFoundException' => 'NotFoundHttpException',

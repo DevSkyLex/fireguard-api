@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Intervention\Application\Port\Inbound\InterventionCreationPort;
 use LogicException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
@@ -58,6 +59,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     private FacilityNamingPort $facilityNaming,
     private ?OrganizationSetupPort $setup = null,
     private ?\Equipment\Application\Port\Outbound\FacilityValidationPort $facilityValidation = null,
+    private ?InterventionCreationPort $creationContext = null,
   ) {
   }
   // #endregion
@@ -80,7 +82,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE);
     }
 
-    if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId)) {
+    if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId || null !== $command->clientId || null !== $command->interventionId)) {
       throw OrganizationSetupConflict::because('Setup receipts cannot be combined with another creation protocol.');
     }
 
@@ -157,11 +159,17 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       if (null === $this->facilityValidation) {
         throw new LogicException('Facility validation is unavailable.');
       }
-      $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId);
+      $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId, $command->interventionId);
       $equipment->assignToFacility(\Equipment\Domain\ValueObject\EquipmentFacilityId::fromString($command->facilityId), new DateTimeImmutable());
     }
+    $this->creationContext?->assertOfflineCreate('equipment', $command->clientId);
     $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::EQUIPMENT);
     $this->equipmentRepository->save($equipment);
+    if (null !== $this->creationContext) {
+      $this->creationContext->attach('equipment', (string) $equipment->id(), $command->organizationId, $command->interventionId, $command->clientId);
+    } elseif (null !== $command->interventionId || null !== $command->clientId) {
+      throw new LogicException('Intervention creation context is unavailable.');
+    }
     if (null !== $command->setupContext) {
       ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_first_equipment', (string) $equipment->id());
     }
@@ -180,6 +188,9 @@ final readonly class CreateEquipmentHandler implements CommandHandler
    */
   private function toResult(Equipment $equipment): CreateEquipmentResult
   {
+    $state = $this->equipmentRepository->creationState($equipment->id())
+      ?? new \Equipment\Application\Contract\Equipment\EquipmentCreationState(null, 'published', 1, $equipment->updatedAt());
+
     return new CreateEquipmentResult(
       equipmentId: (string) $equipment->id(),
       organizationId: (string) $equipment->organizationId(),
@@ -195,8 +206,11 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       commissionedAt: $equipment->commissionedAt()?->format('c'),
       tags: [],
       createdAt: $equipment->createdAt(),
-      updatedAt: $equipment->updatedAt(),
+      updatedAt: $state->updatedAt,
       facilityName: $this->resolveFacilityName($equipment),
+      interventionId: $state->interventionId,
+      recordStatus: $state->recordStatus,
+      revision: $state->revision,
     );
   }
 

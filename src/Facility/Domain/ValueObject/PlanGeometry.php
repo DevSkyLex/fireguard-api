@@ -7,11 +7,15 @@ namespace Facility\Domain\ValueObject;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Uuid;
 
+use function abs;
 use function count;
 use function is_array;
+use function is_finite;
 use function is_float;
 use function is_int;
 use function is_string;
+use function max;
+use function min;
 
 /**
  * ValueObject PlanGeometry.
@@ -74,11 +78,16 @@ final readonly class PlanGeometry
       throw InvalidValueException::because('Plan geometry must have at least 3 points.');
     }
 
+    if (count($points) > 1000) {
+      throw InvalidValueException::because('Plan geometry must have at most 1000 points.');
+    }
+
     $normalizedPoints = [];
     foreach ($points as $point) {
       $normalizedPoints[] = self::normalizePoint($point);
     }
 
+    self::assertSimplePolygon($normalizedPoints);
     $this->points = $normalizedPoints;
   }
   // #endregion
@@ -178,6 +187,36 @@ final readonly class PlanGeometry
   }
 
   /**
+   * Method fromPersistedArray.
+   *
+   * Returns null for legacy data that cannot safely be rendered.
+   *
+   * @since 1.0.0
+   *
+   * @param array{attachmentId?: mixed, points?: mixed} $data the persisted shape
+   */
+  public static function fromPersistedArray(array $data): ?self
+  {
+    try {
+      return self::fromArray($data);
+    } catch (InvalidValueException) {
+      return null;
+    }
+  }
+
+  /**
+   * Method isUsable.
+   *
+   * @since 1.0.0
+   *
+   * @param array{attachmentId?: mixed, points?: mixed} $data the persisted shape
+   */
+  public static function isUsable(array $data): bool
+  {
+    return null !== self::fromPersistedArray($data);
+  }
+
+  /**
    * Method normalizePoint.
    *
    * @static
@@ -204,11 +243,99 @@ final readonly class PlanGeometry
     $x = (float) $x;
     $y = (float) $y;
 
-    if ($x < 0.0 || $x > 1.0 || $y < 0.0 || $y > 1.0) {
+    if (!is_finite($x) || !is_finite($y) || $x < 0.0 || $x > 1.0 || $y < 0.0 || $y > 1.0) {
       throw InvalidValueException::because('Plan geometry coordinates must be normalized between 0 and 1.');
     }
 
     return [$x, $y];
+  }
+
+  /**
+   * Method assertSimplePolygon.
+   *
+   * Adjacent edges may share their endpoint; other crossings and touches
+   * would make the enclosed area ambiguous for editing and extrusion.
+   *
+   * @since 1.0.0
+   *
+   * @param list<array{0: float, 1: float}> $points the normalized polygon
+   */
+  private static function assertSimplePolygon(array $points): void
+  {
+    $count = count($points);
+    $area = 0.0;
+    for ($i = 0; $i < $count; ++$i) {
+      $a = $points[$i];
+      $b = $points[($i + 1) % $count];
+      if ($a === $b) {
+        throw InvalidValueException::because('Plan geometry must not contain repeated adjacent points.');
+      }
+      $area += $a[0] * $b[1] - $b[0] * $a[1];
+      for ($j = $i + 1; $j < $count; ++$j) {
+        if ($j === $i + 1 || (0 === $i && $j === $count - 1)) {
+          continue;
+        }
+        if (self::segmentsIntersect($a, $b, $points[$j], $points[($j + 1) % $count])) {
+          throw InvalidValueException::because('Plan geometry must not intersect itself.');
+        }
+      }
+    }
+    if (abs($area) <= 1.0e-10) {
+      throw InvalidValueException::because('Plan geometry must enclose a non-zero area.');
+    }
+  }
+
+  /**
+   * Method segmentsIntersect.
+   *
+   * @since 1.0.0
+   *
+   * @param array{0: float, 1: float} $a
+   * @param array{0: float, 1: float} $b
+   * @param array{0: float, 1: float} $c
+   * @param array{0: float, 1: float} $d
+   */
+  private static function segmentsIntersect(array $a, array $b, array $c, array $d): bool
+  {
+    $abc = self::cross($a, $b, $c);
+    $abd = self::cross($a, $b, $d);
+    $cda = self::cross($c, $d, $a);
+    $cdb = self::cross($c, $d, $b);
+
+    return (($abc > 0.0 && $abd < 0.0 || $abc < 0.0 && $abd > 0.0) && ($cda > 0.0 && $cdb < 0.0 || $cda < 0.0 && $cdb > 0.0))
+      || (abs($abc) <= 1.0e-10 && self::onSegment($a, $b, $c))
+      || (abs($abd) <= 1.0e-10 && self::onSegment($a, $b, $d))
+      || (abs($cda) <= 1.0e-10 && self::onSegment($c, $d, $a))
+      || (abs($cdb) <= 1.0e-10 && self::onSegment($c, $d, $b));
+  }
+
+  /**
+   * Method cross.
+   *
+   * @since 1.0.0
+   *
+   * @param array{0: float, 1: float} $p
+   * @param array{0: float, 1: float} $q
+   * @param array{0: float, 1: float} $r
+   */
+  private static function cross(array $p, array $q, array $r): float
+  {
+    return ($q[0] - $p[0]) * ($r[1] - $p[1]) - ($q[1] - $p[1]) * ($r[0] - $p[0]);
+  }
+
+  /**
+   * Method onSegment.
+   *
+   * @since 1.0.0
+   *
+   * @param array{0: float, 1: float} $p
+   * @param array{0: float, 1: float} $q
+   * @param array{0: float, 1: float} $r
+   */
+  private static function onSegment(array $p, array $q, array $r): bool
+  {
+    return $r[0] >= min($p[0], $q[0]) - 1.0e-10 && $r[0] <= max($p[0], $q[0]) + 1.0e-10
+      && $r[1] >= min($p[1], $q[1]) - 1.0e-10 && $r[1] <= max($p[1], $q[1]) + 1.0e-10;
   }
   // #endregion
 }

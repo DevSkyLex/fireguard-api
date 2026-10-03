@@ -10,6 +10,7 @@ use Facility\Domain\ValueObject\{
   CanonicalFacilityChange,
   CanonicalFacilityParent,
   CanonicalFacilityPatch,
+  FacilityFloorMetrics,
   FacilityId,
   FacilityLevelIndex,
   FacilityOrganizationId,
@@ -74,6 +75,8 @@ final class CanonicalFacility
     private int $revision,
     private DateTimeImmutable $updatedAt,
     private ?int $levelIndex = null,
+    private ?float $elevationMeters = null,
+    private ?float $heightMeters = null,
   ) {
   }
   // #endregion
@@ -95,6 +98,8 @@ final class CanonicalFacility
     CanonicalFacilityContent $content,
     CanonicalFacilityVersion $version,
   ): self {
+    FacilityFloorMetrics::assertValid($content->type, $version->elevationMeters, $version->heightMeters);
+
     return new self(
       id: $reference->id,
       organizationId: $reference->organizationId,
@@ -112,6 +117,8 @@ final class CanonicalFacility
       revision: $version->revision,
       updatedAt: $version->updatedAt,
       levelIndex: self::normalizeLevelIndex($version->levelIndex),
+      elevationMeters: $version->elevationMeters,
+      heightMeters: $version->heightMeters,
     );
   }
 
@@ -146,6 +153,8 @@ final class CanonicalFacility
       'longitude' => $this->longitude,
       'metadata' => $this->metadata,
       'levelIndex' => $this->levelIndex,
+      'elevationMeters' => $this->elevationMeters,
+      'heightMeters' => $this->heightMeters,
     ];
 
     $this->applyFields($patch, $parent);
@@ -429,6 +438,34 @@ final class CanonicalFacility
   }
 
   /**
+   * Method elevationMeters
+   *
+   * Returns the optional physical floor elevation in meters.
+   *
+   * @access public
+   *
+   * @return ?float optional physical dimension in meters
+   */
+  public function elevationMeters(): ?float
+  {
+    return $this->elevationMeters;
+  }
+
+  /**
+   * Method heightMeters
+   *
+   * Returns the optional physical floor height in meters.
+   *
+   * @access public
+   *
+   * @return ?float optional physical dimension in meters
+   */
+  public function heightMeters(): ?float
+  {
+    return $this->heightMeters;
+  }
+
+  /**
    * Method status.
    *
    * @since 1.0.0
@@ -472,6 +509,15 @@ final class CanonicalFacility
    */
   private function applyFields(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent): void
   {
+    $type = $patch->hasType && null !== $patch->type
+      ? (FacilityType::tryFrom($patch->type) ?? throw CanonicalFacilityValidationException::unsupportedValue('type', $patch->type))
+      : $this->type;
+    $elevation = $patch->hasElevationMeters ? $patch->elevationMeters : (FacilityType::FLOOR === $type ? $this->elevationMeters : null);
+    $height = $patch->hasHeightMeters ? $patch->heightMeters : (FacilityType::FLOOR === $type ? $this->heightMeters : null);
+    FacilityFloorMetrics::assertValid($type, $elevation, $height);
+    $this->elevationMeters = $elevation;
+    $this->heightMeters = $height;
+
     $this->applyDescriptiveFields($patch);
     $this->applyOtherFields($patch, $parent);
   }
@@ -551,7 +597,7 @@ final class CanonicalFacility
   private function changedFields(array $previous): array
   {
     $changedFields = [];
-    foreach (['type', 'name', 'code', 'address', 'levelIndex'] as $field) {
+    foreach (['type', 'name', 'code', 'address', 'levelIndex', 'elevationMeters', 'heightMeters'] as $field) {
       if ($previous[$field] !== $this->{$field}) {
         $changedFields[] = $field;
       }

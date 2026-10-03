@@ -225,6 +225,8 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
 
     $detail = static::getContainer()->get(\Facility\Presentation\Api\Factory\FacilityDetailOutputFactory::class);
     self::assertInstanceOf(\Facility\Presentation\Api\Factory\FacilityDetailOutputFactory::class, $detail);
+    $queryBus = static::getContainer()->get(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    self::assertInstanceOf(\Shared\Application\Port\Inbound\QueryBusPort::class, $queryBus);
 
     return new CanonicalFacilityProvider(
       $this->entityManager,
@@ -233,6 +235,7 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
       $requestStack,
       new InterventionResourceManager($resources),
       detail: $detail,
+      queryBus: $queryBus,
     );
   }
 

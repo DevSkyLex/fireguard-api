@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Intervention\Infrastructure\Adapter\Facility;
 
+use Facility\Application\Contract\Hierarchy\InterventionParentAccess;
 use Facility\Application\Port\Outbound\InterventionScopePort;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Service\InterventionMemberPolicy;
+use Intervention\Domain\Exception\InterventionAccessDeniedException;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+
+use function in_array;
 
 /**
  * Adapter InterventionScopeAdapter.
@@ -35,9 +41,13 @@ final readonly class InterventionScopeAdapter implements InterventionScopePort
    * @since 1.0.0
    *
    * @param InterventionResourceGatewayPort $resources the intervention resource gateway
+   * @param OrganizationAuthorizationPort $authorization existing intervention permissions
+   * @param InterventionMemberPolicy $members execution participation policy
    */
   public function __construct(
     private InterventionResourceGatewayPort $resources,
+    private OrganizationAuthorizationPort $authorization,
+    private InterventionMemberPolicy $members,
   ) {
   }
   // #endregion
@@ -49,6 +59,33 @@ final readonly class InterventionScopeAdapter implements InterventionScopePort
   public function touchDraft(?string $interventionId): void
   {
     $this->resources->touchDraftIntervention($interventionId);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function preparationAccess(string $organizationId, string $interventionId, string $userId): InterventionParentAccess
+  {
+    $intervention = $this->resources->interventionAssignmentContext($interventionId);
+    if (null === $intervention || $organizationId !== $intervention->organizationId) {
+      return InterventionParentAccess::NOT_FOUND;
+    }
+    if (!in_array($intervention->status, ['draft', 'planned', 'in_progress', 'changes_requested'], true)) {
+      return InterventionParentAccess::DENIED;
+    }
+    $permission = 'draft' === $intervention->status ? 'organization.interventions.plan' : 'organization.interventions.execute';
+    if (!$this->authorization->hasPermission($userId, $organizationId, $permission)) {
+      return InterventionParentAccess::DENIED;
+    }
+    if ('draft' !== $intervention->status) {
+      try {
+        $this->members->assertCanExecuteIntervention($organizationId, $userId, $intervention->responsibleId, $intervention->participants);
+      } catch (InterventionAccessDeniedException) {
+        return InterventionParentAccess::DENIED;
+      }
+    }
+
+    return InterventionParentAccess::GRANTED;
   }
   // #endregion
 }
