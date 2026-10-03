@@ -160,7 +160,7 @@ final readonly class DuplicateFacilitySubtreeProcessor implements ProcessorInter
       $notFound instanceof FacilityNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
       $archivedSource instanceof FacilitySubtreeSourceArchivedException => new ConflictHttpException($archivedSource->getMessage(), $exception),
       $tooLarge instanceof FacilitySubtreeTooLargeException => new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception),
-      $hierarchy instanceof FacilityHierarchyException => new BadRequestHttpException($hierarchy->getMessage(), $exception),
+      $hierarchy instanceof FacilityHierarchyException => new UnprocessableEntityHttpException($hierarchy->getMessage(), $exception),
       $invalidArgument instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
       default => $exception,
     };

@@ -43,5 +43,19 @@ interface FacilityProvisioningPort
    * @return ProvisionFacilityResult the provisioning outcome
    */
   public function provision(ProvisionFacilityRequest $request): ProvisionFacilityResult;
+
+  /**
+   * Method restoreSimulation.
+   *
+   * Reconstructs an already confirmed simulation row without quota checks,
+   * creation dispatch, or persistence. Unavailable parents remain invalid.
+   *
+   * @since 1.0.0
+   *
+   * @param ProvisionFacilityRequest $request the original row with its stable identifier and preceding graph
+   *
+   * @return ProvisionFacilityResult the restored node or a typed unavailable-parent outcome
+   */
+  public function restoreSimulation(ProvisionFacilityRequest $request): ProvisionFacilityResult;
   // #endregion
 }

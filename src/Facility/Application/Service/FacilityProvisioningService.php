@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\Service;
 
 use Facility\Application\Contract\Facility\FacilityListCriteria;
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
@@ -21,8 +22,6 @@ use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Throwable;
-
-use function in_array;
 
 /**
  * Service FacilityProvisioningService.
@@ -77,23 +76,69 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
    */
   public function provision(ProvisionFacilityRequest $request): ProvisionFacilityResult
   {
-    $parentFacilityId = null;
-
-    if (null !== $request->parentCode && '' !== $request->parentCode) {
-      $parentFacilityId = $this->resolveParentIdByCode($request->organizationId, $request->parentCode);
-      if (null === $parentFacilityId && !$this->isKnownPendingCode($request)) {
-        return new ProvisionFacilityResult(
-          ProvisionOutcome::INVALID,
-          message: 'Unknown parent facility code "' . $request->parentCode . '".',
-        );
-      }
-      // A dry run whose parent code is not in the database yet but matches a
-      // row already reported "would create" earlier in the same batch is
-      // left unresolved on purpose: there is no real identifier to pass, and
-      // the dry-run projection below never looks the parent up by id.
+    try {
+      $parentFacilityId = $this->resolveParent($request);
+    } catch (InvalidArgumentException $exception) {
+      return new ProvisionFacilityResult(ProvisionOutcome::INVALID, message: $exception->getMessage());
     }
 
     return $this->dispatchCreate($request, $parentFacilityId);
+  }
+
+  /**
+   * Method restoreSimulation.
+   *
+   * Rebuilds the previously confirmed node without reapplying quotas or writing resources.
+   *
+   * @since 1.0.0
+   */
+  public function restoreSimulation(ProvisionFacilityRequest $request): ProvisionFacilityResult
+  {
+    if (!$request->dryRun || null === $request->resourceId) {
+      return new ProvisionFacilityResult(ProvisionOutcome::INVALID, message: 'A restored simulation requires a stable row identifier.');
+    }
+
+    try {
+      $parentFacilityId = $this->resolveParent($request);
+    } catch (InvalidArgumentException $exception) {
+      return new ProvisionFacilityResult(ProvisionOutcome::INVALID, message: $exception->getMessage());
+    }
+
+    return new ProvisionFacilityResult(
+      ProvisionOutcome::CREATED,
+      resourceId: $request->resourceId,
+      projectedNode: new FacilityHierarchyNode($request->resourceId, $request->type, $parentFacilityId),
+    );
+  }
+
+  /**
+   * Method resolveParent.
+   *
+   * Resolves actual persisted or simulated parent identifiers; it never invents a parent type.
+   *
+   * @param ProvisionFacilityRequest $request the source row and preceding simulation graph
+   *
+   * @return ?string the actual parent identifier, null for a root
+   */
+  private function resolveParent(ProvisionFacilityRequest $request): ?string
+  {
+    if (null === $request->parentCode || '' === $request->parentCode) {
+      return null;
+    }
+    $parentFacilityId = $this->resolveParentIdByCode($request->organizationId, $request->parentCode);
+    if (null === $parentFacilityId && $request->dryRun) {
+      $pendingId = $request->pendingCodeIds[$request->parentCode] ?? null;
+      foreach ($request->projectedHierarchy as $node) {
+        if ($node->id === $pendingId) {
+          return $node->id;
+        }
+      }
+    }
+    if (null === $parentFacilityId) {
+      throw new InvalidArgumentException('Unknown parent facility code "' . $request->parentCode . '".');
+    }
+
+    return $parentFacilityId;
   }
 
   /**
@@ -123,9 +168,15 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
         longitude: $request->longitude,
         dryRun: $request->dryRun,
         quotaProjectionOffset: $request->quotaProjectionOffset,
+        resourceId: $request->dryRun ? $request->resourceId : null,
+        projectedHierarchy: $request->dryRun ? $request->projectedHierarchy : [],
       ));
 
-      return new ProvisionFacilityResult(ProvisionOutcome::CREATED, resourceId: $result->facilityId);
+      return new ProvisionFacilityResult(
+        ProvisionOutcome::CREATED,
+        resourceId: $result->facilityId,
+        projectedNode: $request->dryRun ? new FacilityHierarchyNode($result->facilityId, $result->type, $result->parentFacilityId) : null,
+      );
     } catch (
       OrganizationQuotaExceededException|FacilityCodeAlreadyExistsException|FacilityArchivedException
       |FacilityNotFoundException|InvalidArgumentException|MessengerRuntimeException $exception
@@ -139,30 +190,6 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
         message: $exception->getMessage(),
       );
     }
-  }
-
-  /**
-   * Method isKnownPendingCode.
-   *
-   * Reports whether the request's `parentCode` matches a row earlier in the
-   * same dry-run batch that would itself be created — the caller (Import's
-   * `ProcessImportJobHandler`) tracks that list as it walks the file, so a
-   * parent ordered before its children resolves the same way a real run's
-   * intra-file ordering does.
-   *
-   * @since 1.0.0
-   *
-   * @param ProvisionFacilityRequest $request the provisioning request
-   *
-   * @return bool true when the parent code is a known pending (dry-run only) code
-   */
-  private function isKnownPendingCode(ProvisionFacilityRequest $request): bool
-  {
-    if (!$request->dryRun || null === $request->knownPendingCodes) {
-      return false;
-    }
-
-    return in_array($request->parentCode, $request->knownPendingCodes, true);
   }
 
   /**

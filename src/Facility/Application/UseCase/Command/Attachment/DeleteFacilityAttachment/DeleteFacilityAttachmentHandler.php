@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityPlanReferenceCleanupPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotFoundException};
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityOrganizationId};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileStoragePort, TransactionManagerPort};
 
 /**
  * UseCase DeleteFacilityAttachmentHandler.
@@ -38,6 +38,8 @@ final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,
     private FileStoragePort $fileStorage,
+    private FacilityPlanReferenceCleanupPort $referenceCleanup,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -66,7 +68,10 @@ final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
       throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
     }
 
-    $this->attachmentRepository->delete($attachmentId);
+    $this->transactionManager->transactional(function () use ($command, $attachmentId): void {
+      $this->referenceCleanup->clearForAttachment($command->organizationId, $command->attachmentId);
+      $this->attachmentRepository->delete($attachmentId);
+    });
     $this->fileStorage->delete($attachment->storagePath());
 
     return new DeleteFacilityAttachmentResult(

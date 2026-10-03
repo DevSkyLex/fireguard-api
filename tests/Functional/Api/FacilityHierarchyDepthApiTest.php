@@ -22,7 +22,7 @@ use function json_encode;
  *
  * Creates a facility chain up to the configured FACILITY_MAX_DEPTH cap
  * through the real HTTP surface, then asserts the next level is refused
- * with the mapped 400 and the FacilityHierarchyException::maxDepthExceeded
+ * with the mapped 422 and the FacilityHierarchyException::maxDepthExceeded
  * message.
  *
  * @category Functional Tests
@@ -69,9 +69,9 @@ final class FacilityHierarchyDepthApiTest extends WebTestCase
     $response = $this->createFacility('Depth Level ' . (self::MAX_DEPTH + 1), $parentFacilityId);
 
     self::assertSame(
-      400,
+      422,
       $response->getStatusCode(),
-      'Creating a facility past the depth cap should be refused with 400. Response: ' . $response->getContent(),
+      'Creating a facility past the depth cap should be refused with 422. Response: ' . $response->getContent(),
     );
 
     $decoded = json_decode($response->getContent() ?: '{}', true);
@@ -91,7 +91,7 @@ final class FacilityHierarchyDepthApiTest extends WebTestCase
       '/api/organizations/' . self::ORGANIZATION_ID . '/facilities',
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
       content: (string) json_encode([
-        'type' => 'zone',
+        'type' => null === $parentFacilityId ? 'site' : 'zone',
         'name' => $name,
         'parentFacilityId' => $parentFacilityId,
       ]),

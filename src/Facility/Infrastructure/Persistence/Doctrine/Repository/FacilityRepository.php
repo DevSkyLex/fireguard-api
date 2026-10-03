@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\QueryBuilder;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
@@ -70,6 +71,8 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
       $existing->metadata = $record->metadata;
       $existing->planGeometry = $record->planGeometry;
       $existing->levelIndex = $record->levelIndex;
+      $existing->elevationMeters = $record->elevationMeters;
+      $existing->heightMeters = $record->heightMeters;
       $existing->updatedAt = $record->updatedAt;
     } else {
       $this->entityManager->persist($record);
@@ -128,6 +131,28 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
     }
 
     return FacilityMapper::toDomain($record);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function findProjectionContextsByFacilityIds(FacilityOrganizationId $organizationId, array $facilityIds): array
+  {
+    if ([] === $facilityIds) {
+      return [];
+    }
+    /** @var list<array{id: string, record_status: string, intervention_id: ?string, revision: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery(
+      'SELECT id, record_status, intervention_id, revision FROM facilities WHERE organization_id = :organizationId AND id IN (:ids)',
+      ['organizationId' => (string) $organizationId, 'ids' => $facilityIds],
+      ['ids' => ArrayParameterType::STRING],
+    )->fetchAllAssociative();
+    $contexts = [];
+    foreach ($rows as $row) {
+      $contexts[$row['id']] = ['recordStatus' => $row['record_status'], 'interventionId' => $row['intervention_id'], 'revision' => (int) $row['revision']];
+    }
+
+    return $contexts;
   }
 
   /**
@@ -274,6 +299,8 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
    * @param bool $includeArchived the include archived value
    * @param ?string $search the search value
    * @param Sorting $sorting the sorting value
+   * @param ?int $limit optional page size; null preserves the bulk read
+   * @param int $offset the zero-based page offset
    *
    * @return list<Facility> the find descendants result
    */
@@ -283,36 +310,54 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
     bool $includeArchived = false,
     ?string $search = null,
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    ?int $limit = null,
+    int $offset = 0,
   ): array {
     $descendantIds = $this->descendantIds($organizationId, (string) $facilityId);
     if ([] === $descendantIds) {
       return [];
     }
 
-    /** @var list<FacilityRecord> $records */
-    $records = $this->repository->findBy(['id' => $descendantIds]);
+    $builder = $this->createListQueryBuilder($organizationId, $includeArchived, new FacilityListCriteria(search: $search))
+      ->andWhere('f.id IN (:descendantIds)')
+      ->setParameter('descendantIds', $descendantIds)
+      ->addSelect("COALESCE(f.code, '') AS HIDDEN descendantCodeSort")
+      ->orderBy('code' === $sorting->field ? 'descendantCodeSort' : $this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
+      ->addOrderBy('f.id', 'ASC');
 
-    $filtered = [];
-    foreach ($records as $record) {
-      // Archived facilities are traversed so their live descendants are reached,
-      // but excluded from the result unless explicitly requested.
-      if (!$includeArchived && FacilityStatus::ARCHIVED->value === $record->status) {
-        continue;
-      }
-
-      if (!$this->matchesSearch($record, $search)) {
-        continue;
-      }
-
-      $filtered[] = $record;
+    if (null !== $limit) {
+      $builder->setFirstResult($offset)->setMaxResults($limit);
     }
 
-    $this->sortRecords($filtered, $sorting);
+    /** @var list<FacilityRecord> $records */
+    $records = $builder->getQuery()->getResult();
 
     return array_map(
       static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
-      $filtered,
+      $records,
     );
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function countDescendants(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+  ): int {
+    $descendantIds = $this->descendantIds($organizationId, (string) $facilityId);
+    if ([] === $descendantIds) {
+      return 0;
+    }
+
+    return (int) $this->createListQueryBuilder($organizationId, $includeArchived, new FacilityListCriteria(search: $search))
+      ->select('COUNT(f.id)')
+      ->andWhere('f.id IN (:descendantIds)')
+      ->setParameter('descendantIds', $descendantIds)
+      ->getQuery()
+      ->getSingleScalarResult();
   }
 
   /**
@@ -353,6 +398,66 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
       'facilityId' => $facilityId,
       'published' => 'published',
     ])->fetchAllAssociative();
+  }
+
+  /**
+   * Method findAncestorsByFacilityIds.
+   *
+   * Batch ancestor walks are bounded by visited identifiers and never cross organizations.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization scope
+   * @param list<string> $facilityIds the page to enrich
+   *
+   * @return array<string, list<array{id: string, name: string, type: string}>> ancestor breadcrumbs keyed by facility
+   */
+  public function findAncestorsByFacilityIds(FacilityOrganizationId $organizationId, array $facilityIds): array
+  {
+    if ([] === $facilityIds) {
+      return [];
+    }
+
+    $sql = <<<'SQL'
+      WITH RECURSIVE ancestors AS (
+        SELECT origin.id AS origin_id, origin.intervention_id, origin.record_status AS origin_record_status, parent.id,
+          parent.name, parent.type, parent.parent_facility_id, 1 AS depth,
+          ARRAY[origin.id, parent.id]::text[] AS visited
+        FROM facilities origin
+        INNER JOIN facilities parent ON parent.id = origin.parent_facility_id
+          AND parent.organization_id = origin.organization_id
+        WHERE origin.organization_id = :organizationId AND origin.id IN (:facilityIds)
+          AND parent.id <> origin.id
+          AND (parent.record_status = 'published' OR
+            (origin.record_status = 'draft' AND parent.record_status = 'draft'
+              AND parent.intervention_id = origin.intervention_id))
+        UNION ALL
+        SELECT ancestors.origin_id, ancestors.intervention_id, ancestors.origin_record_status, parent.id,
+          parent.name, parent.type, parent.parent_facility_id, ancestors.depth + 1,
+          ancestors.visited || parent.id
+        FROM ancestors
+        INNER JOIN facilities parent ON parent.id = ancestors.parent_facility_id
+        WHERE parent.organization_id = :organizationId
+          AND NOT parent.id = ANY(ancestors.visited)
+          AND (parent.record_status = 'published' OR
+            (ancestors.origin_record_status = 'draft' AND parent.record_status = 'draft'
+              AND parent.intervention_id = ancestors.intervention_id))
+      )
+      SELECT origin_id, id, name, type FROM ancestors ORDER BY origin_id, depth DESC
+      SQL;
+
+    /** @var list<array{origin_id: string, id: string, name: string, type: string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+      'organizationId' => (string) $organizationId,
+      'facilityIds' => $facilityIds,
+    ], ['facilityIds' => ArrayParameterType::STRING])->fetchAllAssociative();
+
+    $paths = [];
+    foreach ($rows as $row) {
+      $paths[$row['origin_id']][] = ['id' => $row['id'], 'name' => $row['name'], 'type' => $row['type']];
+    }
+
+    return $paths;
   }
 
   /**
@@ -427,7 +532,6 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
       SELECT id, status, type, name, plan_geometry
       FROM subtree
       WHERE plan_geometry IS NOT NULL
-        AND plan_geometry ->> 'attachmentId' = :attachmentId
       SQL;
 
     /** @var list<array{id: string, status: string, type: string, name: string, plan_geometry: string}> $rows */
@@ -435,7 +539,6 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
       'rootId' => (string) $rootFacilityId,
       'organizationId' => (string) $organizationId,
       'published' => 'published',
-      'attachmentId' => $attachmentId,
     ])->fetchAllAssociative();
 
     $zones = [];
@@ -449,6 +552,7 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
         'type' => $row['type'],
         'status' => $row['status'],
         'points' => $geometry['points'],
+        'attachmentId' => $geometry['attachmentId'],
       ];
     }
 
@@ -474,10 +578,13 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
    *   name: string,
    *   status: string,
    *   levelIndex: ?int,
+   *   elevationMeters: ?float,
+   *   heightMeters: ?float,
    *   planGeometry: ?array{attachmentId: string, points: list<array{0: float, 1: float}>},
    *   primaryPlanAttachmentId: ?string,
    *   primaryPlanImageWidth: ?int,
    *   primaryPlanImageHeight: ?int,
+   *   primaryPlanCalibration: ?array{widthMeters: float, rotationDegrees: float, offsetXMeters: float, offsetZMeters: float}, primaryPlanCalibrationBuildingId: ?string,
    * }> the building's floors, in render order
    */
   public function findBuildingFloors(
@@ -485,21 +592,35 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
     FacilityId $buildingId,
   ): array {
     $sql = <<<'SQL'
+      WITH RECURSIVE building_subtree AS (
+        SELECT id, ARRAY[id]::text[] AS visited FROM facilities
+        WHERE id = :buildingId AND organization_id = :organizationId AND record_status = :published
+        UNION ALL
+        SELECT child.id, building_subtree.visited || child.id::text
+        FROM facilities child JOIN building_subtree ON child.parent_facility_id = building_subtree.id
+        WHERE child.organization_id = :organizationId AND child.record_status = :published
+          AND child.type <> 'building' AND NOT child.id = ANY(building_subtree.visited)
+      )
       SELECT
           floor.id,
           floor.name,
           floor.status,
           floor.level_index,
+          floor.elevation_meters,
+          floor.height_meters,
           floor.plan_geometry,
           plan.id AS primary_plan_attachment_id,
           plan.image_width AS primary_plan_image_width,
-          plan.image_height AS primary_plan_image_height
+          plan.image_height AS primary_plan_image_height,
+          plan.calibration AS primary_plan_calibration,
+          frame.id AS primary_plan_calibration_building_id
       FROM facilities floor
       LEFT JOIN facility_attachments plan
           ON plan.facility_id = floor.id
           AND plan.kind = 'floor_plan'
-          AND plan.is_primary_plan
-      WHERE floor.parent_facility_id = :buildingId
+           AND plan.is_primary_plan
+      LEFT JOIN facilities frame ON frame.id = plan.calibration_building_id AND frame.organization_id = :organizationId
+      WHERE floor.id IN (SELECT id FROM building_subtree)
         AND floor.organization_id = :organizationId
         AND floor.type = 'floor'
         AND floor.record_status = :published
@@ -512,10 +633,14 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
      *   name: string,
      *   status: string,
      *   level_index: ?string,
+     *   elevation_meters: ?string,
+     *   height_meters: ?string,
      *   plan_geometry: ?string,
      *   primary_plan_attachment_id: ?string,
      *   primary_plan_image_width: ?string,
      *   primary_plan_image_height: ?string,
+     *   primary_plan_calibration: ?string,
+     *   primary_plan_calibration_building_id: ?string,
      * }> $rows
      */
     $rows = $this->entityManager->getConnection()->executeQuery($sql, [
@@ -537,10 +662,14 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
         'name' => $row['name'],
         'status' => $row['status'],
         'levelIndex' => null !== $row['level_index'] ? (int) $row['level_index'] : null,
+        'elevationMeters' => null !== $row['elevation_meters'] ? (float) $row['elevation_meters'] : null,
+        'heightMeters' => null !== $row['height_meters'] ? (float) $row['height_meters'] : null,
         'planGeometry' => $planGeometry,
         'primaryPlanAttachmentId' => $row['primary_plan_attachment_id'],
         'primaryPlanImageWidth' => null !== $row['primary_plan_image_width'] ? (int) $row['primary_plan_image_width'] : null,
         'primaryPlanImageHeight' => null !== $row['primary_plan_image_height'] ? (int) $row['primary_plan_image_height'] : null,
+        'primaryPlanCalibration' => $this->decodeCalibration($row['primary_plan_calibration']),
+        'primaryPlanCalibrationBuildingId' => $row['primary_plan_calibration_building_id'],
       ];
     }
 
@@ -569,6 +698,7 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
    *   type: string,
    *   status: string,
    *   points: list<array{0: float, 1: float}>,
+   *   attachmentId: string,
    * }> the matching rooms, unordered
    */
   public function findRoomsForFloors(
@@ -623,13 +753,13 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
           INNER JOIN subtree ON child.parent_facility_id = subtree.id
           WHERE child.organization_id = :organizationId
             AND child.record_status = :published
+            AND child.type <> 'floor'
       )
       SELECT floor_id, id, parent_facility_id, name, type, status, plan_geometry
       FROM subtree
       WHERE id <> floor_id
         AND type IN ('zone', 'area')
         AND plan_geometry IS NOT NULL
-        AND plan_geometry ->> 'attachmentId' = attachment_id
       SQL;
 
     /**
@@ -658,6 +788,7 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
         'type' => $row['type'],
         'status' => $row['status'],
         'points' => $geometry['points'],
+        'attachmentId' => $geometry['attachmentId'],
       ];
     }
 
@@ -738,6 +869,42 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
     ])->fetchOne();
 
     return is_numeric($result) ? (int) $result : 0;
+  }
+
+  /**
+   * Method findFacilityBindingsForFloors.
+   *
+   * @since 1.0.0
+   *
+   * @param list<string> $floorIds
+   *
+   * @return list<array{floorId: string, facilityId: string}>
+   */
+  public function findFacilityBindingsForFloors(FacilityOrganizationId $organizationId, array $floorIds): array
+  {
+    if ([] === $floorIds) {
+      return [];
+    }
+    $sql = <<<'SQL'
+      WITH RECURSIVE locations AS (
+        SELECT f.id AS floor_id, f.id
+        FROM facilities f
+        WHERE f.id IN (:floorIds) AND f.organization_id = :organizationId
+          AND f.type = 'floor' AND f.record_status = 'published'
+        UNION ALL
+        SELECT l.floor_id, child.id FROM locations l
+        JOIN facilities child ON child.parent_facility_id = l.id
+        WHERE child.organization_id = :organizationId
+          AND child.record_status = 'published' AND child.type <> 'floor'
+      )
+      SELECT floor_id, id FROM locations
+      SQL;
+    /** @var list<array{floor_id: string, id: string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+      'floorIds' => $floorIds, 'organizationId' => (string) $organizationId,
+    ], ['floorIds' => ArrayParameterType::STRING])->fetchAllAssociative();
+
+    return array_map(static fn (array $row): array => ['floorId' => $row['floor_id'], 'facilityId' => $row['id']], $rows);
   }
 
   // #region Methods
@@ -878,5 +1045,22 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
     );
   }
 
+  /**
+   * Method decodeCalibration.
+   *
+   * @since 1.0.0
+   *
+   * @return ?array{widthMeters: float, rotationDegrees: float, offsetXMeters: float, offsetZMeters: float}
+   */
+  private function decodeCalibration(?string $raw): ?array
+  {
+    if (null === $raw) {
+      return null;
+    }
+    /** @var array<string, mixed> $data */
+    $data = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+
+    return \Facility\Domain\ValueObject\PlanCalibration::fromArray($data)->toArray();
+  }
   // #endregion
 }

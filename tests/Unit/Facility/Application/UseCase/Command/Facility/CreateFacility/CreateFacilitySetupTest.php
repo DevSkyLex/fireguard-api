@@ -52,6 +52,7 @@ final class CreateFacilitySetupTest extends TestCase
     $handler = new CreateFacilityHandler($repository, $uuid, $quota, $transactions, $events, new FacilityMetadataSchemaGuard($metadata), setup: $setup);
     $result = $handler(new CreateFacilityCommand($org, 'site', 'Saved site', setupContext: new OrganizationSetupContext('user', 'session', 'site')));
     self::assertSame($id, $result->facilityId);
+    self::assertTrue($result->replayed);
     self::assertSame('Saved site', $result->name);
   }
 }

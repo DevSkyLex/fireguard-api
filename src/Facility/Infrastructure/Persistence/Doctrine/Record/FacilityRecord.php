@@ -7,6 +7,7 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Record;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
+use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
@@ -165,6 +166,22 @@ class FacilityRecord
   public ?int $levelIndex = null;
 
   /**
+   * Property elevationMeters
+   *
+   * Optional floor elevation in the building coordinate system, in meters.
+   */
+  #[ORM\Column(name: 'elevation_meters', type: 'float', nullable: true)]
+  public ?float $elevationMeters = null;
+
+  /**
+   * Property heightMeters
+   *
+   * Optional physical floor height, in meters.
+   */
+  #[ORM\Column(name: 'height_meters', type: 'float', nullable: true)]
+  public ?float $heightMeters = null;
+
+  /**
    * Property metadata.
    *
    * @since 1.0.0
@@ -212,6 +229,23 @@ class FacilityRecord
   public function __construct()
   {
     $this->children = new ArrayCollection();
+  }
+
+  /**
+   * Returns this record's scalar organization scope for owner-module adapters.
+   *
+   * @since 1.0.0
+   *
+   * @return string the persisted owning organization identifier
+   */
+  public function organizationId(): string
+  {
+    $organization = $this->organization;
+    if (null === $organization) {
+      throw new LogicException('The facility organization is unavailable.');
+    }
+
+    return $organization->id;
   }
   // #endregion
 }

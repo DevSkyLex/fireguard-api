@@ -8,7 +8,9 @@ use Doctrine\DBAL\Exception\{
   ForeignKeyConstraintViolationException,
   UniqueConstraintViolationException
 };
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
+use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Domain\Exception\{
@@ -25,7 +27,7 @@ use Facility\Domain\ValueObject\{
   FacilityType
 };
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 use ValueError;
@@ -56,6 +58,9 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     private FacilityRepositoryPort $facilityRepository,
     private EventDispatcherPort $eventDispatcher,
     private FacilityMetadataSchemaGuard $metadataSchemaGuard,
+    private ?FacilityHierarchyPort $hierarchy = null,
+    private ?TransactionManagerPort $transactionManager = null,
+    private ?CanonicalFacilityRepositoryPort $canonicalFacilities = null,
   ) {
   }
   // #endregion
@@ -74,6 +79,27 @@ final readonly class UpdateFacilityHandler implements CommandHandler
    */
   public function __invoke(UpdateFacilityCommand $command): UpdateFacilityResult
   {
+    $event = null;
+    $operation = function () use ($command, &$event): UpdateFacilityResult {
+      $this->hierarchy?->lock($command->organizationId);
+
+      return $this->update($command, $event);
+    };
+    $result = null === $this->transactionManager ? $operation() : $this->transactionManager->transactional($operation);
+    if (null !== $event) {
+      $this->eventDispatcher->dispatch($event);
+    }
+
+    return $result;
+  }
+
+  /**
+   * Method update.
+   *
+   * @since 1.0.0
+   */
+  private function update(UpdateFacilityCommand $command, ?FacilityUpdatedEvent &$event): UpdateFacilityResult
+  {
     try {
       $facilityId = FacilityId::fromString($command->facilityId);
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
@@ -81,6 +107,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
+    $canonical = $this->canonicalFacilities?->findById($facilityId);
     $facility = $this->facilityRepository->findById($facilityId);
 
     if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
@@ -91,6 +118,17 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     // actually differs, not merely which fields were present in the patch —
     // a PATCH that re-sends the current value must stay a no-op.
     $previous = clone $facility;
+
+    if ($command->hasType && null !== $command->type && $command->type !== $facility->type()->value && null !== $this->hierarchy) {
+      $this->hierarchy->assertGraph($command->organizationId, [new FacilityHierarchyNode(
+        $command->facilityId,
+        $command->type ?? '',
+        $facility->parentFacilityId()?->__toString(),
+        $facility->status()->value,
+        $canonical?->recordStatus()->value ?? 'published',
+        $canonical?->interventionId(),
+      )]);
+    }
 
     try {
       $this->applyChanges($facility, $command);
@@ -129,11 +167,11 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     // archived/restored/moved events and are never listed here.
     $changedFields = $this->changedFields($facility, $previous);
     if ([] !== $changedFields) {
-      $this->eventDispatcher->dispatch(new FacilityUpdatedEvent(
+      $event = new FacilityUpdatedEvent(
         organizationId: (string) $facility->organizationId(),
         facilityId: (string) $facility->id(),
         changedFields: $changedFields,
-      ));
+      );
     }
 
     return new UpdateFacilityResult(
@@ -151,6 +189,8 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       latitude: $facility->coordinates()?->latitude(),
       longitude: $facility->coordinates()?->longitude(),
       levelIndex: $facility->levelIndex(),
+      elevationMeters: $facility->elevationMeters(),
+      heightMeters: $facility->heightMeters(),
     );
   }
 
@@ -202,6 +242,13 @@ final readonly class UpdateFacilityHandler implements CommandHandler
 
     if ($command->hasLevelIndex) {
       $facility->changeLevelIndex($command->levelIndex);
+    }
+
+    if ($command->hasElevationMeters || $command->hasHeightMeters) {
+      $facility->changeFloorMetrics(
+        $command->hasElevationMeters ? $command->elevationMeters : $facility->elevationMeters(),
+        $command->hasHeightMeters ? $command->heightMeters : $facility->heightMeters(),
+      );
     }
   }
 
@@ -281,6 +328,13 @@ final readonly class UpdateFacilityHandler implements CommandHandler
 
     if ($previous->levelIndex() !== $facility->levelIndex()) {
       $changed[] = 'levelIndex';
+    }
+
+    if ($previous->elevationMeters() !== $facility->elevationMeters()) {
+      $changed[] = 'elevationMeters';
+    }
+    if ($previous->heightMeters() !== $facility->heightMeters()) {
+      $changed[] = 'heightMeters';
     }
 
     return $changed;

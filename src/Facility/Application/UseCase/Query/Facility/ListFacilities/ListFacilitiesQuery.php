@@ -37,6 +37,11 @@ final readonly class ListFacilitiesQuery implements QueryMessage
    * @param ?bool $hasCoordinates whether latitude and longitude must both be set or unset, when specified
    * @param ?string $search optional text search
    * @param Sorting $sorting requested field and direction for ordering results
+   * @param bool $includePath whether to resolve ancestor breadcrumbs for the returned page
+   * @param ?string $parentForType new facility type whose eligible parents are requested
+   * @param ?string $parentForFacilityId existing facility whose eligible move destinations are requested
+   * @param ?string $interventionId authorized intervention parent preparation scope
+   * @param bool $includePublishedParents whether published candidates are readable
    *
    * @return void
    */
@@ -52,6 +57,11 @@ final readonly class ListFacilitiesQuery implements QueryMessage
     public ?bool $hasCoordinates = null,
     public ?string $search = null,
     public Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    public bool $includePath = false,
+    public ?string $parentForType = null,
+    public ?string $parentForFacilityId = null,
+    public ?string $interventionId = null,
+    public bool $includePublishedParents = true,
   ) {
   }
   // #endregion

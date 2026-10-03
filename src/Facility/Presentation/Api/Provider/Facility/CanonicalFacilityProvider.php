@@ -10,15 +10,18 @@ use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\UseCase\Query\Facility\GetFacilityPaths\{GetFacilityPathsQuery, GetFacilityPathsResult};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
+use function array_map;
 use function is_array;
 use function is_numeric;
 use function is_string;
@@ -64,6 +67,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     private RequestStack $requestStack,
     private InterventionResourceManager $interventionResourceManager,
     private \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail,
+    private QueryBusPort $queryBus,
   ) {
   }
 
@@ -121,11 +125,20 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       ->setMaxResults($itemsPerPage)
       ->getQuery()
       ->getResult();
+    /** @var GetFacilityPathsResult $pathResult */
+    $pathResult = $this->queryBus->ask(new GetFacilityPathsQuery(
+      $organization,
+      array_map(static fn (FacilityRecord $record): string => $record->id, $records),
+      $this->requestStack->getCurrentRequest()?->query->getBoolean('includePath', false) ?? false,
+    ));
     $output = [];
     foreach ($records as $record) {
       // Collection responses never carry planGeometry — the detail branch
       // above (includeGeometry: true) is the only reader.
-      $output[] = $this->map($record, includeGeometry: false);
+      $item = $this->map($record, includeGeometry: false);
+      $item->path = $pathResult->paths[$record->id] ?? [];
+      $item->hierarchyIssues = $pathResult->hierarchyIssues[$record->id] ?? [];
+      $output[] = $item;
     }
 
     return new TraversablePaginator(new ArrayIterator($output), (float) $page, (float) $itemsPerPage, (float) $total);
@@ -269,6 +282,8 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $output->longitude = $record->longitude;
     $output->metadata = $record->metadata;
     $output->levelIndex = $record->levelIndex;
+    $output->elevationMeters = $record->elevationMeters;
+    $output->heightMeters = $record->heightMeters;
     if ($includeGeometry) {
       $output->planGeometry = $record->planGeometry;
     }

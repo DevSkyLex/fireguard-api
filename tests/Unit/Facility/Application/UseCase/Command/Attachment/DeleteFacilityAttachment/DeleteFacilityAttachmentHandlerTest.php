@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment;
 
 use DateTimeImmutable;
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityPlanReferenceCleanupPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\{DeleteFacilityAttachmentCommand, DeleteFacilityAttachmentHandler, DeleteFacilityAttachmentResult};
 use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotFoundException};
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentRestoredState};
@@ -14,7 +14,7 @@ use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName,
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileStoragePort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(DeleteFacilityAttachmentHandler::class)]
@@ -50,6 +50,8 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
+      referenceCleanup: $this->createStub(FacilityPlanReferenceCleanupPort::class),
+      transactionManager: $this->transactionManager(),
     );
 
     $result = $handler->__invoke(new DeleteFacilityAttachmentCommand(
@@ -78,6 +80,8 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
+      referenceCleanup: $this->createStub(FacilityPlanReferenceCleanupPort::class),
+      transactionManager: $this->transactionManager(),
     );
 
     $this->expectException(FacilityNotFoundException::class);
@@ -117,6 +121,8 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
+      referenceCleanup: $this->createStub(FacilityPlanReferenceCleanupPort::class),
+      transactionManager: $this->transactionManager(),
     );
 
     $this->expectException(FacilityAttachmentNotFoundException::class);
@@ -143,6 +149,8 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       facilityRepository: $facilityRepository,
       attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
       fileStorage: $fileStorage,
+      referenceCleanup: $this->createStub(FacilityPlanReferenceCleanupPort::class),
+      transactionManager: $this->transactionManager(),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -152,6 +160,14 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       facilityId: 'also-not-a-uuid',
       attachmentId: 'still-not-a-uuid',
     ));
+  }
+
+  private function transactionManager(): TransactionManagerPort
+  {
+    $port = $this->createStub(TransactionManagerPort::class);
+    $port->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $port;
   }
 
   private function facility(): Facility

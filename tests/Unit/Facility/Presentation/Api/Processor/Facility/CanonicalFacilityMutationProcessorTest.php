@@ -503,6 +503,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       $requestStack,
       $manager,
       detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
+      queryBus: $this->detailQueries(),
     );
 
     return new CanonicalFacilityMutationProcessor(

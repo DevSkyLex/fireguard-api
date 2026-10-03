@@ -7,7 +7,8 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -17,6 +18,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use function base64_decode;
 use function file_put_contents;
 use function json_decode;
+use function json_encode;
 use function sys_get_temp_dir;
 use function tempnam;
 
@@ -544,6 +546,166 @@ final class FacilityAttachmentApiTest extends WebTestCase
   // `AttachmentConstraints::MAX_SIZE_BYTES + 1`, bypassing the php.ini
   // ceiling entirely, and asserts the command bus is never dispatched (i.e.
   // rejection happens before any dimension probing or persistence).
+
+  #[Test]
+  public function testCalibrationPersistsRevisionAndCanBeCleared(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-calibration-admin@example.com');
+    $attachmentId = $this->uploadFloorPlan($client, 'calibrated.png', $this->minimalPngBytes());
+    $calibration = ['widthMeters' => 25.0, 'rotationDegrees' => 90.0, 'offsetXMeters' => -2.0, 'offsetZMeters' => 4.0];
+    $client = $this->calibrationAdminClient();
+    $client->request('PUT', '/api/facility-attachments/' . $attachmentId . '/calibration', server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: (string) json_encode(['calibration' => $calibration]));
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $data = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($data);
+    self::assertSame(2, $data['revision']);
+    self::assertEquals($calibration, $data['calibration']);
+    self::assertNull($data['calibrationBuildingId'] ?? null);
+    self::assertSame('unverified_frame', $data['calibrationIssue'] ?? null);
+    self::assertSame('"revision-2"', $client->getResponse()->headers->get('ETag'));
+
+    $client = $this->calibrationAdminClient();
+    $client->request('GET', '/api/facilities/' . self::FACILITY_ID . '/attachments?kind=floor_plan');
+    $listed = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($listed);
+    self::assertIsArray($listed['member']);
+    self::assertIsArray($listed['member'][0]);
+    self::assertSame(2, $listed['member'][0]['revision']);
+    self::assertEquals($calibration, $listed['member'][0]['calibration']);
+    self::assertNull($listed['member'][0]['calibrationBuildingId'] ?? null);
+    self::assertSame('unverified_frame', $listed['member'][0]['calibrationIssue'] ?? null);
+
+    $client = $this->calibrationAdminClient();
+    $client->request('PUT', '/api/facility-attachments/' . $attachmentId . '/calibration', server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-2"'], content: '{"calibration":null}');
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $client = $this->calibrationAdminClient();
+    $client->request('GET', '/api/facility-attachments/' . $attachmentId);
+    $data = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($data);
+    self::assertSame(3, $data['revision']);
+    self::assertNull($data['calibration'] ?? null);
+    self::assertNull($data['calibrationBuildingId'] ?? null);
+    self::assertNull($data['calibrationIssue'] ?? null);
+  }
+
+  #[Test]
+  public function testCalibrationRequiresIfMatchAndRejectsStaleOrInvalidInput(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-calibration-admin@example.com');
+    $attachmentId = $this->uploadFloorPlan($client, 'calibrated.png', $this->minimalPngBytes());
+    $uri = '/api/facility-attachments/' . $attachmentId . '/calibration';
+    $client = $this->calibrationAdminClient();
+    $client->request('PUT', $uri, server: ['CONTENT_TYPE' => 'application/ld+json'], content: '{"calibration":null}');
+    self::assertSame(428, $client->getResponse()->getStatusCode());
+    $client = $this->calibrationAdminClient();
+    $client->request('PUT', $uri, server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-7"'], content: '{"calibration":null}');
+    self::assertSame(412, $client->getResponse()->getStatusCode());
+    $client = $this->calibrationAdminClient();
+    $client->request('PUT', $uri, server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: '{"calibration":{"widthMeters":0,"rotationDegrees":0,"offsetXMeters":0,"offsetZMeters":0}}');
+    self::assertSame(400, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $client = $this->calibrationAdminClient();
+    $client->request('PUT', $uri, server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: '{}');
+    self::assertSame(400, $client->getResponse()->getStatusCode());
+  }
+
+  #[Test]
+  public function testCalibrationDeniesMemberWithoutFacilitiesWriteAndHidesOutsider(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-calibration-admin@example.com');
+    $attachmentId = $this->uploadFloorPlan($client, 'calibrated.png', $this->minimalPngBytes());
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $this->loginAs($client, self::PLAIN_MEMBER_USER_ID, 'facility-calibration-member@example.com');
+    $client->request('PUT', '/api/facility-attachments/' . $attachmentId . '/calibration', server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: '{"calibration":null}');
+    self::assertSame(403, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $this->loginAs($client, self::OUTSIDER_USER_ID, 'facility-calibration-outsider@example.com');
+    $client->request('PUT', '/api/facility-attachments/' . $attachmentId . '/calibration', server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: '{"calibration":null}');
+    self::assertSame(404, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+  }
+
+  #[Test]
+  public function testCalibrationRejectsDocumentAttachment(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-calibration-admin@example.com');
+    $path = tempnam(sys_get_temp_dir(), 'facility-calibration-doc-');
+    self::assertIsString($path);
+    file_put_contents($path, "%PDF-1.4\n%%EOF");
+    $client = $this->calibrationAdminClient();
+    $client->request('POST', '/api/facilities/' . self::FACILITY_ID . '/attachments', files: ['file' => new UploadedFile($path, 'doc.pdf', 'application/pdf', test: true)]);
+    self::assertSame(201, $client->getResponse()->getStatusCode());
+    $data = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($data);
+    self::assertIsString($data['id']);
+    $client = $this->calibrationAdminClient();
+    $client->request('PUT', '/api/facility-attachments/' . $data['id'] . '/calibration', server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: '{"calibration":null}');
+    self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+  }
+
+  #[Test]
+  public function testDeletingPlanClearsGeometryAndEquipmentReferences(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-calibration-admin@example.com');
+    $attachmentId = $this->uploadFloorPlan($client, 'calibrated.png', $this->minimalPngBytes());
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $facility = $entityManager->find(FacilityRecord::class, self::FACILITY_ID);
+    self::assertInstanceOf(FacilityRecord::class, $facility);
+    $facility->planGeometry = ['attachmentId' => $attachmentId, 'points' => [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]];
+    $equipment = new EquipmentRecord();
+    $equipment->id = '550e8400-e29b-41d4-a716-446655490099';
+    $equipment->organization = $facility->organization;
+    $equipment->facilityId = self::FACILITY_ID;
+    $equipment->type = 'fire_extinguisher';
+    $equipment->serialNumber = 'CLEANUP-PLAN-1';
+    $equipment->status = 'operational';
+    $equipment->createdAt = new DateTimeImmutable();
+    $equipment->updatedAt = $equipment->createdAt;
+    $equipment->planPosition = ['attachmentId' => $attachmentId, 'x' => 0.5, 'y' => 0.5];
+    $entityManager->persist($equipment);
+    $entityManager->flush();
+    $facilityRevision = $facility->revision;
+    $client = $this->calibrationAdminClient();
+    $client->request('DELETE', '/api/facility-attachments/' . $attachmentId, server: ['HTTP_IF_MATCH' => '"revision-1"']);
+    self::assertSame(204, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $entityManager->clear();
+    $facility = $entityManager->find(FacilityRecord::class, self::FACILITY_ID);
+    $equipment = $entityManager->find(EquipmentRecord::class, '550e8400-e29b-41d4-a716-446655490099');
+    self::assertInstanceOf(FacilityRecord::class, $facility);
+    self::assertInstanceOf(EquipmentRecord::class, $equipment);
+    self::assertNull($facility->planGeometry);
+    self::assertSame($facilityRevision + 1, $facility->revision);
+    self::assertNull($equipment->planPosition);
+    self::assertSame(2, $equipment->revision);
+    self::assertNull($entityManager->find(FacilityAttachmentRecord::class, $attachmentId));
+  }
+
+  private function calibrationAdminClient(): KernelBrowser
+  {
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-calibration-admin@example.com');
+
+    return $client;
+  }
 
   /**
    * Method uploadFloorPlan.

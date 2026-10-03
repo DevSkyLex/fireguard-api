@@ -139,7 +139,21 @@ final class EquipmentFlowTest extends OAuth2WebTestCase
     $updateData = $this->decodeJsonResponse($updateResponse->getContent() ?: '{}');
     $this->assertSame('Amerex', $updateData['brand'] ?? null, 'Brand should be updated.');
 
-    // Step 6a: Create a facility (required before commissioning).
+    // Step 6a: Create the site and its building before commissioning.
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/facilities',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode(['type' => 'site', 'name' => 'Main Campus']) ?: '',
+    );
+    $this->assertSame(Response::HTTP_CREATED, $client->getResponse()->getStatusCode(), 'Site creation should succeed. Response: ' . $client->getResponse()->getContent());
+    $siteId = $this->extractResourceId($this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}'));
+    $this->assertNotNull($siteId);
+
     $client->request(
       method: 'POST',
       uri: '/api/organizations/' . $organizationId . '/facilities',
@@ -151,6 +165,7 @@ final class EquipmentFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'type' => 'building',
         'name' => 'Main Building',
+        'parentFacilityId' => $siteId,
       ]) ?: '',
     );
 

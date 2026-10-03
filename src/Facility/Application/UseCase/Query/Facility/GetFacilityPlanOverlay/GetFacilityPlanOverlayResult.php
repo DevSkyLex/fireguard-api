@@ -35,6 +35,14 @@ final readonly class GetFacilityPlanOverlayResult implements ResultMessage
     public ?int $imageHeight,
     public array $zones,
     public array $equipment,
+    /**
+     * @var list<array{facilityId: string, code: string}>
+     */
+    public array $geometryIssues = [],
+    /**
+     * @var list<array{equipmentId: string, code: string}>
+     */
+    public array $equipmentIssues = [],
   ) {
   }
   // #endregion

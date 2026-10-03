@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\ArchiveFacility;
 
-use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Inbound\{FacilityArchivalGuardPort, FacilityHierarchyPort};
+use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\FacilityNotFoundException;
+use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
@@ -16,7 +17,7 @@ use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
 
 use function sprintf;
@@ -55,6 +56,9 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
     private LoggerPort $logger,
     private FacilityArchivalGuardPort $archivalGuard,
     private EventDispatcherPort $eventDispatcher,
+    private ?FacilityHierarchyPort $hierarchy = null,
+    private ?TransactionManagerPort $transactionManager = null,
+    private ?CanonicalFacilityRepositoryPort $canonicalFacilities = null,
   ) {
   }
   // #endregion
@@ -76,27 +80,35 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
     $facilityId = FacilityId::fromString($command->facilityId);
     $organizationId = FacilityOrganizationId::fromString($command->organizationId);
 
-    $facility = $this->facilityRepository->findPublishedById($facilityId);
+    $wasAlreadyArchived = false;
+    $operation = function () use ($facilityId, $organizationId, $command, &$wasAlreadyArchived): Facility {
+      $this->hierarchy?->lock($command->organizationId);
+      $this->canonicalFacilities?->findById($facilityId);
+      $facility = $this->facilityRepository->findPublishedById($facilityId);
 
-    if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
-      throw FacilityNotFoundException::withId($command->facilityId);
-    }
+      if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
+        throw FacilityNotFoundException::withId($command->facilityId);
+      }
 
-    $wasAlreadyArchived = 'archived' === $facility->status()->value;
+      $wasAlreadyArchived = 'archived' === $facility->status()->value;
 
-    // Refuse to archive a facility that would orphan a live dependent (active
-    // child facilities, equipment, or in-progress inspections). Idempotent: an
-    // already-archived facility has no live dependents to re-check.
-    if (!$wasAlreadyArchived) {
-      $this->archivalGuard->assertNoActiveDependents((string) $organizationId, (string) $facilityId);
-    }
+      // Refuse to archive a facility that would orphan a live dependent (active
+      // child facilities, equipment, or in-progress inspections). Idempotent: an
+      // already-archived facility has no live dependents to re-check.
+      if (!$wasAlreadyArchived) {
+        $this->archivalGuard->assertNoActiveDependents((string) $organizationId, (string) $facilityId);
+      }
 
-    $facility->archive();
+      $facility->archive();
 
-    // The repository translates a missing-organization foreign key into
-    // FacilityOrganizationNotFoundException; Presentation maps it like any
-    // other InvalidArgumentException.
-    $this->facilityRepository->save($facility);
+      // The repository translates a missing-organization foreign key into
+      // FacilityOrganizationNotFoundException; Presentation maps it like any
+      // other InvalidArgumentException.
+      $this->facilityRepository->save($facility);
+
+      return $facility;
+    };
+    $facility = null === $this->transactionManager ? $operation() : $this->transactionManager->transactional($operation);
 
     if (!$wasAlreadyArchived) {
       // Emitted after the durable save so a failed persistence leaves no

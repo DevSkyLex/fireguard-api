@@ -1,6 +1,10 @@
 """Validate deployment task topology and real resolved Compose contracts without secrets."""
 from pathlib import Path
+import json
 import re
+import shlex
+import shutil
+import subprocess
 import unittest
 
 from jinja2 import Environment
@@ -41,14 +45,72 @@ class DeploymentTopologyTest(unittest.TestCase):
 
     def test_fresh_bootstrap_initializes_every_persisted_transport_before_consumers(self):
         setup = self.names.index("Initialize every persisted Messenger transport before starting consumers")
+        self.assertLess(self.names.index("Run auth migrations"), setup)
         self.assertLess(self.names.index("Run main migrations"), setup)
         self.assertLess(setup, self.names.index("Start application service"))
-        command = self.entries[setup]["ansible.builtin.command"]
+        task = self.entries[setup]
         persisted = yaml.safe_load((ROOT / "config/packages/messenger.yaml").read_text())["framework"]["messenger"]["transports"]
-        for name in set(persisted) - {"sync"}:
-            self.assertRegex(command, r"\b" + re.escape(name) + r"\b")
-        self.assertNotIn("when", self.entries[setup], "Fresh installs must not skip transport creation")
+        self.assertEqual(set(persisted) - {"sync"}, set(task["loop"]))
+        self.assertEqual(6, len(task["loop"]))
+        for name, command in zip(task["loop"], self.transport_setup_commands()):
+            with self.subTest(transport=name):
+                self.assertEqual([
+                    "docker", "compose", "-f", "compose.prod.yaml", "run", "--rm", "--no-deps",
+                    "--entrypoint", "php", "app", "-d", "memory_limit=1G", "bin/console",
+                    "messenger:setup-transports", name, "--env=prod", "--no-interaction",
+                ], command)
+        self.assertNotIn("when", task, "Fresh installs must not skip transport creation")
+        self.assertNotIn("ignore_errors", task, "A transport setup failure must stop deployment")
+        self.assertNotIn("failed_when", task, "A transport setup failure must stop deployment")
         self.assertIn("{{ fireguard_writer_services }}", self.task("Start application service")["ansible.builtin.command"])
+
+    def transport_setup_commands(self):
+        task = self.task("Initialize every persisted Messenger transport before starting consumers")
+        template = Environment().from_string(task["ansible.builtin.command"])
+        return [shlex.split(template.render(fireguard_compose_command="docker compose -f compose.prod.yaml", item=name))
+                for name in task["loop"]]
+
+    def test_rendered_transport_setup_commands_execute_with_installed_symfony(self):
+        php = shutil.which("php")
+        self.assertIsNotNone(php, "The Symfony command regression requires PHP CLI")
+        self.assertTrue((ROOT / "vendor/autoload.php").is_file(), "The Symfony command regression requires Composer dependencies")
+        commands = [command[command.index("bin/console") + 1:] for command in self.transport_setup_commands()]
+        probe = r'''
+require $argv[1] . '/vendor/autoload.php';
+$commands = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+$names = array_column($commands, 1);
+$locator = new Symfony\Component\DependencyInjection\Container();
+$calls = new ArrayObject();
+foreach ($names as $name) {
+  $locator->set($name, new class($name, $calls) implements Symfony\Component\Messenger\Transport\SetupableTransportInterface {
+    public function __construct(private string $name, private ArrayObject $calls) {}
+    public function setup(): void { $this->calls->append($this->name); }
+  });
+}
+$application = new Symfony\Component\Console\Application();
+$application->setAutoExit(false);
+$application->setCatchExceptions(false);
+$application->getDefinition()->addOption(new Symfony\Component\Console\Input\InputOption('env', null, Symfony\Component\Console\Input\InputOption::VALUE_REQUIRED));
+$application->add(new Symfony\Component\Messenger\Command\SetupTransportsCommand($locator, $names));
+$statuses = [];
+foreach ($commands as $tokens) {
+  $statuses[] = $application->run(new Symfony\Component\Console\Input\ArgvInput(['console', ...$tokens]), new Symfony\Component\Console\Output\BufferedOutput());
+}
+$invalidError = null;
+try {
+  $application->run(new Symfony\Component\Console\Input\ArgvInput(['console', 'messenger:setup-transports', ...$names, '--env=prod', '--no-interaction']), new Symfony\Component\Console\Output\BufferedOutput());
+} catch (Symfony\Component\Console\Exception\RuntimeException $exception) {
+  $invalidError = $exception->getMessage();
+}
+echo json_encode(['statuses' => $statuses, 'calls' => $calls->getArrayCopy(), 'invalid_error' => $invalidError], JSON_THROW_ON_ERROR);
+'''
+        result = subprocess.run([php, "-r", probe, str(ROOT)], input=json.dumps(commands),
+                                text=True, capture_output=True, timeout=10)
+        self.assertEqual(0, result.returncode, result.stderr)
+        executed = json.loads(result.stdout)
+        self.assertEqual([0] * 6, executed["statuses"])
+        self.assertEqual(self.task("Initialize every persisted Messenger transport before starting consumers")["loop"], executed["calls"])
+        self.assertIn("Too many arguments", executed["invalid_error"])
 
     def test_actual_compose_receivers_cover_schedulers_and_isolate_slow_transports(self):
         expected = {"main_outbox", "async", "webhook", "assistant"}

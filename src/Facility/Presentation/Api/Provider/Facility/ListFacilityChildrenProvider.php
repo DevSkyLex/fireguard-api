@@ -108,6 +108,7 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
         search: SearchExtractor::fromContext($context),
         sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'code'], 'name'),
+        includePath: \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includePath', false),
       ));
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -227,6 +228,11 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     $output->parentFacilityId = $facility->parentFacilityId;
     $output->hasChildren = $facility->hasChildren;
     $output->equipmentCount = $facility->equipmentCount;
+    $output->path = $facility->path;
+    $output->hierarchyIssues = $facility->hierarchyIssues;
+    $output->recordStatus = $facility->recordStatus;
+    $output->intervention = null === $facility->interventionId ? null : '/api/interventions/' . $facility->interventionId;
+    $output->revision = $facility->revision;
     $output->type = $facility->type;
     $output->name = $facility->name;
     $output->code = $facility->code;
@@ -239,6 +245,8 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     $output->longitude = $facility->longitude;
     $output->metadata = $facility->metadata;
     $output->levelIndex = $facility->levelIndex;
+    $output->elevationMeters = $facility->elevationMeters;
+    $output->heightMeters = $facility->heightMeters;
     $output->createdAt = $facility->createdAt->format('c');
     $output->updatedAt = $facility->updatedAt->format('c');
 

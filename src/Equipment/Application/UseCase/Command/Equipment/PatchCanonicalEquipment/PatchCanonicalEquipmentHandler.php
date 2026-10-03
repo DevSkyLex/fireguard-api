@@ -10,6 +10,7 @@ use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecom
 use Equipment\Domain\Exception\{CanonicalEquipmentValidationException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Equipment\CanonicalEquipment;
 use Equipment\Domain\ValueObject\{CanonicalEquipmentPatch, EquipmentId, EquipmentStatus};
+use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
@@ -93,6 +94,17 @@ final readonly class PatchCanonicalEquipmentHandler implements CommandHandler
         if ($patch->hasFacility && null !== $patch->facilityId
           && !$this->facilityValidation->belongsToOrganization($patch->facilityId, (string) $equipment->organizationId())) {
           throw CanonicalEquipmentValidationException::facilityOutsideOrganization();
+        }
+        if ($patch->hasFacility && null !== $patch->facilityId) {
+          try {
+            $this->facilityValidation->assertFacilityIsAssignable(
+              $patch->facilityId,
+              (string) $equipment->organizationId(),
+              \Equipment\Domain\ValueObject\EquipmentRecordStatus::DRAFT === $equipment->recordStatus() ? $equipment->interventionId() : null,
+            );
+          } catch (InvalidArgumentException $exception) {
+            throw new CanonicalEquipmentValidationException($exception->getMessage());
+          }
         }
 
         $previousStatus = $equipment->applyPatch($patch);

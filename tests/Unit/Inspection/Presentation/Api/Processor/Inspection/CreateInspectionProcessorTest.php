@@ -438,7 +438,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
     $gateway->method('clientIdExists')->willReturn(false);
-    $gateway->method('resourceExists')->willReturn(true);
+    $gateway->method('resourceExists')->willReturnOnConsecutiveCalls(false, true);
     $gateway->method('assign')->willReturn(new InterventionResourceAssignment(null, 'published', 1));
 
     $processor = new CreateInspectionProcessor(

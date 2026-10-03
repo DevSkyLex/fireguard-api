@@ -6,7 +6,7 @@ namespace Facility\Domain\Model\Attachment;
 
 use DateTimeImmutable;
 use Facility\Domain\Exception\FacilityAttachmentNotFloorPlanException;
-use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, PlanCalibration};
 use Shared\Domain\Attachment\InvalidAttachmentException;
 
 use function in_array;
@@ -53,6 +53,9 @@ final class FacilityAttachment
     private bool $isPrimaryPlan = false,
     private ?int $imageWidth = null,
     private ?int $imageHeight = null,
+    private ?PlanCalibration $calibration = null,
+    private int $revision = 1,
+    private ?string $calibrationBuildingId = null,
   ) {
     $this->assertInvariants();
   }
@@ -142,6 +145,9 @@ final class FacilityAttachment
       label: $options->label,
       kind: $options->kind,
       isPrimaryPlan: $state->isPrimaryPlan,
+      calibration: $state->calibration,
+      revision: $state->revision,
+      calibrationBuildingId: $state->calibrationBuildingId,
       imageWidth: $options->imageWidth,
       imageHeight: $options->imageHeight,
     );
@@ -265,6 +271,63 @@ final class FacilityAttachment
   public function imageHeight(): ?int
   {
     return $this->imageHeight;
+  }
+
+  /**
+   * Method revision.
+   *
+   * @since 1.0.0
+   */
+  public function revision(): int
+  {
+    return $this->revision;
+  }
+
+  /**
+   * Method calibration.
+   *
+   * @since 1.0.0
+   */
+  public function calibration(): ?PlanCalibration
+  {
+    return $this->calibration;
+  }
+
+  /**
+   * Method calibrationBuildingId
+   *
+   * Returns the building coordinate frame in which the retained calibration was confirmed.
+   *
+   * @access public
+   *
+   * @return ?string confirmed building identifier, null when its frame is unverified
+   */
+  public function calibrationBuildingId(): ?string
+  {
+    return $this->calibrationBuildingId;
+  }
+
+  /**
+   * Method calibrate.
+   *
+   * Confirms a calibration in its server-resolved building frame; clearing it also clears provenance.
+   *
+   * @since 1.0.0
+   *
+   * @param ?PlanCalibration $calibration the retained image calibration, null clearing it
+   * @param ?string $buildingId the owning facility's current nearest building, resolved by the server
+   */
+  public function calibrate(?PlanCalibration $calibration, ?string $buildingId = null): void
+  {
+    if (AttachmentKind::FLOOR_PLAN !== $this->kind) {
+      throw FacilityAttachmentNotFloorPlanException::forAttachment((string) $this->id);
+    }
+    if (null !== $calibration && (null === $this->imageWidth || null === $this->imageHeight || $this->imageWidth <= 0 || $this->imageHeight <= 0)) {
+      throw \Shared\Domain\Exception\InvalidValueException::because('A calibrated plan must have known image dimensions.');
+    }
+    $this->calibration = $calibration;
+    $this->calibrationBuildingId = null === $calibration ? null : $buildingId;
+    ++$this->revision;
   }
 
   /**

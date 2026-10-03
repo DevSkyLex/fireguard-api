@@ -153,6 +153,18 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   }
 
   /**
+   * {@inheritDoc}
+   */
+  public function creationState(EquipmentId $id): ?\Equipment\Application\Contract\Equipment\EquipmentCreationState
+  {
+    $record = $this->repository->find((string) $id);
+
+    return $record instanceof EquipmentRecord
+      ? new \Equipment\Application\Contract\Equipment\EquipmentCreationState($record->interventionId, $record->recordStatus, $record->revision, $record->updatedAt)
+      : null;
+  }
+
+  /**
    * Method findPublishedById.
    *
    * Loads an equipment aggregate only when its record is published.
@@ -308,6 +320,35 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     $counts = [];
     foreach ($rows as $row) {
       $counts[(string) $row['status']] = (int) $row['equipmentCount'];
+    }
+
+    return $counts;
+  }
+
+  /**
+   * Method countByStatusForCriteria.
+   *
+   * Uses the published collection predicate for exact unpaginated facility totals.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization scope
+   * @param EquipmentListCriteria $criteria the collection filters
+   *
+   * @return array<string, int> counts keyed by stored equipment status
+   */
+  public function countByStatusForCriteria(EquipmentOrganizationId $organizationId, EquipmentListCriteria $criteria): array
+  {
+    /** @var list<array{status: string, equipmentCount: int|string}> $rows */
+    $rows = $this->createListQueryBuilder($organizationId, $criteria)
+      ->select('e.status AS status, COUNT(e.id) AS equipmentCount')
+      ->groupBy('e.status')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[$row['status']] = (int) $row['equipmentCount'];
     }
 
     return $counts;
@@ -608,6 +649,14 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $queryBuilder
         ->andWhere('e.facilityId = :facilityId')
         ->setParameter('facilityId', $criteria->facilityId);
+    }
+
+    if (null !== $criteria->facilityIds) {
+      if ([] === $criteria->facilityIds) {
+        $queryBuilder->andWhere('1 = 0');
+      } else {
+        $queryBuilder->andWhere('e.facilityId IN (:facilityIds)')->setParameter('facilityIds', $criteria->facilityIds);
+      }
     }
 
     if (null !== $criteria->type) {

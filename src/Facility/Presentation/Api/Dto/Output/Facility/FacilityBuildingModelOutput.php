@@ -26,6 +26,25 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class FacilityBuildingModelOutput
 {
+  // #region Constants
+  /**
+   * Constant NORMALIZED_POINTS_SCHEMA
+   *
+   * Keeps polygon coordinate tuples explicit when API Platform's PHPDoc array
+   * inference would otherwise collapse heterogeneous floor values into a union.
+   */
+  private const array NORMALIZED_POINTS_SCHEMA = [
+    'type' => 'array',
+    'minItems' => 3,
+    'items' => [
+      'type' => 'array',
+      'minItems' => 2,
+      'maxItems' => 2,
+      'items' => ['type' => 'number', 'minimum' => 0, 'maximum' => 1],
+    ],
+  ];
+  // #endregion
+
   // #region Properties
   /**
    * Property buildingId.
@@ -67,14 +86,112 @@ final class FacilityBuildingModelOutput
    * @since 1.0.0
    *
    * @var list<array{
-   *   facilityId: string, name: string, levelIndex: ?int, status: string,
-   *   plan: ?array{attachmentId: string, imageWidth: ?int, imageHeight: ?int},
+   *   facilityId: string, name: string, levelIndex: ?int, elevationMeters: ?float, heightMeters: ?float, status: string,
+   *   hierarchyIssues: list<string>,
+   *   plan: ?array{attachmentId: string, imageWidth: ?int, imageHeight: ?int, calibration: ?array{widthMeters: float, rotationDegrees: float, offsetXMeters: float, offsetZMeters: float}, calibrationBuildingId: ?string, calibrationIssue: 'building_changed'|'unverified_frame'|null},
    *   outline: ?array{source: string, points: list<array{0: float, 1: float}>},
    *   rooms: list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>}>,
+   *   equipment: list<array{equipmentId: string, facilityId: string, type: string, serialNumber: ?string, locationLabel: ?string, status: string, position: ?array{attachmentId: string, x: float, y: float}, placementIssue: 'missing_plan'|'unplaced'|'other_plan'|'invalid_position'|'outside_ancestry'|null}>,
+   *   diagnostics: array{invalidGeometryCount: int, unpositionedEquipmentCount: int, geometryIssues: list<array{facilityId: string, code: 'invalid_geometry'|'plan_unavailable'|'outside_ancestry'|'other_plan'}>},
    * }>
    */
   #[Groups([FacilitySerializationGroup::READ])]
-  #[ApiProperty(readable: true, writable: false)]
+  #[ApiProperty(readable: true, writable: false, openapiContext: [
+    'type' => 'array',
+    'items' => [
+      'type' => 'object',
+      'required' => ['facilityId', 'name', 'levelIndex', 'elevationMeters', 'heightMeters', 'status', 'hierarchyIssues', 'plan', 'outline', 'rooms', 'equipment', 'diagnostics'],
+      'properties' => [
+        'facilityId' => ['type' => 'string', 'format' => 'uuid'],
+        'name' => ['type' => 'string'],
+        'levelIndex' => ['type' => ['integer', 'null']],
+        'elevationMeters' => ['type' => ['number', 'null']],
+        'heightMeters' => ['type' => ['number', 'null']],
+        'status' => ['type' => 'string'],
+        'hierarchyIssues' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['missing_parent', 'invalid_parent_type', 'unpublished_parent', 'invalid_ancestor', 'cycle', 'depth_exceeded']]],
+        'plan' => [
+          'type' => ['object', 'null'],
+          'required' => ['attachmentId', 'imageWidth', 'imageHeight', 'calibration', 'calibrationBuildingId', 'calibrationIssue'],
+          'properties' => [
+            'attachmentId' => ['type' => 'string', 'format' => 'uuid'],
+            'imageWidth' => ['type' => ['integer', 'null']],
+            'imageHeight' => ['type' => ['integer', 'null']],
+            'calibrationBuildingId' => ['type' => ['string', 'null'], 'format' => 'uuid'],
+            'calibrationIssue' => ['type' => ['string', 'null'], 'enum' => ['building_changed', 'unverified_frame', null]],
+            'calibration' => [
+              'type' => ['object', 'null'],
+              'required' => ['widthMeters', 'rotationDegrees', 'offsetXMeters', 'offsetZMeters'],
+              'properties' => [
+                'widthMeters' => ['type' => 'number'],
+                'rotationDegrees' => ['type' => 'number'],
+                'offsetXMeters' => ['type' => 'number'],
+                'offsetZMeters' => ['type' => 'number'],
+              ],
+            ],
+          ],
+        ],
+        'outline' => [
+          'type' => ['object', 'null'],
+          'required' => ['source', 'points'],
+          'properties' => [
+            'source' => ['type' => 'string', 'enum' => ['plan_geometry', 'rooms_bbox', 'image_rect']],
+            'points' => self::NORMALIZED_POINTS_SCHEMA,
+          ],
+        ],
+        'rooms' => [
+          'type' => 'array',
+          'items' => [
+            'type' => 'object',
+            'required' => ['facilityId', 'name', 'type', 'status', 'points'],
+            'properties' => [
+              'facilityId' => ['type' => 'string', 'format' => 'uuid'],
+              'name' => ['type' => 'string'],
+              'type' => ['type' => 'string'],
+              'status' => ['type' => 'string'],
+              'points' => self::NORMALIZED_POINTS_SCHEMA,
+            ],
+          ],
+        ],
+        'equipment' => [
+          'type' => 'array',
+          'items' => [
+            'type' => 'object',
+            'required' => ['equipmentId', 'facilityId', 'type', 'serialNumber', 'locationLabel', 'status', 'position', 'placementIssue'],
+            'properties' => [
+              'equipmentId' => ['type' => 'string', 'format' => 'uuid'],
+              'facilityId' => ['type' => 'string', 'format' => 'uuid'],
+              'type' => ['type' => 'string'],
+              'serialNumber' => ['type' => ['string', 'null']],
+              'locationLabel' => ['type' => ['string', 'null']],
+              'status' => ['type' => 'string'],
+              'position' => [
+                'type' => ['object', 'null'],
+                'required' => ['attachmentId', 'x', 'y'],
+                'properties' => [
+                  'attachmentId' => ['type' => 'string', 'format' => 'uuid'],
+                  'x' => ['type' => 'number', 'minimum' => 0, 'maximum' => 1],
+                  'y' => ['type' => 'number', 'minimum' => 0, 'maximum' => 1],
+                ],
+              ],
+              'placementIssue' => [
+                'type' => ['string', 'null'],
+                'enum' => ['missing_plan', 'unplaced', 'other_plan', 'invalid_position', 'outside_ancestry', null],
+              ],
+            ],
+          ],
+        ],
+        'diagnostics' => [
+          'type' => 'object',
+          'required' => ['invalidGeometryCount', 'unpositionedEquipmentCount', 'geometryIssues'],
+          'properties' => [
+            'invalidGeometryCount' => ['type' => 'integer', 'minimum' => 0],
+            'unpositionedEquipmentCount' => ['type' => 'integer', 'minimum' => 0],
+            'geometryIssues' => ['type' => 'array', 'items' => ['type' => 'object', 'required' => ['facilityId', 'code'], 'properties' => ['facilityId' => ['type' => 'string', 'format' => 'uuid'], 'code' => ['type' => 'string', 'enum' => ['invalid_geometry', 'plan_unavailable', 'outside_ancestry', 'other_plan']]]]],
+          ],
+        ],
+      ],
+    ],
+  ])]
   public array $floors = [];
   // #endregion
 }

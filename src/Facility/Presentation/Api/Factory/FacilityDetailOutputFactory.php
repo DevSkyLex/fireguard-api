@@ -67,7 +67,11 @@ final readonly class FacilityDetailOutputFactory
     $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
     $output->levelIndex = $result->levelIndex;
+    $output->elevationMeters = $result->elevationMeters;
+    $output->heightMeters = $result->heightMeters;
     $output->planGeometry = $result->planGeometry;
+    $output->geometryIssue = $result->geometryIssue;
+    $output->hierarchyIssues = $result->hierarchyIssues;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
     $output->path = $result->path;

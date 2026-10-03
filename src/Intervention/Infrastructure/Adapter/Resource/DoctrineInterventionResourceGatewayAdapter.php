@@ -61,6 +61,17 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   }
 
   /**
+   * {@inheritDoc}
+   */
+  public function lockClientIdentity(InterventionResourceType $type, string $clientId): void
+  {
+    $connection = $this->entityManager->getConnection();
+    if ($connection->isTransactionActive()) {
+      $connection->executeQuery('SELECT pg_advisory_xact_lock(hashtextextended(:identity, 0))', ['identity' => 'resource-create:' . $type->value . ':' . $clientId])->free();
+    }
+  }
+
+  /**
    * Method interventionAssignmentContext.
    *
    * Executes the intervention assignment context operation.

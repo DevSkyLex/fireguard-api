@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\{ListFacilityAttachmentsQuery, ListFacilityAttachmentsResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
@@ -72,6 +73,7 @@ final readonly class FacilityMediaProvider implements ProviderInterface
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
+    private FacilitySpatialValidityResolver $spatial,
   ) {
   }
   // #endregion
@@ -122,6 +124,8 @@ final readonly class FacilityMediaProvider implements ProviderInterface
     $output->isPrimaryPlan = $record->isPrimaryPlan;
     $output->imageWidth = $record->imageWidth;
     $output->imageHeight = $record->imageHeight;
+    $output->calibration = $record->calibration;
+    $output->calibrationBuildingId = $record->calibrationBuildingId;
 
     return $output;
   }
@@ -197,6 +201,10 @@ final readonly class FacilityMediaProvider implements ProviderInterface
       $output->isPrimaryPlan = $attachment['isPrimaryPlan'];
       $output->imageWidth = $attachment['imageWidth'];
       $output->imageHeight = $attachment['imageHeight'];
+      $output->calibration = $attachment['calibration'];
+      $output->calibrationBuildingId = $attachment['calibrationBuildingId'];
+      $output->calibrationIssue = $attachment['calibrationIssue'] ?? null;
+      $output->revision = $attachment['revision'];
       $outputs[] = $output;
     }
 
@@ -231,7 +239,12 @@ final readonly class FacilityMediaProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
 
-    return self::output($record);
+    $output = self::output($record);
+    $spatialContext = $this->spatial->context($record->facility->organization->id, [$record->facility->id], [$record->id]);
+    $output->calibrationBuildingId = $spatialContext->plans[$record->id]['calibrationBuildingId'] ?? null;
+    $output->calibrationIssue = $this->spatial->calibrationIssue($spatialContext, $record->facility->id, $output->calibrationBuildingId, null !== $record->calibration);
+
+    return $output;
   }
 
   /**

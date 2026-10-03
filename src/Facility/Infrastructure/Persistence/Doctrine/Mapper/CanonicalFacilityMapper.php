@@ -58,7 +58,7 @@ final class CanonicalFacilityMapper
         $record->longitude,
         $record->metadata,
       ),
-      version: new CanonicalFacilityVersion(FacilityStatus::from($record->status), $record->revision, $record->updatedAt, $record->levelIndex),
+      version: new CanonicalFacilityVersion(FacilityStatus::from($record->status), $record->revision, $record->updatedAt, $record->levelIndex, $record->elevationMeters, $record->heightMeters),
     );
   }
 
@@ -88,6 +88,8 @@ final class CanonicalFacilityMapper
     $record->longitude = $facility->longitude();
     $record->metadata = $facility->metadata();
     $record->levelIndex = $facility->levelIndex();
+    $record->elevationMeters = $facility->elevationMeters();
+    $record->heightMeters = $facility->heightMeters();
     $record->status = $facility->status()->value;
     // Doctrine increments and compares the persisted version in the same UPDATE.
     $record->updatedAt = $facility->updatedAt();

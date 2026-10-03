@@ -71,7 +71,7 @@ final class GetFacilityChildrenHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new GetFacilityChildrenHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new GetFacilityChildrenHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
 
     $result = $handler->__invoke(new GetFacilityChildrenQuery(
       organizationId: (string) $organizationId,
@@ -106,7 +106,7 @@ final class GetFacilityChildrenHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new GetFacilityChildrenHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new GetFacilityChildrenHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
 
     $this->expectException(FacilityNotFoundException::class);
 
@@ -126,6 +126,7 @@ final class GetFacilityChildrenHandlerTest extends TestCase
     $handler = new GetFacilityChildrenHandler(
       facilityRepository: $repository,
       equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
+      hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class),
     );
 
     $this->expectException(InvalidValueException::class);

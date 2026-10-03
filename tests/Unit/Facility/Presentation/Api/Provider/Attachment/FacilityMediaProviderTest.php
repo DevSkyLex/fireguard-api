@@ -8,6 +8,9 @@ use ApiPlatform\Metadata\{Get, GetCollection};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Contract\Spatial\FacilitySpatialContext;
+use Facility\Application\Port\Outbound\FacilitySpatialReadPort;
+use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\ListFacilityAttachmentsResult;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
@@ -56,10 +59,10 @@ final class FacilityMediaProviderTest extends TestCase
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new ListFacilityAttachmentsResult([
-      ['id' => 'attachment-id', 'fileName' => 'photo.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00', 'kind' => 'document', 'isPrimaryPlan' => false, 'imageWidth' => null, 'imageHeight' => null],
+      ['id' => 'attachment-id', 'fileName' => 'photo.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00', 'kind' => 'document', 'isPrimaryPlan' => false, 'imageWidth' => null, 'imageHeight' => null, 'calibration' => null, 'calibrationBuildingId' => null, 'revision' => 1],
     ]));
 
-    $result = new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
+    $result = new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack(), $this->spatial())
       ->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
 
     self::assertIsArray($result);
@@ -93,7 +96,7 @@ final class FacilityMediaProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
+    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack(), $this->spatial())
       ->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
   }
 
@@ -122,7 +125,7 @@ final class FacilityMediaProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Facility not found.');
 
-    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
+    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack(), $this->spatial())
       ->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
   }
 
@@ -155,7 +158,7 @@ final class FacilityMediaProviderTest extends TestCase
 
     $queryBus = $this->createStub(QueryBusPort::class);
 
-    $result = new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
+    $result = new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack(), $this->spatial())
       ->provide(new Get(), ['id' => 'attachment-id']);
 
     self::assertInstanceOf(FacilityAttachmentOutput::class, $result);
@@ -174,7 +177,7 @@ final class FacilityMediaProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
+    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack(), $this->spatial())
       ->provide(new Get(), ['id' => 'missing-id']);
   }
 
@@ -211,6 +214,7 @@ final class FacilityMediaProviderTest extends TestCase
       $this->createStub(OrganizationAuthorizationPort::class),
       $security,
       new RequestStack(),
+      $this->spatial(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -334,10 +338,46 @@ final class FacilityMediaProviderTest extends TestCase
     $provider->provide(new Get(), ['id' => 'attachment-id']);
   }
 
+  #[Test]
+  public function testProvideGetOneSignalsChangedFrameWithoutOverwritingCalibration(): void
+  {
+    $originBuildingId = '550e8400-e29b-41d4-a716-446655440004';
+    $currentBuildingId = '550e8400-e29b-41d4-a716-446655440005';
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $facility = new FacilityRecord();
+    $facility->id = self::FACILITY_ID;
+    $facility->organization = $organization;
+    $attachment = new FacilityAttachmentRecord();
+    $attachment->id = 'attachment-id';
+    $attachment->facility = $facility;
+    $attachment->fileName = 'plan.png';
+    $attachment->mimeType = 'image/png';
+    $attachment->size = 100;
+    $attachment->uploadedAt = new DateTimeImmutable();
+    $attachment->calibration = ['widthMeters' => 20.0, 'rotationDegrees' => 30.0, 'offsetXMeters' => -2.0, 'offsetZMeters' => 4.0];
+    $attachment->calibrationBuildingId = $originBuildingId;
+    $context = new FacilitySpatialContext(
+      [
+        self::FACILITY_ID => ['parentId' => $currentBuildingId, 'type' => 'floor', 'recordStatus' => 'published'],
+        $currentBuildingId => ['parentId' => null, 'type' => 'building', 'recordStatus' => 'published'],
+      ],
+      ['attachment-id' => ['facilityId' => self::FACILITY_ID, 'primary' => true, 'calibrationBuildingId' => $originBuildingId]],
+    );
+
+    $result = $this->provider(found: $attachment, spatialContext: $context)->provide(new Get(), ['id' => $attachment->id]);
+
+    self::assertInstanceOf(FacilityAttachmentOutput::class, $result);
+    self::assertSame($attachment->calibration, $result->calibration);
+    self::assertSame($originBuildingId, $result->calibrationBuildingId);
+    self::assertSame('building_changed', $result->calibrationIssue);
+  }
+
   private function provider(
     ?Throwable $exception = null,
     OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
     object|false|null $found = false,
+    ?FacilitySpatialContext $spatialContext = null,
   ): FacilityMediaProvider {
     if (false === $found) {
       $organization = new OrganizationRecord();
@@ -364,6 +404,14 @@ final class FacilityMediaProviderTest extends TestCase
       $queryBus->method('ask')->willThrowException($exception);
     }
 
-    return new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack());
+    return new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack(), $this->spatial($spatialContext));
+  }
+
+  private function spatial(?FacilitySpatialContext $context = null): FacilitySpatialValidityResolver
+  {
+    $port = $this->createStub(FacilitySpatialReadPort::class);
+    $port->method('readContext')->willReturn($context ?? new FacilitySpatialContext());
+
+    return new FacilitySpatialValidityResolver($port);
   }
 }

@@ -7,9 +7,14 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 use DateInterval;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort;
+use Facility\Application\Service\{FacilityAttachmentAncestryGuard, FacilitySpatialValidityResolver};
+use Facility\Application\UseCase\Query\Facility\GetFacilityBuildingModel\{GetFacilityBuildingModelHandler, GetFacilityBuildingModelQuery};
+use Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\{GetFacilityPlanOverlayHandler, GetFacilityPlanOverlayQuery};
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId};
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Facility\Infrastructure\Adapter\Spatial\FacilitySpatialReadAdapter;
+use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Facility\Infrastructure\Persistence\Doctrine\Repository\{FacilityAttachmentRepository, FacilityRepository};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -95,7 +100,7 @@ final class FacilityBuildingModelRepositoryTest extends KernelTestCase
   }
 
   #[Test]
-  public function testFindBuildingFloorsReturnsOnlyDirectFloorChildren(): void
+  public function testFindBuildingFloorsIncludesLegacyDescendantsWithThisNearestBuilding(): void
   {
     $organization = $this->createOrganization(self::ORGANIZATION_ID, 'building-model-direct-a');
     $building = $this->createFacility('770e8400-e29b-41d4-a716-446655470020', $organization, null, 'building', 'Tower');
@@ -115,8 +120,7 @@ final class FacilityBuildingModelRepositoryTest extends KernelTestCase
     );
 
     $ids = array_column($floors, 'facilityId');
-    self::assertSame([$directFloor->id], $ids);
-    self::assertNotContains($grandchildFloor->id, $ids);
+    self::assertEqualsCanonicalizing([$directFloor->id, $grandchildFloor->id], $ids);
     self::assertNotContains($directZone->id, $ids);
   }
 
@@ -273,7 +277,7 @@ final class FacilityBuildingModelRepositoryTest extends KernelTestCase
   }
 
   #[Test]
-  public function testFindRoomsForFloorsExcludesARoomBoundToAnotherAttachment(): void
+  public function testFindRoomsForFloorsRetainsOtherPlanReferencesForDerivedDiagnostics(): void
   {
     $organization = $this->createOrganization(self::ORGANIZATION_ID, 'building-model-rooms-other-attachment-a');
     $building = $this->createFacility('770e8400-e29b-41d4-a716-446655470080', $organization, null, 'building', 'Tower');
@@ -305,8 +309,8 @@ final class FacilityBuildingModelRepositoryTest extends KernelTestCase
     );
 
     $ids = array_column($rooms, 'facilityId');
-    self::assertSame([$matchingRoom->id], $ids);
-    self::assertNotContains($unrelatedRoom->id, $ids);
+    self::assertEqualsCanonicalizing([$matchingRoom->id, $unrelatedRoom->id], $ids);
+    self::assertContains($otherAttachmentId, array_column($rooms, 'attachmentId'));
   }
 
   #[Test]
@@ -392,6 +396,110 @@ final class FacilityBuildingModelRepositoryTest extends KernelTestCase
 
     self::assertSame($floorA->id, $byFacilityId[$roomA->id]['floorId']);
     self::assertSame($floorB->id, $byFacilityId[$roomB->id]['floorId']);
+  }
+
+  #[Test]
+  public function testFloorBindingsTraverseNestedRoomsAndStopAtTheClosestFloorBoundary(): void
+  {
+    $organization = $this->createOrganization(self::ORGANIZATION_ID, 'building-model-bindings');
+    $otherOrganization = $this->createOrganization(self::OTHER_ORGANIZATION_ID, 'building-model-bindings-other');
+    $floor = $this->createFacility('770e8400-e29b-41d4-a716-4466554700b0', $organization, null, 'floor', 'Floor');
+    $zone = $this->createFacility('770e8400-e29b-41d4-a716-4466554700b1', $organization, $floor, 'zone', 'Zone');
+    $area = $this->createFacility('770e8400-e29b-41d4-a716-4466554700b2', $organization, $zone, 'area', 'Deep Area');
+    $nestedFloor = $this->createFacility('770e8400-e29b-41d4-a716-4466554700b3', $organization, $floor, 'floor', 'Nested Floor');
+    $nestedArea = $this->createFacility('770e8400-e29b-41d4-a716-4466554700b4', $organization, $nestedFloor, 'area', 'Nested Area');
+    $this->createFacility('770e8400-e29b-41d4-a716-4466554700b5', $organization, $zone, 'area', 'Draft Area', recordStatus: 'draft');
+    $this->createFacility('770e8400-e29b-41d4-a716-4466554700b6', $otherOrganization, $zone, 'area', 'Foreign Area');
+    $this->entityManager->flush();
+    $organizationId = new FacilityOrganizationId(self::ORGANIZATION_ID);
+
+    self::assertEqualsCanonicalizing([
+      ['floorId' => $floor->id, 'facilityId' => $floor->id],
+      ['floorId' => $floor->id, 'facilityId' => $zone->id],
+      ['floorId' => $floor->id, 'facilityId' => $area->id],
+    ], $this->repository->findFacilityBindingsForFloors($organizationId, [$floor->id]));
+    self::assertEqualsCanonicalizing([
+      ['floorId' => $floor->id, 'facilityId' => $floor->id],
+      ['floorId' => $floor->id, 'facilityId' => $zone->id],
+      ['floorId' => $floor->id, 'facilityId' => $area->id],
+      ['floorId' => $nestedFloor->id, 'facilityId' => $nestedFloor->id],
+      ['floorId' => $nestedFloor->id, 'facilityId' => $nestedArea->id],
+    ], $this->repository->findFacilityBindingsForFloors($organizationId, [$floor->id, $nestedFloor->id]));
+    self::assertSame([], $this->repository->findFacilityBindingsForFloors($organizationId, []));
+    self::assertSame([], $this->repository->findFacilityBindingsForFloors(new FacilityOrganizationId(self::OTHER_ORGANIZATION_ID), [$floor->id]));
+  }
+
+  #[Test]
+  public function testMovedSubtreeIsDiagnosedInBatchAndForeignPlanIdentityIsMasked(): void
+  {
+    $organization = $this->createOrganization(self::ORGANIZATION_ID, 'spatial-move');
+    $foreignOrganization = $this->createOrganization(self::OTHER_ORGANIZATION_ID, 'spatial-foreign');
+    $buildingA = $this->createFacility('770e8400-e29b-41d4-a716-4466554700c0', $organization, null, 'building', 'Building A');
+    $buildingB = $this->createFacility('770e8400-e29b-41d4-a716-4466554700c1', $organization, null, 'building', 'Building B');
+    $floorA = $this->createFacility('770e8400-e29b-41d4-a716-4466554700c2', $organization, $buildingA, 'floor', 'A floor');
+    $floorB = $this->createFacility('770e8400-e29b-41d4-a716-4466554700c3', $organization, $buildingB, 'floor', 'B floor');
+    $foreignFloor = $this->createFacility('770e8400-e29b-41d4-a716-4466554700c4', $foreignOrganization, null, 'floor', 'Hidden');
+    $planA = $this->plan('770e8400-e29b-41d4-a716-4466554700c5', $floorA, $buildingA->id);
+    $planB = $this->plan('770e8400-e29b-41d4-a716-4466554700c6', $floorB, $buildingA->id);
+    $foreignPlan = $this->plan('770e8400-e29b-41d4-a716-4466554700c7', $foreignFloor, $buildingA->id);
+    $geometry = ['attachmentId' => $planA->id, 'points' => [[0.1, 0.1], [0.8, 0.1], [0.8, 0.8]]];
+    $zone = $this->createFacility('770e8400-e29b-41d4-a716-4466554700c8', $organization, $floorA, 'zone', 'Moved zone', planGeometry: $geometry);
+    $room = $this->createFacility('770e8400-e29b-41d4-a716-4466554700c9', $organization, $zone, 'area', 'Moved room', planGeometry: $geometry);
+    $this->entityManager->flush();
+    $zoneRevision = $zone->revision;
+    $roomRevision = $room->revision;
+    $zone->parentFacility = $floorB;
+    $this->entityManager->flush();
+    self::assertSame($zoneRevision + 1, $zone->revision);
+    $zoneRevision = $zone->revision;
+
+    $resolver = new FacilitySpatialValidityResolver(new FacilitySpatialReadAdapter($this->entityManager));
+    $context = $resolver->context(self::ORGANIZATION_ID, [$zone->id, $room->id], [$planA->id, $planB->id, $foreignPlan->id]);
+    self::assertSame($buildingB->id, $context->nearest($room->id, 'building'));
+    self::assertArrayNotHasKey($foreignPlan->id, $context->plans);
+    self::assertSame('outside_ancestry', $resolver->geometryIssue($context, $room->id, $room->planGeometry));
+    self::assertSame('building_changed', $resolver->calibrationIssue($context, $floorB->id, $context->plans[$planB->id]['calibrationBuildingId'], true));
+
+    $handler = new GetFacilityBuildingModelHandler($this->repository, $this->createStub(FacilityEquipmentPlanPositionPort::class), $resolver);
+    $model = $handler(new GetFacilityBuildingModelQuery(self::ORGANIZATION_ID, $buildingB->id));
+    self::assertSame([], $model->floors[0]['rooms']);
+    self::assertNotNull($model->floors[0]['plan']);
+    self::assertSame('building_changed', $model->floors[0]['plan']['calibrationIssue']);
+    self::assertEqualsCanonicalizing([
+      ['facilityId' => $zone->id, 'code' => 'outside_ancestry'],
+      ['facilityId' => $room->id, 'code' => 'outside_ancestry'],
+    ], $model->floors[0]['diagnostics']['geometryIssues']);
+    $equipmentPort = $this->createStub(FacilityEquipmentPlanPositionPort::class);
+    $equipmentPort->method('findEquipmentPlacedOnPlan')->willReturn([
+      ['equipmentId' => '770e8400-e29b-41d4-a716-4466554700d0', 'facilityId' => $room->id, 'type' => 'hydrant', 'serialNumber' => null, 'locationLabel' => null, 'status' => 'operational', 'x' => 0.3, 'y' => 0.4, 'invalidPosition' => false],
+    ]);
+    $overlayHandler = new GetFacilityPlanOverlayHandler(facilityRepository: $this->repository, attachmentRepository: $this->attachmentRepository, ancestryGuard: new FacilityAttachmentAncestryGuard($this->repository), equipmentPlanPosition: $equipmentPort, spatial: $resolver);
+    $sourceOverlay = $overlayHandler(new GetFacilityPlanOverlayQuery(self::ORGANIZATION_ID, $floorA->id));
+    self::assertSame([], $sourceOverlay->equipment);
+    self::assertSame([['equipmentId' => '770e8400-e29b-41d4-a716-4466554700d0', 'code' => 'outside_ancestry']], $sourceOverlay->equipmentIssues);
+    self::assertSame($geometry, $room->planGeometry);
+    self::assertSame($geometry, $zone->planGeometry);
+    self::assertSame($zoneRevision, $zone->revision);
+    self::assertSame($roomRevision, $room->revision);
+  }
+
+  private function plan(string $id, FacilityRecord $floor, string $calibrationBuildingId): FacilityAttachmentRecord
+  {
+    $plan = new FacilityAttachmentRecord();
+    $plan->id = $id;
+    $plan->facility = $floor;
+    $plan->fileName = 'plan.png';
+    $plan->storagePath = 'test/' . $id . '.png';
+    $plan->mimeType = 'image/png';
+    $plan->size = 100;
+    $plan->kind = 'floor_plan';
+    $plan->isPrimaryPlan = true;
+    $plan->uploadedAt = new DateTimeImmutable();
+    $plan->calibrationBuildingId = $calibrationBuildingId;
+    $plan->calibration = ['widthMeters' => 20.0, 'rotationDegrees' => 90.0, 'offsetXMeters' => 2.0, 'offsetZMeters' => -1.0];
+    $this->entityManager->persist($plan);
+
+    return $plan;
   }
 
   /**

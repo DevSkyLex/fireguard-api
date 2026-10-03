@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacility;
 
+use Facility\Application\Contract\Spatial\FacilitySpatialContext;
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\FacilitySpatialReadPort;
+use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityHandler, GetFacilityQuery, GetFacilityResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
@@ -31,7 +35,7 @@ final class GetFacilityHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, spatial: $this->spatial(), hierarchy: $this->createStub(FacilityHierarchyPort::class));
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655441700" not found.');
@@ -63,7 +67,7 @@ final class GetFacilityHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, spatial: $this->spatial(), hierarchy: $this->createStub(FacilityHierarchyPort::class));
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655441710" not found.');
@@ -114,7 +118,7 @@ final class GetFacilityHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, spatial: $this->spatial(), hierarchy: $this->createStub(FacilityHierarchyPort::class));
 
     $result = $handler->__invoke(new GetFacilityQuery(
       organizationId: (string) $organizationId,
@@ -161,7 +165,7 @@ final class GetFacilityHandlerTest extends TestCase
     $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, spatial: $this->spatial(), hierarchy: $this->createStub(FacilityHierarchyPort::class));
 
     $result = $handler->__invoke(new GetFacilityQuery(
       organizationId: (string) $organizationId,
@@ -197,7 +201,7 @@ final class GetFacilityHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, spatial: $this->spatial(), hierarchy: $this->createStub(FacilityHierarchyPort::class));
 
     $result = $handler->__invoke(new GetFacilityQuery(
       organizationId: (string) $organizationId,
@@ -218,6 +222,8 @@ final class GetFacilityHandlerTest extends TestCase
     $handler = new GetFacilityHandler(
       facilityRepository: $repository,
       equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
+      spatial: $this->spatial(),
+      hierarchy: $this->createStub(FacilityHierarchyPort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -226,5 +232,13 @@ final class GetFacilityHandlerTest extends TestCase
       organizationId: 'not-a-uuid',
       facilityId: 'also-not-a-uuid',
     ));
+  }
+
+  private function spatial(): FacilitySpatialValidityResolver
+  {
+    $port = $this->createStub(FacilitySpatialReadPort::class);
+    $port->method('readContext')->willReturn(new FacilitySpatialContext());
+
+    return new FacilitySpatialValidityResolver($port);
   }
 }

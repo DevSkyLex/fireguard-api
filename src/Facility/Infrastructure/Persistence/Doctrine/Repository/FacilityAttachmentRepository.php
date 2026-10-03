@@ -12,6 +12,9 @@ use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityAttachmentMapper
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 
 use function array_map;
+use function json_encode;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Repository FacilityAttachmentRepository.
@@ -148,6 +151,13 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
       return;
     }
 
+    $organizationId = $record->facility?->organization?->id;
+    if (null !== $organizationId) {
+      $this->entityManager->getConnection()->executeStatement(
+        "UPDATE facilities SET plan_geometry = NULL, revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE organization_id = :organizationId AND plan_geometry->>'attachmentId' = :attachmentId",
+        ['organizationId' => $organizationId, 'attachmentId' => (string) $id],
+      );
+    }
     $this->entityManager->remove($record);
     $this->entityManager->flush();
   }
@@ -192,6 +202,27 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
     }
 
     return FacilityAttachmentMapper::toDomain($record);
+  }
+
+  /**
+   * Method saveCalibration.
+   *
+   * @since 1.0.0
+   */
+  public function saveCalibration(FacilityAttachment $attachment, int $expectedRevision): void
+  {
+    $calibration = $attachment->calibration()?->toArray();
+    $updated = $this->entityManager->getConnection()->executeStatement(
+      'UPDATE facility_attachments SET calibration = CAST(:calibration AS JSONB), calibration_building_id = :building, revision = revision + 1 WHERE id = :id AND revision = :revision',
+      ['calibration' => null === $calibration ? null : json_encode($calibration, JSON_THROW_ON_ERROR), 'building' => $attachment->calibrationBuildingId(), 'id' => (string) $attachment->id(), 'revision' => $expectedRevision],
+    );
+    if (1 !== $updated) {
+      throw \Facility\Domain\Exception\FacilityRevisionMismatchException::stale();
+    }
+    $record = $this->repository->find((string) $attachment->id());
+    if ($record instanceof FacilityAttachmentRecord) {
+      $this->entityManager->refresh($record);
+    }
   }
   // #endregion
 }

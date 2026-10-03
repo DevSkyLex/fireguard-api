@@ -47,6 +47,8 @@ final readonly class CreateEquipmentCommand implements CommandMessage
     public int $quotaProjectionOffset = 0,
     public ?OrganizationSetupContext $setupContext = null,
     public ?string $facilityId = null,
+    public ?string $interventionId = null,
+    public ?string $clientId = null,
   ) {
   }
   // #endregion

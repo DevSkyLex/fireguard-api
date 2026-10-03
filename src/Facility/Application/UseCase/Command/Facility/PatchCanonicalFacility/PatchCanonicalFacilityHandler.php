@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility;
 
-use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
+use Facility\Application\Port\Inbound\{FacilityArchivalGuardPort, FacilityHierarchyPort};
 use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort, InterventionScopePort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
@@ -74,6 +75,7 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
     private TransactionManagerPort $transactionManager,
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
+    private ?FacilityHierarchyPort $hierarchy = null,
   ) {
   }
   // #endregion
@@ -100,6 +102,12 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
           throw FacilityNotFoundException::withId($command->facilityId);
         }
 
+        if (null !== $this->hierarchy) {
+          $this->hierarchy->lock((string) $facility->organizationId());
+          $facility = $this->facilities->findById($this->identifier($command->facilityId))
+            ?? throw FacilityNotFoundException::withId($command->facilityId);
+        }
+
         $facility->assertRevisionMatches($command->expectedRevision);
 
         $patch = self::patch($command);
@@ -118,6 +126,17 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
         }
 
         $patch->assertStatusIsPresent();
+
+        if ((($patch->hasParent && $patch->parentFacilityId !== $facility->parentFacilityId()) || ($patch->hasType && $patch->type !== $facility->type()->value)) && null !== $this->hierarchy) {
+          $this->hierarchy->assertGraph((string) $facility->organizationId(), [new FacilityHierarchyNode(
+            (string) $facility->id(),
+            $patch->hasType ? ($patch->type ?? $facility->type()->value) : $facility->type()->value,
+            $patch->hasParent ? $patch->parentFacilityId : $facility->parentFacilityId(),
+            $facility->status()->value,
+            $facility->recordStatus()->value,
+            $facility->interventionId(),
+          )]);
+        }
 
         $parent = $this->resolveParent($facility, $patch);
         $change = $facility->applyPatch($patch, $parent);
@@ -347,6 +366,10 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
       parentFacilityId: $command->parentFacilityId,
       hasLevelIndex: $command->hasLevelIndex,
       levelIndex: $command->levelIndex,
+      hasElevationMeters: $command->hasElevationMeters,
+      elevationMeters: $command->elevationMeters,
+      hasHeightMeters: $command->hasHeightMeters,
+      heightMeters: $command->heightMeters,
     );
   }
 

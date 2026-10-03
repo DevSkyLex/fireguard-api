@@ -113,9 +113,9 @@ final class FacilityBuildingModelProviderTest extends TestCase
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())
+    $authorization->expects(self::exactly(2))
       ->method('resolveAccess')
-      ->with($user->getId(), self::ORGANIZATION_ID, 'organization.facilities.read')
+      ->with($user->getId(), self::ORGANIZATION_ID, self::isString())
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $resultFloors = [
@@ -123,12 +123,17 @@ final class FacilityBuildingModelProviderTest extends TestCase
         'facilityId' => 'floor-1',
         'name' => 'Ground Floor',
         'levelIndex' => 0,
+        'elevationMeters' => -3.0,
+        'heightMeters' => 2.8,
         'status' => 'active',
-        'plan' => ['attachmentId' => 'plan-1', 'imageWidth' => 1200, 'imageHeight' => 900],
+        'hierarchyIssues' => [],
+        'plan' => ['attachmentId' => 'plan-1', 'imageWidth' => 1200, 'imageHeight' => 900, 'calibration' => null, 'calibrationBuildingId' => null, 'calibrationIssue' => null],
         'outline' => ['source' => 'rooms_bbox', 'points' => [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4], [0.1, 0.4]]],
         'rooms' => [
           ['facilityId' => 'room-1', 'name' => 'Lobby', 'type' => 'zone', 'status' => 'active', 'points' => [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]]],
         ],
+        'equipment' => [],
+        'diagnostics' => ['invalidGeometryCount' => 0, 'unpositionedEquipmentCount' => 0, 'geometryIssues' => []],
       ],
     ];
 
@@ -138,7 +143,7 @@ final class FacilityBuildingModelProviderTest extends TestCase
       ->method('ask')
       ->with(self::callback(
         static fn (GetFacilityBuildingModelQuery $query): bool => self::ORGANIZATION_ID === $query->organizationId
-          && self::FACILITY_ID === $query->facilityId,
+          && self::FACILITY_ID === $query->facilityId && $query->includeEquipment,
       ))
       ->willReturn(new GetFacilityBuildingModelResult(
         buildingId: self::FACILITY_ID,
@@ -158,6 +163,25 @@ final class FacilityBuildingModelProviderTest extends TestCase
     self::assertSame(self::FACILITY_ID, $output->buildingId);
     self::assertSame('Test Tower', $output->buildingName);
     self::assertSame($resultFloors, $output->floors);
+  }
+
+  #[Test]
+  public function testFacilitiesReadDoesNotGrantEquipmentRead(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::exactly(2))->method('resolveAccess')
+      ->willReturnMap([
+        [self::USER_ID, self::ORGANIZATION_ID, 'organization.facilities.read', OrganizationAccessDecision::GRANTED],
+        [self::USER_ID, self::ORGANIZATION_ID, 'organization.equipment.read', OrganizationAccessDecision::MISSING_PERMISSION],
+      ]);
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())->method('ask')
+      ->with(self::callback(static fn (GetFacilityBuildingModelQuery $query): bool => !$query->includeEquipment))
+      ->willReturn(new GetFacilityBuildingModelResult(self::FACILITY_ID, 'Tower', []));
+
+    self::assertSame([], $this->ask(new FacilityBuildingModelProvider($queryBus, $authorization, $security))->floors);
   }
 
   private function ask(FacilityBuildingModelProvider $provider): FacilityBuildingModelOutput

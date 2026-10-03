@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Facility\Application\Contract\Provisioning;
 
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
+
 /**
  * Contract ProvisionFacilityResult.
  *
@@ -22,12 +24,14 @@ final readonly class ProvisionFacilityResult
    *
    * @param ProvisionOutcome $outcome the provisioning outcome
    * @param ?string $resourceId the created facility identifier, when `CREATED`
+   * @param ?FacilityHierarchyNode $projectedNode validated node returned for successful simulations
    * @param ?string $message the failure reason, when not `CREATED`
    */
   public function __construct(
     public ProvisionOutcome $outcome,
     public ?string $resourceId = null,
     public ?string $message = null,
+    public ?FacilityHierarchyNode $projectedNode = null,
   ) {
   }
   // #endregion

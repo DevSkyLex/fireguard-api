@@ -9,7 +9,7 @@ use Facility\Application\Port\Outbound\{
   FacilityEquipmentPlanPositionPort,
   FacilityRepositoryPort
 };
-use Facility\Application\Service\FacilityAttachmentAncestryGuard;
+use Facility\Application\Service\{FacilityAttachmentAncestryGuard, FacilitySpatialValidityResolver};
 use Facility\Domain\Exception\{
   FacilityAttachmentNotFloorPlanException,
   FacilityAttachmentNotFoundException,
@@ -56,6 +56,7 @@ final readonly class GetFacilityPlanOverlayHandler implements QueryHandler
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,
     private FacilityAttachmentAncestryGuard $ancestryGuard,
+    private FacilitySpatialValidityResolver $spatial,
     private FacilityEquipmentPlanPositionPort $equipmentPlanPosition,
   ) {
   }
@@ -102,13 +103,50 @@ final readonly class GetFacilityPlanOverlayHandler implements QueryHandler
       (string) $organizationId,
       (string) $attachment->id(),
     );
+    $facilityIds = [(string) $facilityId];
+    $attachmentIds = [(string) $attachment->id()];
+    foreach ($zones as $zone) {
+      $facilityIds[] = $zone['facilityId'];
+      $attachmentIds[] = $zone['attachmentId'];
+    }
+    foreach ($equipment as $item) {
+      if (null !== $item['facilityId']) {
+        $facilityIds[] = $item['facilityId'];
+      }
+    }
+    $spatialContext = $this->spatial->context((string) $organizationId, $facilityIds, $attachmentIds);
+    $validZones = [];
+    $geometryIssues = [];
+    foreach ($zones as $zone) {
+      $issue = $this->spatial->geometryIssue($spatialContext, $zone['facilityId'], ['attachmentId' => $zone['attachmentId'], 'points' => $zone['points']], (string) $attachment->id());
+      if (null !== $issue) {
+        $geometryIssues[] = ['facilityId' => $zone['facilityId'], 'code' => $issue];
+      } else {
+        unset($zone['attachmentId']);
+        $validZones[] = $zone;
+      }
+    }
+    $validEquipment = [];
+    $equipmentIssues = [];
+    foreach ($equipment as $item) {
+      $position = ['attachmentId' => (string) $attachment->id(), 'x' => $item['x'], 'y' => $item['y']];
+      $issue = $this->spatial->positionIssue($spatialContext, $item['facilityId'] ?? '', $position, (string) $attachment->id(), $item['invalidPosition']);
+      if (null !== $issue) {
+        $equipmentIssues[] = ['equipmentId' => $item['equipmentId'], 'code' => $issue];
+      } else {
+        unset($item['facilityId'], $item['invalidPosition']);
+        $validEquipment[] = $item;
+      }
+    }
 
     return new GetFacilityPlanOverlayResult(
       attachmentId: (string) $attachment->id(),
       imageWidth: $attachment->imageWidth(),
       imageHeight: $attachment->imageHeight(),
-      zones: $zones,
-      equipment: $equipment,
+      zones: $validZones,
+      equipment: $validEquipment,
+      geometryIssues: $geometryIssues,
+      equipmentIssues: $equipmentIssues,
     );
   }
 

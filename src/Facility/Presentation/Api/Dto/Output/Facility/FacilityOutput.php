@@ -180,6 +180,24 @@ final class FacilityOutput
   public ?int $levelIndex = null;
 
   /**
+   * Property elevationMeters
+   *
+   * Optional physical floor elevation in meters.
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?float $elevationMeters = null;
+
+  /**
+   * Property heightMeters
+   *
+   * Optional physical floor height in meters.
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?float $heightMeters = null;
+
+  /**
    * Property planGeometry.
    *
    * Optional spatial geometry `{attachmentId, points}` binding this facility
@@ -195,6 +213,26 @@ final class FacilityOutput
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false, description: 'Optional spatial geometry bound to an ancestor floor plan (detail views only)')]
   public ?array $planGeometry = null;
+
+  /**
+   * Property geometryIssue.
+   *
+   * Derived usability of the retained geometry; original storage is unchanged.
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, openapiContext: ['type' => ['string', 'null'], 'enum' => ['invalid_geometry', 'plan_unavailable', 'outside_ancestry', 'other_plan', null]])]
+  public ?string $geometryIssue = null;
+
+  /**
+   * Property hierarchyIssues.
+   *
+   * Legacy hierarchy diagnostics without related-resource identifiers.
+   *
+   * @var list<string>
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public array $hierarchyIssues = [];
 
   /**
    * Property createdAt.
@@ -218,17 +256,26 @@ final class FacilityOutput
    * Property path.
    *
    * Ancestor breadcrumb ordered root first, direct parent last, excluding
-   * this facility. Empty for a root facility. Populated on the detail (item)
-   * providers only — {@see FacilitySerializationGroup::READ} is shared with
-   * the collection providers, which deliberately leave this an empty list to
-   * avoid an N+1 ancestor lookup per row.
+   * this facility. Empty for a root facility. Collections populate it only
+   * when includePath is true, through one organization-scoped batch read.
    *
    * @since 1.2.0
    *
    * @var list<array{id: string, name: string, type: string}>
    */
   #[Groups([FacilitySerializationGroup::READ])]
-  #[ApiProperty(readable: true, writable: false, description: 'Ancestor breadcrumb, root first, excluding this facility')]
+  #[ApiProperty(readable: true, writable: false, description: 'Ancestor breadcrumb, root first, excluding this facility; opt-in on collections through includePath.', openapiContext: [
+    'type' => 'array',
+    'items' => [
+      'type' => 'object',
+      'required' => ['id', 'name', 'type'],
+      'properties' => [
+        'id' => ['type' => 'string', 'format' => 'uuid'],
+        'name' => ['type' => 'string'],
+        'type' => ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
+      ],
+    ],
+  ])]
   public array $path = [];
   // #endregion
 }

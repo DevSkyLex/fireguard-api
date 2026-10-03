@@ -4,6 +4,28 @@
 
 ## Overview
 
+Publication guards validate the final facility graph, including drafts and
+proposals from the same publication, under the organization relation lock.
+The scoped publication context permits intermediate writes only for covered,
+prevalidated changes; the resulting graph is checked again before commit.
+Facility drafts are published before equipment proposals within that same
+transaction. Draft references are restricted to the same intervention; published
+resources target published facilities. A descriptive proposal with unchanged
+incompatible geometry retains it with diagnostics, while explicitly written
+geometry must be valid.
+
+Publication preserves historical facility links on completed work items, closed or
+cancelled inspections and decommissioned equipment when the facility is archived.
+These retained links still require an existing facility in the same organization
+and the allowed publication scope. New assignments and newly written work-item or
+site links continue to require an active facility. Actual active dependents still
+prevent archival through the owning module's archival guard.
+
+Abandonment first checks all resource-owner guards. Referenced drafts cannot be
+deleted while retained children, assignments or intervention resources still
+use them. The 409 `intervention_draft_dependencies` response provides typed
+dependency counts, without disclosing inaccessible resource identifiers.
+
 Publication scheduling commits the publication row and its `main_outbox` command
 together. Execution commits all resource mutations, the completed status and its
 durable event in one main transaction. A failure rolls these writes back before

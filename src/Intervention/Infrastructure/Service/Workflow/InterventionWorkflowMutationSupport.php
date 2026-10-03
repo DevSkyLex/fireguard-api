@@ -25,12 +25,14 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionWorkItemRecord
 };
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionTimeEntryRecord;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function in_array;
 use function is_numeric;
 use function max;
+use function preg_match;
 
 /**
  * Resolves and validates records inside a workflow mutation transaction.
@@ -57,6 +59,8 @@ final readonly class InterventionWorkflowMutationSupport
     private InterventionMemberPolicy $memberPolicy,
     private InterventionResourceGatewayPort $resources,
     private OrganizationWorkforceDirectoryPort $workforce,
+    private ?\Facility\Application\Port\Inbound\FacilityLifecycleReferencePort $facilities = null,
+    private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
   ) {
   }
   // #endregion
@@ -247,7 +251,7 @@ final readonly class InterventionWorkflowMutationSupport
    *
    * @return void no return value
    */
-  public function assertSiteBelongsToOrganization(?string $siteId, string $organizationId): void
+  public function assertSiteBelongsToOrganization(?string $siteId, string $organizationId, ?string $draftInterventionId = null): void
   {
     if (
       null !== $siteId
@@ -258,6 +262,32 @@ final readonly class InterventionWorkflowMutationSupport
       )
     ) {
       throw new InterventionValidationException('Intervention site must belong to the intervention organization.');
+    }
+    if (null !== $siteId) {
+      if ($this->entityManager->getConnection()->isTransactionActive()) {
+        $this->hierarchy?->lock($organizationId);
+      }
+
+      try {
+        $this->facilities?->assertReference($organizationId, $siteId, $draftInterventionId);
+      } catch (InvalidArgumentException $exception) {
+        throw new InterventionValidationException($exception->getMessage());
+      }
+    }
+  }
+
+  /**
+   * Validates newly written facility targets while keeping other target kinds unchanged.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $iri the work-item target or produced resource
+   * @param InterventionRecord $intervention its owning intervention
+   */
+  public function assertFacilityTarget(?string $iri, InterventionRecord $intervention): void
+  {
+    if (null !== $iri && 1 === preg_match('#^/api/facilities/([^/]+)$#', $iri, $match)) {
+      $this->assertSiteBelongsToOrganization($match[1], $this->organizationId($intervention), 'published' === $intervention->status ? null : $intervention->id);
     }
   }
 

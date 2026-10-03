@@ -34,6 +34,8 @@ final readonly class GetFacilityResult implements ResultMessage
    *                                                                                            geometry, populated
    *                                                                                            on detail reads only
    * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
+   * @param ?float $elevationMeters optional physical floor elevation in meters
+   * @param ?float $heightMeters optional physical floor height in meters
    */
   public function __construct(
     public string $facilityId,
@@ -54,6 +56,16 @@ final readonly class GetFacilityResult implements ResultMessage
     public array $path = [],
     public ?array $planGeometry = null,
     public ?int $levelIndex = null,
+    public ?float $elevationMeters = null,
+    public ?float $heightMeters = null,
+    public ?string $geometryIssue = null,
+    /**
+     * @var list<string>
+     */
+    public array $hierarchyIssues = [],
+    public string $recordStatus = 'published',
+    public ?string $interventionId = null,
+    public int $revision = 1,
   ) {
   }
   // #endregion

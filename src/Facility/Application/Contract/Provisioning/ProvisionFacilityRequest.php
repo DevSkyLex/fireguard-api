@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Facility\Application\Contract\Provisioning;
 
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
+
 /**
  * Contract ProvisionFacilityRequest.
  *
@@ -22,10 +24,10 @@ namespace Facility\Application\Contract\Provisioning;
  * which takes a persistence-scoped advisory lock this request never enters).
  * `quotaProjectionOffset` lets a caller processing many rows in one dry run
  * (the Import module) account for rows earlier in the same batch that would
- * already have consumed the quota. `knownPendingCodes` lets `parentCode`
- * resolve against a parent that would itself be created earlier in the same
- * dry-run batch — not yet in the database — mirroring how the real (write)
- * path lets a file order its parents before its children.
+ * already have consumed the quota. pendingCodeIds resolves parents to stable identifiers from earlier successful
+ * rows. projectedHierarchy retains their types and ancestry, so the creation
+ * use case validates the combined persisted and simulated graph. resourceId
+ * identifies this simulated row consistently when its import is resumed.
  *
  * @category Contract
  * @version 1.0.0
@@ -50,7 +52,9 @@ final readonly class ProvisionFacilityRequest
    * @param ?string $parentCode the optional parent facility code, resolved internally
    * @param bool $dryRun when true, validates and projects the quota without persisting
    * @param int $quotaProjectionOffset facilities already provisionally counted earlier in the same dry run
-   * @param ?list<string> $knownPendingCodes codes of rows earlier in the same dry-run batch that would themselves be created
+   * @param ?string $resourceId stable identifier of this row in a simulation
+   * @param array<string, string> $pendingCodeIds successful earlier row codes mapped to their identifiers
+   * @param list<FacilityHierarchyNode> $projectedHierarchy validated earlier nodes in the same simulation
    */
   public function __construct(
     public string $organizationId,
@@ -63,7 +67,9 @@ final readonly class ProvisionFacilityRequest
     public ?string $parentCode = null,
     public bool $dryRun = false,
     public int $quotaProjectionOffset = 0,
-    public ?array $knownPendingCodes = null,
+    public ?string $resourceId = null,
+    public array $pendingCodeIds = [],
+    public array $projectedHierarchy = [],
   ) {
   }
   // #endregion

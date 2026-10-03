@@ -6,7 +6,7 @@ namespace Import\Application\UseCase\Command\ProcessImportJob;
 
 use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, ProvisionOutcome as EquipmentProvisionOutcome};
 use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
-use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionOutcome as FacilityProvisionOutcome};
+use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome as FacilityProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
 use Import\Application\Port\Outbound\{CsvRowStreamerPort, ImportExecutionPort, ImportJobRepositoryPort};
 use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory, MemberRowFactory};
@@ -17,6 +17,7 @@ use Import\Domain\Exception\ImportRowValidationException;
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError};
 use InvalidArgumentException;
+use LogicException;
 use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionOutcome as MemberProvisionOutcome};
 use Organization\Application\Port\Inbound\{MemberInvitationProvisioningPort, OrganizationAuthorizationPort};
 use Psr\Log\LoggerInterface;
@@ -228,7 +229,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
     foreach ($this->csvStreamer->rows($contents) as $rowNumber => $row) {
       if ($rowNumber <= $resumeFrom) {
         if ($job->isDryRun() && isset($wouldCreate[$rowNumber])) {
-          $this->restoreConfirmedSimulationRow($job->kind(), $row, $projection);
+          $this->restoreConfirmedSimulationRow($job, $rowNumber, $row, $projection);
         }
 
         continue;
@@ -245,23 +246,26 @@ final readonly class ProcessImportJobHandler implements CommandHandler
   /**
    * Method restoreConfirmedSimulationRow
    *
-   * Rebuilds quota offsets and pending facility codes from a previously confirmed successful simulation row.
+   * Rebuilds quota offsets and the typed hierarchy from a previously confirmed successful simulation row.
    * Member simulations carry no equipment or facility projection.
    *
    * @access private
    *
-   * @param ImportKind $kind the owning simulation's resource kind
+   * @param ImportJob $job the retained simulation and its resource kind
+   * @param int $rowNumber the original one-based CSV data row
    * @param array<string, string> $row the confirmed source row
    * @param DryRunProjection $projection the running projection reconstructed before new row work
    *
    * @return void no return value
    */
-  private function restoreConfirmedSimulationRow(ImportKind $kind, array $row, DryRunProjection $projection): void
+  private function restoreConfirmedSimulationRow(ImportJob $job, int $rowNumber, array $row, DryRunProjection $projection): void
   {
-    if (ImportKind::EQUIPMENT === $kind) {
+    if (ImportKind::EQUIPMENT === $job->kind()) {
       $projection->recordEquipmentWouldCreate();
-    } elseif (ImportKind::FACILITY === $kind) {
-      $projection->recordFacilityWouldCreate($row['code'] ?? null);
+    } elseif (ImportKind::FACILITY === $job->kind()) {
+      $request = $this->facilitySimulationRequest($job, $rowNumber, $row, $projection);
+      $result = $this->facilityProvisioning->restoreSimulation($request);
+      $projection->recordFacilityWouldCreate($request->code, FacilityProvisionOutcome::CREATED === $result->outcome ? $result->projectedNode : null);
     }
   }
 
@@ -380,28 +384,14 @@ final readonly class ProcessImportJobHandler implements CommandHandler
    */
   private function processFacilityRow(ImportJob $job, int $rowNumber, array $row, DryRunProjection $projection): ?string
   {
-    $request = $this->facilityRowFactory->map($job->organizationId(), $row);
-
-    if ($job->isDryRun()) {
-      $request = new ProvisionFacilityRequest(
-        organizationId: $request->organizationId,
-        type: $request->type,
-        name: $request->name,
-        code: $request->code,
-        address: $request->address,
-        latitude: $request->latitude,
-        longitude: $request->longitude,
-        parentCode: $request->parentCode,
-        dryRun: true,
-        quotaProjectionOffset: $projection->facilityCount(),
-        knownPendingCodes: $projection->facilityPendingCodes(),
-      );
-    }
+    $request = $job->isDryRun()
+      ? $this->facilitySimulationRequest($job, $rowNumber, $row, $projection)
+      : $this->facilityRowFactory->map($job->organizationId(), $row);
 
     $result = $this->facilityProvisioning->provision($request);
 
     match ($result->outcome) {
-      FacilityProvisionOutcome::CREATED => $this->recordFacilitySuccess($job, $rowNumber, $request->code, $projection),
+      FacilityProvisionOutcome::CREATED => $this->recordFacilitySuccess($job, $rowNumber, $request->code, $projection, $result),
       FacilityProvisionOutcome::QUOTA_EXCEEDED => $job->recordRowError(new ImportRowError(
         rowNumber: $rowNumber,
         code: 'quota_exceeded',
@@ -418,6 +408,34 @@ final readonly class ProcessImportJobHandler implements CommandHandler
   }
 
   /**
+   * Method facilitySimulationRequest.
+   *
+   * Shares the same stable identity and preceding graph during initial execution and resumption.
+   *
+   * @param array<string, string> $row the original CSV row
+   */
+  private function facilitySimulationRequest(ImportJob $job, int $rowNumber, array $row, DryRunProjection $projection): ProvisionFacilityRequest
+  {
+    $request = $this->facilityRowFactory->map($job->organizationId(), $row);
+
+    return new ProvisionFacilityRequest(
+      organizationId: $request->organizationId,
+      type: $request->type,
+      name: $request->name,
+      code: $request->code,
+      address: $request->address,
+      latitude: $request->latitude,
+      longitude: $request->longitude,
+      parentCode: $request->parentCode,
+      dryRun: true,
+      quotaProjectionOffset: $projection->facilityCount(),
+      resourceId: DryRunProjection::simulatedFacilityId((string) $job->id(), $rowNumber),
+      pendingCodeIds: $projection->facilityPendingCodeIds(),
+      projectedHierarchy: $projection->facilityHierarchy(),
+    );
+  }
+
+  /**
    * Method recordFacilitySuccess.
    *
    * @since 1.0.0
@@ -426,8 +444,9 @@ final readonly class ProcessImportJobHandler implements CommandHandler
    * @param int $rowNumber the 1-based data row number
    * @param ?string $code the row's own facility code, when it has one
    * @param DryRunProjection $projection the running dry-run projection state
+   * @param ProvisionFacilityResult $result the validated creation or simulation result
    */
-  private function recordFacilitySuccess(ImportJob $job, int $rowNumber, ?string $code, DryRunProjection $projection): void
+  private function recordFacilitySuccess(ImportJob $job, int $rowNumber, ?string $code, DryRunProjection $projection, ProvisionFacilityResult $result): void
   {
     if (!$job->isDryRun()) {
       $job->recordRowSuccess();
@@ -435,7 +454,10 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       return;
     }
 
-    $projection->recordFacilityWouldCreate($code);
+    if (null === $result->projectedNode) {
+      throw new LogicException('A successful facility simulation must return its hierarchy node.');
+    }
+    $projection->recordFacilityWouldCreate($code, $result->projectedNode);
     $job->recordRowSuccess(new ImportRowError(
       rowNumber: $rowNumber,
       code: 'would_create',

@@ -7,11 +7,13 @@ namespace Tests\Unit\Import;
 use DateTimeImmutable;
 use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, ProvisionEquipmentResult, ProvisionOutcome as EquipmentProvisionOutcome};
 use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome as FacilityProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
 use Generator;
 use Import\Application\Port\Outbound\{CsvRowStreamerPort, ImportJobRepositoryPort};
 use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory, MemberRowFactory};
+use Import\Application\Support\DryRunProjection;
 use Import\Application\UseCase\Command\ProcessImportJob\{ProcessImportJobCommand, ProcessImportJobHandler};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Import\Domain\Model\ImportJob\ImportJob;
@@ -528,51 +530,51 @@ final class ProcessImportJobHandlerTest extends TestCase
   }
 
   #[Test]
-  public function itResolvesAnIntraFileParentCodeOnAFacilityDryRun(): void
+  public function itRetainsTheCompleteTypedHierarchyOnAFacilityDryRun(): void
   {
     $job = ImportJob::create(
-      id: ImportJobId::fromString(self::JOB_ID),
-      organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::FACILITY,
-      storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
-      originalFilename: 'facilities.csv',
-      createdBy: self::CREATED_BY,
-      dryRun: true,
+      ImportJobId::fromString(self::JOB_ID),
+      self::ORGANIZATION_ID,
+      ImportKind::FACILITY,
+      'facilities.csv',
+      'facilities.csv',
+      self::CREATED_BY,
+      true,
     );
     $repository = new InMemoryImportJobRepositoryFake($job);
-
-    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
-    $rows = [
+    $csv = $this->createStub(CsvRowStreamerPort::class);
+    $csv->method('countDataRows')->willReturn(3);
+    $csv->method('rows')->willReturn($this->generatorFrom([
       1 => ['type' => 'site', 'name' => 'HQ', 'code' => 'HQ'],
-      2 => ['type' => 'zone', 'name' => 'Annex', 'parentCode' => 'HQ'],
-    ];
-    $csvStreamer->method('countDataRows')->willReturn(2);
-    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+      2 => ['type' => 'building', 'name' => 'Building', 'code' => 'BLD', 'parentCode' => 'HQ'],
+      3 => ['type' => 'floor', 'name' => 'Ground floor', 'parentCode' => 'BLD'],
+    ]));
+    $captured = [];
+    $facilities = $this->createMock(FacilityProvisioningPort::class);
+    $facilities->expects(self::never())->method('restoreSimulation');
+    $facilities->expects(self::exactly(3))->method('provision')
+      ->willReturnCallback(function (ProvisionFacilityRequest $request) use (&$captured): ProvisionFacilityResult {
+        $captured[] = $request;
 
-    $call = 0;
-    $facilityProvisioning = $this->createMock(FacilityProvisioningPort::class);
-    $facilityProvisioning->expects(self::exactly(2))
-      ->method('provision')
-      ->with(self::callback(static function (ProvisionFacilityRequest $request) use (&$call): bool {
-        ++$call;
-        self::assertTrue($request->dryRun);
-        if (2 === $call) {
-          self::assertSame('HQ', $request->parentCode);
-          self::assertSame(['HQ'], $request->knownPendingCodes);
-        }
+        return $this->simulatedFacilityResult($request);
+      });
+    $this->handler($repository, $csv, $this->neverCalledEquipmentPort(), $facilities, $this->createStub(EventDispatcherPort::class))
+      ->__invoke(new ProcessImportJobCommand(self::JOB_ID));
 
-        return true;
-      }))
-      ->willReturn(new ProvisionFacilityResult(FacilityProvisionOutcome::CREATED, resourceId: 'facility-1'));
-
-    $handler = $this->handler($repository, $csvStreamer, $this->neverCalledEquipmentPort(), $facilityProvisioning, $this->createStub(EventDispatcherPort::class));
-
-    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
-
-    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    $reloaded = $repository->findById($job->id());
     self::assertInstanceOf(ImportJob::class, $reloaded);
-    self::assertSame(2, $reloaded->successfulRows());
+    self::assertSame(3, $reloaded->successfulRows());
     self::assertSame(0, $reloaded->failedRows());
+    self::assertSame(0, $captured[0]->quotaProjectionOffset);
+    self::assertSame([], $captured[0]->projectedHierarchy);
+    self::assertSame(1, $captured[1]->quotaProjectionOffset);
+    self::assertSame(['HQ' => $captured[0]->resourceId], $captured[1]->pendingCodeIds);
+    self::assertSame('site', $captured[1]->projectedHierarchy[0]->type);
+    self::assertSame(2, $captured[2]->quotaProjectionOffset);
+    self::assertSame(['HQ' => $captured[0]->resourceId, 'BLD' => $captured[1]->resourceId], $captured[2]->pendingCodeIds);
+    self::assertSame('building', $captured[2]->projectedHierarchy[1]->type);
+    self::assertSame($captured[0]->resourceId, $captured[2]->projectedHierarchy[1]->parentFacilityId);
+    self::assertSame(DryRunProjection::simulatedFacilityId(self::JOB_ID, 3), $captured[2]->resourceId);
   }
 
   #[Test]
@@ -736,7 +738,7 @@ final class ProcessImportJobHandlerTest extends TestCase
   }
 
   #[Test]
-  public function itRebuildsTheDryRunQuotaAndParentCodesFromConfirmedRows(): void
+  public function itRestoresConfirmedRowsIntoTheSameTypedGraphWithoutProvisioningThemAgain(): void
   {
     $job = ImportJob::create(
       ImportJobId::fromString(self::JOB_ID),
@@ -748,25 +750,47 @@ final class ProcessImportJobHandlerTest extends TestCase
       true,
     );
     $job->markProcessing(new DateTimeImmutable());
-    $job->recordRowSuccess(new \Import\Domain\ValueObject\ImportRowError(1, 'would_create', 'Would create parent'));
+    $job->recordRowSuccess(new \Import\Domain\ValueObject\ImportRowError(1, 'would_create', 'Would create site'));
+    $job->recordRowSuccess(new \Import\Domain\ValueObject\ImportRowError(2, 'would_create', 'Would create building'));
     $repository = new InMemoryImportJobRepositoryFake($job);
     $csv = $this->createStub(CsvRowStreamerPort::class);
-    $csv->method('countDataRows')->willReturn(2);
+    $csv->method('countDataRows')->willReturn(3);
     $csv->method('rows')->willReturn($this->generatorFrom([
-      1 => ['type' => 'site', 'name' => 'Parent', 'code' => 'HQ'],
-      2 => ['type' => 'building', 'name' => 'Child', 'parentCode' => 'HQ'],
+      1 => ['type' => 'site', 'name' => 'Site', 'code' => ' HQ '],
+      2 => ['type' => 'building', 'name' => 'Building', 'code' => 'BLD', 'parentCode' => 'HQ'],
+      3 => ['type' => 'floor', 'name' => 'Floor', 'parentCode' => 'BLD'],
     ]));
+    $restored = [];
     $facilities = $this->createMock(FacilityProvisioningPort::class);
-    $facilities->expects(self::once())->method('provision')->with(self::callback(static function (ProvisionFacilityRequest $request): bool {
-      self::assertTrue($request->dryRun);
-      self::assertSame(1, $request->quotaProjectionOffset);
-      self::assertSame(['HQ'], $request->knownPendingCodes);
+    $facilities->expects(self::exactly(2))->method('restoreSimulation')
+      ->willReturnCallback(function (ProvisionFacilityRequest $request) use (&$restored): ProvisionFacilityResult {
+        $restored[] = $request;
 
-      return true;
-    }))->willReturn(new ProvisionFacilityResult(FacilityProvisionOutcome::CREATED));
+        return $this->simulatedFacilityResult($request);
+      });
+    $facilities->expects(self::once())->method('provision')
+      ->willReturnCallback(function (ProvisionFacilityRequest $request): ProvisionFacilityResult {
+        $siteId = DryRunProjection::simulatedFacilityId(self::JOB_ID, 1);
+        $buildingId = DryRunProjection::simulatedFacilityId(self::JOB_ID, 2);
+        self::assertTrue($request->dryRun);
+        self::assertSame(2, $request->quotaProjectionOffset);
+        self::assertSame(['HQ' => $siteId, 'BLD' => $buildingId], $request->pendingCodeIds);
+        self::assertCount(2, $request->projectedHierarchy);
+        self::assertEquals(new FacilityHierarchyNode($siteId, 'site', null), $request->projectedHierarchy[0]);
+        self::assertEquals(new FacilityHierarchyNode($buildingId, 'building', $siteId), $request->projectedHierarchy[1]);
+        self::assertSame(DryRunProjection::simulatedFacilityId(self::JOB_ID, 3), $request->resourceId);
+
+        return $this->simulatedFacilityResult($request);
+      });
     $this->handler($repository, $csv, $this->neverCalledEquipmentPort(), $facilities, $this->createStub(EventDispatcherPort::class))
       ->__invoke(new ProcessImportJobCommand(self::JOB_ID));
-    self::assertSame(2, $repository->findById($job->id())?->successfulRows());
+
+    $reloaded = $repository->findById($job->id());
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(3, $reloaded->successfulRows());
+    self::assertSame(0, $reloaded->failedRows());
+    self::assertSame(DryRunProjection::simulatedFacilityId(self::JOB_ID, 1), $restored[0]->resourceId);
+    self::assertSame(DryRunProjection::simulatedFacilityId(self::JOB_ID, 2), $restored[1]->resourceId);
   }
 
   #[Test]
@@ -815,6 +839,18 @@ final class ProcessImportJobHandlerTest extends TestCase
       memberInvitationProvisioning: $members,
     )
       ->__invoke(new ProcessImportJobCommand(self::JOB_ID, $actor));
+  }
+
+  private function simulatedFacilityResult(ProvisionFacilityRequest $request): ProvisionFacilityResult
+  {
+    self::assertNotNull($request->resourceId);
+    $parentId = null === $request->parentCode ? null : ($request->pendingCodeIds[$request->parentCode] ?? null);
+
+    return new ProvisionFacilityResult(
+      FacilityProvisionOutcome::CREATED,
+      resourceId: $request->resourceId,
+      projectedNode: new FacilityHierarchyNode($request->resourceId, $request->type, $parentId),
+    );
   }
 
   /**

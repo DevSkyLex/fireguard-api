@@ -80,5 +80,19 @@ final class FacilityPlanOverlayOutput
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $equipment = [];
+
+  /**
+   * @var list<array{facilityId: string, code: string}>
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public array $geometryIssues = [];
+
+  /**
+   * @var list<array{equipmentId: string, code: string}>
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public array $equipmentIssues = [];
   // #endregion
 }

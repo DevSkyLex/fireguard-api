@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments;
 
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityId, FacilityOrganizationId};
 use Shared\Application\Message\QueryHandler;
@@ -37,6 +38,7 @@ final readonly class ListFacilityAttachmentsHandler implements QueryHandler
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,
+    private FacilitySpatialValidityResolver $spatial,
   ) {
   }
   // #endregion
@@ -64,6 +66,11 @@ final readonly class ListFacilityAttachmentsHandler implements QueryHandler
     }
 
     $attachments = $this->attachmentRepository->findByFacilityId($facilityId, $kind);
+    $attachmentIds = [];
+    foreach ($attachments as $attachment) {
+      $attachmentIds[] = (string) $attachment->id();
+    }
+    $context = $this->spatial->context((string) $organizationId, [(string) $facilityId], $attachmentIds);
 
     $result = [];
     foreach ($attachments as $attachment) {
@@ -78,6 +85,10 @@ final readonly class ListFacilityAttachmentsHandler implements QueryHandler
         'isPrimaryPlan' => $attachment->isPrimaryPlan(),
         'imageWidth' => $attachment->imageWidth(),
         'imageHeight' => $attachment->imageHeight(),
+        'calibration' => $attachment->calibration()?->toArray(),
+        'calibrationBuildingId' => $context->plans[(string) $attachment->id()]['calibrationBuildingId'] ?? null,
+        'calibrationIssue' => $this->spatial->calibrationIssue($context, (string) $facilityId, $context->plans[(string) $attachment->id()]['calibrationBuildingId'] ?? null, null !== $attachment->calibration()),
+        'revision' => $attachment->revision(),
       ];
     }
 

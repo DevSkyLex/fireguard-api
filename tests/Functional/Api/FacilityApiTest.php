@@ -185,6 +185,7 @@ final class FacilityApiTest extends WebTestCase
   {
     $client = static::createClient();
     $this->seedOrganization();
+    $this->seedCreationHierarchy();
     $this->seedMetadataField('760e8400-e29b-41d4-a716-446655480050', 'surface-m2');
 
     $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
@@ -195,6 +196,7 @@ final class FacilityApiTest extends WebTestCase
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
       content: (string) json_encode([
         'type' => 'building',
+        'parentFacilityId' => self::ROOT_FACILITY_ID,
         'name' => 'Warehouse With Schema',
         'metadata' => ['surface-m2' => 450],
       ]),
@@ -214,6 +216,7 @@ final class FacilityApiTest extends WebTestCase
   {
     $client = static::createClient();
     $this->seedOrganization();
+    $this->seedCreationHierarchy();
     $this->seedMetadataField('760e8400-e29b-41d4-a716-446655480051', 'surface-m2');
 
     $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
@@ -224,6 +227,7 @@ final class FacilityApiTest extends WebTestCase
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
       content: (string) json_encode([
         'type' => 'building',
+        'parentFacilityId' => self::ROOT_FACILITY_ID,
         'name' => 'Warehouse With Bad Metadata',
         'metadata' => ['surface-m2' => 'not-a-number'],
       ]),
@@ -247,6 +251,7 @@ final class FacilityApiTest extends WebTestCase
   {
     $client = static::createClient();
     $this->seedOrganization();
+    $this->seedCreationHierarchy();
     $this->seedMetadataField('760e8400-e29b-41d4-a716-446655480052', 'surface-m2');
 
     $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
@@ -257,6 +262,7 @@ final class FacilityApiTest extends WebTestCase
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
       content: (string) json_encode([
         'type' => 'building',
+        'parentFacilityId' => self::ROOT_FACILITY_ID,
         'name' => 'Warehouse With Free-Form Key',
         'metadata' => ['some-legacy-key' => 'whatever'],
       ]),
@@ -270,13 +276,15 @@ final class FacilityApiTest extends WebTestCase
   {
     $client = static::createClient();
     $this->seedOrganization();
+    $this->seedCreationHierarchy();
     $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
 
     $client->request(
       method: 'POST',
       uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities',
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
-      content: (string) json_encode(['type' => 'floor', 'name' => 'Mezzanine']),
+      content: (string) json_encode(['type' => 'floor',
+        'parentFacilityId' => self::CHILD_FACILITY_ID, 'name' => 'Mezzanine']),
     );
     self::assertSame(201, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
     $created = json_decode((string) $client->getResponse()->getContent(), true);
@@ -336,6 +344,7 @@ final class FacilityApiTest extends WebTestCase
   {
     $client = static::createClient();
     $this->seedOrganization();
+    $this->seedCreationHierarchy();
 
     $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
 
@@ -345,6 +354,7 @@ final class FacilityApiTest extends WebTestCase
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
       content: (string) json_encode([
         'type' => 'floor',
+        'parentFacilityId' => self::CHILD_FACILITY_ID,
         'name' => 'First Basement',
         'levelIndex' => -1,
       ]),
@@ -391,6 +401,7 @@ final class FacilityApiTest extends WebTestCase
   {
     $client = static::createClient();
     $this->seedOrganization();
+    $this->seedCreationHierarchy();
 
     $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
 
@@ -400,6 +411,7 @@ final class FacilityApiTest extends WebTestCase
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
       content: (string) json_encode([
         'type' => 'floor',
+        'parentFacilityId' => self::CHILD_FACILITY_ID,
         'name' => 'Too Deep',
         'levelIndex' => -101,
       ]),
@@ -658,20 +670,18 @@ final class FacilityApiTest extends WebTestCase
     $client->request(
       method: 'POST',
       uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::MOVE_CHILD_ID . '/move',
-      server: ['CONTENT_TYPE' => 'application/ld+json'],
-      content: (string) json_encode(['parentFacilityId' => null]),
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'],
+      content: (string) json_encode(['parentFacilityId' => self::OTHER_ROOT_FACILITY_ID]),
     );
 
     $response = $client->getResponse();
     // 200: `move` is a state transition, not a creation. The operation now
     // spells out `status: HttpResponse::HTTP_OK`, matching what its own
     // `openapi` block always documented.
-    self::assertSame(200, $response->getStatusCode(), 'Detaching a facility from its parent should succeed. Response: ' . $response->getContent());
+    self::assertSame(200, $response->getStatusCode(), 'Moving a zone to an active site should succeed. Response: ' . $response->getContent());
     $decoded = json_decode((string) $response->getContent(), true);
     self::assertIsArray($decoded);
-    // A null field is omitted from the JSON-LD payload rather than serialized
-    // as null, so the absence of the key IS the "no parent" signal.
-    self::assertArrayNotHasKey('parentFacilityId', $decoded, 'The facility must now be parentless.');
+    self::assertSame(self::OTHER_ROOT_FACILITY_ID, $decoded['parentFacilityId']);
   }
 
   #[Test]
@@ -687,14 +697,14 @@ final class FacilityApiTest extends WebTestCase
     $client->request(
       method: 'POST',
       uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::MOVE_PARENT_ID . '/move',
-      server: ['CONTENT_TYPE' => 'application/ld+json'],
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'],
       content: (string) json_encode(['parentFacilityId' => self::MOVE_CHILD_ID]),
     );
 
     self::assertSame(
-      expected: 400,
+      expected: 422,
       actual: $client->getResponse()->getStatusCode(),
-      message: 'Moving a facility under its own descendant must be rejected with 400. Response: ' . $client->getResponse()->getContent(),
+      message: 'Moving a facility under its own descendant must be rejected with 422. Response: ' . $client->getResponse()->getContent(),
     );
   }
 
@@ -709,14 +719,14 @@ final class FacilityApiTest extends WebTestCase
     $client->request(
       method: 'POST',
       uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::MOVE_CHILD_ID . '/move',
-      server: ['CONTENT_TYPE' => 'application/ld+json'],
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'],
       content: (string) json_encode(['parentFacilityId' => self::OUTSIDER_FACILITY_ID]),
     );
 
     self::assertSame(
-      expected: 400,
+      expected: 422,
       actual: $client->getResponse()->getStatusCode(),
-      message: 'Moving a facility under a parent from another organization must be rejected with 400. Response: ' . $client->getResponse()->getContent(),
+      message: 'Moving a facility under a parent from another organization must be rejected with 422. Response: ' . $client->getResponse()->getContent(),
     );
   }
 
@@ -1121,6 +1131,34 @@ final class FacilityApiTest extends WebTestCase
   }
 
   /**
+   * Seeds the mandatory hierarchy with an explicit non-quota test plan.
+   */
+  private function seedCreationHierarchy(): void
+  {
+    $this->seedFacilityTree();
+    $manager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $manager);
+    $planId = '760e8400-e29b-41d4-a716-446655480070';
+    $plan = $manager->find(\Organization\Infrastructure\Persistence\Doctrine\Record\PlanRecord::class, $planId);
+    if (null === $plan) {
+      $plan = new \Organization\Infrastructure\Persistence\Doctrine\Record\PlanRecord();
+      $plan->id = $planId;
+      $plan->key = 'facility-creation-contract-tests';
+      $plan->name = 'Facility contract test plan';
+      $plan->limits = ['facilities' => 1000];
+      $plan->isActive = true;
+      $plan->isDefault = false;
+      $plan->createdAt = new DateTimeImmutable('2026-10-03');
+      $plan->updatedAt = $plan->createdAt;
+      $manager->persist($plan);
+    }
+    $organization = $manager->find(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $organization->planId = $planId;
+    $manager->flush();
+  }
+
+  /**
    * Method seedFacilityTree.
    *
    * Seeds (idempotently) a root/child pair, a second unrelated root, and an
@@ -1175,7 +1213,7 @@ final class FacilityApiTest extends WebTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
 
-    foreach ([self::MOVE_PARENT_ID, self::MOVE_CHILD_ID, self::OUTSIDER_FACILITY_ID] as $facilityId) {
+    foreach ([self::MOVE_PARENT_ID, self::MOVE_CHILD_ID, self::OUTSIDER_FACILITY_ID, self::ROOT_FACILITY_ID, self::OTHER_ROOT_FACILITY_ID] as $facilityId) {
       $existing = $entityManager->find(FacilityRecord::class, $facilityId);
       if ($existing instanceof FacilityRecord) {
         $entityManager->remove($existing);
@@ -1189,10 +1227,14 @@ final class FacilityApiTest extends WebTestCase
     /** @var OrganizationRecord $outsiderOrganization */
     $outsiderOrganization = $entityManager->getReference(OrganizationRecord::class, self::OUTSIDER_ORGANIZATION_ID);
 
-    $parent = $this->newFacilityRecord(self::MOVE_PARENT_ID, $organization, 'site', 'Move Parent Site', 'active', null, $now);
+    $site = $this->newFacilityRecord(self::ROOT_FACILITY_ID, $organization, 'site', 'Move Source Site', 'active', null, $now);
+    $entityManager->persist($site);
+    $destination = $this->newFacilityRecord(self::OTHER_ROOT_FACILITY_ID, $organization, 'site', 'Move Destination Site', 'active', null, $now);
+    $entityManager->persist($destination);
+    $parent = $this->newFacilityRecord(self::MOVE_PARENT_ID, $organization, 'zone', 'Move Parent Zone', 'active', $site, $now);
     $entityManager->persist($parent);
 
-    $child = $this->newFacilityRecord(self::MOVE_CHILD_ID, $organization, 'building', 'Move Child Building', 'active', $parent, $now);
+    $child = $this->newFacilityRecord(self::MOVE_CHILD_ID, $organization, 'zone', 'Move Child Zone', 'active', $parent, $now);
     $entityManager->persist($child);
 
     $outsiderFacility = $this->newFacilityRecord(self::OUTSIDER_FACILITY_ID, $outsiderOrganization, 'site', 'Outsider Site', 'active', null, $now);

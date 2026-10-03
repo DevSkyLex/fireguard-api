@@ -23,7 +23,7 @@ final readonly class InterventionDraftPublisher
    *
    * @param iterable<InterventionDraftPublisherPort> $publishers
    */
-  public function __construct(private iterable $publishers)
+  public function __construct(private iterable $publishers, private ?InterventionPublicationValidation $validation = null)
   {
   }
 
@@ -52,9 +52,11 @@ final readonly class InterventionDraftPublisher
    * @since 1.0.0
    *
    * @param string $interventionId the intervention id value
+   * @param bool $interventionRetained whether the intervention and its work items survive
    */
-  public function discard(string $interventionId): void
+  public function discard(string $interventionId, bool $interventionRetained = true): void
   {
+    $this->validation?->assertCanDiscard($interventionId, $interventionRetained);
     foreach ($this->publishers as $publisher) {
       $publisher->discardDrafts($interventionId);
     }

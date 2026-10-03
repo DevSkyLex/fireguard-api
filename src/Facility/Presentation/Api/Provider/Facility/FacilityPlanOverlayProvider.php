@@ -124,6 +124,8 @@ final readonly class FacilityPlanOverlayProvider implements ProviderInterface
     $output->imageHeight = $result->imageHeight;
     $output->zones = $result->zones;
     $output->equipment = $result->equipment;
+    $output->geometryIssues = $result->geometryIssues;
+    $output->equipmentIssues = $result->equipmentIssues;
 
     return $output;
   }

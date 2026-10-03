@@ -156,6 +156,41 @@ final class EquipmentPlanPositionAdapterTest extends KernelTestCase
     self::assertNull($items[0]['serialNumber']);
   }
 
+  #[Test]
+  public function testBatchIncludesUnplacedAssignedEquipmentButExcludesDraftsRetiredAndOtherOrganizations(): void
+  {
+    $facilityId = '771e8400-e29b-41d4-a716-4466552b00a1';
+    $floorId = '771e8400-e29b-41d4-a716-4466552b00a0';
+    $position = ['attachmentId' => self::ATTACHMENT_ID, 'x' => 0.42, 'y' => 0.17];
+    foreach ([
+      ['771e8400-e29b-41d4-a716-4466552b0030', self::ORGANIZATION_ID, 'operational', 'published', $position],
+      ['771e8400-e29b-41d4-a716-4466552b0031', self::ORGANIZATION_ID, 'in_stock', 'published', null],
+      ['771e8400-e29b-41d4-a716-4466552b0032', self::ORGANIZATION_ID, 'operational', 'draft', $position],
+      ['771e8400-e29b-41d4-a716-4466552b0033', self::ORGANIZATION_ID, 'decommissioned', 'published', $position],
+      ['771e8400-e29b-41d4-a716-4466552b0034', self::OTHER_ORGANIZATION_ID, 'operational', 'published', $position],
+      ['771e8400-e29b-41d4-a716-4466552b0035', self::ORGANIZATION_ID, 'operational', 'published', $position],
+    ] as [$id, $organizationId, $status, $recordStatus, $pin]) {
+      $this->createEquipment($id, $organizationId, $status, $recordStatus, $pin, 'hydrant', null, $facilityId);
+    }
+    $this->entityManager->flush();
+    $this->entityManager->getConnection()->executeStatement(
+      'UPDATE equipment SET plan_position = CAST(:position AS jsonb) WHERE id = :id',
+      ['id' => '771e8400-e29b-41d4-a716-4466552b0035', 'position' => '{"attachmentId":"' . self::ATTACHMENT_ID . '","x":9,"y":0.5}'],
+    );
+    $items = $this->adapter->findEquipmentForFacilities(self::ORGANIZATION_ID, [['floorId' => $floorId, 'facilityId' => $facilityId]]);
+
+    self::assertCount(3, $items);
+    self::assertSame($floorId, $items[0]['floorId']);
+    self::assertSame($facilityId, $items[0]['facilityId']);
+    self::assertSame($position, $items[0]['position']);
+    self::assertFalse($items[0]['invalidPosition']);
+    self::assertNull($items[1]['position']);
+    self::assertFalse($items[1]['invalidPosition']);
+    self::assertNull($items[2]['position']);
+    self::assertTrue($items[2]['invalidPosition']);
+    self::assertSame([], $this->adapter->findEquipmentForFacilities(self::ORGANIZATION_ID, []));
+  }
+
   private function createOrganization(string $id, string $name, string $slug): void
   {
     $organization = new OrganizationRecord();
@@ -182,6 +217,7 @@ final class EquipmentPlanPositionAdapterTest extends KernelTestCase
     ?array $planPosition,
     string $type,
     ?string $serialNumber,
+    ?string $facilityId = null,
   ): void {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
 
@@ -193,6 +229,7 @@ final class EquipmentPlanPositionAdapterTest extends KernelTestCase
     $equipment->status = $status;
     $equipment->recordStatus = $recordStatus;
     $equipment->planPosition = $planPosition;
+    $equipment->facilityId = $facilityId;
     $equipment->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
     $equipment->updatedAt = $equipment->createdAt;
     $this->entityManager->persist($equipment);

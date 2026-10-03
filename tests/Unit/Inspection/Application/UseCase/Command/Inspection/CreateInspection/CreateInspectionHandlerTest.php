@@ -260,6 +260,7 @@ final class CreateInspectionHandlerTest extends TestCase
   public function testInvokeThrowsWhenFacilityNotFound(): void
   {
     $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(InspectionId::fromString('550e8400-e29b-41d4-a716-446655440011'));
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
@@ -295,6 +296,7 @@ final class CreateInspectionHandlerTest extends TestCase
   public function testInvokeThrowsWhenFacilityIsArchived(): void
   {
     $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(InspectionId::fromString('550e8400-e29b-41d4-a716-446655440011'));
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);

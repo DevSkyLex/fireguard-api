@@ -4,6 +4,22 @@
 
 ## Overview
 
+### Atomic creation and exact place counts (2026-10-03)
+
+Creation, initial assignment, offline identity and intervention attachment use
+one `main` transaction. Failure rolls back the equipment row, quota consumption
+and creation event. Receipt/onboarding replays preserve their original result.
+Published resources can target published facilities only; a draft can also
+target another draft belonging to the same intervention.
+
+`GET /api/organizations/{organizationId}/facilities/{facilityId}/equipment-summary`
+is Equipment-owned and requires Equipment read access. `includeDescendants`
+defaults to true. It returns `scope` (`subtree` or `direct`), `totalItems`, four
+`byStatus` counts and `needingAttentionCount` (maintenance + decommissioned).
+The aggregate uses the same predicates as the corresponding equipment
+collection, across every page; the existing collection default remains direct.
+Frontend detail and Assets explicitly share a subtree default and direct option.
+
 Equipment manages the fire safety asset inventory of an organization. It tracks
 physical fire safety equipment (extinguishers, smoke detectors, sprinklers, fire
 alarm panels, hydrants, cameras, etc.) through a full operational lifecycle.
@@ -15,6 +31,13 @@ Main goals:
 - Support facility assignment, free-form tagging, and file attachments.
 
 ## API Endpoints
+
+The facility-scoped equipment collection supports `includeDescendants=true` with
+server-side search and pagination. Its subtree scope remains within the organization
+and returns each equipment's real assignment and original `planPosition`. Facility's
+building projection reads equipment through the owned batch port and never assigns
+an arbitrary position to an unplaced item. Deleting a referenced floor plan clears
+that attachment's placements; choosing a new primary plan does not transfer them.
 
 Equipment attachment retries with the same client id return the first stored
 upload metadata without replacing its bytes. Every new attempt writes a unique

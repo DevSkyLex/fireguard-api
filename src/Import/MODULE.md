@@ -6,6 +6,13 @@
 
 ## Overview
 
+Facility dry runs project the same strict hierarchy as actual creation, including
+types, parents and stable simulated identifiers. Pending CSV parents are resolved
+through this projected graph, rather than accepted by code alone. Resumption
+reconstructs confirmed simulated nodes without quota consumption or writes.
+Invalid roots, parent types, ancestry and depth fail in simulation; imports never
+reorganize the estate implicitly.
+
 Import owns CSV files, jobs, exclusive worker reservations, row receipts, reports
 resumption, server CSV templates and confirmation of retained simulations. Equipment, Facility and Organization own creation, quotas, assignment
 and invitation rules, exposed through application provisioning ports. All import

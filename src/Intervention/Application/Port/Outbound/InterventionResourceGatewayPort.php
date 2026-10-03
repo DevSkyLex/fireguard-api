@@ -26,6 +26,16 @@ use Intervention\Domain\ValueObject\InterventionResourceType;
 interface InterventionResourceGatewayPort
 {
   /**
+   * Serializes an offline identity for the active main transaction.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionResourceType $type the resource owner
+   * @param string $clientId the client creation identity
+   */
+  public function lockClientIdentity(InterventionResourceType $type, string $clientId): void;
+
+  /**
    * Method interventionAssignmentContext.
    *
    * Executes the intervention assignment context operation.

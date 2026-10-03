@@ -160,5 +160,26 @@ final class CreateFacilityInput
   #[Groups([FacilitySerializationGroup::WRITE])]
   #[ApiProperty(description: 'Optional stacking order of the floor (ground floor = 0, first basement = -1)', required: false, example: 0)]
   public ?int $levelIndex = null;
+
+  /**
+   * Property elevationMeters
+   *
+   * Optional physical elevation of a floor in meters.
+   */
+  #[Assert\Range(min: -10000, max: 10000)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional floor elevation in meters', required: false, example: -3.0)]
+  public ?float $elevationMeters = null;
+
+  /**
+   * Property heightMeters
+   *
+   * Optional physical height of a floor in meters.
+   */
+  #[Assert\GreaterThan(0)]
+  #[Assert\LessThanOrEqual(1000)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional floor height in meters', required: false, example: 3.0)]
+  public ?float $heightMeters = null;
   // #endregion
 }

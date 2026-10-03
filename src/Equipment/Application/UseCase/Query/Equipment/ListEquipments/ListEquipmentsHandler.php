@@ -6,10 +6,12 @@ namespace Equipment\Application\UseCase\Query\Equipment\ListEquipments;
 
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
-use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\{FacilityNamingPort, FacilitySubtreeScopePort};
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
+use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\Tag\Tag;
+use Equipment\Domain\ValueObject\EquipmentFacilityId;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
@@ -63,6 +65,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
    * @param TagRepositoryPort $tagRepository port used to add tag data to each equipment view
    * @param MaintenanceDueStatusPort $maintenanceDueStatusPort port used to apply or report maintenance due status
    * @param FacilityNamingPort $facilityNaming port used to resolve facility display names
+   * @param FacilitySubtreeScopePort $facilitySubtree resolves scoped descendant identifiers
    *
    * @return void
    */
@@ -71,6 +74,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
     private TagRepositoryPort $tagRepository,
     private MaintenanceDueStatusPort $maintenanceDueStatusPort,
     private FacilityNamingPort $facilityNaming,
+    private FacilitySubtreeScopePort $facilitySubtree,
   ) {
   }
   // #endregion
@@ -97,14 +101,27 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       throw InvalidValueException::because('Invalid maintenanceDueStatus filter.');
     }
 
+    $facilityIds = null;
+    if ($query->includeDescendants) {
+      if (null === $query->facilityId) {
+        throw InvalidValueException::because('includeDescendants requires a facilityId.');
+      }
+      $facilityId = EquipmentFacilityId::fromString($query->facilityId);
+      $facilityIds = $this->facilitySubtree->findPublishedSubtreeIds((string) $organizationId, (string) $facilityId);
+      if ([] === $facilityIds) {
+        throw EquipmentNotFoundException::forFacilityScope((string) $facilityId);
+      }
+    }
+
     $criteria = new EquipmentListCriteria(
-      facilityId: $query->facilityId,
+      facilityId: $query->includeDescendants ? null : $query->facilityId,
       type: $type,
       status: $status,
       brand: $query->brand,
       model: $query->model,
       subType: $query->subType,
       search: $query->search,
+      facilityIds: $facilityIds,
     );
 
     if (null !== $query->maintenanceDueStatus) {
@@ -292,6 +309,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       updatedAt: $equipment->updatedAt(),
       maintenanceDueStatus: $maintenanceDueStatus,
       facilityName: $facilityName,
+      planPosition: $equipment->planPosition()?->toArray(),
     );
   }
   // #endregion

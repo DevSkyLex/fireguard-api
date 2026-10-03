@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay;
 
+use Facility\Application\Contract\Spatial\FacilitySpatialContext;
 use Facility\Application\Port\Outbound\{
   FacilityAttachmentRepositoryPort,
   FacilityEquipmentPlanPositionPort,
   FacilityRepositoryPort
 };
-use Facility\Application\Service\FacilityAttachmentAncestryGuard;
+use Facility\Application\Port\Outbound\FacilitySpatialReadPort;
+use Facility\Application\Service\{FacilityAttachmentAncestryGuard, FacilitySpatialValidityResolver};
 use Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\{
   GetFacilityPlanOverlayHandler,
   GetFacilityPlanOverlayQuery,
@@ -167,7 +169,7 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
     $attachment = $this->attachment(self::ATTACHMENT_ID, self::FACILITY_ID, AttachmentKind::FLOOR_PLAN, 800, 600);
 
     $zones = [
-      ['facilityId' => self::FACILITY_ID, 'name' => 'Test Zone', 'type' => 'zone', 'status' => 'active', 'points' => [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]]],
+      ['facilityId' => self::FACILITY_ID, 'attachmentId' => self::ATTACHMENT_ID, 'name' => 'Test Zone', 'type' => 'zone', 'status' => 'active', 'points' => [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]]],
     ];
 
     /** @var FacilityRepositoryPort&MockObject $facilityRepository */
@@ -194,6 +196,7 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
     self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
     self::assertSame(800, $result->imageWidth);
     self::assertSame(600, $result->imageHeight);
+    unset($zones[0]['attachmentId']);
     self::assertSame($zones, $result->zones);
   }
 
@@ -204,7 +207,7 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
     $attachment = $this->attachment(self::ATTACHMENT_ID, self::FACILITY_ID, AttachmentKind::FLOOR_PLAN);
 
     $equipment = [
-      ['equipmentId' => '550e8400-e29b-41d4-a716-446655449100', 'name' => 'fire_extinguisher (SN-1)', 'status' => 'operational', 'x' => 0.5, 'y' => 0.25],
+      ['equipmentId' => '550e8400-e29b-41d4-a716-446655449100', 'facilityId' => self::FACILITY_ID, 'invalidPosition' => false, 'name' => 'fire_extinguisher (SN-1)', 'status' => 'operational', 'x' => 0.5, 'y' => 0.25],
     ];
 
     /** @var FacilityRepositoryPort&MockObject $facilityRepository */
@@ -231,6 +234,7 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
       attachmentId: self::ATTACHMENT_ID,
     ));
 
+    unset($equipment[0]['facilityId'], $equipment[0]['invalidPosition']);
     self::assertSame($equipment, $result->equipment);
   }
 
@@ -283,6 +287,7 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       ancestryGuard: new FacilityAttachmentAncestryGuard($facilityRepository),
       equipmentPlanPosition: $equipmentPlanPosition,
+      spatial: $this->spatial(),
     );
   }
 
@@ -322,5 +327,16 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
       size: 1024,
       options: new FacilityAttachmentCreationOptions(kind: $kind, imageWidth: $imageWidth, imageHeight: $imageHeight),
     );
+  }
+
+  private function spatial(): FacilitySpatialValidityResolver
+  {
+    $port = $this->createStub(FacilitySpatialReadPort::class);
+    $port->method('readContext')->willReturn(new FacilitySpatialContext(
+      [self::FACILITY_ID => ['parentId' => null, 'type' => 'zone', 'recordStatus' => 'published']],
+      [self::ATTACHMENT_ID => ['facilityId' => self::FACILITY_ID, 'primary' => true, 'calibrationBuildingId' => null]],
+    ));
+
+    return new FacilitySpatialValidityResolver($port);
   }
 }

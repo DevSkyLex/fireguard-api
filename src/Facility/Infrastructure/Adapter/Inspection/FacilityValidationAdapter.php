@@ -33,11 +33,17 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
    * @access public
    *
    * @param FacilityRepositoryPort $facilityRepository port used to find and validate facility references
+   * @param ?\Facility\Application\Port\Inbound\FacilityLifecycleReferencePort $lifecycle the shared publication scope policy
+   * @param ?\Doctrine\ORM\EntityManagerInterface $entityManager the main relation transaction
+   * @param ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy the organization relation lock
    *
    * @return void
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
+    private ?\Facility\Application\Port\Inbound\FacilityLifecycleReferencePort $lifecycle = null,
+    private ?\Doctrine\ORM\EntityManagerInterface $entityManager = null,
+    private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
   ) {
   }
   // #endregion
@@ -46,8 +52,11 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
   /**
    * {@inheritDoc}
    */
-  public function assertFacilityIsUsable(string $facilityId, string $organizationId): void
+  public function assertFacilityIsUsable(string $facilityId, string $organizationId, ?string $interventionId = null): void
   {
+    if ($this->entityManager?->getConnection()->isTransactionActive()) {
+      $this->hierarchy?->lock($organizationId);
+    }
     $facility = $this->facilityRepository->findById(FacilityId::fromString($facilityId));
 
     if (null === $facility || (string) $facility->organizationId() !== $organizationId) {
@@ -57,6 +66,7 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
     if (!$facility->status()->isActive()) {
       throw new InvalidArgumentException(sprintf('Facility with ID "%s" is archived and cannot be used.', $facilityId));
     }
+    $this->lifecycle?->assertReference($organizationId, $facilityId, $interventionId);
   }
   // #endregion
 }

@@ -7,8 +7,9 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Domain\Exception\FacilityRevisionMismatchException;
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
-use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, PlanCalibration};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -335,6 +336,92 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
     $this->expectException(UniqueConstraintViolationException::class);
 
     $this->repository->save($second);
+  }
+
+  /**
+   * Method testCalibrationFrameRoundTripsAndClearRemovesBothValues
+   *
+   * Provenance remains durable even when its historical building no longer exists.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testCalibrationFrameRoundTripsAndClearRemovesBothValues(): void
+  {
+    $attachment = FacilityAttachment::create(
+      FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      FacilityId::fromString(self::FACILITY_ID),
+      'plan.png',
+      'facility/frame-plan.png',
+      'image/png',
+      4096,
+      new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN, imageWidth: 1000, imageHeight: 500),
+    );
+    $this->repository->save($attachment);
+    $historicalBuildingId = '660e8400-e29b-41d4-a716-446655460005';
+    $calibration = PlanCalibration::fromArray(['widthMeters' => 20.0, 'rotationDegrees' => 30.0, 'offsetXMeters' => -2.0, 'offsetZMeters' => 4.0]);
+    $attachment->calibrate($calibration, $historicalBuildingId);
+    $this->repository->saveCalibration($attachment, 1);
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID));
+    self::assertNotNull($found);
+    self::assertSame($historicalBuildingId, $found->calibrationBuildingId());
+    self::assertSame($calibration->toArray(), $found->calibration()?->toArray());
+    self::assertSame(2, $found->revision());
+
+    $found->calibrate(null);
+    $this->repository->saveCalibration($found, 2);
+    $this->entityManager->clear();
+    $cleared = $this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID));
+    self::assertNotNull($cleared);
+    self::assertNull($cleared->calibration());
+    self::assertNull($cleared->calibrationBuildingId());
+    self::assertSame(3, $cleared->revision());
+  }
+
+  /**
+   * Method testStaleCalibrationWritePreservesOriginalFrame
+   *
+   * A revision conflict must retain both the persisted image calibration and its provenance.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testStaleCalibrationWritePreservesOriginalFrame(): void
+  {
+    $attachment = FacilityAttachment::create(
+      FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      FacilityId::fromString(self::FACILITY_ID),
+      'plan.png',
+      'facility/frame-plan.png',
+      'image/png',
+      4096,
+      new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN, imageWidth: 1000, imageHeight: 500),
+    );
+    $this->repository->save($attachment);
+    $originBuildingId = '660e8400-e29b-41d4-a716-446655460005';
+    $calibration = PlanCalibration::fromArray(['widthMeters' => 20.0, 'rotationDegrees' => 30.0, 'offsetXMeters' => -2.0, 'offsetZMeters' => 4.0]);
+    $attachment->calibrate($calibration, $originBuildingId);
+    $this->repository->saveCalibration($attachment, 1);
+    $attachment->calibrate(PlanCalibration::fromArray(['widthMeters' => 40.0, 'rotationDegrees' => 0.0, 'offsetXMeters' => 0.0, 'offsetZMeters' => 0.0]), '660e8400-e29b-41d4-a716-446655460006');
+
+    try {
+      $this->repository->saveCalibration($attachment, 1);
+      self::fail('A stale calibration revision must be rejected.');
+    } catch (FacilityRevisionMismatchException) {
+    }
+
+    $this->entityManager->clear();
+    $persisted = $this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID));
+    self::assertNotNull($persisted);
+    self::assertSame($calibration->toArray(), $persisted->calibration()?->toArray());
+    self::assertSame($originBuildingId, $persisted->calibrationBuildingId());
+    self::assertSame(2, $persisted->revision());
   }
 
   private function cleanup(): void

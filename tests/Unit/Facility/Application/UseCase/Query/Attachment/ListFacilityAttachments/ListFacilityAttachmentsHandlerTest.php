@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments;
 
 use DateTimeImmutable;
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Contract\Spatial\FacilitySpatialContext;
+use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort, FacilitySpatialReadPort};
+use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\{ListFacilityAttachmentsHandler, ListFacilityAttachmentsQuery, ListFacilityAttachmentsResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions, FacilityAttachmentRestoredState};
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType, PlanCalibration};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -54,6 +56,7 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
     $handler = new ListFacilityAttachmentsHandler(
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
+      spatial: $this->spatial(),
     );
 
     $result = $handler->__invoke(new ListFacilityAttachmentsQuery(
@@ -78,6 +81,7 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
     $handler = new ListFacilityAttachmentsHandler(
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
+      spatial: $this->spatial(),
     );
 
     $this->expectException(FacilityNotFoundException::class);
@@ -98,6 +102,7 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
     $handler = new ListFacilityAttachmentsHandler(
       facilityRepository: $facilityRepository,
       attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+      spatial: $this->spatial(),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -132,6 +137,7 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
     $handler = new ListFacilityAttachmentsHandler(
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
+      spatial: $this->spatial(),
     );
 
     $handler->__invoke(new ListFacilityAttachmentsQuery(
@@ -147,6 +153,7 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
     $handler = new ListFacilityAttachmentsHandler(
       facilityRepository: $this->createStub(FacilityRepositoryPort::class),
       attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+      spatial: $this->spatial(),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -156,5 +163,60 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
       facilityId: self::FACILITY_ID,
       kind: 'not-a-kind',
     ));
+  }
+
+  #[Test]
+  public function testListsCalibrationInItsOriginalFrameAfterBuildingMove(): void
+  {
+    $originBuildingId = '550e8400-e29b-41d4-a716-446655446004';
+    $currentBuildingId = '550e8400-e29b-41d4-a716-446655446005';
+    $calibration = ['widthMeters' => 20.0, 'rotationDegrees' => 30.0, 'offsetXMeters' => -2.0, 'offsetZMeters' => 4.0];
+    $attachment = FacilityAttachment::reconstitute(
+      FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      FacilityId::fromString(self::FACILITY_ID),
+      'plan.png',
+      'facility/plan.png',
+      'image/png',
+      100,
+      new FacilityAttachmentRestoredState(
+        new DateTimeImmutable(),
+        new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN, imageWidth: 1000, imageHeight: 500),
+        calibration: PlanCalibration::fromArray($calibration),
+        revision: 7,
+        calibrationBuildingId: $originBuildingId,
+      ),
+    );
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findById')->willReturn(Facility::create(
+      FacilityId::fromString(self::FACILITY_ID),
+      FacilityOrganizationId::fromString(self::ORG_ID),
+      FacilityType::FLOOR,
+      new FacilityName('Moved floor'),
+    ));
+    $attachmentRepository = $this->createStub(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findByFacilityId')->willReturn([$attachment]);
+    $context = new FacilitySpatialContext(
+      [
+        self::FACILITY_ID => ['parentId' => $currentBuildingId, 'type' => 'floor', 'recordStatus' => 'published'],
+        $currentBuildingId => ['parentId' => null, 'type' => 'building', 'recordStatus' => 'published'],
+      ],
+      [self::ATTACHMENT_ID => ['facilityId' => self::FACILITY_ID, 'primary' => true, 'calibrationBuildingId' => $originBuildingId]],
+    );
+    $handler = new ListFacilityAttachmentsHandler($facilityRepository, $attachmentRepository, $this->spatial($context));
+
+    $result = $handler(new ListFacilityAttachmentsQuery(self::ORG_ID, self::FACILITY_ID));
+
+    self::assertSame($calibration, $result->attachments[0]['calibration']);
+    self::assertSame($originBuildingId, $result->attachments[0]['calibrationBuildingId']);
+    self::assertSame('building_changed', $result->attachments[0]['calibrationIssue'] ?? null);
+    self::assertSame(7, $result->attachments[0]['revision']);
+  }
+
+  private function spatial(?FacilitySpatialContext $context = null): FacilitySpatialValidityResolver
+  {
+    $port = $this->createStub(FacilitySpatialReadPort::class);
+    $port->method('readContext')->willReturn($context ?? new FacilitySpatialContext());
+
+    return new FacilitySpatialValidityResolver($port);
   }
 }

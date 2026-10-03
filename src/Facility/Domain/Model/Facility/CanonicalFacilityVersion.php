@@ -22,6 +22,8 @@ final readonly class CanonicalFacilityVersion
    * @param int $revision optimistic-lock revision of the canonical record
    * @param DateTimeImmutable $updatedAt time the record was last updated
    * @param ?int $levelIndex hierarchy level index, when materialized
+   * @param ?float $elevationMeters optional physical floor elevation in meters
+   * @param ?float $heightMeters optional physical floor height in meters
    *
    * @return void
    */
@@ -30,6 +32,8 @@ final readonly class CanonicalFacilityVersion
     public int $revision,
     public DateTimeImmutable $updatedAt,
     public ?int $levelIndex = null,
+    public ?float $elevationMeters = null,
+    public ?float $heightMeters = null,
   ) {
   }
   // #endregion

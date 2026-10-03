@@ -34,7 +34,7 @@ interface FacilityValidationPort
    *
    * @throws InvalidArgumentException when the facility is not found, belongs to another organization, or is archived
    */
-  public function assertFacilityIsAssignable(string $facilityId, string $organizationId): void;
+  public function assertFacilityIsAssignable(string $facilityId, string $organizationId, ?string $interventionId = null, ?string $publishingInterventionId = null): void;
 
   /**
    * Method belongsToOrganization.

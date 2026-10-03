@@ -26,12 +26,14 @@ final readonly class GetFacilityBuildingModelQuery implements QueryMessage
    *
    * @param string $organizationId organization scope used to authorize the lookup
    * @param string $facilityId facility whose building model is requested
+   * @param bool $includeEquipment whether the caller separately has equipment-read access
    *
    * @return void
    */
   public function __construct(
     public string $organizationId,
     public string $facilityId,
+    public bool $includeEquipment = false,
   ) {
   }
   // #endregion

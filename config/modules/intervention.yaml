@@ -136,6 +136,28 @@ services:
     arguments:
       $publishers: !tagged_iterator intervention.draft_publisher
 
+  Intervention\Application\Service\InterventionPublicationValidation:
+    arguments:
+      $guards: !tagged_iterator intervention.publication_guard
+
+  Intervention\Application\Service\InterventionDraftResources:
+    arguments:
+      $publishers: !tagged_iterator intervention.draft_publisher
+
+  Intervention\Application\Port\Inbound\InterventionDraftResourcesPort:
+    alias: Intervention\Application\Service\InterventionDraftResources
+
+  Intervention\Application\Port\Inbound\InterventionCreationPort:
+    alias: Intervention\Infrastructure\Adapter\Resource\InterventionCreationAdapter
+
+  Facility\Application\Port\Inbound\FacilityDraftReferencesPort:
+    alias: Facility\Infrastructure\Adapter\Intervention\FacilityPublicationGuardAdapter
+
+  Intervention\Infrastructure\Adapter\Resource\InterventionDraftReferenceGuardAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['intervention.publication_guard']
+
   Intervention\Infrastructure\Adapter\Resource\DoctrineInterventionResourceGatewayAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'

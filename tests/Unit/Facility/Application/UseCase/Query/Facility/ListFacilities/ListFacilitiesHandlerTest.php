@@ -20,6 +20,51 @@ use Shared\Domain\Exception\InvalidValueException;
 final class ListFacilitiesHandlerTest extends TestCase
 {
   #[Test]
+  public function candidateEligibilityIsAppliedBeforeSearchCountAndPagination(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441800';
+    $eligibleId = '550e8400-e29b-41d4-a716-446655441801';
+    $hierarchy = $this->createMock(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class);
+    $hierarchy->expects(self::once())->method('eligibleParentIds')->with($organizationId, 'floor', null)->willReturn([$eligibleId]);
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $criteria = new FacilityListCriteria(search: 'West', eligibleParentIds: [$eligibleId]);
+    $repository->expects(self::once())->method('findByOrganizationId')->with(
+      new FacilityOrganizationId($organizationId),
+      false,
+      $criteria,
+      new Sorting('name', SortDirection::ASC),
+      20,
+      0,
+    )->willReturn([]);
+    $repository->expects(self::once())->method('countByOrganizationId')->with(new FacilityOrganizationId($organizationId), false, $criteria)->willReturn(205);
+    $repository->expects(self::never())->method('findAncestorsByFacilityIds');
+    $result = (new ListFacilitiesHandler($repository, $this->createStub(FacilityEquipmentDependencyPort::class), $hierarchy))(
+      new ListFacilitiesQuery($organizationId, parentForType: 'floor', search: 'West'),
+    );
+    self::assertSame(205, $result->total);
+  }
+
+  #[Test]
+  public function optInPathsAndHistoricalIssuesAreResolvedOnceForThePage(): void
+  {
+    $organization = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441800');
+    $id = '550e8400-e29b-41d4-a716-446655441801';
+    $facility = Facility::create(new FacilityId($id), $organization, FacilityType::BUILDING, new FacilityName('Historical root'));
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([$facility]);
+    $repository->expects(self::once())->method('findAncestorsByFacilityIds')->with($organization, [$id])->willReturn([]);
+    $repository->expects(self::once())->method('findProjectionContextsByFacilityIds')->with($organization, [$id])->willReturn([$id => ['recordStatus' => 'published', 'interventionId' => null, 'revision' => 12]]);
+    $hierarchy = $this->createMock(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class);
+    $hierarchy->expects(self::once())->method('issuesFor')->with((string) $organization, [$id])->willReturn([$id => ['missing_parent']]);
+    $result = (new ListFacilitiesHandler($repository, $this->createStub(FacilityEquipmentDependencyPort::class), $hierarchy))(
+      new ListFacilitiesQuery((string) $organization, includePath: true),
+    );
+    self::assertSame([], $result->items[0]->path);
+    self::assertSame(['missing_parent'], $result->items[0]->hierarchyIssues);
+    self::assertSame(12, $result->items[0]->revision);
+  }
+
+  #[Test]
   public function testInvokePassesFiltersPaginationAndSortingToRepository(): void
   {
     $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441800');
@@ -75,7 +120,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
 
     $result = $handler->__invoke(new ListFacilitiesQuery(
       organizationId: (string) $organizationId,
@@ -133,7 +178,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
 
     $result = $handler->__invoke(new ListFacilitiesQuery(
       organizationId: (string) $organizationId,
@@ -164,7 +209,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
 
     $result = $handler->__invoke(new ListFacilitiesQuery(
       organizationId: '550e8400-e29b-41d4-a716-446655441820',
@@ -187,7 +232,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
 
     $this->expectException(InvalidValueException::class);
 
@@ -207,7 +252,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
 
     $this->expectException(InvalidValueException::class);
 
@@ -223,6 +268,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     $handler = new ListFacilitiesHandler(
       facilityRepository: $this->createStub(FacilityRepositoryPort::class),
       equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
+      hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -268,7 +314,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
 
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency, hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class));
 
     $result = $handler->__invoke(new ListFacilitiesQuery(
       organizationId: (string) $organizationId,
@@ -335,6 +381,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     $handler = new ListFacilitiesHandler(
       facilityRepository: $repository,
       equipmentDependency: $equipmentDependency,
+      hierarchy: $this->createStub(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class),
     );
 
     $result = $handler->__invoke(new ListFacilitiesQuery(

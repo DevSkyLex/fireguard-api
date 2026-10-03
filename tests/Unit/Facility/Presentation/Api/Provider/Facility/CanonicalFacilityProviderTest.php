@@ -183,6 +183,7 @@ final class CanonicalFacilityProviderTest extends TestCase
       new RequestStack(),
       new InterventionResourceManager($resources),
       detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
+      queryBus: $this->detailQueries(),
     );
 
     $output = $provider->provide(new Get(), ['id' => 'facility-id']);
@@ -220,6 +221,7 @@ final class CanonicalFacilityProviderTest extends TestCase
       $requestStack,
       new InterventionResourceManager($resources),
       detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
+      queryBus: $this->detailQueries(),
     );
   }
 

@@ -133,7 +133,21 @@ services:
   Equipment\Application\Port\Outbound\FacilityValidationPort:
     alias: Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter
 
-  Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter: ~
+  Equipment\Application\Port\Outbound\FacilitySubtreeScopePort:
+    alias: Facility\Infrastructure\Adapter\Equipment\FacilitySubtreeScopeAdapter
+
+  Equipment\Infrastructure\Adapter\Facility\EquipmentPlanReferenceCleanupAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Infrastructure\Adapter\Intervention\EquipmentPublicationGuardAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['intervention.publication_guard']
 
   # Facility plan Phase 4, Equipment side: validates that an attachment is a
   # floor plan belonging to the equipment's own facility or one of its
@@ -200,6 +214,8 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Command\Equipment\AssignToFacility\AssignToFacilityHandler:
+    arguments:
+      $transactions: '@equipment.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility\UnassignFromFacilityHandler:
@@ -246,6 +262,9 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\Equipment\GetFacilityEquipmentSummary\GetFacilityEquipmentSummaryHandler:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsHandler:

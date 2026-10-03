@@ -59,6 +59,13 @@ final readonly class CanonicalFacilityRepository implements CanonicalFacilityRep
       return null;
     }
 
+    // Processors may already have populated Doctrine's identity map before
+    // the organization lock was acquired. The transaction must compare and
+    // mutate the committed row rather than that earlier cached revision.
+    if ($this->entityManager->getConnection()->isTransactionActive()) {
+      $this->entityManager->refresh($record);
+    }
+
     return CanonicalFacilityMapper::toDomain($record);
   }
 

@@ -11,6 +11,7 @@ use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
+use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
@@ -28,6 +29,7 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use function is_numeric;
 use function is_string;
 use function max;
+use function min;
 
 /**
  * Provider ListEquipmentsProvider.
@@ -103,6 +105,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     $model = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('model');
     $subType = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('subType');
     $maintenanceDueStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('maintenanceDueStatus');
+    $includeDescendants = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeDescendants', false);
 
     $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
@@ -113,7 +116,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
 
     $page = max(1, $page);
-    $itemsPerPage = max(1, $itemsPerPage);
+    $itemsPerPage = min($operation->getPaginationMaximumItemsPerPage() ?? 200, max(1, $itemsPerPage));
 
     $offset = ($page - 1) * $itemsPerPage;
 
@@ -128,13 +131,20 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
         model: self::optionalFilter($model),
         subType: self::optionalFilter($subType),
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
-        search: SearchExtractor::fromContext($context),
-        sorting: SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt', 'updatedAt'], 'createdAt'),
+        search: SearchExtractor::fromContext(['filters' => $filters]),
+        sorting: SortingExtractor::fromContext(['filters' => $filters], ['type', 'status', 'brand', 'model', 'createdAt', 'updatedAt'], 'createdAt'),
         maintenanceDueStatus: self::optionalFilter($maintenanceDueStatus),
+        includeDescendants: $includeDescendants,
       ));
+    } catch (EquipmentNotFoundException $exception) {
+      throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
+      $notFound = $this->findEquipmentNotFoundException($exception);
+      if ($notFound instanceof EquipmentNotFoundException) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
       $invalidArgument = $this->findInvalidArgumentException($exception);
       if ($invalidArgument instanceof InvalidArgumentException) {
         throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);

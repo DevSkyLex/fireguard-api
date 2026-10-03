@@ -95,6 +95,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $outputs = $provider->provide(
@@ -149,6 +150,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $outputs = $provider->provide(
@@ -210,6 +212,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $provider->provide(
@@ -261,6 +264,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $provider->provide(
@@ -304,6 +308,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $provider->provide(
@@ -328,6 +333,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -361,6 +367,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -394,6 +401,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -420,6 +428,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -479,6 +488,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
 
     $output = $provider->provide(
@@ -556,6 +566,7 @@ final class ListFacilitiesProviderTest extends TestCase
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
+      interventions: $this->createStub(\Facility\Application\Port\Outbound\InterventionScopePort::class),
     );
   }
 

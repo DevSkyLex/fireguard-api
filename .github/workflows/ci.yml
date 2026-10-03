@@ -689,6 +689,18 @@ jobs:
       - name: Validate Ansible syntax
         run: ansible-playbook --syntax-check -i 'localhost,' ansible/deploy.yml
 
+      - name: Prepare PHP for deployment command regression tests
+        uses: ./.github/actions/prepare-php-workspace
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+
+      - name: Verify transport setup against installed Symfony
+        working-directory: ansible/tests
+        run: >-
+          python3 -B -m unittest -v
+          test_topology.DeploymentTopologyTest.test_fresh_bootstrap_initializes_every_persisted_transport_before_consumers
+          test_topology.DeploymentTopologyTest.test_rendered_transport_setup_commands_execute_with_installed_symfony
+
       - name: Validate production and development Compose files
         run: |
           touch .env

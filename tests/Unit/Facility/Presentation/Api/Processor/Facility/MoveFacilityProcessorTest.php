@@ -23,7 +23,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, PreconditionRequiredHttpException, UnprocessableEntityHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
@@ -31,6 +31,15 @@ use Throwable;
 #[CoversClass(MoveFacilityProcessor::class)]
 final class MoveFacilityProcessorTest extends TestCase
 {
+  #[Test]
+  public function testProcessRequiresARevisionBeforeDispatchingAMove(): void
+  {
+    $requests = new RequestStack();
+    $requests->push(new Request(server: ['CONTENT_TYPE' => 'application/json'], content: '{"parentFacilityId":null}'));
+    $this->expectException(PreconditionRequiredHttpException::class);
+    $this->dispatch($this->makeProcessor(requestStack: $requests));
+  }
+
   #[Test]
   public function testProcessThrowsWhenParentFacilityIdFieldIsMissing(): void
   {
@@ -55,7 +64,7 @@ final class MoveFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $request = new Request(
-      server: ['CONTENT_TYPE' => 'application/json'],
+      server: ['CONTENT_TYPE' => 'application/json', 'HTTP_IF_MATCH' => '"revision-1"'],
       content: '{}',
     );
     $requestStack = new RequestStack();
@@ -108,7 +117,8 @@ final class MoveFacilityProcessorTest extends TestCase
       ->with(self::callback(static function (MoveFacilityCommand $command): bool {
         return '550e8400-e29b-41d4-a716-446655441233' === $command->organizationId
           && '550e8400-e29b-41d4-a716-446655441234' === $command->facilityId
-          && null === $command->parentFacilityId;
+          && null === $command->parentFacilityId
+          && 1 === $command->expectedRevision;
       }))
       ->willReturn($detailResult = new MoveFacilityResult(
         facilityId: $facilityId,
@@ -125,7 +135,7 @@ final class MoveFacilityProcessorTest extends TestCase
       ));
 
     $request = new Request(
-      server: ['CONTENT_TYPE' => 'application/json'],
+      server: ['CONTENT_TYPE' => 'application/json', 'HTTP_IF_MATCH' => '"revision-1"'],
       content: '{"parentFacilityId":null}',
     );
     $requestStack = new RequestStack();
@@ -156,7 +166,7 @@ final class MoveFacilityProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessMapsWrappedHierarchyExceptionToHttp400(): void
+  public function testProcessMapsWrappedHierarchyExceptionToHttp422(): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655441240';
     $facilityId = '550e8400-e29b-41d4-a716-446655441241';
@@ -190,7 +200,7 @@ final class MoveFacilityProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $request = new Request(
-      server: ['CONTENT_TYPE' => 'application/json'],
+      server: ['CONTENT_TYPE' => 'application/json', 'HTTP_IF_MATCH' => '"revision-1"'],
       content: '{"parentFacilityId":"550e8400-e29b-41d4-a716-446655441243"}',
     );
     $requestStack = new RequestStack();
@@ -207,7 +217,7 @@ final class MoveFacilityProcessorTest extends TestCase
     $input = new MoveFacilityInput();
     $input->parentFacilityId = '550e8400-e29b-41d4-a716-446655441243';
 
-    $this->expectException(BadRequestHttpException::class);
+    $this->expectException(UnprocessableEntityHttpException::class);
     $this->expectExceptionMessage('Cannot move facility: hierarchy cycle detected.');
 
     $processor->process(
@@ -352,7 +362,7 @@ final class MoveFacilityProcessorTest extends TestCase
       FacilityHierarchyException::parentInAnotherOrganization(),
     ));
 
-    $this->expectException(BadRequestHttpException::class);
+    $this->expectException(UnprocessableEntityHttpException::class);
     $this->expectExceptionMessage('Parent facility must belong to the same organization.');
 
     $this->dispatch($processor);
@@ -416,7 +426,7 @@ final class MoveFacilityProcessorTest extends TestCase
   ): MoveFacilityProcessor {
     if (null === $requestStack) {
       $requestStack = new RequestStack();
-      $requestStack->push(new Request(server: ['CONTENT_TYPE' => 'application/json'], content: $content));
+      $requestStack->push(new Request(server: ['CONTENT_TYPE' => 'application/json', 'HTTP_IF_MATCH' => '"revision-1"'], content: $content));
     }
 
     $security = $this->createStub(Security::class);

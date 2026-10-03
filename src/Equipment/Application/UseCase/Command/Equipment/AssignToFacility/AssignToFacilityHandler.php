@@ -38,6 +38,7 @@ final readonly class AssignToFacilityHandler implements CommandHandler
    * @param FacilityValidationPort $facilityValidation port used to confirm the selected facility is available in the organization
    * @param TagRepositoryPort $tagRepository port used by equipment assignment rules for associated tags
    * @param FacilityNamingPort $facilityNaming port used to resolve facility context for related records
+   * @param ?\Shared\Application\Port\Outbound\TransactionManagerPort $transactions the main relation mutation boundary
    *
    * @return void
    */
@@ -46,6 +47,7 @@ final readonly class AssignToFacilityHandler implements CommandHandler
     private FacilityValidationPort $facilityValidation,
     private TagRepositoryPort $tagRepository,
     private FacilityNamingPort $facilityNaming,
+    private ?\Shared\Application\Port\Outbound\TransactionManagerPort $transactions = null,
   ) {
   }
   // #endregion
@@ -58,6 +60,22 @@ final readonly class AssignToFacilityHandler implements CommandHandler
    */
   public function __invoke(AssignToFacilityCommand $command): AssignToFacilityResult
   {
+    return null !== $this->transactions
+      ? $this->transactions->transactional(fn (): AssignToFacilityResult => $this->assign($command))
+      : $this->assign($command);
+  }
+
+  /**
+   * Validates and saves the complete assignment under the main relation lock.
+   *
+   * @since 1.1.0
+   *
+   * @param AssignToFacilityCommand $command the requested relation
+   *
+   * @return AssignToFacilityResult the complete assigned state
+   */
+  private function assign(AssignToFacilityCommand $command): AssignToFacilityResult
+  {
     $equipmentId = EquipmentId::fromString($command->equipmentId);
     $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
     $facilityId = EquipmentFacilityId::fromString($command->facilityId);
@@ -68,7 +86,12 @@ final readonly class AssignToFacilityHandler implements CommandHandler
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
 
-    $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId);
+    $creationState = $this->equipmentRepository->creationState($equipmentId);
+    $this->facilityValidation->assertFacilityIsAssignable(
+      $command->facilityId,
+      $command->organizationId,
+      'draft' === $creationState?->recordStatus ? $creationState->interventionId : null,
+    );
 
     try {
       $installedAt = null !== $command->installedAt

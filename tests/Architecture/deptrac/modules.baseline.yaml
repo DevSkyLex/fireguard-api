@@ -646,7 +646,6 @@ deptrac:
       - Auth\Infrastructure\Security\User\SecurityUser
       - Shared\Application\Exception\MessengerRuntimeException
     Facility\Presentation\Api\Provider\Facility\ListFacilitiesProvider:
-      - Auth\Infrastructure\Security\User\SecurityUser
       - Shared\Application\Exception\MessengerRuntimeException
       - Shared\Presentation\Api\Http\OperationParameterReader
       - Shared\Presentation\Api\Pagination\PaginationExtractor

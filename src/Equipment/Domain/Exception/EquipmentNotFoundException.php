@@ -56,5 +56,21 @@ final class EquipmentNotFoundException extends RuntimeException
   {
     return new self(sprintf('Organization with ID "%s" not found.', $organizationId));
   }
+
+  /**
+   * Method forFacilityScope.
+   *
+   * Hides unknown and foreign facility roots behind the same collection error.
+   *
+   * @access public
+   *
+   * @param string $facilityId the requested subtree root
+   *
+   * @return self the missing facility scope exception
+   */
+  public static function forFacilityScope(string $facilityId): self
+  {
+    return new self(sprintf('Facility with ID "%s" not found.', $facilityId));
+  }
   // #endregion
 }

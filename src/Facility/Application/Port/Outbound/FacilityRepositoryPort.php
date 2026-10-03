@@ -60,6 +60,15 @@ interface FacilityRepositoryPort extends FacilityOrganizationQueryPort
   public function findPublishedById(FacilityId $id): ?Facility;
 
   /**
+   * Reads lifecycle context for a page or its ancestors in one scoped query.
+   *
+   * @param list<string> $facilityIds accessible identifiers
+   *
+   * @return array<string, array{recordStatus: string, interventionId: ?string, revision: int}>
+   */
+  public function findProjectionContextsByFacilityIds(FacilityOrganizationId $organizationId, array $facilityIds): array;
+
+  /**
    * Method findChildren.
    *
    * Lists direct children for a facility.
@@ -112,7 +121,30 @@ interface FacilityRepositoryPort extends FacilityOrganizationQueryPort
     bool $includeArchived = false,
     ?string $search = null,
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    ?int $limit = null,
+    int $offset = 0,
   ): array;
+
+  /**
+   * Method countDescendants.
+   *
+   * Counts published descendants with the same status and search filters as their page.
+   *
+   * @access public
+   *
+   * @param FacilityOrganizationId $organizationId the owning organization
+   * @param FacilityId $facilityId the subtree root
+   * @param bool $includeArchived whether archived descendants count
+   * @param ?string $search the optional text search
+   *
+   * @return int the total matching descendants before pagination
+   */
+  public function countDescendants(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+  ): int;
 
   /**
    * Method hasActiveDescendants.
@@ -174,6 +206,21 @@ interface FacilityRepositoryPort extends FacilityOrganizationQueryPort
   public function findAncestors(string $facilityId): array;
 
   /**
+   * Method findAncestorsByFacilityIds.
+   *
+   * Resolves a page of breadcrumbs in one organization-scoped read, including
+   * same-intervention draft ancestors when the origin itself is a draft.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the owning organization
+   * @param list<string> $facilityIds the page identifiers
+   *
+   * @return array<string, list<array{id: string, name: string, type: string}>> paths keyed by origin identifier
+   */
+  public function findAncestorsByFacilityIds(FacilityOrganizationId $organizationId, array $facilityIds): array;
+
+  /**
    * Method findZonesForPlanAttachment.
    *
    * Lists every published facility, self-or-descendant of `$rootFacilityId`,
@@ -187,7 +234,7 @@ interface FacilityRepositoryPort extends FacilityOrganizationQueryPort
    * @param FacilityId $rootFacilityId the facility the overlay was requested for (included)
    * @param string $attachmentId the floor plan attachment identifier
    *
-   * @return list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>}> the matching zones
+   * @return list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>, attachmentId: string}> the matching zones
    */
   public function findZonesForPlanAttachment(
     FacilityOrganizationId $organizationId,
@@ -214,10 +261,13 @@ interface FacilityRepositoryPort extends FacilityOrganizationQueryPort
    *   name: string,
    *   status: string,
    *   levelIndex: ?int,
+   *   elevationMeters: ?float,
+   *   heightMeters: ?float,
    *   planGeometry: ?array{attachmentId: string, points: list<array{0: float, 1: float}>},
    *   primaryPlanAttachmentId: ?string,
    *   primaryPlanImageWidth: ?int,
    *   primaryPlanImageHeight: ?int,
+   *   primaryPlanCalibration: ?array{widthMeters: float, rotationDegrees: float, offsetXMeters: float, offsetZMeters: float}, primaryPlanCalibrationBuildingId: ?string,
    * }> the building's floors, in render order
    */
   public function findBuildingFloors(
@@ -247,6 +297,7 @@ interface FacilityRepositoryPort extends FacilityOrganizationQueryPort
    *   type: string,
    *   status: string,
    *   points: list<array{0: float, 1: float}>,
+   *   attachmentId: string,
    * }> the matching rooms, unordered
    */
   public function findRoomsForFloors(
@@ -254,5 +305,17 @@ interface FacilityRepositoryPort extends FacilityOrganizationQueryPort
     array $floorPlanBindings,
   ): array;
 
+  /**
+   * Method findFacilityBindingsForFloors.
+   *
+   * Batch floor roots and their published descendants, stopping at nested floors.
+   *
+   * @since 1.0.0
+   *
+   * @param list<string> $floorIds
+   *
+   * @return list<array{floorId: string, facilityId: string}>
+   */
+  public function findFacilityBindingsForFloors(FacilityOrganizationId $organizationId, array $floorIds): array;
   // #endregion
 }

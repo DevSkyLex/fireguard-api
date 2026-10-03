@@ -8,6 +8,8 @@ use Doctrine\DBAL\Exception\{
   ForeignKeyConstraintViolationException,
   UniqueConstraintViolationException
 };
+use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\FacilityCreatedEvent;
@@ -88,6 +90,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
     private ?OrganizationSetupPort $setup = null,
+    private ?FacilityHierarchyPort $hierarchy = null,
   ) {
   }
   // #endregion
@@ -111,7 +114,9 @@ final readonly class CreateFacilityHandler implements CommandHandler
     try {
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
       $parentId = $this->resolveParentId($command->parentFacilityId);
-      $this->assertParent($parentId, $organizationId);
+      if (null === $this->hierarchy) {
+        $this->assertParent($parentId, $organizationId);
+      }
 
       /** @var FacilityId $facilityId */
       $facilityId = null === $command->resourceId
@@ -130,6 +135,8 @@ final readonly class CreateFacilityHandler implements CommandHandler
           metadata: $command->metadata,
           coordinates: $this->resolveCoordinates($command->latitude, $command->longitude),
           levelIndex: $command->levelIndex,
+          elevationMeters: $command->elevationMeters,
+          heightMeters: $command->heightMeters,
         ),
       );
     } catch (InvalidValueException|ValueError $exception) {
@@ -144,6 +151,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
     );
 
     if ($command->dryRun) {
+      $this->assertHierarchy($command, $facility);
       // A dry run never enters the transaction that would take the quota's
       // advisory lock (see OrganizationQuotaPort::assertCanAdd): it projects
       // the cap instead, offsetting for rows already provisionally counted
@@ -162,11 +170,13 @@ final readonly class CreateFacilityHandler implements CommandHandler
     // both pass the count and both insert (see OrganizationQuotaPort::assertCanAdd).
     $replayed = false;
     $facility = $this->transactionManager->transactional(function () use ($command, $facility, &$replayed): Facility {
+      $this->hierarchy?->lock($command->organizationId);
+
       return $this->persistFacility($command, $facility, $replayed);
     });
 
     if ($replayed) {
-      return $this->toResult($facility);
+      return $this->toResult($facility, true);
     }
 
     // Emitted after the durable save so a failed persistence leaves no
@@ -200,6 +210,9 @@ final readonly class CreateFacilityHandler implements CommandHandler
     }
     if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId)) {
       throw OrganizationSetupConflict::because('Setup receipts cannot be combined with another creation protocol.');
+    }
+    if (null !== $command->setupContext && null !== $command->interventionId) {
+      throw OrganizationSetupConflict::because('Setup receipts cannot be combined with an intervention.');
     }
   }
 
@@ -262,6 +275,8 @@ final readonly class CreateFacilityHandler implements CommandHandler
         'type' => $command->type, 'name' => $command->name, 'address' => $command->address,
         'latitude' => $command->latitude, 'longitude' => $command->longitude, 'parentFacilityId' => $command->parentFacilityId,
         'code' => $command->code, 'metadata' => $command->metadata, 'levelIndex' => $command->levelIndex,
+        ...(null === $command->elevationMeters ? [] : ['elevationMeters' => $command->elevationMeters]),
+        ...(null === $command->heightMeters ? [] : ['heightMeters' => $command->heightMeters]),
       ]);
       if (null !== $operation->resourceId) {
         $existing = $this->facilityRepository->findById(FacilityId::fromString($operation->resourceId));
@@ -274,10 +289,27 @@ final readonly class CreateFacilityHandler implements CommandHandler
       }
     }
 
+    $this->assertHierarchy($command, $facility);
     $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::FACILITIES);
     $this->saveFacility($command, $facility);
 
     return $facility;
+  }
+
+  /**
+   * Method assertHierarchy.
+   *
+   * @since 1.0.0
+   */
+  private function assertHierarchy(CreateFacilityCommand $command, Facility $facility): void
+  {
+    $this->hierarchy?->assertGraph($command->organizationId, [...($command->dryRun ? $command->projectedHierarchy : []), new FacilityHierarchyNode(
+      (string) $facility->id(),
+      $facility->type()->value,
+      $facility->parentFacilityId()?->__toString(),
+      publicationState: null === $command->interventionId ? 'published' : 'draft',
+      interventionId: $command->interventionId,
+    )]);
   }
 
   /**
@@ -324,11 +356,15 @@ final readonly class CreateFacilityHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param Facility $facility the facility aggregate (persisted, or — for a dry run — validated only)
+   * @param bool $replayed whether the result came from a completed setup receipt
    *
    * @return CreateFacilityResult the use case result
    */
-  private function toResult(Facility $facility): CreateFacilityResult
+  private function toResult(Facility $facility, bool $replayed = false): CreateFacilityResult
   {
+    $id = (string) $facility->id();
+    $context = $replayed ? ($this->facilityRepository->findProjectionContextsByFacilityIds($facility->organizationId(), [$id])[$id] ?? []) : [];
+
     return new CreateFacilityResult(
       facilityId: (string) $facility->id(),
       organizationId: (string) $facility->organizationId(),
@@ -344,6 +380,12 @@ final readonly class CreateFacilityHandler implements CommandHandler
       latitude: $facility->coordinates()?->latitude(),
       longitude: $facility->coordinates()?->longitude(),
       levelIndex: $facility->levelIndex(),
+      elevationMeters: $facility->elevationMeters(),
+      heightMeters: $facility->heightMeters(),
+      replayed: $replayed,
+      interventionId: $context['interventionId'] ?? null,
+      recordStatus: $context['recordStatus'] ?? 'published',
+      revision: $context['revision'] ?? 1,
     );
   }
 

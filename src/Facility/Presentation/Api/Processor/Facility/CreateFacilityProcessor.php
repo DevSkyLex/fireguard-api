@@ -40,6 +40,7 @@ use Symfony\Component\HttpKernel\Exception\{
   BadRequestHttpException,
   ConflictHttpException,
   NotFoundHttpException
+  , UnprocessableEntityHttpException
 };
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
@@ -100,7 +101,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
     /** @var CreateFacilityInput $data */
-    if (null !== $data->intervention && null !== $this->entityManager) {
+    if (null !== $this->entityManager) {
       return $this->entityManager->wrapInTransaction(
         fn (): FacilityOutput => $this->processCreation($data, $uriVariables),
       );
@@ -153,6 +154,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
       $result = $this->commandBus->dispatch(new CreateFacilityCommand(
         setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
         organizationId: $organizationId,
+        interventionId: null !== $data->intervention ? ResourceIriParser::id($data->intervention, 'interventions') : null,
         type: $data->type,
         name: $data->name,
         parentFacilityId: $data->parentFacilityId,
@@ -163,11 +165,15 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
         metadata: $data->metadata,
         resourceId: $resourceId,
         levelIndex: $data->levelIndex,
+        elevationMeters: $data->elevationMeters,
+        heightMeters: $data->heightMeters,
       ));
     } catch (FacilityCodeAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (FacilityHierarchyException $exception) {
+      throw new UnprocessableEntityHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
@@ -187,9 +193,13 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
     $output->levelIndex = $result->levelIndex;
+    $output->elevationMeters = $result->elevationMeters;
+    $output->heightMeters = $result->heightMeters;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
-    $assignment = $this->attachToIntervention($result->facilityId, $organizationId, $data->intervention, $data->clientId);
+    $assignment = $result->replayed
+      ? new InterventionResourceAssignment($result->interventionId, $result->recordStatus, $result->revision)
+      : $this->attachToIntervention($result->facilityId, $organizationId, $data->intervention, $data->clientId);
     $output->intervention = null === $assignment->interventionId ? null : '/api/interventions/' . $assignment->interventionId;
     $output->recordStatus = $assignment->recordStatus;
     $output->revision = $assignment->revision;
@@ -221,7 +231,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
 
     $hierarchy = $this->findFacilityHierarchyException($exception);
     if ($hierarchy instanceof FacilityHierarchyException) {
-      throw new BadRequestHttpException($hierarchy->getMessage(), $exception);
+      throw new UnprocessableEntityHttpException($hierarchy->getMessage(), $exception);
     }
 
     $invalidArgument = $this->findInvalidArgumentException($exception);

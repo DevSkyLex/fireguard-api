@@ -201,6 +201,7 @@ final readonly class InterventionWorkflowWorkItemWriter
     }
     if (array_key_exists('resultResource', $payload)) {
       $record->resultResource = InterventionWorkflowPayload::nullableString($payload, 'resultResource');
+      $this->runtime->support->assertFacilityTarget($record->resultResource, $intervention);
     }
     if (array_key_exists('assigneeId', $payload)) {
       $record->assigneeId = InterventionWorkflowPayload::nullableString($payload, 'assigneeId');
@@ -390,6 +391,8 @@ final readonly class InterventionWorkflowWorkItemWriter
     $record->action = InterventionWorkflowPayload::requiredString($mutation->payload, 'action');
     $record->target = InterventionWorkflowPayload::nullableString($mutation->payload, 'target');
     $record->resultResource = InterventionWorkflowPayload::nullableString($mutation->payload, 'resultResource');
+    $this->runtime->support->assertFacilityTarget($record->target, $intervention);
+    $this->runtime->support->assertFacilityTarget($record->resultResource, $intervention);
     $record->assigneeId = $assigneeId;
     $record->source = $source;
     $record->required = (bool) ($mutation->payload['required'] ?? true);

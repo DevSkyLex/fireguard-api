@@ -83,10 +83,6 @@ final readonly class CreateInspectionHandler implements CommandHandler
     try {
       $this->equipmentValidation->assertEquipmentIsInspectable($command->equipmentId, $command->organizationId, $command->facilityId);
 
-      if (null !== $command->facilityId) {
-        $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);
-      }
-
       $organizationId = InspectionOrganizationId::fromString($command->organizationId);
       $equipmentId = InspectionEquipmentId::fromString($command->equipmentId);
       $facilityId = null !== $command->facilityId ? InspectionFacilityId::fromString($command->facilityId) : null;
@@ -141,6 +137,9 @@ final readonly class CreateInspectionHandler implements CommandHandler
     // transaction-scoped advisory lock so concurrent creates at the cap cannot
     // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
     $this->transactionManager->transactional(function () use ($command, $inspection): void {
+      if (null !== $command->facilityId) {
+        $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId, $command->interventionId);
+      }
       $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::INSPECTIONS);
       $this->locks->withLock($command->organizationId, $command->checklistId, function () use ($command, $inspection): void {
         if (null !== $command->checklistId) {

@@ -30,11 +30,14 @@ final readonly class GetFacilityBuildingModelResult implements ResultMessage
    * @param list<array{
    *   facilityId: string,
    *   name: string,
-   *   levelIndex: ?int,
+   *   levelIndex: ?int, elevationMeters: ?float, heightMeters: ?float,
    *   status: string,
-   *   plan: ?array{attachmentId: string, imageWidth: ?int, imageHeight: ?int},
+   *   hierarchyIssues: list<string>,
+   *   plan: ?array{attachmentId: string, imageWidth: ?int, imageHeight: ?int, calibration: ?array{widthMeters: float, rotationDegrees: float, offsetXMeters: float, offsetZMeters: float}, calibrationBuildingId: ?string, calibrationIssue: 'building_changed'|'unverified_frame'|null},
    *   outline: ?array{source: string, points: list<array{0: float, 1: float}>},
    *   rooms: list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>}>,
+   *   equipment: list<array{equipmentId: string, facilityId: string, type: string, serialNumber: ?string, locationLabel: ?string, status: string, position: ?array{attachmentId: string, x: float, y: float}, placementIssue: 'missing_plan'|'unplaced'|'other_plan'|'invalid_position'|'outside_ancestry'|null}>,
+   *   diagnostics: array{invalidGeometryCount: int, unpositionedEquipmentCount: int, geometryIssues: list<array{facilityId: string, code: 'invalid_geometry'|'plan_unavailable'|'outside_ancestry'|'other_plan'}>},
    * }> $floors the building's floors, in render order
    */
   public function __construct(

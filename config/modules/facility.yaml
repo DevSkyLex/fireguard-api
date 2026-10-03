@@ -25,6 +25,77 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Facility\Infrastructure\Adapter\Equipment\FacilitySubtreeScopeAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityModelRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Application\Port\Outbound\FacilityModelRepositoryPort:
+    alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityModelRepository
+
+  Facility\Application\Service\FacilityModelAccessGuard: ~
+
+  Facility\Application\Service\FacilitySpatialValidityResolver: ~
+
+  Facility\Infrastructure\Adapter\Spatial\FacilitySpatialReadAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Application\Port\Outbound\FacilitySpatialReadPort:
+    alias: Facility\Infrastructure\Adapter\Spatial\FacilitySpatialReadAdapter
+
+  Facility\Application\Service\FacilityHierarchyGuard: ~
+  Facility\Application\Service\FacilityHierarchyPublicationContext: ~
+  Facility\Application\Service\FacilityLifecycleReferenceGuard: ~
+
+  Facility\Application\Port\Inbound\FacilityLifecycleReferencePort:
+    alias: Facility\Application\Service\FacilityLifecycleReferenceGuard
+
+  Facility\Infrastructure\Adapter\Hierarchy\FacilityHierarchySnapshotAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Application\Port\Outbound\FacilityHierarchySnapshotPort:
+    alias: Facility\Infrastructure\Adapter\Hierarchy\FacilityHierarchySnapshotAdapter
+
+  Facility\Application\Port\Inbound\FacilityHierarchyPort:
+    alias: Facility\Application\Service\FacilityHierarchyGuard
+
+  Facility\Presentation\Api\Controller\DownloadFacilityModelController:
+    tags: ['controller.service_arguments']
+
+  Facility\Application\UseCase\Command\Attachment\SetFacilityAttachmentCalibration\SetFacilityAttachmentCalibrationHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Facility\Application\Port\Outbound\FacilityPlanReferenceCleanupPort:
+    alias: Equipment\Infrastructure\Adapter\Facility\EquipmentPlanReferenceCleanupAdapter
+
+  Facility\Application\UseCase\Command\Model\UploadFacilityModel\UploadFacilityModelHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Model\UpdateFacilityModel\UpdateFacilityModelHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Model\ActivateFacilityModel\ActivateFacilityModelHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Model\DeleteFacilityModel\DeleteFacilityModelHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Model\GetFacilityModel\GetFacilityModelHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Model\ListFacilityModels\ListFacilityModelsHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Model\DownloadFacilityModel\DownloadFacilityModelHandler:
+    tags: ['messenger.message_handler']
+
   Facility\Infrastructure\Persistence\Doctrine\Repository\CanonicalFacilityRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -145,7 +216,16 @@ services:
   Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
+    tags:
+      - intervention.change_applier
+      - { name: intervention.draft_publisher, priority: 100 }
+      - intervention.resource_owner
+
+  Facility\Infrastructure\Adapter\Intervention\FacilityPublicationGuardAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags:
+      - { name: intervention.publication_guard, priority: 100 }
 
   # Cross-module site naming for the Intervention module's `/interventions/statistics`
   # bySite breakdown — mirrors Facility\Infrastructure\Adapter\Equipment\FacilityNamingAdapter.
@@ -170,15 +250,23 @@ services:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Facility\UpdateFacility\UpdateFacilityHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Facility\ArchiveFacility\ArchiveFacilityHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Facility\RestoreFacility\RestoreFacilityHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Facility\MoveFacility\MoveFacilityHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   # Canonical (flat, offline-syncable) facility mutations. Both name the
@@ -205,6 +293,9 @@ services:
   Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityHandler:
     tags: ['messenger.message_handler']
 
+  Facility\Application\UseCase\Query\Facility\GetFacilityPaths\GetFacilityPathsHandler:
+    tags: ['messenger.message_handler']
+
   Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesHandler:
     tags: ['messenger.message_handler']
 
@@ -224,6 +315,8 @@ services:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\DeleteFacilityAttachmentHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment\SetPrimaryFacilityAttachmentHandler:

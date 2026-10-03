@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\GetFacility;
 
+use Facility\Application\Port\Inbound\FacilityHierarchyPort;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use Shared\Application\Message\QueryHandler;
+
+use function is_string;
 
 /**
  * UseCase GetFacilityHandler.
@@ -35,6 +39,8 @@ final readonly class GetFacilityHandler implements QueryHandler
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,
+    private FacilitySpatialValidityResolver $spatial,
+    private FacilityHierarchyPort $hierarchy,
   ) {
   }
   // #endregion
@@ -62,6 +68,10 @@ final readonly class GetFacilityHandler implements QueryHandler
       throw FacilityNotFoundException::withId($query->facilityId);
     }
 
+    $geometry = $facility->planGeometryData();
+    $attachmentId = $geometry['attachmentId'] ?? null;
+    $context = $this->spatial->context((string) $organizationId, [(string) $facilityId], is_string($attachmentId) ? [$attachmentId] : []);
+
     return new GetFacilityResult(
       facilityId: (string) $facility->id(),
       organizationId: (string) $facility->organizationId(),
@@ -82,8 +92,12 @@ final readonly class GetFacilityHandler implements QueryHandler
         [(string) $facility->id()],
       )[(string) $facility->id()] ?? 0,
       path: $this->facilityRepository->findAncestors((string) $facility->id()),
-      planGeometry: $facility->planGeometry()?->toArray(),
+      planGeometry: $this->spatial->geometryIsAuthorized($context, $geometry) ? $facility->planGeometry()?->toArray() : null,
       levelIndex: $facility->levelIndex(),
+      elevationMeters: $facility->elevationMeters(),
+      heightMeters: $facility->heightMeters(),
+      geometryIssue: $this->spatial->geometryIssue($context, (string) $facilityId, $geometry),
+      hierarchyIssues: $this->hierarchy->issuesFor((string) $organizationId, [(string) $facilityId])[(string) $facilityId] ?? [],
     );
   }
   // #endregion
