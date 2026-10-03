@@ -56,6 +56,37 @@ record access, queues and scheduler execution in isolation before promotion.
 Remove the reviewed `.fireguard-operation.lock` directory only after confirming no
 maintenance/backup/deployment process still owns it; then start a reviewed rollout.
 
+### Reviewed development deployment recovery
+
+Failed development deployment `37080669400` stopped the writers after migrating
+both histories, then failed when initializing several Messenger transports in one
+command. The corrected playbook initializes each transport separately. A normal
+rollout still refuses to acquire an existing installation lock.
+
+For this specific incident, the manual `deploy-vps.yml` input
+`reviewed_lock_recovery_run_id=37080669400` selects a guarded forward recovery.
+Use it only after a normal deployment confirms the retained mutex and all other
+development deployments have finished. Leave `image_ref` empty and
+`reset_development_fixtures=false`; the source must be the current `develop` tip
+with its exact successful CI and Sonar gate.
+
+The helper verifies the failed job, source ancestry, immutable image digest and
+revision, unchanged historical migration definitions, and the executed auth/main
+versions. It also requires the fixed development installation, the original empty
+lock identity and timestamps, stopped writers, no competing maintenance process
+under the deployment user, and no competing container with access to its storage.
+Other privileged operators must refrain from maintenance during recovery.
+Missing or ambiguous evidence aborts before
+releasing the mutex. It never restores or changes either database during inspection.
+
+After repeating those checks, recovery replaces the reviewed empty lock and
+immediately acquires it once. A competing owner is never removed or retried.
+The regular backup, auth/main migrations, transport setup, startup and health checks
+then run in full. A subsequent failure retains the new mutex; this incident-specific
+input cannot release a newer lock. Uncatchable termination or host loss requires a
+new manual inspection. Production, other failed runs, fixture resets and image
+rollbacks are excluded from this recovery path.
+
 ## Encrypted periodic off-host snapshots
 
 Provision `restic`, an initialized off-host repository, its independent encryption

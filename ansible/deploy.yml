@@ -13,6 +13,7 @@
     fireguard_healthcheck_validate_certs: "{{ lookup('env', 'VPS_HEALTHCHECK_VALIDATE_CERTS') | default('true', true) | bool }}"
     fireguard_deployment_environment: "{{ lookup('env', 'DEPLOY_ENVIRONMENT') | default('production', true) }}"
     fireguard_reset_development_fixtures: "{{ lookup('env', 'RESET_DEVELOPMENT_FIXTURES') | default('false', true) | bool }}"
+    fireguard_reviewed_lock_recovery_run_id: "{{ lookup('env', 'REVIEWED_LOCK_RECOVERY_RUN_ID') | default('', true) }}"
     fireguard_compose_file: compose.yaml
     fireguard_compose_args: "-f compose.yaml{{ ' -f compose.dev.yaml' if fireguard_deployment_environment == 'development' else '' }}"
     fireguard_compose_command: "docker compose {{ fireguard_compose_args }}"
@@ -184,9 +185,88 @@
         msg: "Missing {{ fireguard_env_file }}. Create it manually on the VPS before deploying."
       when: not fireguard_env_stat.stat.exists
 
+    - name: Recover only the explicitly reviewed historical development operation lock
+      when: fireguard_reviewed_lock_recovery_run_id | length > 0
+      block:
+        - name: Validate the fixed development recovery identity
+          ansible.builtin.assert:
+            that:
+              - fireguard_reviewed_lock_recovery_run_id == '37080669400'
+              - fireguard_deployment_environment == 'development'
+              - fireguard_app_dir == '/srv/apps/fireguard/development/back'
+              - fireguard_compose_project_name == 'fireguard-dev-back'
+              - lookup('env', 'VOLUME_PREFIX') == 'fireguard-dev-back'
+              - not fireguard_reset_development_fixtures
+              - lookup('env', 'IMAGE_INPUT') | length == 0
+            fail_msg: Reviewed recovery is restricted to the verified development installation and forward image.
+
+        - name: Require current registry credentials for reviewed image inspection
+          ansible.builtin.assert:
+            that:
+              - ghcr_username | length > 0
+              - ghcr_token | length > 0
+            fail_msg: Current GHCR credentials are required before reviewed recovery; the historical lock remains held.
+          no_log: true
+
+        - name: Authenticate current GHCR credentials only for reviewed recovery
+          ansible.builtin.command:
+            argv: [docker, login, ghcr.io, --username, "{{ ghcr_username }}", --password-stdin]
+            stdin: "{{ ghcr_token }}"
+          no_log: true
+
+        - name: Allocate private temporary recovery staging
+          ansible.builtin.tempfile:
+            state: directory
+            path: /tmp
+            prefix: fireguard-reviewed-recovery-
+          register: fireguard_recovery_staging
+
+        - name: Stage the source-verified recovery helper
+          ansible.builtin.copy:
+            src: ../bin/fireguard-deployment-recovery.py
+            dest: "{{ fireguard_recovery_staging.path }}/helper.py"
+            mode: "0600"
+
+        - name: Stage public recovery provenance without any deployment credentials
+          ansible.builtin.copy:
+            src: ../.deploy/lock-recovery-proof.json
+            dest: "{{ fireguard_recovery_staging.path }}/proof.json"
+            mode: "0600"
+
+        - name: Verify quiescence and histories then reacquire the reviewed mutex once
+          ansible.builtin.command:
+            argv:
+              - python3
+              - -B
+              - "{{ fireguard_recovery_staging.path }}/helper.py"
+              - acquire-reviewed-lock
+              - --proof
+              - "{{ fireguard_recovery_staging.path }}/proof.json"
+              - --app-dir
+              - "{{ fireguard_app_dir }}"
+              - --project
+              - "{{ fireguard_compose_project_name }}"
+              - --volume-prefix
+              - "{{ lookup('env', 'VOLUME_PREFIX') }}"
+          register: fireguard_reviewed_recovery
+
+        - name: Require acquisition success before any rollout task
+          ansible.builtin.assert:
+            that:
+              - (fireguard_reviewed_recovery.stdout | from_json).result == 'reviewed-lock-reacquired-awaiting-rollout'
+            fail_msg: Reviewed recovery did not acquire the operation mutex; writers must remain stopped.
+
+      always:
+        - name: Remove only this operation's private temporary staging
+          ansible.builtin.file:
+            path: "{{ fireguard_recovery_staging.path }}"
+            state: absent
+          when: fireguard_recovery_staging is defined and fireguard_recovery_staging.path is defined
+
     - name: Acquire the installation operation lock before changing runtime configuration
       ansible.builtin.command:
         argv: [mkdir, "{{ fireguard_app_dir }}/.fireguard-operation.lock"]
+      when: fireguard_reviewed_lock_recovery_run_id | length == 0
 
     - name: Copy base Docker Compose file
       ansible.builtin.copy:
