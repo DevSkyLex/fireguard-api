@@ -46,12 +46,48 @@ class RecoveryBlocked(RuntimeError):
     """A public, fixed diagnostic; never include child stderr, argv or secret values."""
 
 
+class NamespaceNodeFields(TypedDict, total=False):
+    uid: int
+    gid: int
+    mode: int
+    device: int
+    inode: int
+    mtimeNs: int
+    ctimeNs: int
+    isDirectory: bool
+    isSymlink: bool
+
+
+class NamespaceNodeDiagnostic(NamespaceNodeFields):
+    depth: int
+    status: Literal["available", "unavailable"]
+
+
+class AuthorityPeerCount(TypedDict):
+    identity: int
+    processCount: int
+
+
+class NamespacePeerFields(TypedDict, total=False):
+    peerCount: int
+    uidCounts: list[AuthorityPeerCount]
+    writableGidCounts: list[AuthorityPeerCount]
+
+
+class NamespacePeerDiagnostic(NamespacePeerFields):
+    status: Literal["available", "unavailable"]
+    reason: Literal["none", "namespace_metadata", "peer_metadata", "bounded_limit"]
+
+
 class NamespaceRefusalDiagnostic(TypedDict, total=False):
     namespaceRefusalDepth: int
     namespaceUid: int
+    namespaceGid: int
     namespaceMode: int
     namespaceDevice: int
     namespaceInode: int
+    namespaceChain: list[NamespaceNodeDiagnostic]
+    namespacePeerCounts: NamespacePeerDiagnostic
 
 
 class LockIdentityDiagnostic(NamespaceRefusalDiagnostic):
@@ -371,6 +407,72 @@ def check_processes(processes, current_pid, current_uid, *, group_gid=None):
         require(not scoped and not POTENTIAL_OWNER.fullmatch(item["comm"]), "concurrent-host-owner-or-ambiguous-process")
 
 
+def process_status_records(*, include_names=True, bounded=False):
+    records, inspected = [], 0
+    for path in Path("/proc").iterdir():
+        if not path.name.isdecimal():
+            continue
+        inspected += 1
+        if bounded:
+            require(inspected <= 32768, "diagnostic-peer-limit")
+        try:
+            if bounded:
+                with (path / "status").open("r", encoding="utf-8") as source:
+                    status = source.read(512 * 1024 + 1)
+                require(len(status) <= 512 * 1024, "diagnostic-peer-limit")
+            else:
+                status = (path / "status").read_text()
+            lines = status.splitlines()
+            require(all(sum(line.startswith(key + ":") for line in lines) == 1 for key in ["Uid", "Gid", "Groups"] + (["PPid"] if bounded else [])),
+                    "process-credentials-unverified")
+            selected = {"Uid", "Gid", "Groups", "PPid", "Kthread"} | ({"Name"} if include_names else set())
+            fields = {key: value for line in lines if ":" in line for key, value in [line.split(":", 1)] if key in selected}
+            credentials = {key: [int(value) for value in fields[source].split()] for key, source in
+                           [("uids", "Uid"), ("gids", "Gid"), ("groups", "Groups")]}
+            require(len(credentials["uids"]) == len(credentials["gids"]) == 4
+                    and all(value >= 0 for values in credentials.values() for value in values), "process-credentials-unverified")
+            record = {"pid": int(path.name), "ppid": int(fields["PPid"]), "uid": credentials["uids"][0], **credentials,
+                      "kernelThread": fields.get("Kthread", "").strip() == "1"}
+            if include_names:
+                record.update(comm=fields["Name"].strip(), cwd="", fds=[])
+            records.append(record)
+        except FileNotFoundError:
+            require(not path.exists(), "process-metadata-raced")
+        except (OSError, KeyError, ValueError):
+            raise RecoveryBlocked("process-metadata-permission-or-format-unavailable") from None
+    return records
+
+
+def namespace_node_metadata(path, depth, node=None) -> NamespaceNodeDiagnostic:
+    try:
+        node = path.lstat() if node is None else node
+        return {"depth": depth, "status": "available", "uid": node.st_uid, "gid": node.st_gid,
+                "mode": stat.S_IMODE(node.st_mode), "device": node.st_dev, "inode": node.st_ino,
+                "mtimeNs": node.st_mtime_ns, "ctimeNs": node.st_ctime_ns,
+                "isDirectory": stat.S_ISDIR(node.st_mode), "isSymlink": stat.S_ISLNK(node.st_mode)}
+    except (OSError, AttributeError, TypeError, ValueError):
+        return {"depth": depth, "status": "unavailable"}
+
+
+def namespace_peer_counts(chain: list[NamespaceNodeDiagnostic]) -> NamespacePeerDiagnostic:
+    if any(node["status"] != "available" for node in chain):
+        return {"status": "unavailable", "reason": "namespace_metadata"}
+    try:
+        records = process_status_records(include_names=False, bounded=True)
+        own_ancestors = process_ancestors(records, os.getpid())
+        peers = [item for item in records if item["pid"] not in own_ancestors]
+        owners = sorted({node["uid"] for node in chain})
+        groups = sorted({node["gid"] for node in chain if node["mode"] & 0o020})
+        return {"status": "available", "reason": "none", "peerCount": len(peers),
+                "uidCounts": [{"identity": uid, "processCount": sum(uid in item["uids"] for item in peers)} for uid in owners],
+                "writableGidCounts": [{"identity": gid, "processCount": sum(gid in item["gids"] + item["groups"] for item in peers)}
+                                      for gid in groups]}
+    except RecoveryBlocked as error:
+        return {"status": "unavailable", "reason": "bounded_limit" if str(error) == "diagnostic-peer-limit" else "peer_metadata"}
+    except (OSError, KeyError, ValueError, TypeError, AttributeError):
+        return {"status": "unavailable", "reason": "peer_metadata"}
+
+
 @contextmanager
 def defer_cancellation():
     """Defer catchable termination across the two syscalls, then deliver it with the new lock held.
@@ -396,13 +498,18 @@ class Host:
         if not (observed == REVIEWED_LEGACY_LOCK and diagnostic["processUid"] == diagnostic["effectiveUid"] == 1001
                 and diagnostic["processGid"] == diagnostic["effectiveGid"] == 1001):
             raise LockInspectionBlocked("lock-identity-unverified", diagnostic)
-        chain = []
-        for depth, path in enumerate([app, *app.parents]):
+        chain, metadata = [], []
+        paths = [app, *app.parents]
+        for depth, path in enumerate(paths):
             node = path.lstat()
+            metadata.append(namespace_node_metadata(path, depth, node))
             if not (stat.S_ISDIR(node.st_mode) and not stat.S_ISLNK(node.st_mode) and not node.st_mode & 0o022
                     and node.st_uid in {0, 1001} and (depth > 0 or node.st_uid == 1001)):
-                diagnostic.update({"namespaceRefusalDepth": depth, "namespaceUid": node.st_uid,
+                metadata.extend(namespace_node_metadata(remaining, index) for index, remaining in enumerate(paths) if index > depth)
+                diagnostic.update({"namespaceRefusalDepth": depth, "namespaceUid": node.st_uid, "namespaceGid": node.st_gid,
                                    "namespaceMode": stat.S_IMODE(node.st_mode), "namespaceDevice": node.st_dev, "namespaceInode": node.st_ino})
+                diagnostic["namespaceChain"] = metadata
+                diagnostic["namespacePeerCounts"] = namespace_peer_counts(metadata)
                 raise LockInspectionBlocked("lock-identity-unverified", diagnostic)
             chain.append({"depth": depth, "device": node.st_dev, "inode": node.st_ino, "uid": node.st_uid,
                           "gid": node.st_gid, "mode": stat.S_IMODE(node.st_mode)})
@@ -441,27 +548,7 @@ class Host:
         return identity
 
     def processes(self):
-        records = []
-        for path in Path("/proc").iterdir():
-            if not path.name.isdecimal():
-                continue
-            try:
-                lines = (path / "status").read_text().splitlines()
-                require(all(sum(line.startswith(key + ":") for line in lines) == 1 for key in ["Uid", "Gid", "Groups"]),
-                        "process-credentials-unverified")
-                fields = dict(line.split(":", 1) for line in lines if ":" in line)
-                credentials = {key: [int(value) for value in fields[source].split()] for key, source in
-                               [("uids", "Uid"), ("gids", "Gid"), ("groups", "Groups")]}
-                require(len(credentials["uids"]) == len(credentials["gids"]) == 4
-                        and all(value >= 0 for values in credentials.values() for value in values), "process-credentials-unverified")
-                record = {"pid": int(path.name), "ppid": int(fields["PPid"]), "uid": credentials["uids"][0], **credentials,
-                          "comm": fields["Name"].strip(), "cwd": "", "fds": []}
-                record["kernelThread"] = fields.get("Kthread", "").strip() == "1"
-                records.append(record)
-            except FileNotFoundError:
-                require(not path.exists(), "process-metadata-raced")
-            except (OSError, KeyError, ValueError):
-                raise RecoveryBlocked("process-metadata-permission-or-format-unavailable") from None
+        records = process_status_records()
         ancestors = process_ancestors(records, os.getpid())
         for record in records:
             if record["uid"] != os.getuid() or record["pid"] in ancestors or record["kernelThread"]:

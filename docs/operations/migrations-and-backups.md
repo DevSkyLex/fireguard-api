@@ -85,6 +85,13 @@ Use that evidence to review the original lock; no directory contents, environmen
 values or private command output are reported. Do not chmod or chown the retained
 lock to pass the check: that changes its ctime and destroys the original provenance.
 
+A namespace refusal also reports the complete fixed ancestor chain as numeric
+metadata, including owner/group, permissions, device/inode and nanosecond times.
+Bounded process counts cover those owners and writable groups outside the recovery
+process's own ancestry. They contain no process names, arguments, environment,
+working directories or file descriptors. Unavailable process evidence is explicit;
+neither these counts nor an empty snapshot authorizes a recovery exception.
+
 The historical mutex was created with mode `0775` and the deployment user's
 UID/GID `1001`; its mtime/ctime are both `2026-10-03T00:09:10.159681219Z`, inside the
 reviewed failed job. The exception is pinned to that exact device, inode, owner,
