@@ -38,13 +38,23 @@ VERSION_FILE = re.compile(r"Version[0-9]{14}\.php\Z")
 SCHEMA_PREFIX = {"auth": "DoctrineMigrations\\Auth\\", "main": "DoctrineMigrations\\Main\\"}
 ACTIVE = {"queued", "in_progress", "waiting", "pending", "requested"}
 POTENTIAL_OWNER = re.compile(r"(?:python.*|ansible.*|sh|bash|dash|zsh|fish|ssh|sshd|scp|sftp.*|rsync|restic|pg_dump|pg_restore|docker|podman|tar)\Z")
+REVIEWED_LEGACY_LOCK = {"device": 2049, "inode": 3149773, "uid": 1001, "gid": 1001, "mode": 0o775,
+                        "mtimeNs": 1790986150159681219, "ctimeNs": 1790986150159681219}
 
 
 class RecoveryBlocked(RuntimeError):
     """A public, fixed diagnostic; never include child stderr, argv or secret values."""
 
 
-class LockIdentityDiagnostic(TypedDict):
+class NamespaceRefusalDiagnostic(TypedDict, total=False):
+    namespaceRefusalDepth: int
+    namespaceUid: int
+    namespaceMode: int
+    namespaceDevice: int
+    namespaceInode: int
+
+
+class LockIdentityDiagnostic(NamespaceRefusalDiagnostic):
     appDir: Literal["/srv/apps/fireguard/development/back"]
     isDirectory: bool
     isSymlink: bool
@@ -339,10 +349,22 @@ def process_ancestors(processes, current_pid):
     return ancestors
 
 
-def check_processes(processes, current_pid, current_uid):
+def check_peer_credentials(item, current_uid, group_gid):
+    fields = [item.get("uids"), item.get("gids"), item.get("groups")]
+    require(all(isinstance(values, list) and all(type(value) is int and value >= 0 for value in values) for values in fields)
+            and len(fields[0]) == len(fields[1]) == 4 and item["uid"] == fields[0][0], "peer-group-metadata-unverified")
+    if fields[0] != [current_uid] * 4:
+        require(current_uid not in fields[0] and group_gid not in fields[1] + fields[2], "peer-group-writer-or-ambiguous-process")
+
+
+def check_processes(processes, current_pid, current_uid, *, group_gid=None):
     ancestors = process_ancestors(processes, current_pid)
     for item in processes:
-        if item["pid"] in ancestors or item["uid"] != current_uid:
+        if item["pid"] in ancestors:
+            continue
+        if group_gid is not None:
+            check_peer_credentials(item, current_uid, group_gid)
+        if item["uid"] != current_uid:
             continue
         paths = [item["cwd"]] + item["fds"]
         scoped = any(path == APP_DIR or path.startswith(APP_DIR + "/") for path in paths)
@@ -368,6 +390,25 @@ class Host:
     def __init__(self, run=command):
         self.run = run
 
+    def reviewed_legacy_lock(self, app, value, diagnostic: LockIdentityDiagnostic):
+        observed = {"device": value.st_dev, "inode": value.st_ino, "uid": value.st_uid, "gid": value.st_gid,
+                    "mode": stat.S_IMODE(value.st_mode), "mtimeNs": value.st_mtime_ns, "ctimeNs": value.st_ctime_ns}
+        if not (observed == REVIEWED_LEGACY_LOCK and diagnostic["processUid"] == diagnostic["effectiveUid"] == 1001
+                and diagnostic["processGid"] == diagnostic["effectiveGid"] == 1001):
+            raise LockInspectionBlocked("lock-identity-unverified", diagnostic)
+        chain = []
+        for depth, path in enumerate([app, *app.parents]):
+            node = path.lstat()
+            if not (stat.S_ISDIR(node.st_mode) and not stat.S_ISLNK(node.st_mode) and not node.st_mode & 0o022
+                    and node.st_uid in {0, 1001} and (depth > 0 or node.st_uid == 1001)):
+                diagnostic.update({"namespaceRefusalDepth": depth, "namespaceUid": node.st_uid,
+                                   "namespaceMode": stat.S_IMODE(node.st_mode), "namespaceDevice": node.st_dev, "namespaceInode": node.st_ino})
+                raise LockInspectionBlocked("lock-identity-unverified", diagnostic)
+            chain.append({"depth": depth, "device": node.st_dev, "inode": node.st_ino, "uid": node.st_uid,
+                          "gid": node.st_gid, "mode": stat.S_IMODE(node.st_mode)})
+        fingerprint = hashlib.sha256(json.dumps(chain, sort_keys=True).encode()).hexdigest()
+        return {"gid": 1001, "namespaceSha256": fingerprint, "namespace": chain}
+
     def lock_identity(self):
         app, lock = Path(APP_DIR), Path(APP_DIR) / ".fireguard-operation.lock"
         require(app.resolve(strict=True) == app and not any(path.is_symlink() for path in [app, *app.parents]),
@@ -385,14 +426,19 @@ class Host:
             "device": value.st_dev, "inode": value.st_ino, "mtimeNs": value.st_mtime_ns, "ctimeNs": value.st_ctime_ns,
             "empty": None,
         }
-        if not (stat.S_ISDIR(value.st_mode) and not stat.S_ISLNK(value.st_mode) and value.st_uid == process_uid
-                and not value.st_mode & 0o022):
+        if not (stat.S_ISDIR(value.st_mode) and not stat.S_ISLNK(value.st_mode) and value.st_uid == process_uid):
             raise LockInspectionBlocked("lock-identity-unverified", diagnostic)
+        reviewed_legacy = None
+        if value.st_mode & 0o022:
+            reviewed_legacy = self.reviewed_legacy_lock(app, value, diagnostic)
         if any(lock.iterdir()):
             diagnostic["empty"] = False
             raise LockInspectionBlocked("historical-lock-not-empty", diagnostic)
-        return {"device": value.st_dev, "inode": value.st_ino, "uid": value.st_uid,
-                "mtimeNs": value.st_mtime_ns, "ctimeNs": value.st_ctime_ns}
+        identity = {"device": value.st_dev, "inode": value.st_ino, "uid": value.st_uid,
+                    "mtimeNs": value.st_mtime_ns, "ctimeNs": value.st_ctime_ns}
+        if reviewed_legacy is not None:
+            identity["reviewedLegacy"] = reviewed_legacy
+        return identity
 
     def processes(self):
         records = []
@@ -400,9 +446,15 @@ class Host:
             if not path.name.isdecimal():
                 continue
             try:
-                fields = dict(line.split(":", 1) for line in (path / "status").read_text().splitlines() if ":" in line)
-                uid = int(fields["Uid"].split()[0])
-                record = {"pid": int(path.name), "ppid": int(fields["PPid"]), "uid": uid,
+                lines = (path / "status").read_text().splitlines()
+                require(all(sum(line.startswith(key + ":") for line in lines) == 1 for key in ["Uid", "Gid", "Groups"]),
+                        "process-credentials-unverified")
+                fields = dict(line.split(":", 1) for line in lines if ":" in line)
+                credentials = {key: [int(value) for value in fields[source].split()] for key, source in
+                               [("uids", "Uid"), ("gids", "Gid"), ("groups", "Groups")]}
+                require(len(credentials["uids"]) == len(credentials["gids"]) == 4
+                        and all(value >= 0 for values in credentials.values() for value in values), "process-credentials-unverified")
+                record = {"pid": int(path.name), "ppid": int(fields["PPid"]), "uid": credentials["uids"][0], **credentials,
                           "comm": fields["Name"].strip(), "cwd": "", "fds": []}
                 record["kernelThread"] = fields.get("Kthread", "").strip() == "1"
                 records.append(record)
@@ -470,13 +522,14 @@ def recover(proof, host, *, app_dir, project, prefix, current_pid, current_uid):
                                             "uid": identity["uid"], "mtimeNs": identity["mtimeNs"], "ctimeNs": identity["ctimeNs"],
                                             "expectedStartSeconds": started, "expectedEndSeconds": completed}
         raise LockInspectionBlocked("lock-not-from-reviewed-failure-window", diagnostic)
-    check_processes(host.processes(), current_pid, current_uid)
+    group_gid = identity.get("reviewedLegacy", {}).get("gid")
+    check_processes(host.processes(), current_pid, current_uid, group_gid=group_gid)
     databases = check_containers(host.containers())
     require(host.image_manifest(proof) == proof["migrations"], "image-migration-manifest-mismatch")
     for history, container in databases.items():
         executed = host.history(container, history)
         require(set(executed).issubset(proof["migrations"][history]), "executed-migration-unavailable-in-forward-image")
-    check_processes(host.processes(), current_pid, current_uid)
+    check_processes(host.processes(), current_pid, current_uid, group_gid=group_gid)
     require(check_containers(host.containers()) == databases, "database-identity-changed-during-review")
     require(host.lock_identity() == identity, "lock-identity-changed-during-review")
     host.replace_empty_lock()
