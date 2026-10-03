@@ -1,12 +1,15 @@
 """Hermetic tests: no SSH, network, secret files, databases or Docker daemon."""
 
 import copy
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
+import runpy
 import subprocess
+import sys
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
@@ -440,8 +443,13 @@ class RecoveryTests(unittest.TestCase):
         for field in ["mtimeNs", "ctimeNs"]:
             host = FakeHost()
             host.identity[field] = 1
-            with self.subTest(field=field), self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "lock-not-from-reviewed"):
+            with self.subTest(field=field), self.assertRaisesRegex(RECOVERY.LockInspectionBlocked, "lock-not-from-reviewed") as caught:
                 recover(host)
+            self.assertEqual(host.identity | {"appDir": RECOVERY.APP_DIR, "expectedStartSeconds": proof()["lockWindow"][0],
+                                              "expectedEndSeconds": proof()["lockWindow"][1]}, caught.exception.diagnostic)
+            self.assertEqual(caught.exception.diagnostic, json.loads(str(caught.exception).split(" ", 1)[1]))
+            self.assertEqual(0, host.process_reads)
+            self.assertEqual(0, host.container_reads)
             self.assertFalse(host.released)
 
     def test_any_concurrent_owner_or_process_holding_app_path_blocks(self):
@@ -573,35 +581,100 @@ class RecoveryTests(unittest.TestCase):
 
 class AdapterTests(unittest.TestCase):
     def test_real_lock_validator_requires_owned_empty_directory_canonical_path_and_private_writes(self):
-        for invalid in [None, "symlink", "foreign-uid", "group-writable", "not-empty", "app-alias", "app-symlink"]:
+        for invalid in [None, "symlink", "not-directory", "foreign-uid", "group-writable", "world-writable",
+                        "not-empty", "app-alias", "app-symlink"]:
             app, lock = MagicMock(), MagicMock()
             app.resolve.return_value = app
             app.parents = []
             app.is_symlink.return_value = False
             app.__truediv__.return_value = lock
             lock.iterdir.return_value = iter([])
-            metadata = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o755, st_uid=MEMBER,
+            metadata = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o755, st_uid=MEMBER, st_gid=MEMBER + 11,
                                        st_dev=1, st_ino=42, st_mtime_ns=123, st_ctime_ns=123)
             lock.lstat.return_value = metadata
             if invalid == "symlink":
                 metadata.st_mode = RECOVERY.stat.S_IFLNK | 0o755
+            if invalid == "not-directory":
+                metadata.st_mode = RECOVERY.stat.S_IFREG | 0o755
             if invalid == "foreign-uid":
                 metadata.st_uid = MEMBER + 1
             if invalid == "group-writable":
                 metadata.st_mode = RECOVERY.stat.S_IFDIR | 0o775
+            if invalid == "world-writable":
+                metadata.st_mode = RECOVERY.stat.S_IFDIR | 0o757
             if invalid == "not-empty":
-                lock.iterdir.return_value = iter(["owner-data"])
+                lock.iterdir.return_value = iter(["PRIVATE_OWNER_FILENAME"])
             if invalid == "app-alias":
                 app.resolve.return_value = "elsewhere"
             if invalid == "app-symlink":
                 app.is_symlink.return_value = True
             with self.subTest(invalid=invalid), patch.object(RECOVERY, "Path", return_value=app), \
-                 patch.object(RECOVERY.os, "getuid", return_value=MEMBER, create=True):
+                 patch.object(RECOVERY.os, "getuid", return_value=MEMBER, create=True), \
+                 patch.object(RECOVERY.os, "geteuid", return_value=MEMBER, create=True), \
+                 patch.object(RECOVERY.os, "getgid", return_value=MEMBER + 12, create=True), \
+                 patch.object(RECOVERY.os, "getegid", return_value=MEMBER + 13, create=True):
                 if invalid:
-                    with self.assertRaises(RECOVERY.RecoveryBlocked):
+                    with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
                         RECOVERY.Host().lock_identity()
+                    if invalid not in {"app-alias", "app-symlink"}:
+                        self.assertIsInstance(caught.exception, RECOVERY.LockInspectionBlocked)
+                        diagnostic = caught.exception.diagnostic
+                        self.assertEqual({"appDir": RECOVERY.APP_DIR, "isDirectory": RECOVERY.stat.S_ISDIR(metadata.st_mode),
+                                          "isSymlink": RECOVERY.stat.S_ISLNK(metadata.st_mode), "lockUid": metadata.st_uid,
+                                          "processUid": MEMBER, "effectiveUid": MEMBER, "mode": RECOVERY.stat.S_IMODE(metadata.st_mode),
+                                          "lockGid": MEMBER + 11, "processGid": MEMBER + 12, "effectiveGid": MEMBER + 13,
+                                          "modeOctal": format(RECOVERY.stat.S_IMODE(metadata.st_mode), "04o"),
+                                          "groupWritable": invalid == "group-writable", "worldWritable": invalid == "world-writable",
+                                          "device": 1, "inode": 42, "mtimeNs": 123, "ctimeNs": 123,
+                                          "empty": False if invalid == "not-empty" else None}, diagnostic)
+                        self.assertEqual(diagnostic, json.loads(str(caught.exception).split(" ", 1)[1]))
+                        self.assertNotIn("PRIVATE", str(caught.exception))
+                    if invalid != "not-empty":
+                        lock.iterdir.assert_not_called()
                 else:
-                    self.assertEqual(42, RECOVERY.Host().lock_identity()["inode"])
+                    self.assertEqual({"device": 1, "inode": 42, "uid": MEMBER, "mtimeNs": 123, "ctimeNs": 123},
+                                     RECOVERY.Host().lock_identity())
+
+    def test_cli_identity_refusal_prints_safe_numeric_metadata_and_exits_78_without_inspection_or_unlock(self):
+        app, lock = MagicMock(), MagicMock()
+        app.resolve.return_value = app
+        app.parents = []
+        app.is_symlink.return_value = False
+        app.__truediv__.return_value = lock
+        app.read_text.return_value = json.dumps(proof())
+        lock.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | 0o775, st_uid=MEMBER, st_gid=MEMBER + 11,
+                                                 st_dev=1, st_ino=42, st_mtime_ns=123, st_ctime_ns=456)
+        stderr, stdout = io.StringIO(), io.StringIO()
+        arguments = [str(HELPER), "acquire-reviewed-lock", "--proof", "fixture.json", "--app-dir", RECOVERY.APP_DIR,
+                     "--project", RECOVERY.PROJECT, "--volume-prefix", RECOVERY.PREFIX]
+        with patch("pathlib.Path", return_value=app), patch.object(sys, "argv", arguments), \
+             patch.object(RECOVERY.os, "getuid", return_value=MEMBER, create=True), \
+             patch.object(RECOVERY.os, "geteuid", return_value=MEMBER, create=True), \
+             patch.object(RECOVERY.os, "getgid", return_value=MEMBER + 12, create=True), \
+             patch.object(RECOVERY.os, "getegid", return_value=MEMBER + 13, create=True), \
+             patch.object(RECOVERY.os, "getpid", return_value=3), \
+             patch.object(RECOVERY.os, "rmdir") as remove, patch.object(RECOVERY.os, "mkdir") as acquire, \
+             patch.object(RECOVERY.subprocess, "run") as commands, redirect_stderr(stderr), redirect_stdout(stdout):
+            with self.assertRaises(SystemExit) as caught:
+                runpy.run_path(str(HELPER), run_name="__main__")
+        self.assertEqual(78, caught.exception.code)
+        self.assertEqual("", stdout.getvalue())
+        prefix = "Reviewed recovery blocked: lock-identity-unverified "
+        self.assertTrue(stderr.getvalue().startswith(prefix), stderr.getvalue())
+        diagnostic = json.loads(stderr.getvalue()[len(prefix):])
+        self.assertEqual("0775", diagnostic["modeOctal"])
+        self.assertEqual(0o775, diagnostic["mode"])
+        self.assertEqual(MEMBER, diagnostic["lockUid"])
+        self.assertEqual(MEMBER, diagnostic["processUid"])
+        self.assertEqual(MEMBER + 11, diagnostic["lockGid"])
+        self.assertEqual(MEMBER + 12, diagnostic["processGid"])
+        self.assertEqual(MEMBER + 13, diagnostic["effectiveGid"])
+        self.assertIs(True, diagnostic["groupWritable"])
+        self.assertIsNone(diagnostic["empty"])
+        lock.iterdir.assert_not_called()
+        commands.assert_not_called()
+        remove.assert_not_called()
+        acquire.assert_not_called()
 
     def test_proc_reader_skips_own_fds_and_kernel_threads_but_reads_peer_metadata(self):
         records = {1: ("systemd", 0, 0), 2: ("sshd", 1, 0), 3: ("python3", 2, 0),
