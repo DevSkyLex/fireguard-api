@@ -2398,6 +2398,7 @@ NATIVE_VERSION_FORMAT = '{"clientVersion":{{json .Client.Version}},"serverVersio
 def native_storage_output(result):
     """Classify a fixture-owned actor's invalid JSON without publishing its output."""
     output = result.stdout if type(result.stdout) is bytes else b""
+    suffix_code = None
     if not output.strip():
         category = "empty-output"
         text = ""
@@ -2427,13 +2428,19 @@ def native_storage_output(result):
                 opening = text.find("{")
                 if opening >= 0:
                     try:
-                        json.loads(text[opening:])
+                        suffix = json.loads(text[opening:])
                         category = "json-warning"
+                        codes = {"stat-unavailable", "symlink", "not-directory", "mount-metadata", "not-readonly", "not-private",
+                                 "submount", "root-mount", "input", "changed", "metadata", "process-proof", "named-mount", "named-identity"}
+                        if type(suffix) is dict and set(suffix) == {"ok", "code"} and suffix["ok"] is False \
+                                and type(suffix["code"]) is str and suffix["code"] in codes:
+                            suffix_code = suffix["code"]  # Informational only: the warning remains a test failure.
                     except ValueError:
                         pass
     reason = "unclassified"
     signatures = (("undefined-variable", "undefined variable"), ("undefined-array-key", "undefined array key"),
                   ("pcre-jit-compilation", "jit compilation failed"), ("pcre-pattern", "compilation failed"),
+                  ("php-startup-timezone", "invalid date.timezone value"), ("php-startup-dynamic-module", "unable to load dynamic library"),
                   ("php-startup", "php startup:"), ("array-to-string", "array to string conversion"),
                   ("stat-metadata", "lstat():"), ("proc-metadata", "file_get_contents():"))
     for candidate, fragment in signatures:
@@ -2442,7 +2449,18 @@ def native_storage_output(result):
             break
     return "Native storage actor output failed " + json.dumps({"category": category, "phpReason": reason,
             "stdoutBytes": len(output) if len(output) <= 2 * 1024 * 1024 else None,
-            "stderrPresent": bool(result.stderr)}, sort_keys=True)
+            "stderrPresent": bool(result.stderr), "suffixCode": suffix_code}, sort_keys=True)
+
+
+def native_timezone_archive(runtime):
+    # Debian/Ubuntu PHP validates its default UTC against system tzdata even with -n.
+    # Public package data only; preserve UTC as a regular file, not a dangling Etc/UTC symlink.
+    data = Path("/usr/share/zoneinfo/UTC").resolve(strict=True).read_bytes()
+    if not (20 < len(data) <= 4096 and data.startswith(b"TZif")):
+        raise AssertionError("Native UTC package data is unavailable or invalid")
+    entry = tarfile.TarInfo("usr/share/zoneinfo/UTC")
+    entry.size, entry.mode = len(data), 0o444
+    runtime.addfile(entry, io.BytesIO(data))
 
 
 def native_docker_versions(run=subprocess.run):
@@ -2503,6 +2521,39 @@ def native_docker_failure(arguments, result, actor_state=None, versions=None):
 
 
 class NativeDockerDiagnosticTests(unittest.TestCase):
+    def test_public_timezone_archive_contains_only_regular_readonly_utc_data(self):
+        data = b"TZif2" + bytes(109)
+        path = MagicMock()
+        path.resolve.return_value.read_bytes.return_value = data
+        archive = io.BytesIO()
+        with patch(__name__ + ".Path", return_value=path) as factory, tarfile.open(fileobj=archive, mode="w") as runtime:
+            native_timezone_archive(runtime)
+        factory.assert_called_once_with("/usr/share/zoneinfo/UTC")
+        path.resolve.assert_called_once_with(strict=True)
+        archive.seek(0)
+        with tarfile.open(fileobj=archive, mode="r") as runtime:
+            self.assertEqual(["usr/share/zoneinfo/UTC"], runtime.getnames())
+            member = runtime.getmembers()[0]
+            self.assertTrue(member.isfile())
+            self.assertEqual((0o444, 0, 0), (member.mode, member.uid, member.gid))
+            self.assertEqual(data, runtime.extractfile(member).read())
+        for invalid in (b"PRIVATE_CONTENT", b"TZif" + bytes(16), b"TZif" + bytes(4093)):
+            path.resolve.return_value.read_bytes.return_value = invalid
+            with patch(__name__ + ".Path", return_value=path), self.assertRaisesRegex(AssertionError, "Native UTC package data"):
+                native_timezone_archive(MagicMock())
+
+    def test_startup_subtypes_and_json_suffix_publish_only_allowlisted_fixed_codes(self):
+        for startup, reason in (("Invalid date.timezone value 'PRIVATE_VALUE'", "php-startup-timezone"),
+                                ("Unable to load dynamic library PRIVATE_LIBRARY", "php-startup-dynamic-module")):
+            for code in ("process-proof", "mount-metadata", "PRIVATE_CODE", [], "metadata"):
+                output = "Warning: PHP Startup: " + startup + "\n" + json.dumps({"ok": False, "code": code})
+                public = native_storage_output(subprocess.CompletedProcess([], 0, stdout=output.encode(), stderr=b""))
+                self.assertNotIn("PRIVATE", public)
+                fields = json.loads(public.removeprefix("Native storage actor output failed "))
+                self.assertEqual(reason, fields["phpReason"])
+                self.assertEqual("json-warning", fields["category"])
+                self.assertEqual(code if type(code) is str and code != "PRIVATE_CODE" else None, fields["suffixCode"])
+
     def test_owned_actor_json_diagnostics_are_fixed_and_never_export_output_or_paths(self):
         cases = ((b"", "empty-output", "unclassified"),
                  (b'{"ok":true}', None, None),
@@ -2657,6 +2708,7 @@ class NativeDockerProjectionTests(unittest.TestCase):
                 entry = tarfile.TarInfo(destination.lstrip("/"))
                 entry.size, entry.mode = len(data), 0o555
                 runtime.addfile(entry, io.BytesIO(data))
+            native_timezone_archive(runtime)
         image_id = docker(["import", "--change", "LABEL fireguard.recovery-proof=" + nonce,
                            "--change", "LABEL org.opencontainers.image.source=https://github.com/" + RECOVERY.REPOSITORY,
                            "--change", "LABEL org.opencontainers.image.revision=" + SOURCE, "-"], data=archive.getvalue())
