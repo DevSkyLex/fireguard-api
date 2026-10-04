@@ -129,6 +129,56 @@ commands or option values. Container startup timestamps and kernel creation tick
 are retained as independent stable identities, without assuming their wall-clock
 ordering. Foreign namespace links are not required or read to obtain this proof.
 
+Physical volume checks use an explicit metadata inspector for this reviewed
+shared-namespace incident. The deployment user first verifies the canonical,
+protected Docker root and its numeric identity. A source-verified immutable image
+then runs a fixed PHP program in an isolated container with no available
+capabilities, `NoNewPrivs`, no network, a read-only root filesystem, no healthcheck
+and a fixed working directory. Only `/var/lib/docker` is bound at its original
+path, read-only and without importing submounts. Docker rejects an explicitly
+private bind of its own root, so the request leaves propagation unset. Docker can
+use one-way slave propagation for a shared source, or private behavior for a
+private source. The actual root bind must be read-only and never shared or
+unbindable. Host and inspector mount metadata must exclude mounts covering the
+volume parent or any inspected volume, including descendants, before reading
+directory metadata and again afterwards. Unrelated overlay and storage mounts
+outside the inspected volume paths are ignored.
+
+Future host mounts elsewhere below the root can propagate into a slave bind and
+may be writable. The fixed, source-verified PHP program retains zero capabilities
+throughout its lifetime and performs only the specified directory metadata and
+process/mount-proof reads; it never reads or writes application files or traverses
+unrelated submounts. This guard relies on that restricted program and the existing
+no-maintenance assumption, not a claim that the entire Docker root remains private
+or read-only forever. The helper does not change host mounts, permissions or LSM
+profiles, and no bootstrap capabilities are granted.
+
+Each inspected local volume is also mounted separately at a fixed proof target,
+read-only with copying disabled. Docker can inherit one-way slave propagation for
+these targets when preparing its root mount namespace; a named volume has no
+explicit private-propagation guarantee. Each effective target must be private or
+strictly one-way slave, never shared or unbindable, and have no submounts. Slave
+peer metadata must be well formed and stable. The program repeats the relevant
+mount signatures and complete directory identities before and after its reads.
+An inherited future submount can be writable; the restricted program and
+no-maintenance assumption also apply to these proof targets. Its directory
+identity must match the `_data` directory observed below the nonrecursive
+Docker-root bind. This checks Docker's actual volume view even
+when the daemon and deployment process use different mount namespaces. Existing
+volume metadata and immutable source-container references are checked before
+creation and again before the inspector starts. Copy suppression alone does not
+prevent Docker from creating a missing volume. The guard therefore requires
+stable existing references under the no-maintenance assumption; it makes no
+claim of an atomic inspect-and-create operation. Cleanup removes only the owned
+inspector container and never its volumes.
+
+The program checks directory metadata without following symlinks or reading
+application files. It compares the root identity with the host, rejects aliases
+and relevant nested mounts, and returns bounded numeric evidence and fixed
+diagnostics. Physical evidence is repeated with both isolation inventories;
+active-volume timestamps do not need to remain unchanged. This does not grant
+filesystem permissions to the deployment user or relax the storage proof.
+
 After repeating those checks, recovery replaces the reviewed empty lock and
 immediately acquires it once. A competing owner is never removed or retried.
 The regular backup, auth/main migrations, transport setup, startup and health checks

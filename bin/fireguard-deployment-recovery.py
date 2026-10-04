@@ -10,6 +10,7 @@ an ambiguous recovery. Ordinary deployment still acquires its lock with mkdir.
 import argparse
 from contextlib import contextmanager
 from datetime import datetime
+from enum import Enum
 import hashlib
 import importlib.util
 import json
@@ -23,6 +24,7 @@ import subprocess
 import sys
 from typing import Literal, TypedDict
 import urllib.request
+import uuid
 
 
 REPOSITORY = "DevSkyLex/fireguard-api"
@@ -54,6 +56,7 @@ REVIEWED_NAMESPACE = [{"depth": depth, "status": "available", "uid": uid, "gid":
                        "ctimeNs": stamp, "isDirectory": True, "isSymlink": False}
                       for depth, (uid, gid, inode, mode, stamp) in enumerate(REVIEWED_NAMESPACE_VALUES)]
 ISOLATION_API_VERSION = "1.45"
+STORAGE_ROOT = "/var/lib/docker"
 VOLUME_NAME = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*\Z")
 DOCKER_ID = re.compile(r"[a-f0-9]{64}\Z")
 DOCKER_IMAGE_ID = re.compile(r"sha256:[a-f0-9]{64}\Z")
@@ -326,7 +329,7 @@ def validate_proof(proof, *, app_dir, project, prefix):
                     and isinstance(digest, str) and re.fullmatch(r"[a-f0-9]{64}", digest), "recovery-migrations-invalid")
 
 
-CONTAINER_FORMAT = ('{"id":{{json .Id}},"running":{{json .State.Running}},'
+CONTAINER_FORMAT = ('{"id":{{json .ID}},"running":{{json .State.Running}},'
                     '"restarting":{{json .State.Restarting}},"status":{{json .State.Status}},'
                     '"project":{{json (index .Config.Labels "com.docker.compose.project")}},'
                     '"service":{{json (index .Config.Labels "com.docker.compose.service")}},'
@@ -334,7 +337,7 @@ CONTAINER_FORMAT = ('{"id":{{json .Id}},"running":{{json .State.Running}},'
                     '"workingDir":{{json (index .Config.Labels "com.docker.compose.project.working_dir")}},'
                     '"mounts":[{{range $i,$m := .Mounts}}{{if $i}},{{end}}'
                     '{"name":{{json $m.Name}},"source":{{json $m.Source}}}{{end}}]}')
-IMAGE_FORMAT = ('{"digests":{{json .RepoDigests}},'
+IMAGE_FORMAT = ('{"id":{{json .ID}},"volumesEmpty":{{eq (len .Config.Volumes) 0}},"digests":{{json .RepoDigests}},'
                 '"source":{{json (index .Config.Labels "org.opencontainers.image.source")}},'
                 '"revision":{{json (index .Config.Labels "org.opencontainers.image.revision")}}}')
 IMAGE_MANIFEST_PHP = r'''
@@ -628,8 +631,22 @@ def isolation_process_inventory(driver):
 
 ISOLATION_VERSION_FORMAT = '{"client":{{json .Client.APIVersion}},"server":{{json .Server.APIVersion}},"minimum":{{json .Server.MinAPIVersion}}}'
 ISOLATION_INFO_FORMAT = ('{{$rootful := true}}{{range .SecurityOptions}}{{if eq . "name=rootless"}}{{$rootful = false}}{{end}}{{end}}'
-                         '{"Rootful":{{$rootful}},"CgroupDriver":{{json .CgroupDriver}}}')
+                         '{"Rootful":{{$rootful}},"CgroupDriver":{{json .CgroupDriver}},"DockerRootDir":{{json .DockerRootDir}}}')
 ISOLATION_IMAGE_FORMAT = '{"Id":{{json .ID}},"RootFS":{"Type":{{json .RootFS.Type}}}}'
+STORAGE_ACTOR_FORMAT = ('{"Id":{{json .ID}},"Image":{{json .Image}},"Name":{{json .Name}},'
+                        '"State":{"Status":{{json .State.Status}},"Running":{{json .State.Running}},'
+                        '"Restarting":{{json .State.Restarting}},"Paused":{{json .State.Paused}}},'
+                        '"Owner":{{json (index .Config.Labels "fireguard.reviewed-storage-owner")}},'
+                        '"Mounts":[{{range $i,$m := .Mounts}}{{if $i}},{{end}}'
+                        '{"Type":{{json $m.Type}},"Name":{{json $m.Name}},"Source":{{json $m.Source}},'
+                        '"Destination":{{json $m.Destination}},"RW":{{json $m.RW}}}{{end}}],'
+                        '"Declarations":[{{range $i,$m := .HostConfig.Mounts}}{{if $i}},{{end}}'
+                        '{"Type":{{json $m.Type}},"Source":{{json $m.Source}},"Target":{{json $m.Target}},"ReadOnly":{{$m.ReadOnly}},'
+                        '"NoCopy":{{if and $m.VolumeOptions $m.VolumeOptions.NoCopy}}true{{else}}false{{end}},'
+                        '"NonRecursive":{{if and $m.BindOptions $m.BindOptions.NonRecursive}}true{{else}}false{{end}},'
+                        '"PropagationEmpty":{{or (not $m.BindOptions) (eq $m.BindOptions.Propagation "")}}}{{end}}]}')
+STORAGE_REFERENCE_FORMAT = ('{"Id":{{json .ID}},"Mounts":[{{range $i,$m := .Mounts}}{{if $i}},{{end}}'
+                            '{"Type":{{json $m.Type}},"Name":{{json $m.Name}},"Source":{{json $m.Source}}}{{end}}]}')
 ISOLATION_VOLUME_FORMAT = ('{"Name":{{json .Name}},"Driver":{{json .Driver}},"Scope":{{json .Scope}},'
                            '"Mountpoint":{{json .Mountpoint}},"OptionsEmpty":{{eq (len .Options) 0}}}')
 ISOLATION_CONTAINER_FORMAT = (
@@ -679,8 +696,251 @@ def canonical_storage(value):
     return value
 
 
-def isolation_policy(containers, current_pid, current_uid):
-    storage = sorted({canonical_storage(mount["source"]) for item in containers if item.get("project") == PROJECT
+STORAGE_INSPECT_PHP = r'''
+function storage_fail($code) {
+  echo json_encode(['ok' => false, 'code' => $code], JSON_THROW_ON_ERROR);
+  exit(0);
+}
+function storage_stat($path) {
+  clearstatcache(true, $path);
+  $value = @lstat($path);
+  if ($value === false) storage_fail('stat-unavailable');
+  $kind = $value['mode'] & 0170000;
+  if ($kind !== 0040000) storage_fail($kind === 0120000 ? 'symlink' : 'not-directory');
+  return ['device' => $value['dev'], 'inode' => $value['ino'], 'uid' => $value['uid'],
+          'gid' => $value['gid'], 'mode' => $value['mode'] & 07777,
+          'isDirectory' => true, 'isSymlink' => false];
+}
+function storage_named_identity($target, $expected) {
+  if (storage_stat($target) !== $expected) storage_fail('named-identity');
+}
+function storage_related($left, $right) {
+  return $left === $right || str_starts_with($left, $right . '/');
+}
+function storage_process($text) {
+  if (!is_string($text) || strlen($text) > 16384) storage_fail('process-proof');
+  $keys = ['Uid', 'Gid', 'CapEff', 'CapPrm', 'CapInh', 'CapAmb', 'CapBnd', 'NoNewPrivs', 'Pid', 'Tgid', 'NSpid', 'NStgid'];
+  $values = [];
+  foreach (explode("\n", $text) as $line) {
+    $parts = explode(':', $line, 2);
+    if (count($parts) !== 2 || !in_array($parts[0], $keys, true)) continue;
+    if (isset($values[$parts[0]])) storage_fail('process-proof');
+    $values[$parts[0]] = trim($parts[1]);
+  }
+  if (count($values) !== count($keys)) storage_fail('process-proof');
+  foreach (['Uid', 'Gid'] as $key) {
+    if (!preg_match('/^0\s+0\s+0\s+0$/D', $values[$key])) storage_fail('process-proof');
+  }
+  foreach (['CapEff', 'CapPrm', 'CapInh', 'CapAmb', 'CapBnd'] as $key) {
+    if (!preg_match('/^0{1,16}$/D', $values[$key])) storage_fail('process-proof');
+  }
+  foreach (['NoNewPrivs', 'Pid', 'Tgid', 'NSpid', 'NStgid'] as $key) {
+    if ($values[$key] !== '1') storage_fail('process-proof');
+  }
+}
+function storage_propagation($options, $category) {
+  $seen = [];
+  foreach ($options as $option) {
+    if ($option === 'unbindable') storage_fail($category . '-unbindable');
+    if (str_starts_with($option, 'shared:')) storage_fail($category . '-shared');
+    if (!preg_match('/^(master|propagate_from):([1-9][0-9]{0,9})$/D', $option, $match)
+        || (int)$match[2] > 4294967295 || isset($seen[$match[1]])) storage_fail('mount-metadata');
+    $seen[$match[1]] = true;
+  }
+  if (isset($seen['propagate_from']) && !isset($seen['master'])) storage_fail('mount-metadata');
+}
+function storage_mounts($text, $root, $targets, $volumeRoots) {
+  if (strlen($text) > 2097152) storage_fail('mount-metadata');
+  $lines = explode("\n", trim($text));
+  if (count($lines) > 65536) storage_fail('mount-metadata');
+  $rootCount = 0;
+  $targetCounts = array_fill(0, count($targets), 0);
+  $selected = [];
+  foreach ($lines as $line) {
+    $fields = explode(' ', $line);
+    $separator = array_search('-', $fields, true);
+    if (count($fields) < 10 || $separator === false || $separator < 6
+        || count($fields) !== $separator + 4 || !preg_match('/^[0-9]+$/D', $fields[0]) || !preg_match('/^[0-9]+$/D', $fields[1])) {
+      storage_fail('mount-metadata');
+    }
+    $point = strtr($fields[4], ['\\040' => ' ', '\\011' => "\t", '\\012' => "\n", '\\134' => '\\']);
+    $targetIndex = array_search($point, $targets, true);
+    if ($point === $root || $targetIndex !== false) {
+      $selected[$point] = $line;
+      if ($targetIndex !== false) ++$targetCounts[$targetIndex];
+      else ++$rootCount;
+      if (!in_array('ro', explode(',', $fields[5]), true)) storage_fail('not-readonly');
+      storage_propagation(array_slice($fields, 6, $separator - 6), $targetIndex === false ? 'root' : 'named');
+    } elseif ($point === $root . '/volumes') {
+      storage_fail('submount');
+    }
+    foreach ($volumeRoots as $volumeRoot) {
+      if (storage_related($point, $volumeRoot)) storage_fail('submount');
+    }
+    foreach ($targets as $target) {
+      if ($point !== $target && storage_related($point, $target)) storage_fail('submount');
+    }
+  }
+  if ($rootCount !== 1) storage_fail('root-mount');
+  foreach ($targetCounts as $count) if ($count !== 1) storage_fail('named-mount');
+  ksort($selected);
+  return $selected; // Private in-memory signatures; never publish sources or options.
+}
+try {
+  storage_process(@file_get_contents('/proc/self/status'));
+  $input = json_decode($argv[1] ?? '', true, 16, JSON_THROW_ON_ERROR);
+  if (!is_array($input) || ($input['root'] ?? null) !== '/var/lib/docker'
+      || !isset($input['names']) || !is_array($input['names']) || count($input['names']) > 4096
+      || !array_is_list($input['names']) || count(array_unique($input['names'])) !== count($input['names'])) {
+    storage_fail('input');
+  }
+  $root = $input['root'];
+  $volumeRoots = [];
+  $targets = [];
+  foreach ($input['names'] as $name) {
+    if (!is_string($name) || strlen($name) > 255 || !preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/D', $name)) storage_fail('input');
+    $volumeRoots[] = $root . '/volumes/' . $name;
+    $targets[] = '/__fireguard_volume_proof/' . (count($targets));
+  }
+  $mountinfo = @file_get_contents('/proc/self/mountinfo');
+  if ($mountinfo === false) storage_fail('mount-metadata');
+  $mountProof = storage_mounts($mountinfo, $root, $targets, $volumeRoots);
+  $rootStat = storage_stat($root);
+  $volumesStat = storage_stat($root . '/volumes');
+  $nodes = [];
+  foreach ($volumeRoots as $index => $volumeRoot) {
+    $nodes[] = ['index' => $index, 'directory' => storage_stat($volumeRoot), 'data' => storage_stat($volumeRoot . '/_data')];
+    storage_named_identity($targets[$index], $nodes[$index]['data']);
+  }
+  $finalMountinfo = @file_get_contents('/proc/self/mountinfo');
+  if ($finalMountinfo === false) storage_fail('mount-metadata');
+  if (storage_mounts($finalMountinfo, $root, $targets, $volumeRoots) !== $mountProof) storage_fail('changed');
+  if (storage_stat($root) !== $rootStat || storage_stat($root . '/volumes') !== $volumesStat) storage_fail('changed');
+  foreach ($volumeRoots as $index => $volumeRoot) {
+    if (storage_stat($volumeRoot) !== $nodes[$index]['directory']
+        || storage_stat($volumeRoot . '/_data') !== $nodes[$index]['data']) storage_fail('changed');
+    storage_named_identity($targets[$index], $nodes[$index]['data']);
+  }
+  echo json_encode(['ok' => true, 'actorVerified' => true, 'root' => $rootStat, 'volumes' => $volumesStat, 'nodes' => $nodes], JSON_THROW_ON_ERROR);
+} catch (Throwable $error) { storage_fail('metadata'); }
+'''
+
+
+def storage_node(value):
+    fields = {"device", "inode", "uid", "gid", "mode", "isDirectory", "isSymlink"}
+    require(type(value) is dict and set(value) == fields, "storage-inspector-metadata-unverified")
+    require(all(type(value[key]) is int and value[key] >= 0 for key in ("device", "inode", "uid", "gid", "mode"))
+            and 0 < value["inode"] <= 0xffffffffffffffff and value["device"] <= 0xffffffffffffffff
+            and value["uid"] <= 0xffffffff and value["gid"] <= 0xffffffff
+            and value["mode"] <= 0o7777 and value["isDirectory"] is True and value["isSymlink"] is False,
+            "storage-inspector-metadata-unverified")
+    return value
+
+
+def storage_root_chain():
+    """The sole allowed bind cannot obscure the image's runtime or /proc."""
+    paths = [Path(STORAGE_ROOT), *Path(STORAGE_ROOT).parents]
+    result = []
+    try:
+        for path in paths:
+            value = path.lstat()
+            node = storage_node({"device": value.st_dev, "inode": value.st_ino, "uid": value.st_uid, "gid": value.st_gid,
+                                 "mode": stat.S_IMODE(value.st_mode), "isDirectory": stat.S_ISDIR(value.st_mode),
+                                 "isSymlink": stat.S_ISLNK(value.st_mode)})
+            require(node["uid"] == 0 and not node["mode"] & 0o022, "storage-root-authority-unverified")
+            result.append(node)
+    except OSError:
+        raise RecoveryBlocked("storage-root-metadata-unavailable") from None
+    return result
+
+
+def storage_kernel():
+    try:
+        match = re.match(r"([0-9]+)\.([0-9]+)(?:\.|-)", os.uname().release)
+        require(match is not None and tuple(map(int, match.groups())) >= (5, 12), "storage-recursive-readonly-unsupported")
+    except (AttributeError, OSError):
+        raise RecoveryBlocked("storage-kernel-unverified") from None
+
+
+def storage_volume_path(name):
+    require(type(name) is str and len(name) <= 255 and VOLUME_NAME.fullmatch(name), "storage-volume-name-unverified")
+    return STORAGE_ROOT + "/volumes/" + name + "/_data"
+
+
+def storage_host_mounts(value, names):
+    """Pin only the source mount and reject relevant aliases; unrelated overlays may churn."""
+    require(type(value) is str and len(value) <= 2_097_152, "storage-host-mount-metadata-unverified")
+    lines = value.splitlines()
+    require(0 < len(lines) <= 65536, "storage-host-mount-metadata-unverified")
+    roots = [storage_volume_path(name).removesuffix("/_data") for name in names]
+    ancestors = []
+    for line in lines:
+        fields = line.split(" ")
+        require("-" in fields, "storage-host-mount-metadata-unverified")
+        separator = fields.index("-")
+        require(separator >= 6 and len(fields) == separator + 4 and fields[0].isdecimal()
+                and fields[1].isdecimal() and re.fullmatch(r"[0-9]+:[0-9]+", fields[2]),
+                "storage-host-mount-metadata-unverified")
+        point = fields[4]
+        for encoded, decoded in (("\\040", " "), ("\\011", "\t"), ("\\012", "\n"), ("\\134", "\\")):
+            point = point.replace(encoded, decoded)
+        require(point.startswith("/") and posixpath.normpath(point) == point and "\x00" not in point,
+                "storage-host-mount-metadata-unverified")
+        require(point != STORAGE_ROOT + "/volumes" and not any(
+            point == root or point.startswith(root + "/") for root in roots), "storage-host-volume-submount")
+        if point == "/" or point == STORAGE_ROOT or STORAGE_ROOT.startswith(point + "/"):
+            ancestors.append((point, fields, separator))
+    require(bool(ancestors), "storage-host-source-mount-unverified")
+    longest = max(len(item[0]) for item in ancestors)
+    selected = [item for item in ancestors if len(item[0]) == longest]
+    require(len(selected) == 1, "storage-host-source-mount-unverified")
+    point, fields, separator = selected[0]
+    propagation = {"shared": None, "master": None, "propagate_from": None}
+    for option in fields[6:separator]:
+        require(option != "unbindable", "storage-host-source-unbindable")
+        key, marker, value = option.partition(":")
+        require(marker and key in propagation and propagation[key] is None and value.isdecimal()
+                and 0 < int(value) <= 0xffffffffffffffff, "storage-host-source-mount-unverified")
+        propagation[key] = int(value)
+    numbers = [int(fields[0]), int(fields[1]), *map(int, fields[2].split(":"))]
+    require(all(0 <= item <= 0xffffffffffffffff for item in numbers), "storage-host-mount-metadata-unverified")
+    return {"mountId": numbers[0], "parentId": numbers[1], "deviceMajor": numbers[2], "deviceMinor": numbers[3],
+            "sourceDepth": len(Path(STORAGE_ROOT).parts) - len(Path(point).parts),
+            "rootHash": hashlib.sha256(fields[3].encode("utf-8")).hexdigest(),
+            "readonly": "ro" in fields[5].split(","), "propagation": propagation,
+            "private": not any(value is not None for value in propagation.values())}
+
+
+def storage_host_mount_proof(names):
+    return storage_host_mounts(metadata_text(Path("/proc/self/mountinfo"), 2_097_152), names)
+
+
+def storage_expected_mounts(names):
+    mounts = [{"Type": "bind", "Name": "", "Source": STORAGE_ROOT, "Destination": STORAGE_ROOT, "RW": False}]
+    declarations = [{"Type": "bind", "Source": STORAGE_ROOT, "Target": STORAGE_ROOT, "ReadOnly": True,
+                     "NoCopy": False, "NonRecursive": True, "PropagationEmpty": True}]
+    for index, name in enumerate(names):
+        target = "/__fireguard_volume_proof/" + str(index)
+        mounts.append({"Type": "volume", "Name": name, "Source": storage_volume_path(name), "Destination": target, "RW": False})
+        declarations.append({"Type": "volume", "Source": name, "Target": target, "ReadOnly": True,
+                             "NoCopy": True, "NonRecursive": False, "PropagationEmpty": True})
+    return mounts, declarations
+
+
+def storage_mounts_match(actual, expected, target):
+    if type(actual) is not list or len(actual) != len(expected):
+        return False
+    for item in actual:
+        if type(item) is not dict or set(item) != set(expected[0]):
+            return False
+        if any(type(item[key]) is not type(expected[0][key]) for key in item):
+            return False
+    return sorted(actual, key=lambda item: item[target]) == sorted(expected, key=lambda item: item[target])
+
+
+def isolation_policy(containers, current_pid, current_uid, storage_path=None):
+    storage_path = storage_path or canonical_storage
+    storage = sorted({storage_path(mount["source"]) for item in containers if item.get("project") == PROJECT
                       for mount in item["mounts"]})
     require(bool(storage), "isolation-development-storage-unavailable")
     return {"authorityUid": 1000, "authorityGids": [1000], "currentPid": current_pid, "currentUid": current_uid,
@@ -739,6 +999,65 @@ def isolated_peer_tasks(snapshot):
             for process in snapshot["processes"] if all(task["uids"] == [1000] * 4 for task in process["tasks"])}
 
 
+def relevant_storage_proof(snapshot, development_names):
+    proof = snapshot.get("storageProof")
+    require(type(proof) is dict, "storage-physical-proof-unavailable")
+    peers = isolated_peer_tasks(snapshot)
+    owners = {task["containerId"] for process in snapshot["processes"] if process["pid"] in peers for task in process["tasks"]}
+    names = set(development_names)
+    names.update(mount["Name"] for item in snapshot["containers"] if item["Id"] in owners
+                 for mount in item["Mounts"] if mount["Type"] == "volume")
+    nodes = {name: proof["nodes"][index] for index, name in enumerate(proof["volumeNames"])}
+    require(names.issubset(nodes), "storage-physical-proof-unavailable")
+    return {"rootChain": proof["rootChain"], "hostMount": proof["hostMount"], "volumes": proof["volumes"],
+            "nodes": {name: {key: value for key, value in nodes[name].items() if key != "index"} for name in sorted(names)}}
+
+
+def potential_authority_volume_names(processes, containers, current_pid):
+    own = process_ancestors(processes, current_pid)
+    owners = {task["containerId"] for process in processes if process["pid"] not in own for task in process["tasks"]
+              if 1000 in task["uids"] + task["gids"] + task["groups"]}
+    return {mount["Name"] for item in containers if item["Id"] in owners for mount in item["Mounts"] if mount["Type"] == "volume"}
+
+
+class DockerMetadataOperation(str, Enum):
+    """Fixed public phases; never interpolate an identifier, path or child error."""
+
+    LEGACY_LIST = "docker-legacy-container-list"
+    LEGACY_INSPECT = "docker-legacy-container-inspect"
+    ISOLATION_VERSION = "docker-isolation-version"
+    ISOLATION_INFO = "docker-isolation-info"
+    ISOLATION_LIST = "docker-isolation-container-list"
+    ISOLATION_CONTAINER = "docker-isolation-container-inspect"
+    ISOLATION_IMAGE = "docker-isolation-image-inspect"
+    ISOLATION_VOLUME = "docker-isolation-volume-inspect"
+    STORAGE_CREATE = "docker-storage-inspector-create"
+    STORAGE_START = "docker-storage-inspector-start"
+    STORAGE_REMOVE = "docker-storage-inspector-remove"
+    STORAGE_LIST = "docker-storage-inspector-owned-list"
+    STORAGE_INSPECT = "docker-storage-inspector-owned-inspect"
+
+
+def metadata_operation(run, argv, operation):
+    require(isinstance(operation, DockerMetadataOperation), "docker-metadata-operation-unverified")
+    try:
+        return run(argv)
+    except (RecoveryBlocked, OSError, subprocess.TimeoutExpired):
+        raise RecoveryBlocked(operation.value + "-command-failed") from None
+
+
+def isolation_operation(arguments):
+    phases = {("version",): DockerMetadataOperation.ISOLATION_VERSION,
+              ("info",): DockerMetadataOperation.ISOLATION_INFO,
+              ("ps",): DockerMetadataOperation.ISOLATION_LIST,
+              ("container", "inspect"): DockerMetadataOperation.ISOLATION_CONTAINER,
+              ("image", "inspect"): DockerMetadataOperation.ISOLATION_IMAGE,
+              ("volume", "inspect"): DockerMetadataOperation.ISOLATION_VOLUME}
+    key = tuple(arguments[:2]) if arguments and arguments[0] in {"container", "image", "volume"} else tuple(arguments[:1])
+    require(key in phases, "docker-isolation-operation-unverified")
+    return phases[key]
+
+
 @contextmanager
 def defer_cancellation():
     """Defer catchable termination across the two syscalls, then deliver it with the new lock held.
@@ -757,19 +1076,24 @@ def defer_cancellation():
 class Host:
     def __init__(self, run=command):
         self.run = run
+        self._verified_storage_image = None
+        self._storage_development = None
+        self._storage_development_references = None
+        self._storage_proof = None
+        self._storage_authority_verified = False
 
     def isolation_docker(self, arguments):
         # Pin the API used by every request, not only the daemon's advertised maximum.
-        return self.run(["/usr/bin/env", "DOCKER_API_VERSION=" + ISOLATION_API_VERSION,
-                         "docker", "--host", "unix:///var/run/docker.sock", *arguments])
+        return metadata_operation(self.run, ["/usr/bin/env", "DOCKER_API_VERSION=" + ISOLATION_API_VERSION,
+                                            "docker", "--host", "unix:///var/run/docker.sock", *arguments], isolation_operation(arguments))
 
     def isolation_json(self, arguments):
         try:
             result = json.loads(self.isolation_docker(arguments))
-            require(type(result) is dict, "isolation-docker-metadata-unverified")
+            require(type(result) is dict, isolation_operation(arguments).value + "-metadata-unverified")
             return result
         except (ValueError, TypeError):
-            raise RecoveryBlocked("isolation-docker-metadata-unverified") from None
+            raise RecoveryBlocked(isolation_operation(arguments).value + "-metadata-unverified") from None
 
     def isolation_api(self):
         override = os.environ.get("DOCKER_API_VERSION")
@@ -780,7 +1104,162 @@ class Host:
                 and docker_api_version(version["minimum"]) <= 45, "isolation-docker-api-unsupported")
         info = self.isolation_json(["info", "--format", ISOLATION_INFO_FORMAT])
         require(info["Rootful"] is True and info["CgroupDriver"] in {"systemd", "cgroupfs"}, "isolation-docker-authority-unverified")
+        if self._storage_development is not None:
+            require(info.get("DockerRootDir") == STORAGE_ROOT, "storage-docker-root-unverified")
+            self._storage_authority_verified = True
         return info["CgroupDriver"]
+
+    def prepare_storage_inspector(self, containers):
+        require(self._verified_storage_image is not None, "storage-source-image-unverified")
+        development = {}
+        references = {}
+        for record in containers:
+            if record.get("project") != PROJECT:
+                continue
+            for mount in record["mounts"]:
+                name, source = mount["name"], mount["source"]
+                require(source == storage_volume_path(name), "storage-development-mount-unverified")
+                require(type(record.get("id")) is str and DOCKER_ID.fullmatch(record["id"]), "storage-volume-reference-unverified")
+                development[name] = source
+                references.setdefault(name, set()).add(record["id"])
+        require(bool(development), "isolation-development-storage-unavailable")
+        self._storage_development = development
+        self._storage_development_references = references
+        self._storage_authority_verified = False
+
+    def reviewed_storage_path(self, value):
+        require(self._storage_development is not None and value in self._storage_development.values(),
+                "storage-development-mount-unverified")
+        return value
+
+    def storage_docker(self, arguments, operation):
+        return metadata_operation(self.run, ["/usr/bin/env", "DOCKER_API_VERSION=" + ISOLATION_API_VERSION,
+                                            "docker", "--host", "unix:///var/run/docker.sock", *arguments], operation)
+
+    def cleanup_storage_actor(self, nonce):
+        identifiers = self.storage_docker(["ps", "--all", "--quiet", "--no-trunc", "--filter",
+                                          "label=fireguard.reviewed-storage-owner=" + nonce], DockerMetadataOperation.STORAGE_LIST).splitlines()
+        require(len(identifiers) <= 1 and all(DOCKER_ID.fullmatch(value) for value in identifiers),
+                "storage-inspector-cleanup-identity-unverified")
+        for identifier in identifiers:
+            self.storage_actor_identity(identifier, nonce)
+            self.storage_docker(["rm", "--force", identifier], DockerMetadataOperation.STORAGE_REMOVE)
+
+    def storage_actor_identity(self, identifier, nonce, *, created=False, names=None):
+        try:
+            identity = json.loads(self.storage_docker(["container", "inspect", "--format", STORAGE_ACTOR_FORMAT, identifier],
+                                                     DockerMetadataOperation.STORAGE_INSPECT))
+        except (TypeError, ValueError):
+            raise RecoveryBlocked("storage-inspector-cleanup-identity-unverified") from None
+        require(type(identity) is dict and identity.get("Id") == identifier and identity.get("Image") == self._verified_storage_image
+                and identity.get("Owner") == nonce and identity.get("Name") == "/fireguard-reviewed-storage-" + nonce,
+                "storage-inspector-cleanup-identity-unverified")
+        state = identity.get("State")
+        require(type(state) is dict and type(state.get("Status")) is str and state["Status"] in {"created", "running", "exited"}
+                and state.get("Running") is (state["Status"] == "running")
+                and state.get("Restarting") is False and state.get("Paused") is False
+                and (not created or state["Status"] == "created"), "storage-inspector-cleanup-state-unverified")
+        if names is not None:
+            mounts, declarations = storage_expected_mounts(names)
+            require(storage_mounts_match(identity.get("Mounts"), mounts, "Destination")
+                    and storage_mounts_match(identity.get("Declarations"), declarations, "Target"),
+                    "storage-inspector-mount-declaration-unverified")
+
+    def storage_reference_proof(self, names, references, volumes):
+        require(type(references) is dict and set(references) == set(names)
+                and all(type(ids) is set and bool(ids) and all(type(item) is str and DOCKER_ID.fullmatch(item) for item in ids)
+                        for ids in references.values()), "storage-volume-reference-unverified")
+        identifiers = set().union(*references.values())
+        require(len(identifiers) <= 4096, "storage-volume-reference-unverified")
+        for identifier in sorted(identifiers):
+            reference = self.isolation_json(["container", "inspect", "--format", STORAGE_REFERENCE_FORMAT, identifier])
+            require(type(reference) is dict and reference.get("Id") == identifier and type(reference.get("Mounts")) is list,
+                    "storage-volume-reference-unverified")
+            for name in names:
+                if identifier not in references[name]:
+                    continue
+                matches = [mount for mount in reference["Mounts"] if type(mount) is dict and mount.get("Type") == "volume"
+                           and mount.get("Name") == name]
+                require(bool(matches) and all(mount.get("Source") == storage_volume_path(name) for mount in matches),
+                        "storage-volume-reference-unverified")
+        for name in names:
+            current = self.isolation_json(["volume", "inspect", "--format", ISOLATION_VOLUME_FORMAT, name])
+            expected = {"Name": name, "Driver": "local", "Scope": "local", "OptionsEmpty": True,
+                        "Mountpoint": storage_volume_path(name)}
+            require(current == expected and type(current.get("OptionsEmpty")) is bool and volumes.get(name) == expected
+                    and type(volumes[name].get("OptionsEmpty")) is bool, "storage-volume-reference-unverified")
+
+    def inspect_storage(self, names, references, volumes):
+        require(self._verified_storage_image is not None and self._storage_development is not None,
+                "storage-source-image-unverified")
+        require(self._storage_authority_verified, "storage-docker-root-unverified")
+        require(type(names) is list and 0 < len(names) <= 4096 and all(type(name) is str and len(name) <= 255
+                and VOLUME_NAME.fullmatch(name) for name in names) and len(set(names)) == len(names), "storage-volume-name-unverified")
+        storage_kernel()
+        chain = storage_root_chain()
+        host_mount = storage_host_mount_proof(names)
+        self.storage_reference_proof(names, references, volumes)
+        payload = json.dumps({"root": STORAGE_ROOT, "names": names}, separators=(",", ":"))
+        nonce = uuid.uuid4().hex
+        arguments = ["create", "--name", "fireguard-reviewed-storage-" + nonce, "--label", "fireguard.reviewed-storage-owner=" + nonce,
+                     "--pull", "never", "--init=false",
+                     "--user", "0:0", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+                     # Moby PidMode.Valid accepts only empty (new private namespace), host, or container:<id>.
+                     "--network", "none", "--pid", "", "--runtime", "runc", "--ipc", "private", "--read-only", "--workdir", "/",
+                     "--no-healthcheck", "--env", "LD_PRELOAD=", "--env", "LD_AUDIT=", "--env", "LD_LIBRARY_PATH=",
+                     "--mount", "type=bind,src=" + STORAGE_ROOT + ",dst=" + STORAGE_ROOT
+                     + ",readonly,bind-recursive=disabled"]
+        for index, name in enumerate(names):
+            arguments.extend(["--mount", "type=volume,src=" + name + ",dst=/__fireguard_volume_proof/" + str(index)
+                              + ",readonly,volume-nocopy"])
+        arguments.extend(["--entrypoint", "/usr/bin/env", self._verified_storage_image,
+                          "-i", "/usr/local/bin/php", "-n", "-r", STORAGE_INSPECT_PHP, payload])
+        try:
+            identifier = self.storage_docker(arguments, DockerMetadataOperation.STORAGE_CREATE).strip()
+            require(DOCKER_ID.fullmatch(identifier), "storage-inspector-identity-unverified")
+            self.storage_actor_identity(identifier, nonce, created=True, names=names)
+            self.storage_reference_proof(names, references, volumes)
+            output = self.storage_docker(["start", "--attach", identifier], DockerMetadataOperation.STORAGE_START)
+        finally:
+            # Also covers cancellation/timeout after Docker creates the actor but before returning its ID.
+            # Only this nonce + image + name attested object; never purge unrelated runtime containers.
+            self.cleanup_storage_actor(nonce)
+        require(storage_root_chain() == chain, "storage-root-identity-changed")
+        require(storage_host_mount_proof(names) == host_mount, "storage-host-source-mount-changed")
+        self.storage_reference_proof(names, references, volumes)
+        try:
+            body = json.loads(output)
+        except (TypeError, ValueError):
+            raise RecoveryBlocked("storage-inspector-metadata-unverified") from None
+        if type(body) is dict and body.get("ok") is False:
+            codes = {"stat-unavailable", "symlink", "not-directory", "mount-metadata", "not-readonly", "not-private",
+                     "root-shared", "root-unbindable", "named-shared", "named-slave", "named-unbindable",
+                     "submount", "root-mount", "input", "changed", "metadata", "process-proof", "named-mount", "named-identity"}
+            require(set(body) == {"ok", "code"} and type(body.get("code")) is str and body["code"] in codes,
+                    "storage-inspector-metadata-unverified")
+            raise RecoveryBlocked("storage-inspector-" + body["code"])
+        require(type(body) is dict and set(body) == {"ok", "actorVerified", "root", "volumes", "nodes"}
+                and body["ok"] is True and body["actorVerified"] is True,
+                "storage-inspector-metadata-unverified")
+        require(storage_node(body["root"]) == chain[0], "storage-inspector-root-identity-mismatch")
+        parent = storage_node(body["volumes"])
+        require(parent["uid"] == 0 and not parent["mode"] & 0o022, "storage-volume-parent-unverified")
+        nodes = body["nodes"]
+        require(type(nodes) is list and len(nodes) == len(names), "storage-inspector-metadata-unverified")
+        occupied = {(node["device"], node["inode"]) for node in chain + REVIEWED_NAMESPACE}
+        require((parent["device"], parent["inode"]) not in occupied, "storage-physical-alias")
+        occupied.add((parent["device"], parent["inode"]))
+        for index, node in enumerate(nodes):
+            require(type(node) is dict and set(node) == {"index", "directory", "data"}
+                    and type(node["index"]) is int and node["index"] == index, "storage-inspector-metadata-unverified")
+            directory = storage_node(node["directory"])
+            require(directory["uid"] == 0 and not directory["mode"] & 0o022, "storage-volume-parent-unverified")
+            for value in (directory, storage_node(node["data"])):
+                physical = (value["device"], value["inode"])
+                require(physical not in occupied, "storage-physical-alias")
+                occupied.add(physical)
+        self._storage_proof = {"rootChain": chain, "hostMount": host_mount, "volumeNames": names, "volumes": parent, "nodes": nodes}
+        return self._storage_proof
 
     def isolation_container_ids(self):
         identifiers = self.isolation_docker(["ps", "--quiet", "--no-trunc"]).splitlines()
@@ -810,35 +1289,58 @@ class Host:
             records.append(record)
         return records
 
-    def isolation_volumes(self, containers):
+    def isolation_volumes(self, containers, *, required_names=None):
         names = {mount["Name"] for record in containers for mount in record["Mounts"] if mount["Type"] == "volume"}
+        active_names = set(names)
+        if self._storage_development is not None:
+            require(type(required_names) is set and required_names.issubset(names), "storage-authority-cohort-unverified")
+            names.update(self._storage_development)
+            required_names = required_names | set(self._storage_development)
         require(len(names) <= 4096 and all(type(name) is str and VOLUME_NAME.fullmatch(name) for name in names),
                 "isolation-volume-inventory-unverified")
         volumes = []
         for name in sorted(names):
             volume = self.isolation_json(["volume", "inspect", "--format", ISOLATION_VOLUME_FORMAT, name])
             require(volume["Name"] == name and type(volume["OptionsEmpty"]) is bool, "isolation-volume-metadata-unverified")
-            canonical_storage(volume["Mountpoint"])
+            if self._storage_development is None:
+                canonical_storage(volume["Mountpoint"])
+            elif name in required_names:
+                require(volume["Driver"] == "local" and volume["Scope"] == "local" and volume["OptionsEmpty"] is True
+                        and volume["Mountpoint"] == storage_volume_path(name), "storage-volume-authority-unverified")
             volumes.append(volume)
         for record in containers:
             for mount in record["Mounts"]:
                 if mount["Type"] == "volume":
-                    canonical_storage(mount["Source"])
-        return volumes
+                    if self._storage_development is None:
+                        canonical_storage(mount["Source"])
+                    elif mount["Name"] in required_names:
+                        require(mount["Source"] == storage_volume_path(mount["Name"]), "storage-volume-source-unverified")
+        if self._storage_development is not None:
+            references = {name: set(self._storage_development_references.get(name, set())) for name in required_names}
+            for record in containers:
+                for mount in record["Mounts"]:
+                    if mount["Type"] == "volume" and mount["Name"] in references:
+                        references[mount["Name"]].add(record["Id"])
+            self.inspect_storage(sorted(required_names), references, {volume["Name"]: volume for volume in volumes})
+        return [volume for volume in volumes if volume["Name"] in active_names]
 
     def isolation_snapshot(self):
         driver = self.isolation_api()
         identifiers = self.isolation_container_ids()
         containers = self.isolation_containers(identifiers)
-        volumes = self.isolation_volumes(containers)
         processes = isolation_process_inventory(driver)
+        required = potential_authority_volume_names(processes, containers, os.getpid()) if self._storage_development is not None else None
+        volumes = self.isolation_volumes(containers, required_names=required)
         require(self.isolation_container_ids() == identifiers, "isolation-container-inventory-changed")
         boot_id = metadata_text(Path("/proc/sys/kernel/random/boot_id"), 128).strip()
         boot_lines = [line.split() for line in metadata_text(Path("/proc/stat"), 2 * 1024 * 1024).splitlines() if line.startswith("btime ")]
         require(len(boot_lines) == 1 and len(boot_lines[0]) == 2 and boot_lines[0][1].isdecimal(), "isolation-boot-metadata-unverified")
-        return {"complete": True, "proofMode": "trusted-docker-runc-private-pid", "dockerApiVersion": ISOLATION_API_VERSION,
+        snapshot = {"complete": True, "proofMode": "trusted-docker-runc-private-pid", "dockerApiVersion": ISOLATION_API_VERSION,
                 "cgroupDriver": driver, "bootId": boot_id, "bootTimeSeconds": int(boot_lines[0][1]),
                 "clockTicks": os.sysconf("SC_CLK_TCK"), "processes": processes, "containers": containers, "volumes": volumes}
+        if self._storage_development is not None:
+            snapshot["storageProof"] = self._storage_proof
+        return snapshot
 
     def isolation_peer_task(self, pid, driver):
         require(type(pid) is int and pid > 0 and driver in {"systemd", "cgroupfs"}, "isolated-peer-identity-unverified")
@@ -919,24 +1421,37 @@ class Host:
         return records
 
     def containers(self):
-        ids = self.run(["docker", "ps", "--all", "--quiet", "--no-trunc"]).splitlines()
+        ids = metadata_operation(self.run, ["docker", "ps", "--all", "--quiet", "--no-trunc"], DockerMetadataOperation.LEGACY_LIST).splitlines()
         result = []
         for identifier in ids:
             require(re.fullmatch(r"[a-f0-9]{64}", identifier), "docker-container-id-invalid")
-            result.append(json.loads(self.run(["docker", "inspect", "--format", CONTAINER_FORMAT, identifier])))
+            value = metadata_operation(self.run, ["docker", "inspect", "--format", CONTAINER_FORMAT, identifier], DockerMetadataOperation.LEGACY_INSPECT)
+            try:
+                record = json.loads(value)
+                require(type(record) is dict, "docker-legacy-container-inspect-metadata-unverified")
+                result.append(record)
+            except (ValueError, TypeError):
+                raise RecoveryBlocked("docker-legacy-container-inspect-metadata-unverified") from None
         return result
 
     def image_manifest(self, proof):
         # Uses Docker's existing private registry login, never reads its credential file.
         # Image cache and a network-isolated, read-only inspection container only.
+        self._verified_storage_image = None
         self.run(["docker", "pull", proof["image"]])
         identity = json.loads(self.run(["docker", "image", "inspect", "--format", IMAGE_FORMAT, proof["image"]]))
         require(proof["image"] in (identity.get("digests") or [])
                 and identity.get("revision") == proof["sourceSha"]
                 and str(identity.get("source", "")).lower() == "https://github.com/" + REPOSITORY.lower(),
                 "immutable-image-provenance-mismatch")
-        return json.loads(self.run(["docker", "run", "--rm", "--network", "none", "--read-only", "--entrypoint", "php",
+        result = json.loads(self.run(["docker", "run", "--rm", "--network", "none", "--read-only", "--entrypoint", "php",
                                     proof["image"], "-r", IMAGE_MANIFEST_PHP]))
+        if result == proof["migrations"]:
+            # Only this source-verified immutable image may supply the metadata runtime.
+            image_id = identity.get("id")
+            if type(image_id) is str and DOCKER_IMAGE_ID.fullmatch(image_id) and identity.get("volumesEmpty") is True:
+                self._verified_storage_image = image_id
+        return result
 
     def history(self, container, history):
         require(history in SCHEMA_PREFIX and re.fullmatch(r"[a-f0-9]{64}", container), "database-query-identity-invalid")
@@ -971,14 +1486,18 @@ def recover(proof, host, *, app_dir, project, prefix, current_pid, current_uid):
     container_records = host.containers()
     databases = check_containers(container_records)
     if isolated_namespace:
+        require(host.image_manifest(proof) == proof["migrations"], "image-migration-manifest-mismatch")
+        host.prepare_storage_inspector(container_records)
         validator = isolation_validator()
-        policy = isolation_policy(container_records, current_pid, current_uid)
+        policy = isolation_policy(container_records, current_pid, current_uid, host.reviewed_storage_path)
         before = host.isolation_snapshot()
         result = validator(policy, before, before)
         require_isolation(result, before, policy)
+        storage_before = relevant_storage_proof(before, host._storage_development)
         check_processes(host.processes(), current_pid, current_uid, group_gid=group_gid, isolated_peers=isolated_peer_tasks(before),
                         peer_reader=lambda pid: host.isolation_peer_task(pid, before["cgroupDriver"]))
-    require(host.image_manifest(proof) == proof["migrations"], "image-migration-manifest-mismatch")
+    else:
+        require(host.image_manifest(proof) == proof["migrations"], "image-migration-manifest-mismatch")
     for history, container in databases.items():
         executed = host.history(container, history)
         require(set(executed).issubset(proof["migrations"][history]), "executed-migration-unavailable-in-forward-image")
@@ -986,6 +1505,7 @@ def recover(proof, host, *, app_dir, project, prefix, current_pid, current_uid):
         after = host.isolation_snapshot()
         result = validator(policy, before, after)
         require_isolation(result, after, policy)
+        require(storage_before == relevant_storage_proof(after, host._storage_development), "storage-physical-identity-changed")
         check_processes(host.processes(), current_pid, current_uid, group_gid=group_gid, isolated_peers=isolated_peer_tasks(after),
                         peer_reader=lambda pid: host.isolation_peer_task(pid, after["cgroupDriver"]))
     else:
