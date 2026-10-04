@@ -9,6 +9,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import runpy
 import shutil
 import subprocess
@@ -2138,16 +2139,114 @@ class StoragePHPParserTests(unittest.TestCase):
                     self.assertEqual({"ok": False, "code": "process-proof"}, self.php(expression, text))
 
 
+NATIVE_ACTOR_FAILURE_FORMAT = ('{"Status":{{json .State.Status}},"Running":{{json .State.Running}},'
+                               '"ExitCode":{{json .State.ExitCode}},"Error":{{json .State.Error}}}')
+
+
+def native_docker_failure(arguments, result, actor_state=None):
+    """Fixed enums and numeric metadata only; never publish child output or argv."""
+    phases = {("create",): "create", ("start",): "start", ("ps",): "list", ("rm",): "remove",
+              ("info",): "info", ("version",): "version", ("import",): "image-import",
+              ("container", "inspect"): "container-inspect", ("image", "inspect"): "image-inspect",
+              ("image", "rm"): "image-remove", ("volume", "inspect"): "volume-inspect",
+              ("volume", "create"): "volume-create", ("volume", "rm"): "volume-remove"}
+    key = tuple(arguments[:2]) if arguments and arguments[0] in {"container", "image", "volume"} else tuple(arguments[:1])
+    phase = phases.get(key, "unknown-operation")
+    text = b"\n".join(value[:16384] for value in (result.stdout, result.stderr) if type(value) is bytes).decode("utf-8", errors="replace").lower()
+    state = actor_state if type(actor_state) is dict else {}
+    if type(state.get("Error")) is str:
+        text += "\n" + state["Error"][:16384].lower()
+    category = "unclassified"
+    signatures = (("missing-library", ("error while loading shared libraries", "cannot open shared object file")),
+                  ("exec-format", ("exec format error",)),
+                  ("missing-executable", ("executable file not found", "no such file or directory")),
+                  ("permission", ("permission denied", "operation not permitted")),
+                  ("mount", ("error mounting", "failed to mount", "mount_setattr", "read-only file system", "mount callback failed")),
+                  ("runtime", ("oci runtime", "runc create failed", "failed to create shim")))
+    for candidate, fragments in signatures:
+        if any(fragment in text for fragment in fragments):
+            category = candidate
+            break
+    status = state.get("Status")
+    diagnostic = {"phase": phase, "category": category,
+                  "dockerExitCode": result.returncode if type(result.returncode) is int and -255 <= result.returncode <= 255 else None,
+                  "actorStatus": status if type(status) is str and status in {"created", "running", "exited", "dead"} else "unavailable",
+                  "actorExitCode": state.get("ExitCode") if type(state.get("ExitCode")) is int and 0 <= state["ExitCode"] <= 255 else None,
+                  "actorRunning": state.get("Running") if type(state.get("Running")) is bool else None,
+                  "stdoutPresent": bool(result.stdout), "stderrPresent": bool(result.stderr)}
+    return "Native Docker fixture failed " + json.dumps(diagnostic, sort_keys=True)
+
+
+class NativeDockerDiagnosticTests(unittest.TestCase):
+    def test_fixed_classification_never_exports_commands_env_paths_or_child_text(self):
+        samples = ((b"OCI runtime create failed: error mounting /PRIVATE_SOURCE", "mount"),
+                   (b"/PRIVATE_ELF: error while loading shared libraries: PRIVATE_LIBRARY: cannot open shared object file", "missing-library"),
+                   (b"exec /PRIVATE_EXECUTABLE: no such file or directory", "missing-executable"),
+                   (b"PRIVATE_COMMAND: permission denied", "permission"),
+                   (b"PRIVATE_ELF: exec format error", "exec-format"),
+                   (b"OCI runtime create failed: PRIVATE_OPTIONS", "runtime"),
+                   (b"PRIVATE_UNKNOWN_OPTIONS", "unclassified"))
+        for stderr, category in samples:
+            result = subprocess.CompletedProcess(["PRIVATE_ARGV"], 1, stdout=b"", stderr=stderr)
+            with self.subTest(category=category):
+                message = native_docker_failure(["start", "--attach", "PRIVATE_ID"], result,
+                                                {"Status": "created", "Running": False, "ExitCode": 0, "Error": ""})
+                self.assertNotIn("PRIVATE", message)
+                diagnostic = json.loads(message.removeprefix("Native Docker fixture failed "))
+                self.assertEqual(category, diagnostic["category"])
+                self.assertEqual("start", diagnostic["phase"])
+                self.assertEqual("created", diagnostic["actorStatus"])
+                self.assertEqual(0, diagnostic["actorExitCode"])
+
+    def test_owned_actor_state_error_is_classified_without_export_and_malformed_fields_are_bounded(self):
+        result = subprocess.CompletedProcess([], 1, stdout=b"", stderr=b"")
+        message = native_docker_failure(["start"], result, {"Status": "created", "Running": False, "ExitCode": 0,
+                                                           "Error": "OCI runtime: error mounting /PRIVATE_ROOT"})
+        self.assertEqual("mount", json.loads(message.removeprefix("Native Docker fixture failed "))["category"])
+        self.assertNotIn("PRIVATE", message)
+        for state in ({"Status": ["PRIVATE_STATE"], "ExitCode": True, "Running": 1, "Error": []}, None):
+            diagnostic = json.loads(native_docker_failure(["PRIVATE_OPERATION"], result, state).removeprefix("Native Docker fixture failed "))
+            self.assertEqual("unknown-operation", diagnostic["phase"])
+            self.assertEqual("unavailable", diagnostic["actorStatus"])
+            self.assertIsNone(diagnostic["actorExitCode"])
+            self.assertIsNone(diagnostic["actorRunning"])
+
+
 @unittest.skipUnless(os.environ.get("FIREGUARD_TEST_DOCKER_PROJECTIONS") == "1" and os.environ.get("CI") == "true",
                      "Native Docker projection fixture runs only in explicitly enabled CI")
 class NativeDockerProjectionTests(unittest.TestCase):
     def test_offline_stopped_owned_fixture_exercises_real_typed_go_projections(self):
         nonce = uuid.uuid4().hex
         name = "fireguard-recovery-proof-" + nonce
+        owned_actor_ids = set()
         def docker(arguments, *, data=None):
             result = subprocess.run(["/usr/bin/env", "DOCKER_API_VERSION=1.45", "docker", "--host", "unix:///var/run/docker.sock", *arguments],
                                     input=data, capture_output=True, timeout=60, check=False)
-            self.assertEqual(0, result.returncode, "Native public projection command failed")
+            if result.returncode != 0:
+                state = None
+                if arguments[:2] == ["start", "--attach"] and len(arguments) == 3 and arguments[-1] in owned_actor_ids:
+                    # This fixture-owned actor was attested by the helper before start.
+                    # Read State.Error privately, then publish only its fixed category.
+                    try:
+                        inspection = subprocess.run(["/usr/bin/env", "DOCKER_API_VERSION=1.45", "docker", "--host", "unix:///var/run/docker.sock",
+                                                     "container", "inspect", "--format", NATIVE_ACTOR_FAILURE_FORMAT, arguments[-1]],
+                                                    capture_output=True, timeout=30, check=False)
+                    except (OSError, subprocess.TimeoutExpired):
+                        inspection = None  # Diagnostic-only failure never changes the original refusal.
+                    if inspection is not None and inspection.returncode == 0 and len(inspection.stdout) <= 16384:
+                        try:
+                            state = json.loads(inspection.stdout)
+                        except (ValueError, TypeError):
+                            pass
+                self.fail(native_docker_failure(arguments, result, state))
+            if arguments[0] == "create" and "--name" in arguments and "--label" in arguments:
+                actor_name = arguments[arguments.index("--name") + 1]
+                actor_label = arguments[arguments.index("--label") + 1]
+                owner = actor_name.removeprefix("fireguard-reviewed-storage-")
+                identifier = result.stdout.decode("utf-8").strip()
+                if re.fullmatch(r"[a-f0-9]{32}", owner) and actor_label == "fireguard.reviewed-storage-owner=" + owner:
+                    self.assertRegex(identifier, r"\A[a-f0-9]{64}\Z")
+                    owned_actor_ids.add(identifier)
             return result.stdout.decode("utf-8").strip()
         archive = io.BytesIO()
         # Public CI runtime only: no application tree, image network pull or configuration files.
