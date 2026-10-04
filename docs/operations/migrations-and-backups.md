@@ -156,6 +156,13 @@ commands or option values. Container startup timestamps and kernel creation tick
 are retained as independent stable identities, without assuming their wall-clock
 ordering. Foreign namespace links are not required or read to obtain this proof.
 
+An isolation refusal identifies its validation section and failed predicate using
+closed diagnostic categories. It never reports the rejected value, container or
+process identity, path, environment or command. An invalid snapshot can originate
+in metadata outside the authority cohort; the aggregate peer counts alone do not
+identify that failure. These diagnostics preserve the validation rules and cannot
+authorize an exception or a retry that removes a replacement lock.
+
 Physical volume checks use an explicit metadata inspector for this reviewed
 shared-namespace incident. The deployment user first verifies the canonical,
 protected Docker root and its numeric identity. A source-verified immutable image

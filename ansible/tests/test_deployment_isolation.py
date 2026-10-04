@@ -554,11 +554,140 @@ class DeploymentIsolationTest(unittest.TestCase):
         private = "secret-option-value-must-not-leave-proof"
         self.before["volumes"][0]["OptionsEmpty"] = private
         result = self.validate()
-        self.assertEqual({"allowed": False, "code": CODE.INVALID_SNAPSHOT}, asdict(result))
+        self.assertEqual({"allowed": False, "code": CODE.INVALID_SNAPSHOT,
+                          "predicate": ISOLATION.IsolationPredicate.VOLUME_OPTIONS,
+                          "section": ISOLATION.IsolationSection.VOLUME,
+                          "phase": ISOLATION.IsolationPhase.BEFORE, "authority_peer": None}, asdict(result))
         serialized = json.dumps(asdict(result))
         self.assertNotIn(private, serialized)
         self.assertNotIn("/srv", serialized)
         self.assertNotIn(CONTAINER, serialized)
+
+    def test_duplicate_groups_remain_denied_and_report_only_known_task_authority(self):
+        for uid, gids, groups, authority in ((1000, [1000] * 4, [1000, 1000], True),
+                                            (2000, [2000] * 4, [2000, 2000], False),
+                                            (2000, [2000] * 4, [1000, 1000], True)):
+            for phase in ("before", "after"):
+                with self.subTest(uid=uid, phase=phase):
+                    _, before = proof()
+                    after = copy.deepcopy(before)
+                    peer = (before if phase == "before" else after)["processes"][-1]["tasks"][-1]
+                    peer.update(uids=[uid] * 4, gids=gids, groups=groups)
+                    result = ISOLATION.validate_isolation(self.policy, before, after)
+                    self.assertEqual(CODE.INVALID_SNAPSHOT, result.code)
+                    self.assertEqual({"predicate": "task-groups-duplicate", "section": "task",
+                                      "phase": phase, "authorityPeer": authority}, result.diagnostic())
+                    self.assertEqual(groups, peer["groups"])
+
+    def test_malformed_shape_predicates_are_exact_and_phase_specific(self):
+        cases = (
+            (("dockerApiVersion",), "1.44", "snapshot", "snapshot-docker-api"),
+            (("bootId",), "private-canary", "snapshot", "snapshot-boot-id"),
+            (("bootTimeSeconds",), 0, "snapshot", "snapshot-boot-time"),
+            (("clockTicks",), False, "snapshot", "snapshot-clock-ticks"),
+            (("processes", 3, "pid"), 0, "process", "process-pid"),
+            (("processes", 3, "ppid"), -1, "process", "process-ppid"),
+            (("processes", 3, "startTicks"), "private-canary", "process", "process-start-ticks"),
+            (("processes", 3, "tasks", 1, "tid"), 0, "task", "task-tid"),
+            (("processes", 3, "tasks", 1, "tgid"), 999, "task", "task-tgid"),
+            (("processes", 3, "tasks", 1, "ppid"), 999, "task", "task-ppid"),
+            (("processes", 3, "tasks", 1, "startTicks"), -1, "task", "task-start-ticks"),
+            (("processes", 3, "tasks", 1, "startTicks"), 1, "task", "task-start-order"),
+            (("processes", 3, "tasks", 1, "uids"), [1000], "task", "task-uids"),
+            (("processes", 3, "tasks", 1, "gids"), ["private-canary"] * 4, "task", "task-gids"),
+            (("processes", 3, "tasks", 1, "groups"), [1 << 32], "task", "task-groups"),
+            (("processes", 3, "tasks", 1, "capBnd"), 1 << 64, "task", "task-capabilities"),
+            (("processes", 3, "tasks", 1, "noNewPrivs"), True, "task", "task-no-new-privs"),
+            (("processes", 3, "tasks", 1, "nsPid"), "private-canary", "task", "task-nspid-shape"),
+            (("processes", 3, "tasks", 1, "nsPid"), [999, 8], "task", "task-nspid-first"),
+            (("processes", 3, "tasks", 1, "nsPid"), [111, 0], "task", "task-nspid-positive"),
+            (("processes", 3, "tasks", 1, "nsTgid"), [110, False], "task", "task-nstgid-positive"),
+            (("processes", 3, "tasks", 1, "nsTgid"), [], "task", "task-nstgid-first"),
+            (("processes", 3, "tasks", 1, "containerId"), "private-canary", "task", "task-container-id"),
+            (("processes", 3, "tasks", 1, "cgroupPath"), "private-canary", "task", "task-cgroup-path"),
+            (("containers", 0, "Id"), "private-canary", "container", "container-id"),
+            (("containers", 0, "Image"), "private-canary", "container", "container-image"),
+            (("containers", 0, "State", "Running"), "private-canary", "container", "container-state-shape"),
+            (("containers", 0, "State", "Pid"), False, "container", "container-root-pid"),
+            (("containers", 0, "State", "StartedAt"), "2026-02-30T00:00:00Z", "container", "container-started-at"),
+            (("volumes", 0, "Mountpoint"), "/private-canary/../canary", "volume", "volume-mountpoint"),
+            (("volumes", 0, "Driver"), ["private-canary"], "volume", "volume-driver-scope"),
+            (("volumes", 0, "OptionsEmpty"), "private-canary", "volume", "volume-options-shape"),
+        )
+        for path, value, section, predicate in cases:
+            for phase in ("before", "after"):
+                with self.subTest(path=path, phase=phase):
+                    _, before = proof()
+                    after = copy.deepcopy(before)
+                    target = before if phase == "before" else after
+                    for component in path[:-1]:
+                        target = target[component]
+                    target[path[-1]] = value
+                    result = ISOLATION.validate_isolation(self.policy, before, after)
+                    self.assertEqual(CODE.INVALID_SNAPSHOT, result.code)
+                    self.assertEqual(predicate, result.diagnostic()["predicate"])
+                    self.assertEqual(section, result.diagnostic()["section"])
+                    self.assertEqual(phase, result.diagnostic()["phase"])
+                    self.assertNotIn("private-canary", json.dumps(asdict(result)))
+
+    def test_incomplete_identity_policy_and_proof_denials_keep_their_original_codes(self):
+        cases = (
+            (("processes", 3, "tasksComplete"), False, CODE.INCOMPLETE_INVENTORY, "process-tasks-complete", "before"),
+            (("processes", 3, "tasks"), [], CODE.INCOMPLETE_INVENTORY, "process-tasks", "before"),
+            (("processes", 3, "tasks", 0, "startTicks"), 10006, CODE.INVALID_SNAPSHOT, "process-leader-start", "before"),
+            (("containers", 0, "State", "Pid"), 1, CODE.AMBIGUOUS_OWNERSHIP, "container-root-pid", "before"),
+            (("containers", 0, "RootFS", "Type"), "private-canary", CODE.UNSAFE_CONTAINER, "container-rootfs", "before"),
+            (("containers", 0, "HostConfig", "Privileged"), True, CODE.UNSAFE_CONTAINER, "container-privileged", "prove-before"),
+            (("processes", 3, "tasks", 1, "noNewPrivs"), 0, CODE.UNSAFE_PROCESS, "process-nnp-capabilities", "prove-before"),
+            (("containers", 0, "Mounts", 0, "Type"), "bind", CODE.UNSAFE_MOUNT, "mount-type-driver", "prove-before"),
+            (("volumes", 0, "OptionsEmpty"), False, CODE.UNSAFE_VOLUME, "mount-volume-security", "prove-before"),
+        )
+        for path, value, code, predicate, phase in cases:
+            with self.subTest(path=path):
+                _, before = proof()
+                target = before
+                for component in path[:-1]:
+                    target = target[component]
+                target[path[-1]] = value
+                result = ISOLATION.validate_isolation(self.policy, before, copy.deepcopy(before))
+                self.assertEqual(code, result.code)
+                self.assertEqual(predicate, result.diagnostic()["predicate"])
+                self.assertEqual(phase, result.diagnostic()["phase"])
+        policy = copy.deepcopy(self.policy)
+        policy["authorityGids"] = [1000, 1000]
+        result = ISOLATION.validate_isolation(policy, self.before, self.before)
+        self.assertEqual({"predicate": "policy-authority-gids", "section": "policy",
+                          "phase": "policy", "authorityPeer": None}, result.diagnostic())
+        before = copy.deepcopy(self.before)
+        before["processes"][-1]["tasks"][-1].update(tid=100, nsPid=[100, 8])
+        result = ISOLATION.validate_isolation(self.policy, before, before)
+        self.assertEqual(CODE.INVALID_SNAPSHOT, result.code)
+        self.assertEqual("process-thread-duplicate", result.diagnostic()["predicate"])
+        after = copy.deepcopy(self.before)
+        after["bootId"] = "98765432-1234-1234-1234-123456789abc"
+        result = ISOLATION.validate_isolation(self.policy, self.before, after)
+        self.assertEqual(CODE.IDENTITY_CHANGED, result.code)
+        self.assertEqual("cohort-stable", result.diagnostic()["predicate"])
+        self.assertEqual("compare", result.diagnostic()["phase"])
+
+    def test_missing_fields_and_unvalidated_credentials_never_guess_authority_or_echo_keys(self):
+        before = copy.deepcopy(self.before)
+        peer = before["processes"][-1]["tasks"][-1]
+        peer["gids"] = ["secret-canary"] * 4
+        result = ISOLATION.validate_isolation(self.policy, before, before)
+        self.assertIsNone(result.authority_peer)
+        del peer["uids"]
+        result = ISOLATION.validate_isolation(self.policy, before, before)
+        self.assertEqual({"predicate": "missing-field", "section": "task",
+                          "phase": "before", "authorityPeer": None}, result.diagnostic())
+        self.assertNotIn("secret-canary", json.dumps(asdict(result)))
+        self.assertEqual(ISOLATION.IsolationResult(True, CODE.ALLOWED), self.validate())
+
+    def test_public_projection_rejects_untrusted_enum_and_boolean_values(self):
+        class Untrusted:
+            value = "secret-canary"
+        result = ISOLATION.IsolationResult(False, CODE.INVALID_SNAPSHOT, Untrusted(), Untrusted(), Untrusted(), "secret-canary")
+        self.assertEqual({"predicate": "none", "section": "none", "phase": "none", "authorityPeer": None}, result.diagnostic())
 
     def test_validator_neither_reads_collects_nor_mutates_evidence(self):
         policy = copy.deepcopy(self.policy)
