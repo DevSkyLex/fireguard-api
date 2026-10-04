@@ -703,7 +703,13 @@ jobs:
 
       - name: Verify reviewed development lock recovery contracts
         working-directory: ansible/tests
-        run: python3 -B -m unittest -v test_deployment_recovery
+        run: python3 -B -m unittest -v test_deployment_recovery test_deployment_isolation
+
+      - name: Verify isolation projections against the installed Docker engine
+        working-directory: ansible/tests
+        env:
+          FIREGUARD_TEST_DOCKER_PROJECTIONS: '1'
+        run: python3 -B -m unittest -v test_deployment_recovery.NativeDockerProjectionTests
 
       - name: Validate production and development Compose files
         run: |

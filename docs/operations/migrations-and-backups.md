@@ -101,8 +101,33 @@ ancestor chain, and no active peer process with access through any UID/GID or
 supplementary group. The protected parent directory owns the mutex namespace;
 group access inside the empty historical directory does not allow another UID to
 acquire or replace it. These proofs are repeated before removal. An altered
-identity, writable ancestor, active peer or ambiguous process metadata still
+identity, unreviewed ancestor, active host peer or ambiguous process metadata still
 blocks recovery; this is not a general exception for group-writable locks.
+
+Diagnostic run `37163724126` also identified the fixed six-level installation
+chain: `/srv`, `/srv/apps` and `/srv/apps/fireguard` belong to UID/GID `1000`,
+with group writes on the last directory. The additional incident-specific path
+requires the exact observed ownership, modes, device/inodes and nanosecond times
+for all six ancestors as well as the unchanged historical lock. It neither
+changes these permissions nor grants general trust to UID `1000`.
+
+An authority peer is accepted only with a complete, repeated proof that it is
+confined by the existing trusted rootful Docker/runc/kernel boundary. Attribute
+each task independently through the controlled Docker cgroup and private PID
+namespace; check all threads' identities, available capabilities and
+`NoNewPrivs`. Validate the exact reviewed production application volumes against
+their declarations and effective mounts, requiring the local driver, local scope,
+no mount options and disjoint physical storage. A Web process with no mounts can
+also qualify. Host peers, unknown volumes, missing evidence, changed relevant
+cohorts or privileged processes refuse before release. Unrelated process churn
+does not replace or invalidate a proven authority cohort.
+
+The collector uses successful official Docker projections at an effective Engine
+API version of at least `1.45`, including any explicit API override. It projects
+only required metadata and option-empty flags; it never exports environment,
+commands or option values. Container startup timestamps and kernel creation ticks
+are retained as independent stable identities, without assuming their wall-clock
+ordering. Foreign namespace links are not required or read to obtain this proof.
 
 After repeating those checks, recovery replaces the reviewed empty lock and
 immediately acquires it once. A competing owner is never removed or retried.

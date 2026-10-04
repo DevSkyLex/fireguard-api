@@ -227,6 +227,12 @@
             dest: "{{ fireguard_recovery_staging.path }}/helper.py"
             mode: "0600"
 
+        - name: Stage the source-verified isolation validator beside the helper
+          ansible.builtin.copy:
+            src: ../bin/fireguard-deployment-isolation.py
+            dest: "{{ fireguard_recovery_staging.path }}/fireguard-deployment-isolation.py"
+            mode: "0600"
+
         - name: Stage public recovery provenance without any deployment credentials
           ansible.builtin.copy:
             src: ../.deploy/lock-recovery-proof.json
