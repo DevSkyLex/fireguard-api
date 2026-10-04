@@ -102,6 +102,9 @@ canonical sources for app/assistant, both databases and Redis. These retain
 ordinary repeated proofs. This minimum contract does not replace the global
 checks covering every present container and its storage, including Mercure and
 Mailpit. The helper neither creates nor starts a missing writer during inspection.
+A retained-storage refusal reports the fixed service, bounded mount counts and
+closed mismatch categories such as source, destination or access mode. Actual
+mount values and configuration remain private; the diagnostic grants no exception.
 
 An identity refusal includes only bounded filesystem metadata: directory/symlink
 flags, numeric owner and process IDs, permission bits, device/inode and timestamps.

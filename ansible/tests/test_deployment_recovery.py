@@ -1765,8 +1765,54 @@ class ReviewedAbsentWorkerTests(unittest.TestCase):
                     with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "retained-storage-contract-unverified") as caught:
                         recover(host, current_uid=1001)
                     self.assertNotIn("PRIVATE", str(caught.exception))
+                    diagnostic = json.loads(str(caught.exception).split(" ", 1)[1])
+                    self.assertEqual("app", diagnostic["service"])
+                    self.assertEqual(3, diagnostic["expectedMountCount"])
+                    self.assertEqual(len(host.container_records[0]["mounts"]), diagnostic["actualMountCount"])
+                    self.assertFalse(diagnostic["countsTruncated"])
+                    self.assertTrue(diagnostic["mismatchFields"])
+                    self.assertTrue(set(diagnostic["mismatchFields"]).issubset(
+                        {"shape", "type", "name", "source", "destination", "rw", "missing", "extra"}))
                     self.assertFalse(host.released)
                     self.assertFalse(host.reacquired)
+
+    def test_retained_storage_diagnostics_report_only_fixed_service_and_field_categories_for_private_or_malformed_values(self):
+        fields = ("name", "source", "type", "destination", "rw")
+        for service in RECOVERY.REVIEWED_RETAINED_STORAGE:
+            for field in fields:
+                for malformed in (False, True):
+                    records = retained_compose_records()
+                    item = next(item for item in records if item["service"] == service)
+                    original = item["mounts"][0][field]
+                    value = {"PRIVATE_KEY": "PRIVATE_VALUE"} if malformed else not original if field == "rw" else "PRIVATE_VALUE"
+                    item["mounts"][0][field] = value
+                    item["mounts"][0]["PRIVATE_EXTRA"] = "PRIVATE_VALUE"
+                    with self.subTest(service=service, field=field, malformed=malformed), \
+                         self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^retained-storage-contract-unverified ") as caught:
+                        RECOVERY.retained_storage_identity(records)
+                    public = str(caught.exception)
+                    self.assertNotIn("PRIVATE", public)
+                    self.assertNotIn(RECOVERY.STORAGE_ROOT, public)
+                    diagnostic = json.loads(public.split(" ", 1)[1])
+                    self.assertEqual({"service", "expectedMountCount", "actualMountCount", "countsTruncated", "mismatchFields"}, set(diagnostic))
+                    self.assertEqual(service, diagnostic["service"])
+                    self.assertEqual(len(item["mounts"]), diagnostic["expectedMountCount"])
+                    self.assertEqual(len(item["mounts"]), diagnostic["actualMountCount"])
+                    self.assertIn(field, diagnostic["mismatchFields"])
+                    self.assertEqual(malformed, "shape" in diagnostic["mismatchFields"])
+                    self.assertFalse(diagnostic["countsTruncated"])
+
+    def test_retained_storage_diagnostic_caps_duplicate_counts_and_never_exports_free_values(self):
+        records = retained_compose_records()
+        item = records[0]
+        item["mounts"] = [item["mounts"][0]] * 32769
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "retained-storage-contract-unverified ") as caught:
+            RECOVERY.retained_storage_identity(records)
+        diagnostic = json.loads(str(caught.exception).split(" ", 1)[1])
+        self.assertEqual(32768, diagnostic["actualMountCount"])
+        self.assertEqual(3, diagnostic["expectedMountCount"])
+        self.assertTrue(diagnostic["countsTruncated"])
+        self.assertEqual(["name", "missing", "extra"], diagnostic["mismatchFields"])
 
     def test_additional_dependency_storage_remains_inside_global_foreign_writer_guard(self):
         records = retained_compose_records()

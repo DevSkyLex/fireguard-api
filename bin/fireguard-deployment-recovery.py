@@ -91,6 +91,14 @@ class WriterStateDiagnostic(TypedDict):
     countsTruncated: bool
 
 
+class RetainedStorageDiagnostic(TypedDict):
+    service: Literal["app", "assistant_worker", "auth_database", "main_database", "redis"]
+    expectedMountCount: int
+    actualMountCount: int
+    countsTruncated: bool
+    mismatchFields: list[Literal["shape", "type", "name", "source", "destination", "rw", "missing", "extra"]]
+
+
 class NamespaceNodeFields(TypedDict, total=False):
     uid: int
     gid: int
@@ -399,6 +407,39 @@ def writer_state_diagnostics(own) -> list[WriterStateDiagnostic]:
     return result
 
 
+def retained_storage_diagnostic(service, mounts, expected) -> RetainedStorageDiagnostic:
+    keys = ("name", "source", "type", "destination", "rw")
+    wanted = {mount[0]: mount for mount in expected}
+    counts = dict.fromkeys(wanted, 0)
+    mismatch = set()
+    for mount in mounts:
+        for key in keys:
+            if type(mount.get(key)) is not (bool if key == "rw" else str):
+                mismatch.update(("shape", key))
+        name = mount.get("name")
+        if type(name) is not str or name not in wanted:
+            mismatch.update(("name", "extra"))
+            continue
+        counts[name] += 1
+        for key, value in zip(keys, wanted[name]):
+            if mount.get(key) != value:
+                mismatch.add(key)
+    if any(count == 0 for count in counts.values()):
+        mismatch.update(("name", "missing"))
+    if any(count > 1 for count in counts.values()):
+        mismatch.update(("name", "extra"))
+    return {"service": service, "expectedMountCount": min(len(expected), 32768), "actualMountCount": min(len(mounts), 32768),
+            "countsTruncated": len(expected) > 32768 or len(mounts) > 32768,
+            "mismatchFields": [field for field in ("shape", "type", "name", "source", "destination", "rw", "missing", "extra")
+                               if field in mismatch]}
+
+
+def require_retained_storage(condition, service, mounts, expected):
+    if not condition:
+        raise RecoveryBlocked("retained-storage-contract-unverified "
+                              + json.dumps(retained_storage_diagnostic(service, mounts, expected), sort_keys=True))
+
+
 def retained_storage_identity(own):
     """The reviewed Compose contract, never an allowlist inferred from runtime mounts."""
     result = {}
@@ -408,13 +449,13 @@ def retained_storage_identity(own):
         item = matches[0]
         require(type(item.get("id")) is str and DOCKER_ID.fullmatch(item["id"])
                 and type(item.get("status")) is str and item["status"] in WRITER_STATUSES[:-1], "retained-storage-identity-unverified")
-        require(all(type(mount.get(key)) is str for mount in item["mounts"] for key in ("name", "source", "type", "destination"))
-                and all(type(mount.get("rw")) is bool for mount in item["mounts"]), "retained-storage-contract-unverified")
-        mounted = tuple(sorted((mount["name"], mount["source"], mount["type"], mount["destination"], mount["rw"])
-                               for mount in item["mounts"]))
         expected = tuple(sorted((PREFIX + "_" + suffix, storage_volume_path(PREFIX + "_" + suffix), "volume", destination, rw)
                                 for suffix, destination, rw in contract))
-        require(mounted == expected, "retained-storage-contract-unverified")
+        require_retained_storage(all(type(mount.get(key)) is str for mount in item["mounts"] for key in ("name", "source", "type", "destination"))
+                                 and all(type(mount.get("rw")) is bool for mount in item["mounts"]), service, item["mounts"], expected)
+        mounted = tuple(sorted((mount["name"], mount["source"], mount["type"], mount["destination"], mount["rw"])
+                               for mount in item["mounts"]))
+        require_retained_storage(mounted == expected, service, item["mounts"], expected)
         result[service] = (item["id"], item.get("status"), item["running"], item["restarting"], mounted)
     return result
 
