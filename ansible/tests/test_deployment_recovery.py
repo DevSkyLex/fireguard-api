@@ -645,6 +645,60 @@ class RecoveryTests(unittest.TestCase):
                 recover(host)
             self.assertFalse(host.released)
 
+    def test_stopped_writer_refusal_reports_only_five_fixed_service_state_counts_in_both_phases(self):
+        def absent(host):
+            host.container_records[:] = [item for item in host.container_records if item["service"] != "app"]
+        def duplicate(host):
+            item = copy.deepcopy(next(item for item in host.container_records if item["service"] == "app"))
+            item.update(id="PRIVATE_ID", status="created")
+            host.container_records.append(item)
+        def state(value):
+            return lambda host: next(item for item in host.container_records if item["service"] == "app").update(status=value)
+        def oneoff(host):
+            next(item for item in host.container_records if item["service"] == "app").update(oneoff="True")
+        cases = ((absent, 0, {}), (duplicate, 2, {"exited": 1, "created": 1}), (state("created"), 1, {"created": 1}),
+                 (state("dead"), 1, {"dead": 1}), (state("PRIVATE_STATE"), 1, {"unknown": 1}),
+                 (state({"PRIVATE_KEY": "PRIVATE_VALUE"}), 1, {"unknown": 1}), (oneoff, 0, {}))
+        for phase in (1, 2):
+            for mutation, match_count, expected_counts in cases:
+                host = FakeHost()
+                foreign = container("app", "PRIVATE_FOREIGN_ID")
+                foreign.update(project="PRIVATE_PROJECT", status="PRIVATE_STATE")
+                host.container_records.append(foreign)
+                host.container_records.append(container("PRIVATE_SERVICE", "PRIVATE_ID"))
+                if phase == 1:
+                    mutation(host)
+                else:
+                    host.before_final_containers = mutation
+                with self.subTest(phase=phase, match_count=match_count, counts=expected_counts), \
+                     self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^stopped-writer-state-unverified ") as caught:
+                    recover(host)
+                public = str(caught.exception)
+                self.assertNotIn("PRIVATE", public)
+                diagnostics = json.loads(public.split(" ", 1)[1])
+                self.assertEqual({"writers"}, set(diagnostics))
+                self.assertEqual(sorted(RECOVERY.WRITERS), [item["service"] for item in diagnostics["writers"]])
+                for item in diagnostics["writers"]:
+                    self.assertEqual({"service", "matchCount", "statusCounts", "countsTruncated"}, set(item))
+                    self.assertEqual(set(RECOVERY.WRITER_STATUSES), set(item["statusCounts"]))
+                    self.assertFalse(item["countsTruncated"])
+                    wanted = expected_counts if item["service"] == "app" else {"exited": 1}
+                    self.assertEqual(wanted, {status: count for status, count in item["statusCounts"].items() if count})
+                    self.assertEqual(match_count if item["service"] == "app" else 1, item["matchCount"])
+                self.assertEqual(phase, host.container_reads)
+                self.assertFalse(host.released)
+                self.assertFalse(host.reacquired)
+
+    def test_writer_diagnostics_bound_counts_and_map_unknown_states_without_free_values(self):
+        item = container("app", "PRIVATE_ID")
+        item["status"] = "PRIVATE_STATE"
+        diagnostics = RECOVERY.writer_state_diagnostics([item] * 32769)
+        app = next(item for item in diagnostics if item["service"] == "app")
+        self.assertEqual(32768, app["matchCount"])
+        self.assertEqual(32768, app["statusCounts"]["unknown"])
+        self.assertTrue(app["countsTruncated"])
+        self.assertNotIn("PRIVATE", json.dumps(diagnostics))
+
     def test_running_foreign_project_sharing_development_volume_blocks(self):
         host = FakeHost()
         foreign = container("other", "e")

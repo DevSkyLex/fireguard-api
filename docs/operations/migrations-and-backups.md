@@ -79,6 +79,12 @@ Other privileged operators must refrain from maintenance during recovery.
 Missing or ambiguous evidence aborts before
 releasing the mutex. It never restores or changes either database during inspection.
 
+A stopped-writer refusal reports only the five fixed writer services, their
+matching-container counts and counts by a closed set of Docker states. Unknown
+state values are counted without publishing them. This diagnostic distinguishes
+missing, duplicated or never-started containers without changing the recovery
+conditions. It includes no container IDs, foreign labels, paths or configuration.
+
 An identity refusal includes only bounded filesystem metadata: directory/symlink
 flags, numeric owner and process IDs, permission bits, device/inode and timestamps.
 Use that evidence to review the original lock; no directory contents, environment
