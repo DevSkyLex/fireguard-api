@@ -738,6 +738,17 @@ function storage_process($text) {
     if ($values[$key] !== '1') storage_fail('process-proof');
   }
 }
+function storage_propagation($options, $category) {
+  $seen = [];
+  foreach ($options as $option) {
+    if ($option === 'unbindable') storage_fail($category . '-unbindable');
+    if (str_starts_with($option, 'shared:')) storage_fail($category . '-shared');
+    if (!preg_match('/^(master|propagate_from):([1-9][0-9]{0,9})$/D', $option, $match)
+        || (int)$match[2] > 4294967295 || isset($seen[$match[1]])) storage_fail('mount-metadata');
+    $seen[$match[1]] = true;
+  }
+  if (isset($seen['propagate_from']) && !isset($seen['master'])) storage_fail('mount-metadata');
+}
 function storage_mounts($text, $root, $targets, $volumeRoots) {
   if (strlen($text) > 2097152) storage_fail('mount-metadata');
   $lines = explode("\n", trim($text));
@@ -759,12 +770,7 @@ function storage_mounts($text, $root, $targets, $volumeRoots) {
       if ($targetIndex !== false) ++$targetCounts[$targetIndex];
       else ++$rootCount;
       if (!in_array('ro', explode(',', $fields[5]), true)) storage_fail('not-readonly');
-      foreach (array_slice($fields, 6, $separator - 6) as $option) {
-        $category = $targetIndex === false ? 'root' : 'named';
-        if ($option === 'unbindable') storage_fail($category . '-unbindable');
-        if (str_starts_with($option, 'shared:')) storage_fail($category . '-shared');
-        if ($targetIndex !== false && preg_match('/^(master|propagate_from):/', $option)) storage_fail('named-slave');
-      }
+      storage_propagation(array_slice($fields, 6, $separator - 6), $targetIndex === false ? 'root' : 'named');
     } elseif ($point === $root . '/volumes') {
       storage_fail('submount');
     }

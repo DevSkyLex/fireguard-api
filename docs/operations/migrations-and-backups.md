@@ -154,9 +154,16 @@ or read-only forever. The helper does not change host mounts, permissions or LSM
 profiles, and no bootstrap capabilities are granted.
 
 Each inspected local volume is also mounted separately at a fixed proof target,
-read-only with copying disabled. Its effective mount must be private and have no
-submounts; its directory identity must match the `_data` directory observed below
-the nonrecursive Docker-root bind. This checks Docker's actual volume view even
+read-only with copying disabled. Docker can inherit one-way slave propagation for
+these targets when preparing its root mount namespace; a named volume has no
+explicit private-propagation guarantee. Each effective target must be private or
+strictly one-way slave, never shared or unbindable, and have no submounts. Slave
+peer metadata must be well formed and stable. The program repeats the relevant
+mount signatures and complete directory identities before and after its reads.
+An inherited future submount can be writable; the restricted program and
+no-maintenance assumption also apply to these proof targets. Its directory
+identity must match the `_data` directory observed below the nonrecursive
+Docker-root bind. This checks Docker's actual volume view even
 when the daemon and deployment process use different mount namespaces. Existing
 volume metadata and immutable source-container references are checked before
 creation and again before the inspector starts. Copy suppression alone does not

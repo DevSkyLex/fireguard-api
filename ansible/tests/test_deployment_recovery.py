@@ -2296,14 +2296,18 @@ class StoragePHPParserTests(unittest.TestCase):
                 with self.subTest(key=key, kind=kind):
                     self.assertEqual({"ok": False, "code": "process-proof"}, self.php(expression, text))
 
-    def test_named_target_requires_unique_private_readonly_mount_without_any_descendant(self):
+    def test_named_target_requires_unique_readonly_private_or_slave_mount_without_any_descendant(self):
         root, target = RECOVERY.STORAGE_ROOT, "/__fireguard_volume_proof/0"
         base = "10 1 8:1 / " + root + " ro - ext4 private rw\n"
         named = "20 1 8:1 /volumes/fixture/_data " + target + " ro - ext4 private rw\n"
         expression = "$v=json_decode($argv[1],true);storage_mounts($v['text'],$v['root'],[$v['target']],[]);echo json_encode(['ok'=>true]);"
-        self.assertEqual({"ok": True}, self.php(expression, {"text": base + named, "root": root, "target": target}))
+        for optional in ("", "master:3", "master:3 propagate_from:4", "propagate_from:4 master:3",
+                         "master:4294967295 propagate_from:4294967295"):
+            text = base + named.replace(" ro -", " ro" + (" " + optional if optional else "") + " -")
+            with self.subTest(optional=optional):
+                self.assertEqual({"ok": True}, self.php(expression, {"text": text, "root": root, "target": target}))
         for text in (base, base + named + named, base + named.replace(" ro -", " rw -"),
-                     base + named.replace(" ro -", " ro shared:3 -"), base + named.replace(" ro -", " ro master:3 -"),
+                     base + named.replace(" ro -", " ro shared:3 -"), base + named.replace(" ro -", " ro shared:3 master:4 -"),
                      base + named.replace(" ro -", " ro unbindable -"),
                      base + named + "21 20 8:2 / " + target + "/child ro - ext4 private rw\n"):
             with self.subTest(text=text):
@@ -2320,8 +2324,8 @@ class StoragePHPParserTests(unittest.TestCase):
             (base.replace("master:701", "shared:702") + named, "root-shared"),
             (base.replace("master:701", "unbindable") + named, "root-unbindable"),
             (base + named.replace(" ro -", " ro shared:703 -"), "named-shared"),
-            (base + named.replace(" ro -", " ro master:704 -"), "named-slave"),
-            (base + named.replace(" ro -", " ro propagate_from:705 -"), "named-slave"),
+            (base + named.replace(" ro -", " ro master:0 -"), "mount-metadata"),
+            (base + named.replace(" ro -", " ro propagate_from:705 -"), "mount-metadata"),
             (base + named.replace(" ro -", " ro unbindable -"), "named-unbindable"),
         )
         for text, code in cases:
@@ -2331,16 +2335,35 @@ class StoragePHPParserTests(unittest.TestCase):
                 for private in (root, target, "/private-source", "701", "702", "703", "704", "705"):
                     self.assertNotIn(private, json.dumps(result))
 
+    def test_root_and_named_slave_tags_are_positive_bounded_unique_and_complete(self):
+        root, target = RECOVERY.STORAGE_ROOT, "/__fireguard_volume_proof/0"
+        base = "10 1 8:1 / " + root + " ro - ext4 private rw\n"
+        named = "20 1 8:1 /volumes/fixture/_data " + target + " ro - ext4 private rw\n"
+        expression = "$v=json_decode($argv[1],true);storage_mounts($v['text'],$v['root'],[$v['target']],[]);echo json_encode(['ok'=>true]);"
+        malformed = ("master:0", "master:-1", "master:+1", "master:01", "master:4294967296", "master:99999999999", "master:",
+                     "master:PRIVATE_VALUE", "master:1 master:2", "master:1 master:1", "propagate_from:2",
+                     "master:1 propagate_from:0", "master:1 propagate_from:4294967296",
+                     "master:1 propagate_from:2 propagate_from:3", "unknown:1")
+        for category in ("root", "named"):
+            for optional in malformed:
+                changed = (base if category == "root" else named).replace(" ro -", " ro " + optional + " -")
+                text = changed + named if category == "root" else base + changed
+                with self.subTest(category=category, optional=optional):
+                    result = self.php(expression, {"text": text, "root": root, "target": target})
+                    self.assertEqual({"ok": False, "code": "mount-metadata"}, result)
+                    self.assertNotIn("PRIVATE", json.dumps(result))
+
     def test_repeated_php_proof_ignores_unrelated_overlay_churn_but_rejects_relevant_propagation(self):
         root, target = RECOVERY.STORAGE_ROOT, "/__fireguard_volume_proof/0"
         base = ("10 1 8:1 / " + root + " ro master:7 - ext4 private rw\n"
-                "20 1 8:1 /volumes/fixture/_data " + target + " ro - ext4 private rw\n")
+                "20 1 8:1 /volumes/fixture/_data " + target + " ro master:9 propagate_from:10 - ext4 private rw\n")
         expression = ("$v=json_decode($argv[1],true);$p=storage_mounts($v['before'],$v['root'],[$v['target']],[$v['name']]);"
                       "$q=storage_mounts($v['after'],$v['root'],[$v['target']],[$v['name']]);echo json_encode(['ok'=>true,'same'=>$p===$q]);")
         fixture = {"before": base, "root": root, "target": target, "name": root + "/volumes/fixture"}
         unrelated = "30 10 8:2 / " + root + "/overlay2/unrelated/merged rw - overlay private rw\n"
         self.assertEqual({"ok": True, "same": True}, self.php(expression, fixture | {"after": base + unrelated}))
-        for after in (base.replace("10 1", "11 1"), base.replace("master:7", "master:8"), base.replace("20 1", "21 1")):
+        for after in (base.replace("10 1", "11 1"), base.replace("master:7", "master:8"), base.replace("20 1", "21 1"),
+                      base.replace("master:9", "master:11"), base.replace("propagate_from:10", "propagate_from:12")):
             with self.subTest(after=after):
                 self.assertEqual({"ok": True, "same": False}, self.php(expression, fixture | {"after": after}))
         for point in (root + "/volumes", root + "/volumes/fixture", root + "/volumes/fixture/_data", root + "/volumes/fixture/_data/child",
@@ -2381,31 +2404,54 @@ $fixture = json_decode($argv[2], true, 16, JSON_THROW_ON_ERROR);
 function file_get_contents($path) {
   global $fixture;
   if ($path === '/proc/self/status') return $fixture['status'];
-  if ($path === '/proc/self/mountinfo') return $fixture['mountinfo'];
+  if ($path === '/proc/self/mountinfo') {
+    return is_array($fixture['mountinfo']) ? array_shift($fixture['mountinfo']) : $fixture['mountinfo'];
+  }
   throw new \RuntimeException('Unexpected metadata read');
 }
 function lstat($path) {
   global $fixture;
   if (!array_key_exists($path, $fixture['stats'])) throw new \RuntimeException('Unexpected stat metadata');
+  $fixture['statReads'][$path] = ($fixture['statReads'][$path] ?? 0) + 1;
+  if ($fixture['statReads'][$path] > 1 && isset($fixture['changedStats'][$path])) return $fixture['changedStats'][$path];
   return $fixture['stats'][$path];
 }
 function clearstatcache($realpath, $path) {}
 set_error_handler(static function($severity, $message) { throw new \ErrorException('Fixture PHP warning'); });
 '''
         fixture = {"status": status, "mountinfo": mountinfo, "stats": stats}
-        for kind in ("valid", "bad-process", "unexpected-stat"):
+        denials = {"bad-process": "process-proof", "unexpected-stat": "metadata", "changed-named-master": "changed",
+                   "new-named-descendant": "submount", "named-final-shared": "named-shared", "named-final-rw": "not-readonly",
+                   "named-data-changed": "named-identity", "root-data-changed": "changed"}
+        for kind in ("valid", "valid-named-slave", *denials):
             metadata = copy.deepcopy(fixture)
+            if kind != "valid":
+                slave = mountinfo.replace(target + " ro -", target + " ro master:9 propagate_from:10 -")
+                metadata["mountinfo"] = [slave, slave]
             if kind == "bad-process":
                 metadata["status"] = status.replace("NoNewPrivs: 1", "NoNewPrivs: 0")
             elif kind == "unexpected-stat":
                 del metadata["stats"][root + "/volumes/development/_data"]
+            elif kind == "changed-named-master":
+                metadata["mountinfo"][1] = slave.replace("master:9", "master:11")
+            elif kind == "new-named-descendant":
+                metadata["mountinfo"][1] += "30 20 8:2 / " + target + "/child rw master:9 - ext4 private rw\n"
+            elif kind == "named-final-shared":
+                metadata["mountinfo"][1] = slave.replace("master:9", "shared:11 master:9")
+            elif kind == "named-final-rw":
+                metadata["mountinfo"][1] = slave.replace(target + " ro ", target + " rw ")
+            elif kind in {"named-data-changed", "root-data-changed"}:
+                path = target if kind == "named-data-changed" else root + "/volumes/development/_data"
+                changed = dict(stats[path])
+                changed["ino"] += 1
+                metadata["changedStats"] = {path: changed}
             result = subprocess.run([shutil.which("php"), "-n", "-r", prefix + RECOVERY.STORAGE_INSPECT_PHP,
                                      json.dumps({"root": root, "names": ["development"]}), json.dumps(metadata)],
                                     capture_output=True, timeout=30, check=False)
             self.assertEqual(0, result.returncode, "Entire fixed PHP main must execute")
             with self.subTest(kind=kind):
                 parsed = json.loads(result.stdout)  # A warning prefix or trailing output is a test failure.
-                expected = body if kind == "valid" else {"ok": False, "code": "process-proof" if kind == "bad-process" else "metadata"}
+                expected = {"ok": False, "code": denials[kind]} if kind in denials else body
                 self.assertEqual(expected, parsed)
                 self.assertEqual(b"", result.stderr)
 
