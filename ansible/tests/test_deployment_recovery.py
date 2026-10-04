@@ -1430,6 +1430,58 @@ class ContainerIsolationIntegrationTests(unittest.TestCase):
         self.module_patch.start()
         self.addCleanup(self.module_patch.stop)
 
+    def test_exact_shape_diagnostic_in_either_inventory_keeps_lock_and_values_private(self):
+        for kind in ("authority-groups", "unrelated-groups", "namespace", "credentials", "volume-path"):
+            for phase in (0, 1):
+                with self.subTest(kind=kind, phase=phase), legacy_fixture() as (app, lock, chain), \
+                     patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+                    reviewed_namespace(chain)
+                    states = [isolation_fixture(), isolation_fixture()]
+                    if kind == "volume-path":
+                        states[phase]["volumes"].append({"Name": "fixture", "Driver": "local", "Scope": "local",
+                                                         "OptionsEmpty": True, "Mountpoint": "/private-canary/../data"})
+                        expected = ("volume-mountpoint", "volume", None)
+                    else:
+                        target = states[phase]["processes"][2 if kind != "unrelated-groups" else 1]["tasks"][0]
+                        if kind in ("authority-groups", "unrelated-groups"):
+                            target["groups"] *= 2
+                            expected = ("task-groups-duplicate", "task", kind == "authority-groups")
+                        elif kind == "namespace":
+                            target["nsPid"] = [target["tid"], 0]
+                            expected = ("task-nspid-positive", "task", True)
+                        else:
+                            target["uids"] = ["private-canary"] * 4
+                            expected = ("task-uids", "task", None)
+                    host = legacy_host()
+                    host.isolation_snapshot = MagicMock(side_effect=states)
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^container-isolation-invalid-snapshot ") as caught:
+                        recover(host, current_uid=1001)
+                    diagnostic = json.loads(str(caught.exception).split(" ", 1)[1])["diagnostic"]
+                    self.assertEqual({"predicate": expected[0], "section": expected[1],
+                                      "phase": "before" if phase == 0 else "after", "authorityPeer": expected[2]}, diagnostic)
+                    self.assertNotIn("private-canary", str(caught.exception))
+                    self.assertNotIn("/system.slice", str(caught.exception))
+                    self.assertNotIn("a" * 64, str(caught.exception))
+                    self.assertFalse(host.released)
+                    self.assertFalse(host.reacquired)
+                    self.assertEqual(phase + 1, host.isolation_snapshot.call_count)
+
+    def test_public_isolation_projection_redacts_non_enum_diagnostic_members(self):
+        spec = importlib.util.spec_from_file_location("diagnostic_real_isolation", ROOT / "bin/fireguard-deployment-isolation.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        class Untrusted:
+            value = "private-canary"
+        result = module.IsolationResult(False, module.IsolationCode.INVALID_SNAPSHOT,
+                                        Untrusted(), Untrusted(), Untrusted(), "private-canary")
+        with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+            RECOVERY.require_isolation(result, isolation_fixture(), {"authorityUid": 1000, "authorityGids": [1000]})
+        metadata = json.loads(str(caught.exception).split(" ", 1)[1])
+        self.assertEqual({"predicate": "none", "section": "none", "phase": "none", "authorityPeer": None},
+                         metadata["diagnostic"])
+        self.assertNotIn("private-canary", str(caught.exception))
+
     def test_exact_observed_shared_chain_requires_two_real_pure_proofs_before_acquisition(self):
         snapshot = isolation_fixture()
         with legacy_fixture() as (app, lock, chain), patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):

@@ -1108,7 +1108,12 @@ def require_isolation(result, snapshot, policy):
         counts = isolation_denial_counts(snapshot, policy)
         if result.code.value in {"invalid-snapshot", "incomplete-inventory"}:
             counts["metadata"] = 1
-        raise RecoveryBlocked(code + " " + json.dumps({"counts": counts}, sort_keys=True))
+        metadata = {"counts": counts}
+        # This method belongs to the adjacent source-verified pure module. Its
+        # projection admits exact closed enum members and a bool/null only.
+        if callable(getattr(result, "diagnostic", None)):
+            metadata["diagnostic"] = result.diagnostic()
+        raise RecoveryBlocked(code + " " + json.dumps(metadata, sort_keys=True))
 
 
 def isolated_peer_tasks(snapshot):
