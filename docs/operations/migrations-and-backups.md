@@ -178,6 +178,10 @@ container identities remain private. These categories identify where an operator
 must investigate and grant no trust or recovery exception. Current API writers
 and Web configurations already declare `no-new-privileges`; correcting a stale
 runtime requires a targeted recreation after its ownership and impact are known.
+The collector recognizes the equivalent Docker forms `no-new-privileges`,
+`no-new-privileges:true` and `no-new-privileges=true`. False declarations and extra
+options still refuse; the proof independently requires `NoNewPrivs=1` on every
+relevant thread. Recognizing a declared option alone cannot authorize recovery.
 
 Physical volume checks use an explicit metadata inspector for this reviewed
 shared-namespace incident. The deployment user first verifies the canonical,

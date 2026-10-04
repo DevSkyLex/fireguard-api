@@ -4,6 +4,7 @@ import copy
 import ast
 from contextlib import contextmanager, nullcontext, redirect_stderr, redirect_stdout
 import hashlib
+import http.client
 import importlib.util
 import io
 import json
@@ -12,6 +13,7 @@ from pathlib import Path
 import re
 import runpy
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
@@ -2139,6 +2141,17 @@ class IsolationDockerCollectorTests(unittest.TestCase):
         self.assertEqual([], record["HostConfig"]["SecurityOpt"])
         self.assertNotIn("SecurityProfile", record["HostConfig"])
 
+    def test_nnp_projection_recognizes_only_the_three_exact_true_forms(self):
+        # Assert the actual Go predicate, not a second Python normalization rule.
+        predicate = RECOVERY.ISOLATION_CONTAINER_FORMAT.split("{{range .HostConfig.SecurityOpt}}", 1)[1].split("{{$nnp = false}}", 1)[0]
+        recognized = re.findall(r'\(ne \. "([^"]+)"\)', predicate)
+        self.assertEqual(["no-new-privileges", "no-new-privileges:true", "no-new-privileges=true"], recognized)
+        for value in ("no-new-privileges:false", "no-new-privileges=false", "no-new-privileges=1",
+                      "no-new-privileges=True", "no-new-privileges=true ", "no-new-privileges:true,extra", "private-canary"):
+            self.assertNotIn(value, recognized)
+        self.assertIn('{{$nnp = false}}{{if lt (len $extras) 256}}', RECOVERY.ISOLATION_CONTAINER_FORMAT)
+        self.assertIn('"SecurityOpt":{{if $nnp}}["no-new-privileges:true"]{{else}}[]{{end}}', RECOVERY.ISOLATION_CONTAINER_FORMAT)
+
     def test_snapshot_completeness_requires_both_docker_and_proc_inventories(self):
         tree = ProcTree(self.snapshot)
         tree.files["/proc/sys/kernel/random/boot_id"] = self.snapshot["bootId"] + "\n"
@@ -3275,6 +3288,48 @@ class NativeDockerProjectionTests(unittest.TestCase):
             self.assertEqual({"hasRecognizedNnp": True, "optionsEmpty": False, "extraOptionsCount": 0,
                               "declaredOptionsCount": 1, "projectClass": project_class, "serviceClass": service_class}, record["SecurityProfile"])
             self.assertNotIn("private-canary", json.dumps(record))
+
+        # Bypass CLI normalization: the Engine API must store each spelling
+        # verbatim before the real typed Go collector normalizes its proof.
+        class LocalDockerConnection(http.client.HTTPConnection):
+            def connect(self):
+                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                self.sock.settimeout(30)
+                self.sock.connect("/var/run/docker.sock")
+        normalized = []
+        for index, option in enumerate(("no-new-privileges", "no-new-privileges:true", "no-new-privileges=true")):
+            body = {"Image": image_id, "Entrypoint": ["/never-executed"], "NetworkDisabled": True,
+                    "Labels": {"fireguard.recovery-proof": nonce, "com.docker.compose.project": "fireguard-dev-back",
+                               "com.docker.compose.service": "app"},
+                    "HostConfig": {"NetworkMode": "none", "CapDrop": ["ALL"], "SecurityOpt": [option],
+                                   "ReadonlyRootfs": True, "Privileged": False}}
+            connection = LocalDockerConnection("localhost", timeout=30)
+            try:
+                connection.request("POST", "/v1.45/containers/create?name=" + name + "-exact-nnp-" + str(index),
+                                   body=json.dumps(body), headers={"Content-Type": "application/json"})
+                response = connection.getresponse()
+                self.assertEqual(201, response.status, "Native exact NNP fixture creation failed")
+                payload = response.read(16385)
+                self.assertLessEqual(len(payload), 16384, "Native fixture metadata limit exceeded")
+                identifier = json.loads(payload)["Id"]
+            finally:
+                connection.close()
+            self.assertRegex(identifier, r"\A[a-f0-9]{64}\Z")
+            self.addCleanup(docker, ["rm", identifier])
+            # Output a boolean only, never raw inspect SecurityOpt or labels.
+            attestation = ('{{and (eq (len .HostConfig.SecurityOpt) 1) (eq (index .HostConfig.SecurityOpt 0) "' + option + '") '
+                           '(not .State.Running) (eq .State.Status "created") (eq .HostConfig.NetworkMode "none") '
+                           '.HostConfig.ReadonlyRootfs (not .HostConfig.Privileged) '
+                           '(eq (len .HostConfig.CapDrop) 1) (eq (index .HostConfig.CapDrop 0) "ALL") '
+                           '(eq .Image "' + image_id + '") (eq (index .Config.Labels "fireguard.recovery-proof") "' + nonce + '")}}')
+            self.assertEqual("true", docker(["container", "inspect", "--format", attestation, identifier]))
+            record = RECOVERY.Host(lambda argv: docker(argv[5:])).isolation_containers([identifier])[0]
+            self.assertFalse(record["State"]["Running"])
+            normalized.append((record["HostConfig"]["SecurityOpt"], record["SecurityProfile"]))
+            self.assertEqual((["no-new-privileges:true"], {"hasRecognizedNnp": True, "optionsEmpty": False,
+                "extraOptionsCount": 0, "declaredOptionsCount": 1, "projectClass": "api-development", "serviceClass": "app"}), normalized[-1])
+        self.assertEqual(normalized[0], normalized[1])
+        self.assertEqual(normalized[0], normalized[2])
 
 
 if __name__ == "__main__":
