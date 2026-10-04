@@ -770,7 +770,7 @@ ISOLATION_VOLUME_FORMAT = ('{"Name":{{json .Name}},"Driver":{{json .Driver}},"Sc
 ISOLATION_CONTAINER_FORMAT = (
     '{{$nnp := true}}{{if eq (len .HostConfig.SecurityOpt) 0}}{{$nnp = false}}{{end}}'
     '{{$hasNnp := false}}{{$extras := ""}}{{$declared := len .HostConfig.SecurityOpt}}{{if gt $declared 256}}{{$declared = 256}}{{end}}'
-    '{{range .HostConfig.SecurityOpt}}{{if and (ne . "no-new-privileges") (ne . "no-new-privileges:true")}}'
+    '{{range .HostConfig.SecurityOpt}}{{if and (ne . "no-new-privileges") (ne . "no-new-privileges:true") (ne . "no-new-privileges=true")}}'
     '{{$nnp = false}}{{if lt (len $extras) 256}}{{$extras = printf "%s." $extras}}{{end}}{{else}}{{$hasNnp = true}}{{end}}{{end}}'
     '{{$project := index .Config.Labels "com.docker.compose.project"}}{{$projectClass := "other"}}'
     '{{if not $project}}{{$projectClass = "unknown"}}{{else if eq $project "fireguard-production-back"}}{{$projectClass = "api-production"}}'
