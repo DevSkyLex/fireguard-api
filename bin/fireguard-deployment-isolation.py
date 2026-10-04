@@ -61,6 +61,45 @@ class IsolationSection(str, Enum):
     COHORT = "cohort"
 
 
+class SecurityProjectClass(str, Enum):
+    API_PRODUCTION = "api-production"
+    API_PRODUCTION_LEGACY = "api-production-legacy"
+    API_DEVELOPMENT = "api-development"
+    WEB_PRODUCTION = "web-production"
+    WEB_DEVELOPMENT = "web-development"
+    OTHER = "other"
+    UNKNOWN = "unknown"
+
+
+class SecurityServiceClass(str, Enum):
+    APP = "app"
+    ASSISTANT_WORKER = "assistant_worker"
+    ASYNC_WORKER = "async_worker"
+    SCHEDULER_WORKER = "scheduler_worker"
+    WEBHOOK_WORKER = "webhook_worker"
+    BACKUP_FILES = "backup_files"
+    WEB = "fireguard-web"
+    OTHER = "other"
+    UNKNOWN = "unknown"
+
+
+def _security_profile(value: Any) -> dict | None:
+    """Informational flags cannot grant admission or echo untrusted metadata."""
+    keys = {"hasRecognizedNnp", "optionsEmpty", "extraOptionsCount", "declaredOptionsCount", "projectClass", "serviceClass"}
+    if type(value) is not dict or any(type(key) is not str for key in value) or set(value) != keys:
+        return None
+    if any(type(value[key]) is not bool for key in ("hasRecognizedNnp", "optionsEmpty")):
+        return None
+    if any(type(value[key]) is not int or not 0 <= value[key] <= 256
+           for key in ("extraOptionsCount", "declaredOptionsCount")):
+        return None
+    if type(value["projectClass"]) is not str or value["projectClass"] not in {member.value for member in SecurityProjectClass}:
+        return None
+    if type(value["serviceClass"]) is not str or value["serviceClass"] not in {member.value for member in SecurityServiceClass}:
+        return None
+    return {key: value[key] for key in keys}
+
+
 class IsolationPredicate(str, Enum):
     """Closed predicates only: no failed key, value or exception text is exported."""
 
@@ -181,13 +220,17 @@ class IsolationResult:
     section: IsolationSection = IsolationSection.NONE
     phase: IsolationPhase = IsolationPhase.NONE
     authority_peer: bool | None = None
+    security_profile: dict | None = None
 
     def diagnostic(self) -> dict:
         """Only members of these exact enums can reach the public projection."""
-        return {"predicate": self.predicate.value if type(self.predicate) is IsolationPredicate else IsolationPredicate.NONE.value,
+        diagnostic = {"predicate": self.predicate.value if type(self.predicate) is IsolationPredicate else IsolationPredicate.NONE.value,
                 "section": self.section.value if type(self.section) is IsolationSection else IsolationSection.NONE.value,
                 "phase": self.phase.value if type(self.phase) is IsolationPhase else IsolationPhase.NONE.value,
                 "authorityPeer": self.authority_peer if type(self.authority_peer) is bool else None}
+        if self.predicate is IsolationPredicate.CONTAINER_SECURITY:
+            diagnostic["securityProfile"] = _security_profile(self.security_profile)
+        return diagnostic
 
 
 class _Denied(Exception):
@@ -197,6 +240,7 @@ class _Denied(Exception):
         self.predicate = predicate
         self.section = IsolationSection.NONE
         self.authority_peer = None
+        self.security_profile = None
 
 
 def _known_task_authority(value: Any, policy: dict | None) -> bool | None:
@@ -521,8 +565,12 @@ def _container_security(container: dict) -> None:
     for key in ("CapAddEmpty", "DevicesEmpty", "DeviceRequestsEmpty", "DeviceCgroupRulesEmpty", "TmpfsEmpty", "VolumesFromEmpty"):
         _require(config[key] is True, IsolationCode.UNSAFE_CONTAINER, IsolationPredicate.CONTAINER_RESOURCES)
     options = _list(config["SecurityOpt"], IsolationPredicate.CONTAINER_SECURITY)
-    _require(bool(options) and all(option in ("no-new-privileges", "no-new-privileges:true")
-                                  for option in options), IsolationCode.UNSAFE_CONTAINER, IsolationPredicate.CONTAINER_SECURITY)
+    try:
+        _require(bool(options) and all(option in ("no-new-privileges", "no-new-privileges:true")
+                                      for option in options), IsolationCode.UNSAFE_CONTAINER, IsolationPredicate.CONTAINER_SECURITY)
+    except _Denied as denied:
+        denied.security_profile = _security_profile(container.get("SecurityProfile"))
+        raise
 
 
 @_section(IsolationSection.MOUNT)
@@ -735,7 +783,7 @@ def validate_isolation(policy: Any, before: Any, after: Any) -> IsolationResult:
         result = IsolationResult(True, IsolationCode.ALLOWED)
     except _Denied as denied:
         section = denied.section if denied.section is not IsolationSection.NONE else IsolationSection.COHORT
-        result = IsolationResult(False, denied.code, denied.predicate, section, phase, denied.authority_peer)
+        result = IsolationResult(False, denied.code, denied.predicate, section, phase, denied.authority_peer, denied.security_profile)
     except (KeyError, TypeError, ValueError, OverflowError, StopIteration, RecursionError):
         result = IsolationResult(False, IsolationCode.INVALID_SNAPSHOT)
     return result

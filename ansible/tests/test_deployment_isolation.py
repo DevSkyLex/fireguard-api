@@ -557,7 +557,7 @@ class DeploymentIsolationTest(unittest.TestCase):
         self.assertEqual({"allowed": False, "code": CODE.INVALID_SNAPSHOT,
                           "predicate": ISOLATION.IsolationPredicate.VOLUME_OPTIONS,
                           "section": ISOLATION.IsolationSection.VOLUME,
-                          "phase": ISOLATION.IsolationPhase.BEFORE, "authority_peer": None}, asdict(result))
+                          "phase": ISOLATION.IsolationPhase.BEFORE, "authority_peer": None, "security_profile": None}, asdict(result))
         serialized = json.dumps(asdict(result))
         self.assertNotIn(private, serialized)
         self.assertNotIn("/srv", serialized)
@@ -729,6 +729,79 @@ class DeploymentIsolationTest(unittest.TestCase):
             value = "secret-canary"
         result = ISOLATION.IsolationResult(False, CODE.INVALID_SNAPSHOT, Untrusted(), Untrusted(), Untrusted(), "secret-canary")
         self.assertEqual({"predicate": "none", "section": "none", "phase": "none", "authorityPeer": None}, result.diagnostic())
+
+    def test_missing_nnp_and_recognized_nnp_with_extra_option_keep_distinct_bounded_denials(self):
+        for has_nnp, empty, declared, extra in ((False, True, 0, 0), (True, False, 2, 1)):
+            for phase in ("prove-before", "prove-after"):
+                with self.subTest(has_nnp=has_nnp, phase=phase):
+                    before = copy.deepcopy(self.before)
+                    after = copy.deepcopy(before)
+                    target = before if phase == "prove-before" else after
+                    profile = {"hasRecognizedNnp": has_nnp, "optionsEmpty": empty, "declaredOptionsCount": declared,
+                               "extraOptionsCount": extra, "projectClass": "api-production-legacy", "serviceClass": "app"}
+                    target["containers"][0]["SecurityProfile"] = profile
+                    # The trusted collector collapses both rejected configurations to [].
+                    target["containers"][0]["HostConfig"]["SecurityOpt"] = []
+                    result = ISOLATION.validate_isolation(self.policy, before, after)
+                    self.assertEqual(CODE.UNSAFE_CONTAINER, result.code)
+                    self.assertEqual("container-security-opt", result.diagnostic()["predicate"])
+                    self.assertEqual(phase, result.diagnostic()["phase"])
+                    self.assertEqual(profile, result.diagnostic()["securityProfile"])
+                    self.assertNotIn(CONTAINER, json.dumps(asdict(result)))
+
+    def test_security_profile_absent_malformed_or_private_is_nullable_without_changing_denial(self):
+        profile = {"hasRecognizedNnp": True, "optionsEmpty": False, "declaredOptionsCount": 2,
+                   "extraOptionsCount": 1, "projectClass": "api-production", "serviceClass": "async_worker"}
+        cases = [None, "private-canary", {}, profile | {"private-canary": "private-canary"}]
+        for key, values in (("hasRecognizedNnp", (1, "private-canary")), ("optionsEmpty", (0, [])),
+                            ("declaredOptionsCount", (True, -1, 257, "private-canary")),
+                            ("extraOptionsCount", (False, -1, 257)),
+                            ("projectClass", ("private-canary", [], 1)), ("serviceClass", ("private-canary", {}))):
+            cases.extend(profile | {key: value} for value in values)
+        for value in cases:
+            with self.subTest(value=value):
+                before = copy.deepcopy(self.before)
+                before["containers"][0]["HostConfig"]["SecurityOpt"] = []
+                before["containers"][0]["SecurityProfile"] = value
+                result = ISOLATION.validate_isolation(self.policy, before, copy.deepcopy(before))
+                self.assertEqual(CODE.UNSAFE_CONTAINER, result.code)
+                self.assertIsNone(result.diagnostic()["securityProfile"])
+                self.assertNotIn("private-canary", json.dumps(asdict(result)))
+        before = copy.deepcopy(self.before)
+        before["containers"][0]["HostConfig"]["SecurityOpt"] = []
+        self.assertIsNone(ISOLATION.validate_isolation(self.policy, before, before).diagnostic()["securityProfile"])
+
+    def test_security_profile_does_not_admit_or_pin_a_container(self):
+        before = copy.deepcopy(self.before)
+        before["containers"][0]["SecurityProfile"] = {"hasRecognizedNnp": False, "optionsEmpty": True,
+            "declaredOptionsCount": 0, "extraOptionsCount": 0, "projectClass": "api-production", "serviceClass": "app"}
+        after = copy.deepcopy(before)
+        after["containers"][0]["SecurityProfile"] = "private-canary"
+        self.assertTrue(ISOLATION.validate_isolation(self.policy, before, after).allowed)
+        for project in ISOLATION.SecurityProjectClass:
+            for service in ISOLATION.SecurityServiceClass:
+                with self.subTest(project=project, service=service):
+                    invalid = copy.deepcopy(before)
+                    invalid["containers"][0]["HostConfig"]["SecurityOpt"] = []
+                    invalid["containers"][0]["SecurityProfile"].update(projectClass=project.value, serviceClass=service.value)
+                    self.assertEqual(CODE.UNSAFE_CONTAINER,
+                                     ISOLATION.validate_isolation(self.policy, invalid, copy.deepcopy(invalid)).code)
+
+    def test_public_security_profile_rejects_non_string_keys_and_impostor_values(self):
+        class Impostor:
+            value = "private-canary"
+            def __eq__(self, other):
+                raise AssertionError("Diagnostic must not compare untrusted object values")
+        profile = {"hasRecognizedNnp": True, "optionsEmpty": False, "declaredOptionsCount": 256,
+                   "extraOptionsCount": 256, "projectClass": "other", "serviceClass": "unknown"}
+        result = ISOLATION.IsolationResult(False, CODE.UNSAFE_CONTAINER, ISOLATION.IsolationPredicate.CONTAINER_SECURITY,
+                                         security_profile=profile)
+        self.assertEqual(profile, result.diagnostic()["securityProfile"])
+        for value in (profile | {"projectClass": Impostor()}, profile | {1: "private-canary"}):
+            invalid = ISOLATION.IsolationResult(False, CODE.UNSAFE_CONTAINER, ISOLATION.IsolationPredicate.CONTAINER_SECURITY,
+                                              security_profile=value)
+            self.assertIsNone(invalid.diagnostic()["securityProfile"])
+            self.assertNotIn("private-canary", json.dumps(invalid.diagnostic()))
 
     def test_validator_neither_reads_collects_nor_mutates_evidence(self):
         policy = copy.deepcopy(self.policy)
