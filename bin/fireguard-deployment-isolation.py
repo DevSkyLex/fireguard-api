@@ -349,7 +349,8 @@ def _task(value: Any, process: dict, policy: dict | None = None) -> dict:
     groups = _list(task["groups"], IsolationPredicate.TASK_GROUPS)
     for group in groups:
         _identity(group, IsolationPredicate.TASK_GROUPS)
-    _require(len(set(groups)) == len(groups), predicate=IsolationPredicate.TASK_GROUPS_DUPLICATE)
+    # Linux sorts supplementary groups without deduplicating them. Preserve the
+    # raw list: membership grants authority and multiplicity is pinned by the proof.
     for key in _CAPABILITIES:
         _require(_integer(task[key], predicate=IsolationPredicate.TASK_CAPABILITIES) < 1 << 64,
                  predicate=IsolationPredicate.TASK_CAPABILITIES)

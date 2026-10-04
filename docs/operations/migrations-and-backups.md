@@ -163,6 +163,14 @@ in metadata outside the authority cohort; the aggregate peer counts alone do not
 identify that failure. These diagnostics preserve the validation rules and cannot
 authorize an exception or a retry that removes a replacement lock.
 
+Recovery `37182254130` identified repeated supplementary groups on a task outside
+the authority cohort. Linux permits those entries: `setgroups` sorts the supplied
+list without deduplicating it, and `/proc` reports every entry. The collector and
+validator retain that raw list, including multiplicity. Repeated entries do not
+grant additional membership; changed groups on a proved peer still invalidate
+the before/after identity comparison. Numeric credential validation and all
+container, namespace, capability, mount and volume checks remain required.
+
 Physical volume checks use an explicit metadata inspector for this reviewed
 shared-namespace incident. The deployment user first verifies the canonical,
 protected Docker root and its numeric identity. A source-verified immutable image

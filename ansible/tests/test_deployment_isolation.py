@@ -563,7 +563,7 @@ class DeploymentIsolationTest(unittest.TestCase):
         self.assertNotIn("/srv", serialized)
         self.assertNotIn(CONTAINER, serialized)
 
-    def test_duplicate_groups_remain_denied_and_report_only_known_task_authority(self):
+    def test_invalid_namespace_reports_known_authority_with_raw_duplicate_groups(self):
         for uid, gids, groups, authority in ((1000, [1000] * 4, [1000, 1000], True),
                                             (2000, [2000] * 4, [2000, 2000], False),
                                             (2000, [2000] * 4, [1000, 1000], True)):
@@ -573,11 +573,52 @@ class DeploymentIsolationTest(unittest.TestCase):
                     after = copy.deepcopy(before)
                     peer = (before if phase == "before" else after)["processes"][-1]["tasks"][-1]
                     peer.update(uids=[uid] * 4, gids=gids, groups=groups)
+                    peer["nsPid"] = [peer["tid"], 0]
                     result = ISOLATION.validate_isolation(self.policy, before, after)
                     self.assertEqual(CODE.INVALID_SNAPSHOT, result.code)
-                    self.assertEqual({"predicate": "task-groups-duplicate", "section": "task",
+                    self.assertEqual({"predicate": "task-nspid-positive", "section": "task",
                                       "phase": phase, "authorityPeer": authority}, result.diagnostic())
                     self.assertEqual(groups, peer["groups"])
+
+    def test_kernel_duplicate_groups_are_valid_for_unrelated_and_fully_isolated_tasks(self):
+        for relevant in (False, True):
+            with self.subTest(relevant=relevant):
+                _, before = proof()
+                peer = before["processes"][3 if relevant else 0]["tasks"][-1]
+                peer["groups"] *= 2
+                original = copy.deepcopy(before)
+                self.assertEqual([1000, 1000] if relevant else [0, 0], peer["groups"])
+                self.assertTrue(ISOLATION.validate_isolation(self.policy, before, copy.deepcopy(before)).allowed)
+                self.assertEqual(original, before)
+
+    def test_raw_duplicate_multiplicity_is_pinned_for_the_authority_cohort(self):
+        before = copy.deepcopy(self.before)
+        before["processes"][-1]["tasks"][-1]["groups"] = [1000, 1000]
+        self.assertTrue(ISOLATION.validate_isolation(self.policy, before, copy.deepcopy(before)).allowed)
+        after = copy.deepcopy(before)
+        after["processes"][-1]["tasks"][-1]["groups"] = [1000]
+        result = ISOLATION.validate_isolation(self.policy, before, after)
+        self.assertEqual(CODE.IDENTITY_CHANGED, result.code)
+        self.assertEqual("cohort-stable", result.diagnostic()["predicate"])
+        self.assertEqual([1000, 1000], before["processes"][-1]["tasks"][-1]["groups"])
+
+    def test_duplicate_membership_never_exempts_a_new_host_authority_peer(self):
+        before = copy.deepcopy(self.before)
+        peer = process(200, 2, 20000, uid=2000)
+        peer["tasks"][0]["groups"] = [2000, 2000]
+        before["processes"].append(peer)
+        self.assertTrue(ISOLATION.validate_isolation(self.policy, before, copy.deepcopy(before)).allowed)
+        after = copy.deepcopy(before)
+        after["processes"][-1]["tasks"][0]["groups"] = [2000, 1000, 1000]
+        result = ISOLATION.validate_isolation(self.policy, before, after)
+        self.assertEqual(CODE.UNKNOWN_AUTHORITY_PEER, result.code)
+        self.assertEqual("prove-after", result.diagnostic()["phase"])
+        uncontained = copy.deepcopy(self.before)
+        host_peer = process(200, 2, 20000, uid=1000)
+        host_peer["tasks"][0]["groups"] = [1000, 1000]
+        uncontained["processes"].append(host_peer)
+        self.assertEqual(CODE.UNKNOWN_AUTHORITY_PEER,
+                         ISOLATION.validate_isolation(self.policy, uncontained, copy.deepcopy(uncontained)).code)
 
     def test_malformed_shape_predicates_are_exact_and_phase_specific(self):
         cases = (
