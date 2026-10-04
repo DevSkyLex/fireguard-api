@@ -261,6 +261,35 @@ def isolation_fixture():
     return snapshot
 
 
+def retained_compose_records():
+    records = []
+    for index, (service, mounts) in enumerate(RECOVERY.REVIEWED_RETAINED_STORAGE.items(), start=1):
+        item = container(service, format(index, "x"))
+        item["mounts"] = [{"name": RECOVERY.PREFIX + "_" + suffix,
+                           "source": RECOVERY.storage_volume_path(RECOVERY.PREFIX + "_" + suffix),
+                           "type": "volume", "destination": destination, "rw": rw}
+                          for suffix, destination, rw in mounts]
+        if service == "redis":
+            item.update(running=True, status="running")
+        records.append(item)
+    return records
+
+
+def retained_storage_snapshot(records):
+    snapshot = isolation_fixture()
+    proof = snapshot["storageProof"]
+    names = sorted({mount["name"] for record in records for mount in record["mounts"]})
+    base = copy.deepcopy(proof["nodes"][0])
+    proof["volumeNames"], proof["nodes"] = names, []
+    for index, name in enumerate(names):
+        node = copy.deepcopy(base)
+        node["index"] = index
+        node["directory"]["inode"] += index
+        node["data"]["inode"] += index
+        proof["nodes"].append(node)
+    return snapshot
+
+
 class ProcTree:
     """An in-memory /proc double; forbidden files do not exist in this tree."""
     def __init__(self, snapshot):
@@ -1639,6 +1668,147 @@ class ContainerIsolationIntegrationTests(unittest.TestCase):
         self.assertNotIn("fixture", json.dumps(policy["allowedVolumeMounts"]))
 
 
+class ReviewedAbsentWorkerTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location("absent_worker_real_isolation", ROOT / "bin/fireguard-deployment-isolation.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        self.module_patch = patch.object(RECOVERY, "isolation_validator", return_value=module.validate_isolation)
+        self.module_patch.start()
+        self.addCleanup(self.module_patch.stop)
+
+    @contextmanager
+    def reviewed_host(self):
+        with legacy_fixture() as (app, lock, chain):
+            reviewed_namespace(chain)
+            host = legacy_host()
+            host.container_records = retained_compose_records()
+            snapshot = retained_storage_snapshot(host.container_records)
+            host.isolation_snapshot = MagicMock(side_effect=lambda: copy.deepcopy(snapshot))
+            yield host
+
+    def test_exact_three_absent_workers_with_retained_contract_and_physical_proofs_reacquires(self):
+        self.assertEqual({"async_worker", "scheduler_worker", "webhook_worker"}, RECOVERY.REVIEWED_ABSENT_WRITERS)
+        with self.reviewed_host() as host:
+            result = recover(host, current_uid=1001)
+            self.assertEqual("reviewed-lock-reacquired-awaiting-rollout", result["result"])
+            self.assertEqual(2, host.container_reads)
+            self.assertEqual(2, host.isolation_snapshot.call_count)
+            self.assertEqual(6, len(host._storage_development))
+            self.assertTrue(host.reacquired)
+
+    def test_private_and_protected_legacy_paths_never_receive_absence_exception(self):
+        host = FakeHost()
+        host.container_records = retained_compose_records()
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "stopped-writer-state-unverified"):
+            recover(host)
+        self.assertFalse(host.released)
+        self.assertFalse(host.reacquired)
+        with legacy_fixture():
+            host = legacy_host()
+            host.container_records = retained_compose_records()
+            with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "stopped-writer-state-unverified"):
+                recover(host, current_uid=1001)
+            self.assertFalse(host.released)
+            self.assertFalse(host.reacquired)
+
+    def test_absent_service_with_any_scoped_oneoff_or_unknown_metadata_is_not_absent(self):
+        for service in sorted(RECOVERY.REVIEWED_ABSENT_WRITERS):
+            for oneoff in ("False", "True", "PRIVATE_UNKNOWN", None):
+                with self.subTest(service=service, oneoff=oneoff), self.reviewed_host() as host:
+                    item = container(service, "e")
+                    item.update(oneoff=oneoff, status="created")
+                    host.container_records.append(item)
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "stopped-writer-state-unverified") as caught:
+                        recover(host, current_uid=1001)
+                    self.assertNotIn("PRIVATE", str(caught.exception))
+                    self.assertFalse(host.released)
+                    self.assertFalse(host.reacquired)
+
+    def test_appearance_disappearance_replacement_and_state_changes_refuse_before_unlock(self):
+        def appears(host):
+            host.container_records.append(container("async_worker", "e"))
+        def disappears(host):
+            host.container_records[:] = [item for item in host.container_records if item["service"] != "assistant_worker"]
+        def changes(key, value, service="app"):
+            return lambda host: next(item for item in host.container_records if item["service"] == service).update({key: value})
+        for mutation in (appears, disappears, changes("id", "e" * 64), changes("id", "PRIVATE_ID"), changes("status", "created"),
+                         changes("status", "dead", "assistant_worker"), changes("running", True), changes("id", "e" * 64, "redis")):
+            with self.subTest(mutation=mutation), self.reviewed_host() as host:
+                host.before_final_containers = mutation
+                with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                    recover(host, current_uid=1001)
+                self.assertNotIn("PRIVATE", str(caught.exception))
+                self.assertEqual(2, host.container_reads)
+                self.assertFalse(host.released)
+                self.assertFalse(host.reacquired)
+
+    def test_missing_extra_bind_alias_rw_destination_or_metadata_breaks_fixed_contract_in_both_phases(self):
+        def mount_change(key, value):
+            return lambda host: host.container_records[0]["mounts"][0].update({key: value})
+        def missing(host):
+            host.container_records[0]["mounts"].pop()
+        def extra(host):
+            host.container_records[0]["mounts"].append(dict(host.container_records[0]["mounts"][0]))
+        def missing_metadata(host):
+            del host.container_records[0]["mounts"][0]["destination"]
+        for phase in (1, 2):
+            for mutation in (missing, extra, missing_metadata, mount_change("type", "bind"), mount_change("rw", False),
+                             mount_change("rw", 1), mount_change("destination", "/PRIVATE_DESTINATION"),
+                             mount_change("source", "/PRIVATE_SOURCE"), mount_change("name", RECOVERY.PREFIX + "_unexpected")):
+                with self.subTest(phase=phase, mutation=mutation), self.reviewed_host() as host:
+                    if phase == 1:
+                        mutation(host)
+                    else:
+                        host.before_final_containers = mutation
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "retained-storage-contract-unverified") as caught:
+                        recover(host, current_uid=1001)
+                    self.assertNotIn("PRIVATE", str(caught.exception))
+                    self.assertFalse(host.released)
+                    self.assertFalse(host.reacquired)
+
+    def test_additional_dependency_storage_remains_inside_global_foreign_writer_guard(self):
+        records = retained_compose_records()
+        mercure = container("mercure", "e")
+        mercure.update(running=True, status="running", mounts=[
+            {"name": RECOVERY.PREFIX + "_mercure_data", "source": RECOVERY.storage_volume_path(RECOVERY.PREFIX + "_mercure_data")},
+            {"name": RECOVERY.PREFIX + "_mercure_config", "source": RECOVERY.storage_volume_path(RECOVERY.PREFIX + "_mercure_config")}])
+        records.append(mercure)
+        self.assertEqual({"auth", "main"}, set(RECOVERY.check_containers(records, allow_reviewed_absent=True)))
+        foreign = container("PRIVATE_SERVICE", "f")
+        foreign.update(project="PRIVATE_PROJECT", running=True, mounts=[dict(mercure["mounts"][0])])
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "foreign-writer-mounts-development-storage"):
+            RECOVERY.check_containers(records + [foreign], allow_reviewed_absent=True)
+
+    def test_current_compose_storage_contract_retains_every_absent_worker_mount_without_exclusive_storage(self):
+        production = yaml.safe_load((ROOT / "compose.prod.yaml").read_text(encoding="utf-8"))
+        development = yaml.safe_load((ROOT / "compose.dev.yaml").read_text(encoding="utf-8"))
+        def mounts(service):
+            result = set()
+            for declaration in production["services"][service]["volumes"]:
+                self.assertIs(type(declaration), str)
+                fields = declaration.split(":")
+                self.assertIn(len(fields), (2, 3))
+                self.assertRegex(fields[0], r"\A[a-zA-Z0-9_]+\Z")
+                self.assertTrue(fields[1].startswith("/"))
+                if len(fields) == 3:
+                    self.assertEqual("ro", fields[2])
+                result.add((fields[0], fields[1], len(fields) == 2))
+            return result
+        for service, expected in RECOVERY.REVIEWED_RETAINED_STORAGE.items():
+            self.assertEqual(set(expected), mounts(service))
+            self.assertNotIn("volumes", development["services"].get(service, {}))
+        for service in RECOVERY.REVIEWED_ABSENT_WRITERS:
+            self.assertEqual(mounts("assistant_worker"), mounts(service))
+            self.assertTrue(mounts(service).issubset(mounts("app")))
+            self.assertNotIn("volumes", development["services"].get(service, {}))
+        suffixes = {mount[0] for mounts in RECOVERY.REVIEWED_RETAINED_STORAGE.values() for mount in mounts}
+        self.assertEqual({"app_var", "jwt_keys", "geoip_data", "auth_database_data", "main_database_data", "redis_data"}, suffixes)
+        for suffix in suffixes:
+            self.assertEqual({"name": "${VOLUME_PREFIX:?Set VOLUME_PREFIX}_" + suffix}, production["volumes"][suffix])
+
+
 class IsolationProcCollectorTests(unittest.TestCase):
     def test_all_threads_credentials_cgroups_and_stat_identity_are_read_without_private_files(self):
         snapshot = isolation_fixture()
@@ -2874,6 +3044,9 @@ class NativeDockerProjectionTests(unittest.TestCase):
             self.assertFalse(legacy["restarting"])
             self.assertEqual(1, len(legacy["mounts"]))
             self.assertEqual("" if kind == "hostbind" else name, legacy["mounts"][0]["name"])
+            self.assertEqual("bind" if kind == "hostbind" else "volume", legacy["mounts"][0]["type"])
+            self.assertEqual("/fixture", legacy["mounts"][0]["destination"])
+            self.assertIs(legacy["mounts"][0]["rw"], False)
             if kind == "hostbind":
                 self.assertEqual(bind_source, legacy["mounts"][0]["source"])
             host = RECOVERY.Host(lambda argv: docker(argv[5:]))
