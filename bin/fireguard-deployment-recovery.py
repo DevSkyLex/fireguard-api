@@ -1622,12 +1622,15 @@ def recover(proof, host, *, app_dir, project, prefix, current_pid, current_uid):
                                             "expectedStartSeconds": started, "expectedEndSeconds": completed}
         raise LockInspectionBlocked("lock-not-from-reviewed-failure-window", diagnostic)
     group_gid = identity.get("reviewedLegacy", {}).get("gid")
+    # Host creates this context only for the exact original incident lock after
+    # validating its credentials and either the protected or pinned namespace.
+    reviewed_original_lock = identity.get("reviewedLegacy") is not None
     isolated_namespace = identity.get("reviewedLegacy", {}).get("isolationRequired") is True
     if not isolated_namespace:
         check_processes(host.processes(), current_pid, current_uid, group_gid=group_gid)
     container_records = host.containers()
-    databases = check_containers(container_records, allow_reviewed_absent=isolated_namespace)
-    writer_identity = reviewed_writer_identity(container_records) if isolated_namespace else None
+    databases = check_containers(container_records, allow_reviewed_absent=reviewed_original_lock)
+    writer_identity = reviewed_writer_identity(container_records) if reviewed_original_lock else None
     storage_identity = retained_storage_identity([item for item in container_records if item.get("project") == PROJECT]) \
         if writer_identity is not None and any(value is None for value in writer_identity.values()) else None
     if isolated_namespace:
@@ -1656,7 +1659,7 @@ def recover(proof, host, *, app_dir, project, prefix, current_pid, current_uid):
     else:
         check_processes(host.processes(), current_pid, current_uid, group_gid=group_gid)
     final_containers = host.containers()
-    require(check_containers(final_containers, allow_reviewed_absent=isolated_namespace) == databases, "database-identity-changed-during-review")
+    require(check_containers(final_containers, allow_reviewed_absent=reviewed_original_lock) == databases, "database-identity-changed-during-review")
     if writer_identity is not None:
         require(reviewed_writer_identity(final_containers) == writer_identity, "writer-identity-changed-during-review")
     if storage_identity is not None:
