@@ -2342,10 +2342,107 @@ class StoragePHPParserTests(unittest.TestCase):
                 with self.subTest(field=field):
                     self.assertEqual({"ok": False, "code": "named-identity"}, self.php(expression, {"target": str(expected), "field": field}))
 
+    def test_entire_php_main_is_warning_free_and_reads_only_fixed_proc_and_stat_metadata(self):
+        chain, body = storage_fixture()
+        root, target = RECOVERY.STORAGE_ROOT, "/__fireguard_volume_proof/0"
+        records = {root: body["root"], root + "/volumes": body["volumes"],
+                   root + "/volumes/development": body["nodes"][0]["directory"],
+                   root + "/volumes/development/_data": body["nodes"][0]["data"], target: body["nodes"][0]["data"]}
+        stats = {path: {"dev": node["device"], "ino": node["inode"], "uid": node["uid"], "gid": node["gid"],
+                        "mode": RECOVERY.stat.S_IFDIR | node["mode"]} for path, node in records.items()}
+        status = "Uid: 0 0 0 0\nGid: 0 0 0 0\nNoNewPrivs: 1\nPid: 1\nTgid: 1\nNSpid: 1\nNStgid: 1\n"
+        status += "\n".join(key + ": 0000000000000000" for key in ("CapEff", "CapPrm", "CapInh", "CapAmb", "CapBnd"))
+        mountinfo = ("10 1 8:1 / " + root + " ro master:7 - ext4 private rw\n"
+                     "20 1 8:1 /volumes/development/_data " + target + " ro - ext4 private rw\n")
+        prefix = r'''
+namespace FireguardRecoveryFixture;
+use \Throwable;
+$fixture = json_decode($argv[2], true, 16, JSON_THROW_ON_ERROR);
+function file_get_contents($path) {
+  global $fixture;
+  if ($path === '/proc/self/status') return $fixture['status'];
+  if ($path === '/proc/self/mountinfo') return $fixture['mountinfo'];
+  throw new \RuntimeException('Unexpected metadata read');
+}
+function lstat($path) {
+  global $fixture;
+  if (!array_key_exists($path, $fixture['stats'])) throw new \RuntimeException('Unexpected stat metadata');
+  return $fixture['stats'][$path];
+}
+function clearstatcache($realpath, $path) {}
+set_error_handler(static function($severity, $message) { throw new \ErrorException('Fixture PHP warning'); });
+'''
+        fixture = {"status": status, "mountinfo": mountinfo, "stats": stats}
+        for kind in ("valid", "bad-process", "unexpected-stat"):
+            metadata = copy.deepcopy(fixture)
+            if kind == "bad-process":
+                metadata["status"] = status.replace("NoNewPrivs: 1", "NoNewPrivs: 0")
+            elif kind == "unexpected-stat":
+                del metadata["stats"][root + "/volumes/development/_data"]
+            result = subprocess.run([shutil.which("php"), "-n", "-r", prefix + RECOVERY.STORAGE_INSPECT_PHP,
+                                     json.dumps({"root": root, "names": ["development"]}), json.dumps(metadata)],
+                                    capture_output=True, timeout=30, check=False)
+            self.assertEqual(0, result.returncode, "Entire fixed PHP main must execute")
+            with self.subTest(kind=kind):
+                parsed = json.loads(result.stdout)  # A warning prefix or trailing output is a test failure.
+                expected = body if kind == "valid" else {"ok": False, "code": "process-proof" if kind == "bad-process" else "metadata"}
+                self.assertEqual(expected, parsed)
+                self.assertEqual(b"", result.stderr)
+
 
 NATIVE_ACTOR_FAILURE_FORMAT = ('{"Status":{{json .State.Status}},"Running":{{json .State.Running}},'
                                '"ExitCode":{{json .State.ExitCode}},"Error":{{json .State.Error}}}')
 NATIVE_VERSION_FORMAT = '{"clientVersion":{{json .Client.Version}},"serverVersion":{{json .Server.Version}}}'
+
+
+def native_storage_output(result):
+    """Classify a fixture-owned actor's invalid JSON without publishing its output."""
+    output = result.stdout if type(result.stdout) is bytes else b""
+    if not output.strip():
+        category = "empty-output"
+        text = ""
+    elif len(output) > 2 * 1024 * 1024:
+        category = "output-limit"
+        text = ""
+    else:
+        try:
+            text = output.decode("utf-8")
+            json.loads(text)
+            return None  # Valid JSON still goes through all normal helper checks.
+        except UnicodeDecodeError:
+            category, text = "invalid-encoding", ""
+        except ValueError:
+            text = text.strip()
+            category = "malformed-json"
+            try:
+                unused, end = json.JSONDecoder().raw_decode(text)
+                if text[end:].strip():
+                    category = "output-suffix"
+            except ValueError:
+                pass
+            if re.search(r"(?:^|\n)(?:PHP )?(?:Fatal error|Parse error):", text):
+                category = "php-error"
+            elif re.search(r"(?:^|\n)(?:PHP )?(?:Warning|Notice|Deprecated):", text):
+                category = "php-warning"
+                opening = text.find("{")
+                if opening >= 0:
+                    try:
+                        json.loads(text[opening:])
+                        category = "json-warning"
+                    except ValueError:
+                        pass
+    reason = "unclassified"
+    signatures = (("undefined-variable", "undefined variable"), ("undefined-array-key", "undefined array key"),
+                  ("pcre-jit-compilation", "jit compilation failed"), ("pcre-pattern", "compilation failed"),
+                  ("php-startup", "php startup:"), ("array-to-string", "array to string conversion"),
+                  ("stat-metadata", "lstat():"), ("proc-metadata", "file_get_contents():"))
+    for candidate, fragment in signatures:
+        if fragment in text[:16384].lower():
+            reason = candidate
+            break
+    return "Native storage actor output failed " + json.dumps({"category": category, "phpReason": reason,
+            "stdoutBytes": len(output) if len(output) <= 2 * 1024 * 1024 else None,
+            "stderrPresent": bool(result.stderr)}, sort_keys=True)
 
 
 def native_docker_versions(run=subprocess.run):
@@ -2406,6 +2503,29 @@ def native_docker_failure(arguments, result, actor_state=None, versions=None):
 
 
 class NativeDockerDiagnosticTests(unittest.TestCase):
+    def test_owned_actor_json_diagnostics_are_fixed_and_never_export_output_or_paths(self):
+        cases = ((b"", "empty-output", "unclassified"),
+                 (b'{"ok":true}', None, None),
+                 (b'Warning: Undefined variable $PRIVATE_NAME in /PRIVATE_PATH on line 9\n{"ok":false,"code":"metadata"}', "json-warning", "undefined-variable"),
+                 (b'PHP Warning: preg_match(): JIT compilation failed: PRIVATE_REASON\n{"ok":false}', "json-warning", "pcre-jit-compilation"),
+                 (b'Warning: Undefined array key "PRIVATE_KEY" in PRIVATE_PATH', "php-warning", "undefined-array-key"),
+                 (b'PHP Fatal error: PRIVATE_MESSAGE in PRIVATE_PATH', "php-error", "unclassified"),
+                 (b'{"ok":false}PRIVATE_SUFFIX', "output-suffix", "unclassified"),
+                 (b'PRIVATE_UNKNOWN', "malformed-json", "unclassified"),
+                 (b'\xffPRIVATE_ENCODING', "invalid-encoding", "unclassified"),
+                 (b'x' * (2 * 1024 * 1024 + 1), "output-limit", "unclassified"))
+        for output, category, reason in cases:
+            with self.subTest(category=category):
+                public = native_storage_output(subprocess.CompletedProcess(["PRIVATE_ARGV"], 0, stdout=output, stderr=b"PRIVATE_STDERR"))
+                if category is None:
+                    self.assertIsNone(public)
+                    continue
+                self.assertNotIn("PRIVATE", public)
+                fields = json.loads(public.removeprefix("Native storage actor output failed "))
+                self.assertEqual(category, fields["category"])
+                self.assertEqual(reason, fields["phpReason"])
+                self.assertTrue(fields["stderrPresent"])
+
     def test_create_rejection_classes_include_primary_docker_validation_and_api_errors(self):
         samples = (("unknown flag: --PRIVATE_OPTION", "unknown-flag"),
                    ("invalid mount config for type bind: PRIVATE_SOURCE", "invalid-mount"),
@@ -2504,6 +2624,10 @@ class NativeDockerProjectionTests(unittest.TestCase):
                         except (ValueError, TypeError):
                             pass
                 self.fail(native_docker_failure(arguments, result, state, native_docker_versions()))
+            if arguments[:2] == ["start", "--attach"] and len(arguments) == 3 and arguments[-1] in owned_actor_ids:
+                diagnostic = native_storage_output(result)
+                if diagnostic is not None:
+                    self.fail(diagnostic)
             if arguments[0] == "create" and "--name" in arguments and "--label" in arguments:
                 actor_name = arguments[arguments.index("--name") + 1]
                 actor_label = arguments[arguments.index("--label") + 1]
