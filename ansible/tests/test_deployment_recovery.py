@@ -1,17 +1,21 @@
 """Hermetic tests: no SSH, network, secret files, databases or Docker daemon."""
 
 import copy
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+import ast
+from contextlib import contextmanager, nullcontext, redirect_stderr, redirect_stdout
 import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import runpy
 import subprocess
 import sys
+import tarfile
 from types import SimpleNamespace
 import unittest
+import uuid
 from unittest.mock import MagicMock, patch
 
 from jinja2 import Environment, StrictUndefined
@@ -215,6 +219,69 @@ def legacy_host():
 def foreign_peer():
     return {"pid": 4, "ppid": 1, "uid": 1002, "uids": [1002] * 4, "gids": [1002] * 4, "groups": [],
             "comm": "other", "cwd": "/", "fds": []}
+
+
+def reviewed_namespace(chain):
+    for path, observed in zip(chain, RECOVERY.REVIEWED_NAMESPACE):
+        path.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFDIR | observed["mode"], st_uid=observed["uid"],
+                                                 st_gid=observed["gid"], st_dev=observed["device"], st_ino=observed["inode"],
+                                                 st_mtime_ns=observed["mtimeNs"], st_ctime_ns=observed["ctimeNs"])
+
+
+def isolation_fixture():
+    spec = importlib.util.spec_from_file_location("isolation_fixtures", ROOT / "ansible/tests/test_deployment_isolation.py")
+    fixtures = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixtures)
+    unused, snapshot = fixtures.proof()
+    current = fixtures.process(3, 2, 25, uid=1001)
+    snapshot["processes"].append(current)
+    snapshot["containers"][0]["HostConfig"]["MountDeclarations"] = []
+    snapshot["containers"][0]["Mounts"] = []
+    snapshot["volumes"] = []
+    return snapshot
+
+
+class ProcTree:
+    """An in-memory /proc double; forbidden files do not exist in this tree."""
+    def __init__(self, snapshot):
+        self.files, self.entries, self.reads = {}, {}, []
+        self.entries["/proc"] = [str(process["pid"]) for process in snapshot["processes"]]
+        for process in snapshot["processes"]:
+            base = "/proc/" + str(process["pid"])
+            self.files[base + "/stat"] = self.stat(process["pid"], process["ppid"], process["startTicks"])
+            self.entries[base + "/task"] = [str(task["tid"]) for task in process["tasks"]]
+            for task in process["tasks"]:
+                directory = base + "/task/" + str(task["tid"])
+                self.files[directory + "/stat"] = self.stat(task["tid"], task["ppid"], task["startTicks"])
+                fields = {"Pid": task["tid"], "Tgid": task["tgid"], "PPid": task["ppid"], "NoNewPrivs": task["noNewPrivs"]}
+                for source, target in (("uids", "Uid"), ("gids", "Gid"), ("groups", "Groups"), ("nsPid", "NSpid"), ("nsTgid", "NStgid")):
+                    fields[target] = " ".join(map(str, task[source]))
+                for key in ("capEff", "capPrm", "capInh", "capAmb", "capBnd"):
+                    fields[key[0].upper() + key[1:]] = format(task[key], "016x")
+                self.files[directory + "/status"] = "Name: private-name-not-collected\n" + "\n".join(f"{key}: {value}" for key, value in fields.items())
+                self.files[directory + "/cgroup"] = "0::" + task["cgroupPath"] + "\n"
+
+    @staticmethod
+    def stat(pid, parent, start):
+        return f"{pid} (private ) name) " + " ".join(["S", str(parent)] + ["0"] * 17 + [str(start)])
+
+    def path(self, value):
+        tree = self
+        class Entry:
+            def __init__(self, path):
+                self.value, self.name = path, path.rsplit("/", 1)[-1]
+            def __truediv__(self, child):
+                return Entry(self.value + "/" + str(child))
+            def iterdir(self):
+                tree.reads.append(self.value)
+                return iter(Entry(self.value + "/" + name) for name in tree.entries[self.value])
+            def open(self, *args, **kwargs):
+                tree.reads.append(self.value)
+                value = tree.files[self.value]
+                if isinstance(value, Exception):
+                    raise value
+                return io.StringIO(value() if callable(value) else value)
+        return Entry(str(value))
 
 
 def observed_shared_ancestor(chain):
@@ -1248,6 +1315,427 @@ class AdapterTests(unittest.TestCase):
             with RECOVERY.defer_cancellation():
                 events.append("work")
         self.assertEqual([(1, {3, 4, 5}), "work", (2, {7})], events)
+
+
+class ContainerIsolationIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location("recovery_real_isolation", ROOT / "bin/fireguard-deployment-isolation.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        self.module_patch = patch.object(RECOVERY, "isolation_validator", return_value=module.validate_isolation)
+        self.module_patch.start()
+        self.addCleanup(self.module_patch.stop)
+
+    def test_exact_observed_shared_chain_requires_two_real_pure_proofs_before_acquisition(self):
+        snapshot = isolation_fixture()
+        with legacy_fixture() as (app, lock, chain), patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+            reviewed_namespace(chain)
+            host = legacy_host()
+            host.isolation_snapshot = MagicMock(side_effect=[copy.deepcopy(snapshot), copy.deepcopy(snapshot)])
+            result = recover(host, current_uid=1001)
+            self.assertEqual("reviewed-lock-reacquired-awaiting-rollout", result["result"])
+            self.assertEqual(2, host.isolation_snapshot.call_count)
+            self.assertTrue(host.reacquired)
+            self.assertTrue(host.lock_identity()["reviewedLegacy"]["isolationRequired"])
+
+    def test_every_full_namespace_pin_field_is_required_before_snapshot_or_unlock(self):
+        fields = ("st_uid", "st_gid", "st_dev", "st_ino", "st_mode", "st_mtime_ns", "st_ctime_ns")
+        for depth in range(6):
+            for field in fields:
+                with self.subTest(depth=depth, field=field), legacy_fixture() as (app, lock, chain):
+                    reviewed_namespace(chain)
+                    node = chain[depth].lstat.return_value
+                    setattr(node, field, getattr(node, field) + 1)
+                    host = legacy_host()
+                    host.isolation_snapshot = MagicMock()
+                    with self.assertRaises(RECOVERY.RecoveryBlocked):
+                        recover(host, current_uid=1001)
+                    host.isolation_snapshot.assert_not_called()
+                    self.assertFalse(host.released)
+
+    def test_host_authority_peer_nnp_caps_mount_or_relevant_churn_keeps_lock(self):
+        mutations = (
+            lambda state: state["processes"][-2]["tasks"][0].update(containerId=None, cgroupPath="/user.slice"),
+            lambda state: state["processes"][-2]["tasks"][0].update(noNewPrivs=0),
+            lambda state: state["processes"][-2]["tasks"][0].update(capAmb=1),
+            lambda state: state["containers"][0]["HostConfig"].update(Privileged=True),
+            lambda state: state["containers"][0]["HostConfig"].update(SecurityOpt=[]),
+            lambda state: state["containers"][0]["HostConfig"].update(MountDeclarationsComplete=False),
+        )
+        for mutation in mutations:
+            for phase in (0, 1):
+                with self.subTest(phase=phase, mutation=mutation), legacy_fixture() as (app, lock, chain), \
+                     patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+                    reviewed_namespace(chain)
+                    states = [isolation_fixture(), isolation_fixture()]
+                    mutation(states[phase])
+                    host = legacy_host()
+                    host.isolation_snapshot = MagicMock(side_effect=states)
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "container-isolation-") as error:
+                        recover(host, current_uid=1001)
+                    counts = json.loads(str(error.exception).split(" ", 1)[1])["counts"]
+                    self.assertTrue(all(type(value) is int and value >= 0 for value in counts.values()))
+                    self.assertNotIn("private-name", str(error.exception))
+                    self.assertNotIn("/user.slice", str(error.exception))
+                    self.assertFalse(host.released)
+
+    def test_pid_reuse_or_pin_change_after_first_proof_never_releases(self):
+        for kind in ("pid", "pin"):
+            with self.subTest(kind=kind), legacy_fixture() as (app, lock, chain), \
+                 patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+                reviewed_namespace(chain)
+                states = [isolation_fixture(), isolation_fixture()]
+                host = legacy_host()
+                if kind == "pid":
+                    states[1]["processes"][-2]["startTicks"] += 1
+                    states[1]["processes"][-2]["tasks"][0]["startTicks"] += 1
+                else:
+                    host.before_final_containers = lambda unused: setattr(chain[3].lstat.return_value, "st_ctime_ns", 9)
+                host.isolation_snapshot = MagicMock(side_effect=states)
+                with self.assertRaises(RECOVERY.RecoveryBlocked):
+                    recover(host, current_uid=1001)
+                self.assertFalse(host.released)
+
+    def test_private_and_previously_protected_legacy_paths_do_not_load_or_collect_isolation(self):
+        with patch.object(RECOVERY, "isolation_validator") as validator:
+            host = FakeHost()
+            host.isolation_snapshot = MagicMock()
+            recover(host)
+            host.isolation_snapshot.assert_not_called()
+            with legacy_fixture():
+                host = legacy_host()
+                host.isolation_snapshot = MagicMock()
+                recover(host, current_uid=1001)
+                host.isolation_snapshot.assert_not_called()
+            validator.assert_not_called()
+
+    def test_foreign_gid1001_guard_exempts_only_live_identity_of_fully_proven_uid1000(self):
+        for changed in (False, True):
+            with self.subTest(changed=changed), legacy_fixture() as (app, lock, chain), \
+                 patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+                reviewed_namespace(chain)
+                snapshot = isolation_fixture()
+                for process in snapshot["processes"]:
+                    for task in process["tasks"]:
+                        if task["uids"] == [1000] * 4:
+                            task["gids"] = [1001] * 4
+                leader = next(task for process in snapshot["processes"] if process["pid"] == 110 for task in process["tasks"] if task["tid"] == 110)
+                host = legacy_host()
+                peer = foreign_peer() | {"pid": 110, "ppid": 100, "uid": 1000, "uids": [1000] * 4, "gids": [1001] * 4, "groups": leader["groups"]}
+                parent = foreign_peer() | {"pid": 100, "ppid": 2, "uid": 1000, "uids": [1000] * 4, "gids": [1001] * 4, "groups": leader["groups"]}
+                host.process_records.extend([parent, peer])
+                host.isolation_snapshot = MagicMock(side_effect=[copy.deepcopy(snapshot), copy.deepcopy(snapshot)])
+                reads = []
+                def live(pid, driver):
+                    task = copy.deepcopy(next(task for process in snapshot["processes"] if process["pid"] == pid for task in process["tasks"] if task["tid"] == pid))
+                    reads.append(pid)
+                    if changed and len(reads) >= 3:
+                        task["startTicks"] += 1
+                    return task
+                host.isolation_peer_task = MagicMock(side_effect=live)
+                if changed:
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "isolated-peer-identity-changed"):
+                        recover(host, current_uid=1001)
+                    self.assertFalse(host.released)
+                else:
+                    recover(host, current_uid=1001)
+                    self.assertTrue(host.reacquired)
+                    self.assertEqual([100, 110, 100, 110], reads)
+
+    def test_unproven_foreign_gid1001_or_same_uid_host_owner_is_never_exempted(self):
+        for peer in (foreign_peer() | {"gids": [1001] * 4},
+                     foreign_peer() | {"uid": 1001, "uids": [1001] * 4, "gids": [1001] * 4, "comm": "rsync"}):
+            with self.subTest(peer=peer), legacy_fixture() as (app, lock, chain), \
+                 patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+                reviewed_namespace(chain)
+                host = legacy_host()
+                host.process_records.append(peer)
+                host.isolation_snapshot = MagicMock(return_value=isolation_fixture())
+                host.isolation_peer_task = MagicMock()
+                with self.assertRaises(RECOVERY.RecoveryBlocked):
+                    recover(host, current_uid=1001)
+                self.assertFalse(host.released)
+                host.isolation_peer_task.assert_not_called()
+
+    def test_new_unproven_authority_peer_after_either_safe_snapshot_never_releases(self):
+        credential_slots = [(key, slot) for key in ("uids", "gids") for slot in range(4)] + [("groups", 0), ("full", 0)]
+        for key, slot in credential_slots:
+            for phase in (1, 2):
+                with self.subTest(key=key, slot=slot, phase=phase), legacy_fixture() as (app, lock, chain), \
+                     patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+                    reviewed_namespace(chain)
+                    host = legacy_host()
+                    peer = foreign_peer()
+                    if key == "full":
+                        peer.update(uids=[1000] * 4, gids=[1000] * 4, groups=[1000])
+                    else:
+                        peer[key] = [1002] * 4 if key != "groups" else [1002]
+                        peer[key][slot] = 1000
+                    peer["uid"] = peer["uids"][0]
+                    reads = []
+                    safe = isolation_fixture()
+                    def snapshot():
+                        reads.append(True)
+                        if len(reads) == phase:
+                            host.process_records.append(peer)
+                        return copy.deepcopy(safe)
+                    host.isolation_snapshot = MagicMock(side_effect=snapshot)
+                    host.isolation_peer_task = MagicMock()
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "unproved-namespace-authority-peer-before-owner-guard"):
+                        recover(host, current_uid=1001)
+                    self.assertEqual(phase, host.isolation_snapshot.call_count)
+                    self.assertFalse(host.released)
+                    self.assertFalse(host.reacquired)
+                    host.isolation_peer_task.assert_not_called()
+
+    def test_no_proved_authority_peers_does_not_disable_guard_on_new_host_peer(self):
+        host = legacy_host()
+        peer = foreign_peer() | {"uids": [1000] * 4, "uid": 1000, "gids": [1000] * 4}
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "unproved-namespace-authority-peer-before-owner-guard"):
+            RECOVERY.check_processes(host.process_records + [peer], 3, 1001, group_gid=1001, isolated_peers={}, peer_reader=MagicMock())
+
+    def test_missing_or_aliased_sibling_module_fails_closed(self):
+        self.module_patch.stop()
+        source = MagicMock()
+        source.lstat.return_value = SimpleNamespace(st_mode=RECOVERY.stat.S_IFREG | 0o600, st_uid=1001)
+        source.is_symlink.return_value = True
+        helper = MagicMock()
+        helper.resolve.return_value = helper
+        helper.parent.__truediv__.return_value = source
+        helper.stat.return_value = SimpleNamespace(st_uid=1001)
+        with patch.object(RECOVERY, "Path", return_value=helper):
+            with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "isolation-module-unverified"):
+                RECOVERY.isolation_validator()
+            source.lstat.side_effect = PermissionError("private-storage-message")
+            with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "isolation-module-unavailable") as error:
+                RECOVERY.isolation_validator()
+            self.assertNotIn("private-storage-message", str(error.exception))
+
+    def test_trusted_volume_policy_remains_exact_and_cannot_expand_from_runtime(self):
+        with patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+            policy = RECOVERY.isolation_policy(FakeHost().container_records, 3, 1001)
+        self.assertEqual([{"Name": "back_app_var", "Destination": "/var/www/html/var", "RW": True},
+                          {"Name": "back_jwt_keys", "Destination": "/var/www/html/config/jwt", "RW": False},
+                          {"Name": "back_geoip_data", "Destination": "/var/lib/fireguard/geoip", "RW": False}], policy["allowedVolumeMounts"])
+        self.assertEqual([1000], policy["authorityGids"])
+        self.assertEqual(["/srv"], policy["protectedPaths"])
+        self.assertNotIn("fixture", json.dumps(policy["allowedVolumeMounts"]))
+
+
+class IsolationProcCollectorTests(unittest.TestCase):
+    def test_all_threads_credentials_cgroups_and_stat_identity_are_read_without_private_files(self):
+        snapshot = isolation_fixture()
+        tree = ProcTree(snapshot)
+        with patch.object(RECOVERY, "Path", side_effect=tree.path):
+            result = RECOVERY.isolation_process_inventory("systemd")
+        child = next(item for item in result if item["pid"] == 110)
+        self.assertEqual([110, 111], [task["tid"] for task in child["tasks"]])
+        self.assertEqual([110, 7], child["tasks"][1]["nsTgid"])
+        self.assertEqual("a" * 64, child["tasks"][1]["containerId"])
+        self.assertNotIn("private-name", json.dumps(result))
+        self.assertTrue(all(path.endswith(("/stat", "/status", "/cgroup", "/task")) or path == "/proc" for path in tree.reads))
+
+    def test_exact_rootful_cgroup_driver_paths_and_coherent_controllers_are_required(self):
+        identifier = "a" * 64
+        for driver, path in (("systemd", "/system.slice/docker-" + identifier + ".scope"), ("cgroupfs", "/docker/" + identifier)):
+            self.assertEqual(identifier, RECOVERY.task_cgroup("0::" + path, driver)["containerId"])
+        for path in ("/user.slice/docker-" + identifier + ".scope", "/docker/" + identifier + "/child"):
+            self.assertIsNone(RECOVERY.task_cgroup("0::" + path, "systemd")["containerId"])
+        for malformed in ("0::/docker/../docker/a", "0::/\n1:cpu:/else", "invalid", "", "0::relative"):
+            with self.subTest(value=malformed), self.assertRaises(RECOVERY.RecoveryBlocked):
+                RECOVERY.task_cgroup(malformed, "systemd")
+
+    def test_live_exemption_reader_reuses_the_same_metadata_only_thread_identity(self):
+        tree = ProcTree(isolation_fixture())
+        with patch.object(RECOVERY, "Path", side_effect=tree.path):
+            result = RECOVERY.Host().isolation_peer_task(110, "systemd")
+        self.assertEqual(10005, result["startTicks"])
+        self.assertEqual([1000] * 4, result["uids"])
+        self.assertTrue(all(path.startswith("/proc/110/task/110/") for path in tree.reads))
+
+    def test_incomplete_duplicate_or_denied_task_metadata_never_marks_inventory_complete(self):
+        for change in ("missing", "duplicate", "permission", "quartet", "capability"):
+            with self.subTest(change=change):
+                tree = ProcTree(isolation_fixture())
+                path = "/proc/110/task/111/status"
+                if change == "missing":
+                    tree.files[path] = tree.files[path].replace("NStgid:", "missing:")
+                elif change == "duplicate":
+                    tree.files[path] += "\nUid: 1000 1000 1000 1000"
+                elif change == "permission":
+                    tree.files[path] = PermissionError("secret-child-error")
+                elif change == "quartet":
+                    tree.files[path] = tree.files[path].replace("Uid: 1000 1000 1000 1000", "Uid: 1000 1000")
+                else:
+                    tree.files[path] = tree.files[path].replace("CapAmb: 0000000000000000", "CapAmb: malformed")
+                with patch.object(RECOVERY, "Path", side_effect=tree.path), self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                    RECOVERY.isolation_process_inventory("systemd")
+                self.assertNotIn("secret-child-error", str(caught.exception))
+
+    def test_pid_reuse_or_thread_creation_during_scan_is_refused(self):
+        for kind in ("pid", "thread"):
+            tree = ProcTree(isolation_fixture())
+            calls = []
+            if kind == "pid":
+                def changing_stat():
+                    calls.append(True)
+                    return tree.stat(111, 100, 10006 if len(calls) == 1 else 20000)
+                tree.files["/proc/110/task/111/stat"] = changing_stat
+            else:
+                original = RECOVERY.numeric_proc_entries
+                def changing_entries(path, limit):
+                    result = original(path, limit)
+                    if path.value == "/proc/110/task":
+                        calls.append(True)
+                        if len(calls) == 2:
+                            result.append(112)
+                    return result
+            with patch.object(RECOVERY, "Path", side_effect=tree.path):
+                replacement = patch.object(RECOVERY, "numeric_proc_entries", side_effect=changing_entries) if kind == "thread" else nullcontext()
+                with replacement, self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "identity-changed"):
+                    RECOVERY.isolation_process_inventory("systemd")
+
+
+class IsolationDockerCollectorTests(unittest.TestCase):
+    def setUp(self):
+        self.snapshot = isolation_fixture()
+        self.identifier = self.snapshot["containers"][0]["Id"]
+        self.version = {"client": "1.45", "server": "1.48", "minimum": "1.24"}
+        self.info = {"Rootful": True, "CgroupDriver": "systemd"}
+        self.calls = []
+
+    def runner(self, argv):
+        self.calls.append(argv)
+        self.assertEqual(["/usr/bin/env", "DOCKER_API_VERSION=1.45", "docker", "--host", "unix:///var/run/docker.sock"], argv[:5])
+        arguments = argv[5:]
+        if arguments[0] == "version":
+            return json.dumps(self.version)
+        if arguments[0] == "info":
+            return json.dumps(self.info)
+        if arguments[0] == "ps":
+            return self.identifier + "\n"
+        if arguments[:2] == ["image", "inspect"]:
+            return json.dumps({"Id": "sha256:" + "c" * 64, "RootFS": {"Type": "layers"}})
+        if arguments[:2] == ["container", "inspect"]:
+            record = copy.deepcopy(self.snapshot["containers"][0])
+            record.pop("RootFS")
+            config = record["HostConfig"]
+            config["Mounts"] = config.pop("MountDeclarations")
+            config["Binds"] = []
+            return json.dumps(record)
+        raise AssertionError("Unexpected public metadata command")
+
+    def test_actual_fixed_api_local_daemon_and_separate_image_rootfs_projection(self):
+        host = RECOVERY.Host(self.runner)
+        with patch.dict(RECOVERY.os.environ, {"DOCKER_API_VERSION": "1.48"}):
+            self.assertEqual("systemd", host.isolation_api())
+        records = host.isolation_containers(host.isolation_container_ids())
+        self.assertEqual({"Type": "layers"}, records[0]["RootFS"])
+        self.assertTrue(records[0]["HostConfig"]["MountDeclarationsComplete"])
+        self.assertNotIn("RootFS", RECOVERY.ISOLATION_CONTAINER_FORMAT)
+        self.assertIn(".RootFS.Type", RECOVERY.ISOLATION_IMAGE_FORMAT)
+
+    def test_snapshot_completeness_requires_both_docker_and_proc_inventories(self):
+        tree = ProcTree(self.snapshot)
+        tree.files["/proc/sys/kernel/random/boot_id"] = self.snapshot["bootId"] + "\n"
+        tree.files["/proc/stat"] = "cpu 1 2 3 4\nbtime " + str(self.snapshot["bootTimeSeconds"]) + "\n"
+        with patch.dict(RECOVERY.os.environ, {}, clear=True), patch.object(RECOVERY, "Path", side_effect=tree.path), \
+             patch.object(RECOVERY.os, "sysconf", return_value=100, create=True):
+            collected = RECOVERY.Host(self.runner).isolation_snapshot()
+        self.assertIs(collected["complete"], True)
+        self.assertEqual("1.45", collected["dockerApiVersion"])
+        self.assertEqual("systemd", collected["cgroupDriver"])
+        self.assertEqual(self.snapshot["bootId"], collected["bootId"])
+        self.assertEqual(2, sum(argv[5] == "ps" for argv in self.calls))
+
+    def test_named_volume_projection_accepts_only_boolean_options_flag_and_canonical_identity(self):
+        volume = {"Name": "back_app_var", "Driver": "local", "Scope": "local", "OptionsEmpty": True,
+                  "Mountpoint": "/var/lib/docker/volumes/back_app_var/_data"}
+        records = [{"Mounts": [{"Type": "volume", "Name": "back_app_var", "Source": volume["Mountpoint"]}]}]
+        calls = []
+        host = RECOVERY.Host(lambda argv: calls.append(argv) or json.dumps(volume))
+        with patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+            self.assertEqual([volume], host.isolation_volumes(records))
+            volume["OptionsEmpty"] = "true"
+            with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "isolation-volume-metadata-unverified"):
+                host.isolation_volumes(records)
+        self.assertEqual(RECOVERY.ISOLATION_VOLUME_FORMAT, calls[0][-2])
+        self.assertNotIn("Options", volume.keys() - {"OptionsEmpty"})
+
+    def test_low_or_malformed_api_override_is_refused_before_any_docker_query(self):
+        for override in ("1.24", "1.44", "invalid", ""):
+            with self.subTest(override=override), patch.dict(RECOVERY.os.environ, {"DOCKER_API_VERSION": override}):
+                with self.assertRaises(RECOVERY.RecoveryBlocked):
+                    RECOVERY.Host(self.runner).isolation_api()
+        self.assertEqual([], self.calls)
+
+    def test_client_server_minimum_rootless_and_driver_ambiguity_are_denied(self):
+        cases = (("client", "1.44"), ("server", "1.44"), ("minimum", "1.46"), ("Rootful", False), ("CgroupDriver", "unknown"))
+        for key, value in cases:
+            with self.subTest(key=key), patch.dict(RECOVERY.os.environ, {}, clear=True):
+                original_version, original_info = dict(self.version), dict(self.info)
+                (self.version if key in self.version else self.info)[key] = value
+                with self.assertRaises(RECOVERY.RecoveryBlocked):
+                    RECOVERY.Host(self.runner).isolation_api()
+                self.version, self.info = original_version, original_info
+
+    def test_only_selected_typed_public_fields_and_empty_option_flags_leave_docker(self):
+        templates = (RECOVERY.ISOLATION_CONTAINER_FORMAT, RECOVERY.ISOLATION_IMAGE_FORMAT, RECOVERY.ISOLATION_VOLUME_FORMAT, RECOVERY.ISOLATION_INFO_FORMAT)
+        for template in templates:
+            for forbidden in (".Env", ".Cmd", ".Config.Labels", "json $m.VolumeOptions.Labels", "{{json .HostConfig}}", "json .Options", "{{json .Config}}", "json .SecurityOptions"):
+                self.assertNotIn(forbidden, template)
+        self.assertIn("eq (len .Options) 0", RECOVERY.ISOLATION_VOLUME_FORMAT)
+        self.assertIn(".VolumeOptions.Subpath", RECOVERY.ISOLATION_CONTAINER_FORMAT)
+        for boolean in ("not $m.ImageOptions", "not $m.ClusterOptions", "len $m.VolumeOptions.Labels"):
+            self.assertIn(boolean, RECOVERY.ISOLATION_CONTAINER_FORMAT)
+        self.assertIn("split $b", RECOVERY.ISOLATION_CONTAINER_FORMAT)
+
+    def test_sibling_staging_and_python_310_syntax_remain_reviewable(self):
+        playbook = yaml.safe_load(PLAYBOOK.read_text(encoding="utf-8"))
+        recovery = next(task for task in playbook[0]["tasks"] if "Recover only" in task.get("name", ""))
+        staging = next(task["ansible.builtin.copy"] for task in recovery["block"] if task.get("ansible.builtin.copy", {}).get("src") == "../bin/fireguard-deployment-isolation.py")
+        self.assertTrue(staging["dest"].endswith("/fireguard-deployment-isolation.py"))
+        self.assertEqual("0600", staging["mode"])
+        ast.parse(HELPER.read_text(encoding="utf-8"), feature_version=(3, 10))
+
+
+@unittest.skipUnless(os.environ.get("FIREGUARD_TEST_DOCKER_PROJECTIONS") == "1" and os.environ.get("CI") == "true",
+                     "Native Docker projection fixture runs only in explicitly enabled CI")
+class NativeDockerProjectionTests(unittest.TestCase):
+    def test_offline_stopped_owned_fixture_exercises_real_typed_go_projections(self):
+        nonce = uuid.uuid4().hex
+        name = "fireguard-recovery-proof-" + nonce
+        def docker(arguments, *, data=None):
+            result = subprocess.run(["/usr/bin/env", "DOCKER_API_VERSION=1.45", "docker", "--host", "unix:///var/run/docker.sock", *arguments],
+                                    input=data, capture_output=True, timeout=60, check=False)
+            self.assertEqual(0, result.returncode, "Native public projection command failed")
+            return result.stdout.decode("utf-8").strip()
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode="w"):
+            pass
+        image_id = docker(["import", "--change", "LABEL fireguard.recovery-proof=" + nonce, "-"], data=archive.getvalue())
+        self.assertRegex(image_id, r"\Asha256:[a-f0-9]{64}\Z")
+        self.addCleanup(docker, ["image", "rm", image_id])
+        self.assertEqual(name, docker(["volume", "create", name]))
+        self.addCleanup(docker, ["volume", "rm", name])
+        for kind, declaration in (("binds", ["--volume", name + ":/fixture:ro"]),
+                                  ("mounts", ["--mount", "type=volume,source=" + name + ",target=/fixture,readonly"])):
+            container_id = docker(["create", "--name", name + "-" + kind, "--network", "none", "--security-opt", "no-new-privileges",
+                                   "--cap-drop", "ALL", "--entrypoint", "/never-executed", *declaration, image_id])
+            self.assertRegex(container_id, r"\A[a-f0-9]{64}\Z")
+            self.addCleanup(docker, ["rm", container_id])
+            host = RECOVERY.Host(lambda argv: docker(argv[5:]))
+            host.isolation_api()
+            records = host.isolation_containers([container_id])
+            self.assertEqual(image_id, records[0]["Image"])
+            self.assertEqual({"Type": "layers"}, records[0]["RootFS"])
+            self.assertFalse(records[0]["State"]["Running"])
+            self.assertEqual([{"Type": "volume", "Name": name, "Destination": "/fixture", "RW": False, "OptionsDefault": True}],
+                             records[0]["HostConfig"]["MountDeclarations"])
+            volume = host.isolation_json(["volume", "inspect", "--format", RECOVERY.ISOLATION_VOLUME_FORMAT, name])
+            self.assertIs(volume["OptionsEmpty"], True)
+            self.assertEqual("local", volume["Driver"])
 
 
 if __name__ == "__main__":
