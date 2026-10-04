@@ -171,6 +171,14 @@ grant additional membership; changed groups on a proved peer still invalidate
 the before/after identity comparison. Numeric credential validation and all
 container, namespace, capability, mount and volume checks remain required.
 
+A container security-options refusal also reports whether a recognized
+`no-new-privileges` option was declared, bounded option counts, and fixed project
+and service categories. Unknown labels map to `other`; raw labels, options and
+container identities remain private. These categories identify where an operator
+must investigate and grant no trust or recovery exception. Current API writers
+and Web configurations already declare `no-new-privileges`; correcting a stale
+runtime requires a targeted recreation after its ownership and impact are known.
+
 Physical volume checks use an explicit metadata inspector for this reviewed
 shared-namespace incident. The deployment user first verifies the canonical,
 protected Docker root and its numeric identity. A source-verified immutable image

@@ -1490,6 +1490,30 @@ class ContainerIsolationIntegrationTests(unittest.TestCase):
                     self.assertTrue(host.reacquired)
                 self.assertEqual([1000, 1000], before["processes"][3]["tasks"][-1]["groups"])
 
+    def test_security_profile_denials_are_distinct_bounded_and_never_release_the_lock(self):
+        for has_nnp, empty, declared, extra in ((False, True, 0, 0), (True, False, 2, 1)):
+            for phase in (0, 1):
+                with self.subTest(has_nnp=has_nnp, phase=phase), legacy_fixture() as (app, lock, chain), \
+                     patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+                    reviewed_namespace(chain)
+                    states = [isolation_fixture(), isolation_fixture()]
+                    profile = {"hasRecognizedNnp": has_nnp, "optionsEmpty": empty, "declaredOptionsCount": declared,
+                               "extraOptionsCount": extra, "projectClass": "other", "serviceClass": "other"}
+                    target = states[phase]["containers"][0]
+                    target["HostConfig"]["SecurityOpt"] = []
+                    target["SecurityProfile"] = profile
+                    host = legacy_host()
+                    host.isolation_snapshot = MagicMock(side_effect=states)
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^container-isolation-unsafe-container ") as caught:
+                        recover(host, current_uid=1001)
+                    diagnostic = json.loads(str(caught.exception).split(" ", 1)[1])["diagnostic"]
+                    self.assertEqual("container-security-opt", diagnostic["predicate"])
+                    self.assertEqual("prove-before" if phase == 0 else "prove-after", diagnostic["phase"])
+                    self.assertEqual(profile, diagnostic["securityProfile"])
+                    self.assertNotIn("a" * 64, str(caught.exception))
+                    self.assertFalse(host.released)
+                    self.assertFalse(host.reacquired)
+
     def test_public_isolation_projection_redacts_non_enum_diagnostic_members(self):
         spec = importlib.util.spec_from_file_location("diagnostic_real_isolation", ROOT / "bin/fireguard-deployment-isolation.py")
         module = importlib.util.module_from_spec(spec)
@@ -2105,6 +2129,16 @@ class IsolationDockerCollectorTests(unittest.TestCase):
         self.assertNotIn("RootFS", RECOVERY.ISOLATION_CONTAINER_FORMAT)
         self.assertIn(".RootFS.Type", RECOVERY.ISOLATION_IMAGE_FORMAT)
 
+    def test_collector_preserves_informational_profile_without_changing_security_opt(self):
+        profile = {"hasRecognizedNnp": False, "optionsEmpty": True, "declaredOptionsCount": 0,
+                   "extraOptionsCount": 0, "projectClass": "unknown", "serviceClass": "unknown"}
+        self.snapshot["containers"][0]["SecurityProfile"] = profile
+        self.snapshot["containers"][0]["HostConfig"]["SecurityOpt"] = []
+        record = RECOVERY.Host(self.runner).isolation_containers([self.identifier])[0]
+        self.assertEqual(profile, record["SecurityProfile"])
+        self.assertEqual([], record["HostConfig"]["SecurityOpt"])
+        self.assertNotIn("SecurityProfile", record["HostConfig"])
+
     def test_snapshot_completeness_requires_both_docker_and_proc_inventories(self):
         tree = ProcTree(self.snapshot)
         tree.files["/proc/sys/kernel/random/boot_id"] = self.snapshot["bootId"] + "\n"
@@ -2152,13 +2186,19 @@ class IsolationDockerCollectorTests(unittest.TestCase):
     def test_only_selected_typed_public_fields_and_empty_option_flags_leave_docker(self):
         templates = (RECOVERY.ISOLATION_CONTAINER_FORMAT, RECOVERY.ISOLATION_IMAGE_FORMAT, RECOVERY.ISOLATION_VOLUME_FORMAT, RECOVERY.ISOLATION_INFO_FORMAT)
         for template in templates:
-            for forbidden in (".Env", ".Cmd", ".Config.Labels", "json $m.VolumeOptions.Labels", "{{json .HostConfig}}", "json .Options", "{{json .Config}}", "json .SecurityOptions"):
+            for forbidden in (".Env", ".Cmd", "{{json .Config.Labels}}", "{{json $project}}", "{{json $service}}",
+                              "json $m.VolumeOptions.Labels", "{{json .HostConfig}}", "json .Options", "{{json .Config}}", "json .SecurityOptions",
+                              "{{json .HostConfig.SecurityOpt}}"):
                 self.assertNotIn(forbidden, template)
         self.assertIn("eq (len .Options) 0", RECOVERY.ISOLATION_VOLUME_FORMAT)
         self.assertIn(".VolumeOptions.Subpath", RECOVERY.ISOLATION_CONTAINER_FORMAT)
         for boolean in ("not $m.ImageOptions", "not $m.ClusterOptions", "len $m.VolumeOptions.Labels"):
             self.assertIn(boolean, RECOVERY.ISOLATION_CONTAINER_FORMAT)
         self.assertIn("split $b", RECOVERY.ISOLATION_CONTAINER_FORMAT)
+        self.assertEqual(2, RECOVERY.ISOLATION_CONTAINER_FORMAT.count(".Config.Labels"))
+        self.assertIn('{{$project := index .Config.Labels "com.docker.compose.project"}}', RECOVERY.ISOLATION_CONTAINER_FORMAT)
+        self.assertIn('{{$service := index .Config.Labels "com.docker.compose.service"}}', RECOVERY.ISOLATION_CONTAINER_FORMAT)
+        self.assertIn('"SecurityOpt":{{if $nnp}}["no-new-privileges:true"]{{else}}[]{{end}}', RECOVERY.ISOLATION_CONTAINER_FORMAT)
 
     def test_sibling_staging_and_python_310_syntax_remain_reviewable(self):
         playbook = yaml.safe_load(PLAYBOOK.read_text(encoding="utf-8"))
@@ -3207,6 +3247,34 @@ class NativeDockerProjectionTests(unittest.TestCase):
             first = copy.deepcopy(host._storage_proof)
             self.assertEqual([volume], host.isolation_volumes(records, required_names={name}))
             self.assertEqual(first, host._storage_proof)
+
+        # The same stopped, cap0/NNP profile exercises classification using the
+        # actual typed Go projection. No extra security option or actor relaxation.
+        profiles = (
+            ("fireguard-production-back", "app", "api-production", "app"),
+            ("back", "assistant_worker", "api-production-legacy", "assistant_worker"),
+            ("fireguard-dev-back", "async_worker", "api-development", "async_worker"),
+            ("fireguard-production-front", "fireguard-web", "web-production", "fireguard-web"),
+            ("fireguard-dev-front", "backup_files", "web-development", "backup_files"),
+            ("private-canary-project-a", "private-canary-service-a", "other", "other"),
+            ("private-canary-project-b", "private-canary-service-b", "other", "other"),
+            (None, None, "unknown", "unknown"),
+            ("fireguard-production-back", "scheduler_worker", "api-production", "scheduler_worker"),
+            ("fireguard-production-back", "webhook_worker", "api-production", "webhook_worker"),
+        )
+        for index, (project, service, project_class, service_class) in enumerate(profiles):
+            labels = ([] if project is None else ["--label", "com.docker.compose.project=" + project])
+            labels += ([] if service is None else ["--label", "com.docker.compose.service=" + service])
+            identifier = docker(["create", "--name", name + "-profile-" + str(index), "--network", "none",
+                                 "--security-opt", "no-new-privileges", "--cap-drop", "ALL",
+                                 "--entrypoint", "/never-executed", *labels, image_id])
+            self.assertRegex(identifier, r"\A[a-f0-9]{64}\Z")
+            self.addCleanup(docker, ["rm", identifier])
+            record = RECOVERY.Host(lambda argv: docker(argv[5:])).isolation_containers([identifier])[0]
+            self.assertEqual(["no-new-privileges:true"], record["HostConfig"]["SecurityOpt"])
+            self.assertEqual({"hasRecognizedNnp": True, "optionsEmpty": False, "extraOptionsCount": 0,
+                              "declaredOptionsCount": 1, "projectClass": project_class, "serviceClass": service_class}, record["SecurityProfile"])
+            self.assertNotIn("private-canary", json.dumps(record))
 
 
 if __name__ == "__main__":
