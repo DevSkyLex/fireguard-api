@@ -135,8 +135,26 @@ protected Docker root and its numeric identity. A source-verified immutable imag
 then runs a fixed PHP program in an isolated container with no available
 capabilities, `NoNewPrivs`, no network, a read-only root filesystem, no healthcheck
 and a fixed working directory. Only `/var/lib/docker` is bound at its original
-path, with private propagation and forced recursive read-only mounts. Missing
-kernel support refuses inspection rather than falling back to weaker mounts.
+path, read-only and without importing submounts. Docker rejects an explicitly
+private bind of its own root, so the request leaves propagation unset and requires
+Docker's private-source compatibility behavior. Host mount metadata must prove
+that the source is private and that no relevant volume path is covered by another
+mount. The PHP program then verifies the actual root mount is read-only, private
+and has no submounts before reading directory metadata. Declared Docker options
+alone are never accepted as this proof. Shared, slave or unbindable sources are
+refused; the helper does not change host mounts or permissions.
+
+Each inspected local volume is also mounted separately at a fixed proof target,
+read-only with copying disabled. Its effective mount must be private and have no
+submounts; its directory identity must match the `_data` directory observed below
+the nonrecursive Docker-root bind. This checks Docker's actual volume view even
+when the daemon and deployment process use different mount namespaces. Existing
+volume metadata and immutable source-container references are checked before
+creation and again before the inspector starts. Copy suppression alone does not
+prevent Docker from creating a missing volume. The guard therefore requires
+stable existing references under the no-maintenance assumption; it makes no
+claim of an atomic inspect-and-create operation. Cleanup removes only the owned
+inspector container and never its volumes.
 
 The program checks directory metadata without following symlinks or reading
 application files. It compares the root identity with the host, rejects aliases

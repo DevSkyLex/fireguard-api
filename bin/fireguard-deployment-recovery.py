@@ -636,7 +636,17 @@ ISOLATION_IMAGE_FORMAT = '{"Id":{{json .ID}},"RootFS":{"Type":{{json .RootFS.Typ
 STORAGE_ACTOR_FORMAT = ('{"Id":{{json .ID}},"Image":{{json .Image}},"Name":{{json .Name}},'
                         '"State":{"Status":{{json .State.Status}},"Running":{{json .State.Running}},'
                         '"Restarting":{{json .State.Restarting}},"Paused":{{json .State.Paused}}},'
-                        '"Owner":{{json (index .Config.Labels "fireguard.reviewed-storage-owner")}}}')
+                        '"Owner":{{json (index .Config.Labels "fireguard.reviewed-storage-owner")}},'
+                        '"Mounts":[{{range $i,$m := .Mounts}}{{if $i}},{{end}}'
+                        '{"Type":{{json $m.Type}},"Name":{{json $m.Name}},"Source":{{json $m.Source}},'
+                        '"Destination":{{json $m.Destination}},"RW":{{json $m.RW}}}{{end}}],'
+                        '"Declarations":[{{range $i,$m := .HostConfig.Mounts}}{{if $i}},{{end}}'
+                        '{"Type":{{json $m.Type}},"Source":{{json $m.Source}},"Target":{{json $m.Target}},"ReadOnly":{{$m.ReadOnly}},'
+                        '"NoCopy":{{if and $m.VolumeOptions $m.VolumeOptions.NoCopy}}true{{else}}false{{end}},'
+                        '"NonRecursive":{{if and $m.BindOptions $m.BindOptions.NonRecursive}}true{{else}}false{{end}},'
+                        '"PropagationEmpty":{{or (not $m.BindOptions) (eq $m.BindOptions.Propagation "")}}}{{end}}]}')
+STORAGE_REFERENCE_FORMAT = ('{"Id":{{json .ID}},"Mounts":[{{range $i,$m := .Mounts}}{{if $i}},{{end}}'
+                            '{"Type":{{json $m.Type}},"Name":{{json $m.Name}},"Source":{{json $m.Source}}}{{end}}]}')
 ISOLATION_VOLUME_FORMAT = ('{"Name":{{json .Name}},"Driver":{{json .Driver}},"Scope":{{json .Scope}},'
                            '"Mountpoint":{{json .Mountpoint}},"OptionsEmpty":{{eq (len .Options) 0}}}')
 ISOLATION_CONTAINER_FORMAT = (
@@ -701,6 +711,9 @@ function storage_stat($path) {
           'gid' => $value['gid'], 'mode' => $value['mode'] & 07777,
           'isDirectory' => true, 'isSymlink' => false];
 }
+function storage_named_identity($target, $expected) {
+  if (storage_stat($target) !== $expected) storage_fail('named-identity');
+}
 function storage_related($left, $right) {
   return $left === $right || str_starts_with($left, $right . '/');
 }
@@ -725,11 +738,12 @@ function storage_process($text) {
     if ($values[$key] !== '1') storage_fail('process-proof');
   }
 }
-function storage_mounts($text, $root, $volumeRoots) {
+function storage_mounts($text, $root, $targets) {
   if (strlen($text) > 2097152) storage_fail('mount-metadata');
   $lines = explode("\n", trim($text));
   if (count($lines) > 65536) storage_fail('mount-metadata');
   $rootCount = 0;
+  $targetCounts = array_fill(0, count($targets), 0);
   foreach ($lines as $line) {
     $fields = explode(' ', $line);
     $separator = array_search('-', $fields, true);
@@ -738,20 +752,23 @@ function storage_mounts($text, $root, $volumeRoots) {
       storage_fail('mount-metadata');
     }
     $point = strtr($fields[4], ['\\040' => ' ', '\\011' => "\t", '\\012' => "\n", '\\134' => '\\']);
-    if ($point === $root) {
-      ++$rootCount;
+    $targetIndex = array_search($point, $targets, true);
+    if ($point === $root || $targetIndex !== false) {
+      if ($targetIndex !== false) ++$targetCounts[$targetIndex];
+      else ++$rootCount;
       if (!in_array('ro', explode(',', $fields[5]), true)) storage_fail('not-readonly');
       foreach (array_slice($fields, 6, $separator - 6) as $option) {
-        if (preg_match('/^(shared|master|propagate_from):/', $option)) storage_fail('not-private');
+        if ($option === 'unbindable' || preg_match('/^(shared|master|propagate_from):/', $option)) storage_fail('not-private');
       }
-    } elseif ($point === $root . '/volumes') {
+    } elseif (storage_related($point, $root)) {
       storage_fail('submount');
     }
-    foreach ($volumeRoots as $volumeRoot) {
-      if (storage_related($point, $volumeRoot)) storage_fail('submount');
+    foreach ($targets as $target) {
+      if ($point !== $target && storage_related($point, $target)) storage_fail('submount');
     }
   }
   if ($rootCount !== 1) storage_fail('root-mount');
+  foreach ($targetCounts as $count) if ($count !== 1) storage_fail('named-mount');
 }
 try {
   storage_process(@file_get_contents('/proc/self/status'));
@@ -763,18 +780,21 @@ try {
   }
   $root = $input['root'];
   $volumeRoots = [];
+  $targets = [];
   foreach ($input['names'] as $name) {
     if (!is_string($name) || strlen($name) > 255 || !preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/D', $name)) storage_fail('input');
     $volumeRoots[] = $root . '/volumes/' . $name;
+    $targets[] = '/__fireguard_volume_proof/' . (count($targets));
   }
   $mountinfo = @file_get_contents('/proc/self/mountinfo');
   if ($mountinfo === false) storage_fail('mount-metadata');
-  storage_mounts($mountinfo, $root, $volumeRoots);
+  storage_mounts($mountinfo, $root, $targets);
   $rootStat = storage_stat($root);
   $volumesStat = storage_stat($root . '/volumes');
   $nodes = [];
   foreach ($volumeRoots as $index => $volumeRoot) {
     $nodes[] = ['index' => $index, 'directory' => storage_stat($volumeRoot), 'data' => storage_stat($volumeRoot . '/_data')];
+    storage_named_identity($targets[$index], $nodes[$index]['data']);
   }
   $finalMountinfo = @file_get_contents('/proc/self/mountinfo');
   if ($finalMountinfo === false || $finalMountinfo !== $mountinfo
@@ -782,6 +802,7 @@ try {
   foreach ($volumeRoots as $index => $volumeRoot) {
     if (storage_stat($volumeRoot) !== $nodes[$index]['directory']
         || storage_stat($volumeRoot . '/_data') !== $nodes[$index]['data']) storage_fail('changed');
+    storage_named_identity($targets[$index], $nodes[$index]['data']);
   }
   echo json_encode(['ok' => true, 'actorVerified' => true, 'root' => $rootStat, 'volumes' => $volumesStat, 'nodes' => $nodes], JSON_THROW_ON_ERROR);
 } catch (Throwable $error) { storage_fail('metadata'); }
@@ -827,6 +848,71 @@ def storage_kernel():
 def storage_volume_path(name):
     require(type(name) is str and len(name) <= 255 and VOLUME_NAME.fullmatch(name), "storage-volume-name-unverified")
     return STORAGE_ROOT + "/volumes/" + name + "/_data"
+
+
+def storage_host_mounts(value, names):
+    """Pin only the source mount and reject relevant aliases; unrelated overlays may churn."""
+    require(type(value) is str and len(value) <= 2_097_152, "storage-host-mount-metadata-unverified")
+    lines = value.splitlines()
+    require(0 < len(lines) <= 65536, "storage-host-mount-metadata-unverified")
+    roots = [storage_volume_path(name).removesuffix("/_data") for name in names]
+    ancestors = []
+    for line in lines:
+        fields = line.split(" ")
+        require("-" in fields, "storage-host-mount-metadata-unverified")
+        separator = fields.index("-")
+        require(separator >= 6 and len(fields) == separator + 4 and fields[0].isdecimal()
+                and fields[1].isdecimal() and re.fullmatch(r"[0-9]+:[0-9]+", fields[2]),
+                "storage-host-mount-metadata-unverified")
+        point = fields[4]
+        for encoded, decoded in (("\\040", " "), ("\\011", "\t"), ("\\012", "\n"), ("\\134", "\\")):
+            point = point.replace(encoded, decoded)
+        require(point.startswith("/") and posixpath.normpath(point) == point and "\x00" not in point,
+                "storage-host-mount-metadata-unverified")
+        require(point != STORAGE_ROOT + "/volumes" and not any(
+            point == root or point.startswith(root + "/") for root in roots), "storage-host-volume-submount")
+        if point == "/" or point == STORAGE_ROOT or STORAGE_ROOT.startswith(point + "/"):
+            ancestors.append((point, fields, separator))
+    require(bool(ancestors), "storage-host-source-mount-unverified")
+    longest = max(len(item[0]) for item in ancestors)
+    selected = [item for item in ancestors if len(item[0]) == longest]
+    require(len(selected) == 1, "storage-host-source-mount-unverified")
+    point, fields, separator = selected[0]
+    require(not any(option == "unbindable" or option.startswith(("shared:", "master:", "propagate_from:"))
+                    for option in fields[6:separator]), "storage-host-source-not-private")
+    numbers = [int(fields[0]), int(fields[1]), *map(int, fields[2].split(":"))]
+    require(all(0 <= item <= 0xffffffffffffffff for item in numbers), "storage-host-mount-metadata-unverified")
+    return {"mountId": numbers[0], "parentId": numbers[1], "deviceMajor": numbers[2], "deviceMinor": numbers[3],
+            "sourceDepth": len(Path(STORAGE_ROOT).parts) - len(Path(point).parts),
+            "rootHash": hashlib.sha256(fields[3].encode("utf-8")).hexdigest(),
+            "readonly": "ro" in fields[5].split(","), "private": True}
+
+
+def storage_host_mount_proof(names):
+    return storage_host_mounts(metadata_text(Path("/proc/self/mountinfo"), 2_097_152), names)
+
+
+def storage_expected_mounts(names):
+    mounts = [{"Type": "bind", "Name": "", "Source": STORAGE_ROOT, "Destination": STORAGE_ROOT, "RW": False}]
+    declarations = [{"Type": "bind", "Source": STORAGE_ROOT, "Target": STORAGE_ROOT, "ReadOnly": True,
+                     "NoCopy": False, "NonRecursive": True, "PropagationEmpty": True}]
+    for index, name in enumerate(names):
+        target = "/__fireguard_volume_proof/" + str(index)
+        mounts.append({"Type": "volume", "Name": name, "Source": storage_volume_path(name), "Destination": target, "RW": False})
+        declarations.append({"Type": "volume", "Source": name, "Target": target, "ReadOnly": True,
+                             "NoCopy": True, "NonRecursive": False, "PropagationEmpty": True})
+    return mounts, declarations
+
+
+def storage_mounts_match(actual, expected, target):
+    if type(actual) is not list or len(actual) != len(expected):
+        return False
+    for item in actual:
+        if type(item) is not dict or set(item) != set(expected[0]):
+            return False
+        if any(type(item[key]) is not type(expected[0][key]) for key in item):
+            return False
+    return sorted(actual, key=lambda item: item[target]) == sorted(expected, key=lambda item: item[target])
 
 
 def isolation_policy(containers, current_pid, current_uid, storage_path=None):
@@ -900,7 +986,7 @@ def relevant_storage_proof(snapshot, development_names):
                  for mount in item["Mounts"] if mount["Type"] == "volume")
     nodes = {name: proof["nodes"][index] for index, name in enumerate(proof["volumeNames"])}
     require(names.issubset(nodes), "storage-physical-proof-unavailable")
-    return {"rootChain": proof["rootChain"], "volumes": proof["volumes"],
+    return {"rootChain": proof["rootChain"], "hostMount": proof["hostMount"], "volumes": proof["volumes"],
             "nodes": {name: {key: value for key, value in nodes[name].items() if key != "index"} for name in sorted(names)}}
 
 
@@ -969,6 +1055,7 @@ class Host:
         self.run = run
         self._verified_storage_image = None
         self._storage_development = None
+        self._storage_development_references = None
         self._storage_proof = None
         self._storage_authority_verified = False
 
@@ -1002,15 +1089,19 @@ class Host:
     def prepare_storage_inspector(self, containers):
         require(self._verified_storage_image is not None, "storage-source-image-unverified")
         development = {}
+        references = {}
         for record in containers:
             if record.get("project") != PROJECT:
                 continue
             for mount in record["mounts"]:
                 name, source = mount["name"], mount["source"]
                 require(source == storage_volume_path(name), "storage-development-mount-unverified")
+                require(type(record.get("id")) is str and DOCKER_ID.fullmatch(record["id"]), "storage-volume-reference-unverified")
                 development[name] = source
+                references.setdefault(name, set()).add(record["id"])
         require(bool(development), "isolation-development-storage-unavailable")
         self._storage_development = development
+        self._storage_development_references = references
         self._storage_authority_verified = False
 
     def reviewed_storage_path(self, value):
@@ -1031,7 +1122,7 @@ class Host:
             self.storage_actor_identity(identifier, nonce)
             self.storage_docker(["rm", "--force", identifier], DockerMetadataOperation.STORAGE_REMOVE)
 
-    def storage_actor_identity(self, identifier, nonce, *, created=False):
+    def storage_actor_identity(self, identifier, nonce, *, created=False, names=None):
         try:
             identity = json.loads(self.storage_docker(["container", "inspect", "--format", STORAGE_ACTOR_FORMAT, identifier],
                                                      DockerMetadataOperation.STORAGE_INSPECT))
@@ -1045,13 +1136,46 @@ class Host:
                 and state.get("Running") is (state["Status"] == "running")
                 and state.get("Restarting") is False and state.get("Paused") is False
                 and (not created or state["Status"] == "created"), "storage-inspector-cleanup-state-unverified")
+        if names is not None:
+            mounts, declarations = storage_expected_mounts(names)
+            require(storage_mounts_match(identity.get("Mounts"), mounts, "Destination")
+                    and storage_mounts_match(identity.get("Declarations"), declarations, "Target"),
+                    "storage-inspector-mount-declaration-unverified")
 
-    def inspect_storage(self, names):
+    def storage_reference_proof(self, names, references, volumes):
+        require(type(references) is dict and set(references) == set(names)
+                and all(type(ids) is set and bool(ids) and all(type(item) is str and DOCKER_ID.fullmatch(item) for item in ids)
+                        for ids in references.values()), "storage-volume-reference-unverified")
+        identifiers = set().union(*references.values())
+        require(len(identifiers) <= 4096, "storage-volume-reference-unverified")
+        for identifier in sorted(identifiers):
+            reference = self.isolation_json(["container", "inspect", "--format", STORAGE_REFERENCE_FORMAT, identifier])
+            require(type(reference) is dict and reference.get("Id") == identifier and type(reference.get("Mounts")) is list,
+                    "storage-volume-reference-unverified")
+            for name in names:
+                if identifier not in references[name]:
+                    continue
+                matches = [mount for mount in reference["Mounts"] if type(mount) is dict and mount.get("Type") == "volume"
+                           and mount.get("Name") == name]
+                require(bool(matches) and all(mount.get("Source") == storage_volume_path(name) for mount in matches),
+                        "storage-volume-reference-unverified")
+        for name in names:
+            current = self.isolation_json(["volume", "inspect", "--format", ISOLATION_VOLUME_FORMAT, name])
+            expected = {"Name": name, "Driver": "local", "Scope": "local", "OptionsEmpty": True,
+                        "Mountpoint": storage_volume_path(name)}
+            require(current == expected and type(current.get("OptionsEmpty")) is bool and volumes.get(name) == expected
+                    and type(volumes[name].get("OptionsEmpty")) is bool, "storage-volume-reference-unverified")
+
+    def inspect_storage(self, names, references, volumes):
         require(self._verified_storage_image is not None and self._storage_development is not None,
                 "storage-source-image-unverified")
         require(self._storage_authority_verified, "storage-docker-root-unverified")
+        require(type(names) is list and 0 < len(names) <= 4096 and all(type(name) is str and len(name) <= 255
+                and VOLUME_NAME.fullmatch(name) for name in names) and len(set(names)) == len(names), "storage-volume-name-unverified")
         storage_kernel()
         chain = storage_root_chain()
+        host_mount = storage_host_mount_proof(names)
+        self.storage_reference_proof(names, references, volumes)
         payload = json.dumps({"root": STORAGE_ROOT, "names": names}, separators=(",", ":"))
         nonce = uuid.uuid4().hex
         arguments = ["create", "--name", "fireguard-reviewed-storage-" + nonce, "--label", "fireguard.reviewed-storage-owner=" + nonce,
@@ -1061,25 +1185,32 @@ class Host:
                      "--network", "none", "--pid", "", "--runtime", "runc", "--ipc", "private", "--read-only", "--workdir", "/",
                      "--no-healthcheck", "--env", "LD_PRELOAD=", "--env", "LD_AUDIT=", "--env", "LD_LIBRARY_PATH=",
                      "--mount", "type=bind,src=" + STORAGE_ROOT + ",dst=" + STORAGE_ROOT
-                     + ",readonly,bind-recursive=readonly,bind-propagation=rprivate", "--entrypoint", "/usr/bin/env",
-                     self._verified_storage_image, "-i", "/usr/local/bin/php", "-n", "-r", STORAGE_INSPECT_PHP, payload]
+                     + ",readonly,bind-recursive=disabled"]
+        for index, name in enumerate(names):
+            arguments.extend(["--mount", "type=volume,src=" + name + ",dst=/__fireguard_volume_proof/" + str(index)
+                              + ",readonly,volume-nocopy"])
+        arguments.extend(["--entrypoint", "/usr/bin/env", self._verified_storage_image,
+                          "-i", "/usr/local/bin/php", "-n", "-r", STORAGE_INSPECT_PHP, payload])
         try:
             identifier = self.storage_docker(arguments, DockerMetadataOperation.STORAGE_CREATE).strip()
             require(DOCKER_ID.fullmatch(identifier), "storage-inspector-identity-unverified")
-            self.storage_actor_identity(identifier, nonce, created=True)
+            self.storage_actor_identity(identifier, nonce, created=True, names=names)
+            self.storage_reference_proof(names, references, volumes)
             output = self.storage_docker(["start", "--attach", identifier], DockerMetadataOperation.STORAGE_START)
         finally:
             # Also covers cancellation/timeout after Docker creates the actor but before returning its ID.
             # Only this nonce + image + name attested object; never purge unrelated runtime containers.
             self.cleanup_storage_actor(nonce)
         require(storage_root_chain() == chain, "storage-root-identity-changed")
+        require(storage_host_mount_proof(names) == host_mount, "storage-host-source-mount-changed")
+        self.storage_reference_proof(names, references, volumes)
         try:
             body = json.loads(output)
         except (TypeError, ValueError):
             raise RecoveryBlocked("storage-inspector-metadata-unverified") from None
         if type(body) is dict and body.get("ok") is False:
             codes = {"stat-unavailable", "symlink", "not-directory", "mount-metadata", "not-readonly", "not-private",
-                     "submount", "root-mount", "input", "changed", "metadata", "process-proof"}
+                     "submount", "root-mount", "input", "changed", "metadata", "process-proof", "named-mount", "named-identity"}
             require(set(body) == {"ok", "code"} and type(body.get("code")) is str and body["code"] in codes,
                     "storage-inspector-metadata-unverified")
             raise RecoveryBlocked("storage-inspector-" + body["code"])
@@ -1103,7 +1234,7 @@ class Host:
                 physical = (value["device"], value["inode"])
                 require(physical not in occupied, "storage-physical-alias")
                 occupied.add(physical)
-        self._storage_proof = {"rootChain": chain, "volumeNames": names, "volumes": parent, "nodes": nodes}
+        self._storage_proof = {"rootChain": chain, "hostMount": host_mount, "volumeNames": names, "volumes": parent, "nodes": nodes}
         return self._storage_proof
 
     def isolation_container_ids(self):
@@ -1161,7 +1292,12 @@ class Host:
                     elif mount["Name"] in required_names:
                         require(mount["Source"] == storage_volume_path(mount["Name"]), "storage-volume-source-unverified")
         if self._storage_development is not None:
-            self.inspect_storage(sorted(required_names))
+            references = {name: set(self._storage_development_references.get(name, set())) for name in required_names}
+            for record in containers:
+                for mount in record["Mounts"]:
+                    if mount["Type"] == "volume" and mount["Name"] in references:
+                        references[mount["Name"]].add(record["Id"])
+            self.inspect_storage(sorted(required_names), references, {volume["Name"]: volume for volume in volumes})
         return [volume for volume in volumes if volume["Name"] in active_names]
 
     def isolation_snapshot(self):
