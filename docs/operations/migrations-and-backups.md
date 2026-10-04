@@ -92,6 +92,11 @@ Existing writer identities, stopped states and absences must remain identical in
 both inventories before the lock is acquired. Missing app/assistant containers,
 oneoffs, duplicates, changed identities or states, and newly appearing workers
 remain blocking.
+This allowance belongs only to the verified original historical lock, whether
+its namespace is fully protected or requires the reviewed isolation proof.
+An ordinary private lock or an unverified legacy context still requires all five
+writers to be present and exited. The protected route keeps its deployment-user
+and writable-group peer checks before and after the inventory.
 
 The original and current Compose contracts give the three absent workers only
 `app_var` and `jwt_keys`, also referenced by the retained app and assistant. The
@@ -137,6 +142,27 @@ with group writes on the last directory. The additional incident-specific path
 requires the exact observed ownership, modes, device/inodes and nanosecond times
 for all six ancestors as well as the unchanged historical lock. It neither
 changes these permissions nor grants general trust to UID `1000`.
+
+An operator can instead review protecting the three shared ancestors `/srv`,
+`/srv/apps` and `/srv/apps/fireguard` as `root:root 0755`.
+`bin/fireguard-deployment-namespace-repair.py` defaults to a dry run against the
+exact historical directory identities and original empty lock. Explicit
+`--apply` requires root and changes only those three directory metadata records,
+using verified file descriptors in parent-to-child order. It reduces the mode
+before changing ownership, rechecks path attachment and preserves the lock,
+application directory, children, data and running services. Partial application
+is reported; the three changes are not an atomic transaction and there is no
+automatic rollback.
+
+Review this shared-host change before applying it and wait for all deployment
+and maintenance jobs to finish. Existing application-directory ownership stays
+unchanged; creating a new project directly under the protected parents then
+requires privileged provisioning. After the operator applies it, repeat the
+ordinary deployment check and use the original-incident recovery with a fresh
+validated image and no fixture reset. The protected recovery still pins the
+three known writer absences, present writer identities and retained storage
+before and after, verifies namespace and lock again, and acquires the ordinary
+deployment mutex. It does not relax the shared-namespace isolation proof.
 
 An authority peer is accepted only with a complete, repeated proof that it is
 confined by the existing trusted rootful Docker/runc/kernel boundary. Attribute

@@ -1781,16 +1781,17 @@ class ReviewedAbsentWorkerTests(unittest.TestCase):
         self.addCleanup(self.module_patch.stop)
 
     @contextmanager
-    def reviewed_host(self):
+    def reviewed_host(self, *, protected=False):
         with legacy_fixture() as (app, lock, chain):
-            reviewed_namespace(chain)
+            if not protected:
+                reviewed_namespace(chain)
             host = legacy_host()
             host.container_records = retained_compose_records()
             snapshot = retained_storage_snapshot(host.container_records)
             host.isolation_snapshot = MagicMock(side_effect=lambda: copy.deepcopy(snapshot))
             yield host
 
-    def test_exact_three_absent_workers_with_retained_contract_and_physical_proofs_reacquires(self):
+    def test_exact_three_absent_workers_with_retained_contract_reacquires(self):
         self.assertEqual({"async_worker", "scheduler_worker", "webhook_worker"}, RECOVERY.REVIEWED_ABSENT_WRITERS)
         with self.reviewed_host() as host:
             result = recover(host, current_uid=1001)
@@ -1800,14 +1801,20 @@ class ReviewedAbsentWorkerTests(unittest.TestCase):
             self.assertEqual(6, len(host._storage_development))
             self.assertTrue(host.reacquired)
 
-    def test_private_and_protected_legacy_paths_never_receive_absence_exception(self):
+    def test_private_and_nonreviewed_locks_never_receive_absence_exception_from_input(self):
         host = FakeHost()
         host.container_records = retained_compose_records()
+        evidence = proof()
+        evidence["allow_reviewed_absent"] = True
+        evidence["reviewedLegacy"] = {"gid": 1001}
         with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "stopped-writer-state-unverified"):
-            recover(host)
+            recover(host, evidence)
         self.assertFalse(host.released)
         self.assertFalse(host.reacquired)
-        with legacy_fixture():
+        with legacy_fixture() as (app, lock, chain):
+            # A private lock does not obtain the historical exception, even if
+            # its other numeric metadata coincides with the incident's tuple.
+            lock.lstat.return_value.st_mode = RECOVERY.stat.S_IFDIR | 0o755
             host = legacy_host()
             host.container_records = retained_compose_records()
             with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "stopped-writer-state-unverified"):
@@ -1955,6 +1962,108 @@ class ReviewedAbsentWorkerTests(unittest.TestCase):
         self.assertEqual({"app_var", "jwt_keys", "geoip_data", "auth_database_data", "main_database_data", "redis_data"}, suffixes)
         for suffix in suffixes:
             self.assertEqual({"name": "${VOLUME_PREFIX:?Set VOLUME_PREFIX}_" + suffix}, production["volumes"][suffix])
+
+
+class ProtectedOriginalAbsentWorkerTests(ReviewedAbsentWorkerTests):
+    """Run the same absence/storage transition refusals on the protected route."""
+
+    @contextmanager
+    def reviewed_host(self):
+        with super().reviewed_host(protected=True) as host:
+            yield host
+
+    def test_exact_three_absent_workers_with_retained_contract_reacquires(self):
+        with self.reviewed_host() as host, patch.object(RECOVERY, "isolation_validator") as validator:
+            host.prepare_storage_inspector = MagicMock(side_effect=AssertionError("Protected route must not load an inspector"))
+            identity = host.lock_identity()
+            self.assertNotIn("isolationRequired", identity["reviewedLegacy"])
+            result = recover(host, current_uid=1001)
+            self.assertEqual("reviewed-lock-reacquired-awaiting-rollout", result["result"])
+            self.assertEqual(2, host.container_reads)
+            self.assertEqual(2, host.process_reads)
+            self.assertEqual(6, len({mount["name"] for item in host.container_records for mount in item["mounts"]}))
+            self.assertTrue(host.reacquired)
+            host.isolation_snapshot.assert_not_called()
+            host.prepare_storage_inspector.assert_not_called()
+            validator.assert_not_called()
+
+    def test_protected_original_namespace_with_only_repaired_ancestors_and_unrelated_peers(self):
+        with legacy_fixture() as (app, lock, chain), patch.object(RECOVERY, "isolation_validator") as validator:
+            reviewed_namespace(chain)
+            for depth in (2, 3, 4):
+                node = chain[depth].lstat.return_value
+                node.st_uid = node.st_gid = 0
+                node.st_mode = RECOVERY.stat.S_IFDIR | 0o755
+                node.st_ctime_ns += 1
+            original_lock = dict(vars(lock.lstat.return_value))
+            host = legacy_host()
+            host.container_records = retained_compose_records()
+            host.process_records.append(foreign_peer() | {"uid": 1000, "uids": [1000] * 4, "gids": [0] * 4, "groups": [0]})
+            recover(host, current_uid=1001)
+            self.assertTrue(host.reacquired)
+            self.assertEqual(original_lock, vars(lock.lstat.return_value))
+            self.assertEqual(1001, app.lstat.return_value.st_uid)
+            validator.assert_not_called()
+
+    def test_foreign_owner_group_and_ambiguous_credentials_block_at_either_process_review(self):
+        mutations = []
+        for field in ("uids", "gids"):
+            for index in range(4):
+                def changes(peer, field=field, index=index):
+                    peer[field][index] = 1001
+                    peer["uid"] = peer["uids"][0]
+                mutations.append(changes)
+        mutations.extend((lambda peer: peer.update(groups=[1001]), lambda peer: peer.pop("gids"),
+                          lambda peer: peer.update(uid=1001, uids=[1001] * 4, gids=[1001] * 4, comm="python3")))
+        for final in (False, True):
+            for mutation in mutations:
+                with self.subTest(final=final, mutation=mutation), self.reviewed_host() as host:
+                    peer = foreign_peer()
+                    mutation(peer)
+                    if final:
+                        host.before_final_process = lambda current: current.process_records.append(peer)
+                    else:
+                        host.process_records.append(peer)
+                    with self.assertRaises(RECOVERY.RecoveryBlocked):
+                        recover(host, current_uid=1001)
+                    self.assertFalse(host.released)
+                    self.assertFalse(host.reacquired)
+
+    def test_changed_lock_namespace_or_new_entry_still_blocks_at_final_review(self):
+        for kind in ("lock-inode", "lock-ctime", "entry", "ancestor-inode", "ancestor-mode", "ancestor-owner", "ancestor-symlink"):
+            with self.subTest(kind=kind), legacy_fixture() as (app, lock, chain):
+                host = legacy_host()
+                host.container_records = retained_compose_records()
+                def changes(unused):
+                    if kind == "entry":
+                        lock.iterdir.side_effect = lambda: iter([object()])
+                    elif kind == "ancestor-symlink":
+                        chain[2].is_symlink.return_value = True
+                    else:
+                        value, field = {
+                            "lock-inode": (lock.lstat.return_value, "st_ino"),
+                            "lock-ctime": (lock.lstat.return_value, "st_ctime_ns"),
+                            "ancestor-inode": (chain[2].lstat.return_value, "st_ino"),
+                            "ancestor-mode": (chain[2].lstat.return_value, "st_mode"),
+                            "ancestor-owner": (chain[2].lstat.return_value, "st_uid"),
+                        }[kind]
+                        setattr(value, field, getattr(value, field) + 1)
+                host.before_final_containers = changes
+                with self.assertRaises(RECOVERY.RecoveryBlocked):
+                    recover(host, current_uid=1001)
+                self.assertFalse(host.released)
+                self.assertFalse(host.reacquired)
+
+    def test_normal_atomic_acquisition_race_still_preserves_competing_lock(self):
+        with self.reviewed_host() as host, patch.object(RECOVERY, "defer_cancellation", nullcontext), \
+             patch.object(RECOVERY.os, "rmdir") as remove, \
+             patch.object(RECOVERY.os, "mkdir", side_effect=FileExistsError("Competing lock")) as acquire:
+            host.replace_empty_lock = RECOVERY.Host().replace_empty_lock
+            with self.assertRaises(FileExistsError):
+                recover(host, current_uid=1001)
+            self.assertEqual(1, remove.call_count)
+            self.assertEqual(1, acquire.call_count)
+            self.assertFalse(host.reacquired)
 
 
 class IsolationProcCollectorTests(unittest.TestCase):
