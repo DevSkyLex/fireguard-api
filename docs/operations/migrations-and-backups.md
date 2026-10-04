@@ -82,8 +82,29 @@ releasing the mutex. It never restores or changes either database during inspect
 A stopped-writer refusal reports only the five fixed writer services, their
 matching-container counts and counts by a closed set of Docker states. Unknown
 state values are counted without publishing them. This diagnostic distinguishes
-missing, duplicated or never-started containers without changing the recovery
-conditions. It includes no container IDs, foreign labels, paths or configuration.
+missing, duplicated or never-started containers. It includes no container IDs,
+foreign labels, paths or configuration.
+
+The reviewed installation retains one exited `app` and one exited
+`assistant_worker`, while `async_worker`, `scheduler_worker` and `webhook_worker`
+are absent. Only those three exact absences may be admitted for this incident.
+Existing writer identities, stopped states and absences must remain identical in
+both inventories before the lock is acquired. Missing app/assistant containers,
+oneoffs, duplicates, changed identities or states, and newly appearing workers
+remain blocking.
+
+The original and current Compose contracts give the three absent workers only
+`app_var` and `jwt_keys`, also referenced by the retained app and assistant. The
+exception requires the exact named-volume mounts, destinations, access modes and
+canonical sources for app/assistant, both databases and Redis. These retain
+`app_var`, `jwt_keys`, `geoip_data`, `auth_database_data`, `main_database_data` and
+`redis_data`; their existing references and physical identities must pass the
+ordinary repeated proofs. This minimum contract does not replace the global
+checks covering every present container and its storage, including Mercure and
+Mailpit. The helper neither creates nor starts a missing writer during inspection.
+A retained-storage refusal reports the fixed service, bounded mount counts and
+closed mismatch categories such as source, destination or access mode. Actual
+mount values and configuration remain private; the diagnostic grants no exception.
 
 An identity refusal includes only bounded filesystem metadata: directory/symlink
 flags, numeric owner and process IDs, permission bits, device/inode and timestamps.

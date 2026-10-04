@@ -34,6 +34,15 @@ APP_DIR = "/srv/apps/fireguard/development/back"
 PROJECT = "fireguard-dev-back"
 PREFIX = "fireguard-dev-back"
 WRITERS = {"app", "async_worker", "webhook_worker", "assistant_worker", "scheduler_worker"}
+REVIEWED_ABSENT_WRITERS = {"async_worker", "scheduler_worker", "webhook_worker"}
+REVIEWED_RETAINED_STORAGE = {
+    "app": (("app_var", "/var/www/html/var", True), ("jwt_keys", "/var/www/html/config/jwt", False),
+            ("geoip_data", "/var/lib/fireguard/geoip", False)),
+    "assistant_worker": (("app_var", "/var/www/html/var", True), ("jwt_keys", "/var/www/html/config/jwt", False)),
+    "auth_database": (("auth_database_data", "/var/lib/postgresql/data", True),),
+    "main_database": (("main_database_data", "/var/lib/postgresql/data", True),),
+    "redis": (("redis_data", "/data", True),),
+}
 DEPENDENCIES = {"auth_database", "main_database", "redis", "mercure", "mailpit"}
 SHA = re.compile(r"[a-f0-9]{40}\Z")
 IMAGE = re.compile(r"ghcr\.io/devskylex/fireguard-api@sha256:[a-f0-9]{64}\Z")
@@ -80,6 +89,14 @@ class WriterStateDiagnostic(TypedDict):
     matchCount: int
     statusCounts: dict[WriterStatus, int]
     countsTruncated: bool
+
+
+class RetainedStorageDiagnostic(TypedDict):
+    service: Literal["app", "assistant_worker", "auth_database", "main_database", "redis"]
+    expectedMountCount: int
+    actualMountCount: int
+    countsTruncated: bool
+    mismatchFields: list[Literal["shape", "type", "name", "source", "destination", "rw", "missing", "extra"]]
 
 
 class NamespaceNodeFields(TypedDict, total=False):
@@ -347,7 +364,8 @@ CONTAINER_FORMAT = ('{"id":{{json .ID}},"running":{{json .State.Running}},'
                     '"oneoff":{{json (index .Config.Labels "com.docker.compose.oneoff")}},'
                     '"workingDir":{{json (index .Config.Labels "com.docker.compose.project.working_dir")}},'
                     '"mounts":[{{range $i,$m := .Mounts}}{{if $i}},{{end}}'
-                    '{"name":{{json $m.Name}},"source":{{json $m.Source}}}{{end}}]}')
+                    '{"name":{{json $m.Name}},"source":{{json $m.Source}},"type":{{json $m.Type}},'
+                    '"destination":{{json $m.Destination}},"rw":{{json $m.RW}}}{{end}}]}')
 IMAGE_FORMAT = ('{"id":{{json .ID}},"volumesEmpty":{{eq (len .Config.Volumes) 0}},"digests":{{json .RepoDigests}},'
                 '"source":{{json (index .Config.Labels "org.opencontainers.image.source")}},'
                 '"revision":{{json (index .Config.Labels "org.opencontainers.image.revision")}}}')
@@ -389,7 +407,74 @@ def writer_state_diagnostics(own) -> list[WriterStateDiagnostic]:
     return result
 
 
-def check_containers(containers):
+def retained_storage_diagnostic(service, mounts, expected) -> RetainedStorageDiagnostic:
+    keys = ("name", "source", "type", "destination", "rw")
+    wanted = {mount[0]: mount for mount in expected}
+    counts = dict.fromkeys(wanted, 0)
+    mismatch = set()
+    for mount in mounts:
+        for key in keys:
+            if type(mount.get(key)) is not (bool if key == "rw" else str):
+                mismatch.update(("shape", key))
+        name = mount.get("name")
+        if type(name) is not str or name not in wanted:
+            mismatch.update(("name", "extra"))
+            continue
+        counts[name] += 1
+        for key, value in zip(keys, wanted[name]):
+            if mount.get(key) != value:
+                mismatch.add(key)
+    if any(count == 0 for count in counts.values()):
+        mismatch.update(("name", "missing"))
+    if any(count > 1 for count in counts.values()):
+        mismatch.update(("name", "extra"))
+    return {"service": service, "expectedMountCount": min(len(expected), 32768), "actualMountCount": min(len(mounts), 32768),
+            "countsTruncated": len(expected) > 32768 or len(mounts) > 32768,
+            "mismatchFields": [field for field in ("shape", "type", "name", "source", "destination", "rw", "missing", "extra")
+                               if field in mismatch]}
+
+
+def require_retained_storage(condition, service, mounts, expected):
+    if not condition:
+        raise RecoveryBlocked("retained-storage-contract-unverified "
+                              + json.dumps(retained_storage_diagnostic(service, mounts, expected), sort_keys=True))
+
+
+def retained_storage_identity(own):
+    """The reviewed Compose contract, never an allowlist inferred from runtime mounts."""
+    result = {}
+    for service, contract in REVIEWED_RETAINED_STORAGE.items():
+        matches = [item for item in own if item.get("service") == service and item.get("oneoff") == "False"]
+        require(len(matches) == 1, "retained-storage-service-unverified")
+        item = matches[0]
+        require(type(item.get("id")) is str and DOCKER_ID.fullmatch(item["id"])
+                and type(item.get("status")) is str and item["status"] in WRITER_STATUSES[:-1], "retained-storage-identity-unverified")
+        expected = tuple(sorted((PREFIX + "_" + suffix, storage_volume_path(PREFIX + "_" + suffix), "volume", destination, rw)
+                                for suffix, destination, rw in contract))
+        require_retained_storage(all(type(mount.get(key)) is str for mount in item["mounts"] for key in ("name", "source", "type", "destination"))
+                                 and all(type(mount.get("rw")) is bool for mount in item["mounts"]), service, item["mounts"], expected)
+        mounted = tuple(sorted((mount["name"], mount["source"], mount["type"], mount["destination"], mount["rw"])
+                               for mount in item["mounts"]))
+        require_retained_storage(mounted == expected, service, item["mounts"], expected)
+        result[service] = (item["id"], item.get("status"), item["running"], item["restarting"], mounted)
+    return result
+
+
+def reviewed_writer_identity(containers):
+    result = {}
+    for service in sorted(WRITERS):
+        matches = [item for item in containers if item.get("project") == PROJECT
+                   and item.get("service") == service and item.get("oneoff") == "False"]
+        if not matches:
+            result[service] = None
+            continue
+        require(len(matches) == 1 and type(matches[0].get("id")) is str and DOCKER_ID.fullmatch(matches[0]["id"]),
+                "stopped-writer-identity-unverified")
+        result[service] = (matches[0]["id"], matches[0].get("status"))
+    return result
+
+
+def check_containers(containers, *, allow_reviewed_absent=False):
     own = [item for item in containers if item.get("project") == PROJECT]
     storage_sources = {APP_DIR}
     for item in own:
@@ -411,11 +496,17 @@ def check_containers(containers):
         require(item.get("workingDir") == APP_DIR, "compose-installation-identity-mismatch")
         require(not (active and (item.get("oneoff") != "False" or item.get("service") not in DEPENDENCIES)),
                 "writer-or-oneoff-active")
+    absent = False
     for service in WRITERS:
         matches = [item for item in own if item.get("service") == service and item.get("oneoff") == "False"]
+        if allow_reviewed_absent and service in REVIEWED_ABSENT_WRITERS and not any(item.get("service") == service for item in own):
+            absent = True
+            continue
         if not (len(matches) == 1 and matches[0].get("status") == "exited"):
             raise RecoveryBlocked("stopped-writer-state-unverified "
                                   + json.dumps({"writers": writer_state_diagnostics(own)}, sort_keys=True))
+    if absent:
+        retained_storage_identity(own)
     databases = {}
     for history in ["auth", "main"]:
         service = history + "_database"
@@ -1511,7 +1602,10 @@ def recover(proof, host, *, app_dir, project, prefix, current_pid, current_uid):
     if not isolated_namespace:
         check_processes(host.processes(), current_pid, current_uid, group_gid=group_gid)
     container_records = host.containers()
-    databases = check_containers(container_records)
+    databases = check_containers(container_records, allow_reviewed_absent=isolated_namespace)
+    writer_identity = reviewed_writer_identity(container_records) if isolated_namespace else None
+    storage_identity = retained_storage_identity([item for item in container_records if item.get("project") == PROJECT]) \
+        if writer_identity is not None and any(value is None for value in writer_identity.values()) else None
     if isolated_namespace:
         require(host.image_manifest(proof) == proof["migrations"], "image-migration-manifest-mismatch")
         host.prepare_storage_inspector(container_records)
@@ -1537,7 +1631,13 @@ def recover(proof, host, *, app_dir, project, prefix, current_pid, current_uid):
                         peer_reader=lambda pid: host.isolation_peer_task(pid, after["cgroupDriver"]))
     else:
         check_processes(host.processes(), current_pid, current_uid, group_gid=group_gid)
-    require(check_containers(host.containers()) == databases, "database-identity-changed-during-review")
+    final_containers = host.containers()
+    require(check_containers(final_containers, allow_reviewed_absent=isolated_namespace) == databases, "database-identity-changed-during-review")
+    if writer_identity is not None:
+        require(reviewed_writer_identity(final_containers) == writer_identity, "writer-identity-changed-during-review")
+    if storage_identity is not None:
+        require(retained_storage_identity([item for item in final_containers if item.get("project") == PROJECT]) == storage_identity,
+                "retained-storage-identity-changed-during-review")
     require(host.lock_identity() == identity, "lock-identity-changed-during-review")
     host.replace_empty_lock()
     return {"candidateRunId": CANDIDATE, "currentRunId": proof["currentRunId"], "sourceSha": proof["sourceSha"],
