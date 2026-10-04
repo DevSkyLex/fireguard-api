@@ -738,12 +738,13 @@ function storage_process($text) {
     if ($values[$key] !== '1') storage_fail('process-proof');
   }
 }
-function storage_mounts($text, $root, $targets) {
+function storage_mounts($text, $root, $targets, $volumeRoots) {
   if (strlen($text) > 2097152) storage_fail('mount-metadata');
   $lines = explode("\n", trim($text));
   if (count($lines) > 65536) storage_fail('mount-metadata');
   $rootCount = 0;
   $targetCounts = array_fill(0, count($targets), 0);
+  $selected = [];
   foreach ($lines as $line) {
     $fields = explode(' ', $line);
     $separator = array_search('-', $fields, true);
@@ -754,14 +755,19 @@ function storage_mounts($text, $root, $targets) {
     $point = strtr($fields[4], ['\\040' => ' ', '\\011' => "\t", '\\012' => "\n", '\\134' => '\\']);
     $targetIndex = array_search($point, $targets, true);
     if ($point === $root || $targetIndex !== false) {
+      $selected[$point] = $line;
       if ($targetIndex !== false) ++$targetCounts[$targetIndex];
       else ++$rootCount;
       if (!in_array('ro', explode(',', $fields[5]), true)) storage_fail('not-readonly');
       foreach (array_slice($fields, 6, $separator - 6) as $option) {
-        if ($option === 'unbindable' || preg_match('/^(shared|master|propagate_from):/', $option)) storage_fail('not-private');
+        if ($option === 'unbindable' || str_starts_with($option, 'shared:')
+            || ($targetIndex !== false && preg_match('/^(master|propagate_from):/', $option))) storage_fail('not-private');
       }
-    } elseif (storage_related($point, $root)) {
+    } elseif ($point === $root . '/volumes') {
       storage_fail('submount');
+    }
+    foreach ($volumeRoots as $volumeRoot) {
+      if (storage_related($point, $volumeRoot)) storage_fail('submount');
     }
     foreach ($targets as $target) {
       if ($point !== $target && storage_related($point, $target)) storage_fail('submount');
@@ -769,6 +775,8 @@ function storage_mounts($text, $root, $targets) {
   }
   if ($rootCount !== 1) storage_fail('root-mount');
   foreach ($targetCounts as $count) if ($count !== 1) storage_fail('named-mount');
+  ksort($selected);
+  return $selected; // Private in-memory signatures; never publish sources or options.
 }
 try {
   storage_process(@file_get_contents('/proc/self/status'));
@@ -788,7 +796,7 @@ try {
   }
   $mountinfo = @file_get_contents('/proc/self/mountinfo');
   if ($mountinfo === false) storage_fail('mount-metadata');
-  storage_mounts($mountinfo, $root, $targets);
+  $mountProof = storage_mounts($mountinfo, $root, $targets, $volumeRoots);
   $rootStat = storage_stat($root);
   $volumesStat = storage_stat($root . '/volumes');
   $nodes = [];
@@ -797,8 +805,9 @@ try {
     storage_named_identity($targets[$index], $nodes[$index]['data']);
   }
   $finalMountinfo = @file_get_contents('/proc/self/mountinfo');
-  if ($finalMountinfo === false || $finalMountinfo !== $mountinfo
-      || storage_stat($root) !== $rootStat || storage_stat($root . '/volumes') !== $volumesStat) storage_fail('changed');
+  if ($finalMountinfo === false) storage_fail('mount-metadata');
+  if (storage_mounts($finalMountinfo, $root, $targets, $volumeRoots) !== $mountProof) storage_fail('changed');
+  if (storage_stat($root) !== $rootStat || storage_stat($root . '/volumes') !== $volumesStat) storage_fail('changed');
   foreach ($volumeRoots as $index => $volumeRoot) {
     if (storage_stat($volumeRoot) !== $nodes[$index]['directory']
         || storage_stat($volumeRoot . '/_data') !== $nodes[$index]['data']) storage_fail('changed');
@@ -878,14 +887,20 @@ def storage_host_mounts(value, names):
     selected = [item for item in ancestors if len(item[0]) == longest]
     require(len(selected) == 1, "storage-host-source-mount-unverified")
     point, fields, separator = selected[0]
-    require(not any(option == "unbindable" or option.startswith(("shared:", "master:", "propagate_from:"))
-                    for option in fields[6:separator]), "storage-host-source-not-private")
+    propagation = {"shared": None, "master": None, "propagate_from": None}
+    for option in fields[6:separator]:
+        require(option != "unbindable", "storage-host-source-unbindable")
+        key, marker, value = option.partition(":")
+        require(marker and key in propagation and propagation[key] is None and value.isdecimal()
+                and 0 < int(value) <= 0xffffffffffffffff, "storage-host-source-mount-unverified")
+        propagation[key] = int(value)
     numbers = [int(fields[0]), int(fields[1]), *map(int, fields[2].split(":"))]
     require(all(0 <= item <= 0xffffffffffffffff for item in numbers), "storage-host-mount-metadata-unverified")
     return {"mountId": numbers[0], "parentId": numbers[1], "deviceMajor": numbers[2], "deviceMinor": numbers[3],
             "sourceDepth": len(Path(STORAGE_ROOT).parts) - len(Path(point).parts),
             "rootHash": hashlib.sha256(fields[3].encode("utf-8")).hexdigest(),
-            "readonly": "ro" in fields[5].split(","), "private": True}
+            "readonly": "ro" in fields[5].split(","), "propagation": propagation,
+            "private": not any(value is not None for value in propagation.values())}
 
 
 def storage_host_mount_proof(names):

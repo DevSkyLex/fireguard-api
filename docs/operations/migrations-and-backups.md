@@ -136,13 +136,22 @@ then runs a fixed PHP program in an isolated container with no available
 capabilities, `NoNewPrivs`, no network, a read-only root filesystem, no healthcheck
 and a fixed working directory. Only `/var/lib/docker` is bound at its original
 path, read-only and without importing submounts. Docker rejects an explicitly
-private bind of its own root, so the request leaves propagation unset and requires
-Docker's private-source compatibility behavior. Host mount metadata must prove
-that the source is private and that no relevant volume path is covered by another
-mount. The PHP program then verifies the actual root mount is read-only, private
-and has no submounts before reading directory metadata. Declared Docker options
-alone are never accepted as this proof. Shared, slave or unbindable sources are
-refused; the helper does not change host mounts or permissions.
+private bind of its own root, so the request leaves propagation unset. Docker can
+use one-way slave propagation for a shared source, or private behavior for a
+private source. The actual root bind must be read-only and never shared or
+unbindable. Host and inspector mount metadata must exclude mounts covering the
+volume parent or any inspected volume, including descendants, before reading
+directory metadata and again afterwards. Unrelated overlay and storage mounts
+outside the inspected volume paths are ignored.
+
+Future host mounts elsewhere below the root can propagate into a slave bind and
+may be writable. The fixed, source-verified PHP program retains zero capabilities
+throughout its lifetime and performs only the specified directory metadata and
+process/mount-proof reads; it never reads or writes application files or traverses
+unrelated submounts. This guard relies on that restricted program and the existing
+no-maintenance assumption, not a claim that the entire Docker root remains private
+or read-only forever. The helper does not change host mounts, permissions or LSM
+profiles, and no bootstrap capabilities are granted.
 
 Each inspected local volume is also mounted separately at a fixed proof target,
 read-only with copying disabled. Its effective mount must be private and have no

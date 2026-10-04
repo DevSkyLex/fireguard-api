@@ -1829,10 +1829,17 @@ class StorageHostMountTests(unittest.TestCase):
             self.assertEqual(expected, RECOVERY.storage_host_mounts(base + nearest + overlay, ["fixture"]))
         self.assertNotIn("/private", json.dumps(expected))
 
-    def test_shared_slave_unbindable_and_relevant_volume_mounts_refuse(self):
+    def test_private_shared_slave_source_pins_and_unbindable_relevant_mount_refusals(self):
         base = "10 1 8:1 / / rw - ext4 private rw\n"
-        for option in ("shared:7", "master:7", "propagate_from:7", "unbindable"):
-            with self.subTest(option=option), self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "source-not-private"):
+        for option in ("shared:7", "master:7", "master:7 propagate_from:8", "shared:7 master:8"):
+            with self.subTest(option=option):
+                proof = RECOVERY.storage_host_mounts(base.replace(" rw -", " rw " + option + " -"), ["fixture"])
+                self.assertFalse(proof["private"])
+                self.assertTrue(any(value is not None for value in proof["propagation"].values()))
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "source-unbindable"):
+            RECOVERY.storage_host_mounts(base.replace(" rw -", " rw unbindable -"), ["fixture"])
+        for option in ("shared:invalid", "master:0", "shared:1 shared:2", "unknown:1"):
+            with self.subTest(option=option), self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "source-mount-unverified"):
                 RECOVERY.storage_host_mounts(base.replace(" rw -", " rw " + option + " -"), ["fixture"])
         for suffix in ("volumes", "volumes/fixture", "volumes/fixture/_data", "volumes/fixture/_data/child"):
             line = "11 10 8:2 / /var/lib/docker/" + suffix + " ro - ext4 private rw\n"
@@ -1935,7 +1942,7 @@ class StorageInspectorTests(unittest.TestCase):
         self.assertEqual(storage_mount_fixture(), result["hostMount"])
 
     def test_host_mount_refusal_precedes_actor_and_source_churn_never_returns_proof(self):
-        for code in ("storage-host-source-not-private", "storage-host-volume-submount", "storage-host-mount-metadata-unverified"):
+        for code in ("storage-host-source-unbindable", "storage-host-volume-submount", "storage-host-mount-metadata-unverified"):
             with self.subTest(code=code), patch.object(RECOVERY, "storage_host_mount_proof", side_effect=RECOVERY.RecoveryBlocked(code)), \
                  self.assertRaisesRegex(RECOVERY.RecoveryBlocked, code):
                 self.inspect()
@@ -1947,6 +1954,20 @@ class StorageInspectorTests(unittest.TestCase):
             self.inspect()
         self.assertIsNone(self.host._storage_proof)
         self.assertEqual(["rm", "--force", "c" * 64], self.calls[-1][5:])
+
+    def test_shared_source_is_pinned_without_adding_capabilities_or_changing_named_mount_guards(self):
+        proof = RECOVERY.storage_host_mounts("10 1 8:1 / / rw shared:7 - ext4 private rw\n", ["development"])
+        with patch.object(RECOVERY, "storage_host_mount_proof", return_value=proof):
+            self.assertEqual(proof, self.inspect()["hostMount"])
+        create = next(argv for argv in self.calls if argv[5] == "create")
+        self.assertEqual("ALL", create[create.index("--cap-drop") + 1])
+        self.assertNotIn("--cap-add", create)
+        self.assertNotIn("apparmor=unconfined", create)
+        changed = copy.deepcopy(proof)
+        changed["propagation"]["shared"] += 1
+        with patch.object(RECOVERY, "storage_host_mount_proof", side_effect=[proof, changed]), \
+             self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "storage-host-source-mount-changed"):
+            self.inspect()
 
     def test_origin_reference_loss_before_create_after_create_or_after_start_never_returns_proof(self):
         original = self.runner
@@ -2239,15 +2260,16 @@ class StoragePHPParserTests(unittest.TestCase):
     def test_actual_php_mount_parser_refuses_name_data_children_stacks_and_rw(self):
         root = RECOVERY.STORAGE_ROOT
         base = "10 1 8:1 / " + root + " ro - ext4 /private-source rw\n"
-        expression = "$v=json_decode($argv[1],true);storage_mounts($v['text'],$v['root'],[]);echo json_encode(['ok'=>true]);"
+        expression = "$v=json_decode($argv[1],true);storage_mounts($v['text'],$v['root'],[],[$v['name']]);echo json_encode(['ok'=>true]);"
         cases = [(base, True)]
-        for point in (root + "/volumes", root + "/volumes/fixture", root + "/volumes/fixture/_data", root + "/volumes/fixture/_data/child",
-                      root + "/overlay2/fixture/merged", root + "/volumes/fixture-other"):
+        for point in (root + "/volumes", root + "/volumes/fixture", root + "/volumes/fixture/_data", root + "/volumes/fixture/_data/child"):
             cases.append((base + "11 10 8:2 / " + point + " ro - ext4 /private-second rw\n", False))
         cases.extend(((base + base, False), (base.replace(" ro -", " rw -"), False),
-                      (base.replace(" ro -", " ro shared:7 -"), False), (base.replace(" ro -", " ro master:7 -"), False),
-                      (base.replace(" ro -", " ro propagate_from:7 -"), False), (base.replace(" ro -", " ro unbindable -"), False),
+                      (base.replace(" ro -", " ro shared:7 -"), False), (base.replace(" ro -", " ro master:7 -"), True),
+                      (base.replace(" ro -", " ro master:7 propagate_from:8 -"), True), (base.replace(" ro -", " ro unbindable -"), False),
                       ("malformed-private-metadata", False),
+                      (base + "11 10 8:2 / " + root + "/overlay2/fixture/merged rw - overlay /private-source rw\n", True),
+                      (base + "11 10 8:2 / " + root + "/volumes/fixture-other ro - ext4 /private-source rw\n", True),
                       (base + "11 10 8:2 / /unrelated ro - ext4 /private-source rw\n", True)))
         for text, allowed in cases:
             with self.subTest(text=text):
@@ -2278,7 +2300,7 @@ class StoragePHPParserTests(unittest.TestCase):
         root, target = RECOVERY.STORAGE_ROOT, "/__fireguard_volume_proof/0"
         base = "10 1 8:1 / " + root + " ro - ext4 private rw\n"
         named = "20 1 8:1 /volumes/fixture/_data " + target + " ro - ext4 private rw\n"
-        expression = "$v=json_decode($argv[1],true);storage_mounts($v['text'],$v['root'],[$v['target']]);echo json_encode(['ok'=>true]);"
+        expression = "$v=json_decode($argv[1],true);storage_mounts($v['text'],$v['root'],[$v['target']],[]);echo json_encode(['ok'=>true]);"
         self.assertEqual({"ok": True}, self.php(expression, {"text": base + named, "root": root, "target": target}))
         for text in (base, base + named + named, base + named.replace(" ro -", " rw -"),
                      base + named.replace(" ro -", " ro shared:3 -"), base + named.replace(" ro -", " ro master:3 -"),
@@ -2288,6 +2310,24 @@ class StoragePHPParserTests(unittest.TestCase):
                 result = self.php(expression, {"text": text, "root": root, "target": target})
                 self.assertFalse(result["ok"])
                 self.assertNotIn(target, json.dumps(result))
+
+    def test_repeated_php_proof_ignores_unrelated_overlay_churn_but_rejects_relevant_propagation(self):
+        root, target = RECOVERY.STORAGE_ROOT, "/__fireguard_volume_proof/0"
+        base = ("10 1 8:1 / " + root + " ro master:7 - ext4 private rw\n"
+                "20 1 8:1 /volumes/fixture/_data " + target + " ro - ext4 private rw\n")
+        expression = ("$v=json_decode($argv[1],true);$p=storage_mounts($v['before'],$v['root'],[$v['target']],[$v['name']]);"
+                      "$q=storage_mounts($v['after'],$v['root'],[$v['target']],[$v['name']]);echo json_encode(['ok'=>true,'same'=>$p===$q]);")
+        fixture = {"before": base, "root": root, "target": target, "name": root + "/volumes/fixture"}
+        unrelated = "30 10 8:2 / " + root + "/overlay2/unrelated/merged rw - overlay private rw\n"
+        self.assertEqual({"ok": True, "same": True}, self.php(expression, fixture | {"after": base + unrelated}))
+        for after in (base.replace("10 1", "11 1"), base.replace("master:7", "master:8"), base.replace("20 1", "21 1")):
+            with self.subTest(after=after):
+                self.assertEqual({"ok": True, "same": False}, self.php(expression, fixture | {"after": after}))
+        for point in (root + "/volumes", root + "/volumes/fixture", root + "/volumes/fixture/_data", root + "/volumes/fixture/_data/child",
+                      target + "/child"):
+            after = base + "30 10 8:2 / " + point + " rw master:8 - ext4 private rw\n"
+            with self.subTest(point=point):
+                self.assertEqual({"ok": False, "code": "submount"}, self.php(expression, fixture | {"after": after}))
 
     def test_named_effective_data_identity_matches_all_numeric_stat_fields_and_detects_recreation(self):
         with tempfile.TemporaryDirectory() as directory:
