@@ -1431,7 +1431,7 @@ class ContainerIsolationIntegrationTests(unittest.TestCase):
         self.addCleanup(self.module_patch.stop)
 
     def test_exact_shape_diagnostic_in_either_inventory_keeps_lock_and_values_private(self):
-        for kind in ("authority-groups", "unrelated-groups", "namespace", "credentials", "volume-path"):
+        for kind in ("authority-namespace", "unrelated-namespace", "bool-credential", "credentials", "volume-path"):
             for phase in (0, 1):
                 with self.subTest(kind=kind, phase=phase), legacy_fixture() as (app, lock, chain), \
                      patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
@@ -1442,13 +1442,14 @@ class ContainerIsolationIntegrationTests(unittest.TestCase):
                                                          "OptionsEmpty": True, "Mountpoint": "/private-canary/../data"})
                         expected = ("volume-mountpoint", "volume", None)
                     else:
-                        target = states[phase]["processes"][2 if kind != "unrelated-groups" else 1]["tasks"][0]
-                        if kind in ("authority-groups", "unrelated-groups"):
+                        target = states[phase]["processes"][2 if kind != "unrelated-namespace" else 1]["tasks"][0]
+                        if kind in ("authority-namespace", "unrelated-namespace"):
                             target["groups"] *= 2
-                            expected = ("task-groups-duplicate", "task", kind == "authority-groups")
-                        elif kind == "namespace":
                             target["nsPid"] = [target["tid"], 0]
-                            expected = ("task-nspid-positive", "task", True)
+                            expected = ("task-nspid-positive", "task", kind == "authority-namespace")
+                        elif kind == "bool-credential":
+                            target["gids"][0] = True
+                            expected = ("task-gids", "task", None)
                         else:
                             target["uids"] = ["private-canary"] * 4
                             expected = ("task-uids", "task", None)
@@ -1465,6 +1466,29 @@ class ContainerIsolationIntegrationTests(unittest.TestCase):
                     self.assertFalse(host.released)
                     self.assertFalse(host.reacquired)
                     self.assertEqual(phase + 1, host.isolation_snapshot.call_count)
+
+    def test_valid_duplicate_groups_allow_only_unchanged_fully_proven_recovery(self):
+        for changed in (False, True):
+            with self.subTest(changed=changed), legacy_fixture() as (app, lock, chain), \
+                 patch.object(RECOVERY, "canonical_storage", side_effect=lambda value: value):
+                reviewed_namespace(chain)
+                before = isolation_fixture()
+                before["processes"][0]["tasks"][0]["groups"] = [0, 0]
+                before["processes"][3]["tasks"][-1]["groups"] = [1000, 1000]
+                after = copy.deepcopy(before)
+                if changed:
+                    after["processes"][3]["tasks"][-1]["groups"] = [1000]
+                host = legacy_host()
+                host.isolation_snapshot = MagicMock(side_effect=[before, after])
+                if changed:
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^container-isolation-identity-changed "):
+                        recover(host, current_uid=1001)
+                    self.assertFalse(host.released)
+                    self.assertFalse(host.reacquired)
+                else:
+                    self.assertEqual("reviewed-lock-reacquired-awaiting-rollout", recover(host, current_uid=1001)["result"])
+                    self.assertTrue(host.reacquired)
+                self.assertEqual([1000, 1000], before["processes"][3]["tasks"][-1]["groups"])
 
     def test_public_isolation_projection_redacts_non_enum_diagnostic_members(self):
         spec = importlib.util.spec_from_file_location("diagnostic_real_isolation", ROOT / "bin/fireguard-deployment-isolation.py")
@@ -1908,6 +1932,17 @@ class ReviewedAbsentWorkerTests(unittest.TestCase):
 
 
 class IsolationProcCollectorTests(unittest.TestCase):
+    def test_proc_collector_preserves_raw_kernel_supplementary_group_multiplicity(self):
+        snapshot = isolation_fixture()
+        snapshot["processes"][0]["tasks"][0]["groups"] = [0, 0]
+        snapshot["processes"][3]["tasks"][-1]["groups"] = [1000, 1000]
+        tree = ProcTree(snapshot)
+        with patch.object(RECOVERY, "Path", side_effect=tree.path):
+            result = RECOVERY.isolation_process_inventory("systemd")
+        by_pid = {item["pid"]: item for item in result}
+        self.assertEqual([0, 0], by_pid[1]["tasks"][0]["groups"])
+        self.assertEqual([1000, 1000], by_pid[110]["tasks"][-1]["groups"])
+
     def test_all_threads_credentials_cgroups_and_stat_identity_are_read_without_private_files(self):
         snapshot = isolation_fixture()
         tree = ProcTree(snapshot)
