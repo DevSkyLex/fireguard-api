@@ -71,6 +71,17 @@ class RecoveryBlocked(RuntimeError):
     """A public, fixed diagnostic; never include child stderr, argv or secret values."""
 
 
+WriterStatus = Literal["created", "running", "paused", "restarting", "removing", "exited", "dead", "unknown"]
+WRITER_STATUSES: tuple[WriterStatus, ...] = ("created", "running", "paused", "restarting", "removing", "exited", "dead", "unknown")
+
+
+class WriterStateDiagnostic(TypedDict):
+    service: Literal["app", "async_worker", "webhook_worker", "assistant_worker", "scheduler_worker"]
+    matchCount: int
+    statusCounts: dict[WriterStatus, int]
+    countsTruncated: bool
+
+
 class NamespaceNodeFields(TypedDict, total=False):
     uid: int
     gid: int
@@ -364,6 +375,20 @@ def paths_overlap(left, right):
     return left == right or left.startswith(right.rstrip("/") + "/") or right.startswith(left.rstrip("/") + "/")
 
 
+def writer_state_diagnostics(own) -> list[WriterStateDiagnostic]:
+    result = []
+    for service in sorted(WRITERS):
+        matches = [item for item in own if item.get("service") == service and item.get("oneoff") == "False"]
+        counts: dict[WriterStatus, int] = {status: 0 for status in WRITER_STATUSES}
+        for item in matches:
+            status = item.get("status")
+            counts[status if type(status) is str and status in counts else "unknown"] += 1
+        result.append({"service": service, "matchCount": min(len(matches), 32768),
+                       "statusCounts": {status: min(count, 32768) for status, count in counts.items()},
+                       "countsTruncated": len(matches) > 32768})
+    return result
+
+
 def check_containers(containers):
     own = [item for item in containers if item.get("project") == PROJECT]
     storage_sources = {APP_DIR}
@@ -388,7 +413,9 @@ def check_containers(containers):
                 "writer-or-oneoff-active")
     for service in WRITERS:
         matches = [item for item in own if item.get("service") == service and item.get("oneoff") == "False"]
-        require(len(matches) == 1 and matches[0].get("status") == "exited", "stopped-writer-state-unverified")
+        if not (len(matches) == 1 and matches[0].get("status") == "exited"):
+            raise RecoveryBlocked("stopped-writer-state-unverified "
+                                  + json.dumps({"writers": writer_state_diagnostics(own)}, sort_keys=True))
     databases = {}
     for history in ["auth", "main"]:
         service = history + "_database"
