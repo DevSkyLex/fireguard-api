@@ -760,8 +760,10 @@ function storage_mounts($text, $root, $targets, $volumeRoots) {
       else ++$rootCount;
       if (!in_array('ro', explode(',', $fields[5]), true)) storage_fail('not-readonly');
       foreach (array_slice($fields, 6, $separator - 6) as $option) {
-        if ($option === 'unbindable' || str_starts_with($option, 'shared:')
-            || ($targetIndex !== false && preg_match('/^(master|propagate_from):/', $option))) storage_fail('not-private');
+        $category = $targetIndex === false ? 'root' : 'named';
+        if ($option === 'unbindable') storage_fail($category . '-unbindable');
+        if (str_starts_with($option, 'shared:')) storage_fail($category . '-shared');
+        if ($targetIndex !== false && preg_match('/^(master|propagate_from):/', $option)) storage_fail('named-slave');
       }
     } elseif ($point === $root . '/volumes') {
       storage_fail('submount');
@@ -1225,6 +1227,7 @@ class Host:
             raise RecoveryBlocked("storage-inspector-metadata-unverified") from None
         if type(body) is dict and body.get("ok") is False:
             codes = {"stat-unavailable", "symlink", "not-directory", "mount-metadata", "not-readonly", "not-private",
+                     "root-shared", "root-unbindable", "named-shared", "named-slave", "named-unbindable",
                      "submount", "root-mount", "input", "changed", "metadata", "process-proof", "named-mount", "named-identity"}
             require(set(body) == {"ok", "code"} and type(body.get("code")) is str and body["code"] in codes,
                     "storage-inspector-metadata-unverified")

@@ -2072,7 +2072,7 @@ class StorageInspectorTests(unittest.TestCase):
 
     def test_child_fixed_denials_never_export_mount_paths_or_private_errors(self):
         for code in ("submount", "root-mount", "not-readonly", "not-private", "symlink", "changed", "stat-unavailable", "process-proof",
-                     "named-mount", "named-identity"):
+                     "named-mount", "named-identity", "root-shared", "root-unbindable", "named-shared", "named-slave", "named-unbindable"):
             self.output = json.dumps({"ok": False, "code": code})
             with self.subTest(code=code), self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
                 self.inspect()
@@ -2311,6 +2311,26 @@ class StoragePHPParserTests(unittest.TestCase):
                 self.assertFalse(result["ok"])
                 self.assertNotIn(target, json.dumps(result))
 
+    def test_propagation_denials_identify_only_fixed_root_or_named_category(self):
+        root, target = RECOVERY.STORAGE_ROOT, "/__fireguard_volume_proof/0"
+        base = "10 1 8:1 / " + root + " ro master:701 - ext4 /private-source rw\n"
+        named = "20 1 8:1 /volumes/fixture/_data " + target + " ro - ext4 /private-source rw\n"
+        expression = "$v=json_decode($argv[1],true);storage_mounts($v['text'],$v['root'],[$v['target']],[]);echo json_encode(['ok'=>true]);"
+        cases = (
+            (base.replace("master:701", "shared:702") + named, "root-shared"),
+            (base.replace("master:701", "unbindable") + named, "root-unbindable"),
+            (base + named.replace(" ro -", " ro shared:703 -"), "named-shared"),
+            (base + named.replace(" ro -", " ro master:704 -"), "named-slave"),
+            (base + named.replace(" ro -", " ro propagate_from:705 -"), "named-slave"),
+            (base + named.replace(" ro -", " ro unbindable -"), "named-unbindable"),
+        )
+        for text, code in cases:
+            with self.subTest(code=code):
+                result = self.php(expression, {"text": text, "root": root, "target": target})
+                self.assertEqual({"ok": False, "code": code}, result)
+                for private in (root, target, "/private-source", "701", "702", "703", "704", "705"):
+                    self.assertNotIn(private, json.dumps(result))
+
     def test_repeated_php_proof_ignores_unrelated_overlay_churn_but_rejects_relevant_propagation(self):
         root, target = RECOVERY.STORAGE_ROOT, "/__fireguard_volume_proof/0"
         base = ("10 1 8:1 / " + root + " ro master:7 - ext4 private rw\n"
@@ -2431,6 +2451,7 @@ def native_storage_output(result):
                         suffix = json.loads(text[opening:])
                         category = "json-warning"
                         codes = {"stat-unavailable", "symlink", "not-directory", "mount-metadata", "not-readonly", "not-private",
+                                 "root-shared", "root-unbindable", "named-shared", "named-slave", "named-unbindable",
                                  "submount", "root-mount", "input", "changed", "metadata", "process-proof", "named-mount", "named-identity"}
                         if type(suffix) is dict and set(suffix) == {"ok", "code"} and suffix["ok"] is False \
                                 and type(suffix["code"]) is str and suffix["code"] in codes:
@@ -2545,7 +2566,8 @@ class NativeDockerDiagnosticTests(unittest.TestCase):
     def test_startup_subtypes_and_json_suffix_publish_only_allowlisted_fixed_codes(self):
         for startup, reason in (("Invalid date.timezone value 'PRIVATE_VALUE'", "php-startup-timezone"),
                                 ("Unable to load dynamic library PRIVATE_LIBRARY", "php-startup-dynamic-module")):
-            for code in ("process-proof", "mount-metadata", "PRIVATE_CODE", [], "metadata"):
+            for code in ("process-proof", "mount-metadata", "PRIVATE_CODE", [], "metadata", "root-shared", "root-unbindable",
+                         "named-shared", "named-slave", "named-unbindable"):
                 output = "Warning: PHP Startup: " + startup + "\n" + json.dumps({"ok": False, "code": code})
                 public = native_storage_output(subprocess.CompletedProcess([], 0, stdout=output.encode(), stderr=b""))
                 self.assertNotIn("PRIVATE", public)
