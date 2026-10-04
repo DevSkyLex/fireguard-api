@@ -129,6 +129,22 @@ commands or option values. Container startup timestamps and kernel creation tick
 are retained as independent stable identities, without assuming their wall-clock
 ordering. Foreign namespace links are not required or read to obtain this proof.
 
+Physical volume checks use an explicit metadata inspector for this reviewed
+shared-namespace incident. The deployment user first verifies the canonical,
+protected Docker root and its numeric identity. A source-verified immutable image
+then runs a fixed PHP program in an isolated container with no available
+capabilities, `NoNewPrivs`, no network, a read-only root filesystem, no healthcheck
+and a fixed working directory. Only `/var/lib/docker` is bound at its original
+path, with private propagation and forced recursive read-only mounts. Missing
+kernel support refuses inspection rather than falling back to weaker mounts.
+
+The program checks directory metadata without following symlinks or reading
+application files. It compares the root identity with the host, rejects aliases
+and relevant nested mounts, and returns bounded numeric evidence and fixed
+diagnostics. Physical evidence is repeated with both isolation inventories;
+active-volume timestamps do not need to remain unchanged. This does not grant
+filesystem permissions to the deployment user or relax the storage proof.
+
 After repeating those checks, recovery replaces the reviewed empty lock and
 immediately acquires it once. A competing owner is never removed or retried.
 The regular backup, auth/main migrations, transport setup, startup and health checks

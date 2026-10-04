@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import runpy
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -116,7 +117,8 @@ def proof():
 
 def container(service, identifier):
     database = service in {"auth_database", "main_database"}
-    mounts = [{"name": RECOVERY.PREFIX + "_" + service + "_data", "source": "/var/lib/docker/volumes/fixture"}] if database else []
+    name = RECOVERY.PREFIX + "_" + service + "_data"
+    mounts = [{"name": name, "source": RECOVERY.storage_volume_path(name)}] if database else []
     return {"id": identifier * 64, "project": RECOVERY.PROJECT, "service": service, "oneoff": "False",
             "workingDir": RECOVERY.APP_DIR, "running": database, "restarting": False,
             "status": "running" if database else "exited", "mounts": mounts}
@@ -142,6 +144,8 @@ class FakeHost:
         self.before_final_lock = None
         self.before_final_process = None
         self.before_final_containers = None
+        self._verified_storage_image = None
+        self._storage_development = None
 
     def lock_identity(self):
         self.lock_reads += 1
@@ -162,7 +166,12 @@ class FakeHost:
         return self.container_records
 
     def image_manifest(self, evidence):
+        if self.manifest == evidence["migrations"]:
+            self._verified_storage_image = "sha256:" + "b" * 64
         return self.manifest
+
+    prepare_storage_inspector = RECOVERY.Host.prepare_storage_inspector
+    reviewed_storage_path = RECOVERY.Host.reviewed_storage_path
 
     def history(self, identifier, history):
         return self.histories[history]
@@ -236,6 +245,14 @@ def isolation_fixture():
     unused, snapshot = fixtures.proof()
     current = fixtures.process(3, 2, 25, uid=1001)
     snapshot["processes"].append(current)
+    chain, body = storage_fixture()
+    names = sorted(RECOVERY.PREFIX + "_" + service + "_data" for service in ("auth_database", "main_database"))
+    nodes = [copy.deepcopy(body["nodes"][0]) for name in names]
+    for index, node in enumerate(nodes):
+        node["index"] = index
+        node["directory"]["inode"] += index
+        node["data"]["inode"] += index
+    snapshot["storageProof"] = {"rootChain": chain, "volumeNames": names, "volumes": body["volumes"], "nodes": nodes}
     snapshot["containers"][0]["HostConfig"]["MountDeclarations"] = []
     snapshot["containers"][0]["Mounts"] = []
     snapshot["volumes"] = []
@@ -1340,6 +1357,46 @@ class ContainerIsolationIntegrationTests(unittest.TestCase):
             self.assertTrue(host.reacquired)
             self.assertTrue(host.lock_identity()["reviewedLegacy"]["isolationRequired"])
 
+    def test_physical_dev_or_root_identity_change_never_releases_but_unrelated_volume_churn_does(self):
+        for kind in ("root", "development", "unrelated"):
+            with self.subTest(kind=kind), legacy_fixture() as (app, lock, chain):
+                reviewed_namespace(chain)
+                host = legacy_host()
+                before, after = isolation_fixture(), isolation_fixture()
+                if kind == "root":
+                    after["storageProof"]["rootChain"][0]["inode"] += 1
+                elif kind == "development":
+                    after["storageProof"]["nodes"][0]["data"]["inode"] += 1
+                else:
+                    # An unrelated root volume can sort before relevant names; indices are not stable keys.
+                    extra = copy.deepcopy(after["storageProof"]["nodes"][0])
+                    after["storageProof"]["volumeNames"].insert(0, "benign-unrelated")
+                    after["storageProof"]["nodes"].insert(0, extra)
+                    for index, node in enumerate(after["storageProof"]["nodes"]):
+                        node["index"] = index
+                host.isolation_snapshot = MagicMock(side_effect=[before, after])
+                if kind == "unrelated":
+                    recover(host, current_uid=1001)
+                    self.assertTrue(host.reacquired)
+                else:
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "storage-physical-identity-changed"):
+                        recover(host, current_uid=1001)
+                    self.assertFalse(host.released)
+                    self.assertFalse(host.reacquired)
+
+    def test_manifest_failure_precedes_storage_actor_and_namespace_authority_proof(self):
+        with legacy_fixture() as (app, lock, chain):
+            reviewed_namespace(chain)
+            host = legacy_host()
+            host.manifest = {}
+            host.prepare_storage_inspector = MagicMock()
+            host.isolation_snapshot = MagicMock()
+            with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "image-migration-manifest-mismatch"):
+                recover(host, current_uid=1001)
+            host.prepare_storage_inspector.assert_not_called()
+            host.isolation_snapshot.assert_not_called()
+            self.assertFalse(host.released)
+
     def test_every_full_namespace_pin_field_is_required_before_snapshot_or_unlock(self):
         fields = ("st_uid", "st_gid", "st_dev", "st_ino", "st_mode", "st_mtime_ns", "st_ctime_ns")
         for depth in range(6):
@@ -1751,6 +1808,336 @@ class IsolationDockerCollectorTests(unittest.TestCase):
         ast.parse(HELPER.read_text(encoding="utf-8"), feature_version=(3, 10))
 
 
+def storage_fixture():
+    def node(inode, uid=0, mode=0o700):
+        return {"device": 2049, "inode": inode, "uid": uid, "gid": uid, "mode": mode,
+                "isDirectory": True, "isSymlink": False}
+    chain = [node(100 + index, mode=0o710 if index == 0 else 0o755) for index in range(4)]
+    body = {"ok": True, "actorVerified": True, "root": chain[0], "volumes": node(200),
+            "nodes": [{"index": 0, "directory": node(300), "data": node(400, uid=1000, mode=0o775)}]}
+    return chain, body
+
+
+class StorageInspectorTests(unittest.TestCase):
+    def setUp(self):
+        self.chain, self.body = storage_fixture()
+        self.calls = []
+        self.output = json.dumps(self.body)
+        self.nonce = "e" * 32
+        self.host = RECOVERY.Host(self.runner)
+        self.host._verified_storage_image = "sha256:" + "b" * 64
+        self.host.prepare_storage_inspector([{"project": RECOVERY.PROJECT, "mounts": [
+            {"name": "development", "source": RECOVERY.storage_volume_path("development")}]}])
+        self.host._storage_authority_verified = True
+        self.root_patch = patch.object(RECOVERY, "storage_root_chain", return_value=self.chain)
+        self.kernel_patch = patch.object(RECOVERY, "storage_kernel")
+        self.uuid_patch = patch.object(RECOVERY.uuid, "uuid4", return_value=SimpleNamespace(hex=self.nonce))
+        self.root_patch.start()
+        self.kernel_patch.start()
+        self.uuid_patch.start()
+        self.addCleanup(self.root_patch.stop)
+        self.addCleanup(self.kernel_patch.stop)
+        self.addCleanup(self.uuid_patch.stop)
+
+    def runner(self, argv):
+        self.calls.append(argv)
+        arguments = argv[5:]
+        if arguments[0] == "create":
+            return "c" * 64
+        if arguments[0] == "start":
+            return self.output
+        if arguments[0] == "rm":
+            return ""
+        if arguments[0] == "ps":
+            return "c" * 64
+        if arguments[:2] == ["container", "inspect"]:
+            return json.dumps({"Id": "c" * 64, "Image": self.host._verified_storage_image,
+                               "Name": "/fireguard-reviewed-storage-" + self.nonce, "Owner": self.nonce,
+                               "State": {"Status": "created", "Running": False, "Restarting": False, "Paused": False}})
+        if arguments[:2] == ["volume", "inspect"]:
+            name = arguments[-1]
+            return json.dumps({"Name": name, "Driver": "local", "Scope": "local", "OptionsEmpty": True,
+                               "Mountpoint": RECOVERY.storage_volume_path(name)})
+        raise AssertionError("Unexpected storage operation")
+
+    def inspect(self):
+        return self.host.inspect_storage(["development"])
+
+    def test_actor_is_immutable_offline_readonly_private_and_cleans_only_its_id(self):
+        result = self.inspect()
+        argv = self.calls[0][5:]
+        for flag, value in (("--pull", "never"), ("--user", "0:0"), ("--cap-drop", "ALL"), ("--network", "none"),
+                            ("--pid", ""), ("--runtime", "runc"), ("--ipc", "private"), ("--workdir", "/"),
+                            ("--security-opt", "no-new-privileges:true"), ("--entrypoint", "/usr/bin/env")):
+            self.assertEqual(value, argv[argv.index(flag) + 1])
+        self.assertIn("--read-only", argv)
+        self.assertIn("--no-healthcheck", argv)
+        self.assertIn("--init=false", argv)
+        self.assertEqual("type=bind,src=/var/lib/docker,dst=/var/lib/docker,readonly,bind-recursive=readonly,bind-propagation=rprivate",
+                         argv[argv.index("--mount") + 1])
+        self.assertEqual(1, argv.count("--mount"))
+        self.assertEqual([self.host._verified_storage_image, "-i", "/usr/local/bin/php", "-n", "-r"], argv[-7:-2])
+        self.assertEqual({"root": RECOVERY.STORAGE_ROOT, "names": ["development"]}, json.loads(argv[-1]))
+        self.assertTrue({"LD_PRELOAD=", "LD_AUDIT=", "LD_LIBRARY_PATH="}.issubset(argv))
+        for forbidden in ("--privileged", "--volume", "--env-file", "--health-cmd", "--publish", "--device"):
+            self.assertNotIn(forbidden, argv)
+        self.assertEqual(["rm", "--force", "c" * 64], self.calls[-1][5:])
+        self.assertEqual(self.chain, result["rootChain"])
+
+    def test_no_verified_image_or_unattested_docker_root_never_creates_actor(self):
+        for field, value in (("_verified_storage_image", None), ("_storage_authority_verified", False)):
+            with self.subTest(field=field), patch.object(self.host, field, value):
+                with self.assertRaises(RECOVERY.RecoveryBlocked):
+                    self.inspect()
+        self.assertEqual([], self.calls)
+
+    def test_parent_root_alias_symlink_and_malformed_numeric_metadata_refuse(self):
+        cases = []
+        for key, value in (("uid", True), ("mode", -1), ("isSymlink", True), ("isDirectory", False), ("gid", 2 ** 32)):
+            body = copy.deepcopy(self.body)
+            body["nodes"][0]["data"][key] = value
+            cases.append(body)
+        for target in ("root", "volumes", "directory"):
+            body = copy.deepcopy(self.body)
+            if target == "root":
+                body["root"]["inode"] += 1
+            elif target == "volumes":
+                body["volumes"]["mode"] |= 0o020
+            else:
+                body["nodes"][0]["directory"]["uid"] = 1000
+            cases.append(body)
+        for alias in (self.chain[0], RECOVERY.REVIEWED_NAMESPACE[2], self.body["nodes"][0]["directory"]):
+            body = copy.deepcopy(self.body)
+            body["nodes"][0]["data"].update(device=alias["device"], inode=alias["inode"])
+            cases.append(body)
+        for body in cases:
+            with self.subTest(body=body), self.assertRaises(RECOVERY.RecoveryBlocked):
+                self.output = json.dumps(body)
+                self.inspect()
+        self.assertTrue(all(argv[-3:] == ["rm", "--force", "c" * 64] for argv in self.calls if argv[5] == "rm"))
+
+    def test_child_fixed_denials_never_export_mount_paths_or_private_errors(self):
+        for code in ("submount", "root-mount", "not-readonly", "not-private", "symlink", "changed", "stat-unavailable", "process-proof"):
+            self.output = json.dumps({"ok": False, "code": code})
+            with self.subTest(code=code), self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                self.inspect()
+            self.assertEqual("storage-inspector-" + code, str(caught.exception))
+        for output in ("private-malformed", json.dumps({"ok": False, "code": "private-path"}),
+                       json.dumps({"ok": False, "code": []}), json.dumps({"ok": True, "private": "secret"})):
+            self.output = output
+            with self.subTest(output=output), self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "metadata-unverified"):
+                self.inspect()
+
+    def test_start_failure_or_cancellation_cleans_actor_and_never_returns_proof(self):
+        original = self.runner
+        for failure in (RECOVERY.RecoveryBlocked("private-stderr"), KeyboardInterrupt()):
+            def failing(argv):
+                if argv[5] == "start":
+                    raise failure
+                return original(argv)
+            with self.subTest(error=type(failure)), patch.object(self.host, "run", side_effect=failing):
+                with self.assertRaises((RECOVERY.RecoveryBlocked, KeyboardInterrupt)):
+                    self.inspect()
+            self.assertEqual("rm", self.calls[-1][5])
+            self.assertIsNone(self.host._storage_proof)
+
+    def test_root_inode_changes_between_actor_and_return_refuses(self):
+        changed = copy.deepcopy(self.chain)
+        changed[0]["inode"] += 1
+        with patch.object(RECOVERY, "storage_root_chain", side_effect=[self.chain, changed]), \
+             self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "root-identity-changed"):
+            self.inspect()
+
+    def test_explicit_volume_protocol_never_uses_permission_error_as_fallback(self):
+        records = [{"Mounts": [{"Type": "volume", "Name": "development", "Source": RECOVERY.storage_volume_path("development")}]}]
+        with patch.object(RECOVERY, "canonical_storage", side_effect=PermissionError("private")) as canonical:
+            self.assertEqual(1, len(self.host.isolation_volumes(records, required_names={"development"})))
+            canonical.assert_not_called()
+            legacy = RECOVERY.Host(self.runner)
+            with self.assertRaises(PermissionError):
+                legacy.isolation_volumes(records)
+            canonical.assert_called_once()
+
+    def test_partial_create_or_start_failure_cleans_only_attested_nonce_image_name(self):
+        for phase in ("create", "start"):
+            def failed(argv):
+                if argv[5] == phase:
+                    self.calls.append(argv)
+                    raise RECOVERY.RecoveryBlocked("private-child-value")
+                return self.runner(argv)
+            with self.subTest(phase=phase), patch.object(self.host, "run", side_effect=failed), \
+                 self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "docker-storage-inspector-" + phase + "-command-failed"):
+                self.inspect()
+            self.assertEqual(["rm", "--force", "c" * 64], self.calls[-1][5:])
+        for field in ("Id", "Image", "Owner", "Name", "State"):
+            def foreign(argv):
+                result = self.runner(argv)
+                if argv[5:7] == ["container", "inspect"]:
+                    value = json.loads(result)
+                    value[field] = "private-foreign-value"
+                    return json.dumps(value)
+                return result
+            before = len(self.calls)
+            with self.subTest(field=field), patch.object(self.host, "run", side_effect=foreign), self.assertRaises(RECOVERY.RecoveryBlocked):
+                self.inspect()
+            self.assertFalse(any(argv[5] in {"rm", "start"} for argv in self.calls[before:]))
+
+    def test_cleanup_failure_or_missing_actor_metadata_never_returns_physical_proof(self):
+        for phase in ("ps", "rm"):
+            def failed(argv):
+                if argv[5] == phase:
+                    raise RECOVERY.RecoveryBlocked("private-child-value")
+                return self.runner(argv)
+            with self.subTest(phase=phase), patch.object(self.host, "run", side_effect=failed), self.assertRaises(RECOVERY.RecoveryBlocked):
+                self.inspect()
+            self.assertIsNone(self.host._storage_proof)
+
+    def test_only_source_verified_manifest_matching_volumeless_image_can_prepare_inspector(self):
+        identity = {"id": "sha256:" + "b" * 64, "volumesEmpty": True, "digests": [IMAGE],
+                    "source": "https://github.com/" + RECOVERY.REPOSITORY, "revision": SOURCE}
+        for field, value in ((None, None), ("id", "mutable-tag"), ("volumesEmpty", False), ("volumesEmpty", "true"),
+                             ("revision", "c" * 40), ("source", "https://github.com/other/repo"), ("manifest", {})):
+            inspected = dict(identity)
+            if field not in (None, "manifest"):
+                inspected[field] = value
+            def runner(argv):
+                if argv[1] == "pull":
+                    return ""
+                if argv[1] == "image":
+                    return json.dumps(inspected)
+                return json.dumps(value if field == "manifest" else MANIFEST)
+            host = RECOVERY.Host(runner)
+            with self.subTest(field=field):
+                if field in {"revision", "source"}:
+                    with self.assertRaises(RECOVERY.RecoveryBlocked):
+                        host.image_manifest(proof())
+                else:
+                    host.image_manifest(proof())
+                if field is None:
+                    host.prepare_storage_inspector(FakeHost().container_records)
+                    self.assertEqual(identity["id"], host._verified_storage_image)
+                else:
+                    with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "storage-source-image-unverified"):
+                        host.prepare_storage_inspector(FakeHost().container_records)
+
+    def test_local_option_free_volume_metadata_and_sources_are_required_before_actor(self):
+        records = [{"Mounts": [{"Type": "volume", "Name": "development", "Source": RECOVERY.storage_volume_path("development")}]}]
+        for field, value in (("Driver", "remote"), ("Scope", "global"), ("OptionsEmpty", False),
+                             ("Mountpoint", "/private/other"), ("Name", "different")):
+            def wrong(argv):
+                result = self.runner(argv)
+                volume = json.loads(result)
+                volume[field] = value
+                return json.dumps(volume)
+            before = len(self.calls)
+            with self.subTest(field=field), patch.object(self.host, "run", side_effect=wrong), self.assertRaises(RECOVERY.RecoveryBlocked):
+                self.host.isolation_volumes(records, required_names={"development"})
+            self.assertFalse(any(argv[5] == "create" for argv in self.calls[before:]))
+        records[0]["Mounts"][0]["Source"] = "/different"
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "volume-source-unverified"):
+            self.host.isolation_volumes(records, required_names={"development"})
+
+    def test_unrelated_root_plugin_volume_remains_typed_inventory_without_physical_probe(self):
+        unrelated = {"Name": "unrelated", "Driver": "plugin", "Scope": "global", "OptionsEmpty": False,
+                     "Mountpoint": "/unrelated/plugin"}
+        records = [{"Mounts": [{"Type": "volume", "Name": "unrelated", "Source": unrelated["Mountpoint"]}]}]
+        original = self.runner
+        def runner(argv):
+            if argv[5:7] == ["volume", "inspect"] and argv[-1] == "unrelated":
+                return json.dumps(unrelated)
+            return original(argv)
+        with patch.object(self.host, "run", side_effect=runner):
+            self.assertEqual([unrelated], self.host.isolation_volumes(records, required_names=set()))
+        self.assertEqual(["development"], self.host._storage_proof["volumeNames"])
+        self.assertEqual(["development"], json.loads(next(argv[-1] for argv in self.calls if argv[5] == "create"))["names"])
+
+    def test_all_credential_slots_groups_and_independent_cgroup_choose_potential_volume_cohort(self):
+        snapshot = isolation_fixture()
+        owner = snapshot["containers"][0]["Id"]
+        snapshot["containers"][0]["Mounts"] = [{"Type": "volume", "Name": "back_app_var"}]
+        self.assertEqual({"back_app_var"}, RECOVERY.potential_authority_volume_names(snapshot["processes"], snapshot["containers"], 3))
+        for field in ("uids", "gids", "groups"):
+            for slot in range(4 if field != "groups" else 1):
+                state = copy.deepcopy(snapshot)
+                for process in state["processes"]:
+                    if process["pid"] not in {100, 110}:
+                        continue
+                    for task in process["tasks"]:
+                        task["uids"], task["gids"], task["groups"] = [2000] * 4, [2000] * 4, []
+                task = next(process for process in state["processes"] if process["pid"] == 100)["tasks"][0]
+                if field == "groups":
+                    task[field] = [1000]
+                else:
+                    task[field][slot] = 1000
+                with self.subTest(field=field, slot=slot):
+                    self.assertEqual({"back_app_var"}, RECOVERY.potential_authority_volume_names(state["processes"], state["containers"], 3))
+                    task["containerId"] = None
+                    self.assertEqual(set(), RECOVERY.potential_authority_volume_names(state["processes"], state["containers"], 3))
+        self.assertIsNotNone(owner)
+
+    def test_protected_root_chain_and_kernel_refusals_precede_docker_mutation(self):
+        self.root_patch.stop()
+        self.kernel_patch.stop()
+        for release in ("5.11.99", "4.19.0", "private-invalid"):
+            with self.subTest(release=release), patch.object(RECOVERY.os, "uname", return_value=SimpleNamespace(release=release), create=True), \
+                 self.assertRaises(RECOVERY.RecoveryBlocked):
+                self.inspect()
+        for field, value in (("st_uid", 1000), ("st_mode", RECOVERY.stat.S_IFDIR | 0o775), ("st_mode", RECOVERY.stat.S_IFLNK | 0o777)):
+            for depth in range(4):
+                values = [SimpleNamespace(st_dev=item["device"], st_ino=item["inode"], st_uid=item["uid"], st_gid=item["gid"],
+                                          st_mode=RECOVERY.stat.S_IFDIR | item["mode"]) for item in self.chain]
+                setattr(values[depth], field, value)
+                with self.subTest(field=field, depth=depth), patch.object(RECOVERY, "storage_kernel"), \
+                     patch.object(RECOVERY.Path, "lstat", side_effect=values), self.assertRaises(RECOVERY.RecoveryBlocked):
+                    self.inspect()
+        self.assertEqual([], self.calls)
+
+
+@unittest.skipUnless(shutil.which("php"), "PHP runtime required for hermetic parser validation")
+class StoragePHPParserTests(unittest.TestCase):
+    def php(self, expression, payload):
+        functions = RECOVERY.STORAGE_INSPECT_PHP.split("\ntry {", 1)[0]
+        result = subprocess.run([shutil.which("php"), "-n", "-r", functions + expression, json.dumps(payload)],
+                                capture_output=True, timeout=30, check=False)
+        self.assertEqual(0, result.returncode, "Fixed metadata PHP must execute without extensions or configuration")
+        return json.loads(result.stdout)
+
+    def test_actual_php_mount_parser_refuses_name_data_children_stacks_and_rw(self):
+        root = RECOVERY.STORAGE_ROOT
+        base = "10 1 8:1 / " + root + " ro - ext4 /private-source rw\n"
+        expression = "$v=json_decode($argv[1],true);storage_mounts($v['text'],$v['root'],[$v['name']]);echo json_encode(['ok'=>true]);"
+        cases = [(base, True)]
+        for point in (root + "/volumes", root + "/volumes/fixture", root + "/volumes/fixture/_data", root + "/volumes/fixture/_data/child"):
+            cases.append((base + "11 10 8:2 / " + point + " ro - ext4 /private-second rw\n", False))
+        cases.extend(((base + base, False), (base.replace(" ro -", " rw -"), False),
+                      (base.replace(" ro -", " ro shared:7 -"), False), ("malformed-private-metadata", False),
+                      (base + "11 10 8:2 / " + root + "/volumes/fixture-other ro - ext4 /private-source rw\n", True)))
+        for text, allowed in cases:
+            with self.subTest(text=text):
+                result = self.php(expression, {"text": text, "root": root, "name": root + "/volumes/fixture"})
+                self.assertIs(result["ok"], allowed)
+                self.assertNotIn("/private-source", json.dumps(result))
+                self.assertNotIn("/private-second", json.dumps(result))
+
+    def test_actual_php_requires_zero_credentials_caps_and_private_pid_nnp(self):
+        values = {"Uid": "0 0 0 0", "Gid": "0 0 0 0", "NoNewPrivs": "1", "Pid": "1", "Tgid": "1", "NSpid": "1", "NStgid": "1"}
+        values.update({key: "0000000000000000" for key in ("CapEff", "CapPrm", "CapInh", "CapAmb", "CapBnd")})
+        expression = "storage_process(json_decode($argv[1],true));echo json_encode(['ok'=>true]);"
+        def status(fields):
+            return "\n".join(key + ": " + value for key, value in fields.items())
+        self.assertIs(self.php(expression, status(values))["ok"], True)
+        for key in values:
+            for kind in ("missing", "nonzero", "duplicate"):
+                invalid = dict(values)
+                if kind == "missing":
+                    del invalid[key]
+                else:
+                    invalid[key] = "1 0 0 0" if key in {"Uid", "Gid"} else "0000000000000001" if key.startswith("Cap") else "0"
+                text = status(invalid) if kind != "duplicate" else status(values) + "\n" + key + ": " + values[key]
+                with self.subTest(key=key, kind=kind):
+                    self.assertEqual({"ok": False, "code": "process-proof"}, self.php(expression, text))
+
+
 @unittest.skipUnless(os.environ.get("FIREGUARD_TEST_DOCKER_PROJECTIONS") == "1" and os.environ.get("CI") == "true",
                      "Native Docker projection fixture runs only in explicitly enabled CI")
 class NativeDockerProjectionTests(unittest.TestCase):
@@ -1763,8 +2150,25 @@ class NativeDockerProjectionTests(unittest.TestCase):
             self.assertEqual(0, result.returncode, "Native public projection command failed")
             return result.stdout.decode("utf-8").strip()
         archive = io.BytesIO()
-        with tarfile.open(fileobj=archive, mode="w"):
-            pass
+        # Public CI runtime only: no application tree, image network pull or configuration files.
+        runtime_files = {}
+        for source, destination in ((shutil.which("php"), "/usr/local/bin/php"), (shutil.which("env"), "/usr/bin/env")):
+            self.assertIsNotNone(source)
+            source = str(Path(source).resolve(strict=True))
+            runtime_files[destination] = source
+            dependencies = subprocess.run(["ldd", source], capture_output=True, timeout=30, check=False)
+            self.assertEqual(0, dependencies.returncode, "CI PHP/env dynamic runtime dependencies must be available")
+            for line in dependencies.stdout.decode().splitlines():
+                fields = line.split()
+                library = fields[2] if len(fields) >= 3 and fields[1] == "=>" else fields[0] if fields else ""
+                if library.startswith("/"):
+                    runtime_files[library] = str(Path(library).resolve(strict=True))
+        with tarfile.open(fileobj=archive, mode="w") as runtime:
+            for destination, source in sorted(runtime_files.items()):
+                data = Path(source).read_bytes()
+                entry = tarfile.TarInfo(destination.lstrip("/"))
+                entry.size, entry.mode = len(data), 0o555
+                runtime.addfile(entry, io.BytesIO(data))
         image_id = docker(["import", "--change", "LABEL fireguard.recovery-proof=" + nonce,
                            "--change", "LABEL org.opencontainers.image.source=https://github.com/" + RECOVERY.REPOSITORY,
                            "--change", "LABEL org.opencontainers.image.revision=" + SOURCE, "-"], data=archive.getvalue())
@@ -1776,6 +2180,8 @@ class NativeDockerProjectionTests(unittest.TestCase):
         self.assertEqual("https://github.com/" + RECOVERY.REPOSITORY, identity["source"])
         self.assertEqual(SOURCE, identity["revision"])
         self.assertIn(identity["digests"], (None, []))
+        self.assertEqual(image_id, identity["id"])
+        self.assertIs(identity["volumesEmpty"], True)
         bind_directory = tempfile.TemporaryDirectory(prefix="fireguard-recovery-proof-")
         self.addCleanup(bind_directory.cleanup)
         bind_source = str(Path(bind_directory.name).resolve())
@@ -1804,6 +2210,11 @@ class NativeDockerProjectionTests(unittest.TestCase):
             if kind == "hostbind":
                 self.assertEqual(bind_source, legacy["mounts"][0]["source"])
             host = RECOVERY.Host(lambda argv: docker(argv[5:]))
+            # This only-owned offline image supplies PHP for the native protocol smoke.
+            # Production can set this field only after verified OCI provenance AND manifest.
+            host._verified_storage_image = image_id
+            host.prepare_storage_inspector([{"project": RECOVERY.PROJECT, "mounts": [
+                {"name": name, "source": RECOVERY.storage_volume_path(name)}]}])
             host.isolation_api()
             records = host.isolation_containers([container_id])
             self.assertEqual(image_id, records[0]["Image"])
@@ -1811,14 +2222,18 @@ class NativeDockerProjectionTests(unittest.TestCase):
             self.assertFalse(records[0]["State"]["Running"])
             if kind == "hostbind":
                 self.assertFalse(records[0]["HostConfig"]["MountDeclarations"][0]["OptionsDefault"])
-                self.assertEqual([], host.isolation_volumes(records))
+                self.assertEqual([], host.isolation_volumes(records, required_names=set()))
+                self.assertEqual([name], host._storage_proof["volumeNames"])
                 continue
             self.assertEqual([{"Type": "volume", "Name": name, "Destination": "/fixture", "RW": False, "OptionsDefault": True}],
                              records[0]["HostConfig"]["MountDeclarations"])
             volume = host.isolation_json(["volume", "inspect", "--format", RECOVERY.ISOLATION_VOLUME_FORMAT, name])
             self.assertIs(volume["OptionsEmpty"], True)
             self.assertEqual("local", volume["Driver"])
-            self.assertEqual([volume], host.isolation_volumes(records))
+            self.assertEqual([volume], host.isolation_volumes(records, required_names={name}))
+            first = copy.deepcopy(host._storage_proof)
+            self.assertEqual([volume], host.isolation_volumes(records, required_names={name}))
+            self.assertEqual(first, host._storage_proof)
 
 
 if __name__ == "__main__":
