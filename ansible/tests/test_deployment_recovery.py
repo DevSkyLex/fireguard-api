@@ -13,6 +13,7 @@ import runpy
 import subprocess
 import sys
 import tarfile
+import tempfile
 from types import SimpleNamespace
 import unittest
 import uuid
@@ -1597,6 +1598,56 @@ class IsolationProcCollectorTests(unittest.TestCase):
                     RECOVERY.isolation_process_inventory("systemd")
 
 
+class DockerMetadataStageTests(unittest.TestCase):
+    def test_legacy_projection_uses_typed_id_and_fixed_list_and_inspect_failure_codes(self):
+        self.assertIn("{{json .ID}}", RECOVERY.CONTAINER_FORMAT)
+        self.assertNotIn("{{json .Id}}", RECOVERY.CONTAINER_FORMAT)
+        for phase in ("list", "inspect"):
+            def unavailable(argv):
+                if phase == "inspect" and argv[1] == "ps":
+                    return "a" * 64 + "\n"
+                raise RECOVERY.RecoveryBlocked("private-child-message-and-identifier")
+            with self.subTest(phase=phase), self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                RECOVERY.Host(unavailable).containers()
+            self.assertEqual("docker-legacy-container-" + phase + "-command-failed", str(caught.exception))
+
+    def test_each_allowlisted_isolation_command_has_a_fixed_phase_without_private_output(self):
+        commands = ((["version", "--format", RECOVERY.ISOLATION_VERSION_FORMAT], "version"),
+                    (["info", "--format", RECOVERY.ISOLATION_INFO_FORMAT], "info"),
+                    (["ps", "--quiet", "--no-trunc"], "container-list"),
+                    (["container", "inspect", "--format", RECOVERY.ISOLATION_CONTAINER_FORMAT, "a" * 64], "container-inspect"),
+                    (["image", "inspect", "--format", RECOVERY.ISOLATION_IMAGE_FORMAT, "sha256:" + "b" * 64], "image-inspect"),
+                    (["volume", "inspect", "--format", RECOVERY.ISOLATION_VOLUME_FORMAT, "private-volume-fixture"], "volume-inspect"))
+        for arguments, phase in commands:
+            for error in (RECOVERY.RecoveryBlocked("private-stderr"), PermissionError("private-path"),
+                          subprocess.TimeoutExpired("private-command", 1, stderr=b"private-secret")):
+                with self.subTest(phase=phase, error=type(error)), self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                    RECOVERY.Host(MagicMock(side_effect=error)).isolation_docker(arguments)
+                self.assertEqual("docker-isolation-" + phase + "-command-failed", str(caught.exception))
+
+    def test_unknown_operation_is_rejected_before_the_runner_and_invalid_json_has_fixed_phase(self):
+        runner = MagicMock(return_value="{}")
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "docker-isolation-operation-unverified"):
+            RECOVERY.Host(runner).isolation_docker(["exec", "private-argument"])
+        runner.assert_not_called()
+        for value in ("private-malformed-json", "[]"):
+            with self.subTest(value=value), self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                RECOVERY.Host(lambda argv: value).isolation_json(["volume", "inspect", "--format", RECOVERY.ISOLATION_VOLUME_FORMAT, "fixture"])
+            self.assertEqual("docker-isolation-volume-inspect-metadata-unverified", str(caught.exception))
+            with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                RECOVERY.Host(lambda argv: "a" * 64 + "\n" if argv[1] == "ps" else value).containers()
+            self.assertEqual("docker-legacy-container-inspect-metadata-unverified", str(caught.exception))
+
+    def test_command_phase_refusal_preserves_lock_and_all_recovery_gates(self):
+        host = FakeHost()
+        host.containers = RECOVERY.Host(MagicMock(side_effect=RECOVERY.RecoveryBlocked("private-child-stderr"))).containers
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "docker-legacy-container-list-command-failed"):
+            recover(host)
+        self.assertFalse(host.released)
+        self.assertFalse(host.reacquired)
+        self.assertEqual(1, host.lock_reads)
+
+
 class IsolationDockerCollectorTests(unittest.TestCase):
     def setUp(self):
         self.snapshot = isolation_fixture()
@@ -1714,28 +1765,60 @@ class NativeDockerProjectionTests(unittest.TestCase):
         archive = io.BytesIO()
         with tarfile.open(fileobj=archive, mode="w"):
             pass
-        image_id = docker(["import", "--change", "LABEL fireguard.recovery-proof=" + nonce, "-"], data=archive.getvalue())
+        image_id = docker(["import", "--change", "LABEL fireguard.recovery-proof=" + nonce,
+                           "--change", "LABEL org.opencontainers.image.source=https://github.com/" + RECOVERY.REPOSITORY,
+                           "--change", "LABEL org.opencontainers.image.revision=" + SOURCE, "-"], data=archive.getvalue())
         self.assertRegex(image_id, r"\Asha256:[a-f0-9]{64}\Z")
         self.addCleanup(docker, ["image", "rm", image_id])
         self.assertEqual(name, docker(["volume", "create", name]))
         self.addCleanup(docker, ["volume", "rm", name])
-        for kind, declaration in (("binds", ["--volume", name + ":/fixture:ro"]),
+        identity = json.loads(docker(["image", "inspect", "--format", RECOVERY.IMAGE_FORMAT, image_id]))
+        self.assertEqual("https://github.com/" + RECOVERY.REPOSITORY, identity["source"])
+        self.assertEqual(SOURCE, identity["revision"])
+        self.assertIn(identity["digests"], (None, []))
+        bind_directory = tempfile.TemporaryDirectory(prefix="fireguard-recovery-proof-")
+        self.addCleanup(bind_directory.cleanup)
+        bind_source = str(Path(bind_directory.name).resolve())
+        owned_ids = []
+        for kind, declaration in (("hostbind", ["--volume", bind_source + ":/fixture:ro"]),
+                                  ("binds", ["--volume", name + ":/fixture:ro"]),
                                   ("mounts", ["--mount", "type=volume,source=" + name + ",target=/fixture,readonly"])):
             container_id = docker(["create", "--name", name + "-" + kind, "--network", "none", "--security-opt", "no-new-privileges",
                                    "--cap-drop", "ALL", "--entrypoint", "/never-executed", *declaration, image_id])
             self.assertRegex(container_id, r"\A[a-f0-9]{64}\Z")
             self.addCleanup(docker, ["rm", container_id])
+            owned_ids.append(container_id)
+            def legacy_runner(argv):
+                if argv == ["docker", "ps", "--all", "--quiet", "--no-trunc"]:
+                    return "\n".join(owned_ids)
+                self.assertEqual("docker", argv[0])
+                self.assertIn(argv[-1], owned_ids)
+                return docker(argv[1:])
+            legacy_records = RECOVERY.Host(legacy_runner).containers()
+            self.assertEqual(set(owned_ids), {item["id"] for item in legacy_records})
+            legacy = next(item for item in legacy_records if item["id"] == container_id)
+            self.assertFalse(legacy["running"])
+            self.assertFalse(legacy["restarting"])
+            self.assertEqual(1, len(legacy["mounts"]))
+            self.assertEqual("" if kind == "hostbind" else name, legacy["mounts"][0]["name"])
+            if kind == "hostbind":
+                self.assertEqual(bind_source, legacy["mounts"][0]["source"])
             host = RECOVERY.Host(lambda argv: docker(argv[5:]))
             host.isolation_api()
             records = host.isolation_containers([container_id])
             self.assertEqual(image_id, records[0]["Image"])
             self.assertEqual({"Type": "layers"}, records[0]["RootFS"])
             self.assertFalse(records[0]["State"]["Running"])
+            if kind == "hostbind":
+                self.assertFalse(records[0]["HostConfig"]["MountDeclarations"][0]["OptionsDefault"])
+                self.assertEqual([], host.isolation_volumes(records))
+                continue
             self.assertEqual([{"Type": "volume", "Name": name, "Destination": "/fixture", "RW": False, "OptionsDefault": True}],
                              records[0]["HostConfig"]["MountDeclarations"])
             volume = host.isolation_json(["volume", "inspect", "--format", RECOVERY.ISOLATION_VOLUME_FORMAT, name])
             self.assertIs(volume["OptionsEmpty"], True)
             self.assertEqual("local", volume["Driver"])
+            self.assertEqual([volume], host.isolation_volumes(records))
 
 
 if __name__ == "__main__":

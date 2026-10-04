@@ -10,6 +10,7 @@ an ambiguous recovery. Ordinary deployment still acquires its lock with mkdir.
 import argparse
 from contextlib import contextmanager
 from datetime import datetime
+from enum import Enum
 import hashlib
 import importlib.util
 import json
@@ -326,7 +327,7 @@ def validate_proof(proof, *, app_dir, project, prefix):
                     and isinstance(digest, str) and re.fullmatch(r"[a-f0-9]{64}", digest), "recovery-migrations-invalid")
 
 
-CONTAINER_FORMAT = ('{"id":{{json .Id}},"running":{{json .State.Running}},'
+CONTAINER_FORMAT = ('{"id":{{json .ID}},"running":{{json .State.Running}},'
                     '"restarting":{{json .State.Restarting}},"status":{{json .State.Status}},'
                     '"project":{{json (index .Config.Labels "com.docker.compose.project")}},'
                     '"service":{{json (index .Config.Labels "com.docker.compose.service")}},'
@@ -739,6 +740,39 @@ def isolated_peer_tasks(snapshot):
             for process in snapshot["processes"] if all(task["uids"] == [1000] * 4 for task in process["tasks"])}
 
 
+class DockerMetadataOperation(str, Enum):
+    """Fixed public phases; never interpolate an identifier, path or child error."""
+
+    LEGACY_LIST = "docker-legacy-container-list"
+    LEGACY_INSPECT = "docker-legacy-container-inspect"
+    ISOLATION_VERSION = "docker-isolation-version"
+    ISOLATION_INFO = "docker-isolation-info"
+    ISOLATION_LIST = "docker-isolation-container-list"
+    ISOLATION_CONTAINER = "docker-isolation-container-inspect"
+    ISOLATION_IMAGE = "docker-isolation-image-inspect"
+    ISOLATION_VOLUME = "docker-isolation-volume-inspect"
+
+
+def metadata_operation(run, argv, operation):
+    require(isinstance(operation, DockerMetadataOperation), "docker-metadata-operation-unverified")
+    try:
+        return run(argv)
+    except (RecoveryBlocked, OSError, subprocess.TimeoutExpired):
+        raise RecoveryBlocked(operation.value + "-command-failed") from None
+
+
+def isolation_operation(arguments):
+    phases = {("version",): DockerMetadataOperation.ISOLATION_VERSION,
+              ("info",): DockerMetadataOperation.ISOLATION_INFO,
+              ("ps",): DockerMetadataOperation.ISOLATION_LIST,
+              ("container", "inspect"): DockerMetadataOperation.ISOLATION_CONTAINER,
+              ("image", "inspect"): DockerMetadataOperation.ISOLATION_IMAGE,
+              ("volume", "inspect"): DockerMetadataOperation.ISOLATION_VOLUME}
+    key = tuple(arguments[:2]) if arguments and arguments[0] in {"container", "image", "volume"} else tuple(arguments[:1])
+    require(key in phases, "docker-isolation-operation-unverified")
+    return phases[key]
+
+
 @contextmanager
 def defer_cancellation():
     """Defer catchable termination across the two syscalls, then deliver it with the new lock held.
@@ -760,16 +794,16 @@ class Host:
 
     def isolation_docker(self, arguments):
         # Pin the API used by every request, not only the daemon's advertised maximum.
-        return self.run(["/usr/bin/env", "DOCKER_API_VERSION=" + ISOLATION_API_VERSION,
-                         "docker", "--host", "unix:///var/run/docker.sock", *arguments])
+        return metadata_operation(self.run, ["/usr/bin/env", "DOCKER_API_VERSION=" + ISOLATION_API_VERSION,
+                                            "docker", "--host", "unix:///var/run/docker.sock", *arguments], isolation_operation(arguments))
 
     def isolation_json(self, arguments):
         try:
             result = json.loads(self.isolation_docker(arguments))
-            require(type(result) is dict, "isolation-docker-metadata-unverified")
+            require(type(result) is dict, isolation_operation(arguments).value + "-metadata-unverified")
             return result
         except (ValueError, TypeError):
-            raise RecoveryBlocked("isolation-docker-metadata-unverified") from None
+            raise RecoveryBlocked(isolation_operation(arguments).value + "-metadata-unverified") from None
 
     def isolation_api(self):
         override = os.environ.get("DOCKER_API_VERSION")
@@ -919,11 +953,17 @@ class Host:
         return records
 
     def containers(self):
-        ids = self.run(["docker", "ps", "--all", "--quiet", "--no-trunc"]).splitlines()
+        ids = metadata_operation(self.run, ["docker", "ps", "--all", "--quiet", "--no-trunc"], DockerMetadataOperation.LEGACY_LIST).splitlines()
         result = []
         for identifier in ids:
             require(re.fullmatch(r"[a-f0-9]{64}", identifier), "docker-container-id-invalid")
-            result.append(json.loads(self.run(["docker", "inspect", "--format", CONTAINER_FORMAT, identifier])))
+            value = metadata_operation(self.run, ["docker", "inspect", "--format", CONTAINER_FORMAT, identifier], DockerMetadataOperation.LEGACY_INSPECT)
+            try:
+                record = json.loads(value)
+                require(type(record) is dict, "docker-legacy-container-inspect-metadata-unverified")
+                result.append(record)
+            except (ValueError, TypeError):
+                raise RecoveryBlocked("docker-legacy-container-inspect-metadata-unverified") from None
         return result
 
     def image_manifest(self, proof):
