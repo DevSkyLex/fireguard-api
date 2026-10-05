@@ -1,0 +1,17 @@
+[Unit]
+Description=FireGuard read-only deployment process metadata reader
+Requires=fireguard-deployment-process-reader.socket
+After=fireguard-deployment-process-reader.socket
+
+[Service]
+Type=simple
+User=root
+Group=root
+SupplementaryGroups=
+ExecStart=/usr/bin/python3 -I -S -B /usr/local/libexec/fireguard-deployment-process-reader.py
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+RestrictAddressFamilies=AF_UNIX
+UMask=0077
+StandardOutput=null
+StandardError=null

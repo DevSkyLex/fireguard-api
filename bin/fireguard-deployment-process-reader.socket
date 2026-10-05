@@ -1,0 +1,10 @@
+[Unit]
+Description=FireGuard temporary deployment process metadata reader socket
+
+[Socket]
+ListenStream=/run/fireguard-deployment-process-reader.sock
+SocketUser=root
+SocketGroup=1001
+SocketMode=0660
+Accept=no
+RemoveOnStop=yes

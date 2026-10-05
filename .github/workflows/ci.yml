@@ -703,7 +703,18 @@ jobs:
 
       - name: Verify reviewed development lock recovery contracts
         working-directory: ansible/tests
-        run: python3 -B -m unittest -v test_deployment_recovery test_deployment_isolation test_deployment_namespace_repair
+        run: >-
+          python3 -B -m unittest -v
+          test_deployment_recovery test_deployment_isolation test_deployment_namespace_repair
+          test_deployment_process_reader test_deployment_process_reader_install
+
+      - name: Verify protected process metadata reading on the Linux VM
+        working-directory: ansible/tests
+        run: >-
+          sudo -n env FIREGUARD_TEST_ROOT_PROCESS_READER=1 FIREGUARD_TEST_PROCESS_READER_NATIVE=1
+          python3 -B -m unittest -v
+          test_deployment_process_reader.NativeReaderTests
+          test_deployment_process_reader_install.NativeSystemdReaderTests
 
       - name: Verify isolation projections against the installed Docker engine
         working-directory: ansible/tests

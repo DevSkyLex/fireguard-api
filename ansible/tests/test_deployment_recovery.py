@@ -15,6 +15,7 @@ import re
 import runpy
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tarfile
@@ -1330,7 +1331,7 @@ class AdapterTests(unittest.TestCase):
                     RECOVERY.Host().processes()
                 self.assertNotIn("PRIVATE", str(caught.exception))
 
-    def test_peer_metadata_failures_keep_denial_and_report_only_closed_stage_and_errno(self):
+    def test_peer_metadata_failures_use_fresh_reader_only_for_permission_errors_and_keep_denial(self):
         for stage in ("cwd", "fd-list", "fd-link"):
             for code, category in [(errno.EACCES, "EACCES"), (errno.EPERM, "EPERM"), (errno.EIO, "OTHER")]:
                 with self.subTest(stage=stage, code=code):
@@ -1350,14 +1351,96 @@ class AdapterTests(unittest.TestCase):
                          patch.object(RECOVERY.os, "getuid", return_value=MEMBER, create=True), \
                          patch.object(RECOVERY.os, "getpid", return_value=3), \
                          patch.object(RECOVERY.os, "readlink", side_effect=links), \
+                         patch.object(RECOVERY, "privileged_process_records", side_effect=RECOVERY.RecoveryBlocked("process-reader-snapshot-unavailable")) as reader, \
                          patch.object(RECOVERY.os, "rmdir") as remove, patch.object(RECOVERY.os, "mkdir") as acquire:
                         with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
                             RECOVERY.Host().processes()
-                        self.assertEqual("process-metadata-permission-unavailable", str(caught.exception).split(" ", 1)[0])
-                        self.assertEqual({"stage": stage, "errno": category}, json.loads(str(caught.exception).split(" ", 1)[1]))
+                        if code in {errno.EACCES, errno.EPERM}:
+                            self.assertEqual("process-reader-snapshot-unavailable", str(caught.exception))
+                            reader.assert_called_once_with()
+                        else:
+                            self.assertEqual("process-metadata-permission-unavailable", str(caught.exception).split(" ", 1)[0])
+                            self.assertEqual({"stage": stage, "errno": category}, json.loads(str(caught.exception).split(" ", 1)[1]))
+                            reader.assert_not_called()
                         self.assertNotIn("PRIVATE", str(caught.exception))
                         remove.assert_not_called()
                         acquire.assert_not_called()
+
+    def test_root_snapshot_replaces_partial_local_data_and_preserves_all_concurrency_denials(self):
+        def record(pid, uid, parent, name, cwd=""):
+            return {"pid": pid, "ppid": parent, "uid": uid, "uids": [uid] * 4,
+                    "gids": [uid] * 4, "groups": [uid], "comm": name, "cwd": cwd,
+                    "fds": [], "kernelThread": False}
+        base = [record(1, 0, 0, "systemd"), record(3, MEMBER, 1, "python3"),
+                record(4, MEMBER, 1, "(sd-pam)", "/")]
+        for mutation, allowed in [(lambda values: None, True),
+                                  (lambda values: values[2].update(comm="sh"), False),
+                                  (lambda values: values[2].update(cwd=RECOVERY.APP_DIR), False),
+                                  (lambda values: values[2].update(uid=1002, uids=[1002] * 4, gids=[1002, 1002, 1002, MEMBER]), False)]:
+            snapshot = copy.deepcopy(base)
+            mutation(snapshot)
+            local = copy.deepcopy(base)
+            local[2]["cwd"] = RECOVERY.APP_DIR + "/private-local-partial"
+            with self.subTest(allowed=allowed, comm=snapshot[2]["comm"]), \
+                 patch.object(RECOVERY, "process_status_records", return_value=local), \
+                 patch.object(RECOVERY.os, "getuid", return_value=MEMBER, create=True), \
+                 patch.object(RECOVERY.os, "getpid", return_value=3), \
+                 patch.object(RECOVERY.os, "readlink", side_effect=PermissionError(errno.EACCES, "private")), \
+                 patch.object(RECOVERY, "privileged_process_records", return_value=snapshot) as reader:
+                observed = RECOVERY.Host().processes()
+                self.assertIs(snapshot, observed)
+                reader.assert_called_once_with()
+                if allowed:
+                    RECOVERY.check_processes(observed, 3, MEMBER, group_gid=MEMBER)
+                else:
+                    with self.assertRaises(RECOVERY.RecoveryBlocked):
+                        RECOVERY.check_processes(observed, 3, MEMBER, group_gid=MEMBER)
+
+    def test_process_client_loads_only_protected_installed_bytes_and_rejects_unverified_staging(self):
+        code = b"def read_snapshot(pid, uid): return [pid, uid]\n"
+        def node(mode, uid=0, inode=1):
+            return SimpleNamespace(st_dev=1, st_ino=inode, st_uid=uid, st_gid=uid,
+                                   st_mode=mode, st_size=len(code), st_mtime_ns=1, st_ctime_ns=1)
+        for case in ("matching", "version", "staged-owner", "staged-symlink", "installed-owner", "parent-write"):
+            installed, staged, helper, parent = (MagicMock() for _ in range(4))
+            installed.__str__.return_value = "/usr/local/libexec/fireguard-deployment-process-reader.py"
+            helper.resolve.return_value = helper
+            helper.parent.__truediv__.return_value = staged
+            helper.stat.return_value = SimpleNamespace(st_uid=1001)
+            parent.lstat.return_value = node(stat.S_IFDIR | (0o775 if case == "parent-write" else 0o755))
+            installed.parents = [parent]
+            installed_node = node(stat.S_IFREG | 0o644, 1001 if case == "installed-owner" else 0)
+            staged_node = node(stat.S_IFLNK | 0o777 if case == "staged-symlink" else stat.S_IFREG | 0o600,
+                               1002 if case == "staged-owner" else 1001, 2)
+            installed.lstat.return_value = installed_node
+            staged.lstat.return_value = staged_node
+            nodes = {10: installed_node, 11: staged_node}
+            contents = {10: code, 11: code + b"# different version\n" if case == "version" else code}
+            class Stream(io.BytesIO):
+                def __init__(self, descriptor):
+                    super().__init__(contents[descriptor])
+                    self.descriptor = descriptor
+                def fileno(self):
+                    return self.descriptor
+            spec = importlib.util.spec_from_loader("verified_process_client", loader=None)
+            with self.subTest(case=case), \
+                 patch.object(RECOVERY, "Path", side_effect=[helper, installed]), \
+                 patch.object(RECOVERY.os, "O_NOFOLLOW", 0, create=True), \
+                 patch.object(RECOVERY.os, "O_CLOEXEC", 0, create=True), \
+                 patch.object(RECOVERY.os, "open", side_effect=lambda path, flags: 10 if path is installed else 11), \
+                 patch.object(RECOVERY.os, "fdopen", side_effect=lambda fd, mode: Stream(fd)), \
+                 patch.object(RECOVERY.os, "fstat", side_effect=lambda fd: nodes[fd]), \
+                 patch.object(RECOVERY.os, "getpid", return_value=3), \
+                 patch.object(RECOVERY.os, "getuid", return_value=1001, create=True), \
+                 patch.object(RECOVERY.importlib.util, "spec_from_file_location", return_value=spec), \
+                 patch("builtins.compile", wraps=compile) as compiling:
+                if case == "matching":
+                    self.assertEqual([3, 1001], RECOVERY.privileged_process_records())
+                    compiling.assert_called_once_with(code, str(installed), "exec")
+                else:
+                    with self.assertRaises(RECOVERY.RecoveryBlocked):
+                        RECOVERY.privileged_process_records()
+                    compiling.assert_not_called()
 
     def test_private_child_error_never_reaches_public_diagnostic(self):
         completed = subprocess.CompletedProcess(["fixture"], 1, stdout=b"PRIVATE_VALUE", stderr=b"PRIVATE_PASSWORD")
