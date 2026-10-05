@@ -169,6 +169,63 @@ class ReaderTests(unittest.TestCase):
         with patch.object(READER, "_identity", side_effect=changed):
             self.denied(self.snapshot)
 
+    def test_foreign_exec_or_reparent_refreshes_fields_without_relaxing_identity(self):
+        self.write_process(30, 1, 0, "before-exec")
+        original = READER._identity
+        calls = 0
+
+        def changed(proc, pid):
+            nonlocal calls
+            result = original(proc, pid)
+            if pid == 30:
+                calls += 1
+                if calls > 1:
+                    result.update(comm="after-exec", ppid=99)
+            return result
+
+        with patch.object(READER, "_identity", side_effect=changed):
+            record = self.snapshot()[1][-1]
+        self.assertEqual((30, 0, "after-exec", 99, 100), (record["pid"], record["uid"], record["comm"], record["ppid"], record["startTime"]))
+
+    def test_foreign_pid_reuse_or_credential_changes_remain_denied(self):
+        self.write_process(30, 1, 0, "foreign")
+        original = READER._identity
+        for mutation in ({"startTime": 101}, {"uids": [1001] * 4, "uid": 1001}, {"gids": [1001] * 4}, {"groups": [0, 1001]}):
+            calls = 0
+
+            def changed(proc, pid):
+                nonlocal calls
+                result = original(proc, pid)
+                if pid == 30:
+                    calls += 1
+                    if calls > 1:
+                        result.update(mutation)
+                return result
+
+            with self.subTest(mutation=mutation), patch.object(READER, "_identity", side_effect=changed):
+                self.denied(self.snapshot, READER.ErrorCode.FOREIGN_CHANGED)
+
+    def test_ancestor_and_deployment_authority_exec_or_reparent_remains_denied(self):
+        original = READER._identity
+        for pid, mutation, group in ((1, {"comm": "renamed"}, None), (20, {"comm": "python3"}, None),
+                                    (20, {"ppid": 10}, None), (30, {"comm": "renamed"}, 1001),
+                                    (30, {"ppid": 10}, 1000)):
+            if pid == 30:
+                self.write_process(30, 1, 0, "foreign", groups=[0, group])
+            calls = 0
+
+            def changed(proc, identifier):
+                nonlocal calls
+                result = original(proc, identifier)
+                if identifier == pid:
+                    calls += 1
+                    if calls > 1:
+                        result.update(mutation)
+                return result
+
+            with self.subTest(pid=pid, mutation=mutation), patch.object(READER, "_identity", side_effect=changed):
+                self.denied(self.snapshot, READER.ErrorCode.ANCESTOR_CHANGED if pid == 1 else READER.ErrorCode.AUTHORITY_CHANGED)
+
     def test_new_process_during_collection_is_denied(self):
         original = READER._inventory
         calls = 0

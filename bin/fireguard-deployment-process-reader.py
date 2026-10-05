@@ -49,6 +49,10 @@ class ErrorCode(str, Enum):
     METADATA = "metadata-unavailable"
     RACE = "metadata-raced"
     CHANGED = "identity-changed"
+    CALLER_CHANGED = "caller-identity-changed"
+    ANCESTOR_CHANGED = "ancestor-identity-changed"
+    AUTHORITY_CHANGED = "authority-identity-changed"
+    FOREIGN_CHANGED = "foreign-credentials-changed"
     INVENTORY = "inventory-changed"
     LIMIT = "bounded-limit"
     RESPONSE = "response-unverified"
@@ -158,6 +162,24 @@ def _credentials(record):
     return {key: value for key, value in record.items() if key not in {"cwd", "fds"}}
 
 
+def _refresh_identity(record, current, ancestors, reserve, caller_pid):
+    """Foreign exec/reparenting has no owner-policy meaning; identity still must match."""
+    identity = {"pid", "startTime", "uid", "uids", "gids", "groups", "kernelThread"}
+    authority = any(value in record[key] for value in (1000, DEPLOYMENT_UID) for key in ("uids", "gids", "groups"))
+    code = (ErrorCode.CALLER_CHANGED if record["pid"] == caller_pid else
+            ErrorCode.ANCESTOR_CHANGED if record["pid"] in ancestors else
+            ErrorCode.AUTHORITY_CHANGED if authority else ErrorCode.FOREIGN_CHANGED)
+    _require(all(record[key] == current[key] for key in identity), code)
+    protected = record["pid"] in ancestors or authority
+    if protected:
+        _require(_credentials(record) == _credentials(current), code)
+        return
+    for key in ("ppid", "comm"):
+        if record[key] != current[key]:
+            reserve({key: current[key]})
+            record[key] = current[key]
+
+
 def _link(path):
     value = os.readlink(path)
     _require(type(value) is str and 0 < len(value) <= 16384 and "\x00" not in value, ErrorCode.METADATA)
@@ -196,7 +218,7 @@ def collect_snapshot(caller_pid, caller_uid, *, proc=Path("/proc")):
                 raise
     ancestors = _ancestors(records, caller_pid)
     _require(_credentials(next(record for record in records if record["pid"] == caller_pid))
-             == _credentials(caller), ErrorCode.CHANGED)
+             == _credentials(caller), ErrorCode.CALLER_CHANGED)
     total_fds = 0
 
     def inspect(record):
@@ -219,7 +241,7 @@ def collect_snapshot(caller_pid, caller_uid, *, proc=Path("/proc")):
                     value = _link(descriptor)
                     reserve(value)
                     record["fds"].append(value)
-            _require(_credentials(_identity(proc, record["pid"])) == _credentials(record), ErrorCode.CHANGED)
+            _refresh_identity(record, _identity(proc, record["pid"]), ancestors, reserve, caller_pid)
             return record
         except ReaderBlocked as error:
             if error.code == ErrorCode.LIMIT:
@@ -256,14 +278,14 @@ def collect_snapshot(caller_pid, caller_uid, *, proc=Path("/proc")):
         for pid, record in list(selected.items()):
             bounded()
             try:
-                _require(_credentials(_identity(proc, pid)) == _credentials(record), ErrorCode.CHANGED)
+                _refresh_identity(record, _identity(proc, pid), ancestors, reserve, caller_pid)
             except ReaderBlocked as error:
                 if error.code == ErrorCode.LIMIT:
                     raise
                 if not _gone(proc / str(pid)):
                     raise
                 del selected[pid]
-        _require(_credentials(_identity(proc, caller_pid)) == _credentials(caller), ErrorCode.CHANGED)
+        _require(_credentials(_identity(proc, caller_pid)) == _credentials(caller), ErrorCode.CALLER_CHANGED)
         if set(_inventory(proc)) <= selected.keys():
             result = [selected[pid] for pid in sorted(selected)]
             _ancestors(result, caller_pid)
