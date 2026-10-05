@@ -26,6 +26,24 @@ NONCE = "a" * 64
 DIGEST = "b" * 64
 
 
+def native_failure(phase, error, recovery_error_type):
+    """Fixture diagnostics expose fixed phases/codes, never host process data."""
+    phases = {"credentials", "direct-read", "identity", "connect", "exchange", "target", "policy", "hostile-policy", "result"}
+    recovery_codes = {"own-process-ancestry-unverified", "peer-group-metadata-unverified",
+                      "peer-group-writer-or-ambiguous-process", "concurrent-host-owner-or-ambiguous-process"}
+    if isinstance(error, READER.ReaderBlocked):
+        code = error.code.value
+    elif isinstance(error, recovery_error_type):
+        code = str(error) if str(error) in recovery_codes else "unexpected-policy-failure"
+    elif isinstance(error, OSError):
+        code = {errno.EACCES: "EACCES", errno.EPERM: "EPERM"}.get(error.errno, "OTHER")
+    elif isinstance(error, StopIteration):
+        code = "target-disappeared"
+    else:
+        code = "unexpected-exception"
+    return {"failure": {"phase": phase if phase in phases else "fixture", "code": code}}
+
+
 class Connection:
     def __init__(self, value, *, raw=False, peer=(10, 1001, 1001)):
         self.data = value if raw else json.dumps(value).encode()
@@ -507,6 +525,22 @@ class ReaderTests(unittest.TestCase):
         self.assertFalse(imported & {"subprocess", "urllib", "requests", "importlib"})
         self.assertNotIn("os.system", SOURCE.read_text(encoding="utf-8"))
 
+    def test_native_diagnostics_keep_closed_phase_and_error_without_private_content(self):
+        class PolicyBlocked(RuntimeError):
+            pass
+
+        cases = [("exchange", READER.ReaderBlocked(READER.ErrorCode.CALLER_CHANGED), "caller-identity-changed"),
+                 ("policy", PolicyBlocked("concurrent-host-owner-or-ambiguous-process"), "concurrent-host-owner-or-ambiguous-process"),
+                 ("policy", PolicyBlocked("SECRET-PROCESS-PATH"), "unexpected-policy-failure"),
+                 ("connect", PermissionError(errno.EACCES, "SECRET-PROCESS-PATH"), "EACCES"),
+                 ("target", StopIteration(), "target-disappeared"),
+                 ("result", ValueError("SECRET-PROCESS-PATH"), "unexpected-exception")]
+        for phase, error, code in cases:
+            with self.subTest(phase=phase, code=code):
+                result = native_failure(phase, error, PolicyBlocked)
+                self.assertEqual({"failure": {"phase": phase, "code": code}}, result)
+                self.assertNotIn("SECRET", json.dumps(result))
+
 
 @unittest.skipUnless(sys.platform == "linux" and os.environ.get("FIREGUARD_TEST_ROOT_PROCESS_READER") == "1",
                      "requires explicit Linux root VM fixture; not the Windows hermetic suite")
@@ -552,23 +586,31 @@ class NativeReaderTests(unittest.TestCase):
                 result_read, result_write = os.pipe()
                 caller = os.fork()
                 if caller == 0:
+                    phase = "credentials"
                     try:
                         listener.close()
                         os.close(result_read)
                         os.setgroups([1001])
                         os.setgid(1001)
                         os.setuid(1001)
+                        phase = "direct-read"
                         denied = False
                         try:
                             os.readlink("/proc/" + str(target) + "/cwd")
                         except OSError as error:
                             denied = error.errno in (errno.EPERM, errno.EACCES)
+                        phase = "identity"
                         identity = READER._identity(Path("/proc"), os.getpid())
                         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+                            phase = "connect"
                             connection.connect(path)
+                            phase = "exchange"
                             records = READER._exchange(connection, identity, READER.source_digest())
+                        phase = "target"
                         peer = next(record for record in records if record["pid"] == target)
+                        phase = "policy"
                         recovery.check_processes(records, os.getpid(), 1001, group_gid=1001)
+                        phase = "hostile-policy"
                         hostile = copy.deepcopy(records)
                         next(record for record in hostile if record["pid"] == target)["comm"] = "python3"
                         refused = False
@@ -576,10 +618,12 @@ class NativeReaderTests(unittest.TestCase):
                             recovery.check_processes(hostile, os.getpid(), 1001, group_gid=1001)
                         except recovery.RecoveryBlocked:
                             refused = True
+                        phase = "result"
                         os.write(result_write, json.dumps({"directDenied": denied, "metadataRead": peer["cwd"] == "/",
                                                            "ownerStillDenied": refused}).encode())
                         os._exit(0)
-                    except BaseException:
+                    except BaseException as error:
+                        os.write(result_write, json.dumps(native_failure(phase, error, recovery.RecoveryBlocked)).encode())
                         os._exit(4)
                 self.addCleanup(lambda: self.stop_child(caller))
                 os.close(result_write)
@@ -588,7 +632,7 @@ class NativeReaderTests(unittest.TestCase):
                 result = os.read(result_read, 4096)
                 os.close(result_read)
                 _, status = os.waitpid(caller, 0)
-                self.assertEqual(0, os.waitstatus_to_exitcode(status))
+                self.assertEqual(0, os.waitstatus_to_exitcode(status), result.decode("ascii"))
                 self.assertEqual({"directDenied": True, "metadataRead": True, "ownerStillDenied": True}, json.loads(result))
 
     @staticmethod
