@@ -596,6 +596,50 @@ def process_status_records(*, include_names=True, bounded=False):
     return records
 
 
+def privileged_process_records():
+    """Load only the installed protected client; staged source supplies its digest."""
+    helper = Path(__file__).resolve()
+    expected = helper.parent / "fireguard-deployment-process-reader.py"
+    installed = Path("/usr/local/libexec/fireguard-deployment-process-reader.py")
+
+    def identity(node):
+        return (node.st_dev, node.st_ino, node.st_uid, node.st_gid, node.st_mode,
+                node.st_size, node.st_mtime_ns, node.st_ctime_ns)
+
+    def source_bytes(path, owner):
+        before = path.lstat()
+        require(stat.S_ISREG(before.st_mode) and before.st_uid == owner and not before.st_mode & 0o022,
+                "process-reader-client-source-unverified")
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        with os.fdopen(descriptor, "rb") as stream:
+            require(identity(os.fstat(stream.fileno())) == identity(before), "process-reader-client-source-changed")
+            contents = stream.read(1024 * 1024 + 1)
+            require(0 < len(contents) <= 1024 * 1024, "process-reader-client-source-unverified")
+            require(identity(os.fstat(stream.fileno())) == identity(path.lstat()) == identity(before),
+                    "process-reader-client-source-changed")
+        return contents
+
+    try:
+        for parent in installed.parents:
+            node = parent.lstat()
+            require(stat.S_ISDIR(node.st_mode) and node.st_uid == 0 and not node.st_mode & 0o022,
+                    "process-reader-installed-path-unverified")
+        contents = source_bytes(installed, 0)
+        require(hashlib.sha256(contents).digest() == hashlib.sha256(source_bytes(expected, helper.stat().st_uid)).digest(),
+                "process-reader-installed-version-mismatch")
+        spec = importlib.util.spec_from_file_location("_fireguard_deployment_process_reader", installed)
+        require(spec is not None, "process-reader-client-unavailable")
+        module = importlib.util.module_from_spec(spec)
+        # This code is root-owned and version-verified. Staged bytes are never executed.
+        exec(compile(contents, str(installed), "exec"), module.__dict__)
+        return module.read_snapshot(os.getpid(), os.getuid())
+    except RecoveryBlocked:
+        raise
+    except Exception:
+        # No private records, process identities or exception text reach public job logs.
+        raise RecoveryBlocked("process-reader-snapshot-unavailable") from None
+
+
 def namespace_node_metadata(path, depth, node=None) -> NamespaceNodeDiagnostic:
     try:
         node = path.lstat() if node is None else node
@@ -1564,6 +1608,10 @@ class Host:
             except FileNotFoundError:
                 require(not path.exists(), "process-metadata-raced")
             except OSError as error:
+                if error.errno in {errno.EACCES, errno.EPERM}:
+                    # Discard this partial local snapshot. Every caller identity and
+                    # concurrency decision stays unchanged; only collection differs.
+                    return privileged_process_records()
                 category = {errno.EACCES: "EACCES", errno.EPERM: "EPERM"}.get(error.errno, "OTHER")
                 raise RecoveryBlocked("process-metadata-permission-unavailable "
                                       + json.dumps({"stage": stage, "errno": category}, sort_keys=True)) from None

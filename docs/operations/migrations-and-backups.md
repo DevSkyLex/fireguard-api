@@ -83,8 +83,51 @@ Reviewed recovery disables SSH connection sharing and persistence for the whole
 Ansible invocation, including preceding file transfers. Ordinary deployment keeps
 the default transport settings. This prevents an idle deployment connection from
 competing with process inspection; it does not exempt SSH processes or inaccessible
-metadata from the recovery checks. A process-read refusal reports only its fixed
-stage and a closed error category, without process identity, links or error text.
+metadata from the recovery checks. Linux can protect a same-user process's
+`cwd` and file-descriptor links after a credential transition, including normal
+PAM session helpers. For `EACCES` or `EPERM` only, recovery discards its partial
+local inventory and requests a fresh snapshot from the separately provisioned
+process metadata reader. Other errors remain blocking. No process is exempted:
+the existing credential, ancestry, competing-owner and storage checks still apply.
+
+This reader requires explicit operator authorization for this incident. It runs
+as root with only `CAP_SYS_PTRACE` and `CAP_DAC_READ_SEARCH`; these capabilities
+are powerful, and its read-only behavior depends on the closed autonomous program.
+It accepts no command, path or requested process identity. The fixed private Unix
+socket attests the deployment caller with `SO_PEERCRED`; only process credentials
+and that account's non-ancestor `cwd`/descriptor links are collected, with bounded
+responses and stable process identities. File contents, arguments and environment
+variables are never read. Metadata stays on the socket and is never logged.
+
+Provision the module, installer and two systemd units from one immutable reviewed
+revision into a protected root-owned directory and verify all four SHA-256 hashes.
+The installer defaults to a read-only simulation. Its explicit `--apply` creates
+only the three fixed root-owned installation files and, if missing, their libexec
+directory. Existing differing files are refused. It validates paths, source and
+target identities, the protected system interpreter and the units before starting
+the socket. The loaded unit files must match the fixed paths, with no systemd
+overrides; the service also attests its effective credentials and capabilities.
+The installer never enables boot activation or changes application services,
+PAM, sudoers, database files or the retained operation lock. An interrupted partial
+installation is reported and retained for explicit review.
+
+The unprivileged recovery helper hashes its staged public source but never
+executes it. It loads only the installed protected module after verifying that
+its digest matches, and the private response also attests the same source digest.
+Missing, stale, replaced or unreadable installations fail closed. The reader's
+UID/GID must remain entirely root without the deployment group; the recovery
+controller retains its own original identity and operation-lock ownership.
+
+After the reviewed recovery has finished, stop the temporary reader with:
+
+```bash
+sudo systemctl stop fireguard-deployment-process-reader.socket fireguard-deployment-process-reader.service
+```
+
+Confirm the socket is gone and both units are inactive. Do not reuse this
+temporary authorization for another incident. Ordinary deployments do not use
+the reader. Public errors contain only closed diagnostics, without process
+identities, links or raw exception text.
 
 A stopped-writer refusal reports only the five fixed writer services, their
 matching-container counts and counts by a closed set of Docker states. Unknown

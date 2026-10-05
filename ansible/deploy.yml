@@ -233,6 +233,12 @@
             dest: "{{ fireguard_recovery_staging.path }}/fireguard-deployment-isolation.py"
             mode: "0600"
 
+        - name: Stage the public process reader source for installed version verification
+          ansible.builtin.copy:
+            src: ../bin/fireguard-deployment-process-reader.py
+            dest: "{{ fireguard_recovery_staging.path }}/fireguard-deployment-process-reader.py"
+            mode: "0600"
+
         - name: Stage public recovery provenance without any deployment credentials
           ansible.builtin.copy:
             src: ../.deploy/lock-recovery-proof.json
