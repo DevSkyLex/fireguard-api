@@ -434,4 +434,8 @@ jobs:
           } > .deploy/inventory.ini
 
       - name: Run Ansible deployment
-        run: ansible-playbook -i .deploy/inventory.ini ansible/deploy.yml
+        run: |
+          if [ -n "${REVIEWED_LOCK_RECOVERY_RUN_ID:-}" ]; then
+            export ANSIBLE_SSH_ARGS='-C -o ControlMaster=no -o ControlPersist=no -o ControlPath=none'
+          fi
+          ansible-playbook -i .deploy/inventory.ini ansible/deploy.yml

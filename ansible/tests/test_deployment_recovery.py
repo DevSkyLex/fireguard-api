@@ -2,6 +2,7 @@
 
 import copy
 import ast
+import errno
 from contextlib import contextmanager, nullcontext, redirect_stderr, redirect_stdout
 import hashlib
 import http.client
@@ -417,6 +418,34 @@ class WorkflowAndPlaybookTests(unittest.TestCase):
                 self.assertEqual(reviewed, self.evaluate(self.recovery["when"], context))
         self.assertEqual({"name", "ansible.builtin.command", "when"}, set(acquire))
         self.assertLess(self.tasks.index(acquire), self.tasks.index(self.task("Copy base Docker Compose file")))
+
+    def test_real_workflow_transport_disables_sharing_only_for_reviewed_recovery_and_propagates_failure(self):
+        script = self.step("deploy", "Run Ansible deployment")["run"]
+        bash = shutil.which("bash")
+        self.assertIsNotNone(bash, "The workflow regression requires Bash")
+        probe = r'''ansible-playbook() {
+  printf '%s\n' "${ANSIBLE_SSH_ARGS-unset}" "$@"
+  return "${SYNTHETIC_ANSIBLE_STATUS:-0}"
+}
+'''
+        expected = "-C -o ControlMaster=no -o ControlPersist=no -o ControlPath=none"
+        for requested, inherited, status in [(RECOVERY.CANDIDATE, "inherited", 0),
+                                             (RECOVERY.CANDIDATE, "inherited", 73),
+                                             ("", "inherited", 0), (None, None, 0)]:
+            with self.subTest(requested=requested, inherited=inherited, status=status):
+                environment = os.environ.copy()
+                environment.pop("REVIEWED_LOCK_RECOVERY_RUN_ID", None)
+                environment.pop("ANSIBLE_SSH_ARGS", None)
+                if requested is not None:
+                    environment["REVIEWED_LOCK_RECOVERY_RUN_ID"] = requested
+                if inherited is not None:
+                    environment["ANSIBLE_SSH_ARGS"] = inherited
+                environment["SYNTHETIC_ANSIBLE_STATUS"] = str(status)
+                result = subprocess.run([bash, "--noprofile", "--norc", "-e", "-c", probe + script],
+                                        env=environment, text=True, capture_output=True, timeout=10)
+                self.assertEqual(status, result.returncode, result.stderr)
+                self.assertEqual([expected if requested else inherited or "unset", "-i", ".deploy/inventory.ini",
+                                  "ansible/deploy.yml"], result.stdout.splitlines())
 
     def test_manual_identity_asserts_reject_each_other_installation_and_rollback_or_reset(self):
         assertion = self.task("Validate the fixed development recovery identity", self.recovery["block"])
@@ -1300,6 +1329,35 @@ class AdapterTests(unittest.TestCase):
                 with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
                     RECOVERY.Host().processes()
                 self.assertNotIn("PRIVATE", str(caught.exception))
+
+    def test_peer_metadata_failures_keep_denial_and_report_only_closed_stage_and_errno(self):
+        for stage in ("cwd", "fd-list", "fd-link"):
+            for code, category in [(errno.EACCES, "EACCES"), (errno.EPERM, "EPERM"), (errno.EIO, "OTHER")]:
+                with self.subTest(stage=stage, code=code):
+                    records = [{"pid": 1, "ppid": 0, "uid": 0, "kernelThread": False},
+                               {"pid": 3, "ppid": 1, "uid": MEMBER, "kernelThread": False},
+                               {"pid": 4, "ppid": 1, "uid": MEMBER, "kernelThread": False}]
+                    path = MagicMock()
+                    peer = (path / "4")
+                    descriptors = peer / "fd"
+                    descriptors.iterdir.return_value = [MagicMock()]
+                    error = OSError(code, "PRIVATE_PERMISSION", "PRIVATE_PATH")
+                    if stage == "fd-list":
+                        descriptors.iterdir.side_effect = error
+                    links = [error] if stage == "cwd" else ["PRIVATE_CWD", error if stage == "fd-link" else "unused"]
+                    with patch.object(RECOVERY, "process_status_records", return_value=records), \
+                         patch.object(RECOVERY, "Path", return_value=path), \
+                         patch.object(RECOVERY.os, "getuid", return_value=MEMBER, create=True), \
+                         patch.object(RECOVERY.os, "getpid", return_value=3), \
+                         patch.object(RECOVERY.os, "readlink", side_effect=links), \
+                         patch.object(RECOVERY.os, "rmdir") as remove, patch.object(RECOVERY.os, "mkdir") as acquire:
+                        with self.assertRaises(RECOVERY.RecoveryBlocked) as caught:
+                            RECOVERY.Host().processes()
+                        self.assertEqual("process-metadata-permission-unavailable", str(caught.exception).split(" ", 1)[0])
+                        self.assertEqual({"stage": stage, "errno": category}, json.loads(str(caught.exception).split(" ", 1)[1]))
+                        self.assertNotIn("PRIVATE", str(caught.exception))
+                        remove.assert_not_called()
+                        acquire.assert_not_called()
 
     def test_private_child_error_never_reaches_public_diagnostic(self):
         completed = subprocess.CompletedProcess(["fixture"], 1, stdout=b"PRIVATE_VALUE", stderr=b"PRIVATE_PASSWORD")

@@ -11,6 +11,7 @@ import argparse
 from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
+import errno
 import hashlib
 import importlib.util
 import json
@@ -1553,13 +1554,19 @@ class Host:
             if record["uid"] != os.getuid() or record["pid"] in ancestors or record["kernelThread"]:
                 continue
             path = Path("/proc") / str(record["pid"])
+            stage = "cwd"
             try:
                 record["cwd"] = os.readlink(path / "cwd")
-                record["fds"] = [os.readlink(fd) for fd in (path / "fd").iterdir()]
+                stage = "fd-list"
+                descriptors = list((path / "fd").iterdir())
+                stage = "fd-link"
+                record["fds"] = [os.readlink(fd) for fd in descriptors]
             except FileNotFoundError:
                 require(not path.exists(), "process-metadata-raced")
-            except OSError:
-                raise RecoveryBlocked("process-metadata-permission-unavailable") from None
+            except OSError as error:
+                category = {errno.EACCES: "EACCES", errno.EPERM: "EPERM"}.get(error.errno, "OTHER")
+                raise RecoveryBlocked("process-metadata-permission-unavailable "
+                                      + json.dumps({"stage": stage, "errno": category}, sort_keys=True)) from None
         return records
 
     def containers(self):
