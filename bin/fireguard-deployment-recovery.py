@@ -23,6 +23,7 @@ import signal
 import stat
 import subprocess
 import sys
+import time
 from typing import Literal, TypedDict
 import urllib.request
 import uuid
@@ -50,6 +51,9 @@ IMAGE = re.compile(r"ghcr\.io/devskylex/fireguard-api@sha256:[a-f0-9]{64}\Z")
 VERSION_FILE = re.compile(r"Version[0-9]{14}\.php\Z")
 SCHEMA_PREFIX = {"auth": "DoctrineMigrations\\Auth\\", "main": "DoctrineMigrations\\Main\\"}
 ACTIVE = {"queued", "in_progress", "waiting", "pending", "requested"}
+CURRENT_TRANSIENT = {"queued", "waiting", "pending", "requested"}
+CURRENT_RUN_WAIT_SECONDS = 60
+CURRENT_RUN_MAX_READS = 31
 POTENTIAL_OWNER = re.compile(r"(?:python.*|ansible.*|sh|bash|dash|zsh|fish|ssh|sshd|scp|sftp.*|rsync|restic|pg_dump|pg_restore|docker|podman|tar)\Z")
 REVIEWED_LEGACY_LOCK = {"device": 2049, "inode": 3149773, "uid": 1001, "gid": 1001, "mode": 0o775,
                         "mtimeNs": 1790986150159681219, "ctimeNs": 1790986150159681219}
@@ -219,7 +223,7 @@ class GitHub:
         require(bool(token), "github-credential-unavailable")
         self.token = token
 
-    def get(self, path):
+    def get(self, path, *, timeout=30):
         require(path.startswith("/repos/" + REPOSITORY + "/"), "invalid-github-path")
         request = urllib.request.Request("https://api.github.com" + path, headers={
             "Authorization": "Bearer " + self.token,
@@ -227,7 +231,7 @@ class GitHub:
             "X-GitHub-Api-Version": "2022-11-28",
         })
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
                 require(response.status == 200, "github-metadata-unavailable")
                 return json.load(response)
         except (OSError, ValueError):
@@ -252,6 +256,50 @@ def trusted_run(run, sha, workflow):
             and run.get("repository", {}).get("full_name") == REPOSITORY
             and run.get("head_repository", {}).get("full_name") == REPOSITORY
             and run.get("path") == ".github/workflows/" + workflow)
+
+
+def current_deployment_run(api, path, source, *, monotonic=None, sleep=None):
+    """Wait only for a trusted manual run's mutable status; never retry provenance."""
+    monotonic = time.monotonic if monotonic is None else monotonic
+    sleep = time.sleep if sleep is None else sleep
+    deadline = monotonic() + CURRENT_RUN_WAIT_SECONDS
+    current, reads = {}, 0
+
+    def matches():
+        record = current if type(current) is dict else {}
+        repository = record.get("repository")
+        head_repository = record.get("head_repository")
+        return {"manualEvent": record.get("event") == "workflow_dispatch",
+                "branch": record.get("head_branch") == "develop", "source": record.get("head_sha") == source,
+                "repository": type(repository) is dict and repository.get("full_name") == REPOSITORY,
+                "headRepository": type(head_repository) is dict and head_repository.get("full_name") == REPOSITORY,
+                "workflow": record.get("path") == ".github/workflows/deploy-vps.yml"}
+
+    def blocked(reason):
+        status = current.get("status") if type(current) is dict else None
+        normalized = status if type(status) is str and status in ACTIVE | {"completed"} else "unknown"
+        diagnostic = {"status": normalized, "reason": reason, "readCount": reads, "matches": matches()}
+        raise RecoveryBlocked("current-deployment-provenance-invalid " + json.dumps(diagnostic, sort_keys=True))
+
+    while reads < CURRENT_RUN_MAX_READS:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            blocked("deadline")
+        current = api.get(path, timeout=min(30, remaining))
+        reads += 1
+        if not all(matches().values()) or not trusted_run(current, source, "deploy-vps.yml"):
+            blocked("identity")
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            blocked("deadline")
+        if current.get("status") == "in_progress":
+            return current
+        if type(current.get("status")) is not str or current["status"] not in CURRENT_TRANSIENT:
+            blocked("state")
+        if reads == CURRENT_RUN_MAX_READS:
+            blocked("read-limit")
+        sleep(min(2, remaining))
+    blocked("read-limit")
 
 
 def migration_manifest(root, source_sha, run=command):
@@ -295,9 +343,9 @@ def provenance(env, api, root, run=command):
     base = "/repos/" + REPOSITORY
     require(api.get(base + "/git/ref/heads/develop").get("object", {}).get("sha") == source,
             "source-no-longer-branch-tip")
-    current = api.get(base + "/actions/runs/" + current_id)
-    require(trusted_run(current, source, "deploy-vps.yml") and current.get("event") == "workflow_dispatch"
-            and current.get("status") == "in_progress", "current-deployment-provenance-invalid")
+    current_deployment_run(api, base + "/actions/runs/" + current_id, source)
+    require(api.get(base + "/git/ref/heads/develop").get("object", {}).get("sha") == source,
+            "source-no-longer-branch-tip")
     old = api.get(base + "/actions/runs/" + CANDIDATE)
     require(trusted_run(old, FAILED_SHA, "deploy-vps.yml") and old.get("event") == "workflow_dispatch"
             and old.get("status") == "completed" and old.get("conclusion") == "failure"

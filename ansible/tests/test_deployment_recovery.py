@@ -73,7 +73,7 @@ class FakeAPI:
         self.runs = [{"id": int(CURRENT_ID), "status": "in_progress"}]
         self.tip = SOURCE
 
-    def get(self, path):
+    def get(self, path, *, timeout=30):
         if path.endswith("/git/ref/heads/develop"):
             return {"object": {"sha": self.tip}}
         return {RECOVERY.CANDIDATE: self.old, CURRENT_ID: self.current, CI_ID: self.ci}[path.rsplit("/", 1)[1]]
@@ -564,11 +564,137 @@ class WorkflowAndPlaybookTests(unittest.TestCase):
 
 
 class ProvenanceTests(unittest.TestCase):
+    def current_fixture(self, responses):
+        api = FakeAPI()
+        original = api.get
+        clock = SimpleNamespace(elapsed=0.0, sleeps=[], reads=[])
+
+        def get(path, *, timeout=30):
+            if path.endswith("/actions/runs/" + CURRENT_ID):
+                index = len(clock.reads)
+                clock.reads.append(timeout)
+                value = responses[min(index, len(responses) - 1)]
+                if isinstance(value, Exception):
+                    raise value
+                return run_metadata("deploy-vps.yml", status=value) if isinstance(value, str) else copy.deepcopy(value)
+            return original(path, timeout=timeout)
+
+        def sleep(seconds):
+            clock.sleeps.append(seconds)
+            clock.elapsed += seconds
+
+        api.get = get
+        clock.monotonic = lambda: clock.elapsed
+        clock.sleep = sleep
+        return api, clock
+
+    def current_run(self, api, clock):
+        return RECOVERY.current_deployment_run(api, "/repos/" + RECOVERY.REPOSITORY + "/actions/runs/" + CURRENT_ID,
+                                               SOURCE, monotonic=clock.monotonic, sleep=clock.sleep)
+
     def test_valid_exact_candidate_and_ci_produce_public_manifest_without_token(self):
         data = RECOVERY.provenance(environment() | {"GH_TOKEN": "DO_NOT_EXPORT"}, FakeAPI(), ROOT, FakeGit())
         self.assertEqual(MANIFEST, data["migrations"])
         self.assertEqual(RECOVERY.CANDIDATE, data["candidateRunId"])
         self.assertNotIn("DO_NOT_EXPORT", json.dumps(data))
+
+    def test_each_trusted_transient_status_waits_then_requires_exact_active_state(self):
+        for status in RECOVERY.CURRENT_TRANSIENT:
+            api, clock = self.current_fixture([status, "in_progress"])
+            with self.subTest(status=status):
+                self.assertEqual("in_progress", self.current_run(api, clock)["status"])
+                self.assertEqual(2, len(clock.reads))
+                self.assertEqual([2], clock.sleeps)
+        api, clock = self.current_fixture(["queued", "waiting", "pending", "requested", "in_progress"])
+        self.assertEqual("in_progress", self.current_run(api, clock)["status"])
+        self.assertEqual(5, len(clock.reads))
+
+    def test_terminal_unknown_or_malformed_state_is_rejected_without_wait(self):
+        for status in ("completed", "PRIVATE_STATUS", None, [], {"PRIVATE_FIELD": "PRIVATE_VALUE"}):
+            response = run_metadata("deploy-vps.yml", status=status)
+            api, clock = self.current_fixture([response])
+            with self.subTest(status=status), self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^current-deployment-provenance-invalid ") as caught:
+                self.current_run(api, clock)
+            diagnostic = json.loads(str(caught.exception).split(" ", 1)[1])
+            self.assertEqual("completed" if status == "completed" else "unknown", diagnostic["status"])
+            self.assertEqual("state", diagnostic["reason"])
+            self.assertEqual([], clock.sleeps)
+            self.assertEqual(1, len(clock.reads))
+            self.assertNotIn("PRIVATE", str(caught.exception))
+
+    def test_every_identity_field_and_manual_event_must_match_initial_and_transition(self):
+        mutations = {"event": "push", "head_branch": "PRIVATE_BRANCH", "head_sha": "PRIVATE_SHA",
+                     "repository": {"full_name": "PRIVATE_REPOSITORY"}, "head_repository": {"full_name": "PRIVATE_REPOSITORY"},
+                     "path": "PRIVATE_WORKFLOW"}
+        for field, value in mutations.items():
+            for transition in (False, True):
+                bad = run_metadata("deploy-vps.yml", status="in_progress" if transition else "waiting")
+                bad[field] = value
+                api, clock = self.current_fixture(["waiting", bad] if transition else [bad])
+                with self.subTest(field=field, transition=transition), self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^current-deployment-provenance-invalid ") as caught:
+                    self.current_run(api, clock)
+                diagnostic = json.loads(str(caught.exception).split(" ", 1)[1])
+                self.assertEqual("identity", diagnostic["reason"])
+                self.assertEqual(2 if transition else 1, len(clock.reads))
+                self.assertEqual([2] if transition else [], clock.sleeps)
+                self.assertFalse(all(diagnostic["matches"].values()))
+                self.assertNotIn("PRIVATE", str(caught.exception))
+
+    def test_wait_deadline_and_request_count_are_bounded_without_accepting_pending(self):
+        api, clock = self.current_fixture(["waiting"])
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^current-deployment-provenance-invalid ") as caught:
+            self.current_run(api, clock)
+        diagnostic = json.loads(str(caught.exception).split(" ", 1)[1])
+        self.assertEqual("deadline", diagnostic["reason"])
+        self.assertEqual(60, clock.elapsed)
+        self.assertLessEqual(len(clock.reads), 31)
+        self.assertTrue(all(0 < delay <= 2 for delay in clock.sleeps))
+        self.assertTrue(all(0 < timeout <= 30 for timeout in clock.reads))
+        self.assertEqual(2, clock.reads[-1])
+        api, clock = self.current_fixture(["queued"])
+        clock.sleep = lambda seconds: clock.sleeps.append(seconds)
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^current-deployment-provenance-invalid ") as caught:
+            self.current_run(api, clock)
+        self.assertEqual("read-limit", json.loads(str(caught.exception).split(" ", 1)[1])["reason"])
+        self.assertEqual(31, len(clock.reads))
+        self.assertEqual(30, len(clock.sleeps))
+
+    def test_api_error_after_transient_state_remains_blocking_without_retry(self):
+        api, clock = self.current_fixture(["waiting", RECOVERY.RecoveryBlocked("github-metadata-unavailable"), "in_progress"])
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^github-metadata-unavailable$"):
+            self.current_run(api, clock)
+        self.assertEqual(2, len(clock.reads))
+        self.assertEqual([2], clock.sleeps)
+
+    def test_late_api_response_cannot_accept_active_state_after_deadline(self):
+        api, clock = self.current_fixture(["waiting", "in_progress"])
+        original = api.get
+
+        def slow(path, *, timeout=30):
+            result = original(path, timeout=timeout)
+            if len(clock.reads) == 2:
+                clock.elapsed = 61
+            return result
+
+        api.get = slow
+        with self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^current-deployment-provenance-invalid ") as caught:
+            self.current_run(api, clock)
+        self.assertEqual("deadline", json.loads(str(caught.exception).split(" ", 1)[1])["reason"])
+        self.assertEqual(2, len(clock.reads))
+
+    def test_branch_tip_changed_during_status_wait_is_rejected_before_other_provenance(self):
+        api, clock = self.current_fixture(["waiting", "in_progress"])
+        original = clock.sleep
+
+        def changed(seconds):
+            original(seconds)
+            api.tip = RECOVERY.FAILED_SHA
+
+        with patch.object(RECOVERY.time, "monotonic", side_effect=clock.monotonic), patch.object(RECOVERY.time, "sleep", side_effect=changed), \
+                patch.object(api, "pages") as pages, self.assertRaisesRegex(RECOVERY.RecoveryBlocked, "^source-no-longer-branch-tip$"):
+            RECOVERY.provenance(environment(), api, ROOT, FakeGit())
+        self.assertEqual(2, len(clock.reads))
+        pages.assert_not_called()
 
     def test_rejects_auto_prod_reset_rollback_arbitrary_id_repo_sha_and_missing_gate(self):
         invalid = {"GITHUB_EVENT_NAME": "workflow_run", "SOURCE_BRANCH": "main", "DEPLOY_ENVIRONMENT": "production",

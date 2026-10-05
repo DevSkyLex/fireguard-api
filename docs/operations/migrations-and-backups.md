@@ -70,6 +70,14 @@ development deployments have finished. Leave `image_ref` empty and
 `reset_development_fixtures=false`; the source must be the current `develop` tip
 with its exact successful CI and Sonar gate.
 
+If GitHub initially reports the verified manual run as `waiting`, `queued`,
+`pending` or `requested`, the provenance check waits within a fixed deadline
+and rechecks its source, branch, repositories, workflow and event on every read.
+Only `in_progress` can produce a proof. Terminal or unknown states, changed
+identity and API errors remain blocking. The branch tip is rechecked after the
+wait; no VPS connection or lock mutation occurs during it. Refusals expose only
+closed state categories, match booleans and bounded read counts.
+
 The helper verifies the failed job, source ancestry, immutable image digest and
 revision, unchanged historical migration definitions, and the executed auth/main
 versions. It also requires the fixed development installation, the original empty
