@@ -576,6 +576,7 @@ class NativeReaderTests(unittest.TestCase):
             os.close(ready_write)
             self.assertEqual(b"R", os.read(ready_read, 1))
             os.close(ready_read)
+            target_start = READER._identity(Path("/proc"), target)["startTime"]
             path = str(Path(folder) / "socket")
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
                 listener.bind(path)
@@ -607,17 +608,31 @@ class NativeReaderTests(unittest.TestCase):
                             phase = "exchange"
                             records = READER._exchange(connection, identity, READER.source_digest())
                         phase = "target"
-                        peer = next(record for record in records if record["pid"] == target)
+                        peers = [record for record in records if record["pid"] == target]
+                        if len(peers) != 1:
+                            raise READER.ReaderBlocked(READER.ErrorCode.CHANGED)
+                        peer = peers[0]
+                        ancestors = recovery.process_ancestors(records, os.getpid())
+                        live = READER._identity(Path("/proc"), target)
+                        if not (target not in ancestors and peer["uids"] == peer["gids"] == [1001] * 4
+                                and peer["comm"] == "fg-peer" and peer["cwd"] == "/" and not peer["kernelThread"]
+                                and peer["startTime"] == live["startTime"] == target_start
+                                and live["uids"] == live["gids"] == [1001] * 4 and live["comm"] == "fg-peer"):
+                            raise READER.ReaderBlocked(READER.ErrorCode.CHANGED)
+                        # IPC validated the complete host snapshot above. The owner
+                        # policy scenario uses only the exact fixture participants;
+                        # unrelated runner groups are outside this controlled test.
+                        cohort = [record for record in records if record["pid"] in ancestors | {target}]
                         phase = "policy"
-                        recovery.check_processes(records, os.getpid(), 1001, group_gid=1001)
+                        recovery.check_processes(cohort, os.getpid(), 1001, group_gid=1001)
                         phase = "hostile-policy"
-                        hostile = copy.deepcopy(records)
+                        hostile = copy.deepcopy(cohort)
                         next(record for record in hostile if record["pid"] == target)["comm"] = "python3"
                         refused = False
                         try:
                             recovery.check_processes(hostile, os.getpid(), 1001, group_gid=1001)
-                        except recovery.RecoveryBlocked:
-                            refused = True
+                        except recovery.RecoveryBlocked as error:
+                            refused = str(error) == "concurrent-host-owner-or-ambiguous-process"
                         phase = "result"
                         os.write(result_write, json.dumps({"directDenied": denied, "metadataRead": peer["cwd"] == "/",
                                                            "ownerStillDenied": refused}).encode())
