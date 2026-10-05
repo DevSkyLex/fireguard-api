@@ -32,6 +32,7 @@ class DeploymentTopologyTest(unittest.TestCase):
 
     def test_all_writers_stop_before_any_snapshot_migration_or_fixture_reset(self):
         lock = self.names.index("Acquire the installation operation lock before changing runtime configuration")
+        self.assertNotIn("when", self.entries[lock], "Every deployment must acquire the ordinary operation lock")
         self.assertLess(lock, self.names.index("Copy base Docker Compose file"))
         self.assertLess(lock, self.names.index("Record deployed image in deployment env file"))
         stop = self.names.index("Stop every managed writer before the consistent deployment snapshot")

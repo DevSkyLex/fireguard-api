@@ -15,10 +15,6 @@ on:
         description: 'Existing API image tag or digest to roll back to (leave empty to build this branch)'
         required: false
         type: string
-      reviewed_lock_recovery_run_id:
-        description: 'Explicitly recover the reviewed failed development deployment 37080669400; leave blank for normal deployment'
-        required: false
-        type: string
       reset_development_fixtures:
         description: 'Purge both development databases and reload the fixture baseline'
         required: false
@@ -83,17 +79,7 @@ jobs:
           IMAGE_INPUT: ${{ inputs.image_ref }}
           RESET_DEVELOPMENT_FIXTURES: ${{ inputs.reset_development_fixtures && 'true' || 'false' }}
           SOURCE_BRANCH: ${{ steps.context.outputs.source-branch }}
-          DEPLOY_ENVIRONMENT: ${{ steps.context.outputs.deploy-environment }}
-          REVIEWED_LOCK_RECOVERY_RUN_ID: ${{ inputs.reviewed_lock_recovery_run_id }}
         run: |
-          if [ -n "$REVIEWED_LOCK_RECOVERY_RUN_ID" ]; then
-            test "$REVIEWED_LOCK_RECOVERY_RUN_ID" = '37080669400' &&
-            test "$SOURCE_BRANCH" = develop && test "$DEPLOY_ENVIRONMENT" = development &&
-            test -z "$IMAGE_INPUT" && test "$RESET_DEVELOPMENT_FIXTURES" = false || {
-              echo 'Reviewed lock recovery requires the reviewed development run, a fresh image and no fixture reset.'
-              exit 1
-            }
-          fi
           if [ -n "$IMAGE_INPUT" ] && [ "$RESET_DEVELOPMENT_FIXTURES" = true ]; then
             echo 'Fixture reset requires a freshly built development image.'
             exit 1
@@ -293,9 +279,6 @@ jobs:
 
     env:
       DEPLOY_ENVIRONMENT: ${{ needs.guard.outputs.deploy-environment }}
-      REVIEWED_LOCK_RECOVERY_RUN_ID: ${{ inputs.reviewed_lock_recovery_run_id || '' }}
-      VERIFIED_CI_RUN_ID: ${{ needs.guard.outputs.verified-run-id }}
-      IMAGE_INPUT: ${{ inputs.image_ref || '' }}
       SOURCE_BRANCH: ${{ needs.guard.outputs.source-branch }}
       SOURCE_SHA: ${{ needs.guard.outputs.source-sha }}
       IMAGE_REF: ${{ needs.guard.outputs.image-ref || needs.build.outputs.image-ref }}
@@ -375,12 +358,6 @@ jobs:
           ref: ${{ needs.guard.outputs.source-sha }}
           fetch-depth: 0
 
-      - name: Verify reviewed development lock recovery provenance
-        if: ${{ inputs.reviewed_lock_recovery_run_id != '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 -B bin/fireguard-deployment-recovery.py provenance --output .deploy/lock-recovery-proof.json
-
       - name: Validate required deployment configuration
         run: |
           case "$SOURCE_BRANCH" in
@@ -434,8 +411,4 @@ jobs:
           } > .deploy/inventory.ini
 
       - name: Run Ansible deployment
-        run: |
-          if [ -n "${REVIEWED_LOCK_RECOVERY_RUN_ID:-}" ]; then
-            export ANSIBLE_SSH_ARGS='-C -o ControlMaster=no -o ControlPersist=no -o ControlPath=none'
-          fi
-          ansible-playbook -i .deploy/inventory.ini ansible/deploy.yml
+        run: ansible-playbook -i .deploy/inventory.ini ansible/deploy.yml
