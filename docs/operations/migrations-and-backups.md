@@ -79,6 +79,13 @@ Other privileged operators must refrain from maintenance during recovery.
 Missing or ambiguous evidence aborts before
 releasing the mutex. It never restores or changes either database during inspection.
 
+Reviewed recovery disables SSH connection sharing and persistence for the whole
+Ansible invocation, including preceding file transfers. Ordinary deployment keeps
+the default transport settings. This prevents an idle deployment connection from
+competing with process inspection; it does not exempt SSH processes or inaccessible
+metadata from the recovery checks. A process-read refusal reports only its fixed
+stage and a closed error category, without process identity, links or error text.
+
 A stopped-writer refusal reports only the five fixed writer services, their
 matching-container counts and counts by a closed set of Docker states. Unknown
 state values are counted without publishing them. This diagnostic distinguishes
