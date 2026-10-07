@@ -256,11 +256,12 @@ final class MaintenanceCostAllocationResolverTest extends TestCase
     $first = new MaintenanceCostItem('material:first', 'material', null, 'first', null, '20.000000', 'EUR', 'First correction', '2026-10-08', correctionOf: 'material:second', equipmentId: 'first-equipment');
     $second = new MaintenanceCostItem('material:second', 'material', null, 'second', null, '-5.000000', 'EUR', 'Second correction', '2026-10-09', correctionOf: 'material:first', equipmentId: 'second-equipment');
     $self = new MaintenanceCostItem('material:self', 'material', null, 'self', null, '1.000000', 'EUR', 'Self correction', '2026-10-10', correctionOf: 'material:self', equipmentId: 'self-equipment');
-    $result = new MaintenanceCostAllocationResolver($work, $equipment)->resolve('org', 'work', [$first, $second, $self], []);
+    $sources = [$first, $second, $self];
+    $result = new MaintenanceCostAllocationResolver($work, $equipment)->resolve('org', 'work', $sources, []);
     foreach ($result as $index => $item) {
       self::assertNotNull($item->allocation);
       self::assertSame('incomplete', $item->allocation['identityState']);
-      self::assertSame([$first, $second, $self][$index]->equipmentId, $item->equipmentId);
+      self::assertSame($sources[$index]->equipmentId, $item->equipmentId);
       self::assertNotNull($item->allocation['equipment']);
       self::assertSame($item->equipmentId, $item->allocation['equipment']['id']);
       self::assertNull($item->allocation['site']);
