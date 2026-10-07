@@ -17,6 +17,28 @@ use ApiPlatform\Metadata\ApiProperty;
 final class InterventionWorkItemOutput
 {
   /**
+   * Property operationId. Source preventive plan identity.
+   */
+  public ?string $operationId = null;
+
+  /**
+   * Property occurrenceId. Source preventive occurrence identity.
+   */
+  public ?string $occurrenceId = null;
+
+  /**
+   * Property operationKind. Control or maintenance.
+   */
+  public ?string $operationKind = null;
+
+  /**
+   * Property executionResult. Factual result and server-owned review attribution.
+   *
+   * @var array<string,mixed>|null
+   */
+  public ?array $executionResult = null;
+
+  /**
    * Property spentMinutes.
    *
    * @since 1.1.0

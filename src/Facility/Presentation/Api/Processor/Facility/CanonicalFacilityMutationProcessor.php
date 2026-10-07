@@ -80,7 +80,7 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    *
    * @var list<string>
    */
-  private const array PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'latitude', 'longitude', 'metadata', 'status', 'levelIndex', 'elevationMeters', 'heightMeters'];
+  private const array PATCHABLE_FIELDS = ['type', 'name', 'code', 'customerId', 'address', 'latitude', 'longitude', 'metadata', 'status', 'levelIndex', 'elevationMeters', 'heightMeters'];
   // #endregion
 
   // #region Constructor
@@ -166,6 +166,8 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
       hasName: $present['name'],
       name: $data->name,
       hasCode: $present['code'],
+      hasCustomerId: $present['customerId'],
+      customerId: $data->customerId,
       code: $data->code,
       hasAddress: $present['address'],
       address: $data->address,

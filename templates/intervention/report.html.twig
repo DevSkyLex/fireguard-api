@@ -9,6 +9,7 @@
 
 {% block content %}
   <h1>{{ 'intervention.title'|trans({ '%number%': number }, 'pdf', lang) }}</h1>
+  <p class="muted">{{ ('intervention.reportMode.' ~ reportMode|default('live'))|trans({}, 'pdf', lang) }}{% if capturedAt|default(null) %} — {{ capturedAt }}{% endif %}</p>
   <div class="meta">
     <table>
       <tr>
@@ -31,6 +32,12 @@
         <td class="meta-label">{{ 'intervention.meta.site'|trans({}, 'pdf', lang) }}</td>
         <td>{{ siteName|default('—') }}</td>
       </tr>
+      {% if customerName|default(null) %}
+        <tr>
+          <td class="meta-label">{{ 'intervention.meta.customer'|trans({}, 'pdf', lang) }}</td>
+          <td>{{ customerName }}</td>
+        </tr>
+      {% endif %}
       <tr>
         <td class="meta-label">{{ 'intervention.meta.responsible'|trans({}, 'pdf', lang) }}</td>
         <td>{{ responsibleName|default('—') }}</td>
@@ -101,6 +108,11 @@
             <td>{{ workItem.skipReason|default('—') }}</td>
             <td class="num">{{ workItem.evidenceCount }}</td>
           </tr>
+          {% if workItem.executionResult|default(null) %}
+            <tr>
+              <td colspan="7">{{ workItem.executionResult.performedAt }} — {{ ('intervention.result.outcome.' ~ workItem.executionResult.outcome)|trans({}, 'pdf', lang) }}<br>{{ workItem.executionResult.workPerformed }}</td>
+            </tr>
+          {% endif %}
         {% endfor %}
       </tbody>
     </table>

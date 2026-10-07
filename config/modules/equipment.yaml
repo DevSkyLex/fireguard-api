@@ -3,6 +3,23 @@ services:
     autowire: true
     autoconfigure: true
 
+  Equipment\Infrastructure\Adapter\Intervention\InterventionEquipmentSnapshotAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Outbound\InterventionEquipmentSnapshotPort:
+    alias: Equipment\Infrastructure\Adapter\Intervention\InterventionEquipmentSnapshotAdapter
+
+  Equipment\Infrastructure\Adapter\ServiceRequest\ServiceRequestEquipmentTargetAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Application\Service\EquipmentReserveReceiptService:
+    arguments:
+      $transactions: '@equipment.main_transaction_manager'
+  Equipment\Application\Port\Inbound\EquipmentReserveReceiptPort:
+    alias: Equipment\Application\Service\EquipmentReserveReceiptService
+
   Equipment\Presentation\:
     resource: '../../src/Equipment/Presentation'
 
@@ -306,3 +323,57 @@ services:
   Equipment\Infrastructure\EventSubscriber\EquipmentPlanAuditListener:
     arguments:
       $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+
+  Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentTypeCatalogRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort:
+    alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentTypeCatalogRepository
+
+  Equipment\Application\UseCase\Query\EquipmentTypeCatalog\ListEquipmentTypes\ListEquipmentTypesHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\EquipmentTypeCatalog\CreateEquipmentType\CreateEquipmentTypeHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\EquipmentTypeCatalog\PatchEquipmentType\PatchEquipmentTypeHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentReplacementRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Application\Port\Outbound\EquipmentReplacementRepositoryPort:
+    alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentReplacementRepository
+
+  Equipment\Application\UseCase\Command\Equipment\ReplaceEquipment\ReplaceEquipmentHandler:
+    arguments:
+      $transactionManager: '@equipment.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\Service\EquipmentSelectionScopeResolver: ~
+
+  Equipment\Application\UseCase\Query\Equipment\GetOrganizationEquipmentSummary\GetOrganizationEquipmentSummaryHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Infrastructure\Adapter\Inspection\EquipmentParkScopeAdapter: ~
+
+  Equipment\Application\Port\Inbound\EquipmentParkScopePort:
+    alias: Equipment\Infrastructure\Adapter\Inspection\EquipmentParkScopeAdapter
+
+  Equipment\Infrastructure\Adapter\Intervention\EquipmentReplacementLookupAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Application\Port\Outbound\FacilityCustomerScopePort:
+    alias: Facility\Infrastructure\Adapter\Equipment\FacilityCustomerScopeAdapter
+
+  Facility\Infrastructure\Adapter\Equipment\FacilityCustomerScopeAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Infrastructure\Adapter\MaintenanceExport\MaintenanceExportEquipmentIdentityAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['maintenance_export.identity_validator']

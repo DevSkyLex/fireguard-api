@@ -58,6 +58,21 @@ final readonly class EquipmentValidationAdapter implements EquipmentValidationPo
   /**
    * {@inheritDoc}
    */
+  public function assertPublishedEquipmentExists(string $equipmentId, string $organizationId): void
+  {
+    try {
+      $equipment = $this->equipmentRepository->findPublishedById(EquipmentId::fromString($equipmentId));
+    } catch (\Shared\Domain\Exception\InvalidValueException) {
+      $equipment = null;
+    }
+    if (null === $equipment || (string) $equipment->organizationId() !== $organizationId) {
+      throw new InvalidArgumentException(sprintf('Equipment with ID "%s" not found.', $equipmentId));
+    }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function assertEquipmentIsInspectable(string $equipmentId, string $organizationId, ?string $facilityId): void
   {
     $equipment = $this->equipmentRepository->findById(EquipmentId::fromString($equipmentId));

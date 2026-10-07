@@ -24,6 +24,7 @@ final readonly class AssignToFacilityResult implements ResultMessage
    * @since 1.0.0
    *
    * @param list<array{id: string, name: string, organizationId: string}> $tags
+   * @param list<array{key: string, value: string, unit: ?string}> $technicalProperties descriptive properties
    */
   public function __construct(
     public string $equipmentId,
@@ -42,6 +43,12 @@ final readonly class AssignToFacilityResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
     public ?string $facilityName = null,
+    public ?string $name = null,
+    public ?string $assetCode = null,
+    public ?string $criticality = null,
+    public array $technicalProperties = [],
+    public ?string $predecessorEquipmentId = null,
+    public ?string $successorEquipmentId = null,
   ) {
   }
   // #endregion

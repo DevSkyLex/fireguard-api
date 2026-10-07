@@ -71,6 +71,7 @@ final readonly class UpdateOrganizationSettingsCommand implements CommandMessage
     public ?string $vatNumber = null,
     public ?array $registeredAddress = null,
     public ?string $privacyContactEmail = null,
+    public ?string $operatingProfile = null,
   ) {
   }
   // #endregion

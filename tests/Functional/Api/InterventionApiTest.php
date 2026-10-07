@@ -7,6 +7,7 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, InterventionWorkItemRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
@@ -46,6 +47,170 @@ final class InterventionApiTest extends WebTestCase
   private const string OTHER_ORGANIZATION_ID = '650e8400-e29b-41d4-a716-449001000101';
 
   private const string OTHER_OWNER_USER_ID = '650e8400-e29b-41d4-a716-449001000102';
+
+  #[Test]
+  public function testEquipmentOpenWorkReturnsExistingScopedTasks(): void
+  {
+    $client = static::createClient();
+    $client->catchExceptions(false);
+    $this->seedOrganizationWithFullAccessAdmin();
+    [$taskId, $equipmentId] = $this->seedRepairOperation();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment/' . $equipmentId . '/open-work', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseIsSuccessful();
+    $body = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    $items = $body['member'] ?? $body['hydra:member'] ?? [];
+    self::assertIsArray($items);
+    self::assertCount(1, $items);
+    $firstItem = $items[0] ?? null;
+    self::assertIsArray($firstItem);
+    self::assertSame($taskId, $firstItem['workItemId']);
+    self::assertSame('repair', $firstItem['action']);
+    self::assertSame(401, $firstItem['number']);
+  }
+
+  #[Test]
+  public function testEquipmentOpenWorkDoesNotDiscloseAnotherOrganizationsTasks(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    [, $equipmentId] = $this->seedRepairOperation();
+    $client->loginUser($this->securityUser(self::OTHER_OWNER_USER_ID), 'api');
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment/' . $equipmentId . '/open-work');
+    self::assertResponseStatusCodeSame(404);
+  }
+
+  #[Test]
+  public function testEquipmentOpenWorkRequiresInterventionReadPermission(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    [, $equipmentId] = $this->seedRepairOperation();
+    $manager = $this->entityManager();
+    $organization = $manager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $now = new DateTimeImmutable();
+    $role = $this->seedRole($manager, $organization, '650e8400-e29b-41d4-a716-449001000321', ['organization.equipment.read'], $now, 'equipment_only');
+    $member = $this->seedMember($manager, $organization, '650e8400-e29b-41d4-a716-449001000322', self::OTHER_OWNER_USER_ID, $now);
+    $this->assignRole($manager, $member, $role, $now);
+    $manager->flush();
+    $client->loginUser($this->securityUser(self::OTHER_OWNER_USER_ID), 'api');
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment/' . $equipmentId . '/open-work');
+    self::assertResponseStatusCodeSame(403);
+  }
+
+  #[Test]
+  public function testRepairExecutionResultIsStagedWithServerAttributionAndRevisionGuard(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    [$taskId, $equipmentId] = $this->seedRepairOperation();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $payload = ['status' => 'completed', 'executionResult' => ['equipmentId' => $equipmentId, 'performedAt' => '2026-09-30T14:00:00+02:00', 'outcome' => 'successful', 'workPerformed' => 'Valve repaired', 'authorId' => self::OTHER_OWNER_USER_ID, 'state' => 'validated']];
+    $client->request('PATCH', '/api/intervention-work-items/' . $taskId, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: (string) json_encode($payload));
+    self::assertResponseStatusCodeSame(200);
+    $body = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    self::assertSame('completed', $body['status']);
+    $result = $body['executionResult'] ?? null;
+    self::assertIsArray($result);
+    self::assertSame('staged', $result['state'] ?? null);
+    self::assertSame(self::ADMIN_MEMBER_ID, $result['authorId'] ?? null);
+    self::assertSame('2026-09-30T14:00:00+02:00', $result['performedAt'] ?? null);
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $taskId, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: (string) json_encode($payload));
+    self::assertResponseStatusCodeSame(412);
+  }
+
+  #[Test]
+  public function testFailedRepairCannotBecomeCompletedAndRollbackKeepsTheTaskOpen(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    [$taskId, $equipmentId] = $this->seedRepairOperation();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $payload = ['status' => 'completed', 'executionResult' => ['equipmentId' => $equipmentId, 'performedAt' => '2026-09-30T14:00:00+02:00', 'outcome' => 'failed', 'workPerformed' => 'Valve still blocked']];
+    $client->request('PATCH', '/api/intervention-work-items/' . $taskId, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: (string) json_encode($payload));
+    self::assertResponseStatusCodeSame(422);
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('GET', '/api/intervention-work-items/' . $taskId, server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseIsSuccessful();
+    $body = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    self::assertSame('planned', $body['status']);
+    self::assertNull($body['executionResult'] ?? null);
+    self::assertSame(1, $body['revision']);
+  }
+
+  #[Test]
+  public function testSuccessfulRetryRetainsTheFailedAttemptWithoutDuplicatingIdenticalFacts(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    [$taskId, $equipmentId] = $this->seedRepairOperation();
+    $fact = ['equipmentId' => $equipmentId, 'performedAt' => '2026-09-30T14:00:00+02:00', 'outcome' => 'failed', 'workPerformed' => 'Valve still blocked'];
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $taskId, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: (string) json_encode(['status' => 'in_progress', 'executionResult' => $fact]));
+    self::assertResponseIsSuccessful();
+    $fact = [...$fact, 'outcome' => 'successful', 'workPerformed' => 'Valve repaired', 'performedAt' => '2026-10-01T14:00:00+02:00'];
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $taskId, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-2"'], content: (string) json_encode(['status' => 'completed', 'executionResult' => $fact]));
+    self::assertResponseIsSuccessful();
+    $body = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    $result = $body['executionResult'] ?? null;
+    self::assertIsArray($result);
+    $history = $result['history'] ?? null;
+    self::assertIsArray($history);
+    $firstAttempt = $history[0] ?? null;
+    self::assertIsArray($firstAttempt);
+    self::assertSame('failed', $firstAttempt['outcome'] ?? null);
+    self::assertSame('2026-09-30T14:00:00+02:00', $firstAttempt['performedAt'] ?? null);
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $taskId, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-3"'], content: (string) json_encode(['executionResult' => $fact]));
+    self::assertResponseIsSuccessful();
+    $body = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    $result = $body['executionResult'] ?? null;
+    self::assertIsArray($result);
+    $history = $result['history'] ?? null;
+    self::assertIsArray($history);
+    self::assertCount(1, $history);
+  }
+
+  #[Test]
+  public function testExecutionResultOfAnotherOrganizationRemainsHidden(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    [$taskId, $equipmentId] = $this->seedRepairOperation();
+    $client->loginUser($this->securityUser(self::OTHER_OWNER_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $taskId, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: (string) json_encode(['executionResult' => ['equipmentId' => $equipmentId, 'performedAt' => '2026-09-30T14:00:00+02:00', 'outcome' => 'successful', 'workPerformed' => 'Hidden work']]));
+    self::assertResponseStatusCodeSame(404);
+  }
+
+  #[Test]
+  public function testMemberWithoutExecutionPermissionCannotStageAResult(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    [$taskId, $equipmentId] = $this->seedRepairOperation();
+    $manager = $this->entityManager();
+    $organization = $manager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $now = new DateTimeImmutable();
+    $role = $this->seedRole($manager, $organization, '650e8400-e29b-41d4-a716-449001000311', ['organization.interventions.read'], $now, 'result_read_only');
+    $member = $this->seedMember($manager, $organization, '650e8400-e29b-41d4-a716-449001000312', self::OTHER_OWNER_USER_ID, $now);
+    $this->assignRole($manager, $member, $role, $now);
+    $manager->flush();
+    $client->loginUser($this->securityUser(self::OTHER_OWNER_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $taskId, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: (string) json_encode(['executionResult' => ['equipmentId' => $equipmentId, 'performedAt' => '2026-09-30T14:00:00+02:00', 'outcome' => 'successful', 'workPerformed' => 'Denied work']]));
+    self::assertResponseStatusCodeSame(403);
+  }
 
   // #region Create
 
@@ -615,6 +780,28 @@ final class InterventionApiTest extends WebTestCase
     $member = $this->seedMember($entityManager, $organization, '650e8400-e29b-41d4-a716-449001000011', self::ADMIN_USER_ID, $now);
     $this->assignRole($entityManager, $member, $role, $now);
     $entityManager->flush();
+  }
+
+  /**
+   * @return array{string,string} seeded work item and equipment identifiers
+   */
+  private function seedRepairOperation(): array
+  {
+    $interventionId = $this->seedIntervention('650e8400-e29b-41d4-a716-449001000301', 'in_progress', 401, self::ADMIN_MEMBER_ID);
+    $equipment = new EquipmentRecord();
+    $equipment->id = '650e8400-e29b-41d4-a716-449001000302';
+    $equipment->organization = $this->entityManager()->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $equipment->type = 'fire_extinguisher';
+    $equipment->createdAt = $equipment->updatedAt = new DateTimeImmutable('2026-09-01T00:00:00+00:00');
+    $this->entityManager()->persist($equipment);
+    $this->entityManager()->flush();
+    $taskId = $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000303', $interventionId, 'planned', '/api/equipment/' . $equipment->id);
+    $task = $this->entityManager()->find(InterventionWorkItemRecord::class, $taskId);
+    self::assertInstanceOf(InterventionWorkItemRecord::class, $task);
+    $task->action = 'repair';
+    $this->entityManager()->flush();
+
+    return [$taskId, $equipment->id];
   }
 
   private function seedOrganization(

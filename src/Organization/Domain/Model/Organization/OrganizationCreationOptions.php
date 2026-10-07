@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Domain\Model\Organization;
 
-use Organization\Domain\ValueObject\{OrganizationSettings, OrganizationSlug, PlanId};
+use Organization\Domain\ValueObject\{OrganizationOperatingProfile, OrganizationSettings, OrganizationSlug, PlanId};
 
 /**
  * Optional values supplied when creating an organization.
@@ -40,6 +40,7 @@ final readonly class OrganizationCreationOptions
     public ?string $logoUrl = null,
     public ?OrganizationSettings $settings = null,
     public ?PlanId $planId = null,
+    public OrganizationOperatingProfile $operatingProfile = OrganizationOperatingProfile::OPERATOR,
   ) {
   }
   // #endregion

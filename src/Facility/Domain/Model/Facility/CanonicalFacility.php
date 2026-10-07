@@ -77,6 +77,7 @@ final class CanonicalFacility
     private ?int $levelIndex = null,
     private ?float $elevationMeters = null,
     private ?float $heightMeters = null,
+    private ?string $customerId = null,
   ) {
   }
   // #endregion
@@ -119,6 +120,7 @@ final class CanonicalFacility
       levelIndex: self::normalizeLevelIndex($version->levelIndex),
       elevationMeters: $version->elevationMeters,
       heightMeters: $version->heightMeters,
+      customerId: $version->customerId,
     );
   }
 
@@ -148,6 +150,7 @@ final class CanonicalFacility
       'type' => $this->type,
       'name' => $this->name,
       'code' => $this->code,
+      'customerId' => $this->customerId,
       'address' => $this->address,
       'latitude' => $this->latitude,
       'longitude' => $this->longitude,
@@ -386,6 +389,14 @@ final class CanonicalFacility
   }
 
   /**
+   * Method customerId. Returns the root site's retained customer assignment.
+   */
+  public function customerId(): ?string
+  {
+    return $this->customerId;
+  }
+
+  /**
    * Method address.
    *
    * @since 1.0.0
@@ -509,6 +520,13 @@ final class CanonicalFacility
    */
   private function applyFields(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent): void
   {
+    $customerId = $patch->hasCustomerId ? $patch->customerId : $this->customerId;
+    $customerType = $patch->hasType && null !== $patch->type
+      ? (FacilityType::tryFrom($patch->type) ?? throw CanonicalFacilityValidationException::unsupportedValue('type', $patch->type))
+      : $this->type;
+    $customerParent = $patch->hasParent ? $parent?->id : $this->parentFacilityId;
+    \Facility\Domain\ValueObject\FacilityCustomerReference::assertValid($customerId, $customerType, $customerParent);
+    $this->customerId = $customerId;
     $type = $patch->hasType && null !== $patch->type
       ? (FacilityType::tryFrom($patch->type) ?? throw CanonicalFacilityValidationException::unsupportedValue('type', $patch->type))
       : $this->type;
@@ -603,7 +621,7 @@ final class CanonicalFacility
   private function changedFields(array $previous): array
   {
     $changedFields = [];
-    foreach (['type', 'name', 'code', 'address', 'levelIndex', 'elevationMeters', 'heightMeters'] as $field) {
+    foreach (['type', 'name', 'code', 'customerId', 'address', 'levelIndex', 'elevationMeters', 'heightMeters'] as $field) {
       if ($previous[$field] !== $this->{$field}) {
         $changedFields[] = $field;
       }

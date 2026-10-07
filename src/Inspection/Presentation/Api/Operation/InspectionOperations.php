@@ -14,6 +14,8 @@ namespace Inspection\Presentation\Api\Operation;
 final class InspectionOperations
 {
   // #region Constants
+  public const string GET_EQUIPMENT_INSPECTION_SUMMARY = 'equipment_inspection_summary_get';
+
   /**
    * Constant CREATE_INSPECTION
    *

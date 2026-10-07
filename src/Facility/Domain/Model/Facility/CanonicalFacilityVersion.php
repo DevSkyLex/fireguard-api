@@ -34,6 +34,7 @@ final readonly class CanonicalFacilityVersion
     public ?int $levelIndex = null,
     public ?float $elevationMeters = null,
     public ?float $heightMeters = null,
+    public ?string $customerId = null,
   ) {
   }
   // #endregion

@@ -50,6 +50,7 @@ final readonly class PatchCanonicalEquipmentCommand implements CommandMessage
    * @param ?string $locationLabel new location label, or null when explicitly cleared
    * @param bool $hasFacility whether the facility field was included in the request
    * @param ?string $facilityId new facility identifier, or null when explicitly unassigned
+   * @param list<array{key: string, value: string, unit: ?string}> $technicalProperties descriptive properties
    *
    * @return void
    */
@@ -72,6 +73,14 @@ final readonly class PatchCanonicalEquipmentCommand implements CommandMessage
     public ?string $locationLabel = null,
     public bool $hasFacility = false,
     public ?string $facilityId = null,
+    public bool $hasName = false,
+    public ?string $name = null,
+    public bool $hasAssetCode = false,
+    public ?string $assetCode = null,
+    public bool $hasCriticality = false,
+    public ?string $criticality = null,
+    public bool $hasTechnicalProperties = false,
+    public array $technicalProperties = [],
   ) {
   }
   // #endregion

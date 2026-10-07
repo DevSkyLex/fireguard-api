@@ -24,6 +24,7 @@ final readonly class CreateEquipmentResult implements ResultMessage
    * @since 1.0.0
    *
    * @param list<array{id: string, name: string, organizationId: string}> $tags
+   * @param list<array{key: string, value: string, unit: ?string}> $technicalProperties descriptive properties
    */
   public function __construct(
     public string $equipmentId,
@@ -45,6 +46,12 @@ final readonly class CreateEquipmentResult implements ResultMessage
     public ?string $interventionId = null,
     public string $recordStatus = 'published',
     public int $revision = 1,
+    public ?string $name = null,
+    public ?string $assetCode = null,
+    public ?string $criticality = null,
+    public array $technicalProperties = [],
+    public ?string $predecessorEquipmentId = null,
+    public ?string $successorEquipmentId = null,
   ) {
   }
   // #endregion

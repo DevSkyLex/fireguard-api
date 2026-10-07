@@ -57,6 +57,7 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
       $existing->type = $record->type;
       $existing->name = $record->name;
       $existing->code = $record->code;
+      $existing->customerId = $record->customerId;
       $existing->status = $record->status;
       $existing->address = $record->address;
       $existing->latitude = $record->latitude;

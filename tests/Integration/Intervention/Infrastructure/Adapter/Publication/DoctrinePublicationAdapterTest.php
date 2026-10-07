@@ -8,11 +8,11 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\{InterventionResourceSummary, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\ExecutePublication\{ExecutePublicationCommand, ExecutePublicationHandler};
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException, PublicationNotFoundException};
+use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException, InterventionValidationException, PublicationNotFoundException};
 use Intervention\Infrastructure\Adapter\Publication\DoctrinePublicationAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, PublicationRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -23,7 +23,10 @@ use Shared\Infrastructure\Messaging\Outbox\{DbalTransactionManagerAdapter, Deliv
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
+use function json_decode;
 use function sprintf;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Test DoctrinePublicationAdapterTest.
@@ -81,6 +84,70 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     parent::tearDown();
     if ($this->entityManager->isOpen()) {
       $this->entityManager->close();
+    }
+  }
+
+  #[Test]
+  public function testOperationFactsAndKnownTimeAreFrozenTogetherAtPublication(): void
+  {
+    $task = $this->seedEquipmentOperation('successful');
+    $entry = new \Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionTimeEntryRecord();
+    $entry->id = '880e8400-e29b-41d4-a716-446655449203';
+    $entry->workItem = $task;
+    $entry->organizationId = self::ORGANIZATION_ID;
+    $entry->memberId = self::RESPONSIBLE_MEMBER_ID;
+    $entry->workedOn = '2026-09-30';
+    $entry->minutes = 30;
+    $entry->createdBy = $entry->updatedBy = self::RESPONSIBLE_MEMBER_ID;
+    $entry->createdAt = $entry->updatedAt = new DateTimeImmutable();
+    $this->entityManager->persist($entry);
+    $this->entityManager->flush();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
+    self::assertTrue($this->adapter->publish(self::PUBLICATION_ID));
+    $connection = $this->entityManager->getConnection();
+    $captured = $connection->fetchOne('SELECT closure_snapshot FROM interventions WHERE id = ?', [self::INTERVENTION_ID]);
+    self::assertIsString($captured);
+    $snapshot = json_decode($captured, true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($snapshot);
+    self::assertSame(2, $snapshot['version']);
+    $workItems = $snapshot['workItems'] ?? null;
+    self::assertIsArray($workItems);
+    $firstWorkItem = $workItems[0] ?? null;
+    self::assertIsArray($firstWorkItem);
+    $result = $firstWorkItem['executionResult'] ?? null;
+    self::assertIsArray($result);
+    self::assertSame('validated', $result['state'] ?? null);
+    $timeEntries = $snapshot['timeEntries'] ?? null;
+    self::assertIsArray($timeEntries);
+    $firstTimeEntry = $timeEntries[0] ?? null;
+    self::assertIsArray($firstTimeEntry);
+    self::assertSame(30, $firstTimeEntry['minutes'] ?? null);
+    $connection->executeStatement('UPDATE intervention_time_entries SET minutes = 45 WHERE id = ?', [$entry->id]);
+    self::assertSame($captured, $connection->fetchOne('SELECT closure_snapshot FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
+    self::assertFalse($this->adapter->publish(self::PUBLICATION_ID));
+    self::assertSame($captured, $connection->fetchOne('SELECT closure_snapshot FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
+  }
+
+  #[Test]
+  public function testInvalidExecutionRollsBackPublishedDraftsProposalsAndClosureSnapshot(): void
+  {
+    $this->seedEquipmentOperation('failed');
+    $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449204', 'building', self::FACILITY_ID, true);
+    $this->seedProposedFacilityRenameChange();
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
+    $connection = $this->entityManager->getConnection();
+
+    try {
+      $this->adapter->publish(self::PUBLICATION_ID);
+      self::fail('An unsuccessful repair must reject the entire publication.');
+    } catch (InterventionValidationException) {
+      self::assertSame('draft', $connection->fetchOne('SELECT record_status FROM facilities WHERE id = ?', [$draft->id]));
+      self::assertSame('Publication Adapter Site', $connection->fetchOne('SELECT name FROM facilities WHERE id = ?', [self::FACILITY_ID]));
+      self::assertSame('proposed', $connection->fetchOne('SELECT status FROM intervention_changes WHERE id = ?', [self::CHANGE_ID]));
+      self::assertSame('submitted', $connection->fetchOne('SELECT status FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
+      self::assertNull($connection->fetchOne('SELECT closure_snapshot FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
     }
   }
 
@@ -840,6 +907,29 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     $this->adapter->publish(self::PUBLICATION_ID);
   }
 
+  private function seedEquipmentOperation(string $outcome): \Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionWorkItemRecord
+  {
+    $equipment = new \Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord();
+    $equipment->id = '880e8400-e29b-41d4-a716-446655449201';
+    $equipment->organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $equipment->type = 'fire_extinguisher';
+    $equipment->facilityId = self::FACILITY_ID;
+    $equipment->createdAt = $equipment->updatedAt = new DateTimeImmutable();
+    $this->entityManager->persist($equipment);
+    $task = new \Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionWorkItemRecord();
+    $task->id = '880e8400-e29b-41d4-a716-446655449202';
+    $task->intervention = $this->entityManager->getReference(InterventionRecord::class, self::INTERVENTION_ID);
+    $task->action = 'repair';
+    $task->target = '/api/equipment/' . $equipment->id;
+    $task->status = 'completed';
+    $task->executionResult = ['equipmentId' => $equipment->id, 'performedAt' => '2026-09-30T15:00:00+02:00', 'outcome' => $outcome, 'workPerformed' => 'Valve repair', 'authorId' => self::RESPONSIBLE_MEMBER_ID, 'state' => 'staged'];
+    $task->createdAt = $task->updatedAt = new DateTimeImmutable();
+    $this->entityManager->persist($task);
+    $this->entityManager->flush();
+
+    return $task;
+  }
+
   /**
    * Builds a hierarchy row for publication invariants, without implicit repair.
    *
@@ -891,7 +981,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
 
     return new ExecutePublicationHandler(
       $this->adapter,
-      new InterventionIssueFinder($resources, $this->createStub(InterventionAttachmentRepositoryPort::class)),
+      new InterventionIssueFinder($resources, $this->createStub(InterventionAttachmentRepositoryPort::class), $this->createStub(InterventionPublicationResourcesIssuesPort::class)),
       $events,
       new DbalTransactionManagerAdapter($this->entityManager->getConnection()),
     );

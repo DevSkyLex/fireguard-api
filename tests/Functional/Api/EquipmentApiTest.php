@@ -19,6 +19,8 @@ use function is_string;
 use function json_decode;
 use function json_encode;
 
+use const JSON_THROW_ON_ERROR;
+
 /**
  * Test EquipmentApiTest.
  *
@@ -54,6 +56,107 @@ final class EquipmentApiTest extends WebTestCase
   private const string UNASSIGNED_EQUIPMENT_ID = '770e8400-e29b-41d4-a716-446655490021';
 
   private const string OPERATIONAL_EQUIPMENT_ID = '770e8400-e29b-41d4-a716-446655490022';
+
+  private ?KernelBrowser $authenticatedClient = null;
+
+  #[Test]
+  public function identityRoundTripsAcrossBothSurfacesAndRejectsDuplicateAssetCodes(): void
+  {
+    $client = static::createClient();
+    $this->seedContractFixtures();
+    $this->loginAsAdmin($client);
+    $base = '/api/organizations/' . self::ORGANIZATION_ID . '/equipment';
+    $payload = ['type' => 'fire_extinguisher', 'name' => 'Stair B', 'assetCode' => 'EXT-001', 'criticality' => 'high', 'technicalProperties' => [['key' => 'charge', 'value' => '6', 'unit' => 'kg']]];
+    $client->request('POST', $base, server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'], content: json_encode($payload, JSON_THROW_ON_ERROR));
+    self::assertResponseStatusCodeSame(201);
+    $created = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($created);
+    self::assertSame('EXT-001', $created['assetCode']);
+    self::assertSame($payload['technicalProperties'], $created['technicalProperties']);
+    $id = $created['id'];
+    self::assertIsString($id);
+    $this->loginAsAdmin($client);
+    $client->request('GET', '/api/equipment/' . $id, server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseIsSuccessful();
+    $read = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($read);
+    self::assertIsInt($read['revision']);
+    self::assertSame('Stair B', $read['name']);
+    $this->loginAsAdmin($client);
+    $client->request('PATCH', '/api/equipment/' . $id, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-' . $read['revision'] . '"'], content: '{"name":null}');
+    self::assertResponseStatusCodeSame(200);
+    $patched = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($patched);
+    self::assertNull($patched['name']);
+    self::assertSame('EXT-001', $patched['assetCode']);
+    $this->loginAsAdmin($client);
+    $client->request('POST', $base, server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'], content: json_encode($payload, JSON_THROW_ON_ERROR));
+    self::assertResponseStatusCodeSame(409);
+  }
+
+  #[Test]
+  public function familyFilterAndFacilitySummaryUseTheSameServerScope(): void
+  {
+    $client = static::createClient();
+    $this->seedContractFixtures();
+    $this->loginAsAdmin($client);
+    $base = '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::FACILITY_ID;
+    $client->request('GET', $base . '/equipment?family=fire&includeDescendants=true', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseStatusCodeSame(200);
+    $collection = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($collection);
+    self::assertSame(2, $collection['totalItems']);
+    $this->loginAsAdmin($client);
+    $client->request('GET', $base . '/equipment-summary?family=fire&includeDescendants=true', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseStatusCodeSame(200);
+    $summary = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($summary);
+    self::assertSame($collection['totalItems'], $summary['totalItems']);
+    $this->loginAsAdmin($client);
+    $client->request('GET', $base . '/equipment?family=safety', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseStatusCodeSame(200);
+    $safetyCollection = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($safetyCollection);
+    self::assertSame(0, $safetyCollection['totalItems']);
+    $this->loginAsAdmin($client);
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment-summary?family=fire', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseStatusCodeSame(200);
+    $organizationSummary = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($organizationSummary);
+    self::assertSame('organization', $organizationSummary['scope']);
+    self::assertSame(3, $organizationSummary['totalItems']);
+  }
+
+  #[Test]
+  public function organizationSummaryRequiresAuthenticationAndHidesUnknownCustomers(): void
+  {
+    $client = static::createClient();
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment-summary');
+    self::assertContains($client->getResponse()->getStatusCode(), [401, 403]);
+    $this->seedContractFixtures();
+    $this->loginAsAdmin($client);
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment-summary?customerId=' . self::DUMMY_UUID);
+    self::assertResponseStatusCodeSame(404);
+  }
+
+  #[Test]
+  public function organizationSummaryDeniesMissingReadAndHidesOtherOrganizations(): void
+  {
+    $client = static::createClient();
+    $this->seedContractFixtures();
+    /** @var EntityManagerInterface $manager */
+    $manager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $role = $manager->find(OrganizationRoleRecord::class, self::ADMIN_ROLE_ID);
+    self::assertInstanceOf(OrganizationRoleRecord::class, $role);
+    $role->permissions = [];
+    $manager->flush();
+    $this->loginAsAdmin($client);
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment-summary');
+    self::assertResponseStatusCodeSame(403);
+    $this->loginAsAdmin($client);
+    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/equipment-summary');
+    self::assertResponseStatusCodeSame(404);
+  }
 
   #[Test]
   public function testListEquipmentWithMaintenanceDueStatusFilterRequiresAuthentication(): void
@@ -284,6 +387,15 @@ final class EquipmentApiTest extends WebTestCase
    */
   private function loginAsAdmin(KernelBrowser $client): void
   {
+    if ($this->authenticatedClient === $client) {
+      return;
+    }
+    $this->authenticatedClient = $client;
+    $client->disableReboot();
+    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
+    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), self::ADMIN_USER_ID, 'equipment-admin@example.com'));
     $user = new SecurityUser(
       id: self::ADMIN_USER_ID,
       email: 'equipment-contract-admin@example.com',

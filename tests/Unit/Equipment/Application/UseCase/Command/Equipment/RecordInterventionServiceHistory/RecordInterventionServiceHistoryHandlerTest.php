@@ -38,6 +38,25 @@ final class RecordInterventionServiceHistoryHandlerTest extends TestCase
   private const string CHANGE_TOKEN_2 = '550e8400-e29b-41d4-a716-446655482008';
 
   #[Test]
+  public function itRecordsTheActualWorkDateAuthorAndNotesFromValidatedExecution(): void
+  {
+    $performedAt = new DateTimeImmutable('2026-09-30T09:00:00+00:00');
+    $author = '550e8400-e29b-41d4-a716-446655482099';
+    $serviceReport = $this->createStub(InterventionServiceReportPort::class);
+    $serviceReport->method('serviceReport')->willReturn(new InterventionServiceReport(42, self::ACTOR_ID, [
+      new ServicedEquipmentEntry(self::EQUIPMENT_ID_1, 'repair', self::CHANGE_TOKEN_1, 'work', $performedAt, 'Valve replaced', $author),
+    ]));
+    $logs = $this->createMock(MaintenanceLogRepositoryPort::class);
+    $logs->expects(self::once())->method('appendInterventionServiceEntry')->willReturnCallback(static function (EquipmentMaintenanceLog $log) use ($performedAt, $author): void {
+      self::assertSame($performedAt, $log->startedAt());
+      self::assertSame($author, $log->actorId());
+      self::assertSame('Valve replaced', $log->summary());
+      self::assertSame('repair', $log->workItemAction());
+    });
+    ($this->handler($serviceReport, $logs))($this->command());
+  }
+
+  #[Test]
   public function testInvokeReturnsVoidResultWhenNoServiceReportIsFound(): void
   {
     $serviceReport = $this->createMock(InterventionServiceReportPort::class);

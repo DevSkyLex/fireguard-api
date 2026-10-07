@@ -77,6 +77,7 @@ final readonly class GetOrganizationResult implements ResultMessage
     public ?array $roles = null,
     public ?array $registeredAddress = null,
     public ?string $privacyContactEmail = null,
+    public string $operatingProfile = 'operator',
   ) {
   }
   // #endregion

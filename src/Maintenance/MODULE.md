@@ -4,11 +4,12 @@
 
 ## Overview
 
-Maintenance provides preventive-maintenance scheduling for fire-safety
-equipment: one schedule row per tracked piece of equipment, recomputed from
-the equipment's inspection history and the organization's compliance policy
-(periodicity per equipment type + reminder window), with an optional
-per-equipment periodicity override.
+Maintenance owns independent preventive operations for fire-safety equipment.
+Each organization explicitly chooses one persisted engine authority: historical
+inspection schedules (`legacy`, the compatible default), or equipment plans
+(`plans`). A plan owns one control or maintenance operation, its original calendar,
+and stable occurrences. Historical schedule rows remain the compatible **control**
+projection; servicing operations never contribute to compliance statistics.
 
 Main goals:
 
@@ -22,6 +23,38 @@ Main goals:
   schedules in one call.
 
 ## API Endpoints
+
+The organization-scoped plan base is
+`/api/organizations/{organizationId}/maintenance`. All operations require
+`ROLE_USER`, then application permission/scope checks (403 for an unentitled
+member, 404 outside the organization). Existing schedule routes below remain available.
+
+| Method | Path relative to the plan base | Behavior | Permission |
+| --- | --- | --- | --- |
+| GET | `/plans` | Bounded page; equipmentId, operationKind, search, page and itemsPerPage filters | maintenance.read |
+| POST | `/plans` | Prepare a control or maintenance operation; active defaults to false | maintenance.manage |
+| GET / PATCH | `/plans/{id}` | Read/edit configuration; equipment and kind are immutable | maintenance.read / maintenance.manage |
+| DELETE | `/plans/{id}` | Archive with 204, retaining readable history; resolve live work first | maintenance.manage |
+| GET | `/plans/{id}/preview` | Pure preview of three anchored dates | maintenance.read |
+| POST | `/plans/{id}/generate` | Atomically reserve occurrence, seed work and enqueue event; replay returns existing work | maintenance.manage + interventions.plan |
+| POST | `/plans/prepare-legacy` | Prepare non-generating historical plans and exact source mapping | maintenance.manage |
+| POST | `/plans/activate` | Locked, atomic handover; refuse ambiguous or submitted legacy work | maintenance.manage + interventions.plan |
+| GET | `/engine` | Read authority and configured plan count, without mutation | maintenance.read |
+
+Permission names above have the `organization.` prefix. New fixed plans require
+equipmentId, name, operationKind (`control` or `maintenance`), interval (`PnD`,
+`PnW`, `PnM` or `PnY`, bounded to ten years) and a first calendar anchor.
+Use `anchorOn` and `nextDueOn` (`YYYY-MM-DD`) for date pickers. Explicit-offset
+`anchorAt` and `nextDueAt` are alternatives, not simultaneous values. The plan
+freezes the organization's IANA timezone. UTC persistence is rehydrated into
+that original calendar, preserving month-end clamping and DST transitions.
+An explicit next due date must be an actual slot of the anchored cadence.
+No default frequency is inferred for new operations.
+
+Generate accepts optional name and `retry: true`. An open occurrence with
+existing work is replayed; retry is explicit and permitted only after abandonment,
+a skipped published task, or unsuccessful servicing. Its original occurrence id
+and due date remain unchanged. Outputs expose the server's retryAllowed decision.
 
 | Method | Path                                | Description                                                                                                                                                                                                                                                                                                                                                                                                       | Permission                                                              |
 | ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -48,6 +81,51 @@ required permission gets 403. The invariant is pinned by
 single justified exemption).
 
 ## Flows
+
+### Independent operations and safe handover
+
+Prepare legacy plans while `legacy` still owns all old entrypoints. Preparation
+copies overrides, known completion/due dates and uniquely links legacyScheduleId;
+uninitialized dates stay null unless an explicit first date has been configured.
+Activation refreshes these sources while holding the organization transaction
+lock shared by historical campaigns, schedule updates and workers. It attaches
+each uniquely matching open historical inspection task to its occurrence. More
+than one candidate, frozen submitted work or an unmappable control blocks the
+entire transaction. Only after mapping succeeds does the authority become plans.
+Preparing again and activating preserve the archival decision of an existing
+historical candidate; an archived operation cannot regain generation authority.
+
+Old campaign and override endpoints then delegate to the plan engine. The hourly
+sweep refreshes the control projection and lifecycle suspension, without running
+the historical recomputation/reminder engine for activated organizations. Missing
+or retired equipment never causes plan/occurrence history to be deleted.
+
+For fixed calendars, dates advance from the original anchor and clamp to the last
+day of a shorter month; missed slots are skipped after a validated completion.
+Legacy calendars retain their original sliding DateTime interval calculation and
+override/default source. There is one open occurrence per plan, enforced in PostgreSQL.
+Fixed-calendar occurrence due dates are returned in the plan's frozen timezone,
+including after a UTC database reload. An open occurrence still freezes cadence
+and calendar fields while permitting a name-only edit.
+
+Plan campaigns resolve current equipment ownership, facility, type and lifecycle,
+then the current historical override/default cadence, before applying scope and
+due-date filters. Ineligible operations are skipped. Cadence updates are saved
+after the bounded page scan so reordered due dates cannot skip candidates.
+
+MaintenanceOperationsDuePort publishes a bulk owner-provided read contract for
+Equipment and reporting: controlDueStatus/controlNextDueAt are independent from
+serviceDueStatus/serviceNextDueAt. Historical maintenanceDueStatus remains a control
+alias for compatibility. Missing initial dates on active operations are overdue;
+archived sites and retired equipment expose unscheduled deadlines without deleting
+their plans. Reads never initialize plans, mutate calendars or switch engine authority.
+
+Intervention publication calls MaintenanceOperationResultsPort validateResult and
+acknowledgeResult on the same main transaction as the publication. Source equipment,
+operation, occurrence, intervention and result identity must match. Control results
+complete the occurrence even when adverse; defects remain owned by Inspection.
+Failed servicing keeps the occurrence due. Receipts make acknowledgment replay safe.
+Standalone inspection closure never acquits an unrelated operation in the plans engine.
 
 ### Inspection closes (event-driven hot path)
 
@@ -322,6 +400,13 @@ automatically — no backfill migration is needed.
 ## Configuration
 
 - Service wiring: `config/modules/maintenance.yaml`
+- Plan repository and authority locks: explicit `doctrine.dbal.main_connection`;
+  plan-generated events use `TransactionalEventDispatcher` on that same connection.
+- Facility lifecycle suspension uses the owner-provided ancestry adapter on main;
+  organization calendar context uses the published workforce directory port.
+- Additive main migrations `Version20261006102000`, `Version20261006102001`
+  and `Version20261006102002` (immutable UTC datetime annotations);
+  authority defaults to legacy until an explicit successful activation.
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
 - Messenger routing: `config/packages/messenger.yaml` (`RecomputeMaintenanceSchedulesCommand` → `async`;
   the schedule itself is consumed from the auto-registered `scheduler_maintenance`
@@ -332,6 +417,11 @@ automatically — no backfill migration is needed.
   manager arguments)
 
 ## Testing
+
+- New operation coverage: Unit/Maintenance Domain, plan command/query handlers,
+  plan processor/provider; Functional/Api/MaintenancePlanApiTest; and the PostgreSQL
+  MaintenancePlanRepositoryTest with two real worker connections, the native Doctrine
+  outbox sender, rollback visibility and the partial unique open-occurrence constraint.
 
 - Unit: `tests/Unit/Maintenance` — including (L2.2)
   `Infrastructure/Adapter/Assistant/MaintenanceAssistantContextProviderAdapterTest.php`

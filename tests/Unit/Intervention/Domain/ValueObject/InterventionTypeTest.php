@@ -24,6 +24,8 @@ final class InterventionTypeTest extends TestCase
     self::assertSame('site_setup', InterventionType::SITE_SETUP->value);
     self::assertSame('inventory', InterventionType::INVENTORY->value);
     self::assertSame('inspection_campaign', InterventionType::INSPECTION_CAMPAIGN->value);
+    self::assertSame('preventive_maintenance', InterventionType::PREVENTIVE_MAINTENANCE->value);
+    self::assertSame('corrective_maintenance', InterventionType::CORRECTIVE_MAINTENANCE->value);
   }
 
   #[Test]
@@ -33,8 +35,14 @@ final class InterventionTypeTest extends TestCase
   }
 
   #[Test]
-  public function testExposesExactlyThreeCases(): void
+  public function testExposesExactlyFiveCases(): void
   {
-    self::assertCount(3, InterventionType::cases());
+    self::assertSame([
+      InterventionType::SITE_SETUP,
+      InterventionType::INVENTORY,
+      InterventionType::INSPECTION_CAMPAIGN,
+      InterventionType::PREVENTIVE_MAINTENANCE,
+      InterventionType::CORRECTIVE_MAINTENANCE,
+    ], InterventionType::cases());
   }
 }

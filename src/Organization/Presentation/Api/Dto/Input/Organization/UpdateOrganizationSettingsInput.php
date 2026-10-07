@@ -34,6 +34,16 @@ final class UpdateOrganizationSettingsInput
   public ?string $name = null;
 
   /**
+   * Property operatingProfile.
+   *
+   * Null or omission preserves the organization's operational profile.
+   */
+  #[Assert\Choice(choices: ['operator', 'service_provider'])]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Operational profile; independent from access permissions', required: false)]
+  public ?string $operatingProfile = null;
+
+  /**
    * Property slug.
    *
    * @since 1.0.0

@@ -137,7 +137,7 @@ final readonly class InterventionViewMapper
       $inspectionsCount = $metrics->inspections;
       $blockersCount = $metrics->resourceBlockers;
       $blockersCount += 'site_setup' === $intervention->type && 0 === $metrics->facilities ? 1 : 0;
-      $blockersCount += in_array($intervention->type, ['inventory', 'inspection_campaign'], true) && 0 === $metrics->workItems ? 1 : 0;
+      $blockersCount += in_array($intervention->type, ['inventory', 'inspection_campaign', 'preventive_maintenance', 'corrective_maintenance'], true) && 0 === $metrics->workItems ? 1 : 0;
       $blockersCount += $metrics->requiredIncomplete > 0 ? 1 : 0;
       $workItemsCount = $metrics->workItems;
       $completedWorkItemsCount = $metrics->completedWorkItems;
@@ -162,6 +162,7 @@ final readonly class InterventionViewMapper
       'plannedStartAt' => $intervention->plannedStartAt?->format('c'),
       'dueAt' => $intervention->dueAt?->format('c'),
       'reviewNote' => $intervention->reviewNote,
+      'closureSnapshot' => null === $metrics ? $intervention->closureSnapshot : null,
       'revision' => $intervention->revision,
       'recurrence' => null === $recurrenceId ? null : '/api/intervention-recurrences/' . $recurrenceId,
       'facilitiesCount' => $facilitiesCount,
@@ -203,6 +204,10 @@ final readonly class InterventionViewMapper
       'id' => $record->id,
       'intervention' => self::INTERVENTION_IRI_PREFIX . $intervention->id,
       'action' => $record->action,
+      'operationId' => $record->operationId,
+      'occurrenceId' => $record->occurrenceId,
+      'operationKind' => $record->operationKind,
+      'executionResult' => $record->executionResult,
       'target' => $record->target,
       'resultResource' => $record->resultResource,
       'assignee' => null === $record->assigneeId ? null : self::ORGANIZATION_IRI_PREFIX . $organizationId . self::MEMBER_IRI_SEGMENT . $record->assigneeId,

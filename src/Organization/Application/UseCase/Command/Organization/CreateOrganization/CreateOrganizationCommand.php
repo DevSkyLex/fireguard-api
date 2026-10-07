@@ -35,6 +35,7 @@ final readonly class CreateOrganizationCommand implements CommandMessage
     public string $ownerUserId,
     public ?string $slug = null,
     public ?OrganizationSetupContext $setupContext = null,
+    public string $operatingProfile = 'operator',
   ) {
   }
   // #endregion

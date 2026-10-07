@@ -10,6 +10,18 @@
   <div class="meta">
     <table>
       <tr>
+        <td class="meta-label">{{ 'equipment.meta.name'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ name|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.assetCode'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ assetCode|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.criticality'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ criticality|default(null) ? ('equipment.criticality.' ~ criticality)|trans({}, 'pdf', lang) : '—' }}</td>
+      </tr>
+      <tr>
         <td class="meta-label">{{ 'equipment.meta.type'|trans({}, 'pdf', lang) }}</td>
         <td>{{ type }}{% if subType is not empty %} — {{ subType }}{% endif %}</td>
       </tr>
@@ -48,8 +60,12 @@
         <td>{{ commissionedAt|default('—') }}</td>
       </tr>
       <tr>
-        <td class="meta-label">{{ 'equipment.meta.maintenanceDueStatus'|trans({}, 'pdf', lang) }}</td>
-        <td>{{ ui.status('maintenanceDue', maintenanceDueStatus, lang) }}</td>
+        <td class="meta-label">{{ 'equipment.meta.controlDueStatus'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ ui.status('maintenanceDue', controlDueStatus, lang) }} — {{ controlNextDueAt|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.serviceDueStatus'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ ui.status('maintenanceDue', serviceDueStatus, lang) }} — {{ serviceNextDueAt|default('—') }}</td>
       </tr>
       {% if tags is not empty %}
         <tr>
@@ -63,6 +79,20 @@
       {% endif %}
     </table>
   </div>
+
+  <p class="muted">{{ 'equipment.trackingNote'|trans({}, 'pdf', lang) }}</p>
+  {% if predecessorEquipmentId|default(null) or successorEquipmentId|default(null) %}
+    <h2>{{ 'equipment.replacement.heading'|trans({}, 'pdf', lang) }}</h2>
+    {% if predecessorEquipmentId|default(null) %}<p>{{ 'equipment.replacement.predecessor'|trans({}, 'pdf', lang) }} : {{ predecessorEquipmentId }}</p>{% endif %}
+    {% if successorEquipmentId|default(null) %}<p>{{ 'equipment.replacement.successor'|trans({}, 'pdf', lang) }} : {{ successorEquipmentId }}</p>{% endif %}
+  {% endif %}
+  {% if technicalProperties|default([]) is not empty %}
+    <h2>{{ 'equipment.characteristics.heading'|trans({}, 'pdf', lang) }}</h2>
+    <table class="data">
+      <thead><tr><th>{{ 'equipment.characteristics.key'|trans({}, 'pdf', lang) }}</th><th>{{ 'equipment.characteristics.value'|trans({}, 'pdf', lang) }}</th><th>{{ 'equipment.characteristics.unit'|trans({}, 'pdf', lang) }}</th></tr></thead>
+      <tbody>{% for property in technicalProperties %}<tr><td>{{ property.key }}</td><td>{{ property.value }}</td><td>{{ property.unit|default('—') }}</td></tr>{% endfor %}</tbody>
+    </table>
+  {% endif %}
 
   <h2>{{ 'equipment.maintenance.heading'|trans({}, 'pdf', lang) }}</h2>
   {% if maintenanceLogs is empty %}

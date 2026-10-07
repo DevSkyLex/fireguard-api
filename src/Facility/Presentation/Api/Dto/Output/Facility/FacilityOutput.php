@@ -198,6 +198,13 @@ final class FacilityOutput
   public ?float $heightMeters = null;
 
   /**
+   * Property customerId. Retained internal customer identifier, separate from replay clientId.
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(description: 'Optional internal customer identifier on root sites')]
+  public ?string $customerId = null;
+
+  /**
    * Property planGeometry.
    *
    * Optional spatial geometry `{attachmentId, points}` binding this facility

@@ -94,7 +94,7 @@ final readonly class EquipmentChangeOutboxListener
       return;
     }
     $changes = $args->getObjectManager()->getUnitOfWork()->getEntityChangeSet($record);
-    if ([] !== array_intersect(['type', 'facilityId', 'status', 'recordStatus'], array_keys($changes))) {
+    if ([] !== array_intersect(['type', 'facilityId', 'status', 'recordStatus', 'name', 'assetCode', 'criticality', 'technicalProperties', 'predecessorEquipmentId', 'successorEquipmentId'], array_keys($changes))) {
       $this->enqueue($record, 'published' === ($changes['recordStatus'][0] ?? null));
     }
   }

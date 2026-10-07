@@ -1,7 +1,7 @@
 # Fireguard API
 
-Symfony/API Platform backend for Fireguard identity, organization access,
-field operations and collaboration. The [web application](https://github.com/DevSkyLex/fireguard-web)
+Symfony/API Platform backend for FireGuard fire-equipment park management,
+organization access, controls, maintenance and field interventions. The [web application](https://github.com/DevSkyLex/fireguard-web)
 is a separate repository. Dependency versions live in [composer.json](composer.json)
 and its lockfile.
 
@@ -23,7 +23,10 @@ The API uses four-layer modules and two independent PostgreSQL databases:
 ## Features
 
 Identity, OAuth/OIDC, organizations and billing, facilities and equipment,
-inspections, maintenance, interventions, workload, messaging, notifications,
+internal customers, inspections, independent preventive operations, traceable
+replacement, repair requests, interventions, quantitative parts, procurement,
+private costs and economic reports, versioned maintenance exports, workload,
+messaging, notifications,
 assistant, calendar, approvals, automation, imports and webhooks. The
 [documentation index](docs/README.md) links every module contract.
 
@@ -58,7 +61,17 @@ See [Organization](src/Organization/MODULE.md) and [Billing](src/Billing/MODULE.
 
 See [Facility](src/Facility/MODULE.md), [Equipment](src/Equipment/MODULE.md),
 [Inspection](src/Inspection/MODULE.md), [Maintenance](src/Maintenance/MODULE.md)
-and [Compliance](src/Compliance/MODULE.md).
+and [Compliance](src/Compliance/MODULE.md). Internal customers and optional site
+ownership are described by [Customer](src/Customer/MODULE.md).
+
+### Maintenance resources and economic reporting
+
+See [ServiceRequest](src/ServiceRequest/MODULE.md), [Inventory](src/Inventory/MODULE.md),
+[Procurement](src/Procurement/MODULE.md), [MaintenanceCost](src/MaintenanceCost/MODULE.md)
+and [MaintenanceExport](src/MaintenanceExport/MODULE.md). Internal financial facts
+require dedicated permissions and stay outside ordinary customer reports. Retained
+exports distinguish generation from confirmed import; corrections append linked
+adjustments. Commercial invoicing remains in the external ERP.
 
 ### Interventions, approval and automation
 

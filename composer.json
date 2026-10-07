@@ -4,6 +4,7 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
+        "ext-bcmath": "*",
         "php": ">=8.4",
         "ext-ctype": "*",
         "ext-iconv": "*",
@@ -97,7 +98,13 @@
             "Approval\\": "src/Approval/",
             "Assistant\\": "src/Assistant/",
             "Calendar\\": "src/Calendar/",
-            "Workload\\": "src/Workload/"
+            "Workload\\": "src/Workload/",
+            "Customer\\": "src/Customer/",
+            "ServiceRequest\\": "src/ServiceRequest/",
+            "Inventory\\": "src/Inventory/",
+            "Procurement\\": "src/Procurement/",
+            "MaintenanceCost\\": "src/MaintenanceCost/",
+            "MaintenanceExport\\": "src/MaintenanceExport/"
         },
         "classmap": [
             "src/Kernel.php"

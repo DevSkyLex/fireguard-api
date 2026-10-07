@@ -132,6 +132,7 @@ final readonly class GetFacilityDescendantsHandler implements QueryHandler
         levelIndex: $facility->levelIndex(),
         elevationMeters: $facility->elevationMeters(),
         heightMeters: $facility->heightMeters(),
+        customerId: $facility->customerId(),
         recordStatus: $projectionContexts[(string) $facility->id()]['recordStatus'] ?? 'published',
         interventionId: $projectionContexts[(string) $facility->id()]['interventionId'] ?? null,
         revision: $projectionContexts[(string) $facility->id()]['revision'] ?? 1,

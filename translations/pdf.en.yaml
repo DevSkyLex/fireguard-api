@@ -47,12 +47,22 @@ compliance:
 
 intervention:
   title: "Intervention report — FG-%number%"
+  reportMode:
+    snapshot: "Validated dossier — preserved at publication"
+    live: "Draft dossier — awaiting validation"
+    legacy_live: "Historical report — no preserved publication snapshot"
+  result:
+    outcome:
+      successful: "Successful"
+      failed: "Failed"
+      performed: "Performed"
   meta:
     name: "Name"
     type: "Type"
     status: "Status"
     priority: "Priority"
     site: "Site"
+    customer: "Customer"
     responsible: "Responsible"
     participants: "Participants"
     plannedStart: "Planned start"
@@ -158,6 +168,9 @@ nonConformities:
 equipment:
   title: "Equipment sheet"
   meta:
+    name: "Equipment name"
+    assetCode: "Asset reference"
+    criticality: "Declared criticality"
     type: "Type"
     brand: "Brand"
     model: "Model"
@@ -168,6 +181,8 @@ equipment:
     installedAt: "Installed on"
     commissionedAt: "Commissioned on"
     maintenanceDueStatus: "Maintenance due status"
+    controlDueStatus: "Control deadline"
+    serviceDueStatus: "Servicing deadline"
     tags: "Tags"
   maintenance:
     heading: "Maintenance history"
@@ -178,6 +193,23 @@ equipment:
     intervention: "Intervention"
     action: "Action"
     summary: "Summary"
+    performedAt: "Actually performed on"
+    notes: "Work performed"
+  criticality:
+    low: "Low"
+    medium: "Medium"
+    high: "High"
+    critical: "Critical"
+  characteristics:
+    heading: "Declared characteristics"
+    key: "Characteristic"
+    value: "Value"
+    unit: "Unit"
+  replacement:
+    heading: "Replacement history"
+    predecessor: "Replaced equipment"
+    successor: "Successor equipment"
+  trackingNote: "Operational status, control deadlines and open anomalies are independent. An up-to-date control does not mean that no defect exists. Configured tracking is not automatic regulatory certification."
   attachments:
     heading: "Attachments"
     empty: "No attachments."
@@ -208,6 +240,8 @@ status:
     site_setup: "Site setup"
     inventory: "Inventory"
     inspection_campaign: "Inspection campaign"
+    preventive_maintenance: "Preventive maintenance"
+    corrective_maintenance: "Corrective maintenance"
   workItem:
     planned: "Planned"
     in_progress: "In progress"

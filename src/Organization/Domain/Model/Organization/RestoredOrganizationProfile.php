@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Domain\Model\Organization;
 
-use Organization\Domain\ValueObject\{OrganizationSettings, PlanId};
+use Organization\Domain\ValueObject\{OrganizationOperatingProfile, OrganizationSettings, PlanId};
 
 /** Optional persisted presentation, preferences, and plan assignment. */
 final readonly class RestoredOrganizationProfile
@@ -29,6 +29,7 @@ final readonly class RestoredOrganizationProfile
     public ?string $logoUrl = null,
     public ?OrganizationSettings $settings = null,
     public ?PlanId $planId = null,
+    public OrganizationOperatingProfile $operatingProfile = OrganizationOperatingProfile::OPERATOR,
   ) {
   }
   // #endregion

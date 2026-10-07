@@ -1,0 +1,44 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Inventory\Presentation\:
+    resource: '../../src/Inventory/Presentation'
+
+  Inventory\Infrastructure\Persistence\Doctrine\Repository\InventoryRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inventory\Application\Port\Outbound\InventoryStorePort:
+    alias: Inventory\Infrastructure\Persistence\Doctrine\Repository\InventoryRepository
+
+  inventory.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inventory\Application\UseCase\Command\ApplyInventoryStock\ApplyInventoryStockHandler:
+    arguments:
+      $transactions: '@inventory.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Inventory\Application\UseCase\Command\ManageInventoryReference\ManageInventoryReferenceHandler:
+    arguments:
+      $transactions: '@inventory.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Inventory\Application\UseCase\Query\ListInventory\ListInventoryHandler:
+    tags: ['messenger.message_handler']
+
+  Inventory\Infrastructure\Adapter\Procurement\InventoryStockReceiptAdapter: ~
+  Inventory\Application\Port\Inbound\InventoryStockReceiptPort:
+    alias: Inventory\Infrastructure\Adapter\Procurement\InventoryStockReceiptAdapter
+
+  Inventory\Infrastructure\Adapter\Procurement\InventoryPartDirectoryAdapter: ~
+  Inventory\Application\Port\Inbound\InventoryPartDirectoryPort:
+    alias: Inventory\Infrastructure\Adapter\Procurement\InventoryPartDirectoryAdapter
+
+  Inventory\Infrastructure\Adapter\Intervention\InventoryInterventionResourcesAdapter: ~
+  Inventory\Application\Port\Inbound\InventoryInterventionResourcesPort:
+    alias: Inventory\Infrastructure\Adapter\Intervention\InventoryInterventionResourcesAdapter

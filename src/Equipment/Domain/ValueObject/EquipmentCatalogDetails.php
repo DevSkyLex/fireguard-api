@@ -28,6 +28,7 @@ final readonly class EquipmentCatalogDetails
     public ?string $model = null,
     public ?string $serialNumber = null,
     public ?string $locationLabel = null,
+    public ?EquipmentIdentity $identity = null,
   ) {
   }
 }

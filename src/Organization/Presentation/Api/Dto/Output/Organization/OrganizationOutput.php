@@ -38,6 +38,15 @@ final class OrganizationOutput
   public string $name = '';
 
   /**
+   * Property operatingProfile.
+   *
+   * Operational defaults for the organization workspace.
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $operatingProfile = 'operator';
+
+  /**
    * Property slug.
    *
    * @since 1.0.0

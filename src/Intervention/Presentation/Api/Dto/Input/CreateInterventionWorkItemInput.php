@@ -17,6 +17,24 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class CreateInterventionWorkItemInput
 {
   /**
+   * Property operationId. Optional preventive plan identifier.
+   */
+  #[Assert\Uuid]
+  public ?string $operationId = null;
+
+  /**
+   * Property occurrenceId. Optional preventive occurrence identifier.
+   */
+  #[Assert\Uuid]
+  public ?string $occurrenceId = null;
+
+  /**
+   * Property operationKind. Optional source operation kind.
+   */
+  #[Assert\Choice(choices: ['control', 'maintenance'])]
+  public ?string $operationKind = null;
+
+  /**
    * Property workloadConfirmationToken.
    *
    * @since 1.1.0
@@ -61,7 +79,7 @@ final class CreateInterventionWorkItemInput
    *
    * @since 1.0.0
    */
-  #[Assert\Choice(choices: ['site_setup', 'inventory', 'inspection'])]
+  #[Assert\Choice(choices: ['site_setup', 'inventory', 'inspection', 'maintenance', 'repair', 'replacement'])]
   public string $action = 'inventory';
 
   /**

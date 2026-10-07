@@ -69,6 +69,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'family' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'family', in: 'query', schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']])),
+        'customerId' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string', 'format' => 'uuid'], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'customerId', in: 'query', schema: ['type' => 'string', 'format' => 'uuid'])),
+        'includeDescendants' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'boolean'], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'includeDescendants', in: 'query', schema: ['type' => 'boolean', 'default' => false])),
         'equipmentId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
           description: self::EQUIPMENT_FILTER_DESCRIPTION,
@@ -166,6 +169,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'family' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'family', in: 'query', schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']])),
+        'customerId' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string', 'format' => 'uuid'], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'customerId', in: 'query', schema: ['type' => 'string', 'format' => 'uuid'])),
+        'includeDescendants' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'boolean'], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'includeDescendants', in: 'query', schema: ['type' => 'boolean', 'default' => false])),
         'equipmentId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
           description: self::EQUIPMENT_FILTER_DESCRIPTION,

@@ -62,6 +62,7 @@ final readonly class ListFacilitiesQuery implements QueryMessage
     public ?string $parentForFacilityId = null,
     public ?string $interventionId = null,
     public bool $includePublishedParents = true,
+    public ?string $customerId = null,
   ) {
   }
   // #endregion

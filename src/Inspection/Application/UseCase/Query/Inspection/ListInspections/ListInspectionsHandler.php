@@ -19,6 +19,7 @@ use Inspection\Domain\ValueObject\{
   InspectionResult,
   InspectionStatus
 };
+use LogicException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -61,6 +62,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
     private EquipmentNamingPort $equipmentNaming,
     private FacilityNamingPort $facilityNaming,
     private ChecklistRepositoryPort $checklistRepository,
+    private ?\Equipment\Application\Port\Inbound\EquipmentParkScopePort $parkScopes = null,
   ) {
   }
   // #endregion
@@ -94,7 +96,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
     }
 
     $criteria = new InspectionListCriteria(
-      subject: new InspectionSubjectCriteria($equipmentId, $facilityId, $checklistId),
+      subject: new InspectionSubjectCriteria($equipmentId, $query->includeDescendants ? null : $facilityId, $checklistId, $this->parkCandidates($query)),
       execution: new InspectionExecutionCriteria(
         $result,
         $status,
@@ -199,6 +201,31 @@ final readonly class ListInspectionsHandler implements QueryHandler
     }
 
     return $results;
+  }
+
+  /**
+   * @since 1.1.0
+   *
+   * @return ?list<string>
+   */
+  private function parkCandidates(ListInspectionsQuery $query): ?array
+  {
+    if (null === $query->family && null === $query->customerId && !$query->includeDescendants) {
+      return null;
+    }
+    if ($query->includeDescendants && null === $query->facilityId) {
+      throw InvalidValueException::because('includeDescendants requires a facilityId.');
+    }
+    if (null === $this->parkScopes) {
+      throw new LogicException('Published parc scope is unavailable.');
+    }
+    $candidates = $this->inspectionRepository->findPublishedEquipmentIds($query->organizationId);
+    // Validate explicit facility scope even when the requested collection remains direct.
+    if (null !== $query->facilityId && !$query->includeDescendants) {
+      $this->parkScopes->filterIds($query->organizationId, [], facilityId: $query->facilityId);
+    }
+
+    return $this->parkScopes->filterIds($query->organizationId, $candidates, $query->family, $query->customerId, $query->includeDescendants ? $query->facilityId : null);
   }
   // #endregion
 }

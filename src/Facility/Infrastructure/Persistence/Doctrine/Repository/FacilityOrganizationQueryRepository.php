@@ -406,6 +406,9 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
       ->setParameter('organization', $organization);
 
     $this->applyRecordVisibility($queryBuilder, $criteria);
+    if (null !== $criteria->customerId) {
+      $queryBuilder->andWhere('f.customerId = :customerId')->setParameter('customerId', $criteria->customerId);
+    }
 
     if (null === $criteria->status && !$includeArchived) {
       $queryBuilder

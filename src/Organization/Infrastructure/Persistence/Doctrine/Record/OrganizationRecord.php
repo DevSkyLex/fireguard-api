@@ -49,6 +49,14 @@ class OrganizationRecord
   public string $name;
 
   /**
+   * Property operatingProfile.
+   *
+   * Operational defaults are independent from membership and permissions.
+   */
+  #[ORM\Column(name: 'operating_profile', type: 'string', length: 32, options: ['default' => 'operator'])]
+  public string $operatingProfile = 'operator';
+
+  /**
    * Property slug.
    *
    * @since 1.0.0

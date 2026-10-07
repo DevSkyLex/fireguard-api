@@ -104,6 +104,7 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
       $output = new OrganizationOutput();
       $output->id = $organization->id;
       $output->name = $organization->name;
+      $output->operatingProfile = $organization->operatingProfile;
       $output->slug = $organization->slug;
       $output->ownerUserId = $organization->ownerUserId;
       $output->createdByUserId = $organization->createdByUserId;

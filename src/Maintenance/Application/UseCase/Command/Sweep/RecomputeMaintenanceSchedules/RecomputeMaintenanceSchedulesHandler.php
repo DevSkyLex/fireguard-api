@@ -75,6 +75,7 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
     private \Maintenance\Application\Service\MaintenanceScheduleService $synchronizer,
     private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort $locks,
     private EventDispatcherPort $reminders,
+    private ?\Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort $planAuthority = null,
   ) {
   }
   // #endregion
@@ -180,6 +181,9 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
     $policies = $this->compliancePolicy->compliancePolicies(array_keys($groups));
     $updates = [];
     foreach ($groups as $organizationId => $equipmentIds) {
+      if ($this->planAuthority?->usesPlans($organizationId)) {
+        continue;
+      }
       $current = $this->schedules->findForEquipment($organizationId, $equipmentIds);
       $compliance = $policies[$organizationId] ?? $this->compliancePolicy->compliancePolicy($organizationId);
       foreach ($current as $schedule) {

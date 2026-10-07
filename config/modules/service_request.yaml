@@ -1,0 +1,52 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  ServiceRequest\Presentation\:
+    resource: '../../src/ServiceRequest/Presentation'
+
+  ServiceRequest\Application\Service\ServiceRequestAccessGuard: ~
+  ServiceRequest\Application\Service\ServiceRequestTargetGuard: ~
+
+  ServiceRequest\Infrastructure\Persistence\Doctrine\Repository\ServiceRequestRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  ServiceRequest\Application\Port\Outbound\ServiceRequestRepositoryPort:
+    alias: ServiceRequest\Infrastructure\Persistence\Doctrine\Repository\ServiceRequestRepository
+
+  ServiceRequest\Application\Port\Outbound\ServiceRequestEquipmentTargetPort:
+    alias: Equipment\Infrastructure\Adapter\ServiceRequest\ServiceRequestEquipmentTargetAdapter
+
+  ServiceRequest\Application\Port\Outbound\ServiceRequestSiteTargetPort:
+    alias: Facility\Infrastructure\Adapter\ServiceRequest\ServiceRequestSiteTargetAdapter
+
+  service_request.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  ServiceRequest\Application\UseCase\Command\CreateServiceRequest\CreateServiceRequestHandler:
+    arguments:
+      $transactions: '@service_request.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  ServiceRequest\Application\UseCase\Command\ChangeServiceRequest\ChangeServiceRequestHandler:
+    arguments:
+      $transactions: '@service_request.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  ServiceRequest\Application\UseCase\Command\ConvertServiceRequest\ConvertServiceRequestHandler:
+    arguments:
+      $transactions: '@service_request.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  ServiceRequest\Application\UseCase\Query\GetServiceRequest\GetServiceRequestHandler:
+    tags: ['messenger.message_handler']
+
+  ServiceRequest\Application\UseCase\Query\ListServiceRequests\ListServiceRequestsHandler:
+    tags: ['messenger.message_handler']

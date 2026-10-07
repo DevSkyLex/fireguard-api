@@ -22,13 +22,14 @@ use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
 use function array_values;
 use function count;
 use function explode;
+use function max;
 use function sprintf;
 
 /**
  * Class InterventionFixtures
  *
  * Seeds the intervention workspace end to end: labels, reusable templates,
- * twelve interventions spanning **every** {@see InterventionStatus} case with
+ * fourteen interventions spanning **every** {@see InterventionStatus} case with
  * their work items, proposed/applied changes, publication attempts, activity
  * feed and attachments, plus the recurrence schedules that materialize new
  * drafts.
@@ -293,7 +294,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
   /**
    * Constant INTERVENTION_SEEDS.
    *
-   * The twelve seeded interventions, ordered by number, covering every
+   * The hand-authored interventions, ordered by number, covering every
    * status, every type and every priority.
    *
    * `statusPath` is the comma-separated transition chain from `draft` to the
@@ -571,6 +572,46 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
       'plannedStartOffsetDays' => 15,
       'dueOffsetDays' => 40,
     ],
+    [
+      'reference' => 'intervention-seed-extinguisher-maintenance',
+      'id' => 'a349acb1-d4b1-4c0e-a3eb-334fa025d011',
+      'number' => 53,
+      'type' => 'preventive_maintenance',
+      'name' => 'Paris HQ extinguisher preventive maintenance',
+      'description' => 'Clean and service the Zone A extinguisher, independently of its annual inspection.',
+      'status' => 'planned',
+      'priority' => 'normal',
+      'siteReference' => FacilityFixtures::SITE_REFERENCE,
+      'responsibleReference' => OrganizationFixtures::PARIS_TECHNICIAN_MEMBER_REFERENCE,
+      'participantReferences' => OrganizationFixtures::SAFETY_MANAGER_MEMBER_REFERENCE,
+      'labelReferences' => self::LABEL_FIELD_WORK_REFERENCE,
+      'statusPath' => 'planned',
+      'reviewNote' => '',
+      'revision' => 2,
+      'createdAt' => '2026-04-18T08:00:00+00:00',
+      'plannedStartOffsetDays' => 2,
+      'dueOffsetDays' => 9,
+    ],
+    [
+      'reference' => 'intervention-seed-fire-door-repair',
+      'id' => 'a349acb1-d4b1-4c0e-a3eb-334fa025d012',
+      'number' => 54,
+      'type' => 'corrective_maintenance',
+      'name' => 'Storage room fire door closer repair',
+      'description' => 'Repair the closer identified during the fire door survey, then verify that the door closes fully.',
+      'status' => 'in_progress',
+      'priority' => 'high',
+      'siteReference' => FacilityFixtures::BUILDING_REFERENCE,
+      'responsibleReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE,
+      'participantReferences' => OrganizationFixtures::PARIS_TECHNICIAN_MEMBER_REFERENCE,
+      'labelReferences' => self::LABEL_FIELD_WORK_REFERENCE . ',' . self::LABEL_QUICK_WIN_REFERENCE,
+      'statusPath' => 'planned,in_progress',
+      'reviewNote' => '',
+      'revision' => 3,
+      'createdAt' => '2026-04-19T08:00:00+00:00',
+      'plannedStartOffsetDays' => -1,
+      'dueOffsetDays' => 3,
+    ],
   ];
 
   /**
@@ -627,6 +668,8 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ['interventionNumber' => '11', 'action' => 'inventory', 'target' => 'List the units due for recharge', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::PARIS_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '12', 'action' => 'site_setup', 'target' => 'Position the detector heads', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '12', 'action' => 'inventory', 'target' => 'Register the new detectors', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
+    ['interventionNumber' => '53', 'action' => 'maintenance', 'target' => 'Service the Zone A extinguisher', 'equipmentReference' => EquipmentFixtures::EXTINGUISHER_REFERENCE, 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::PARIS_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
+    ['interventionNumber' => '54', 'action' => 'repair', 'target' => 'Repair and verify the storage room fire door closer', 'equipmentReference' => EquipmentFixtures::BUILDING_FIRE_DOOR_REFERENCE, 'status' => 'in_progress', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
   ];
 
   /**
@@ -799,10 +842,10 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
   /**
    * Constant BULK_INTERVENTION_COUNT.
    *
-   * On top of the twelve hand-authored {@see self::INTERVENTION_SEEDS}, a
+   * On top of the hand-authored {@see self::INTERVENTION_SEEDS}, a
    * generated pool so the intervention board — list, board and calendar
    * views alike — clears 50 rows and its pagination has more than one page.
-   * Deliberately simpler than the hand-authored dozen: one work item, no
+   * Deliberately simpler than the hand-authored examples: one work item, no
    * changes, no publication, no comments. Volume, not narrative.
    *
    * @since 1.2.0
@@ -810,6 +853,11 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    * @var int
    */
   public const int BULK_INTERVENTION_COUNT = 40;
+
+  /**
+   * Preserve the numbers of the historical generated pool when adding examples.
+   */
+  private const int BULK_INTERVENTION_FIRST_NUMBER = 13;
 
   /**
    * Constant COMMISSIONING_INSPECTION_TARGET
@@ -946,7 +994,10 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     // next runtime creation collides with the unique (organization, number).
     $counter = new InterventionNumberCounterRecord();
     $counter->organizationId = $organization->id;
-    $counter->lastNumber = count(self::INTERVENTION_SEEDS) + self::BULK_INTERVENTION_COUNT;
+    $counter->lastNumber = self::BULK_INTERVENTION_FIRST_NUMBER + self::BULK_INTERVENTION_COUNT - 1;
+    foreach (self::INTERVENTION_SEEDS as $seed) {
+      $counter->lastNumber = max($counter->lastNumber, $seed['number']);
+    }
     $manager->persist($counter);
 
     $manager->flush();
@@ -1147,6 +1198,10 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
       $workItem->resultResource = '' === $seed['equipmentReference']
         ? null
         : $this->equipmentIri($seed['equipmentReference']);
+      if ('maintenance' === $seed['action'] || 'repair' === $seed['action']) {
+        $workItem->target = $this->equipmentIri($seed['equipmentReference']);
+        $workItem->resultResource = null;
+      }
       $workItem->assigneeId = $this->memberId($seed['assigneeReference']);
       $workItem->source = $seed['source'];
       $workItem->status = $seed['status'];
@@ -1262,7 +1317,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    * Method loadBulkInterventions.
    *
    * Generates {@see self::BULK_INTERVENTION_COUNT} plain interventions past
-   * the twelve hand-authored ones, cycling status/type/priority/responsible
+   * the original twelve hand-authored ones, cycling status/type/priority/responsible
    * so the pool stays varied without hand-typing forty more rows. See the
    * class docblock for why the seed tables above stay flat scalar rows —
    * the same reasoning applies to keeping this generator's constants flat.
@@ -1288,7 +1343,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     }
 
     $labelReferences = array_values($labels);
-    $startingNumber = count(self::INTERVENTION_SEEDS) + 1;
+    $startingNumber = self::BULK_INTERVENTION_FIRST_NUMBER;
 
     for ($i = 0; $i < self::BULK_INTERVENTION_COUNT; ++$i) {
       $number = $startingNumber + $i;

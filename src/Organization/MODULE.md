@@ -7,6 +7,20 @@
 Organization manages Organizations and member-level RBAC inside each Organization.
 It is isolated from authentication storage and persisted in the dedicated main database.
 
+### Operating profile
+
+`operatingProfile` identifies operational defaults: `operator` for a site operator,
+`service_provider` for a contractor managing customer sites. Creation defaults to
+`operator`, including legacy organizations migrated into the new contract. Create,
+detail, membership-list and settings-update outputs expose the persisted value.
+PATCH accepts either value; omission or null preserves the current profile.
+
+Changing the profile requires `organization.settings.write`. The profile grants no
+permissions and does not alter ownership, membership roles, subscription limits or
+the existing organization authorization rules. Unsupported values are rejected
+before persistence. PostgreSQL functional coverage verifies creation, partial updates,
+read projections, permission denial and unchanged role assignments.
+
 Imported invitations defer email delivery to the main outbox in the creation
 transaction. The delivery rechecks the current token, pending state and expiry,
 and deduplicates by invitation plus token hash. Other invitation callers keep

@@ -61,6 +61,7 @@ final readonly class CreateFacilityResult implements ResultMessage
     public ?int $levelIndex = null,
     public ?float $elevationMeters = null,
     public ?float $heightMeters = null,
+    public ?string $customerId = null,
     public bool $replayed = false,
     public ?string $interventionId = null,
     public string $recordStatus = 'published',

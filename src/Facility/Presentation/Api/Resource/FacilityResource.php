@@ -89,6 +89,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'customerId' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'Filter root sites assigned to this internal customer.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'customerId', in: 'query', schema: ['type' => 'string', 'format' => 'uuid']),
+        ),
         'parentForType' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
           description: 'Eligible active parents for creating this facility type. Published by default; interventionId also admits authorized drafts of that intervention. Mutually exclusive with parentForFacilityId.',

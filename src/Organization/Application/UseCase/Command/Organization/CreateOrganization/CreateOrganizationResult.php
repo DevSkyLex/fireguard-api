@@ -48,6 +48,7 @@ final readonly class CreateOrganizationResult implements ResultMessage
     public string $status,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public string $operatingProfile = 'operator',
   ) {
   }
   // #endregion

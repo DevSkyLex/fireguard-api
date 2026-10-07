@@ -1,4 +1,11 @@
 services:
+  Inspection\Infrastructure\Adapter\ServiceRequest\ServiceRequestOriginAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  ServiceRequest\Application\Port\Outbound\ServiceRequestOriginPort:
+    alias: Inspection\Infrastructure\Adapter\ServiceRequest\ServiceRequestOriginAdapter
+
   Inspection\Infrastructure\Adapter\Maintenance\InspectionMaintenanceHistoryAdapter:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
@@ -29,6 +36,25 @@ services:
   # none since the mutations moved to Application\UseCase\Command\Response.
   # InspectionResponseProvider names no entity manager either: both of its
   # reads went to Application\UseCase\Query\Response\.
+
+  # Repositories
+  Inspection\Infrastructure\Adapter\Equipment\EquipmentInspectionSummaryAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Inspection\Application\Port\Outbound\EquipmentInspectionSummaryPort:
+    alias: Inspection\Infrastructure\Adapter\Equipment\EquipmentInspectionSummaryAdapter
+
+  Inspection\Application\UseCase\Query\Equipment\GetEquipmentInspectionSummary\GetEquipmentInspectionSummaryHandler:
+    tags: ['messenger.message_handler']
+
+  # Repositories
+  Inspection\Infrastructure\Adapter\Intervention\InterventionInspectionResultAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Outbound\InterventionInspectionResultPort:
+    alias: Inspection\Infrastructure\Adapter\Intervention\InterventionInspectionResultAdapter
 
   # Repositories
   Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository:
@@ -380,3 +406,16 @@ services:
   Inspection\Infrastructure\Adapter\Checklist\ChecklistLockAdapter:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
+
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\ParkAnomalyRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Application\Port\Outbound\ParkAnomalyGatewayPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\ParkAnomalyRepository
+
+  Inspection\Application\UseCase\Query\Park\ListParkAnomalies\ListParkAnomaliesHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Park\GetParkAnomaliesSummary\GetParkAnomaliesSummaryHandler:
+    tags: ['messenger.message_handler']

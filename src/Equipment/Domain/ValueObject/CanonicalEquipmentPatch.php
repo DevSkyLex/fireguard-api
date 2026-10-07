@@ -53,6 +53,7 @@ final readonly class CanonicalEquipmentPatch
    * @param ?string $locationLabel the requested location label
    * @param bool $hasFacility whether the `facility` key was present
    * @param ?string $facilityId the resolved facility identifier, null detaching it
+   * @param list<array{key: string, value: string, unit: ?string}> $technicalProperties descriptive properties
    */
   public function __construct(
     public bool $hasType = false,
@@ -71,6 +72,14 @@ final readonly class CanonicalEquipmentPatch
     public ?string $locationLabel = null,
     public bool $hasFacility = false,
     public ?string $facilityId = null,
+    public bool $hasName = false,
+    public ?string $name = null,
+    public bool $hasAssetCode = false,
+    public ?string $assetCode = null,
+    public bool $hasCriticality = false,
+    public ?string $criticality = null,
+    public bool $hasTechnicalProperties = false,
+    public array $technicalProperties = [],
   ) {
   }
   // #endregion

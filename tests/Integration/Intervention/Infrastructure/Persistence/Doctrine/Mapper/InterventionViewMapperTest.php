@@ -12,7 +12,7 @@ use Intervention\Application\Contract\Resource\{
   InterventionValidationContext,
   InterventionWorkItemSummary
 };
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\{InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
@@ -114,7 +114,7 @@ final class InterventionViewMapperTest extends KernelTestCase
     $this->mapper = new InterventionViewMapper(
       $this->entityManager,
       $resources,
-      new InterventionIssueFinder($resources, new InterventionAttachmentRepository($this->entityManager)),
+      new InterventionIssueFinder($resources, new InterventionAttachmentRepository($this->entityManager), $this->createStub(InterventionPublicationResourcesIssuesPort::class)),
     );
 
     $this->seed();

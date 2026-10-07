@@ -76,8 +76,17 @@ final readonly class FacilityEquipmentSummaryProvider implements ProviderInterfa
       throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
     }
     $includeDescendants = $this->requests->getCurrentRequest()?->query->getBoolean('includeDescendants', true) ?? true;
+    $query = $this->requests->getCurrentRequest()?->query;
+    $family = $query?->get('family');
+    $customerId = $query?->get('customerId');
     /** @var GetFacilityEquipmentSummaryResult $result */
-    $result = $this->queries->ask(new GetFacilityEquipmentSummaryQuery($organizationId, $facilityId, $includeDescendants));
+    $result = $this->queries->ask(new GetFacilityEquipmentSummaryQuery(
+      $organizationId,
+      $facilityId,
+      $includeDescendants,
+      is_string($family) && '' !== $family ? $family : null,
+      is_string($customerId) && '' !== $customerId ? $customerId : null,
+    ));
     $output = new FacilityEquipmentSummaryOutput();
     $output->scope = $result->scope;
     $output->totalItems = $result->totalItems;

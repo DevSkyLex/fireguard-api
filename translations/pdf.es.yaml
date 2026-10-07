@@ -47,12 +47,22 @@ compliance:
 
 intervention:
   title: "Informe de intervención — FG-%number%"
+  reportMode:
+    snapshot: "Expediente validado — conservado en la publicación"
+    live: "Expediente provisional — pendiente de validación"
+    legacy_live: "Informe histórico — sin instantánea conservada en la publicación"
+  result:
+    outcome:
+      successful: "Correcta"
+      failed: "Fallida"
+      performed: "Realizada"
   meta:
     name: "Nombre"
     type: "Tipo"
     status: "Estado"
     priority: "Prioridad"
     site: "Sitio"
+    customer: "Cliente"
     responsible: "Responsable"
     participants: "Participantes"
     plannedStart: "Inicio previsto"
@@ -158,6 +168,9 @@ nonConformities:
 equipment:
   title: "Ficha de equipo"
   meta:
+    name: "Nombre del equipo"
+    assetCode: "Referencia patrimonial"
+    criticality: "Criticidad declarada"
     type: "Tipo"
     brand: "Marca"
     model: "Modelo"
@@ -168,6 +181,8 @@ equipment:
     installedAt: "Instalado el"
     commissionedAt: "Puesto en servicio el"
     maintenanceDueStatus: "Estado de vencimiento de mantenimiento"
+    controlDueStatus: "Plazo de inspección"
+    serviceDueStatus: "Plazo de mantenimiento"
     tags: "Etiquetas"
   maintenance:
     heading: "Historial de mantenimiento"
@@ -178,6 +193,23 @@ equipment:
     intervention: "Intervención"
     action: "Acción"
     summary: "Resumen"
+    performedAt: "Realizado el"
+    notes: "Trabajos realizados"
+  criticality:
+    low: "Baja"
+    medium: "Media"
+    high: "Alta"
+    critical: "Crítica"
+  characteristics:
+    heading: "Características declaradas"
+    key: "Característica"
+    value: "Valor"
+    unit: "Unidad"
+  replacement:
+    heading: "Historial de sustituciones"
+    predecessor: "Equipo sustituido"
+    successor: "Equipo sucesor"
+  trackingNote: "El estado operativo, los plazos de inspección y las anomalías abiertas son independientes. Una inspección al día no significa que no existan defectos. El seguimiento configurado no constituye una certificación reglamentaria automática."
   attachments:
     heading: "Adjuntos"
     empty: "Sin adjuntos."
@@ -208,6 +240,8 @@ status:
     site_setup: "Configuración del sitio"
     inventory: "Inventario"
     inspection_campaign: "Campaña de inspección"
+    preventive_maintenance: "Mantenimiento preventivo"
+    corrective_maintenance: "Mantenimiento correctivo"
   workItem:
     planned: "Planificado"
     in_progress: "En curso"

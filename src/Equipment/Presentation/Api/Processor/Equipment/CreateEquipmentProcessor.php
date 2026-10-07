@@ -188,6 +188,10 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
         model: $data->model,
         serialNumber: $data->serialNumber,
         locationLabel: $data->locationLabel,
+        name: $data->name,
+        assetCode: $data->assetCode,
+        criticality: $data->criticality,
+        technicalProperties: $data->technicalProperties,
         resourceId: $resourceId,
       ));
     } catch (EquipmentSerialNumberAlreadyExistsException $exception) {

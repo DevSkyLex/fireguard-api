@@ -1,0 +1,83 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  MaintenanceCost\Presentation\:
+    resource: '../../src/MaintenanceCost/Presentation'
+
+  MaintenanceCost\Application\Service\:
+    resource: '../../src/MaintenanceCost/Application/Service'
+
+  MaintenanceCost\Domain\Service\:
+    resource: '../../src/MaintenanceCost/Domain/Service'
+
+  MaintenanceCost\Infrastructure\Persistence\Doctrine\Repository\MaintenanceCostRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  MaintenanceCost\Application\Port\Outbound\MaintenanceCostStorePort:
+    alias: MaintenanceCost\Infrastructure\Persistence\Doctrine\Repository\MaintenanceCostRepository
+
+  MaintenanceCost\Infrastructure\Adapter\Publication\MaintenanceCostPublicationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  MaintenanceCost\Application\Port\Inbound\MaintenanceCostPublicationPort:
+    alias: MaintenanceCost\Infrastructure\Adapter\Publication\MaintenanceCostPublicationAdapter
+
+  MaintenanceCost\Infrastructure\Adapter\Reporting\MaintenanceCostReadAdapter: ~
+
+  MaintenanceCost\Application\Port\Inbound\MaintenanceCostReadPort:
+    alias: MaintenanceCost\Infrastructure\Adapter\Reporting\MaintenanceCostReadAdapter
+
+  maintenance_cost.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  MaintenanceCost\Application\UseCase\Query\Cost\GetMaintenanceCost\GetMaintenanceCostHandler:
+    tags: ['messenger.message_handler']
+
+  MaintenanceCost\Application\UseCase\Query\Reporting\ReadMaintenanceEconomicReport\ReadMaintenanceEconomicReportHandler:
+    tags: ['messenger.message_handler']
+
+  MaintenanceCost\Application\UseCase\Query\Reporting\ListMaintenanceEconomicDossiers\ListMaintenanceEconomicDossiersHandler:
+    tags: ['messenger.message_handler']
+
+  MaintenanceCost\Application\UseCase\Command\Cost\WriteMaintenanceCost\WriteMaintenanceCostHandler:
+    arguments:
+      $transactions: '@maintenance_cost.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  MaintenanceCost\Infrastructure\Adapter\Currency\MaintenanceCurrencyAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  MaintenanceCost\Application\Port\Inbound\MaintenanceCurrencyPort:
+    alias: MaintenanceCost\Infrastructure\Adapter\Currency\MaintenanceCurrencyAdapter
+
+  MaintenanceCost\Application\Port\Outbound\Currency\MaintenanceCurrencyStorePort:
+    alias: MaintenanceCost\Infrastructure\Adapter\Currency\MaintenanceCurrencyAdapter
+
+  MaintenanceCost\Infrastructure\Adapter\Rate\MaintenanceRateAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  MaintenanceCost\Application\Port\Inbound\MaintenanceRatePort:
+    alias: MaintenanceCost\Infrastructure\Adapter\Rate\MaintenanceRateAdapter
+
+  MaintenanceCost\Application\Port\Outbound\Rate\MaintenanceRateStorePort:
+    alias: MaintenanceCost\Infrastructure\Adapter\Rate\MaintenanceRateAdapter
+
+  MaintenanceCost\Application\UseCase\Command\Currency\ConfigureMaintenanceCurrency\ConfigureMaintenanceCurrencyHandler:
+    tags: ['messenger.message_handler']
+
+  MaintenanceCost\Application\UseCase\Query\Currency\ReadMaintenanceCurrency\ReadMaintenanceCurrencyHandler:
+    tags: ['messenger.message_handler']
+
+  MaintenanceCost\Application\UseCase\Command\Rate\CreateMaintenanceRate\CreateMaintenanceRateHandler:
+    tags: ['messenger.message_handler']
+
+  MaintenanceCost\Application\UseCase\Query\Rate\ListMaintenanceRates\ListMaintenanceRatesHandler:
+    tags: ['messenger.message_handler']

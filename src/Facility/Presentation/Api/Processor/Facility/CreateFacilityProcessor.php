@@ -161,6 +161,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
         levelIndex: $data->levelIndex,
         elevationMeters: $data->elevationMeters,
         heightMeters: $data->heightMeters,
+        customerId: $data->customerId,
       ));
     } catch (FacilityCodeAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
@@ -189,6 +190,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->levelIndex = $result->levelIndex;
     $output->elevationMeters = $result->elevationMeters;
     $output->heightMeters = $result->heightMeters;
+    $output->customerId = $result->customerId;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
     $assignment = $result->replayed

@@ -72,6 +72,7 @@ final readonly class CreateOrganizationProcessor implements ProcessorInterface
     $result = $this->commandBus->dispatch(new CreateOrganizationCommand(
       setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
       name: $data->name,
+      operatingProfile: $data->operatingProfile,
       ownerUserId: $user->getId(),
       slug: $data->slug,
     ));
@@ -79,6 +80,7 @@ final readonly class CreateOrganizationProcessor implements ProcessorInterface
     $output = new OrganizationOutput();
     $output->id = $result->organizationId;
     $output->name = $result->name;
+    $output->operatingProfile = $result->operatingProfile;
     $output->slug = $result->slug;
     $output->ownerUserId = $result->ownerUserId;
     $output->createdByUserId = $result->createdByUserId;

@@ -11,6 +11,9 @@ use Equipment\Domain\ValueObject\EquipmentId;
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\CanonicalEquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 
+use function str_contains;
+use function strtolower;
+
 /**
  * Repository CanonicalEquipmentRepository.
  *
@@ -74,7 +77,16 @@ final readonly class CanonicalEquipmentRepository implements CanonicalEquipmentR
     }
 
     CanonicalEquipmentMapper::applyTo($equipment, $record);
-    $this->entityManager->flush();
+
+    try {
+      $this->entityManager->flush();
+    } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $error) {
+      if (str_contains(strtolower($error->getMessage()), 'uniq_equipment_organization_asset_code')) {
+        throw \Equipment\Domain\Exception\EquipmentAssetCodeAlreadyExistsException::withAssetCode($equipment->identity()->assetCode ?? '');
+      }
+
+      throw $error;
+    }
   }
 
   /**

@@ -62,6 +62,7 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
     int $maxDepth = 8,
     private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
     ?\Facility\Application\Service\FacilityHierarchyPublicationContext $publicationContext = null,
+    private ?\Facility\Application\Port\Outbound\FacilityCustomerValidationPort $customers = null,
   ) {
     $this->patchApplier = new FacilityInterventionPatchApplier(
       $entityManager,
@@ -73,6 +74,7 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       $maxDepth,
       $hierarchy,
       $publicationContext,
+      $customers,
     );
   }
 
@@ -303,6 +305,10 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       'recordStatus' => 'draft',
     ]);
     foreach ($records as $record) {
+      \Facility\Domain\ValueObject\FacilityCustomerReference::assertValid($record->customerId, \Facility\Domain\ValueObject\FacilityType::from($record->type), $record->parentFacility?->id);
+      if (null !== $record->customerId) {
+        ($this->customers ?? throw new \Facility\Application\Contract\FacilityCustomerUnavailable())->assertAssignable($record->customerId, $record->organizationId());
+      }
       $record->recordStatus = 'published';
       $record->updatedAt = new DateTimeImmutable();
     }

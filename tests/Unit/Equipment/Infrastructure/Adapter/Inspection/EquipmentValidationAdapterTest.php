@@ -33,6 +33,46 @@ final class EquipmentValidationAdapterTest extends TestCase
 
   // #region Methods
   #[Test]
+  public function publishedLookupPreservesRetiredHistoryWithoutUsingTheDraftLookup(): void
+  {
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('findById');
+    $repository->expects(self::once())->method('findPublishedById')->with(EquipmentId::fromString(self::EQUIP_ID))->willReturn($this->equipment(EquipmentStatus::DECOMMISSIONED, null));
+    new EquipmentValidationAdapter($repository)->assertPublishedEquipmentExists(self::EQUIP_ID, self::ORG_ID);
+  }
+
+  #[Test]
+  public function draftAndMissingPublishedEquipmentShareTheSameRefusal(): void
+  {
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('findById');
+    $repository->expects(self::once())->method('findPublishedById')->willReturn(null);
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('not found');
+    new EquipmentValidationAdapter($repository)->assertPublishedEquipmentExists(self::EQUIP_ID, self::ORG_ID);
+  }
+
+  #[Test]
+  public function publishedForeignEquipmentIsHidden(): void
+  {
+    $repository = $this->createStub(EquipmentRepositoryPort::class);
+    $repository->method('findPublishedById')->willReturn($this->equipment(EquipmentStatus::OPERATIONAL, self::FACILITY_ID));
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('not found');
+    new EquipmentValidationAdapter($repository)->assertPublishedEquipmentExists(self::EQUIP_ID, '550e8400-e29b-41d4-a716-446655440099');
+  }
+
+  #[Test]
+  public function malformedPublishedIdentityIsHiddenWithoutPersistenceLookup(): void
+  {
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('findPublishedById');
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('not found');
+    new EquipmentValidationAdapter($repository)->assertPublishedEquipmentExists('unknown', self::ORG_ID);
+  }
+
+  #[Test]
   public function testAssertEquipmentIsInspectablePassesForOperationalEquipmentAtMatchingFacility(): void
   {
     $adapter = new EquipmentValidationAdapter($this->repositoryReturning(

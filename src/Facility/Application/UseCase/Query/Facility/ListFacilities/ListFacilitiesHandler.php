@@ -48,6 +48,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,
     private FacilityHierarchyPort $hierarchy,
+    private ?\Customer\Application\Port\Inbound\CustomerLookupPort $customers = null,
   ) {
   }
   // #endregion
@@ -66,6 +67,9 @@ final readonly class ListFacilitiesHandler implements QueryHandler
    */
   public function __invoke(ListFacilitiesQuery $query): PaginatedResult
   {
+    if (null !== $query->customerId && null === $this->customers?->find($query->customerId, $query->organizationId)) {
+      throw new \Facility\Domain\Exception\FacilityCustomerScopeNotFoundException();
+    }
     [$organizationId, $criteria] = $this->criteria($query);
 
     $facilities = $this->facilityRepository->findByOrganizationId(
@@ -161,6 +165,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       eligibleParentIds: $eligibleParentIds,
       parentInterventionId: $interventionId,
       includePublishedParents: $query->includePublishedParents,
+      customerId: $query->customerId,
     );
 
     return [$organizationId, $criteria];
@@ -295,6 +300,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       levelIndex: $facility->levelIndex(),
       elevationMeters: $facility->elevationMeters(),
       heightMeters: $facility->heightMeters(),
+      customerId: $facility->customerId(),
       recordStatus: $projectionContexts[(string) $facility->id()]['recordStatus'] ?? 'published',
       interventionId: $projectionContexts[(string) $facility->id()]['interventionId'] ?? null,
       revision: $projectionContexts[(string) $facility->id()]['revision'] ?? 1,

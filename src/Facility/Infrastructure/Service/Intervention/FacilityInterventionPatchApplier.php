@@ -47,7 +47,7 @@ final readonly class FacilityInterventionPatchApplier
    *
    * @var list<string>
    */
-  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude', 'planGeometry', 'elevationMeters', 'heightMeters'];
+  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'customerId', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude', 'planGeometry', 'elevationMeters', 'heightMeters'];
 
   /**
    * Constant STATUSES.
@@ -101,6 +101,7 @@ final readonly class FacilityInterventionPatchApplier
     private int $maxDepth,
     private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
     private ?\Facility\Application\Service\FacilityHierarchyPublicationContext $publicationContext = null,
+    private ?\Facility\Application\Port\Outbound\FacilityCustomerValidationPort $customers = null,
   ) {
   }
   // #endregion
@@ -138,6 +139,7 @@ final readonly class FacilityInterventionPatchApplier
     $this->applyPlanGeometry($record, $patch);
     $this->applyStatus($record, $patch);
     $this->applyParent($organizationId, $record, $patch);
+    $this->applyCustomer($organizationId, $record, $patch);
 
     // Restoring (archived -> active) is refused while the parent is archived,
     // mirroring the RestoreFacility use case and the canonical mutation processor.
@@ -570,6 +572,22 @@ final readonly class FacilityInterventionPatchApplier
     if ([] !== $unknown) {
       throw new FacilityPatchConflictException(sprintf('Unsupported facility patch fields: %s.', implode(', ', $unknown)));
     }
+  }
+
+  /**
+   * @param array<string,mixed> $patch
+   */
+  private function applyCustomer(string $organizationId, FacilityRecord $record, array $patch): void
+  {
+    $customerId = array_key_exists('customerId', $patch) ? $patch['customerId'] : $record->customerId;
+    if (null !== $customerId && !is_string($customerId)) {
+      throw new FacilityPatchConflictException('Customer identifier must be a string or null.');
+    }
+    \Facility\Domain\ValueObject\FacilityCustomerReference::assertValid($customerId, FacilityType::from($record->type), $record->parentFacility?->id);
+    if (null !== $customerId && $customerId !== $record->customerId) {
+      ($this->customers ?? throw new \Facility\Application\Contract\FacilityCustomerUnavailable())->assertAssignable($customerId, $organizationId);
+    }
+    $record->customerId = $customerId;
   }
   // #endregion
 }

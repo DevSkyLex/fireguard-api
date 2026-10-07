@@ -77,6 +77,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'family' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'family', in: 'query', schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']])),
+        'customerId' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string', 'format' => 'uuid'], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'customerId', in: 'query', schema: ['type' => 'string', 'format' => 'uuid'])),
         'includeDescendants' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
           description: 'Include equipment assigned to published descendants of the facility filter.',
@@ -176,7 +178,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
         ),
         'maintenanceDueStatus' => new \ApiPlatform\Metadata\QueryParameter(
-          schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+          schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue', 'due']],
           description: self::MAINTENANCE_DUE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
@@ -187,7 +189,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             in: 'query',
             required: false,
             description: self::MAINTENANCE_DUE_FILTER_DESCRIPTION,
-            schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+            schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue', 'due']],
           ),
         ),
       ],
@@ -216,6 +218,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: self::SECURITY_ROLE_USER,
       parameters: [
+        'family' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'family', in: 'query', schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']])),
+        'customerId' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string', 'format' => 'uuid'], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'customerId', in: 'query', schema: ['type' => 'string', 'format' => 'uuid'])),
         'includeDescendants' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
           description: 'Include equipment assigned to published descendants of this facility.',
@@ -300,7 +304,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
         ),
         'maintenanceDueStatus' => new \ApiPlatform\Metadata\QueryParameter(
-          schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+          schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue', 'due']],
           description: self::MAINTENANCE_DUE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
@@ -311,7 +315,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             in: 'query',
             required: false,
             description: self::MAINTENANCE_DUE_FILTER_DESCRIPTION,
-            schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+            schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue', 'due']],
           ),
         ),
       ],
@@ -575,6 +579,6 @@ final class EquipmentResource
   /**
    * Constant MAINTENANCE_DUE_FILTER_DESCRIPTION
    */
-  private const string MAINTENANCE_DUE_FILTER_DESCRIPTION = 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).';
+  private const string MAINTENANCE_DUE_FILTER_DESCRIPTION = 'Filter by maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`); `due` combines due-soon and overdue before pagination.';
   // #endregion
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Equipment\Presentation\Api\Dto\Input\Equipment;
 
 use ApiPlatform\Metadata\ApiProperty;
-use Equipment\Domain\ValueObject\EquipmentType;
 use Equipment\Presentation\Api\Serialization\EquipmentSerializationGroup;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -21,6 +20,36 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[Assert\Expression('this.onboardingSessionId === null or (this.intervention === null and this.clientId === null)', message: 'Onboarding setup cannot target an intervention or offline resource.')]
 final class CreateEquipmentInput
 {
+  /**
+   * @since 1.1.0
+   */
+  #[Assert\Length(max: 255)]
+  #[Groups([EquipmentSerializationGroup::WRITE])]
+  public ?string $name = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[Assert\Length(max: 100)]
+  #[Groups([EquipmentSerializationGroup::WRITE])]
+  public ?string $assetCode = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[Assert\Choice(choices: ['low', 'medium', 'high', 'critical'])]
+  #[Groups([EquipmentSerializationGroup::WRITE])]
+  public ?string $criticality = null;
+
+  /**
+   * @since 1.1.0
+   *
+   * @var list<array{key: string, value: string, unit: ?string}>
+   */
+  #[Assert\Count(max: 50)]
+  #[Groups([EquipmentSerializationGroup::WRITE])]
+  public array $technicalProperties = [];
+
   /**
    * Property clientId.
    *
@@ -82,7 +111,7 @@ final class CreateEquipmentInput
    * @since 1.0.0
    */
   #[Assert\NotBlank(message: 'Equipment type is required.')]
-  #[Assert\Choice(callback: [EquipmentType::class, 'values'])]
+  #[Assert\Length(max: 32)]
   #[Groups([EquipmentSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Equipment type', required: true, example: 'fire_extinguisher')]
   public string $type = '';

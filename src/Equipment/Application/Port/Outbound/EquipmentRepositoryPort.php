@@ -20,6 +20,15 @@ use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
  */
 interface EquipmentRepositoryPort
 {
+  /**
+   * @since 1.1.0
+   *
+   * @param list<string> $equipmentIds candidate identifiers
+   *
+   * @return list<string>
+   */
+  public function findPublishedIdsMatching(EquipmentOrganizationId $organizationId, EquipmentListCriteria $criteria, array $equipmentIds): array;
+
   // #region Methods
   /**
    * Method save.

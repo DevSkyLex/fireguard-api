@@ -20,7 +20,10 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
+use function array_key_exists;
+use function is_array;
 use function is_string;
+use function json_decode;
 
 /**
  * Processor UpdateEquipmentProcessor.
@@ -56,6 +59,7 @@ final readonly class UpdateEquipmentProcessor implements ProcessorInterface
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private EquipmentDetailOutputFactory $outputFactory,
+    private ?\Symfony\Component\HttpFoundation\RequestStack $requests = null,
   ) {
   }
   // #endregion
@@ -100,6 +104,9 @@ final readonly class UpdateEquipmentProcessor implements ProcessorInterface
     }
 
     try {
+      $body = $this->requests?->getCurrentRequest()?->getContent();
+      $decoded = null !== $body && '' !== $body ? json_decode($body, true) : [];
+      $fields = is_array($decoded) ? $decoded : [];
       /** @var UpdateEquipmentResult $result */
       $result = $this->commandBus->dispatch(new UpdateEquipmentCommand(
         organizationId: $organizationId,
@@ -110,6 +117,14 @@ final readonly class UpdateEquipmentProcessor implements ProcessorInterface
         model: $data->model,
         serialNumber: $data->serialNumber,
         locationLabel: $data->locationLabel,
+        name: $data->name,
+        assetCode: $data->assetCode,
+        criticality: $data->criticality,
+        technicalProperties: $data->technicalProperties,
+        hasName: array_key_exists('name', $fields) || null !== $data->name,
+        hasAssetCode: array_key_exists('assetCode', $fields) || null !== $data->assetCode,
+        hasCriticality: array_key_exists('criticality', $fields) || null !== $data->criticality,
+        hasTechnicalProperties: array_key_exists('technicalProperties', $fields) || [] !== $data->technicalProperties,
       ));
     } catch (EquipmentNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);

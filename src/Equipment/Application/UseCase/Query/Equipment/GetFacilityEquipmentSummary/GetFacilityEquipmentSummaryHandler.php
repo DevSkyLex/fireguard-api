@@ -31,7 +31,7 @@ final readonly class GetFacilityEquipmentSummaryHandler implements QueryHandler
    * @param EquipmentRepositoryPort $equipment aggregates the same predicates as the published collection
    * @param FacilitySubtreeScopePort $facilities resolves organization-scoped published facility identifiers
    */
-  public function __construct(private EquipmentRepositoryPort $equipment, private FacilitySubtreeScopePort $facilities)
+  public function __construct(private EquipmentRepositoryPort $equipment, private FacilitySubtreeScopePort $facilities, private ?\Equipment\Application\Service\EquipmentSelectionScopeResolver $selectionScopes = null)
   {
   }
   // #endregion
@@ -57,7 +57,8 @@ final readonly class GetFacilityEquipmentSummaryHandler implements QueryHandler
 
     $counts = $this->equipment->countByStatusForCriteria($organizationId, new EquipmentListCriteria(
       facilityId: $query->includeDescendants ? null : (string) $facilityId,
-      facilityIds: $query->includeDescendants ? $facilityIds : null,
+      facilityIds: $this->selectionScopes?->customerFacilities($query->organizationId, $query->customerId, $query->includeDescendants ? $facilityIds : null) ?? ($query->includeDescendants ? $facilityIds : null),
+      typeCodes: $this->selectionScopes?->typesForFamily($query->organizationId, $query->family),
     ));
     $byStatus = [
       'in_stock' => $counts['in_stock'] ?? 0,

@@ -19,6 +19,44 @@ use Symfony\Component\Serializer\Attribute\Groups;
 final class EquipmentOutput
 {
   /**
+   * @since 1.1.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public ?string $name = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public ?string $assetCode = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public ?string $criticality = null;
+
+  /**
+   * @since 1.1.0
+   *
+   * @var list<array{key: string, value: string, unit: ?string}>
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public array $technicalProperties = [];
+
+  /**
+   * @since 1.1.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public ?string $predecessorEquipmentId = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public ?string $successorEquipmentId = null;
+
+  /**
    * Property intervention.
    *
    * @since 1.0.0
@@ -179,17 +217,45 @@ final class EquipmentOutput
   /**
    * Property maintenanceDueStatus.
    *
-   * Resolved cross-module from the Maintenance module
-   * (`unscheduled`|`up_to_date`|`due_soon`|`overdue`); `unscheduled` when the
-   * equipment has no maintenance schedule. There is no per-equipment
-   * equivalent of a mockup "non-conformity" state: non-conformities attach
-   * to inspections, not to equipment (see `src/Equipment/MODULE.md`).
+   * Compatibility alias of controlDueStatus, independent from service deadlines and operational condition.
    *
    * @since 1.0.0
    */
   #[Groups([EquipmentSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $maintenanceDueStatus = 'unscheduled';
+
+  /**
+   * Property controlDueStatus
+   *
+   * Control operation status: unscheduled, up_to_date, due_soon or overdue.
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Due status of control operations, independent from service operations and anomalies.')]
+  public string $controlDueStatus = 'unscheduled';
+
+  /**
+   * Property serviceDueStatus
+   *
+   * Service operation status: unscheduled, up_to_date, due_soon or overdue.
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Due status of service operations, independent from periodic controls.')]
+  public string $serviceDueStatus = 'unscheduled';
+
+  /**
+   * Property controlNextDueAt
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Next control deadline in ISO 8601, when scheduled.')]
+  public ?string $controlNextDueAt = null;
+
+  /**
+   * Property serviceNextDueAt
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Next service deadline in ISO 8601, when scheduled.')]
+  public ?string $serviceNextDueAt = null;
 
   /**
    * Property planPosition.

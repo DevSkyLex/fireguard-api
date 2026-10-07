@@ -112,6 +112,9 @@ final readonly class InterventionWorkItemProcessor implements ProcessorInterface
         'workloadConfirmationToken' => $data->workloadConfirmationToken,
         'workStartsOn' => $data->workStartsOn,
         'workEndsOn' => $data->workEndsOn,
+        'operationId' => $data->operationId,
+        'occurrenceId' => $data->occurrenceId,
+        'operationKind' => $data->operationKind,
       ];
     } elseif ($data instanceof UpdateInterventionWorkItemInput) {
       $payload = $this->updatePayload($data);
@@ -148,7 +151,7 @@ final readonly class InterventionWorkItemProcessor implements ProcessorInterface
   {
     $fields = $this->mergePatchFields->all();
     $payload = [];
-    foreach (['resultResource', 'status', 'skipReason', 'estimatedMinutes', 'remainingMinutes', 'workStartsOn', 'workEndsOn', 'workloadConfirmationToken'] as $field) {
+    foreach (['resultResource', 'status', 'skipReason', 'estimatedMinutes', 'remainingMinutes', 'workStartsOn', 'workEndsOn', 'workloadConfirmationToken', 'executionResult'] as $field) {
       if (array_key_exists($field, $fields)) {
         $payload[$field] = $input->{$field};
       }

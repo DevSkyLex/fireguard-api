@@ -14,6 +14,7 @@ use Intervention\Domain\Exception\{InterventionConflictException, InterventionNo
 use Intervention\Domain\Service\{InterventionChangePolicy, PublicationTransitionPolicy};
 use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionStatus, PublicationStatus};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, PublicationRecord};
+use MaintenanceCost\Application\Port\Inbound\MaintenanceCostPublicationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_filter;
@@ -42,6 +43,9 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
    * @param InterventionDraftPublisher $draftPublisher the draft publisher value
    * @param PublicationTransitionPolicy $transitionPolicy the publication status transition policy value
    * @param InterventionChangePolicy $changePolicy the intervention change status policy value
+   * @param InterventionOperationPublicationAdapter $operations validates execution facts and acknowledges their source in the same transaction
+   * @param InterventionClosureSnapshotAdapter $snapshots captures the immutable closure dossier
+   * @param ?InterventionPublicationValidation $validation validates the final published resource graph
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -49,6 +53,9 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
     private InterventionDraftPublisher $draftPublisher,
     private PublicationTransitionPolicy $transitionPolicy,
     private InterventionChangePolicy $changePolicy,
+    private InterventionOperationPublicationAdapter $operations,
+    private InterventionClosureSnapshotAdapter $snapshots,
+    private MaintenanceCostPublicationPort $costs,
     private ?InterventionPublicationValidation $validation = null,
   ) {
   }
@@ -237,6 +244,13 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
         // completed this publication — no transition, no notification.
         return false;
       }
+      // Stock declarations acquire this resources fence before their work
+      // lock. Publication uses the same order to avoid a lock inversion.
+      $sourceOrganization = $publication->intervention->organization;
+      if (!$sourceOrganization instanceof OrganizationRecord) {
+        throw new InterventionConflictException('Intervention organization is unavailable.');
+      }
+      $this->costs->assertReadyToPublish($sourceOrganization->id, $publication->intervention->id);
       $intervention = $this->entityManager->find(InterventionRecord::class, $publication->intervention->id, LockMode::PESSIMISTIC_WRITE);
       // @codeCoverageIgnoreStart
       // Unreachable: line 220 already dereferences $publication->intervention,
@@ -256,13 +270,19 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
         throw new InterventionConflictException('Intervention organization is unavailable.');
       }
 
-      $this->applyPublicationResources($intervention, $intervention->organization->id);
+      $organizationId = $intervention->organization->id;
+      $this->applyPublicationResources($intervention, $organizationId);
+      $this->operations->publish($intervention, $organizationId);
+      $this->entityManager->flush();
+      $this->costs->freeze($organizationId, $intervention->id, $publication->id, $intervention->revision);
+      $publishedAt = new DateTimeImmutable();
+      $intervention->closureSnapshot = $this->snapshots->capture($intervention, $organizationId, $publication->id, $publishedAt);
       $intervention->status = InterventionStatus::PUBLISHED->value;
       ++$intervention->revision;
       $intervention->updatedAt = new DateTimeImmutable();
       $this->transitionPolicy->assertAllowed($currentPublicationStatus, PublicationStatus::COMPLETED);
       $publication->status = PublicationStatus::COMPLETED->value;
-      $publication->completedAt = new DateTimeImmutable();
+      $publication->completedAt = $publishedAt;
       $this->entityManager->flush();
 
       return true;

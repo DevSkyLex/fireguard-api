@@ -49,7 +49,7 @@ final class CreateInterventionTemplateInput
    *
    * @since 1.0.0
    */
-  #[Assert\Choice(choices: ['site_setup', 'inventory', 'inspection_campaign'])]
+  #[Assert\Choice(choices: ['site_setup', 'inventory', 'inspection_campaign', 'preventive_maintenance', 'corrective_maintenance'])]
   public string $type = 'site_setup';
 
   /**

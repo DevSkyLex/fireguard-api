@@ -4,6 +4,29 @@
 
 ## Overview
 
+### Equipment dossier and operation proof
+
+`GET /api/organizations/{organizationId}/equipment/{equipmentId}/inspection-summary`
+requires both `organization.inspection.read` and `organization.equipment.read`.
+It returns published inspection-owned facts for one published equipment: open and
+in-progress findings, severity counts, and the most recent closed published
+inspection's identifier, actual execution instant and result. Operational equipment
+state, preventive deadlines and open findings remain independent. A passed control
+never implicitly resolves another finding. No closed control is represented by
+explicit null inspection fields, rather than a fabricated pass result.
+
+Unknown, foreign and private draft equipment are indistinguishable (404); missing
+either read permission returns 403 before reading inspection facts. Counts and last
+control exclude intervention-draft inspections and are restricted to the requested
+organization/equipment. Actual execution date determines the latest control,
+with identifier as a deterministic tie-breaker.
+
+`InterventionInspectionResultPort` exposes recorded inspection proof only when both
+organization and intervention identifiers match. It preserves the real equipment,
+result, lifecycle status, execution instant, inspector account and notes. Intervention
+publication decides validity using that owner-published fact; it does not fabricate
+an inspection result from a planned task.
+
 Recording a non-conformity commits its row and domain event in the same main
 transaction. The durable event subsequently drives audit, webhook and automation
 consumers. A queue write failure rolls back creation; subscriber failures retry
@@ -28,6 +51,41 @@ Removed 2026-08-20: `GET /api/inspections/results`, `GET /api/inspections/status
 localized typed registries are the source of these values).
 
 ### Inspections
+
+The organization and facility collections accept `family` (`fire`, `safety`, `other`),
+`customerId` and `includeDescendants` (default false for legacy direct reads).
+Parc scopes resolve published equipment identifiers through the Equipment public
+scope port before the shared inspection list/count predicate is executed. A subtree
+read follows current equipment assignment and retains each inspection's original
+facility in its output. Explicit family/customer/subtree scopes require both
+inspection and equipment read permissions; hidden organizations and unknown or
+foreign explicit customer/facility scopes return 404, missing permission returns 403.
+
+### Parc anomaly queue
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/organizations/{organizationId}/park-anomalies-summary` | Counts published unresolved findings in the selected parc |
+| GET | `/api/organizations/{organizationId}/park-anomalies` | Paginates the exact same finding set |
+
+Both routes accept `family`, `customerId`, `facilityId` and `includeDescendants`
+(default true). A facility selects its published subtree unless `includeDescendants=false`
+restricts findings to equipment assigned directly to it. List, total and summary retain
+the same direct/subtree, customer and family scope. The API imposes no default family. They require
+`organization.inspection.read` and `organization.equipment.read`, distinguishing
+403 entitlement denial from 404 hidden scopes. Their Inspection-owned queries
+include only published inspections and findings `open` or `in_progress`. Equipment
+ownership and family/customer/subtree assignment are resolved by
+`EquipmentParkScopePort`, without joins to sibling persistence tables.
+
+The summary returns `openAnomalies` and zero-inclusive `bySeverity` buckets (`low`,
+`medium`, `high`, `critical`). The Hydra collection exposes the existing
+`NonConformityOutput`, with actual inspection/equipment identifiers and batched serial
+numbers. List, total and summary use identical predicates before pagination; the
+default sort is creation date descending with identifier tie-breaker. Permission
+denial never becomes a zero-count response.
+
+### Inspection endpoint reference
 
 | Method | Path                                                                    | Description                                                                                                                                                                       |
 | ------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -54,6 +54,9 @@ final readonly class ListInspectionsQuery implements QueryMessage
     public Pagination $pagination = new Pagination(),
     public ?string $search = null,
     public Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
+    public ?string $family = null,
+    public ?string $customerId = null,
+    public bool $includeDescendants = false,
   ) {
   }
   // #endregion

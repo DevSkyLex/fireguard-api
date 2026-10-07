@@ -1,0 +1,35 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  MaintenanceExport\Presentation\:
+    resource: '../../src/MaintenanceExport/Presentation'
+
+  MaintenanceExport\Infrastructure\Adapter\:
+    resource: '../../src/MaintenanceExport/Infrastructure/Adapter'
+
+  MaintenanceExport\Infrastructure\Adapter\Export\ExportIdentityValidationAdapter:
+    arguments:
+      $validators: !tagged_iterator maintenance_export.identity_validator
+
+  MaintenanceExport\Application\Port\Outbound\MaintenanceExportIdentityPort:
+    alias: MaintenanceExport\Infrastructure\Adapter\Export\ExportIdentityValidationAdapter
+
+  MaintenanceExport\Application\Port\Outbound\MaintenanceExportSourcePort:
+    alias: MaintenanceExport\Infrastructure\Adapter\Export\ExportSourceAdapter
+
+  MaintenanceExport\Infrastructure\Persistence\Doctrine\Repository\MaintenanceExportRepository:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  MaintenanceExport\Application\Port\Outbound\MaintenanceExportRepositoryPort:
+    alias: MaintenanceExport\Infrastructure\Persistence\Doctrine\Repository\MaintenanceExportRepository
+
+  MaintenanceExport\Application\UseCase\Command\ManageMaintenanceExport\ManageMaintenanceExportHandler:
+    arguments:
+      $events: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  MaintenanceExport\Application\UseCase\Query\ReadMaintenanceExport\ReadMaintenanceExportHandler:
+    tags: ['messenger.message_handler']

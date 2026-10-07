@@ -37,7 +37,7 @@ final class EquipmentOutputFactory
    * Method fromView.
    *
    * Maps a command or query result to the equipment output DTO. The
-   * query-only fields (`maintenanceDueStatus`, `planPosition`) keep their
+   * query-only fields (independent operation deadlines and planPosition) keep their
    * defaults on command results, which do not carry them.
    *
    * @since 1.0.0
@@ -59,6 +59,12 @@ final class EquipmentOutputFactory
     $output->model = $view->model;
     $output->serialNumber = $view->serialNumber;
     $output->locationLabel = $view->locationLabel;
+    $output->name = $view->name;
+    $output->assetCode = $view->assetCode;
+    $output->criticality = $view->criticality;
+    $output->technicalProperties = $view->technicalProperties;
+    $output->predecessorEquipmentId = $view->predecessorEquipmentId;
+    $output->successorEquipmentId = $view->successorEquipmentId;
     $output->facilityName = $view->facilityName;
     $output->status = $view->status;
     $output->installedAt = $view->installedAt;
@@ -68,7 +74,11 @@ final class EquipmentOutputFactory
     $output->updatedAt = $view->updatedAt->format('c');
 
     if ($view instanceof GetEquipmentResult) {
-      $output->maintenanceDueStatus = $view->maintenanceDueStatus;
+      $output->controlDueStatus = $view->controlDueStatus ?? $view->maintenanceDueStatus;
+      $output->maintenanceDueStatus = $output->controlDueStatus;
+      $output->serviceDueStatus = $view->serviceDueStatus;
+      $output->controlNextDueAt = $view->controlNextDueAt;
+      $output->serviceNextDueAt = $view->serviceNextDueAt;
       $output->planPosition = $view->planPosition;
     }
 

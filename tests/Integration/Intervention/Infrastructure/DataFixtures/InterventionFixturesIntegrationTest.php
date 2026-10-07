@@ -9,15 +9,18 @@ use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
+use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
 use Intervention\Infrastructure\DataFixtures\InterventionFixtures;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionAttachmentRecord, InterventionChangeRecord, InterventionLabelRecord, InterventionNumberCounterRecord, InterventionRecord, InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateItemRecord, InterventionTemplateRecord, InterventionWorkItemRecord, PublicationRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function count;
+use function sprintf;
 
 /**
  * Test InterventionFixturesIntegrationTest.
@@ -58,7 +61,7 @@ final class InterventionFixturesIntegrationTest extends KernelTestCase
 
     $interventions = $this->entityManager->getRepository(InterventionRecord::class);
 
-    // The twelve hand-authored interventions plus the generated bulk pool.
+    // The hand-authored interventions plus the generated bulk pool.
     self::assertSame(count(InterventionFixtures::INTERVENTION_SEEDS) + InterventionFixtures::BULK_INTERVENTION_COUNT, $interventions->count([]));
     self::assertSame(count(InterventionFixtures::LABEL_SEEDS), $this->entityManager->getRepository(InterventionLabelRecord::class)->count([]));
     self::assertSame(count(InterventionFixtures::TEMPLATE_SEEDS), $this->entityManager->getRepository(InterventionTemplateRecord::class)->count([]));
@@ -103,6 +106,48 @@ final class InterventionFixturesIntegrationTest extends KernelTestCase
     $changes = $this->entityManager->getRepository(InterventionChangeRecord::class);
     foreach (['proposed', 'applied', 'rejected'] as $changeStatus) {
       self::assertGreaterThan(0, $changes->count(['status' => $changeStatus]), $changeStatus);
+    }
+  }
+
+  #[Test]
+  public function testMaintenanceExamplesKeepExistingIdentitiesAndWaitForActualResults(): void
+  {
+    $this->loadFixtures();
+
+    $interventions = $this->entityManager->getRepository(InterventionRecord::class);
+    for ($index = 0; $index < InterventionFixtures::BULK_INTERVENTION_COUNT; ++$index) {
+      $historical = $interventions->find(SeedUuid::from(sprintf('intervention-bulk:%d', $index)));
+      self::assertInstanceOf(InterventionRecord::class, $historical);
+      self::assertSame(13 + $index, $historical->number);
+    }
+
+    /** @var InterventionFixtures $fixtures */
+    $fixtures = static::getContainer()->get(InterventionFixtures::class);
+    $examples = [
+      ['intervention-seed-extinguisher-maintenance', 'maintenance', EquipmentFixtures::EXTINGUISHER_REFERENCE, 'planned'],
+      ['intervention-seed-fire-door-repair', 'repair', EquipmentFixtures::BUILDING_FIRE_DOOR_REFERENCE, 'in_progress'],
+    ];
+    foreach ($examples as [$reference, $action, $equipmentReference, $status]) {
+      $intervention = $fixtures->getReference($reference, InterventionRecord::class);
+      $equipment = $fixtures->getReference($equipmentReference, EquipmentRecord::class);
+      $workItems = $this->entityManager->getRepository(InterventionWorkItemRecord::class)->findBy(['intervention' => $intervention]);
+      self::assertCount(1, $workItems);
+      $workItem = $workItems[0];
+      self::assertSame($action, $workItem->action);
+      self::assertSame('/api/equipment/' . $equipment->id, $workItem->target);
+      self::assertSame($status, $intervention->status);
+      self::assertSame($status, $workItem->status);
+      self::assertNull($workItem->executionResult);
+      self::assertNull($workItem->resultResource);
+      self::assertNull($intervention->closureSnapshot);
+      self::assertSame(0, $this->entityManager->getRepository(PublicationRecord::class)->count(['intervention' => $intervention]));
+
+      $activities = $this->entityManager->getRepository(InterventionActivityRecord::class)->findBy(['intervention' => $intervention], ['createdAt' => 'ASC']);
+      self::assertSame('created', $activities[0]->event);
+      self::assertSame(['from' => 'draft', 'to' => 'planned'], $activities[1]->payload);
+      if ('in_progress' === $status) {
+        self::assertSame(['from' => 'planned', 'to' => 'in_progress'], $activities[2]->payload);
+      }
     }
   }
 

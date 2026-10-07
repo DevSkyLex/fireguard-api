@@ -181,5 +181,13 @@ final class CreateFacilityInput
   #[Groups([FacilitySerializationGroup::WRITE])]
   #[ApiProperty(description: 'Optional floor height in meters', required: false, example: 3.0)]
   public ?float $heightMeters = null;
+
+  /**
+   * Property customerId. Optional internal customer assigned only to root sites.
+   */
+  #[Assert\Uuid]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Internal customer identifier for a root site', required: false)]
+  public ?string $customerId = null;
   // #endregion
 }

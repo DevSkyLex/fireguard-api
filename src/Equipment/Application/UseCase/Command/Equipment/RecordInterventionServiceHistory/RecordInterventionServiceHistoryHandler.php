@@ -108,12 +108,13 @@ final readonly class RecordInterventionServiceHistoryHandler implements CommandH
       id: $logId,
       equipmentId: EquipmentId::fromString($entry->equipmentId),
       organizationId: $organizationId,
-      occurredAt: $command->occurredAt,
+      occurredAt: $entry->performedAt ?? $command->occurredAt,
       intervention: new InterventionMaintenanceDetails(
         interventionId: $command->interventionId,
         interventionNumber: $interventionNumber,
         workItemAction: $entry->action,
-        actorId: $actorId,
+        actorId: $entry->authorId ?? $actorId,
+        summary: $entry->notes,
       ),
     );
 

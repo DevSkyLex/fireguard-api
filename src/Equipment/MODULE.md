@@ -4,6 +4,17 @@
 
 ## Overview
 
+V3's public `InterventionEquipmentSnapshotPort` bridge supplies only published,
+same-organization equipment identity to authorized operational and financial callers.
+It preserves retired assets, archived catalog codes and the actual declared label,
+asset reference, brand, model, serial and facility. The facility owner's public
+hierarchy reader supplies root site and optional internal client `{id,name}`, including
+archived published locations. No client contacts cross the bridge. Batches and live
+facility scopes are bounded to 10000 records; missing, foreign or draft assets are
+omitted and oversized scopes fail explicitly. Intervention and private cost owners
+freeze these values in future snapshots; this reader never rewrites historical
+snapshots or guesses missing legacy identities.
+
 ### Atomic creation and exact place counts (2026-10-03)
 
 Creation, initial assignment, offline identity and intervention attachment use
@@ -71,9 +82,63 @@ equipment answers 404. Storage/database failures still remove the attempt blob.
 | GET          | `/api/organizations/{organizationId}/equipment/{equipmentId}/report`                              | Streams a PDF equipment sheet (identity, maintenance history, attachment index) — plan-gated, see below                                                        |
 | GET          | `/api/organizations/{organizationId}/equipment/labels`                                            | Streams a printable PDF sheet of QR equipment labels (Avery L7159 grid) — not plan-gated, see below                                                            |
 
-Removed 2026-08-20: `GET /api/organizations/{organizationId}/equipment-types` and
-`GET /api/organizations/{organizationId}/equipment-statuses` (unconsumed reference
-catalogs; the frontend's localized typed registries are the source of these values).
+`GET /api/organizations/{organizationId}/equipment-types` is the organization-owned
+catalog for equipment families and custom types. It returns a collection of
+`value`, `label`, `family` (`fire`, `safety`, `other`), `archived`, and `revision`.
+The twelve historical codes retain their values; defaults have revision 1 and
+changed descriptors have revision 2 or later. Unrecognized persisted historical
+codes remain readable as archived descriptors. The status registry remains static.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET / POST | `/api/organizations/{organizationId}/equipment-types` | Read descriptors / create a custom descriptor |
+| GET / PATCH | `/api/organizations/{organizationId}/equipment-types/{typeCode}` | Read / revise label, family or archive status using the observed body revision |
+| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/replace` | Atomically replace a published equipment with an existing reserve or a new successor |
+| GET | `/api/organizations/{organizationId}/equipment-summary` | Exact published totals with family and customer scope, before pagination |
+
+Catalog reads require `organization.equipment.read`; administration and replacement
+require `organization.equipment.write`. Unknown/foreign organization or asset scope
+is hidden with 404; missing permission returns 403. Catalog codes are immutable.
+
+### Specialized parc identity and replacement
+
+Both organization and canonical equipment surfaces expose `name`, `assetCode`,
+`criticality` (`low`, `medium`, `high`, `critical` or null), and `technicalProperties`
+(at most 50 `{key, value, unit}` entries, unique nonempty keys). Asset codes are
+optional, trimmed and unique within the organization. Empty identity text normalizes
+to null. Canonical merge patches preserve omitted fields and can explicitly clear
+optional identity text; the organization update also preserves omitted new identity.
+These properties describe an asset and do not certify its condition or compliance.
+
+The organization and facility collections accept `family` and `customerId`.
+Family includes archived types for historical reads. Customer scope is resolved from
+published root sites and their published descendants through the Facility owner port;
+foreign and unknown customer identifiers return the same 404. Facility summaries use
+the same filters before pagination. Search covers equipment names and patrimonial codes.
+Organization summaries use the same predicates and return `scope` organization/customer.
+The `maintenanceDueStatus=due` query combines due-soon and overdue rows before
+pagination; individual equipment outputs retain their actual due-state literal.
+`EquipmentParkScopePort::filterIds` publishes scoped identifiers for peer modules;
+an optional facility identifier includes its published subtree by default. Passing
+`includeDescendants=false` selects only equipment directly assigned to that validated
+facility, while retaining family and customer filters. This permits scoped
+anomaly projections without exposing Equipment records or substituting organization totals.
+Validated work-item service history can carry its actual performed date, author and
+notes. Publication time and responsible member remain the fallback for historical
+applied changes; work-item/change identities retain idempotent append semantics.
+
+Replacement accepts a stable UUID `clientOperationId` and exactly one of
+`successorEquipmentId` or `successor` (ordinary creation identity fields, without
+organization, facility, intervention or client-id overrides). One main transaction
+locks candidates, creates a new successor with ordinary quota enforcement when
+requested, retires the predecessor, establishes both history links and saves the
+durable receipt. The successor inherits assignment, location and plan position and
+enters service when replacing in-service equipment. Attachments, anomalies, dates,
+QR identity and the predecessor's history remain attached to the original asset.
+Repeated requests return the original identifiers without another creation or debit;
+reusing the operation UUID with another payload returns 409. Output adds nullable
+`predecessorEquipmentId` and `successorEquipmentId`. Complete reserve assets remain
+individualized equipment, independently from future consumable stock quantities.
 
 An equipment may carry at most
 `Shared\Domain\Attachment\AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
@@ -566,6 +631,28 @@ here through `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAda
 
 ## Architecture
 
+### Procurement reserve batches and repair requests
+
+Procurement individualizes physical equipment receipts through
+`EquipmentReserveReceiptPort`. A batch contains one to one hundred units and
+holds the normal Equipment quota lock before the first creation. Active catalog
+validation and the ordinary creation use case apply to every unit. Missing
+`organization.equipment.write`, an unavailable type or a quota cap return a
+typed blocked outcome without creating orphan assets. Unexpected failures roll
+back the complete main batch; Procurement retains its already received physical
+receipt and owns the durable receipt-unit identities and replay mapping.
+
+Equipment reserve is individual `in_stock` equipment, distinct from Inventory's
+quantitative parts. Shared batch templates cannot repeat unique asset codes or
+serial numbers across multiple units. The resulting assets keep the normal
+published equipment identity and are assigned to sites later.
+
+Repair requests read their target through the published ServiceRequest target
+port. The Equipment adapter hides unknown, foreign and draft equipment. Inside
+an active main transaction it locks and refreshes the Equipment row so retirement
+and request conversion use current lifecycle state. ServiceRequest owns the
+site hierarchy lock and the refusal of retired targets.
+
 - Presentation: Api Platform resources, providers, processors, DTOs.
 - Application: Use cases (command/query), repository ports.
 - Domain: Equipment aggregate, Tag, EquipmentAttachment, value objects, domain exceptions.
@@ -604,28 +691,30 @@ Cross-module contracts and lifecycle invariants:
   plan-overlay read. See `src/Facility/MODULE.md` for the full pairing,
   including the one file allowed to import both modules' Domain layers to
   satisfy the port's typed `@throws` contract.
-- **Per-equipment maintenance due status (L2.10)**: `EquipmentOutput.maintenanceDueStatus`
-  (`GET .../equipment` and `GET .../equipment/{id}`) and the `maintenanceDueStatus`
-  list filter are resolved cross-module through the new
-  `Equipment\Application\Port\Outbound\MaintenanceDueStatusPort` (declared
-  here; Equipment references only this port, never Maintenance's Domain or
-  Infrastructure). Its adapter,
-  `Maintenance\Infrastructure\Adapter\Equipment\EquipmentMaintenanceDueStatusAdapter`,
-  is hosted in — and wired by — the Maintenance module (the module owning the
-  `maintenance_schedules` read model), mirroring the existing reverse
-  direction (`MaintenanceEquipmentDirectoryPort`, implemented here for
-  Maintenance). Batching: `GetEquipmentHandler` and `ListEquipmentsHandler`
-  each resolve the whole batch of equipment ids they need in ONE call to
-  `dueStatusesForEquipment()` — never per row. Equipment ids with no
-  maintenance schedule (never reconciled by the Maintenance sweep yet, or
-  genuinely untracked) come back as `unscheduled`, never absent, never null.
+- **Independent control and service deadlines (V1, extending L2.10)**:
+  detail, organization collections and canonical collections expose
+  `controlDueStatus`, `serviceDueStatus`, `controlNextDueAt` and
+  `serviceNextDueAt`. Status values remain
+  `unscheduled`|`up_to_date`|`due_soon`|`overdue`; dates are ISO 8601 when a
+  deadline exists. Neither due status changes the operational condition or
+  resolves an anomaly. `maintenanceDueStatus` is a compatibility alias of
+  `controlDueStatus`, including on the filtered equipment collection.
+  `Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort`
+  publishes the organization-scoped bulk projection through its Application
+  contract; Equipment never reads Maintenance's Domain or persistence.
+  Get, List and the canonical collection call it once per batch, not per row.
+  When that optional owner port is unavailable, the existing
+  `MaintenanceDueStatusPort::dueStatusesForEquipment()` provides control
+  statuses and service remains `unscheduled`. The compatibility adapter and
+  new owner alias are wired by Maintenance in `config/modules/maintenance.yaml`.
+  Unscheduled or suspended equipment has no deadline.
   The `maintenanceDueStatus` filter cannot be pushed into the `equipment`
   table's SQL `WHERE` clause (the value lives in Maintenance, not here):
   `ListEquipmentsHandler::listFilteredByDueStatus()` instead loads every
   equipment matching the other filters unbounded (capped at
   `DUE_STATUS_FILTER_SCAN_LIMIT = 10_000`, a generous safety net given
   organizations are plan-quota bounded on equipment count — not a practical
-  limit), resolves due status for that whole candidate set in one batch call,
+  limit), resolves control due status for that whole candidate set in one batch call,
   filters in memory, then paginates with `array_slice()`. **Do not assume a
   per-equipment "Non-conformity" status exists.** It does not: non-conformities
   attach to _inspections_ (see `src/Inspection/MODULE.md`), never to equipment.
@@ -857,6 +946,17 @@ names the write path has no reason to carry).
 
 ## Configuration
 
+Maintenance exports validate published equipment identities through the owner-hosted
+`MaintenanceExportEquipmentIdentityAdapter`, explicitly wired to main and tagged
+`maintenance_export.identity_validator`. Retired equipment remains a valid historical
+reference; drafts, missing assets and foreign identities return false.
+
+The main mappings include `EquipmentTypeCatalogRecord` and
+`EquipmentReplacementReceiptRecord`. `EquipmentTypeCatalogPort` and
+`EquipmentReplacementRepositoryPort` have explicitly main-wired repositories.
+`EquipmentSelectionScopeResolver` composes the catalog, Customer lookup and
+Facility customer scope ports. No identity or replacement migration touches auth.
+
 - Service wiring: `config/modules/equipment.yaml`
 - `CanonicalEquipmentRepositoryPort` is aliased to `CanonicalEquipmentRepository`,
   wired to `main` explicitly. It is a **second** port over the `equipment`
@@ -899,6 +999,11 @@ Unit tests cover owned domain/use-case and HTTP translation contracts. Integrati
 Detailed cases and regression rationale are retained in the [Equipment testing reference](../../docs/guides/testing.md#equipment-testing-reference). Use the [testing guide](../../docs/guides/testing.md) for current commands and isolated database setup.
 
 ## Error Codes
+
+- `equipment_asset_code_conflict` → 409, patrimonial code already used in the organization.
+- `equipment_replacement_conflict` → 409, incompatible lifecycle, successor or replay payload.
+- `equipment_type_exists` → 409; `equipment_type_revision_conflict` → 412.
+- `equipment_type_not_found` → 404; `equipment_type_invalid`, `equipment_type_unknown`, `equipment_type_archived` → 422.
 
 - `EquipmentNotFoundException` → 404
 - `EquipmentSerialNumberAlreadyExistsException` → 409

@@ -53,7 +53,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
    *
    * @var list<string>
    */
-  private const PATCHABLE_FIELDS = ['type', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel', 'status', 'facility', 'planPosition'];
+  private const PATCHABLE_FIELDS = ['type', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel', 'status', 'facility', 'planPosition', 'name', 'assetCode', 'criticality', 'technicalProperties'];
 
   /**
    * Constant STATUSES.
@@ -104,6 +104,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     private EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer,
     private \Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort $floorPlans,
     ?FacilityLifecycleReferencePort $retainedReferences = null,
+    private ?\Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort $typeCatalog = null,
   ) {
     $this->publicationFacilities = new EquipmentPublicationFacilityValidator($facilityValidation, $retainedReferences);
   }
@@ -370,6 +371,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     ]);
 
     foreach ($records as $record) {
+      $this->typeCatalog?->validateAvailableType($this->organizationId($record->organization), $record->type);
       if (null !== $record->facilityId) {
         $this->publicationFacilities->assertReference($this->organizationId($record->organization), $record->facilityId, $record->status);
       }
@@ -448,6 +450,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       if (!is_string($type) || '' === $type) {
         throw new InterventionConflictException('Equipment type cannot be empty.');
       }
+      $this->typeCatalog?->validateAvailableType($this->organizationId($record->organization), $type, $record->type);
       $record->type = $type;
     }
 
@@ -468,6 +471,33 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       }
       $record->status = $status;
     }
+    $identityFields = ['name', 'assetCode', 'criticality'];
+    foreach ($identityFields as $field) {
+      if (array_key_exists($field, $patch) && null !== $patch[$field] && !is_string($patch[$field])) {
+        throw new InterventionConflictException('Equipment identity fields must be strings or null.');
+      }
+    }
+    if (array_key_exists('technicalProperties', $patch) && !is_array($patch['technicalProperties'])) {
+      throw new InterventionConflictException('Equipment technicalProperties must be a list.');
+    }
+    $properties = $record->technicalProperties;
+    if (array_key_exists('technicalProperties', $patch)) {
+      $candidate = $patch['technicalProperties'];
+      if (!is_array($candidate)) {
+        throw new InterventionConflictException('Equipment technicalProperties must be a list.');
+      }
+      $properties = $candidate;
+    }
+    $identity = \Equipment\Domain\ValueObject\EquipmentIdentity::fromValues(
+      self::identityText($patch, 'name', $record->name),
+      self::identityText($patch, 'assetCode', $record->assetCode),
+      self::identityText($patch, 'criticality', $record->criticality),
+      $properties,
+    );
+    $record->name = $identity->name;
+    $record->assetCode = $identity->assetCode;
+    $record->criticality = $identity->criticality;
+    $record->technicalProperties = $identity->technicalProperties;
   }
 
   /**
@@ -497,6 +527,24 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       throw new InterventionConflictException('Proposed equipment facility is invalid.');
     }
     $record->facilityId = $facilityId;
+  }
+
+  /**
+   * @since 1.1.0
+   *
+   * @param array<string, mixed> $patch submitted changes
+   */
+  private static function identityText(array $patch, string $key, ?string $current): ?string
+  {
+    if (!array_key_exists($key, $patch)) {
+      return $current;
+    }
+    $value = $patch[$key];
+    if (null !== $value && !is_string($value)) {
+      throw new InterventionConflictException('Equipment identity fields must be strings or null.');
+    }
+
+    return $value;
   }
 
   /**

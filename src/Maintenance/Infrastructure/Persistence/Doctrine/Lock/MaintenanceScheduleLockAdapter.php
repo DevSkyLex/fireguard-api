@@ -7,7 +7,10 @@ namespace Maintenance\Infrastructure\Persistence\Doctrine\Lock;
 use Doctrine\DBAL\Connection;
 use Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort;
 
+use function array_map;
+use function array_unique;
 use function implode;
+use function sort;
 use function usort;
 
 /** Transaction-scoped lock also protects the first insert, before a row exists. */
@@ -49,6 +52,7 @@ final readonly class MaintenanceScheduleLockAdapter implements MaintenanceSchedu
   public function synchronized(string $organizationId, string $equipmentId, callable $work): mixed
   {
     return $this->connection->transactional(function () use ($organizationId, $equipmentId, $work): mixed {
+      $this->connection->executeStatement('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', ['key' => 'maintenance.engine.' . $organizationId]);
       $this->connection->executeStatement('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', [
         'key' => 'maintenance.schedule.' . $organizationId . '.' . $equipmentId,
       ]);
@@ -70,6 +74,11 @@ final readonly class MaintenanceScheduleLockAdapter implements MaintenanceSchedu
     usort($scopes, static fn (array $left, array $right): int => [$left['organizationId'], $left['equipmentId']] <=> [$right['organizationId'], $right['equipmentId']]);
 
     return $this->connection->transactional(function () use ($scopes, $work): mixed {
+      $organizations = array_unique(array_map(static fn (array $scope): string => $scope['organizationId'], $scopes));
+      sort($organizations);
+      foreach ($organizations as $organizationId) {
+        $this->connection->executeStatement('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', ['key' => 'maintenance.engine.' . $organizationId]);
+      }
       $values = [];
       $parameters = [];
       foreach ($scopes as $index => $scope) {

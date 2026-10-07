@@ -157,6 +157,7 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
       $result = $this->commandBus->dispatch(new UpdateOrganizationSettingsCommand(
         organizationId: $organizationId,
         name: $data->name,
+        operatingProfile: $data->operatingProfile,
         slug: $data->slug,
         description: $data->description,
         isActive: $data->isActive,

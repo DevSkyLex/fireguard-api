@@ -7,7 +7,7 @@ namespace Equipment\Application\UseCase\Command\Equipment\UpdateEquipment;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentIdentity, EquipmentOrganizationId, EquipmentTypeCode};
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
@@ -42,6 +42,7 @@ final readonly class UpdateEquipmentHandler implements CommandHandler
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
     private FacilityNamingPort $facilityNaming,
+    private ?\Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort $typeCatalog = null,
   ) {
   }
   // #endregion
@@ -64,14 +65,22 @@ final readonly class UpdateEquipmentHandler implements CommandHandler
     }
 
     try {
+      $this->typeCatalog?->validateAvailableType($command->organizationId, $command->type, $equipment->type()->value);
       $equipment->update(
-        type: EquipmentType::from($command->type),
+        type: null === $this->typeCatalog ? \Equipment\Domain\ValueObject\EquipmentType::from($command->type) : EquipmentTypeCode::fromString($command->type),
         subType: $command->subType,
         brand: $command->brand,
         model: $command->model,
         serialNumber: $command->serialNumber,
         locationLabel: $command->locationLabel,
       );
+      $identity = $equipment->identity();
+      $equipment->updateIdentity(EquipmentIdentity::fromValues(
+        $command->hasName ? $command->name : $identity->name,
+        $command->hasAssetCode ? $command->assetCode : $identity->assetCode,
+        $command->hasCriticality ? $command->criticality : $identity->criticality,
+        $command->hasTechnicalProperties ? $command->technicalProperties : $identity->technicalProperties,
+      ));
     } catch (ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
@@ -88,6 +97,12 @@ final readonly class UpdateEquipmentHandler implements CommandHandler
       model: $equipment->model(),
       serialNumber: $equipment->serialNumber(),
       locationLabel: $equipment->locationLabel(),
+      name: $equipment->identity()->name,
+      assetCode: $equipment->identity()->assetCode,
+      criticality: $equipment->identity()->criticality,
+      technicalProperties: $equipment->identity()->technicalProperties,
+      predecessorEquipmentId: $equipment->predecessorEquipmentId(),
+      successorEquipmentId: $equipment->successorEquipmentId(),
       status: $equipment->status()->value,
       installedAt: $equipment->installedAt()?->format('c'),
       commissionedAt: $equipment->commissionedAt()?->format('c'),

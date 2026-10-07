@@ -75,6 +75,21 @@ final class ExportInterventionReportControllerTest extends TestCase
   }
 
   #[Test]
+  public function testPublishedReportUsesFrozenIdentityAndResultsRatherThanLiveQueries(): void
+  {
+    $report = ['number' => 42, 'siteName' => 'Original site', 'customerName' => 'Original customer', 'workItems' => [['executionResult' => ['workPerformed' => 'Original repair']]], 'reportMode' => 'snapshot', 'generatedAt' => '2026-09-30T15:00:00+02:00', 'activities' => []];
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $view = $this->interventionView();
+    $queryBus->expects(self::once())->method('ask')->with(self::isInstanceOf(GetInterventionWorkflowQuery::class))->willReturn(new GetInterventionWorkflowResult(new InterventionWorkflowView($view->resource, $view->organizationId, [...$view->data, 'closureSnapshot' => ['report' => $report]])));
+    $context = $this->renderedContext($queryBus);
+    self::assertSame('Original site', $context['siteName']);
+    self::assertSame('Original customer', $context['customerName']);
+    self::assertSame($report['workItems'], $context['workItems']);
+    self::assertSame('snapshot', $context['reportMode']);
+    self::assertSame('30/09/2026 15:00', $context['generatedAtFormatted']);
+  }
+
+  #[Test]
   public function testItLocalizesTheContextWithBrandingLanguageAndFormattedDates(): void
   {
     $context = $this->renderedContext($this->queryBus());
@@ -374,9 +389,13 @@ final class ExportInterventionReportControllerTest extends TestCase
     return $port;
   }
 
-  private function queryBus(): QueryBusPort
+  /**
+   * @param array<string,mixed>|null $snapshot
+   */
+  private function queryBus(?array $snapshot = null): QueryBusPort
   {
-    $interventionResult = new GetInterventionWorkflowResult($this->interventionView());
+    $view = $this->interventionView();
+    $interventionResult = new GetInterventionWorkflowResult(new InterventionWorkflowView($view->resource, $view->organizationId, [...$view->data, 'closureSnapshot' => $snapshot]));
     $workItemsResult = new ListInterventionWorkflowResult(new InterventionWorkflowPage(items: [], page: 1, itemsPerPage: 100, total: 0));
     $changesResult = new ListInterventionWorkflowResult(new InterventionWorkflowPage(
       items: [$this->changeView('proposed'), $this->changeView('applied')],

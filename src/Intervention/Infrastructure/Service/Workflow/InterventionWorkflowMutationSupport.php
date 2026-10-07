@@ -63,6 +63,23 @@ final readonly class InterventionWorkflowMutationSupport
     private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
   ) {
   }
+
+  /**
+   * Method equipmentBelongsToOrganization
+   *
+   * Checks equipment ownership through its owner-published resource contract.
+   *
+   * @access public
+   *
+   * @param string $equipmentId equipment operation target
+   * @param InterventionRecord $intervention owning intervention
+   *
+   * @return bool whether the equipment belongs to the same organization
+   */
+  public function equipmentBelongsToOrganization(string $equipmentId, InterventionRecord $intervention): bool
+  {
+    return $this->resources->resourceBelongsToOrganization(InterventionResourceType::EQUIPMENT, $equipmentId, $this->organizationId($intervention));
+  }
   // #endregion
 
   /**

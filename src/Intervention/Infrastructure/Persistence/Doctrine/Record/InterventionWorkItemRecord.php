@@ -22,6 +22,32 @@ use Doctrine\ORM\Mapping as ORM;
 class InterventionWorkItemRecord
 {
   /**
+   * Property operationId. Stable preventive plan identity.
+   */
+  #[ORM\Column(type: 'string', length: 36, nullable: true)]
+  public ?string $operationId = null;
+
+  /**
+   * Property occurrenceId. Stable occurrence identity; never inferred from dates.
+   */
+  #[ORM\Column(type: 'string', length: 36, nullable: true)]
+  public ?string $occurrenceId = null;
+
+  /**
+   * Property operationKind. Control or maintenance.
+   */
+  #[ORM\Column(type: 'string', length: 16, nullable: true)]
+  public ?string $operationKind = null;
+
+  /**
+   * Property executionResult. Staged fact becomes validated only in publication.
+   *
+   * @var array<string,mixed>|null
+   */
+  #[ORM\Column(type: 'json', nullable: true)]
+  public ?array $executionResult = null;
+
+  /**
    * Property estimatedMinutes.
    *
    * @since 1.1.0

@@ -115,6 +115,7 @@ final readonly class GetFacilityChildrenHandler implements QueryHandler
         levelIndex: $child->levelIndex(),
         elevationMeters: $child->elevationMeters(),
         heightMeters: $child->heightMeters(),
+        customerId: $child->customerId(),
         recordStatus: $projectionContexts[(string) $child->id()]['recordStatus'] ?? 'published',
         interventionId: $projectionContexts[(string) $child->id()]['interventionId'] ?? null,
         revision: $projectionContexts[(string) $child->id()]['revision'] ?? 1,

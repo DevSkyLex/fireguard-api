@@ -31,6 +31,9 @@ final readonly class InterventionDraftWorkItem
    * @param ?string $assigneeId the optional assigned member identifier
    * @param ?string $resultResource the optional expected result resource kind
    * @param ?int $estimatedMinutes reference estimate in whole minutes; null means unestimated
+   * @param ?string $operationId source preventive plan, supplied together with occurrence and kind
+   * @param ?string $occurrenceId stable source occurrence identity
+   * @param ?string $operationKind control or maintenance when the work has a preventive source
    */
   public function __construct(
     public string $action,
@@ -39,6 +42,9 @@ final readonly class InterventionDraftWorkItem
     public ?string $assigneeId = null,
     public ?string $resultResource = null,
     public ?int $estimatedMinutes = null,
+    public ?string $operationId = null,
+    public ?string $occurrenceId = null,
+    public ?string $operationKind = null,
   ) {
   }
   // #endregion

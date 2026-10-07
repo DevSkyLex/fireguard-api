@@ -46,6 +46,16 @@ final class CreateOrganizationInput
   public string $name = '';
 
   /**
+   * Property operatingProfile.
+   *
+   * Selects operator or service-provider onboarding defaults.
+   */
+  #[Assert\Choice(choices: ['operator', 'service_provider'])]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Operational profile; independent from access permissions', required: false)]
+  public string $operatingProfile = 'operator';
+
+  /**
    * Property slug.
    *
    * @since 1.0.0

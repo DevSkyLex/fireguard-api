@@ -91,6 +91,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
     private int $maxDepth = 8,
     private ?OrganizationSetupPort $setup = null,
     private ?FacilityHierarchyPort $hierarchy = null,
+    private ?\Facility\Application\Port\Outbound\FacilityCustomerValidationPort $customers = null,
   ) {
   }
   // #endregion
@@ -137,6 +138,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
           levelIndex: $command->levelIndex,
           elevationMeters: $command->elevationMeters,
           heightMeters: $command->heightMeters,
+          customerId: $command->customerId,
         ),
       );
     } catch (InvalidValueException|ValueError $exception) {
@@ -151,6 +153,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
     );
 
     if ($command->dryRun) {
+      $this->assertCustomer($command);
       $this->assertHierarchy($command, $facility);
       // A dry run never enters the transaction that would take the quota's
       // advisory lock (see OrganizationQuotaPort::assertCanAdd): it projects
@@ -275,6 +278,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
         'type' => $command->type, 'name' => $command->name, 'address' => $command->address,
         'latitude' => $command->latitude, 'longitude' => $command->longitude, 'parentFacilityId' => $command->parentFacilityId,
         'code' => $command->code, 'metadata' => $command->metadata, 'levelIndex' => $command->levelIndex,
+        ...(null === $command->customerId ? [] : ['customerId' => $command->customerId]),
         ...(null === $command->elevationMeters ? [] : ['elevationMeters' => $command->elevationMeters]),
         ...(null === $command->heightMeters ? [] : ['heightMeters' => $command->heightMeters]),
       ]);
@@ -289,6 +293,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
       }
     }
 
+    $this->assertCustomer($command);
     $this->assertHierarchy($command, $facility);
     $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::FACILITIES);
     $this->saveFacility($command, $facility);
@@ -382,6 +387,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
       levelIndex: $facility->levelIndex(),
       elevationMeters: $facility->elevationMeters(),
       heightMeters: $facility->heightMeters(),
+      customerId: $facility->customerId(),
       replayed: $replayed,
       interventionId: $context['interventionId'] ?? null,
       recordStatus: $context['recordStatus'] ?? 'published',
@@ -515,6 +521,16 @@ final readonly class CreateFacilityHandler implements CommandHandler
     }
 
     return false;
+  }
+
+  /**
+   * Method assertCustomer. New assignments require an active owner-scoped customer.
+   */
+  private function assertCustomer(CreateFacilityCommand $command): void
+  {
+    if (null !== $command->customerId) {
+      ($this->customers ?? throw new \Facility\Application\Contract\FacilityCustomerUnavailable())->assertAssignable($command->customerId, $command->organizationId);
+    }
   }
   // #endregion
 }

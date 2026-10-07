@@ -9,6 +9,7 @@ use Equipment\Domain\Exception\{CanonicalEquipmentValidationException, Equipment
 use Equipment\Domain\ValueObject\{
   CanonicalEquipmentPatch,
   EquipmentId,
+  EquipmentIdentity,
   EquipmentOrganizationId,
   EquipmentRecordStatus,
   EquipmentStatus
@@ -109,6 +110,7 @@ final class CanonicalEquipment
     private ?DateTimeImmutable $commissionedAt,
     private int $revision,
     private DateTimeImmutable $updatedAt,
+    private ?EquipmentIdentity $identity = null,
   ) {
   }
   // #endregion
@@ -152,6 +154,7 @@ final class CanonicalEquipment
       commissionedAt: $lifecycle->commissionedAt,
       revision: $lifecycle->revision,
       updatedAt: $lifecycle->updatedAt,
+      identity: $metadata->details->identity ?? EquipmentIdentity::fromValues(),
     );
   }
 
@@ -418,10 +421,25 @@ final class CanonicalEquipment
   }
 
   /**
+   * @since 1.1.0
+   */
+  public function identity(): EquipmentIdentity
+  {
+    return $this->identity ?? EquipmentIdentity::fromValues();
+  }
+
+  /**
    * Apply patch fields in their original validation and mutation order.
    */
   private function applyFields(CanonicalEquipmentPatch $patch): void
   {
+    $identity = $this->identity();
+    $this->identity = EquipmentIdentity::fromValues(
+      $patch->hasName ? $patch->name : $identity->name,
+      $patch->hasAssetCode ? $patch->assetCode : $identity->assetCode,
+      $patch->hasCriticality ? $patch->criticality : $identity->criticality,
+      $patch->hasTechnicalProperties ? $patch->technicalProperties : $identity->technicalProperties,
+    );
     if ($patch->hasType && null !== $patch->type) {
       $this->type = $patch->type;
     }

@@ -16,6 +16,7 @@ use Organization\Domain\ValueObject\{
   OrganizationLegalType,
   OrganizationName,
   OrganizationNotificationSettings,
+  OrganizationOperatingProfile,
   OrganizationRegionalSettings,
   OrganizationRegisteredAddress,
   OrganizationRegistrationNumber,
@@ -100,6 +101,7 @@ final class Organization
     private ?OrganizationVatNumber $vatNumber = null,
     private ?OrganizationRegisteredAddress $registeredAddress = null,
     private ?Email $privacyContactEmail = null,
+    private OrganizationOperatingProfile $operatingProfile = OrganizationOperatingProfile::OPERATOR,
   ) {
     $this->settings = $settings ?? OrganizationSettings::default();
   }
@@ -141,6 +143,7 @@ final class Organization
       description: $options->description,
       logoUrl: $options->logoUrl,
       settings: $options->settings,
+      operatingProfile: $options->operatingProfile,
       planId: $options->planId,
     );
   }
@@ -181,6 +184,7 @@ final class Organization
       description: $profile->description,
       logoUrl: $profile->logoUrl,
       settings: $profile->settings,
+      operatingProfile: $profile->operatingProfile,
       planId: $profile->planId,
       country: $legal->country,
       legalType: $legal->legalType,
@@ -218,6 +222,27 @@ final class Organization
   public function name(): OrganizationName
   {
     return $this->name;
+  }
+
+  /**
+   * Method operatingProfile.
+   *
+   * @return OrganizationOperatingProfile the organization's operational defaults
+   */
+  public function operatingProfile(): OrganizationOperatingProfile
+  {
+    return $this->operatingProfile;
+  }
+
+  /**
+   * Method changeOperatingProfile.
+   *
+   * @param OrganizationOperatingProfile $profile the requested operational defaults
+   */
+  public function changeOperatingProfile(OrganizationOperatingProfile $profile): void
+  {
+    $this->operatingProfile = $profile;
+    $this->updatedAt = new DateTimeImmutable();
   }
 
   /**

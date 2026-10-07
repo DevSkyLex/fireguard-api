@@ -182,7 +182,7 @@ final readonly class InterventionProvider implements ProviderInterface
     // Reject an unknown enum value up front: the gateway's IN() filter would
     // otherwise return a silently empty collection instead of a client error.
     $enumGuards = [
-      'type' => [InterventionType::tryFrom(...), 'The type filter must be one of: site_setup, inventory, inspection_campaign.'],
+      'type' => [InterventionType::tryFrom(...), 'The type filter must be one of: site_setup, inventory, inspection_campaign, preventive_maintenance, corrective_maintenance.'],
       'status' => [InterventionStatus::tryFrom(...), 'The status filter must be a known intervention status.'],
       'priority' => [InterventionPriority::tryFrom(...), 'The priority filter must be one of: low, normal, high, urgent.'],
     ];

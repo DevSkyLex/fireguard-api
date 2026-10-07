@@ -41,10 +41,10 @@ final readonly class OrganizationSetupService implements OrganizationSetupPort
    * Constant FIELDS
    */
   private const array FIELDS = [
-    'create_organization' => ['name' => '', 'slug' => null],
+    'create_organization' => ['name' => '', 'slug' => null, 'operatingProfile' => 'operator'],
     'invite_members' => ['email' => '', 'roleIds' => []],
-    'create_first_facility' => ['type' => '', 'name' => '', 'address' => null, 'latitude' => null, 'longitude' => null, 'code' => null, 'parentFacilityId' => null, 'metadata' => [], 'levelIndex' => null],
-    'create_first_equipment' => ['type' => '', 'subType' => null, 'brand' => null, 'model' => null, 'serialNumber' => null, 'locationLabel' => null, 'facility' => null],
+    'create_first_facility' => ['type' => '', 'name' => '', 'address' => null, 'latitude' => null, 'longitude' => null, 'code' => null, 'parentFacilityId' => null, 'metadata' => [], 'levelIndex' => null, 'customerId' => null],
+    'create_first_equipment' => ['type' => '', 'subType' => null, 'brand' => null, 'model' => null, 'serialNumber' => null, 'locationLabel' => null, 'facility' => null, 'name' => null, 'assetCode' => null, 'criticality' => null, 'technicalProperties' => []],
   ];
 
   /**
@@ -233,6 +233,9 @@ final readonly class OrganizationSetupService implements OrganizationSetupPort
       throw OrganizationSetupConflict::because('Unsupported setup input.');
     }
     $normalized = [...$defaults, ...$payload];
+    if ('create_organization' === $stepKey && !in_array($normalized['operatingProfile'], ['operator', 'service_provider'], true)) {
+      throw OrganizationSetupConflict::because('Invalid organization operating profile.');
+    }
     if ('invite_members' === $stepKey) {
       $normalized['roleIds'] ??= [];
       if (!is_string($normalized['email']) || !is_array($normalized['roleIds'])) {

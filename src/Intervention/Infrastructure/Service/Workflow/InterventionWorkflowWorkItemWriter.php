@@ -18,7 +18,7 @@ use Intervention\Domain\Exception\{
 };
 use Intervention\Domain\Service\InterventionWorkItemTransitionPolicy;
 use Intervention\Domain\ValueObject\InterventionWorkItemStatus;
-use Intervention\Domain\ValueObject\{WorkItemEffort, WorkItemPeriod};
+use Intervention\Domain\ValueObject\{WorkItemEffort, WorkItemExecutionResult, WorkItemPeriod};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionRecord,
   InterventionWorkItemRecord
@@ -28,9 +28,12 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function array_diff;
 use function array_intersect;
+use function array_intersect_key;
 use function array_key_exists;
 use function array_keys;
 use function in_array;
+use function is_array;
+use function preg_match;
 use function trim;
 
 /**
@@ -96,6 +99,7 @@ final readonly class InterventionWorkflowWorkItemWriter
     $previousAssigneeId = $record->assigneeId;
     $previousWorkItemStatus = $record->status;
     $interventionAutoStarted = $this->applyWorkItemPatch($record, $intervention, $mutation->payload, $previousWorkItemStatus);
+    $this->applyExecutionResult($record, $intervention, $mutation);
     $now = new DateTimeImmutable();
     ++$record->revision;
     $record->updatedAt = $now;
@@ -391,6 +395,19 @@ final readonly class InterventionWorkflowWorkItemWriter
     $record->action = InterventionWorkflowPayload::requiredString($mutation->payload, 'action');
     $record->target = InterventionWorkflowPayload::nullableString($mutation->payload, 'target');
     $record->resultResource = InterventionWorkflowPayload::nullableString($mutation->payload, 'resultResource');
+    $record->operationId = InterventionWorkflowPayload::nullableString($mutation->payload, 'operationId');
+    $record->occurrenceId = InterventionWorkflowPayload::nullableString($mutation->payload, 'occurrenceId');
+    $record->operationKind = InterventionWorkflowPayload::nullableString($mutation->payload, 'operationKind');
+    $hasSource = null !== $record->operationId || null !== $record->occurrenceId || null !== $record->operationKind;
+    if ($hasSource && (null === $record->operationId || null === $record->occurrenceId || !in_array($record->operationKind, ['control', 'maintenance'], true))) {
+      throw new InterventionValidationException('A preventive source requires its operation, occurrence and kind.');
+    }
+    if ($hasSource && (('control' === $record->operationKind && 'inspection' !== $record->action) || ('maintenance' === $record->operationKind && 'maintenance' !== $record->action))) {
+      throw new InterventionValidationException('The work item action must match its preventive operation kind.');
+    }
+    if ($hasSource || in_array($record->action, ['maintenance', 'repair', 'replacement'], true)) {
+      $this->assertEquipmentTarget($record, $intervention);
+    }
     $this->runtime->support->assertFacilityTarget($record->target, $intervention);
     $this->runtime->support->assertFacilityTarget($record->resultResource, $intervention);
     $record->assigneeId = $assigneeId;
@@ -413,6 +430,93 @@ final readonly class InterventionWorkflowWorkItemWriter
     }
 
     return $this->runtime->views->workItemView($record);
+  }
+
+  /**
+   * Method applyExecutionResult
+   *
+   * Stages executor-attributed facts and keeps unsuccessful repairs open.
+   *
+   * @access private
+   *
+   * @param InterventionWorkItemRecord $record locked work item
+   * @param InterventionRecord $intervention owning intervention
+   * @param InterventionWorkflowMutation $mutation authenticated execution mutation
+   *
+   * @return void
+   */
+  private function applyExecutionResult(InterventionWorkItemRecord $record, InterventionRecord $intervention, InterventionWorkflowMutation $mutation): void
+  {
+    $operational = in_array($record->action, ['maintenance', 'repair', 'replacement'], true);
+    if (array_key_exists('executionResult', $mutation->payload)) {
+      if (!$operational || 'draft' === $intervention->status) {
+        throw new InterventionValidationException('Execution results belong to equipment operations after preparation.');
+      }
+      $payload = $mutation->payload['executionResult'];
+      if (null === $payload) {
+        if (null !== $record->executionResult) {
+          throw new InterventionValidationException('Recorded attempts are retained. Reopen the task and record a corrected attempt.');
+        }
+        $record->executionResult = null;
+      } elseif (is_array($payload)) {
+        $result = WorkItemExecutionResult::fromPayload(InterventionWorkflowPayload::patch($payload));
+        $result->assertAlreadyPerformed(new DateTimeImmutable());
+        $equipmentId = $this->assertEquipmentTarget($record, $intervention);
+        if ($result->equipmentId !== $equipmentId) {
+          throw new InterventionValidationException('The result must concern the prepared equipment.');
+        }
+        $authorId = $this->runtime->memberPolicy->findMemberId($this->runtime->support->organizationId($intervention), $mutation->userId);
+        if (null === $authorId) {
+          throw new InterventionValidationException('The executor must be an organization member.');
+        }
+        $previous = $record->executionResult;
+        $fact = $result->toArray();
+        if (null === $previous || array_intersect_key($previous, $fact) !== $fact) {
+          $history = is_array($previous['history'] ?? null) ? $previous['history'] : [];
+          if (null !== $previous) {
+            unset($previous['history']);
+            $history[] = $previous;
+          }
+          $record->executionResult = [...$result->toArray(), 'authorId' => $authorId, 'operationId' => $record->operationId, 'occurrenceId' => $record->occurrenceId, 'state' => 'staged', 'validatedAt' => null, 'history' => $history];
+          $activityResult = $record->executionResult;
+          unset($activityResult['history']);
+          $this->runtime->activities->append(new InterventionActivityAppendRequest($intervention->id, $this->runtime->support->organizationId($intervention), $authorId, new InterventionActivityContent('system', 'work_item_result_recorded', null, ['workItemId' => $record->id, 'result' => $activityResult])));
+        }
+      } else {
+        throw new InterventionValidationException('The execution result must be an object.');
+      }
+    }
+    if ($operational && 'completed' === $record->status) {
+      if (null === $record->executionResult) {
+        throw new InterventionValidationException('Completing this operation requires a successful execution result.');
+      }
+      WorkItemExecutionResult::fromPayload($record->executionResult)->assertCompletesAction($record->action, $this->assertEquipmentTarget($record, $intervention));
+      if ('replacement' === $record->action && null === $record->resultResource) {
+        throw new InterventionValidationException('A completed replacement must identify its successor equipment.');
+      }
+    }
+  }
+
+  /**
+   * Method assertEquipmentTarget
+   *
+   * Requires a real equipment target belonging to the intervention organization.
+   *
+   * @access private
+   *
+   * @param InterventionWorkItemRecord $record equipment operation
+   * @param InterventionRecord $intervention owning intervention
+   *
+   * @return string scoped equipment identifier
+   */
+  private function assertEquipmentTarget(InterventionWorkItemRecord $record, InterventionRecord $intervention): string
+  {
+    if (null === $record->target || 1 !== preg_match('#^/api/equipment/([^/]+)$#', $record->target, $match)
+      || !$this->runtime->support->equipmentBelongsToOrganization($match[1], $intervention)) {
+      throw new InterventionValidationException('An equipment operation requires an equipment in the intervention organization.');
+    }
+
+    return $match[1];
   }
   // #endregion
 }
