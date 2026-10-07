@@ -67,6 +67,8 @@ final readonly class UpdateFacilityCommand implements CommandMessage
     public ?float $elevationMeters = null,
     public bool $hasElevationMeters = false,
     public ?float $heightMeters = null,
+    public ?string $customerId = null,
+    public bool $hasCustomerId = false,
     public bool $hasHeightMeters = false,
   ) {
   }

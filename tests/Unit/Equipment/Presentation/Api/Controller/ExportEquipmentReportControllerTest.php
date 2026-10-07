@@ -105,6 +105,12 @@ final class ExportEquipmentReportControllerTest extends TestCase
     $context = $this->renderedContext($this->queryBus());
 
     self::assertSame('extinguisher', $context['type']);
+    self::assertSame('Hall extinguisher', $context['name']);
+    self::assertSame('EXT-0042', $context['assetCode']);
+    self::assertSame('critical', $context['criticality']);
+    self::assertSame([['key' => 'capacity', 'value' => '6', 'unit' => 'kg']], $context['technicalProperties']);
+    self::assertSame('550e8400-e29b-41d4-a716-446655508105', $context['predecessorEquipmentId']);
+    self::assertNull($context['successorEquipmentId']);
     self::assertSame('co2', $context['subType']);
     self::assertSame('Acme', $context['brand']);
     self::assertSame('X-200', $context['model']);
@@ -112,6 +118,10 @@ final class ExportEquipmentReportControllerTest extends TestCase
     self::assertSame('operational', $context['status']);
     self::assertSame('Main Building', $context['facilityName']);
     self::assertSame('up_to_date', $context['maintenanceDueStatus']);
+    self::assertSame('up_to_date', $context['controlDueStatus']);
+    self::assertSame('overdue', $context['serviceDueStatus']);
+    self::assertSame('01/09/2026', $context['controlNextDueAt']);
+    self::assertSame('01/05/2026', $context['serviceNextDueAt']);
     self::assertSame(['fire', 'ground-floor'], $context['tags']);
     self::assertSame(1, $context['maintenanceLogsTotal']);
   }
@@ -379,6 +389,15 @@ final class ExportEquipmentReportControllerTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-06-01T00:00:00+00:00'),
       maintenanceDueStatus: 'up_to_date',
       facilityName: 'Main Building',
+      name: 'Hall extinguisher',
+      assetCode: 'EXT-0042',
+      criticality: 'critical',
+      technicalProperties: [['key' => 'capacity', 'value' => '6', 'unit' => 'kg']],
+      predecessorEquipmentId: '550e8400-e29b-41d4-a716-446655508105',
+      controlDueStatus: 'up_to_date',
+      serviceDueStatus: 'overdue',
+      controlNextDueAt: '2026-09-01T00:00:00+00:00',
+      serviceNextDueAt: '2026-05-01T00:00:00+00:00',
     );
 
     $logsResult = new ListMaintenanceLogsResult(

@@ -29,6 +29,9 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_equipment_organization_created_at', columns: ['organization_id', 'created_at'])]
 #[ORM\Index(name: 'idx_equipment_intervention_record_status', columns: ['intervention_id', 'record_status'])]
 #[ORM\UniqueConstraint(name: 'uniq_equipment_organization_serial', columns: ['organization_id', 'serial_number'])]
+#[ORM\UniqueConstraint(name: 'uniq_equipment_organization_asset_code', columns: ['organization_id', 'asset_code'])]
+#[ORM\UniqueConstraint(name: 'uniq_equipment_predecessor', columns: ['predecessor_equipment_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_equipment_successor', columns: ['successor_equipment_id'])]
 class EquipmentRecord
 {
   // #region Properties
@@ -138,6 +141,44 @@ class EquipmentRecord
    */
   #[ORM\Column(name: 'location_label', type: 'string', length: 255, nullable: true)]
   public ?string $locationLabel = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'string', length: 255, nullable: true)]
+  public ?string $name = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'asset_code', type: 'string', length: 100, nullable: true)]
+  public ?string $assetCode = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'string', length: 16, nullable: true)]
+  public ?string $criticality = null;
+
+  /**
+   * @since 1.1.0
+   *
+   * @var list<array{key: string, value: string, unit: ?string}>
+   */
+  #[ORM\Column(name: 'technical_properties', type: 'json', options: ['default' => '[]'])]
+  public array $technicalProperties = [];
+
+  /**
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'predecessor_equipment_id', type: 'string', length: 36, nullable: true)]
+  public ?string $predecessorEquipmentId = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'successor_equipment_id', type: 'string', length: 36, nullable: true)]
+  public ?string $successorEquipmentId = null;
 
   /**
    * Property status.

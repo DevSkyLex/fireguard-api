@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Intervention\Application\Service;
 
-use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionResourceSummary, InterventionValidationContext, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionIssue, InterventionResourceSummary, InterventionValidationContext, InterventionWorkItemSummary};
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
@@ -16,6 +16,19 @@ use function array_values;
 
 final class InterventionIssueFinderTest extends TestCase
 {
+  public function testReceivedResourceDeclarationsArePublicationBlockersWithoutFinancialFields(): void
+  {
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('summary')->willReturn(new InterventionResourceSummary(1, 1, 1));
+    $gateway->method('workItemSummary')->willReturn(new InterventionWorkItemSummary(1, 0, 0, 0, 1));
+    $gateway->method('validationContext')->willReturn(new InterventionValidationContext('inventory', 'submitted', 'site', 'member'));
+    $gateway->method('equipmentDrafts')->willReturn([]);
+    $resources = $this->createMock(InterventionPublicationResourcesIssuesPort::class);
+    $resources->expects(self::once())->method('issues')->with('order')->willReturn([new InterventionIssue('blocker', 'intervention', 'order', 'resources', 'inventory_pending_declarations')]);
+    $finder = new InterventionIssueFinder($gateway, $this->createStub(InterventionAttachmentRepositoryPort::class), $resources);
+    self::assertSame('inventory_pending_declarations', $finder->find('order')[0]->message);
+  }
+
   /**
    * @return iterable<string, array{string, string}>
    */
@@ -237,6 +250,6 @@ final class InterventionIssueFinderTest extends TestCase
     InterventionResourceGatewayPort $gateway,
     ?InterventionAttachmentRepositoryPort $attachments = null,
   ): InterventionIssueFinder {
-    return new InterventionIssueFinder($gateway, $attachments ?? $this->createStub(InterventionAttachmentRepositoryPort::class));
+    return new InterventionIssueFinder($gateway, $attachments ?? $this->createStub(InterventionAttachmentRepositoryPort::class), $this->createStub(InterventionPublicationResourcesIssuesPort::class));
   }
 }

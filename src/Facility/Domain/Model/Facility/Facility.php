@@ -78,6 +78,7 @@ final class Facility
     private ?float $elevationMeters = null,
     private ?float $heightMeters = null,
     private ?array $unusablePlanGeometry = null,
+    private ?string $customerId = null,
   ) {
   }
   // #endregion
@@ -107,6 +108,7 @@ final class Facility
     $now = new DateTimeImmutable();
     $details ??= new FacilityDetails();
     FacilityFloorMetrics::assertValid($type, $details->elevationMeters, $details->heightMeters);
+    \Facility\Domain\ValueObject\FacilityCustomerReference::assertValid($details->customerId, $type, $details->parentFacilityId?->__toString());
 
     return new self(
       id: $id,
@@ -125,6 +127,7 @@ final class Facility
       levelIndex: self::normalizeLevelIndex($details->levelIndex),
       elevationMeters: $details->elevationMeters,
       heightMeters: $details->heightMeters,
+      customerId: $details->customerId,
     );
   }
 
@@ -172,6 +175,7 @@ final class Facility
       coordinates: $details->coordinates,
       planGeometry: $geometryState?->planGeometry,
       unusablePlanGeometry: $geometryState?->unusablePlanGeometry,
+      customerId: $details->customerId,
       levelIndex: self::normalizeLevelIndex($details->levelIndex),
       elevationMeters: $details->elevationMeters,
       heightMeters: $details->heightMeters,
@@ -196,6 +200,7 @@ final class Facility
    */
   public function changeType(FacilityType $type): void
   {
+    \Facility\Domain\ValueObject\FacilityCustomerReference::assertValid($this->customerId, $type, $this->parentFacilityId?->__toString());
     $this->type = $type;
     if (FacilityType::FLOOR !== $type) {
       $this->elevationMeters = null;
@@ -211,6 +216,7 @@ final class Facility
    */
   public function moveTo(?FacilityId $parentFacilityId): void
   {
+    \Facility\Domain\ValueObject\FacilityCustomerReference::assertValid($this->customerId, $this->type, $parentFacilityId?->__toString());
     $this->parentFacilityId = $parentFacilityId;
     $this->touch();
   }
@@ -415,6 +421,24 @@ final class Facility
   public function code(): ?string
   {
     return $this->code;
+  }
+
+  /**
+   * Method customerId. Returns the optional customer assigned to this root site.
+   */
+  public function customerId(): ?string
+  {
+    return $this->customerId;
+  }
+
+  /**
+   * Method assignCustomer. Retains customer ownership only on root sites.
+   */
+  public function assignCustomer(?string $customerId): void
+  {
+    \Facility\Domain\ValueObject\FacilityCustomerReference::assertValid($customerId, $this->type, $this->parentFacilityId?->__toString());
+    $this->customerId = $customerId;
+    $this->touch();
   }
 
   /**

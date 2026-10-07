@@ -3,8 +3,33 @@ services:
     autowire: true
     autoconfigure: true
 
+  Facility\Infrastructure\Adapter\Intervention\InterventionEconomicScopeAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Outbound\InterventionEconomicScopePort:
+    alias: Facility\Infrastructure\Adapter\Intervention\InterventionEconomicScopeAdapter
+
   Facility\Presentation\:
     resource: '../../src/Facility/Presentation'
+
+  Facility\Infrastructure\Adapter\ServiceRequest\ServiceRequestSiteTargetAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Application\Port\Outbound\FacilityCustomerValidationPort:
+    alias: Customer\Infrastructure\Adapter\Facility\FacilityCustomerValidationAdapter
+
+  Facility\Infrastructure\Adapter\Intervention\InterventionSiteCustomerSnapshotAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Outbound\InterventionSiteCustomerSnapshotPort:
+    alias: Facility\Infrastructure\Adapter\Intervention\InterventionSiteCustomerSnapshotAdapter
+
+  Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceLifecycleAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider:
     arguments:
@@ -366,3 +391,8 @@ services:
   Facility\Infrastructure\EventSubscriber\FacilityPlanAuditListener:
     arguments:
       $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+
+  Facility\Infrastructure\Adapter\MaintenanceExport\MaintenanceExportSiteIdentityAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['maintenance_export.identity_validator']

@@ -71,7 +71,19 @@ final readonly class ListInspectionsProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.inspection.read')) {
+    $requestQuery = $this->requestStack->getCurrentRequest()?->query;
+    $scoped = null !== self::optionalString($requestQuery?->get('family')) || null !== self::optionalString($requestQuery?->get('customerId')) || ($requestQuery?->getBoolean('includeDescendants', false) ?? false);
+    if ($scoped) {
+      foreach (['organization.inspection.read', 'organization.equipment.read'] as $permission) {
+        $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
+        if ($decision->isOutsideScope()) {
+          throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('Organization not found.');
+        }
+        if (!$decision->isGranted()) {
+          throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
+        }
+      }
+    } elseif (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.inspection.read')) {
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 
@@ -144,6 +156,9 @@ final readonly class ListInspectionsProvider implements ProviderInterface
       pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
       search: SearchExtractor::fromContext($context),
       sorting: SortingExtractor::fromContext($context, ['result', 'status', 'performedAt', 'createdAt'], 'createdAt'),
+      family: self::optionalString($params->get('family')),
+      customerId: self::optionalString($params->get('customerId')),
+      includeDescendants: $params->getBoolean('includeDescendants', false),
     );
   }
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\Service;
 
 use Intervention\Application\Contract\Resource\{InterventionIssue, InterventionResourceSummary, InterventionValidationContext, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
 
 use function in_array;
 use function sprintf;
@@ -33,6 +33,7 @@ final readonly class InterventionIssueFinder
   public function __construct(
     private InterventionResourceGatewayPort $resources,
     private InterventionAttachmentRepositoryPort $attachments,
+    private InterventionPublicationResourcesIssuesPort $publicationResources,
   ) {
   }
 
@@ -62,6 +63,7 @@ final readonly class InterventionIssueFinder
       ...$this->siteSetupIssues($interventionId, $summary, $context),
       ...$this->workItemIssues($interventionId, $summary, $workItems, $context),
       ...$this->equipmentIssues($interventionId),
+      ...$this->publicationResources->issues($interventionId),
     ];
   }
 
@@ -97,7 +99,7 @@ final readonly class InterventionIssueFinder
   ): array {
     $issues = [];
     if (0 === $workItems->total) {
-      $severity = in_array($context?->type, ['inventory', 'inspection_campaign'], true) ? 'blocker' : 'warning';
+      $severity = in_array($context?->type, ['inventory', 'inspection_campaign', 'preventive_maintenance', 'corrective_maintenance'], true) ? 'blocker' : 'warning';
       $issues[] = new InterventionIssue($severity, 'intervention', $interventionId, null, 'No explicit work item has been prepared yet.');
     }
     if ('inspection_campaign' === $context?->type && 0 === $summary->inspections) {

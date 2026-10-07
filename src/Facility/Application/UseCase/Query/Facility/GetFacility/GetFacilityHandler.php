@@ -96,6 +96,7 @@ final readonly class GetFacilityHandler implements QueryHandler
       levelIndex: $facility->levelIndex(),
       elevationMeters: $facility->elevationMeters(),
       heightMeters: $facility->heightMeters(),
+      customerId: $facility->customerId(),
       geometryIssue: $this->spatial->geometryIssue($context, (string) $facilityId, $geometry),
       hierarchyIssues: $this->hierarchy->issuesFor((string) $organizationId, [(string) $facilityId])[(string) $facilityId] ?? [],
     );

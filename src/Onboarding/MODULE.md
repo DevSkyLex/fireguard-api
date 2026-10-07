@@ -122,6 +122,17 @@ Every state projection includes nullable `accessibleOrganizationId`, independent
 
 ## Durable setup recovery
 
+### Operating profile in organization setup
+
+Prepared `create_organization` inputs include `operatingProfile`, restricted to
+`operator` and `service_provider`. Omission normalizes to `operator`, so pre-profile
+receipts remain replayable with the explicit default. The chosen profile remains part
+of the prepared payload: creation and replay must submit the same normalized profile.
+A completed item key cannot be reused to change this choice, and a missing provider
+profile on replay returns `onboarding_setup_conflict` rather than silently substituting
+operator defaults. A settings change after creation uses Organization's existing
+permission-controlled PATCH and does not rewrite the onboarding receipt.
+
 `POST /api/onboarding/organization/setup-operations` prepares `{sessionId, stepKey, items:[{itemKey,payload}]}` and returns the onboarding state. `sessionId` and `setupOperations` are returned by every flow projection; operations carry `stepKey`, `itemKey`, the bounded whitelisted payload, nullable `resourceId`, and `prepared` / `completed` status. Inputs contain no tokens. This authenticated projection is not an SSR transfer payload.
 
 Preparation replaces omitted pending items of the current step, preserves completed results, and refuses changed payloads for existing keys. It permits one organization/equipment and up to five invitations/facilities per session step. Reset starts a different session, invalidating previous receipts. Preparing a batch alone creates no domain resource and consumes no quota.

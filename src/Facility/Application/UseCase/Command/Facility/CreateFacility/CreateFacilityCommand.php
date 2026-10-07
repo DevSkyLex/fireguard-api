@@ -60,6 +60,7 @@ final readonly class CreateFacilityCommand implements CommandMessage
     public ?OrganizationSetupContext $setupContext = null,
     public ?string $interventionId = null,
     public array $projectedHierarchy = [],
+    public ?string $customerId = null,
   ) {
   }
   // #endregion

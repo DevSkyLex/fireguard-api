@@ -78,7 +78,7 @@ final class EquipmentRepositoryTest extends TestCase
 
     self::assertNotNull($searchClause, 'The search predicate must be pushed down into the query builder.');
     self::assertSame(
-      "(LOWER(e.type) LIKE :search ESCAPE '\\' OR LOWER(e.subType) LIKE :search ESCAPE '\\' OR LOWER(e.brand) LIKE :search ESCAPE '\\' OR LOWER(e.model) LIKE :search ESCAPE '\\' OR LOWER(e.serialNumber) LIKE :search ESCAPE '\\' OR LOWER(e.status) LIKE :search ESCAPE '\\' OR LOWER(e.locationLabel) LIKE :search ESCAPE '\\')",
+      "(LOWER(e.type) LIKE :search ESCAPE '\\' OR LOWER(e.name) LIKE :search ESCAPE '\\' OR LOWER(e.assetCode) LIKE :search ESCAPE '\\' OR LOWER(e.subType) LIKE :search ESCAPE '\\' OR LOWER(e.brand) LIKE :search ESCAPE '\\' OR LOWER(e.model) LIKE :search ESCAPE '\\' OR LOWER(e.serialNumber) LIKE :search ESCAPE '\\' OR LOWER(e.status) LIKE :search ESCAPE '\\' OR LOWER(e.locationLabel) LIKE :search ESCAPE '\\')",
       $searchClause,
     );
 

@@ -26,6 +26,14 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 class InterventionRecord
 {
   /**
+   * Property closureSnapshot. Immutable versioned dossier captured in publication.
+   *
+   * @var array<string,mixed>|null
+   */
+  #[ORM\Column(type: 'json', nullable: true)]
+  public ?array $closureSnapshot = null;
+
+  /**
    * Property id.
    *
    * @since 1.0.0

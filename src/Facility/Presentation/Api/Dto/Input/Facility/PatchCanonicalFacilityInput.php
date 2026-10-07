@@ -41,6 +41,12 @@ final class PatchCanonicalFacilityInput
   public ?string $code = null;
 
   /**
+   * Property customerId. Optional internal customer identifier for a root site.
+   */
+  #[Assert\Uuid]
+  public ?string $customerId = null;
+
+  /**
    * Property address.
    *
    * @since 1.0.0

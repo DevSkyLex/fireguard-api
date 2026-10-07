@@ -81,7 +81,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
    *
    * @var list<string>
    */
-  private const array PATCHABLE_FIELDS = ['type', 'status', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel'];
+  private const array PATCHABLE_FIELDS = ['type', 'status', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel', 'name', 'assetCode', 'criticality', 'technicalProperties'];
   // #endregion
 
   // #region Constructor
@@ -177,6 +177,14 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
       hasLocationLabel: $present['locationLabel'],
       locationLabel: $data->locationLabel,
       hasFacility: $hasFacility,
+      hasName: $present['name'],
+      name: $data->name,
+      hasAssetCode: $present['assetCode'],
+      assetCode: $data->assetCode,
+      hasCriticality: $present['criticality'],
+      criticality: $data->criticality,
+      hasTechnicalProperties: $present['technicalProperties'],
+      technicalProperties: $data->technicalProperties,
       facilityId: $hasFacility && null !== $data->facility
         ? ResourceIriParser::id($data->facility, 'facilities')
         : null,

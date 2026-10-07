@@ -33,7 +33,10 @@ use Equipment\Presentation\Api\Provider\Equipment\FacilityEquipmentSummaryProvid
       castToNativeType: false,
       constraints: [],
       openApi: new Parameter(name: 'includeDescendants', in: 'query', schema: ['type' => 'boolean', 'default' => true]),
-    )],
+    ),
+      'family' => new QueryParameter(schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'family', in: 'query', schema: ['type' => 'string', 'enum' => ['fire', 'safety', 'other']])),
+      'customerId' => new QueryParameter(schema: ['type' => 'string', 'format' => 'uuid'], required: false, castToArray: false, castToNativeType: false, constraints: [], openApi: new Parameter(name: 'customerId', in: 'query', schema: ['type' => 'string', 'format' => 'uuid'])),
+    ],
     openapi: new Operation(
       tags: ['Equipment'],
       summary: 'Get exact facility equipment totals',

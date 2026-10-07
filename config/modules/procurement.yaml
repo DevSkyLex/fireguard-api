@@ -1,0 +1,32 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Procurement\Presentation\:
+    resource: '../../src/Procurement/Presentation'
+
+  Procurement\Application\Service\:
+    resource: '../../src/Procurement/Application/Service'
+
+  Procurement\Application\Port\Outbound\Persistence\ProcurementRepositoryPort:
+    alias: Procurement\Infrastructure\Persistence\Doctrine\Repository\ProcurementRepository
+
+  Procurement\Infrastructure\Persistence\Doctrine\Repository\ProcurementRepository:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Procurement\Application\UseCase\Command\ManageProcurement\ManageProcurementHandler:
+    arguments:
+      $events: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  Procurement\Application\UseCase\Query\ReadProcurement\ReadProcurementHandler:
+    tags: ['messenger.message_handler']
+
+  Procurement\Application\Port\Inbound\ProcurementEconomicOverviewPort:
+    alias: Procurement\Infrastructure\Adapter\Reporting\ProcurementEconomicOverviewAdapter
+
+  Procurement\Infrastructure\Adapter\Reporting\ProcurementEconomicOverviewAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'

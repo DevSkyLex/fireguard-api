@@ -59,6 +59,8 @@ final readonly class GenerateInspectionCampaignHandler implements CommandHandler
     private OrganizationAuthorizationPort $authorization,
     private EventDispatcherPort $eventDispatcher,
     private int $maxCampaignWorkItems = 25,
+    private ?\Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort $plans = null,
+    private ?\Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort $planAuthority = null,
   ) {
   }
 
@@ -72,6 +74,20 @@ final readonly class GenerateInspectionCampaignHandler implements CommandHandler
    * @return GenerateInspectionCampaignResult the command result
    */
   public function __invoke(GenerateInspectionCampaignCommand $command): GenerateInspectionCampaignResult
+  {
+    if (null === $this->plans) {
+      return $this->generateLegacy($command);
+    }
+
+    return $this->plans->synchronized($command->organizationId, fn (): GenerateInspectionCampaignResult => $this->planAuthority?->usesPlans($command->organizationId)
+      ? $this->planAuthority->generateCampaign($command->organizationId, $command->actorUserId, $command->name, $command->facilityId, $command->equipmentType, $command->dueBefore)
+      : $this->generateLegacy($command));
+  }
+
+  /**
+   * Generates historical campaigns while the legacy authority still owns the organization.
+   */
+  private function generateLegacy(GenerateInspectionCampaignCommand $command): GenerateInspectionCampaignResult
   {
     if (!$this->authorization->isMemberOf($command->actorUserId, $command->organizationId)) {
       throw MaintenanceNotFoundException::forOrganizationScope($command->organizationId);

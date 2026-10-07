@@ -44,6 +44,7 @@ final readonly class FacilityListCriteria
     public ?array $eligibleParentIds = null,
     public ?string $parentInterventionId = null,
     public bool $includePublishedParents = true,
+    public ?string $customerId = null,
   ) {
   }
   // #endregion

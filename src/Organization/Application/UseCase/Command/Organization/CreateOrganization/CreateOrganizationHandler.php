@@ -135,6 +135,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       name: new OrganizationName($command->name),
       ownerUserId: $command->ownerUserId,
       options: new OrganizationCreationOptions(
+        operatingProfile: \Organization\Domain\ValueObject\OrganizationOperatingProfile::fromString($command->operatingProfile),
         slug: null !== $normalizedSlug ? new OrganizationSlug($normalizedSlug) : null,
         planId: $defaultPlan?->id(),
       ),
@@ -218,7 +219,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
   private function createWithinTransaction(CreateOrganizationCommand $command, Organization $organization, OrganizationRole $ownerRole, OrganizationRole $memberRole, OrganizationMember $ownerMember, bool &$replayed): CreateOrganizationResult
   {
     if (null !== $command->setupContext) {
-      $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_organization', null, ['name' => $command->name, 'slug' => $command->slug]);
+      $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_organization', null, ['name' => $command->name, 'slug' => $command->slug, 'operatingProfile' => $command->operatingProfile]);
       if (null !== $operation->resourceId) {
         $existing = $this->organizationRepository->findById(OrganizationId::fromString($operation->resourceId));
         if (null === $existing || $existing->ownerUserId() !== $command->ownerUserId) {
@@ -231,6 +232,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
           ownerMemberId: $operation->resultIds['ownerMemberId'],
           ownerRoleId: $operation->resultIds['ownerRoleId'],
           name: (string) $existing->name(),
+          operatingProfile: $existing->operatingProfile()->value,
           slug: (string) $existing->slug(),
           ownerUserId: $existing->ownerUserId(),
           createdByUserId: $existing->createdByUserId(),
@@ -267,6 +269,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       ownerMemberId: (string) $ownerMemberId,
       ownerRoleId: (string) $ownerRoleId,
       name: (string) $organization->name(),
+      operatingProfile: $organization->operatingProfile()->value,
       slug: (string) $organization->slug(),
       ownerUserId: $organization->ownerUserId(),
       createdByUserId: $organization->createdByUserId(),

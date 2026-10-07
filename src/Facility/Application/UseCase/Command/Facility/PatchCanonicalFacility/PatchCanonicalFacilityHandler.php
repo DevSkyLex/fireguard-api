@@ -76,6 +76,7 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
     private ?FacilityHierarchyPort $hierarchy = null,
+    private ?\Facility\Application\Port\Outbound\FacilityCustomerValidationPort $customers = null,
   ) {
   }
   // #endregion
@@ -111,6 +112,9 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
         $facility->assertRevisionMatches($command->expectedRevision);
 
         $patch = self::patch($command);
+        if ($patch->hasCustomerId && null !== $patch->customerId && $patch->customerId !== $facility->customerId()) {
+          ($this->customers ?? throw new \Facility\Application\Contract\FacilityCustomerUnavailable())->assertAssignable($patch->customerId, (string) $facility->organizationId());
+        }
         $patch->assertDescriptiveFieldsAreValid();
 
         $this->assertMetadata($facility, $patch);
@@ -403,6 +407,8 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
       elevationMeters: $command->elevationMeters,
       hasHeightMeters: $command->hasHeightMeters,
       heightMeters: $command->heightMeters,
+      customerId: $command->customerId,
+      hasCustomerId: $command->hasCustomerId,
     );
   }
 

@@ -284,6 +284,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $output->levelIndex = $record->levelIndex;
     $output->elevationMeters = $record->elevationMeters;
     $output->heightMeters = $record->heightMeters;
+    $output->customerId = $record->customerId;
     if ($includeGeometry) {
       $output->planGeometry = $record->planGeometry;
     }

@@ -50,6 +50,7 @@ final class OrganizationSystemRoleCatalog
         'organization.members.read',
         'organization.roles.read',
         'organization.facilities.read',
+        'organization.customers.read',
         'organization.equipment.read',
         'organization.inspection.read',
         'organization.interventions.read',

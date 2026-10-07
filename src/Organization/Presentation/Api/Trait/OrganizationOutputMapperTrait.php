@@ -44,6 +44,7 @@ trait OrganizationOutputMapperTrait
     $output = new OrganizationOutput();
     $output->id = $result->id;
     $output->name = $result->name;
+    $output->operatingProfile = $result->operatingProfile;
     $output->slug = $result->slug;
     $output->ownerUserId = $result->ownerUserId;
     $output->createdByUserId = $result->createdByUserId;

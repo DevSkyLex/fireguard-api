@@ -140,6 +140,17 @@ final class InterventionWorkItemProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testAPatchCarriesExecutionFactsThroughTheExistingRevisionedMutation(): void
+  {
+    $facts = ['equipmentId' => '550e8400-e29b-41d4-a716-446655441511', 'performedAt' => '2026-09-30T15:00:00+02:00', 'outcome' => 'successful', 'workPerformed' => 'Seal replaced'];
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())->method('dispatch')->with(self::callback(static fn (MutateInterventionWorkflowCommand $command): bool => 1 === $command->expectedRevision && ['executionResult' => $facts] === $command->payload))->willReturn(new MutateInterventionWorkflowResult($this->view()));
+    $input = new UpdateInterventionWorkItemInput();
+    $input->executionResult = $facts;
+    $this->createProcessor($commandBus, 'PATCH', body: '{"executionResult":{}}', ifMatch: '"revision-1"')->process($input, new Patch(), ['id' => self::WORK_ITEM_ID]);
+  }
+
+  #[Test]
   public function testAPatchResolvesAnAssigneeIriIntoAMemberId(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */

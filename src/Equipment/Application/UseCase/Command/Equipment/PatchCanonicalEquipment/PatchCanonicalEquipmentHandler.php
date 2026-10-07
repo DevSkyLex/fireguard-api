@@ -60,6 +60,7 @@ final readonly class PatchCanonicalEquipmentHandler implements CommandHandler
     private InterventionScopePort $interventions,
     private EventDispatcherPort $eventDispatcher,
     private TransactionManagerPort $transactionManager,
+    private ?\Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort $typeCatalog = null,
   ) {
   }
   // #endregion
@@ -92,6 +93,9 @@ final readonly class PatchCanonicalEquipmentHandler implements CommandHandler
         $patch->assertNonNullableFieldsArePresent();
 
         $this->assertFacilityPatch($equipment, $patch);
+        if ($patch->hasType && null !== $patch->type) {
+          $this->typeCatalog?->validateAvailableType((string) $equipment->organizationId(), $patch->type, $equipment->type());
+        }
 
         $previousStatus = $equipment->applyPatch($patch);
 
@@ -189,6 +193,14 @@ final readonly class PatchCanonicalEquipmentHandler implements CommandHandler
       locationLabel: $command->locationLabel,
       hasFacility: $command->hasFacility,
       facilityId: $command->facilityId,
+      hasName: $command->hasName,
+      name: $command->name,
+      hasAssetCode: $command->hasAssetCode,
+      assetCode: $command->assetCode,
+      hasCriticality: $command->hasCriticality,
+      criticality: $command->criticality,
+      hasTechnicalProperties: $command->hasTechnicalProperties,
+      technicalProperties: $command->technicalProperties,
     );
   }
 

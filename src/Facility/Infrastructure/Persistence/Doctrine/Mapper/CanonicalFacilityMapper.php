@@ -58,7 +58,7 @@ final class CanonicalFacilityMapper
         $record->longitude,
         $record->metadata,
       ),
-      version: new CanonicalFacilityVersion(FacilityStatus::from($record->status), $record->revision, $record->updatedAt, $record->levelIndex, $record->elevationMeters, $record->heightMeters),
+      version: new CanonicalFacilityVersion(FacilityStatus::from($record->status), $record->revision, $record->updatedAt, $record->levelIndex, $record->elevationMeters, $record->heightMeters, $record->customerId),
     );
   }
 
@@ -83,6 +83,7 @@ final class CanonicalFacilityMapper
     $record->type = $facility->type()->value;
     $record->name = $facility->name();
     $record->code = $facility->code();
+    $record->customerId = $facility->customerId();
     $record->address = $facility->address();
     $record->latitude = $facility->latitude();
     $record->longitude = $facility->longitude();

@@ -10,9 +10,11 @@ use Equipment\Domain\ValueObject\{
   EquipmentCatalogDetails,
   EquipmentFacilityId,
   EquipmentId,
+  EquipmentIdentity,
   EquipmentOrganizationId,
   EquipmentStatus,
   EquipmentType,
+  EquipmentTypeCode,
   PlanPosition,
   RestoredEquipmentAssignment
 };
@@ -59,7 +61,7 @@ final class Equipment
   private function __construct(
     private EquipmentId $id,
     private EquipmentOrganizationId $organizationId,
-    private EquipmentType $type,
+    private EquipmentType|EquipmentTypeCode $type,
     private EquipmentStatus $status,
     private DateTimeImmutable $createdAt,
     private DateTimeImmutable $updatedAt,
@@ -72,6 +74,9 @@ final class Equipment
     private ?DateTimeImmutable $installedAt = null,
     private ?DateTimeImmutable $commissionedAt = null,
     private ?PlanPosition $planPosition = null,
+    private ?EquipmentIdentity $identity = null,
+    private ?string $predecessorEquipmentId = null,
+    private ?string $successorEquipmentId = null,
   ) {
   }
   // #endregion
@@ -94,7 +99,7 @@ final class Equipment
   public static function create(
     EquipmentId $id,
     EquipmentOrganizationId $organizationId,
-    EquipmentType $type,
+    EquipmentType|EquipmentTypeCode $type,
     ?EquipmentCatalogDetails $details = null,
   ): self {
     $details ??= new EquipmentCatalogDetails();
@@ -115,6 +120,7 @@ final class Equipment
       locationLabel: self::normalizeShortString($details->locationLabel, 'location label', 255),
       installedAt: null,
       commissionedAt: null,
+      identity: $details->identity ?? EquipmentIdentity::fromValues(),
     );
   }
 
@@ -138,11 +144,13 @@ final class Equipment
   public static function reconstitute(
     EquipmentId $id,
     EquipmentOrganizationId $organizationId,
-    EquipmentType $type,
+    EquipmentType|EquipmentTypeCode $type,
     EquipmentCatalogDetails $details,
     RestoredEquipmentAssignment $assignment,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
+    ?string $predecessorEquipmentId = null,
+    ?string $successorEquipmentId = null,
   ): self {
     return new self(
       id: $id,
@@ -160,6 +168,9 @@ final class Equipment
       installedAt: $assignment->installedAt,
       commissionedAt: $assignment->commissionedAt,
       planPosition: $assignment->planPosition,
+      identity: $details->identity ?? EquipmentIdentity::fromValues(),
+      predecessorEquipmentId: $predecessorEquipmentId,
+      successorEquipmentId: $successorEquipmentId,
     );
   }
 
@@ -178,7 +189,7 @@ final class Equipment
    * @param ?string $locationLabel the optional location label
    */
   public function update(
-    EquipmentType $type,
+    EquipmentType|EquipmentTypeCode $type,
     ?string $subType = null,
     ?string $brand = null,
     ?string $model = null,
@@ -391,7 +402,7 @@ final class Equipment
    *
    * @since 1.0.0
    */
-  public function type(): EquipmentType
+  public function type(): EquipmentType|EquipmentTypeCode
   {
     return $this->type;
   }
@@ -504,6 +515,39 @@ final class Equipment
   public function updatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
+  }
+
+  /**
+   * @since 1.0.0
+   */
+  public function updateIdentity(EquipmentIdentity $identity): void
+  {
+    $this->identity = $identity;
+    $this->touch();
+  }
+
+  /**
+   * @since 1.0.0
+   */
+  public function identity(): EquipmentIdentity
+  {
+    return $this->identity ?? EquipmentIdentity::fromValues();
+  }
+
+  /**
+   * @since 1.0.0
+   */
+  public function predecessorEquipmentId(): ?string
+  {
+    return $this->predecessorEquipmentId;
+  }
+
+  /**
+   * @since 1.0.0
+   */
+  public function successorEquipmentId(): ?string
+  {
+    return $this->successorEquipmentId;
   }
 
   /**

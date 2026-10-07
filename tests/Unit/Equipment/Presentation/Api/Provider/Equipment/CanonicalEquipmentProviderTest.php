@@ -7,12 +7,14 @@ namespace Tests\Unit\Equipment\Presentation\Api\Provider\Equipment;
 use ApiPlatform\Metadata\{Get, GetCollection};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\{EntityManagerInterface, Query, QueryBuilder};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Maintenance\Application\Contract\Plan\MaintenanceEquipmentOperationsDue;
+use Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -21,6 +23,8 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+
+use function iterator_to_array;
 
 /**
  * Test CanonicalEquipmentProviderTest.
@@ -39,6 +43,56 @@ final class CanonicalEquipmentProviderTest extends TestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655442100';
 
   private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655442101';
+
+  #[Test]
+  public function resolvesCollectionOperationDeadlinesInOneBulkCall(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $records = [];
+    foreach (['550e8400-e29b-41d4-a716-446655442102', '550e8400-e29b-41d4-a716-446655442103'] as $id) {
+      $record = new EquipmentRecord();
+      $record->id = $id;
+      $record->organization = $organization;
+      $record->type = 'fire_extinguisher';
+      $record->createdAt = $record->updatedAt = new DateTimeImmutable('2026-10-01T00:00:00+00:00');
+      $records[] = $record;
+    }
+    $query = $this->createStub(Query::class);
+    $query->method('getSingleScalarResult')->willReturn(2);
+    $query->method('getResult')->willReturn($records);
+    $builder = $this->createStub(QueryBuilder::class);
+    foreach (['select', 'from', 'where', 'andWhere', 'setParameter', 'orderBy', 'resetDQLPart', 'setFirstResult', 'setMaxResults'] as $method) {
+      $builder->method($method)->willReturnSelf();
+    }
+    $builder->method('getQuery')->willReturn($query);
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('createQueryBuilder')->willReturn($builder);
+    $operations = $this->createMock(MaintenanceOperationsDuePort::class);
+    $operations->expects(self::once())->method('forEquipment')->with(self::ORGANIZATION_ID, [$records[0]->id, $records[1]->id])->willReturn([
+      $records[0]->id => new MaintenanceEquipmentOperationsDue(
+        'up_to_date',
+        'overdue',
+        new DateTimeImmutable('2027-01-01T00:00:00+00:00'),
+        new DateTimeImmutable('2026-09-01T00:00:00+00:00'),
+        'plans',
+      ),
+      $records[1]->id => new MaintenanceEquipmentOperationsDue('overdue', 'unscheduled', new DateTimeImmutable('2026-10-01T00:00:00+00:00'), null, 'plans'),
+    ]);
+    $requests = new RequestStack();
+    $requests->push(Request::create('/api/equipment?organization=/api/organizations/' . self::ORGANIZATION_ID));
+    $page = $this->provider($entityManager, $requests, null, operationsDue: $operations)->provide(new GetCollection());
+    self::assertInstanceOf(\ApiPlatform\State\Pagination\TraversablePaginator::class, $page);
+    $items = iterator_to_array($page);
+    self::assertCount(2, $items);
+    self::assertSame('up_to_date', $items[0]->maintenanceDueStatus);
+    self::assertSame('up_to_date', $items[0]->controlDueStatus);
+    self::assertSame('overdue', $items[0]->serviceDueStatus);
+    self::assertSame('2027-01-01T00:00:00+00:00', $items[0]->controlNextDueAt);
+    self::assertSame('2026-09-01T00:00:00+00:00', $items[0]->serviceNextDueAt);
+    self::assertSame('overdue', $items[1]->controlDueStatus);
+    self::assertNull($items[1]->serviceNextDueAt);
+  }
 
   #[Test]
   public function testProvideThrowsNotFoundWhenTheEquipmentRecordIsMissing(): void
@@ -165,6 +219,7 @@ final class CanonicalEquipmentProviderTest extends TestCase
     RequestStack $requestStack,
     ?InterventionAssignmentContext $context,
     OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
+    ?MaintenanceOperationsDuePort $operationsDue = null,
   ): CanonicalEquipmentProvider {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn($decision);
@@ -184,6 +239,7 @@ final class CanonicalEquipmentProviderTest extends TestCase
       $requestStack,
       new InterventionResourceManager($resources),
       detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->detailQueries(), new \Equipment\Presentation\Api\Factory\EquipmentOutputFactory()),
+      operationsDue: $operationsDue,
     );
   }
 

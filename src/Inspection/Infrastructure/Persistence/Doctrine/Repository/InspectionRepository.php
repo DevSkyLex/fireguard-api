@@ -241,6 +241,22 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   }
 
   /**
+   * @since 1.1.0
+   *
+   * @return list<string>
+   */
+  public function findPublishedEquipmentIds(string $organizationId): array
+  {
+    /** @var list<array{equipmentId: string}> $rows */
+    $rows = $this->entityManager->createQueryBuilder()->select('DISTINCT i.equipmentId AS equipmentId')
+      ->from(InspectionRecord::class, 'i')->where('IDENTITY(i.organization) = :organization')
+      ->andWhere('i.recordStatus = :published')->setParameter('organization', $organizationId)
+      ->setParameter('published', 'published')->getQuery()->getArrayResult();
+
+    return array_map(static fn (array $row): string => $row['equipmentId'], $rows);
+  }
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists published inspections for an organization using the supplied filters, sort order, and page bounds.
@@ -754,6 +770,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       $queryBuilder
         ->andWhere('i.equipmentId = :equipmentId')
         ->setParameter('equipmentId', $criteria->subject->equipmentId);
+    }
+    if (null !== $criteria->subject->equipmentIds) {
+      if ([] === $criteria->subject->equipmentIds) {
+        $queryBuilder->andWhere('1 = 0');
+      } else {
+        $queryBuilder->andWhere('i.equipmentId IN (:parkEquipmentIds)')->setParameter('parkEquipmentIds', $criteria->subject->equipmentIds);
+      }
     }
 
     if (null !== $criteria->subject->facilityId) {

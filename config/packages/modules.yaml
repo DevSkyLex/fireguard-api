@@ -9,6 +9,7 @@ imports:
   - { resource: '../modules/session.yaml' }
   - { resource: '../modules/tenant.yaml' }
   - { resource: '../modules/organization.yaml' }
+  - { resource: '../modules/customer.yaml' }
   - { resource: '../modules/onboarding.yaml' }
   - { resource: '../modules/facility.yaml' }
   - { resource: '../modules/equipment.yaml' }
@@ -30,7 +31,9 @@ imports:
   - { resource: '../modules/approval.yaml' }
   - { resource: '../modules/assistant.yaml' }
   - { resource: '../modules/calendar.yaml' }
-
-
-
+  - { resource: '../modules/service_request.yaml' }
+  - { resource: '../modules/inventory.yaml' }
+  - { resource: '../modules/procurement.yaml' }
+  - { resource: '../modules/maintenance_cost.yaml' }
+  - { resource: '../modules/maintenance_export.yaml' }
 

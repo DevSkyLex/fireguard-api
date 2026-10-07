@@ -218,6 +218,42 @@ doctrine:
             dir: '%kernel.project_dir%/src/Compliance/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Compliance\Infrastructure\Persistence\Doctrine\Record'
             alias: Compliance
+          Customer:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Customer/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Customer\Infrastructure\Persistence\Doctrine\Record'
+            alias: Customer
+          ServiceRequest:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/ServiceRequest/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'ServiceRequest\Infrastructure\Persistence\Doctrine\Record'
+            alias: ServiceRequest
+          Inventory:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Inventory/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Inventory\Infrastructure\Persistence\Doctrine\Record'
+            alias: Inventory
+          Procurement:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Procurement/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Procurement\Infrastructure\Persistence\Doctrine\Record'
+            alias: Procurement
+          MaintenanceCost:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/MaintenanceCost/Infrastructure/Persistence/Doctrine'
+            prefix: 'MaintenanceCost\Infrastructure\Persistence\Doctrine'
+            alias: MaintenanceCost
+          MaintenanceExport:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/MaintenanceExport/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'MaintenanceExport\Infrastructure\Persistence\Doctrine\Record'
+            alias: MaintenanceExport
     controller_resolver:
       auto_mapping: false
 

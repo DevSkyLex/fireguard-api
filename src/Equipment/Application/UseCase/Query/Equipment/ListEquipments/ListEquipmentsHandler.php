@@ -12,7 +12,9 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\EquipmentFacilityId;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentTypeCode};
+use Maintenance\Application\Contract\Plan\MaintenanceEquipmentOperationsDue;
+use Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -38,12 +40,12 @@ final readonly class ListEquipmentsHandler implements QueryHandler
 {
   // #region Constants
   /**
-   * The four Maintenance due status values, mirrored here without importing
-   * Maintenance's Domain layer — see `MaintenanceDueStatusPort`'s docblock.
+   * The four Maintenance due status values and the query-only `due` union,
+   * mirrored without importing Maintenance's Domain layer.
    *
    * @var list<string>
    */
-  private const array MAINTENANCE_DUE_STATUSES = ['unscheduled', 'up_to_date', 'due_soon', 'overdue'];
+  private const array MAINTENANCE_DUE_STATUSES = ['unscheduled', 'up_to_date', 'due_soon', 'overdue', 'due'];
 
   /**
    * Upper bound for the in-memory scan `listFilteredByDueStatus()` requires.
@@ -66,6 +68,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
    * @param MaintenanceDueStatusPort $maintenanceDueStatusPort port used to apply or report maintenance due status
    * @param FacilityNamingPort $facilityNaming port used to resolve facility display names
    * @param FacilitySubtreeScopePort $facilitySubtree resolves scoped descendant identifiers
+   * @param ?MaintenanceOperationsDuePort $operationsDue independent control and service deadlines
    *
    * @return void
    */
@@ -75,6 +78,8 @@ final readonly class ListEquipmentsHandler implements QueryHandler
     private MaintenanceDueStatusPort $maintenanceDueStatusPort,
     private FacilityNamingPort $facilityNaming,
     private FacilitySubtreeScopePort $facilitySubtree,
+    private ?\Equipment\Application\Service\EquipmentSelectionScopeResolver $selectionScopes = null,
+    private ?MaintenanceOperationsDuePort $operationsDue = null,
   ) {
   }
   // #endregion
@@ -91,7 +96,9 @@ final readonly class ListEquipmentsHandler implements QueryHandler
   {
     try {
       $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
-      $type = null !== $query->type ? EquipmentType::from($query->type)->value : null;
+      $type = null !== $query->type
+        ? (null === $this->selectionScopes ? \Equipment\Domain\ValueObject\EquipmentType::from($query->type)->value : EquipmentTypeCode::fromString($query->type)->value)
+        : null;
       $status = null !== $query->status ? EquipmentStatus::from($query->status)->value : null;
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
@@ -121,7 +128,8 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       model: $query->model,
       subType: $query->subType,
       search: $query->search,
-      facilityIds: $facilityIds,
+      facilityIds: $this->selectionScopes?->customerFacilities($query->organizationId, $query->customerId, $facilityIds) ?? $facilityIds,
+      typeCodes: $this->selectionScopes?->typesForFamily($query->organizationId, $query->family),
     );
 
     if (null !== $query->maintenanceDueStatus) {
@@ -147,10 +155,12 @@ final readonly class ListEquipmentsHandler implements QueryHandler
     );
 
     $tagsByEquipmentId = $this->tagRepository->findTagsByEquipmentIds($equipmentIds);
-    $dueStatusesByEquipmentId = $this->maintenanceDueStatusPort->dueStatusesForEquipment(
+    $rawEquipmentIds = array_map(static fn (EquipmentId $id): string => (string) $id, $equipmentIds);
+    $operationsDueByEquipmentId = $this->operationsDue?->forEquipment((string) $organizationId, $rawEquipmentIds) ?? [];
+    $dueStatusesByEquipmentId = null === $this->operationsDue ? $this->maintenanceDueStatusPort->dueStatusesForEquipment(
       (string) $organizationId,
-      array_map(static fn (EquipmentId $id): string => (string) $id, $equipmentIds),
-    );
+      $rawEquipmentIds,
+    ) : array_map(static fn (MaintenanceEquipmentOperationsDue $due): string => $due->controlDueStatus, $operationsDueByEquipmentId);
 
     $facilityNames = $this->resolveFacilityNames($equipments);
 
@@ -162,6 +172,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
         $tagsByEquipmentId[(string) $equipment->id()] ?? [],
         $dueStatusesByEquipmentId[(string) $equipment->id()] ?? 'unscheduled',
         null !== $facilityId ? ($facilityNames[$facilityId] ?? null) : null,
+        $operationsDueByEquipmentId[(string) $equipment->id()] ?? null,
       );
     }
 
@@ -204,14 +215,18 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       0,
     );
 
-    $dueStatusesByEquipmentId = $this->maintenanceDueStatusPort->dueStatusesForEquipment(
+    $rawEquipmentIds = array_map(static fn ($equipment): string => (string) $equipment->id(), $candidates);
+    $operationsDueByEquipmentId = $this->operationsDue?->forEquipment((string) $organizationId, $rawEquipmentIds) ?? [];
+    $dueStatusesByEquipmentId = null === $this->operationsDue ? $this->maintenanceDueStatusPort->dueStatusesForEquipment(
       (string) $organizationId,
-      array_map(static fn ($equipment): string => (string) $equipment->id(), $candidates),
-    );
+      $rawEquipmentIds,
+    ) : array_map(static fn (MaintenanceEquipmentOperationsDue $due): string => $due->controlDueStatus, $operationsDueByEquipmentId);
 
     $matched = array_values(array_filter(
       $candidates,
-      static fn ($equipment): bool => ($dueStatusesByEquipmentId[(string) $equipment->id()] ?? 'unscheduled') === $query->maintenanceDueStatus,
+      static fn ($equipment): bool => 'due' === $query->maintenanceDueStatus
+        ? in_array($dueStatusesByEquipmentId[(string) $equipment->id()] ?? 'unscheduled', ['due_soon', 'overdue'], true)
+        : ($dueStatusesByEquipmentId[(string) $equipment->id()] ?? 'unscheduled') === $query->maintenanceDueStatus,
     ));
 
     $total = count($matched);
@@ -232,6 +247,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
         $tagsByEquipmentId[(string) $equipment->id()] ?? [],
         $dueStatusesByEquipmentId[(string) $equipment->id()] ?? 'unscheduled',
         null !== $facilityId ? ($facilityNames[$facilityId] ?? null) : null,
+        $operationsDueByEquipmentId[(string) $equipment->id()] ?? null,
       );
     }
 
@@ -281,9 +297,12 @@ final readonly class ListEquipmentsHandler implements QueryHandler
    * @param list<Tag> $tags the equipment's tags
    * @param string $maintenanceDueStatus the resolved maintenance due status value
    * @param ?string $facilityName the resolved facility display name, when assigned
+   * @param ?MaintenanceEquipmentOperationsDue $operationsDue independent operation deadlines
    */
-  private function toResult(Equipment $equipment, array $tags, string $maintenanceDueStatus, ?string $facilityName = null): GetEquipmentResult
+  private function toResult(Equipment $equipment, array $tags, string $maintenanceDueStatus, ?string $facilityName = null, ?MaintenanceEquipmentOperationsDue $operationsDue = null): GetEquipmentResult
   {
+    $controlStatus = $operationsDue->controlDueStatus ?? $maintenanceDueStatus;
+
     return new GetEquipmentResult(
       equipmentId: (string) $equipment->id(),
       organizationId: (string) $equipment->organizationId(),
@@ -294,6 +313,12 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       model: $equipment->model(),
       serialNumber: $equipment->serialNumber(),
       locationLabel: $equipment->locationLabel(),
+      name: $equipment->identity()->name,
+      assetCode: $equipment->identity()->assetCode,
+      criticality: $equipment->identity()->criticality,
+      technicalProperties: $equipment->identity()->technicalProperties,
+      predecessorEquipmentId: $equipment->predecessorEquipmentId(),
+      successorEquipmentId: $equipment->successorEquipmentId(),
       status: $equipment->status()->value,
       installedAt: $equipment->installedAt()?->format('c'),
       commissionedAt: $equipment->commissionedAt()?->format('c'),
@@ -307,7 +332,11 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       ),
       createdAt: $equipment->createdAt(),
       updatedAt: $equipment->updatedAt(),
-      maintenanceDueStatus: $maintenanceDueStatus,
+      maintenanceDueStatus: $controlStatus,
+      controlDueStatus: $controlStatus,
+      serviceDueStatus: $operationsDue->serviceDueStatus ?? 'unscheduled',
+      controlNextDueAt: $operationsDue?->controlNextDueAt?->format('c'),
+      serviceNextDueAt: $operationsDue?->serviceNextDueAt?->format('c'),
       facilityName: $facilityName,
       planPosition: $equipment->planPosition()?->toArray(),
     );

@@ -52,6 +52,7 @@ final readonly class MaintenanceScheduleService implements MaintenanceSchedulePo
     private ClockPort $clock,
     private MaintenanceScheduleLockPort $locks,
     private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort $inspectionHistory,
+    private ?\Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort $planAuthority = null,
   ) {
   }
 
@@ -126,6 +127,11 @@ final readonly class MaintenanceScheduleService implements MaintenanceSchedulePo
     }
     foreach ($page as $equipment) {
       if (!isset($seen[$equipment->equipmentId])) {
+        if ($this->planAuthority?->usesPlans($equipment->organizationId)) {
+          $this->planAuthority->refreshControlProjection($equipment->organizationId, $equipment->equipmentId);
+
+          continue;
+        }
         $this->schedules->removeByOrganizationAndEquipment($equipment->organizationId, $equipment->equipmentId);
       }
     }
@@ -148,6 +154,13 @@ final readonly class MaintenanceScheduleService implements MaintenanceSchedulePo
    */
   private function refreshOrganizationEquipment(string $organizationId, array $equipmentGroup, ?MaintenanceCompliancePolicy $compliance, DateTimeImmutable $now): array
   {
+    if ($this->planAuthority?->usesPlans($organizationId)) {
+      foreach ($equipmentGroup as $equipment) {
+        $this->planAuthority->refreshControlProjection($organizationId, $equipment->equipmentId);
+      }
+
+      return [];
+    }
     $equipmentIds = array_map(static fn (TrackableEquipment $equipment): string => $equipment->equipmentId, $equipmentGroup);
     $existing = $this->schedules->findForEquipment($organizationId, $equipmentIds);
     $history = $this->inspectionHistory->latestClosedAtForEquipment($organizationId, $equipmentIds);
@@ -202,6 +215,11 @@ final readonly class MaintenanceScheduleService implements MaintenanceSchedulePo
    */
   private function recompute(string $organizationId, string $equipmentId, ?DateTimeImmutable $closedAt = null): void
   {
+    if ($this->planAuthority?->usesPlans($organizationId)) {
+      $this->planAuthority->refreshControlProjection($organizationId, $equipmentId);
+
+      return;
+    }
     $equipment = $this->directory->findEquipment($equipmentId);
     if (null === $equipment || $equipment->organizationId !== $organizationId || 'decommissioned' === $equipment->status) {
       $this->schedules->removeByOrganizationAndEquipment($organizationId, $equipmentId);

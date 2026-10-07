@@ -72,6 +72,36 @@ final class InterventionServiceReportAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  public function testValidatedEquipmentWorkWithoutAProposalAppearsInTheMaintenanceHistory(): void
+  {
+    $intervention = $this->createIntervention();
+    $item = new InterventionWorkItemRecord();
+    $item->id = '660e8400-e29b-41d4-a716-446655460021';
+    $item->intervention = $intervention;
+    $item->action = 'repair';
+    $item->status = 'completed';
+    $item->target = '/api/equipment/' . self::EQUIPMENT_ID_1;
+    $item->executionResult = ['equipmentId' => self::EQUIPMENT_ID_1, 'performedAt' => '2026-09-30T15:00:00+02:00', 'outcome' => 'successful', 'workPerformed' => 'Valve repair', 'authorId' => self::RESPONSIBLE_ID, 'state' => 'validated'];
+    $item->createdAt = $item->updatedAt = new DateTimeImmutable();
+    $this->entityManager->persist($item);
+    $this->entityManager->flush();
+    $report = $this->adapter->serviceReport(self::INTERVENTION_ID);
+    self::assertNotNull($report);
+    self::assertCount(1, $report->equipment);
+    self::assertSame('repair', $report->equipment[0]->action);
+    self::assertSame($item->id, $report->equipment[0]->workItemId);
+    self::assertSame('operation:' . $item->id, $report->equipment[0]->changeToken);
+    self::assertSame('2026-09-30T15:00:00+02:00', $report->equipment[0]->performedAt?->format('c'));
+    self::assertSame('Valve repair', $report->equipment[0]->notes);
+    self::assertSame(self::RESPONSIBLE_ID, $report->equipment[0]->authorId);
+    $this->createChange('660e8400-e29b-41d4-a716-446655460034', $intervention, '/api/equipment/' . self::EQUIPMENT_ID_1, ['brand' => 'Maintained'], 'applied', $item);
+    $this->entityManager->flush();
+    $updatedReport = $this->adapter->serviceReport(self::INTERVENTION_ID);
+    self::assertNotNull($updatedReport);
+    self::assertCount(1, $updatedReport->equipment);
+  }
+
+  #[Test]
   public function testServiceReportReturnsOnlyAppliedEquipmentChanges(): void
   {
     $intervention = $this->createIntervention();

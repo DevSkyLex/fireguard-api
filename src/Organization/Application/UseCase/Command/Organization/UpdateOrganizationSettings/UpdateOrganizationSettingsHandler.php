@@ -130,6 +130,10 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
   private function applyGeneralChanges(Organization $organization, UpdateOrganizationSettingsCommand $command): array
   {
     $fields = [];
+    if (null !== $command->operatingProfile) {
+      $organization->changeOperatingProfile(\Organization\Domain\ValueObject\OrganizationOperatingProfile::fromString($command->operatingProfile));
+      $fields[] = 'operatingProfile';
+    }
     if (null !== $command->name) {
       $organization->rename(new OrganizationName($command->name));
       $fields[] = 'name';

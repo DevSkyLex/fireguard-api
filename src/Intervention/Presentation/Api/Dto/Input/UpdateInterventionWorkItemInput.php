@@ -17,6 +17,13 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class UpdateInterventionWorkItemInput
 {
   /**
+   * Property executionResult. An execution fact staged for the normal review workflow.
+   *
+   * @var array<string,mixed>|null
+   */
+  public ?array $executionResult = null;
+
+  /**
    * Property workloadConfirmationToken.
    *
    * @since 1.1.0

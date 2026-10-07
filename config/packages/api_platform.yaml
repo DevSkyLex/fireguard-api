@@ -1,6 +1,6 @@
 api_platform:
-  title: Fireguard API
-  description: Fire-safety compliance platform API — identity, organizations, facilities, equipment, inspections, interventions, maintenance and compliance
+  title: FireGuard API
+  description: Fire-equipment park and maintenance API — internal customers, sites, equipment, controls, interventions, parts, procurement and private maintenance costs
   version: 1.0.0
   # Domain exception -> HTTP status, declaratively.
   #
@@ -193,6 +193,8 @@ api_platform:
     Inspection\Domain\Exception\InspectionAlreadyClosedException: 409
     Inspection\Domain\Exception\InspectionAlreadySubmittedException: 409
     Inspection\Domain\Exception\InspectionNotFoundException: 404
+    Inspection\Domain\Exception\EquipmentInspectionSummaryNotFoundException: 404
+    Inspection\Domain\Exception\EquipmentInspectionSummaryAccessDeniedException: 403
     Inspection\Domain\Exception\InspectionNotSubmittedException: 409
     # Canonical inspection responses, whose mutations moved out of
     # InspectionResponseProcessor. Every wording is the one the processor
@@ -211,6 +213,7 @@ api_platform:
     Intervention\Domain\Exception\InterventionBlockedException: 422
     Intervention\Domain\Exception\InterventionConflictException: 409
     Intervention\Domain\Exception\InterventionExportTooLargeException: 422
+    Intervention\Application\Contract\Publication\InterventionFactsScopeTooLarge: 422
     Intervention\Domain\Exception\InterventionNotFoundException: 404
     Intervention\Domain\Exception\InterventionPreconditionFailedException: 412
     Intervention\Domain\Exception\InterventionPreconditionRequiredException: 428
@@ -308,6 +311,12 @@ api_platform:
       - '%kernel.project_dir%/src/Workload/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Billing/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Automation/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Customer/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/ServiceRequest/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Inventory/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Procurement/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/MaintenanceCost/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/MaintenanceExport/Presentation/Api/Resource'
 
 # Security schemes for OpenAPI (Swagger UI)
 # This is handled by api_platform.yaml security definitions in resources

@@ -28,4 +28,10 @@ enum InterventionType: string
    * Case INSPECTION_CAMPAIGN
    */
   case INSPECTION_CAMPAIGN = 'inspection_campaign';
+
+  /** Case PREVENTIVE_MAINTENANCE. */
+  case PREVENTIVE_MAINTENANCE = 'preventive_maintenance';
+
+  /** Case CORRECTIVE_MAINTENANCE. */
+  case CORRECTIVE_MAINTENANCE = 'corrective_maintenance';
 }

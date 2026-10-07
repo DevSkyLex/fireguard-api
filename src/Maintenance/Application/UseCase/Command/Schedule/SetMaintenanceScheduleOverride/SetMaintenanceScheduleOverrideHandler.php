@@ -48,6 +48,7 @@ final readonly class SetMaintenanceScheduleOverrideHandler implements CommandHan
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
     private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort $locks,
+    private ?\Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort $planAuthority = null,
   ) {
   }
 
@@ -79,6 +80,12 @@ final readonly class SetMaintenanceScheduleOverrideHandler implements CommandHan
       $schedule = $this->schedules->findById($command->scheduleId);
       if (null === $schedule) {
         throw MaintenanceNotFoundException::withId($command->scheduleId);
+      }
+      if ($this->planAuthority?->usesPlans($schedule->organizationId)) {
+        $this->planAuthority->setLegacyOverride($schedule->organizationId, $schedule->id, $command->intervalOverride, $command->userId);
+        $updated = $this->schedules->findById($schedule->id) ?? throw MaintenanceNotFoundException::withId($schedule->id);
+
+        return new SetMaintenanceScheduleOverrideResult($updated);
       }
       $compliancePolicy = $this->compliancePolicy->compliancePolicy($schedule->organizationId);
 

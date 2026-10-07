@@ -10,15 +10,19 @@ use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Application\Port\Outbound\MaintenanceDueStatusPort;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Intervention\Application\Service\InterventionResourceManager;
+use Maintenance\Application\Contract\Plan\MaintenanceEquipmentOperationsDue;
+use Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
+use function array_map;
 use function is_array;
 use function is_numeric;
 use function is_string;
@@ -57,6 +61,8 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
    * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
+   * @param ?MaintenanceOperationsDuePort $operationsDue independent operation deadlines
+   * @param ?MaintenanceDueStatusPort $maintenanceDueStatusPort compatibility fallback when the independent owner port is unavailable
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -65,6 +71,8 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     private RequestStack $requestStack,
     private InterventionResourceManager $interventionResourceManager,
     private \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail,
+    private ?MaintenanceOperationsDuePort $operationsDue = null,
+    private ?MaintenanceDueStatusPort $maintenanceDueStatusPort = null,
   ) {
   }
 
@@ -163,9 +171,14 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
       ->setMaxResults($itemsPerPage)
       ->getQuery()
       ->getResult();
+    $equipmentIds = array_map(static fn (EquipmentRecord $record): string => $record->id, $records);
+    $operationsDueByEquipment = $this->operationsDue?->forEquipment($organization, $equipmentIds) ?? [];
+    $legacyDueStatuses = null === $this->operationsDue
+      ? ($this->maintenanceDueStatusPort?->dueStatusesForEquipment($organization, $equipmentIds) ?? [])
+      : [];
     $output = [];
     foreach ($records as $record) {
-      $output[] = $this->map($record);
+      $output[] = $this->map($record, $operationsDueByEquipment[$record->id] ?? null, $legacyDueStatuses[$record->id] ?? 'unscheduled');
     }
 
     return new TraversablePaginator(new ArrayIterator($output), (float) $page, (float) $itemsPerPage, (float) $total);
@@ -261,10 +274,12 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param EquipmentRecord $record the record value
+   * @param ?MaintenanceEquipmentOperationsDue $operationsDue the bulk-resolved operation statuses and dates
+   * @param string $controlDueStatus the compatibility control status
    *
    * @return EquipmentOutput the map result
    */
-  private function map(EquipmentRecord $record): EquipmentOutput
+  private function map(EquipmentRecord $record, ?MaintenanceEquipmentOperationsDue $operationsDue = null, string $controlDueStatus = 'unscheduled'): EquipmentOutput
   {
     if (null === $record->organization) {
       throw new NotFoundHttpException('Equipment organization not found.');
@@ -282,9 +297,20 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     $output->model = $record->model;
     $output->serialNumber = $record->serialNumber;
     $output->locationLabel = $record->locationLabel;
+    $output->name = $record->name;
+    $output->assetCode = $record->assetCode;
+    $output->criticality = $record->criticality;
+    $output->technicalProperties = $record->technicalProperties;
+    $output->predecessorEquipmentId = $record->predecessorEquipmentId;
+    $output->successorEquipmentId = $record->successorEquipmentId;
     $output->status = $record->status;
     $output->installedAt = $record->installedAt?->format('c');
     $output->commissionedAt = $record->commissionedAt?->format('c');
+    $output->controlDueStatus = $operationsDue->controlDueStatus ?? $controlDueStatus;
+    $output->maintenanceDueStatus = $output->controlDueStatus;
+    $output->serviceDueStatus = $operationsDue->serviceDueStatus ?? 'unscheduled';
+    $output->controlNextDueAt = $operationsDue?->controlNextDueAt?->format('c');
+    $output->serviceNextDueAt = $operationsDue?->serviceNextDueAt?->format('c');
     $output->createdAt = $record->createdAt->format('c');
     $output->updatedAt = $record->updatedAt->format('c');
 

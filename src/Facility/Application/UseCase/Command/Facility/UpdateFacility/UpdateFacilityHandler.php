@@ -61,6 +61,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     private ?FacilityHierarchyPort $hierarchy = null,
     private ?TransactionManagerPort $transactionManager = null,
     private ?CanonicalFacilityRepositoryPort $canonicalFacilities = null,
+    private ?\Facility\Application\Port\Outbound\FacilityCustomerValidationPort $customers = null,
   ) {
   }
   // #endregion
@@ -118,6 +119,9 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     // actually differs, not merely which fields were present in the patch —
     // a PATCH that re-sends the current value must stay a no-op.
     $previous = clone $facility;
+    if ($command->hasCustomerId && null !== $command->customerId && $command->customerId !== $facility->customerId()) {
+      ($this->customers ?? throw new \Facility\Application\Contract\FacilityCustomerUnavailable())->assertAssignable($command->customerId, $command->organizationId);
+    }
 
     if ($command->hasType && null !== $command->type && $command->type !== $facility->type()->value && null !== $this->hierarchy) {
       $this->hierarchy->assertGraph($command->organizationId, [new FacilityHierarchyNode(
@@ -191,6 +195,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       levelIndex: $facility->levelIndex(),
       elevationMeters: $facility->elevationMeters(),
       heightMeters: $facility->heightMeters(),
+      customerId: $facility->customerId(),
     );
   }
 
@@ -248,6 +253,9 @@ final readonly class UpdateFacilityHandler implements CommandHandler
    */
   private function applyIdentityChanges(Facility $facility, UpdateFacilityCommand $command): void
   {
+    if ($command->hasCustomerId && null === $command->customerId) {
+      $facility->assignCustomer(null);
+    }
     if ($command->hasType) {
       if (null === $command->type) {
         throw InvalidValueException::because('Field "type" cannot be null when provided.');
@@ -266,6 +274,9 @@ final readonly class UpdateFacilityHandler implements CommandHandler
 
     if ($command->hasCode) {
       $facility->changeCode($command->code);
+    }
+    if ($command->hasCustomerId && null !== $command->customerId) {
+      $facility->assignCustomer($command->customerId);
     }
   }
 
@@ -318,6 +329,9 @@ final readonly class UpdateFacilityHandler implements CommandHandler
   private function changedFields(Facility $facility, Facility $previous): array
   {
     $changed = [];
+    if ($previous->customerId() !== $facility->customerId()) {
+      $changed[] = 'customerId';
+    }
 
     if ($previous->type() !== $facility->type()) {
       $changed[] = 'type';

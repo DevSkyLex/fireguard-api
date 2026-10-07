@@ -11,6 +11,7 @@ use Organization\Domain\ValueObject\{
   OrganizationId,
   OrganizationLegalType,
   OrganizationName,
+  OrganizationOperatingProfile,
   OrganizationRegisteredAddress,
   OrganizationRegistrationNumber,
   OrganizationSettings,
@@ -66,6 +67,7 @@ final class OrganizationMapper
         status: $status,
       ),
       profile: new RestoredOrganizationProfile(
+        operatingProfile: OrganizationOperatingProfile::fromString($record->operatingProfile),
         description: $record->description,
         logoUrl: $record->logoUrl,
         settings: OrganizationSettings::fromArray($record->settings),
@@ -99,6 +101,7 @@ final class OrganizationMapper
     $record = new OrganizationRecord();
     $record->id = (string) $organization->id();
     $record->name = (string) $organization->name();
+    $record->operatingProfile = $organization->operatingProfile()->value;
     $record->slug = (string) $organization->slug();
     $record->ownerUserId = $organization->ownerUserId();
     $record->createdByUserId = $organization->createdByUserId();

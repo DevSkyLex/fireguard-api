@@ -69,6 +69,7 @@ final class FacilityMapper
         levelIndex: $record->levelIndex,
         elevationMeters: $record->elevationMeters,
         heightMeters: $record->heightMeters,
+        customerId: $record->customerId,
       ),
       geometryState: new FacilityGeometryState($planGeometry, null === $planGeometry ? $record->planGeometry : null),
     );
@@ -92,6 +93,7 @@ final class FacilityMapper
     $record->type = $facility->type()->value;
     $record->name = (string) $facility->name();
     $record->code = $facility->code();
+    $record->customerId = $facility->customerId();
     $record->status = $facility->status()->value;
     $record->address = $facility->address();
     $record->latitude = $facility->coordinates()?->latitude();

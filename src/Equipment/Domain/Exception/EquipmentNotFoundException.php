@@ -72,5 +72,13 @@ final class EquipmentNotFoundException extends RuntimeException
   {
     return new self(sprintf('Facility with ID "%s" not found.', $facilityId));
   }
+
+  /**
+   * @since 1.1.0
+   */
+  public static function forCustomerScope(string $customerId): self
+  {
+    return new self(sprintf('Customer with ID "%s" not found.', $customerId));
+  }
   // #endregion
 }

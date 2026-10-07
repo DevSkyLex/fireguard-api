@@ -135,6 +135,8 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
         sorting: SortingExtractor::fromContext(['filters' => $filters], ['type', 'status', 'brand', 'model', 'createdAt', 'updatedAt'], 'createdAt'),
         maintenanceDueStatus: self::optionalFilter($maintenanceDueStatus),
         includeDescendants: $includeDescendants,
+        family: self::optionalFilter(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('family')),
+        customerId: self::optionalFilter(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('customerId')),
       ));
     } catch (EquipmentNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);

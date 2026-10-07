@@ -8,6 +8,31 @@ committed creations; direct non-transactional callers retain synchronous dispatc
 
 ## Overview
 
+The V3 economic-scope bridge resolves optional root-site and internal-client filters
+for authorized Intervention source readers. It returns published root and descendant
+identifiers, including archived locations, with organization fencing on every
+recursive edge. Unknown or foreign filters return an empty scope. The depth is
+bounded to 64 and the result to 10000 locations; oversized scopes require a narrower
+filter rather than silently truncating an economic report. Published report filters
+remain the Intervention owner's captured identities and do not call this live bridge.
+
+### Internal customer assignment
+
+Root SITE facilities may carry nullable `customerId`, independent from the
+offline replay `clientId`. New assignments require an active internal customer in
+the same organization through `FacilityCustomerValidationPort`; unknown, foreign
+and archived clients produce the same `facility_customer_invalid` (422).
+Only sites without a parent may carry this field. Both aggregates, canonical and
+legacy writes, intervention proposals and draft publication enforce the invariant.
+Retained archived customer links stay readable and accept unrelated edits.
+Clearing the assignment uses explicit null. Duplicating a site starts unassigned.
+
+Legacy facility lists accept `customerId` to filter root sites, with identical
+criteria for records and total; unknown and foreign customers return 404 after
+facility access checks. Detail/list responses and offline snapshots include the
+stored customer identifier. Intervention closure snapshots freeze the site's
+identity and current customer name/contacts through owner-published ports.
+
 ### Hierarchy consistency (2026-10-03)
 
 `FacilityHierarchyPort` is the shared creation/relation policy. SITE is the only
@@ -979,6 +1004,11 @@ plus the parent IRI parse, and the output (`CanonicalFacilityProvider` joins
 counts and ancestry the write path has no reason to carry).
 
 ## Configuration
+
+Maintenance exports validate published root-site identities through the owner-hosted
+`MaintenanceExportSiteIdentityAdapter`, explicitly wired to main and tagged
+`maintenance_export.identity_validator`. Archived root sites remain valid historical
+references; drafts, buildings, nested sites and foreign identities return false.
 
 - Service wiring: `config/modules/facility.yaml`
   - `CanonicalFacilityRepositoryPort` is aliased to

@@ -14,6 +14,11 @@ namespace Intervention\Presentation\Api\Operation;
  */
 final class InterventionOperations
 {
+  /**
+   * Constant LIST_EQUIPMENT_OPEN_WORK.
+   */
+  public const string LIST_EQUIPMENT_OPEN_WORK = 'intervention_equipment_open_work_list';
+
   // #region Constants
   // Intervention
   /**

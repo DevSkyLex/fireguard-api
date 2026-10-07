@@ -36,6 +36,9 @@ services:
   Maintenance\Application\Port\Outbound\Directory\MaintenanceEquipmentDirectoryPort:
     alias: Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter
 
+  Maintenance\Application\Port\Outbound\Directory\MaintenanceFacilityLifecyclePort:
+    alias: Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceLifecycleAdapter
+
   # Cross-module naming ports for the CSV export (adapters live in the owning module)
   Maintenance\Application\Port\Outbound\Naming\MaintenanceEquipmentNamingPort:
     alias: Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceNamingAdapter
@@ -63,6 +66,35 @@ services:
   # Inbound port
   Maintenance\Application\Port\Inbound\MaintenanceSchedulePort:
     alias: Maintenance\Application\Service\MaintenanceScheduleService
+
+  Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort:
+    alias: Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenancePlanRepository
+
+  Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenancePlanRepository:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort:
+    alias: Maintenance\Application\Service\MaintenancePlanAuthorityService
+
+  Maintenance\Application\Port\Inbound\MaintenanceOperationResultsPort:
+    alias: Maintenance\Application\Service\MaintenancePlanAuthorityService
+
+  Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort:
+    alias: Maintenance\Infrastructure\Adapter\Equipment\MaintenanceOperationsDueAdapter
+
+  Maintenance\Infrastructure\Adapter\Equipment\MaintenanceOperationsDueAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Maintenance\Application\UseCase\Command\Plan\ManageMaintenancePlan\ManageMaintenancePlanHandler:
+    arguments:
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+      $maxCampaignWorkItems: '%maintenance.max_campaign_work_items%'
+    tags: ['messenger.message_handler']
+
+  Maintenance\Application\UseCase\Query\Plan\ReadMaintenancePlans\ReadMaintenancePlansHandler:
+    tags: ['messenger.message_handler']
 
   # Adapter implementing the Inspection module's outbound synchronizer port
   Maintenance\Infrastructure\Adapter\Inspection\MaintenanceScheduleSynchronizerAdapter: ~
@@ -100,6 +132,7 @@ services:
   Maintenance\Application\UseCase\Command\Campaign\GenerateInspectionCampaign\GenerateInspectionCampaignHandler:
     arguments:
       $maxCampaignWorkItems: '%maintenance.max_campaign_work_items%'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
     tags: ['messenger.message_handler']
 
   Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\RecomputeMaintenanceSchedulesHandler:

@@ -223,6 +223,10 @@ final class OrganizationPermissionCatalog
       ['name' => 'organization.teams.write', 'description' => 'Manage organization teams (create, update, add/remove members)'],
       ['name' => 'organization.teams.manage', 'description' => 'Delete organization teams'],
 
+      // Internal customer management
+      ['name' => 'organization.customers.read', 'description' => 'View internal customers and their operational contacts'],
+      ['name' => 'organization.customers.manage', 'description' => 'Manage internal customers, contacts and archival'],
+
       // Facility management
       ['name' => 'organization.facilities.read', 'description' => 'View organization facilities'],
       ['name' => 'organization.facilities.write', 'description' => 'Manage organization facilities (create, update, archive, move, attachments)'],
@@ -252,6 +256,21 @@ final class OrganizationPermissionCatalog
       // Preventive maintenance management
       ['name' => 'organization.maintenance.read', 'description' => 'View organization preventive-maintenance schedules'],
       ['name' => 'organization.maintenance.manage', 'description' => 'Manage preventive-maintenance schedule overrides and generate inspection campaigns'],
+
+      // Repair requests and internal maintenance resources
+      ['name' => 'organization.service_requests.read', 'description' => 'View internal maintenance requests'],
+      ['name' => 'organization.service_requests.create', 'description' => 'Declare internal maintenance requests'],
+      ['name' => 'organization.service_requests.manage', 'description' => 'Qualify maintenance requests and explicitly connect corrective work'],
+      ['name' => 'organization.inventory.read', 'description' => 'View parts, warehouses and stock quantities'],
+      ['name' => 'organization.inventory.manage', 'description' => 'Manage parts, warehouses and motivated stock reconciliation'],
+      ['name' => 'organization.inventory.consume', 'description' => 'Declare physical material use and linked returns during authorized work'],
+      ['name' => 'organization.procurement.read', 'description' => 'View internal suppliers, orders and receipts'],
+      ['name' => 'organization.procurement.manage', 'description' => 'Manage internal procurement and equipment individualization'],
+      ['name' => 'organization.maintenance_cost.read', 'description' => 'View private internal maintenance costs, rates and valuations'],
+      ['name' => 'organization.maintenance_cost.manage', 'description' => 'Configure internal currency, rates, budgets and motivated cost corrections'],
+      ['name' => 'organization.maintenance_exports.read', 'description' => 'Read retained maintenance exports and external reference mappings'],
+      ['name' => 'organization.maintenance_exports.manage', 'description' => 'Generate immutable validated maintenance exports and linked adjustments'],
+      ['name' => 'organization.maintenance_exports.confirm', 'description' => 'Record explicit ERP import confirmations'],
 
       // Messaging
       ['name' => 'organization.messaging.read', 'description' => 'View organization conversations and messages'],

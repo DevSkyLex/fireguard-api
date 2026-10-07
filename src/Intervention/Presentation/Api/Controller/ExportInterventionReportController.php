@@ -133,58 +133,64 @@ final class ExportInterventionReportController extends AbstractController
 
       $organizationId = $interventionResult->view->organizationId;
 
-      /** @var ListInterventionWorkflowResult $workItemsResult */
-      $workItemsResult = $this->queryBus->ask(new ListInterventionWorkflowQuery(
-        userId: $user->getId(),
-        resource: 'work_item',
-        scopeId: $id,
-        filters: [],
-        page: 1,
-        itemsPerPage: self::MAX_ITEMS_PER_PAGE,
-      ));
+      $snapshot = $interventionResult->view->data['closureSnapshot'] ?? null;
+      if (is_array($snapshot) && is_array($snapshot['report'] ?? null)) {
+        /** @var array<string,mixed> $context */
+        $context = $snapshot['report'];
+      } else {
 
-      /** @var ListInterventionWorkflowResult $changesResult */
-      $changesResult = $this->queryBus->ask(new ListInterventionWorkflowQuery(
-        userId: $user->getId(),
-        resource: 'change',
-        scopeId: $id,
-        filters: [],
-        page: 1,
-        itemsPerPage: self::MAX_ITEMS_PER_PAGE,
-      ));
+        /** @var ListInterventionWorkflowResult $workItemsResult */
+        $workItemsResult = $this->queryBus->ask(new ListInterventionWorkflowQuery(
+          userId: $user->getId(),
+          resource: 'work_item',
+          scopeId: $id,
+          filters: [],
+          page: 1,
+          itemsPerPage: self::MAX_ITEMS_PER_PAGE,
+        ));
 
-      /** @var ListInterventionIssuesResult $issuesResult */
-      $issuesResult = $this->queryBus->ask(new ListInterventionIssuesQuery(
-        userId: $user->getId(),
-        interventionId: $id,
-      ));
+        /** @var ListInterventionWorkflowResult $changesResult */
+        $changesResult = $this->queryBus->ask(new ListInterventionWorkflowQuery(
+          userId: $user->getId(),
+          resource: 'change',
+          scopeId: $id,
+          filters: [],
+          page: 1,
+          itemsPerPage: self::MAX_ITEMS_PER_PAGE,
+        ));
 
-      /** @var ListInterventionAttachmentsResult $attachmentsResult */
-      $attachmentsResult = $this->queryBus->ask(new ListInterventionAttachmentsQuery(
-        userId: $user->getId(),
-        interventionId: $id,
-      ));
+        /** @var ListInterventionIssuesResult $issuesResult */
+        $issuesResult = $this->queryBus->ask(new ListInterventionIssuesQuery(
+          userId: $user->getId(),
+          interventionId: $id,
+        ));
 
-      /** @var ListInterventionActivitiesResult $activitiesResult */
-      $activitiesResult = $this->queryBus->ask(new ListInterventionActivitiesQuery(
-        userId: $user->getId(),
-        interventionId: $id,
-        page: 1,
-        itemsPerPage: self::MAX_ITEMS_PER_PAGE,
-      ));
+        /** @var ListInterventionAttachmentsResult $attachmentsResult */
+        $attachmentsResult = $this->queryBus->ask(new ListInterventionAttachmentsQuery(
+          userId: $user->getId(),
+          interventionId: $id,
+        ));
+
+        /** @var ListInterventionActivitiesResult $activitiesResult */
+        $activitiesResult = $this->queryBus->ask(new ListInterventionActivitiesQuery(
+          userId: $user->getId(),
+          interventionId: $id,
+          page: 1,
+          itemsPerPage: self::MAX_ITEMS_PER_PAGE,
+        ));
+        $context = $this->buildContext(
+          organizationId: $organizationId,
+          intervention: $interventionResult->view,
+          workItems: $workItemsResult->page->items,
+          changes: $changesResult->page->items,
+          issues: $issuesResult->issues,
+          attachments: $attachmentsResult->attachments,
+          activities: $activitiesResult->page->items,
+        );
+      }
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);
     }
-
-    $context = $this->buildContext(
-      organizationId: $organizationId,
-      intervention: $interventionResult->view,
-      workItems: $workItemsResult->page->items,
-      changes: $changesResult->page->items,
-      issues: $issuesResult->issues,
-      attachments: $attachmentsResult->attachments,
-      activities: $activitiesResult->page->items,
-    );
 
     $context = $this->localizeContext($context, $this->branding->getDocumentBranding($organizationId));
 
@@ -278,6 +284,8 @@ final class ExportInterventionReportController extends AbstractController
       'hasSignature' => $data['hasSignature'],
       'labels' => $data['labels'],
       'generatedAt' => new DateTimeImmutable()->format('c'),
+      'reportMode' => 'published' === ($data['status'] ?? null) ? 'legacy_live' : 'live',
+      'customerName' => null,
       'workItems' => self::mapWorkItems($workItems, $memberNames),
       'issues' => array_map(static fn (InterventionIssue $issue): array => [
         'severity' => $issue->severity,
@@ -331,6 +339,8 @@ final class ExportInterventionReportController extends AbstractController
         'required' => $workItem->data['required'],
         'skipReason' => $workItem->data['skipReason'],
         'evidenceCount' => $workItem->data['evidenceCount'],
+        'executionResult' => $workItem->data['executionResult'] ?? null,
+        'spentMinutes' => $workItem->data['spentMinutes'] ?? 0,
       ];
     }, $workItems);
   }

@@ -17,6 +17,7 @@ use Throwable;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function array_key_exists;
+use function is_array;
 use function sprintf;
 use function str_starts_with;
 use function trim;
@@ -102,6 +103,12 @@ final class InterventionWorkItemOutputFactory
     $output->id = $this->string($data, 'id');
     $output->intervention = $this->string($data, 'intervention');
     $output->action = $this->string($data, 'action');
+    $output->operationId = $this->nullableString($data, 'operationId');
+    $output->occurrenceId = $this->nullableString($data, 'occurrenceId');
+    $output->operationKind = $this->nullableString($data, 'operationKind');
+    /** @var array<string,mixed>|null $executionResult */
+    $executionResult = is_array($data['executionResult'] ?? null) ? $data['executionResult'] : null;
+    $output->executionResult = $executionResult;
     $output->target = $this->nullableString($data, 'target');
     $output->targetSummary = $this->resolveTarget($output->target, $view->organizationId);
     $output->resultResource = $this->nullableString($data, 'resultResource');

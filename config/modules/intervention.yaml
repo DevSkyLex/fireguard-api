@@ -6,6 +6,15 @@ services:
   Intervention\Application\Port\Inbound\InterventionWorkloadContributionsPort:
     alias: Intervention\Infrastructure\Adapter\Workload\InterventionWorkloadContributionsAdapter
 
+  Intervention\Application\Port\Inbound\InterventionMaintenanceWorkPort:
+    alias: Intervention\Infrastructure\Adapter\Maintenance\InterventionMaintenanceWorkAdapter
+
+  Intervention\Application\Port\Outbound\InterventionEquipmentReplacementPort:
+    alias: Equipment\Infrastructure\Adapter\Intervention\EquipmentReplacementLookupAdapter
+
+  Intervention\Application\Port\Outbound\InterventionEquipmentWorkPort:
+    alias: Intervention\Infrastructure\Adapter\Equipment\InterventionEquipmentWorkAdapter
+
 
   Intervention\Presentation\:
     resource: '../../src/Intervention/Presentation'
@@ -24,6 +33,52 @@ services:
 
   Intervention\Infrastructure\:
     resource: '../../src/Intervention/Infrastructure'
+
+  Intervention\Application\Port\Inbound\InterventionPublicationFactsPort:
+    alias: Intervention\Infrastructure\Adapter\Publication\InterventionPublicationFactsAdapter
+
+  Intervention\Infrastructure\Adapter\Publication\InterventionPublicationFactsAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Equipment\InterventionEquipmentWorkAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Inbound\InterventionCostSourceFactsPort:
+    alias: Intervention\Infrastructure\Adapter\Cost\InterventionCostSourceFactsAdapter
+
+  Intervention\Infrastructure\Adapter\Cost\InterventionCostSourceFactsAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Inbound\InterventionInventoryContextPort:
+    alias: Intervention\Infrastructure\Adapter\Inventory\InterventionInventoryContextAdapter
+
+  Intervention\Infrastructure\Adapter\Inventory\InterventionInventoryContextAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Outbound\InterventionPublicationResourcesIssuesPort:
+    alias: Intervention\Infrastructure\Adapter\Inventory\InterventionPublicationResourcesIssuesAdapter
+
+  Intervention\Infrastructure\Adapter\Inventory\InterventionPublicationResourcesIssuesAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  ServiceRequest\Application\Port\Outbound\ServiceRequestWorkPort:
+    alias: Intervention\Infrastructure\Adapter\ServiceRequest\ServiceRequestWorkAdapter
+
+  Intervention\Infrastructure\Adapter\ServiceRequest\ServiceRequestWorkAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Maintenance\InterventionMaintenanceWorkAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\UseCase\Query\Equipment\ListEquipmentOpenWork\ListEquipmentOpenWorkHandler:
+    tags: ['messenger.message_handler']
 
   Intervention\Infrastructure\Adapter\Workload\InterventionWorkloadContributionsAdapter:
     arguments:
@@ -164,6 +219,16 @@ services:
       $owners: !tagged_iterator intervention.resource_owner
 
   Intervention\Infrastructure\Adapter\Publication\DoctrinePublicationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+      $operations: '@Intervention\Infrastructure\Adapter\Publication\InterventionOperationPublicationAdapter'
+      $snapshots: '@Intervention\Infrastructure\Adapter\Publication\InterventionClosureSnapshotAdapter'
+
+  Intervention\Infrastructure\Adapter\Publication\InterventionOperationPublicationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Publication\InterventionClosureSnapshotAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 

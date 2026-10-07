@@ -112,6 +112,10 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $existing->model = $record->model;
       $existing->serialNumber = $record->serialNumber;
       $existing->locationLabel = $record->locationLabel;
+      $existing->name = $record->name;
+      $existing->assetCode = $record->assetCode;
+      $existing->criticality = $record->criticality;
+      $existing->technicalProperties = $record->technicalProperties;
       $existing->status = $record->status;
       $existing->installedAt = $record->installedAt;
       $existing->commissionedAt = $record->commissionedAt;
@@ -124,12 +128,35 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     try {
       $this->entityManager->flush();
     } catch (Throwable $exception) {
+      if ($exception instanceof UniqueConstraintViolationException && str_contains(strtolower($exception->getMessage()), 'uniq_equipment_organization_asset_code')) {
+        throw \Equipment\Domain\Exception\EquipmentAssetCodeAlreadyExistsException::withAssetCode($equipment->identity()->assetCode ?? '');
+      }
       if ($this->isDuplicateSerialNumberViolation($exception)) {
         throw EquipmentSerialNumberAlreadyExistsException::withSerialNumber($equipment->serialNumber() ?? '');
       }
 
       throw $exception;
     }
+  }
+
+  /**
+   * @since 1.1.0
+   *
+   * @param list<string> $equipmentIds candidate identifiers
+   *
+   * @return list<string>
+   */
+  public function findPublishedIdsMatching(EquipmentOrganizationId $organizationId, EquipmentListCriteria $criteria, array $equipmentIds): array
+  {
+    if ([] === $equipmentIds) {
+      return [];
+    }
+    /** @var list<array{id: string}> $rows */
+    $rows = $this->createListQueryBuilder($organizationId, $criteria)->select('e.id AS id')
+      ->andWhere('e.id IN (:candidates)')->setParameter('candidates', $equipmentIds)
+      ->orderBy('e.id', 'ASC')->getQuery()->getArrayResult();
+
+    return array_map(static fn (array $row): string => $row['id'], $rows);
   }
 
   /**
@@ -653,6 +680,13 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
         ->andWhere('e.type = :type')
         ->setParameter('type', $criteria->type);
     }
+    if (null !== $criteria->typeCodes) {
+      if ([] === $criteria->typeCodes) {
+        $queryBuilder->andWhere('1 = 0');
+      } else {
+        $queryBuilder->andWhere('e.type IN (:typeCodes)')->setParameter('typeCodes', $criteria->typeCodes);
+      }
+    }
 
     if (null !== $criteria->status) {
       $queryBuilder
@@ -683,6 +717,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       'search',
       $criteria->search,
       'e.type',
+      'e.name',
+      'e.assetCode',
       'e.subType',
       'e.brand',
       'e.model',

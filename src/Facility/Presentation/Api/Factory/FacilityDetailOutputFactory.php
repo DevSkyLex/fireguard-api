@@ -69,6 +69,7 @@ final readonly class FacilityDetailOutputFactory
     $output->levelIndex = $result->levelIndex;
     $output->elevationMeters = $result->elevationMeters;
     $output->heightMeters = $result->heightMeters;
+    $output->customerId = $result->customerId;
     $output->planGeometry = $result->planGeometry;
     $output->geometryIssue = $result->geometryIssue;
     $output->hierarchyIssues = $result->hierarchyIssues;

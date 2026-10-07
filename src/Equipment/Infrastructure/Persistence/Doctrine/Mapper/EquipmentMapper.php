@@ -8,9 +8,10 @@ use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{
   EquipmentFacilityId,
   EquipmentId,
+  EquipmentIdentity,
   EquipmentOrganizationId,
   EquipmentStatus,
-  EquipmentType,
+  EquipmentTypeCode,
   PlanPosition
 };
 use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
@@ -49,13 +50,14 @@ final class EquipmentMapper
     return Equipment::reconstitute(
       id: EquipmentId::fromString($record->id),
       organizationId: EquipmentOrganizationId::fromString($record->organization->id),
-      type: EquipmentType::from($record->type),
+      type: EquipmentTypeCode::fromString($record->type),
       details: new EquipmentCatalogDetails(
         subType: $record->subType,
         brand: $record->brand,
         model: $record->model,
         serialNumber: $record->serialNumber,
         locationLabel: $record->locationLabel,
+        identity: EquipmentIdentity::fromValues($record->name, $record->assetCode, $record->criticality, $record->technicalProperties),
       ),
       assignment: new RestoredEquipmentAssignment(
         status: EquipmentStatus::from($record->status),
@@ -66,6 +68,8 @@ final class EquipmentMapper
       ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
+      predecessorEquipmentId: $record->predecessorEquipmentId,
+      successorEquipmentId: $record->successorEquipmentId,
     );
   }
 
@@ -91,6 +95,10 @@ final class EquipmentMapper
     $record->model = $equipment->model();
     $record->serialNumber = $equipment->serialNumber();
     $record->locationLabel = $equipment->locationLabel();
+    $record->name = $equipment->identity()->name;
+    $record->assetCode = $equipment->identity()->assetCode;
+    $record->criticality = $equipment->identity()->criticality;
+    $record->technicalProperties = $equipment->identity()->technicalProperties;
     $record->status = $equipment->status()->value;
     $record->installedAt = $equipment->installedAt();
     $record->commissionedAt = $equipment->commissionedAt();

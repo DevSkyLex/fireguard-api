@@ -7,10 +7,12 @@ namespace Intervention\Infrastructure\Adapter\Equipment;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Contract\Intervention\{InterventionServiceReport, ServicedEquipmentEntry};
 use Equipment\Application\Port\Outbound\InterventionServiceReportPort;
+use Intervention\Domain\ValueObject\WorkItemExecutionResult;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, InterventionWorkItemRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_key_exists;
+use function is_string;
 use function preg_match;
 
 /**
@@ -78,10 +80,23 @@ final readonly class InterventionServiceReportAdapter implements InterventionSer
       ->getResult();
 
     $equipment = [];
+    $reportedWorkItems = [];
     foreach ($changes as $change) {
       $entry = $this->toServicedEquipmentEntry($change);
       if (null !== $entry) {
         $equipment[] = $entry;
+        if (null !== $entry->workItemId) {
+          $reportedWorkItems[$entry->workItemId] = true;
+        }
+      }
+    }
+    if ('published' === $intervention->status) {
+      foreach ($this->entityManager->getRepository(InterventionWorkItemRecord::class)->findBy(['intervention' => $intervention, 'status' => 'completed', 'action' => ['maintenance', 'repair', 'replacement']], ['id' => 'ASC']) as $item) {
+        if (isset($reportedWorkItems[$item->id]) || 'validated' !== ($item->executionResult['state'] ?? null) || !is_string($item->executionResult['equipmentId'] ?? null)) {
+          continue;
+        }
+        $fact = WorkItemExecutionResult::fromPayload($item->executionResult);
+        $equipment[] = new ServicedEquipmentEntry($fact->equipmentId, $item->action, 'operation:' . $item->id, $item->id, performedAt: $fact->performedAt, notes: $fact->workPerformed, authorId: is_string($item->executionResult['authorId'] ?? null) ? $item->executionResult['authorId'] : null);
       }
     }
 
@@ -113,12 +128,18 @@ final readonly class InterventionServiceReportAdapter implements InterventionSer
 
     $workItem = $change->workItem;
     $action = $workItem instanceof InterventionWorkItemRecord ? $workItem->action : $this->deriveAction($change->patch);
+    $fact = $workItem instanceof InterventionWorkItemRecord && null !== $workItem->executionResult && 'validated' === ($workItem->executionResult['state'] ?? null) && 'inspection' !== $workItem->action
+      ? WorkItemExecutionResult::fromPayload($workItem->executionResult) : null;
+    $authorId = $workItem?->executionResult['authorId'] ?? null;
 
     return new ServicedEquipmentEntry(
       equipmentId: $matches[1],
       action: $action,
       changeToken: $change->id,
       workItemId: $workItem?->id,
+      performedAt: $fact?->performedAt,
+      notes: $fact?->workPerformed,
+      authorId: null !== $fact && is_string($authorId) ? $authorId : null,
     );
   }
 

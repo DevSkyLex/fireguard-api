@@ -36,6 +36,22 @@ interface EquipmentValidationPort
   public function assertEquipmentExists(string $equipmentId, string $organizationId): void;
 
   /**
+   * Method assertPublishedEquipmentExists
+   *
+   * Validates a published equipment without exposing private intervention drafts.
+   *
+   * @access public
+   *
+   * @param string $equipmentId the published equipment identifier
+   * @param string $organizationId the expected organization identifier
+   *
+   * @return void
+   *
+   * @throws InvalidArgumentException for missing, foreign or unpublished equipment
+   */
+  public function assertPublishedEquipmentExists(string $equipmentId, string $organizationId): void;
+
+  /**
    * Method assertEquipmentIsInspectable.
    *
    * Verifies the equipment exists in the organization, is not decommissioned,

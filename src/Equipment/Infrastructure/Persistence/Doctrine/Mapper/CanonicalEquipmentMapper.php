@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Equipment\Domain\Model\Equipment\{CanonicalEquipment, RestoredCanonicalEquipmentLifecycle, RestoredCanonicalEquipmentMetadata};
-use Equipment\Domain\ValueObject\EquipmentCatalogDetails;
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, EquipmentIdentity};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentRecordStatus, EquipmentStatus};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
@@ -54,6 +54,7 @@ final class CanonicalEquipmentMapper
           model: $record->model,
           serialNumber: $record->serialNumber,
           locationLabel: $record->locationLabel,
+          identity: EquipmentIdentity::fromValues($record->name, $record->assetCode, $record->criticality, $record->technicalProperties),
         ),
       ),
       lifecycle: new RestoredCanonicalEquipmentLifecycle(
@@ -91,6 +92,10 @@ final class CanonicalEquipmentMapper
     $record->model = $equipment->model();
     $record->serialNumber = $equipment->serialNumber();
     $record->locationLabel = $equipment->locationLabel();
+    $record->name = $equipment->identity()->name;
+    $record->assetCode = $equipment->identity()->assetCode;
+    $record->criticality = $equipment->identity()->criticality;
+    $record->technicalProperties = $equipment->identity()->technicalProperties;
     $record->status = $equipment->status()->value;
     $record->commissionedAt = $equipment->commissionedAt();
     // Doctrine increments and compares the persisted version in the same UPDATE.

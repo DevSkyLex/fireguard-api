@@ -20,6 +20,13 @@ use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
  */
 interface InspectionRepositoryPort
 {
+  /**
+   * @since 1.1.0
+   *
+   * @return list<string> distinct equipment identifiers in published inspections
+   */
+  public function findPublishedEquipmentIds(string $organizationId): array;
+
   // #region Methods
   /**
    * Method save.

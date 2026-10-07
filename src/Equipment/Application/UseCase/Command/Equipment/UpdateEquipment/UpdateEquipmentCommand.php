@@ -32,6 +32,7 @@ final readonly class UpdateEquipmentCommand implements CommandMessage
    * @param ?string $model optional model value
    * @param ?string $serialNumber optional serial number
    * @param ?string $locationLabel optional location description
+   * @param list<array{key: string, value: string, unit: ?string}> $technicalProperties descriptive properties
    *
    * @return void
    */
@@ -44,6 +45,14 @@ final readonly class UpdateEquipmentCommand implements CommandMessage
     public ?string $model = null,
     public ?string $serialNumber = null,
     public ?string $locationLabel = null,
+    public ?string $name = null,
+    public ?string $assetCode = null,
+    public ?string $criticality = null,
+    public array $technicalProperties = [],
+    public bool $hasName = false,
+    public bool $hasAssetCode = false,
+    public bool $hasCriticality = false,
+    public bool $hasTechnicalProperties = false,
   ) {
   }
   // #endregion

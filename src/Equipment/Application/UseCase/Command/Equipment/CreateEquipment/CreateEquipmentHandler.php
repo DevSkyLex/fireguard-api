@@ -7,7 +7,7 @@ namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, EquipmentId, EquipmentIdentity, EquipmentOrganizationId, EquipmentTypeCode};
 use Intervention\Application\Port\Inbound\InterventionCreationPort;
 use LogicException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
@@ -60,6 +60,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     private ?OrganizationSetupPort $setup = null,
     private ?\Equipment\Application\Port\Outbound\FacilityValidationPort $facilityValidation = null,
     private ?InterventionCreationPort $creationContext = null,
+    private ?\Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort $typeCatalog = null,
   ) {
   }
   // #endregion
@@ -97,13 +98,14 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       $equipment = Equipment::create(
         id: $equipmentId,
         organizationId: $organizationId,
-        type: EquipmentType::from($command->type),
+        type: null === $this->typeCatalog ? \Equipment\Domain\ValueObject\EquipmentType::from($command->type) : EquipmentTypeCode::fromString($command->type),
         details: new EquipmentCatalogDetails(
           subType: $command->subType,
           brand: $command->brand,
           model: $command->model,
           serialNumber: $command->serialNumber,
           locationLabel: $command->locationLabel,
+          identity: EquipmentIdentity::fromValues($command->name, $command->assetCode, $command->criticality, $command->technicalProperties),
         ),
       );
     } catch (InvalidValueException|ValueError $exception) {
@@ -111,6 +113,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     }
 
     if ($command->dryRun) {
+      $this->typeCatalog?->validateAvailableType($command->organizationId, $command->type);
       // A dry run never enters the transaction that would take the quota's
       // advisory lock (see OrganizationQuotaPort::assertCanAdd): it projects
       // the cap instead, offsetting for rows already provisionally counted
@@ -144,6 +147,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     if (null !== $existing) {
       return $existing;
     }
+    $this->typeCatalog?->validateAvailableType($command->organizationId, $command->type);
     if (null !== $command->facilityId) {
       if (null === $this->facilityValidation) {
         throw new LogicException('Facility validation is unavailable.');
@@ -223,6 +227,12 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       model: $equipment->model(),
       serialNumber: $equipment->serialNumber(),
       locationLabel: $equipment->locationLabel(),
+      name: $equipment->identity()->name,
+      assetCode: $equipment->identity()->assetCode,
+      criticality: $equipment->identity()->criticality,
+      technicalProperties: $equipment->identity()->technicalProperties,
+      predecessorEquipmentId: $equipment->predecessorEquipmentId(),
+      successorEquipmentId: $equipment->successorEquipmentId(),
       status: $equipment->status()->value,
       installedAt: $equipment->installedAt()?->format('c'),
       commissionedAt: $equipment->commissionedAt()?->format('c'),

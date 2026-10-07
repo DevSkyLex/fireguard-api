@@ -47,12 +47,22 @@ compliance:
 
 intervention:
   title: "Rapport d'intervention — FG-%number%"
+  reportMode:
+    snapshot: "Dossier validé — conservé lors de la publication"
+    live: "Dossier provisoire — en attente de validation"
+    legacy_live: "Rapport historique — sans instantané conservé à la publication"
+  result:
+    outcome:
+      successful: "Réussie"
+      failed: "Échouée"
+      performed: "Réalisée"
   meta:
     name: "Nom"
     type: "Type"
     status: "Statut"
     priority: "Priorité"
     site: "Site"
+    customer: "Client"
     responsible: "Responsable"
     participants: "Participants"
     plannedStart: "Début prévu"
@@ -158,6 +168,9 @@ nonConformities:
 equipment:
   title: "Fiche équipement"
   meta:
+    name: "Nom de l'équipement"
+    assetCode: "Repère patrimonial"
+    criticality: "Criticité déclarée"
     type: "Type"
     brand: "Marque"
     model: "Modèle"
@@ -168,6 +181,8 @@ equipment:
     installedAt: "Installé le"
     commissionedAt: "Mis en service le"
     maintenanceDueStatus: "Statut d'échéance de maintenance"
+    controlDueStatus: "Échéance de contrôle"
+    serviceDueStatus: "Échéance d'entretien"
     tags: "Étiquettes"
   maintenance:
     heading: "Historique de maintenance"
@@ -178,6 +193,23 @@ equipment:
     intervention: "Intervention"
     action: "Action"
     summary: "Résumé"
+    performedAt: "Réalisé le"
+    notes: "Travaux réalisés"
+  criticality:
+    low: "Faible"
+    medium: "Moyenne"
+    high: "Élevée"
+    critical: "Critique"
+  characteristics:
+    heading: "Caractéristiques déclarées"
+    key: "Caractéristique"
+    value: "Valeur"
+    unit: "Unité"
+  replacement:
+    heading: "Historique des remplacements"
+    predecessor: "Équipement remplacé"
+    successor: "Équipement successeur"
+  trackingNote: "L'état opérationnel, les échéances de contrôle et les anomalies ouvertes sont indépendants. Un contrôle à jour ne signifie pas qu'aucun défaut n'existe. Le suivi configuré ne constitue pas une certification réglementaire automatique."
   attachments:
     heading: "Pièces jointes"
     empty: "Aucune pièce jointe."
@@ -208,6 +240,8 @@ status:
     site_setup: "Configuration de site"
     inventory: "Inventaire"
     inspection_campaign: "Campagne d'inspection"
+    preventive_maintenance: "Maintenance préventive"
+    corrective_maintenance: "Maintenance corrective"
   workItem:
     planned: "Planifié"
     in_progress: "En cours"

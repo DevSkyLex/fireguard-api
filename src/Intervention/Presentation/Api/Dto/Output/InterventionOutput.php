@@ -17,6 +17,13 @@ use ApiPlatform\Metadata\ApiProperty;
 final class InterventionOutput
 {
   /**
+   * Property closureSnapshot. Versioned dossier frozen by atomic publication.
+   *
+   * @var array<string,mixed>|null
+   */
+  public ?array $closureSnapshot = null;
+
+  /**
    * Property id.
    *
    * @since 1.0.0

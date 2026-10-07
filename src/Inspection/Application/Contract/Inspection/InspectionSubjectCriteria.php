@@ -20,6 +20,7 @@ final readonly class InspectionSubjectCriteria
    * @param ?string $equipmentId optional inspected equipment identifier
    * @param ?string $facilityId optional inspected facility identifier
    * @param ?string $checklistId optional checklist identifier
+   * @param ?list<string> $equipmentIds optional resolved parc candidates; an empty list matches no inspections
    *
    * @return void
    */
@@ -27,6 +28,7 @@ final readonly class InspectionSubjectCriteria
     public ?string $equipmentId = null,
     public ?string $facilityId = null,
     public ?string $checklistId = null,
+    public ?array $equipmentIds = null,
   ) {
   }
   // #endregion

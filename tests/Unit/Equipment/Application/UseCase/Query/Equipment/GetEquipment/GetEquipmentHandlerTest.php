@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\GetEquipment;
 
+use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
 use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\{GetEquipmentHandler, GetEquipmentQuery, GetEquipmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Maintenance\Application\Contract\Plan\MaintenanceEquipmentOperationsDue;
+use Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -145,6 +148,42 @@ final class GetEquipmentHandlerTest extends TestCase
     self::assertSame('in_stock', $result->status);
     self::assertSame([], $result->tags);
     self::assertSame('due_soon', $result->maintenanceDueStatus);
+    self::assertSame('due_soon', $result->controlDueStatus);
+    self::assertSame('unscheduled', $result->serviceDueStatus);
+    self::assertNull($result->controlNextDueAt);
+    self::assertNull($result->serviceNextDueAt);
+  }
+
+  #[Test]
+  public function projectsControlAndServiceIndependentlyThroughTheOwnerPort(): void
+  {
+    $equipment = Equipment::create(
+      EquipmentId::fromString(self::EQUIP_ID),
+      EquipmentOrganizationId::fromString(self::ORG_ID),
+      EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $repository = $this->createStub(EquipmentRepositoryPort::class);
+    $repository->method('findById')->willReturn($equipment);
+    $legacy = $this->createMock(MaintenanceDueStatusPort::class);
+    $legacy->expects(self::never())->method('dueStatusesForEquipment');
+    $operations = $this->createMock(MaintenanceOperationsDuePort::class);
+    $operations->expects(self::once())->method('forEquipment')->with(self::ORG_ID, [self::EQUIP_ID])->willReturn([
+      self::EQUIP_ID => new MaintenanceEquipmentOperationsDue(
+        'up_to_date',
+        'overdue',
+        new DateTimeImmutable('2027-02-01T10:00:00+01:00'),
+        new DateTimeImmutable('2026-10-01T08:30:00+00:00'),
+        'plans',
+      ),
+    ]);
+    $handler = new GetEquipmentHandler($repository, $this->createStub(TagRepositoryPort::class), $legacy, $this->createStub(FacilityNamingPort::class), $operations);
+    $result = $handler(new GetEquipmentQuery(self::ORG_ID, self::EQUIP_ID));
+    self::assertSame('up_to_date', $result->controlDueStatus);
+    self::assertSame('up_to_date', $result->maintenanceDueStatus);
+    self::assertSame('overdue', $result->serviceDueStatus);
+    self::assertSame('2027-02-01T10:00:00+01:00', $result->controlNextDueAt);
+    self::assertSame('2026-10-01T08:30:00+00:00', $result->serviceNextDueAt);
+    self::assertSame('in_stock', $result->status);
   }
 
   #[Test]

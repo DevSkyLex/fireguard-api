@@ -17,6 +17,32 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class PatchCanonicalEquipmentInput
 {
   /**
+   * @since 1.1.0
+   */
+  #[Assert\Length(max: 255)]
+  public ?string $name = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[Assert\Length(max: 100)]
+  public ?string $assetCode = null;
+
+  /**
+   * @since 1.1.0
+   */
+  #[Assert\Choice(choices: ['low', 'medium', 'high', 'critical'])]
+  public ?string $criticality = null;
+
+  /**
+   * @since 1.1.0
+   *
+   * @var list<array{key: string, value: string, unit: ?string}>
+   */
+  #[Assert\Count(max: 50)]
+  public array $technicalProperties = [];
+
+  /**
    * Property type.
    *
    * @since 1.0.0

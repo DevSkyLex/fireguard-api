@@ -107,6 +107,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
 
     if ($existing instanceof OrganizationRecord) {
       $existing->name = $record->name;
+      $existing->operatingProfile = $record->operatingProfile;
       $existing->slug = $record->slug;
       $existing->ownerUserId = $record->ownerUserId;
       $existing->createdByUserId = $record->createdByUserId;

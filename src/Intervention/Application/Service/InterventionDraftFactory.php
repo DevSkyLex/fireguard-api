@@ -173,6 +173,9 @@ final readonly class InterventionDraftFactory implements InterventionDraftFactor
         'source' => 'planned',
         'required' => $workItem->required,
         'estimatedMinutes' => $workItem->estimatedMinutes,
+        'operationId' => $workItem->operationId,
+        'occurrenceId' => $workItem->occurrenceId,
+        'operationKind' => $workItem->operationKind,
       ],
     ));
   }

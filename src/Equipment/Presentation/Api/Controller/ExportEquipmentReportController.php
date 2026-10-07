@@ -231,6 +231,12 @@ final class ExportEquipmentReportController extends AbstractController
   ): array {
     return [
       'equipmentId' => $equipment->equipmentId,
+      'name' => $equipment->name,
+      'assetCode' => $equipment->assetCode,
+      'criticality' => $equipment->criticality,
+      'technicalProperties' => $equipment->technicalProperties,
+      'predecessorEquipmentId' => $equipment->predecessorEquipmentId,
+      'successorEquipmentId' => $equipment->successorEquipmentId,
       'type' => $equipment->type,
       'subType' => $equipment->subType,
       'brand' => $equipment->brand,
@@ -242,6 +248,10 @@ final class ExportEquipmentReportController extends AbstractController
       'installedAt' => $equipment->installedAt,
       'commissionedAt' => $equipment->commissionedAt,
       'maintenanceDueStatus' => $equipment->maintenanceDueStatus,
+      'controlDueStatus' => $equipment->controlDueStatus ?? $equipment->maintenanceDueStatus,
+      'serviceDueStatus' => $equipment->serviceDueStatus,
+      'controlNextDueAt' => $equipment->controlNextDueAt,
+      'serviceNextDueAt' => $equipment->serviceNextDueAt,
       'tags' => array_map(static fn (array $tag): string => (string) $tag['name'], $equipment->tags),
       'createdAt' => $equipment->createdAt->format('c'),
       'updatedAt' => $equipment->updatedAt->format('c'),
@@ -297,7 +307,7 @@ final class ExportEquipmentReportController extends AbstractController
     $generatedAt = $context['generatedAt'] ?? null;
     $context['generatedAtFormatted'] = $formatter->formatDateTime(is_string($generatedAt) ? $generatedAt : null);
 
-    foreach (['installedAt', 'commissionedAt'] as $dateKey) {
+    foreach (['installedAt', 'commissionedAt', 'controlNextDueAt', 'serviceNextDueAt'] as $dateKey) {
       $value = $context[$dateKey] ?? null;
       $context[$dateKey] = $formatter->formatDate(is_string($value) ? $value : null);
     }

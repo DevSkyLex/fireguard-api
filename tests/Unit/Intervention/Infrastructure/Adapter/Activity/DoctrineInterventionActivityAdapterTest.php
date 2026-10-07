@@ -6,7 +6,7 @@ namespace Tests\Unit\Intervention\Infrastructure\Adapter\Activity;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Activity\{InterventionActivityAppendRequest, InterventionActivityContent};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Intervention\Infrastructure\Adapter\Activity\DoctrineInterventionActivityAdapter;
@@ -51,7 +51,7 @@ final class DoctrineInterventionActivityAdapterTest extends TestCase
     $adapter = new DoctrineInterventionActivityAdapter(
       $entityManager,
       $this->createStub(UuidFactory::class),
-      new InterventionViewMapper($entityManager, $resources, new InterventionIssueFinder($resources, $attachments)),
+      new InterventionViewMapper($entityManager, $resources, new InterventionIssueFinder($resources, $attachments, $this->createStub(InterventionPublicationResourcesIssuesPort::class))),
     );
 
     $this->expectException(InterventionNotFoundException::class);

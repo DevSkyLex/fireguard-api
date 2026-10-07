@@ -4,6 +4,88 @@
 
 ## Overview
 
+V3 exposes `InterventionPublicationFactsPort` to authorized economic and retained-export
+use cases. Its organization-scoped published reads include explicit `snapshot_missing`
+rows for historical work without a supported dossier. No historical identity is rebuilt
+from current client, site or equipment records. Version-one dossiers remain readable;
+their missing equipment identity is marked incomplete. New publications capture version
+2 with the original publication identifier/time, intervention identity and schedule, full
+declared equipment identity, replacement successor identity and each task's root site and
+internal client `{id,name}`. Closed control facts are captured through the inspection
+owner even when they have no preventive occurrence. Stored dossiers are never upgraded
+or rewritten on read; contact fields in legacy identity nodes are minimized at the public
+read boundary.
+
+Published directories and batches are bounded to 100 interventions. Economic directories
+use at most 100 rows per page; a report source window returns at most 501 rows and an exact
+filtered total so its caller can refuse scopes above 500. The window is inclusive at the
+start and exclusive at the end. Published work uses original publication evidence time;
+unpublished work uses planned start or creation. Literal title/number search and optional
+site, internal client and equipment filters apply on the server. Published filters use
+the retained dossier; current filters use bounded owning-module bridges. Assets that are
+retired, archived catalog codes and archived published sites remain readable. More than
+10000 tasks in a dossier, 20000 tasks or 50000 proof/time/activity records in a source
+page, or 10000 locations/assets in a live
+scope requires a narrower source request instead of silently truncating facts. Financial
+and export permissions remain the consuming use case's responsibility; this port returns
+operational identity and facts, without amounts or contact lookups.
+
+An authorized finance directory may supply up to 10000 additional verified intervention
+identifiers for direct financial allocations without operational tasks. These identifiers
+join the operational target predicate as a union before exact counting and pagination;
+organization, literal search and source-date restrictions still apply to every row.
+The source reader neither queries financial persistence nor infers allocations from those
+identifiers. Report-window reads keep their original source-window semantics.
+
+Before transferring source JSON into PHP, a scalar query checks the selected page's
+combined counts and encoded size. Published directories/batches additionally cap tasks
+at 10000; every source read caps retained dossier bytes at 64 MiB. Export generation may
+impose a smaller output bound. These failures preserve every source record and instruct
+the caller to choose a smaller page, batch or report scope.
+
+Legacy published inspections whose completed task retains a canonical inspection result
+are validated by the atomic publication guarantee (`validationSource=published_inspection`).
+Their missing performed-date/result details remain unknown. Other task results require
+their explicit captured validated state; current completion alone never validates a result.
+
+V2 extends operational work through public resource ports. Qualified ServiceRequest conversion requires the canonical `.plan` entitlement; adding discovered work after preparation also requires `.execute` and the existing participant policy. A main-transaction advisory lock and stable `service_request_linked` receipt bind one request to a corrective intervention/repair task. Linking reuses one unambiguous open repair without modifying recorded attempts; submitted, published or abandoned work refuses a new link, while replay returns its original identifiers.
+
+Inventory physical declarations share an intervention fence with publication before either locks the work record. Unresolved received declarations appear as non-financial blockers in issues, transition availability and final publication. Published interventions may receive late physical facts while their dossier remains immutable. MaintenanceCost consumes public non-financial time/source facts and captures its private financial snapshot in the same main publication transaction. Neither its amounts nor its rates are embedded in ordinary intervention outputs, closure snapshots or customer PDFs.
+
+FireGuard's specialized maintenance work reuses the existing intervention workflow.
+Types `preventive_maintenance` and `corrective_maintenance` supplement the historical
+types; work-item actions `maintenance`, `repair` and `replacement` supplement
+`site_setup`, `inventory` and `inspection`.
+
+Equipment-operation tasks record `executionResult` through the existing revisioned
+PATCH and offline replay path: `equipmentId`, actual timezone-qualified `performedAt`,
+`outcome` (`successful`, `failed`, `performed`) and non-empty `workPerformed` (10000
+characters maximum). Author, preventive source and validation state are server-owned.
+Earlier attempts are retained in `history` and in the activity feed. An unsuccessful
+repair or maintenance stays open; a completed repair/replacement requires success.
+
+Optional create-time `operationId`, `occurrenceId` and `operationKind` (`control` or
+`maintenance`) identify a complete preventive source. Publication acknowledges only
+that exact equipment/occurrence on the same main transaction. Closed adverse controls
+count as performed while their non-conformities remain open. A successful repair does
+not acquit an unrelated control or maintenance occurrence.
+
+Publication also freezes `closureSnapshot` version 2 with equipment/site/customer identity,
+work-item results, attachment metadata, member names and the time entries known at
+closure. The independent time journal remains editable under its existing policy.
+Published reports use this snapshot; drafts use live data explicitly. Older published
+interventions without snapshots are labelled as historical live reports rather than
+presented as frozen dossiers. The PDF export retains the existing READ authorization.
+
+Validated maintenance, repair and replacement tasks also feed the equipment owner's
+maintenance log, including their actual date, executor and executed-work description.
+A task already represented by an applied equipment proposal is reported once.
+
+Preventive handover finds both historical JSON equipment targets and canonical IRIs,
+rejects ambiguous mappings and normalizes attached targets under the main transaction.
+Already submitted work requires explicit resolution before handover; no pending
+publication revision is silently altered.
+
 Publication guards validate the final facility graph, including drafts and
 proposals from the same publication, under the organization relation lock.
 The scoped publication context permits intermediate writes only for covered,
@@ -56,6 +138,10 @@ Main goals:
   draft resources into Facility / Equipment / Inspection via outbound ports.
 
 ## API Endpoints
+
+| Method | Endpoint | Behavior |
+| --- | --- | --- |
+| GET | `/organizations/{organizationId}/equipment/{equipmentId}/open-work` | Existing non-abandoned/non-published equipment work, including completed work awaiting publication. Requires `organization.interventions.read`; foreign equipment or organizations return 404 and missing entitlement returns 403. Returns intervention identity/number/name/status plus task identity/action/status. |
 
 All paths are prefixed with `/api`. Interventions are organization-scoped through
 the required `organization` query parameter on the collection (not a nested URI).

@@ -22,6 +22,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Table(name: 'facilities')]
 #[ORM\Index(name: 'idx_facility_organization', columns: ['organization_id'])]
 #[ORM\Index(name: 'idx_facility_parent', columns: ['parent_facility_id'])]
+#[ORM\Index(name: 'idx_facility_customer', columns: ['customer_id'])]
 #[ORM\Index(name: 'idx_facility_type', columns: ['type'])]
 #[ORM\Index(name: 'idx_facility_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_facility_organization_type', columns: ['organization_id', 'type'])]
@@ -66,6 +67,12 @@ class FacilityRecord
    */
   #[ORM\Column(name: 'client_id', type: 'string', length: 36, nullable: true, unique: true)]
   public ?string $clientId = null;
+
+  /**
+   * Property customerId. Optional internal customer assigned to a root site.
+   */
+  #[ORM\Column(name: 'customer_id', type: 'string', length: 36, nullable: true)]
+  public ?string $customerId = null;
 
   /**
    * Property recordStatus.

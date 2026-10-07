@@ -1,0 +1,53 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Customer\Presentation\:
+    resource: '../../src/Customer/Presentation'
+
+  Customer\Application\Service\CustomerAccessGuard: ~
+
+  Customer\Infrastructure\Persistence\Doctrine\Repository\CustomerRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Customer\Application\Port\Outbound\CustomerRepositoryPort:
+    alias: Customer\Infrastructure\Persistence\Doctrine\Repository\CustomerRepository
+
+  Customer\Infrastructure\Adapter\Directory\CustomerLookupAdapter: ~
+
+  Customer\Infrastructure\Adapter\Facility\FacilityCustomerValidationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Customer\Application\Port\Inbound\CustomerLookupPort:
+    alias: Customer\Infrastructure\Adapter\Directory\CustomerLookupAdapter
+
+  customer.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Customer\Application\UseCase\Command\CreateCustomer\CreateCustomerHandler:
+    arguments:
+      $transactions: '@customer.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  Customer\Application\UseCase\Command\ChangeCustomer\ChangeCustomerHandler:
+    arguments:
+      $transactions: '@customer.main_transaction_manager'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  Customer\Application\UseCase\Query\GetCustomer\GetCustomerHandler:
+    tags: ['messenger.message_handler']
+
+  Customer\Application\UseCase\Query\ListCustomers\ListCustomersHandler:
+    tags: ['messenger.message_handler']
+
+  Customer\Infrastructure\Adapter\MaintenanceExport\MaintenanceExportCustomerIdentityAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['maintenance_export.identity_validator']

@@ -14,6 +14,7 @@ use LogicException;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 
 use function array_map;
+use function is_array;
 
 /**
  * Factory InterventionOutputFactory.
@@ -76,6 +77,9 @@ final class InterventionOutputFactory
     $output->plannedStartAt = $this->nullableString($data, 'plannedStartAt');
     $output->dueAt = $this->nullableString($data, 'dueAt');
     $output->reviewNote = $this->nullableString($data, 'reviewNote');
+    /** @var array<string,mixed>|null $snapshot */
+    $snapshot = is_array($data['closureSnapshot'] ?? null) ? $data['closureSnapshot'] : null;
+    $output->closureSnapshot = $snapshot;
     $output->revision = $this->integer($data, 'revision');
     // Absent from the list view's data by design — see InterventionOutput.
     $output->recurrence = $this->nullableString($data, 'recurrence');

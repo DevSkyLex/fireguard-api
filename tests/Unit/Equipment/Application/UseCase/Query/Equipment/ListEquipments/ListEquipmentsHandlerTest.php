@@ -14,6 +14,8 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\EquipmentFacilityId;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Maintenance\Application\Contract\Plan\MaintenanceEquipmentOperationsDue;
+use Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +31,87 @@ final class ListEquipmentsHandlerTest extends TestCase
   private const string EQUIP_ID_1 = '550e8400-e29b-41d4-a716-446655448002';
 
   private const string EQUIP_ID_2 = '550e8400-e29b-41d4-a716-446655448003';
+
+  #[Test]
+  public function resolvesIndependentDeadlinesInOnePageBatch(): void
+  {
+    $repository = $this->createStub(EquipmentRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([
+      Equipment::create(new EquipmentId(self::EQUIP_ID_1), new EquipmentOrganizationId(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER),
+      Equipment::create(new EquipmentId(self::EQUIP_ID_2), new EquipmentOrganizationId(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER),
+    ]);
+    $repository->method('countByOrganizationId')->willReturn(2);
+    $legacy = $this->createMock(MaintenanceDueStatusPort::class);
+    $legacy->expects(self::never())->method('dueStatusesForEquipment');
+    $operations = $this->createMock(MaintenanceOperationsDuePort::class);
+    $operations->expects(self::once())->method('forEquipment')->with(self::ORG_ID, [self::EQUIP_ID_1, self::EQUIP_ID_2])->willReturn($this->independentDue());
+    $handler = new ListEquipmentsHandler(
+      $repository,
+      $this->createStub(TagRepositoryPort::class),
+      $legacy,
+      $this->createStub(FacilityNamingPort::class),
+      $this->createStub(FacilitySubtreeScopePort::class),
+      operationsDue: $operations,
+    );
+    $result = $handler(new ListEquipmentsQuery(self::ORG_ID));
+    self::assertSame(2, $result->total);
+    self::assertSame('up_to_date', $result->items[0]->controlDueStatus);
+    self::assertSame('overdue', $result->items[0]->serviceDueStatus);
+    self::assertSame('2027-01-01T00:00:00+00:00', $result->items[0]->controlNextDueAt);
+    self::assertSame('2026-09-01T00:00:00+00:00', $result->items[0]->serviceNextDueAt);
+    self::assertSame('overdue', $result->items[1]->maintenanceDueStatus);
+    self::assertSame('unscheduled', $result->items[1]->serviceDueStatus);
+    self::assertNull($result->items[1]->serviceNextDueAt);
+  }
+
+  #[Test]
+  public function theCompatibilityDueFilterMatchesControlsRatherThanServices(): void
+  {
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())->method('findByOrganizationId')->willReturn([
+      Equipment::create(new EquipmentId(self::EQUIP_ID_1), new EquipmentOrganizationId(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER),
+      Equipment::create(new EquipmentId(self::EQUIP_ID_2), new EquipmentOrganizationId(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER),
+    ]);
+    $repository->expects(self::never())->method('countByOrganizationId');
+    $legacy = $this->createMock(MaintenanceDueStatusPort::class);
+    $legacy->expects(self::never())->method('dueStatusesForEquipment');
+    $operations = $this->createMock(MaintenanceOperationsDuePort::class);
+    $operations->expects(self::once())->method('forEquipment')->with(self::ORG_ID, [self::EQUIP_ID_1, self::EQUIP_ID_2])->willReturn($this->independentDue());
+    $handler = new ListEquipmentsHandler(
+      $repository,
+      $this->createStub(TagRepositoryPort::class),
+      $legacy,
+      $this->createStub(FacilityNamingPort::class),
+      $this->createStub(FacilitySubtreeScopePort::class),
+      operationsDue: $operations,
+    );
+    $result = $handler(new ListEquipmentsQuery(self::ORG_ID, maintenanceDueStatus: 'overdue'));
+    self::assertSame(1, $result->total);
+    self::assertSame(self::EQUIP_ID_2, $result->items[0]->equipmentId);
+    self::assertSame('overdue', $result->items[0]->controlDueStatus);
+    self::assertSame('unscheduled', $result->items[0]->serviceDueStatus);
+  }
+
+  #[Test]
+  public function dueQueueCombinesSoonAndOverdueBeforeOnePagination(): void
+  {
+    $currentId = '550e8400-e29b-41d4-a716-446655448004';
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())->method('findByOrganizationId')->willReturn([
+      Equipment::create(new EquipmentId(self::EQUIP_ID_1), new EquipmentOrganizationId(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER),
+      Equipment::create(new EquipmentId(self::EQUIP_ID_2), new EquipmentOrganizationId(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER),
+      Equipment::create(new EquipmentId($currentId), new EquipmentOrganizationId(self::ORG_ID), EquipmentType::FIRE_EXTINGUISHER),
+    ]);
+    $repository->expects(self::never())->method('countByOrganizationId');
+    $due = $this->createStub(MaintenanceDueStatusPort::class);
+    $due->method('dueStatusesForEquipment')->willReturn([self::EQUIP_ID_1 => 'due_soon', self::EQUIP_ID_2 => 'overdue', $currentId => 'up_to_date']);
+    $handler = new ListEquipmentsHandler($repository, $this->createStub(TagRepositoryPort::class), $due, $this->createStub(FacilityNamingPort::class), $this->createStub(FacilitySubtreeScopePort::class));
+    $result = $handler(new ListEquipmentsQuery(self::ORG_ID, pagination: new Pagination(offset: 1, limit: 1), maintenanceDueStatus: 'due'));
+    self::assertSame(2, $result->total);
+    self::assertCount(1, $result->items);
+    self::assertSame(self::EQUIP_ID_2, $result->items[0]->equipmentId);
+    self::assertSame('overdue', $result->items[0]->maintenanceDueStatus);
+  }
 
   #[Test]
   public function testDescendantCandidatesShareSearchAndPageCriteriaWithTheirCount(): void
@@ -638,5 +721,28 @@ final class ListEquipmentsHandlerTest extends TestCase
 
     self::assertCount(1, $result->items);
     self::assertNull($result->items[0]->facilityName);
+  }
+
+  /**
+   * @return array<string, MaintenanceEquipmentOperationsDue> deadlines that deliberately disagree by operation kind
+   */
+  private function independentDue(): array
+  {
+    return [
+      self::EQUIP_ID_1 => new MaintenanceEquipmentOperationsDue(
+        'up_to_date',
+        'overdue',
+        new DateTimeImmutable('2027-01-01T00:00:00+00:00'),
+        new DateTimeImmutable('2026-09-01T00:00:00+00:00'),
+        'plans',
+      ),
+      self::EQUIP_ID_2 => new MaintenanceEquipmentOperationsDue(
+        'overdue',
+        'unscheduled',
+        new DateTimeImmutable('2026-10-01T00:00:00+00:00'),
+        null,
+        'plans',
+      ),
+    ];
   }
 }

@@ -54,6 +54,8 @@ final readonly class ListEquipmentsQuery implements QueryMessage
     public Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     public ?string $maintenanceDueStatus = null,
     public bool $includeDescendants = false,
+    public ?string $family = null,
+    public ?string $customerId = null,
   ) {
   }
   // #endregion

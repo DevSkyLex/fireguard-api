@@ -84,6 +84,7 @@ final readonly class GetOrganizationHandler implements QueryHandler
     return new GetOrganizationResult(
       id: (string) $organization->id(),
       name: (string) $organization->name(),
+      operatingProfile: $organization->operatingProfile()->value,
       slug: (string) $organization->slug(),
       ownerUserId: $organization->ownerUserId(),
       createdByUserId: $organization->createdByUserId(),
