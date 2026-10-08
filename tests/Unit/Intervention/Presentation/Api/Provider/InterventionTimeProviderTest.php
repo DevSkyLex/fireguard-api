@@ -34,7 +34,7 @@ final class InterventionTimeProviderTest extends TestCase
   public function testJournalDispatchesBoundedPageAndExposesContinuation(): void
   {
     $queries = $this->createMock(QueryBusPort::class);
-    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ListTimeEntriesQuery $query): bool => 2 === $query->page && 30 === $query->itemsPerPage && 'task' === $query->taskId))->willReturn(new ListTimeEntriesResult([], 61, 2, 30));
+    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ListTimeEntriesQuery $query): bool => 2 === $query->page && 30 === $query->itemsPerPage && 'task' === $query->taskId && !$query->ownOnly))->willReturn(new ListTimeEntriesResult([], 61, 2, 30));
     $output = new InterventionTimeProvider($queries, $this->security())->provide(new Get(name: InterventionTimeOperations::LIST), ['taskId' => 'task'], ['filters' => ['page' => '2']]);
     self::assertInstanceOf(TimeJournalOutput::class, $output);
     self::assertSame(3, $output->nextPage);
@@ -45,12 +45,13 @@ final class InterventionTimeProviderTest extends TestCase
   public function testParsedApiParametersTakePrecedenceOverLegacyContext(): void
   {
     $queries = $this->createMock(QueryBusPort::class);
-    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ListTimeEntriesQuery $query): bool => 3 === $query->page && 20 === $query->itemsPerPage))->willReturn(new ListTimeEntriesResult([], 61, 3, 20));
+    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ListTimeEntriesQuery $query): bool => 3 === $query->page && 20 === $query->itemsPerPage && $query->ownOnly))->willReturn(new ListTimeEntriesResult([], 61, 3, 20));
     $operation = new Get(name: InterventionTimeOperations::LIST, parameters: [
       'page' => new QueryParameter(extraProperties: ['_api_values' => '3']),
       'itemsPerPage' => new QueryParameter(extraProperties: ['_api_values' => '20']),
+      'ownOnly' => new QueryParameter(extraProperties: ['_api_values' => 'true']),
     ]);
-    $output = new InterventionTimeProvider($queries, $this->security())->provide($operation, ['taskId' => 'task'], ['filters' => ['page' => '1', 'itemsPerPage' => '100']]);
+    $output = new InterventionTimeProvider($queries, $this->security())->provide($operation, ['taskId' => 'task'], ['filters' => ['page' => '1', 'itemsPerPage' => '100', 'ownOnly' => false]]);
     self::assertInstanceOf(TimeJournalOutput::class, $output);
     self::assertSame(3, $output->page);
     self::assertSame(20, $output->itemsPerPage);
@@ -61,9 +62,9 @@ final class InterventionTimeProviderTest extends TestCase
   public function testAbsentParsedApiParameterKeepsTheLegacyContextValue(): void
   {
     $queries = $this->createMock(QueryBusPort::class);
-    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ListTimeEntriesQuery $query): bool => 2 === $query->page && 30 === $query->itemsPerPage))->willReturn(new ListTimeEntriesResult([], 61, 2, 30));
-    $operation = new Get(name: InterventionTimeOperations::LIST, parameters: ['page' => new QueryParameter()]);
-    $output = new InterventionTimeProvider($queries, $this->security())->provide($operation, ['taskId' => 'task'], ['filters' => ['page' => '2']]);
+    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ListTimeEntriesQuery $query): bool => 2 === $query->page && 30 === $query->itemsPerPage && $query->ownOnly))->willReturn(new ListTimeEntriesResult([], 61, 2, 30));
+    $operation = new Get(name: InterventionTimeOperations::LIST, parameters: ['page' => new QueryParameter(), 'ownOnly' => new QueryParameter()]);
+    $output = new InterventionTimeProvider($queries, $this->security())->provide($operation, ['taskId' => 'task'], ['filters' => ['page' => '2', 'ownOnly' => true]]);
     self::assertInstanceOf(TimeJournalOutput::class, $output);
     self::assertSame(2, $output->page);
   }
@@ -74,6 +75,25 @@ final class InterventionTimeProviderTest extends TestCase
     $queries = $this->createMock(QueryBusPort::class);
     $queries->expects(self::never())->method('ask');
     $operation = new Get(name: InterventionTimeOperations::LIST, parameters: ['itemsPerPage' => new QueryParameter(extraProperties: ['_api_values' => ['30']])]);
+    $this->expectException(BadRequestHttpException::class);
+    new InterventionTimeProvider($queries, $this->security())->provide($operation, ['taskId' => 'task']);
+  }
+
+  #[Test]
+  public function testExplicitFalseScopeDoesNotCoerceToTrue(): void
+  {
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ListTimeEntriesQuery $query): bool => !$query->ownOnly))->willReturn(new ListTimeEntriesResult([], 0, 1, 30));
+    $operation = new Get(name: InterventionTimeOperations::LIST, parameters: ['ownOnly' => new QueryParameter(extraProperties: ['_api_values' => 'false'])]);
+    new InterventionTimeProvider($queries, $this->security())->provide($operation, ['taskId' => 'task'], ['filters' => ['ownOnly' => true]]);
+  }
+
+  #[Test]
+  public function testMalformedOwnOnlyScopeIsRejectedBeforeDispatch(): void
+  {
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::never())->method('ask');
+    $operation = new Get(name: InterventionTimeOperations::LIST, parameters: ['ownOnly' => new QueryParameter(extraProperties: ['_api_values' => ['true']])]);
     $this->expectException(BadRequestHttpException::class);
     new InterventionTimeProvider($queries, $this->security())->provide($operation, ['taskId' => 'task']);
   }

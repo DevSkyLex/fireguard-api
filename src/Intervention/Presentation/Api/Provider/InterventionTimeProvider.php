@@ -20,8 +20,12 @@ use Throwable;
 
 use function filter_var;
 use function is_array;
+use function is_bool;
 use function is_string;
+use function trim;
 
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_BOOLEAN;
 use const FILTER_VALIDATE_INT;
 use const PHP_INT_MAX;
 
@@ -87,7 +91,7 @@ final readonly class InterventionTimeProvider implements ProviderInterface
         return new TimeEntryHistoryOutput($entryId, $history->versions, $history->totalItems, $history->itemsPerPage, $history->nextBeforeRevision);
       }
       /** @var ListTimeEntriesResult $result */
-      $result = $this->queries->ask(new ListTimeEntriesQuery($user->getId(), $taskId, $this->positiveInteger($filters['page'] ?? 1, 'page'), $itemsPerPage));
+      $result = $this->queries->ask(new ListTimeEntriesQuery($user->getId(), $taskId, $this->positiveInteger($filters['page'] ?? 1, 'page'), $itemsPerPage, $this->boolean($filters['ownOnly'] ?? false, 'ownOnly')));
     } catch (Throwable $error) {
       throw $this->mapWorkflowException($error);
     }
@@ -121,9 +125,37 @@ final readonly class InterventionTimeProvider implements ProviderInterface
   }
 
   /**
+   * Method boolean
+   *
+   * Rejects malformed scope selectors before dispatching a journal read.
+   *
+   * @access private
+   *
+   * @param mixed $value raw query value
+   * @param string $name parameter name
+   *
+   * @return bool validated scope selector
+   */
+  private function boolean(mixed $value, string $name): bool
+  {
+    if (is_bool($value)) {
+      return $value;
+    }
+    if (!is_string($value) || '' === trim($value)) {
+      throw new BadRequestHttpException($name . ' must be a boolean.');
+    }
+    $parsed = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if (null === $parsed) {
+      throw new BadRequestHttpException($name . ' must be a boolean.');
+    }
+
+    return $parsed;
+  }
+
+  /**
    * Method filters
    *
-   * Reads the journal's flat pagination parameters from API Platform while retaining
+   * Reads the journal's flat scope and pagination parameters from API Platform while retaining
    * context values for clients using the existing provider filter mechanism.
    *
    * @access private
@@ -131,7 +163,7 @@ final readonly class InterventionTimeProvider implements ProviderInterface
    * @param Operation $operation parsed API Platform parameter metadata
    * @param array<string, mixed> $context legacy provider filter values
    *
-   * @return array<array-key, mixed> raw pagination values for owner-local validation
+   * @return array<array-key, mixed> raw scope and pagination values for owner-local validation
    */
   private function filters(Operation $operation, array $context): array
   {

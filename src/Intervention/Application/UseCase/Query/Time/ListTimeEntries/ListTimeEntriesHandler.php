@@ -41,7 +41,7 @@ final readonly class ListTimeEntriesHandler implements \Shared\Application\Messa
     }
     $actor = $this->access->actor($task, $query->userId);
 
-    $memberId = $this->access->canManage($task, $query->userId) ? null : $actor;
+    $memberId = $query->ownOnly || !$this->access->canManage($task, $query->userId) ? $actor : null;
 
     return new ListTimeEntriesResult(
       $this->entries->list($query->taskId, $memberId, $query->page, $query->itemsPerPage),

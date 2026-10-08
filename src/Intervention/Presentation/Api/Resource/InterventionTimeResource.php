@@ -24,6 +24,7 @@ use Intervention\Presentation\Api\Provider\InterventionTimeProvider;
   new Get(name: InterventionTimeOperations::LIST, uriTemplate: '/intervention-work-items/{taskId}/time-entries', uriVariables: ['taskId'], output: TimeJournalOutput::class, provider: InterventionTimeProvider::class, security: self::SECURITY_ROLE_USER, parameters: [
     'page' => new QueryParameter(schema: ['type' => 'integer', 'minimum' => 1, 'default' => 1], castToArray: false, castToNativeType: false, constraints: []),
     'itemsPerPage' => new QueryParameter(schema: ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 30], castToArray: false, castToNativeType: false, constraints: []),
+    'ownOnly' => new QueryParameter(schema: ['type' => 'boolean', 'default' => false], description: 'Limit entries and their total to the current member, including for time managers.', castToArray: false, castToNativeType: false, constraints: []),
   ]),
   new Get(name: InterventionTimeOperations::VERSIONS, uriTemplate: '/intervention-work-items/{taskId}/time-entries/{entryId}/versions', uriVariables: ['taskId', 'entryId'], output: TimeEntryHistoryOutput::class, provider: InterventionTimeProvider::class, security: self::SECURITY_ROLE_USER, parameters: [
     'beforeRevision' => new QueryParameter(schema: ['type' => 'integer', 'minimum' => 1], description: 'Exclusive revision cursor; omitted for the newest retained revisions.', castToArray: false, castToNativeType: false, constraints: []),

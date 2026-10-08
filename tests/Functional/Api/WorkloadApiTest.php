@@ -406,6 +406,48 @@ final class WorkloadApiTest extends WebTestCase
   }
 
   #[Test]
+  public function testTimeManagerOwnOnlyFiltersBeforePaginationAndExactCounting(): void
+  {
+    $this->seed(['organization.interventions.time.manage']);
+    $task = $this->seedTask(60, 'published', $this->memberId);
+    /** @var EntityManagerInterface $em */
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $otherMember = Uuid::v4()->toRfc4122();
+    $ownIdentifiers = [];
+    for ($day = 1; $day <= 6; ++$day) {
+      $id = Uuid::v4()->toRfc4122();
+      $beneficiary = $day <= 3 ? $this->memberId : $otherMember;
+      if ($day <= 3) {
+        $ownIdentifiers[] = $id;
+      }
+      $em->getConnection()->executeStatement(
+        'INSERT INTO intervention_time_entries (id, work_item_id, organization_id, member_id, worked_on, minutes, cancelled, revision, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 60, false, 1, ?, ?, NOW(), NOW())',
+        [$id, $task, $this->organizationId, $beneficiary, '2026-01-0' . $day, $this->memberId, $this->memberId],
+      );
+    }
+    $path = '/api/intervention-work-items/' . $task . '/time-entries';
+    $first = $this->value($this->requestApi('GET', $path . '?ownOnly=true&itemsPerPage=2'));
+    self::assertResponseIsSuccessful();
+    self::assertSame(3, $this->value($first, 'totalItems'));
+    self::assertSame(2, $this->value($first, 'nextPage'));
+    self::assertCount(2, $this->listValue($this->value($first, 'entries')));
+    self::assertSame($ownIdentifiers[2], $this->value($first, 'entries', 0, 'id'));
+    self::assertSame($ownIdentifiers[1], $this->value($first, 'entries', 1, 'id'));
+    $second = $this->value($this->requestApi('GET', $path . '?ownOnly=true&itemsPerPage=2&page=2'));
+    self::assertResponseIsSuccessful();
+    self::assertSame(3, $this->value($second, 'totalItems'));
+    self::assertNull($this->value($second, 'nextPage'));
+    self::assertCount(1, $this->listValue($this->value($second, 'entries')));
+    self::assertSame($ownIdentifiers[0], $this->value($second, 'entries', 0, 'id'));
+    foreach (['?itemsPerPage=2', '?ownOnly=false&itemsPerPage=2'] as $filter) {
+      $all = $this->value($this->requestApi('GET', $path . $filter));
+      self::assertResponseIsSuccessful();
+      self::assertSame(6, $this->value($all, 'totalItems'));
+      self::assertSame($otherMember, $this->value($all, 'entries', 0, 'memberId'));
+    }
+  }
+
+  #[Test]
   public function testTimePaginationRejectsMalformedValuesAndHistoryPreservesBeneficiaryIsolation(): void
   {
     $this->seed([]);
@@ -418,7 +460,7 @@ final class WorkloadApiTest extends WebTestCase
       [$id, $task, $this->organizationId, Uuid::v4()->toRfc4122(), '2026-01-01', $this->memberId, $this->memberId],
     );
     $path = '/api/intervention-work-items/' . $task . '/time-entries';
-    foreach (['page=0', 'page=-1', 'page=1.5', 'page[]=1', 'itemsPerPage=0', 'itemsPerPage=101', 'itemsPerPage=abc'] as $filter) {
+    foreach (['page=0', 'page=-1', 'page=1.5', 'page[]=1', 'itemsPerPage=0', 'itemsPerPage=101', 'itemsPerPage=abc', 'ownOnly=invalid', 'ownOnly[]=true', 'ownOnly='] as $filter) {
       $this->requestApi('GET', $path . '?' . $filter);
       self::assertResponseStatusCodeSame(400);
     }
@@ -428,6 +470,10 @@ final class WorkloadApiTest extends WebTestCase
     }
     $body = $this->value($this->requestApi('GET', $path));
     self::assertSame(0, $this->value($body, 'totalItems'));
+    $body = $this->value($this->requestApi('GET', $path . '?ownOnly=false'));
+    self::assertResponseIsSuccessful();
+    self::assertSame(0, $this->value($body, 'totalItems'));
+    self::assertSame([], $this->value($body, 'entries'));
     $this->requestApi('GET', $path . '/' . $id . '/versions');
     self::assertResponseStatusCodeSame(404);
     $this->requestApi('GET', $path . '/' . $id);

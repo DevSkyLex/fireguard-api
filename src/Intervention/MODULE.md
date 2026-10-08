@@ -225,7 +225,11 @@ no longer contributes to actual totals but still prevents physical deletion of
 its task and parent intervention.
 
 Journal reads accept a positive `page` (default 1) and `itemsPerPage` from 1 to 100
-(default 30), and return `totalItems` and nullable `nextPage`. Current reads and
+(default 30), and return `totalItems` and nullable `nextPage`. Optional `ownOnly`
+(default false) limits both the entries and exact total to the current member
+before pagination, even when the caller has time management rights. Omitting it
+or passing false never expands a caller's authorized beneficiary scope. Malformed
+scope selectors return 400. Current reads and
 mutation responses expose only the latest inline `versions` row, `totalVersions`
 and nullable `nextBeforeRevision`; they never hydrate older history. The history
 endpoint accepts `beforeRevision` (exclusive, omitted for newest) and the same

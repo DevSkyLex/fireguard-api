@@ -27121,6 +27121,19 @@
                         },
                         "style": "form",
                         "explode": true
+                    },
+                    {
+                        "name": "ownOnly",
+                        "in": "query",
+                        "description": "Limit entries and their total to the current member, including for time managers.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "style": "form",
+                        "explode": true
                     }
                 ]
             },
