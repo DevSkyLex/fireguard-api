@@ -39,6 +39,11 @@ final readonly class ServiceRequest
 {
   private const array PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 
+  /**
+   * Constant INVALID_TARGET_SNAPSHOT_MESSAGE
+   */
+  private const string INVALID_TARGET_SNAPSHOT_MESSAGE = 'Target snapshot must be a JSON object.';
+
   // #region Properties
   /**
    * Property id. Stable request identity.
@@ -405,7 +410,7 @@ final readonly class ServiceRequest
   {
     foreach ($snapshot as $key => $value) {
       if (!is_string($key)) {
-        throw ServiceRequestException::invalid('Target snapshot must be a JSON object.');
+        throw ServiceRequestException::invalid(self::INVALID_TARGET_SNAPSHOT_MESSAGE);
       }
       self::snapshotValue($value, 1);
     }
@@ -436,12 +441,12 @@ final readonly class ServiceRequest
   private static function snapshotObject(mixed $decoded): array
   {
     if (!is_array($decoded)) {
-      throw ServiceRequestException::invalid('Target snapshot must be a JSON object.');
+      throw ServiceRequestException::invalid(self::INVALID_TARGET_SNAPSHOT_MESSAGE);
     }
     $snapshot = [];
     foreach ($decoded as $key => $value) {
       if (!is_string($key)) {
-        throw ServiceRequestException::invalid('Target snapshot must be a JSON object.');
+        throw ServiceRequestException::invalid(self::INVALID_TARGET_SNAPSHOT_MESSAGE);
       }
       $snapshot[$key] = $value;
     }

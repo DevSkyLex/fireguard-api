@@ -408,6 +408,10 @@ automatically — no backfill migration is needed.
 - Service wiring: `config/modules/maintenance.yaml`
 - Plan repository and authority locks: explicit `doctrine.dbal.main_connection`;
   plan-generated events use `TransactionalEventDispatcher` on that same connection.
+- Plan and occurrence storage mapping preserves every historical scalar, nullable
+  link and UTC timestamp independently of creation validation. Calendar anchors
+  and due slots are restored in the plan's frozen timezone; SQL, authority locks
+  and transactions remain owned by the repository.
 - Facility lifecycle suspension uses the owner-provided ancestry adapter on main;
   organization calendar context uses the published workforce directory port.
 - Additive main migrations `Version20261006102000`, `Version20261006102001`
