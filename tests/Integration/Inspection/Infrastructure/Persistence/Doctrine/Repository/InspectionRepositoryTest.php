@@ -150,13 +150,9 @@ final class InspectionRepositoryTest extends KernelTestCase
       self::SECOND_INSPECTION_ID,
     ]);
 
-    self::assertSame(
-      [
-        self::INSPECTION_ID => self::EQUIPMENT_ID,
-        self::SECOND_INSPECTION_ID => self::SECOND_EQUIPMENT_ID,
-      ],
-      $equipmentIds,
-    );
+    self::assertCount(2, $equipmentIds);
+    self::assertSame(self::EQUIPMENT_ID, $equipmentIds[self::INSPECTION_ID]);
+    self::assertSame(self::SECOND_EQUIPMENT_ID, $equipmentIds[self::SECOND_INSPECTION_ID]);
   }
 
   #[Test]
