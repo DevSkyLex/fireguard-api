@@ -24,7 +24,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Procurement\Application\Service\ProcurementProjection;
 use Procurement\Application\UseCase\Command\ManageProcurement\{ManageProcurementCommand, ManageProcurementHandler};
 use Procurement\Domain\Model\{PurchaseOrder, Supplier};
-use Procurement\Domain\ValueObject\ProcurementLine;
+use Procurement\Domain\ValueObject\{ProcurementGoodsIdentity, ProcurementLine, SupplierDetails};
 use Procurement\Infrastructure\Persistence\Doctrine\Repository\ProcurementRepository;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort,UuidGeneratorPort};
@@ -60,7 +60,7 @@ final class InventoryLastPieceConcurrencyTest extends KernelTestCase
     $this->b = DriverManager::getConnection($this->a->getParams());
     $this->clean();
     self::assertNotSame($this->a->fetchOne('SELECT pg_backend_pid()'), $this->b->fetchOne('SELECT pg_backend_pid()'), 'The workers must use genuinely independent PostgreSQL sessions.');
-    $store = new InventoryRepository($em);
+    $store = new InventoryRepository($em->getConnection());
     $this->a->beginTransaction();
     $store->saveReference('parts', new InventoryReference(self::PART, self::ORG, 'LAST', 'Last piece', 'piece', 'part'));
     $store->saveReference('warehouses', new InventoryReference(self::WAREHOUSE, self::ORG, 'W', 'Warehouse'));
@@ -162,8 +162,8 @@ final class InventoryLastPieceConcurrencyTest extends KernelTestCase
   {
     $repository = new ProcurementRepository($this->b);
     $now = new DateTimeImmutable('2026-10-06T12:00:00Z');
-    $supplier = Supplier::create('bec10000-0000-4000-8000-000000000100', self::ORG, 'Concurrency supplier', null, null, null, [], $now);
-    $order = PurchaseOrder::create('bec10000-0000-4000-8000-000000000101', self::ORG, $supplier->id, 'EUR', 'Concurrent receipt', [ProcurementLine::create('bec10000-0000-4000-8000-000000000102', 'part', self::PART, null, [], '1', '7')], $now);
+    $supplier = Supplier::create('bec10000-0000-4000-8000-000000000100', self::ORG, new SupplierDetails('Concurrency supplier', null, null, null, []), $now);
+    $order = PurchaseOrder::create('bec10000-0000-4000-8000-000000000101', self::ORG, $supplier->id, 'EUR', 'Concurrent receipt', [ProcurementLine::create('bec10000-0000-4000-8000-000000000102', new ProcurementGoodsIdentity('part', self::PART, null, []), '1', '7')], $now);
     $order->order(1, $now);
     $repository->saveSupplier($supplier);
     $repository->saveOrder($order);
@@ -178,7 +178,7 @@ final class InventoryLastPieceConcurrencyTest extends KernelTestCase
     $ids = $this->createStub(UuidGeneratorPort::class);
     $ids->method('generate')->willReturn('bec10000-0000-4000-8000-000000000104');
 
-    return new ManageProcurementHandler($repository, $authorization, new MaintenanceCurrencyAdapter($this->b), new InventoryPartDirectoryAdapter(new InventoryRepository($em)), new InventoryStockReceiptAdapter($bus), $this->createStub(EquipmentReserveReceiptPort::class), new ProcurementProjection(), $clock, $ids, $this->createStub(EventDispatcherPort::class));
+    return new ManageProcurementHandler($repository, $authorization, new MaintenanceCurrencyAdapter($this->b), new InventoryPartDirectoryAdapter(new InventoryRepository($em->getConnection())), new InventoryStockReceiptAdapter($bus), $this->createStub(EquipmentReserveReceiptPort::class), new ProcurementProjection(), $clock, $ids, $this->createStub(EventDispatcherPort::class));
   }
 
   private function consume(int $n): ApplyInventoryStockCommand
@@ -196,7 +196,7 @@ final class InventoryLastPieceConcurrencyTest extends KernelTestCase
     $context = $this->createStub(InterventionInventoryContextPort::class);
     $context->method('validate')->willReturn(new InventoryInterventionContext(false));
 
-    return new ApplyInventoryStockHandler(new InventoryRepository($em), $tx, $ids, $currency, $context);
+    return new ApplyInventoryStockHandler(new InventoryRepository($em->getConnection()), $tx, $ids, $currency, $context);
   }
 
   private function clean(): void

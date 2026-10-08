@@ -12,10 +12,11 @@ use Customer\Application\UseCase\Query\GetCustomer\{GetCustomerHandler, GetCusto
 use Customer\Application\UseCase\Query\ListCustomers\{ListCustomersHandler, ListCustomersQuery};
 use Customer\Domain\Exception\CustomerException;
 use Customer\Domain\Model\Customer\Customer;
+use Customer\Domain\ValueObject\CustomerDetails;
 use DateTimeImmutable;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort, UuidGeneratorPort};
 
@@ -69,7 +70,7 @@ final class CustomerHandlersTest extends TestCase
   public function archivalReplayDoesNotWriteAgain(): void
   {
     $now = new DateTimeImmutable();
-    $customer = Customer::create(self::ID, self::ORG, 'Owner', null, null, null, [], $now)->archive($now);
+    $customer = Customer::create(self::ID, self::ORG, new CustomerDetails('Owner', null, null, null, []), $now)->archive($now);
     $repository = $this->createMock(CustomerRepositoryPort::class);
     $repository->expects(self::once())->method('find')->with(self::ID, self::ORG, true)->willReturn($customer);
     $repository->expects(self::never())->method('save');
@@ -83,12 +84,65 @@ final class CustomerHandlersTest extends TestCase
   }
 
   #[Test]
+  public function restorationReplayDoesNotWriteAgain(): void
+  {
+    $now = new DateTimeImmutable();
+    $customer = Customer::create(self::ID, self::ORG, new CustomerDetails('Owner', null, null, null, []), $now);
+    $repository = $this->createMock(CustomerRepositoryPort::class);
+    $repository->expects(self::once())->method('find')->with(self::ID, self::ORG, true)->willReturn($customer);
+    $repository->expects(self::never())->method('save');
+    $clock = $this->createMock(ClockPort::class);
+    $clock->expects(self::once())->method('now')->willReturn($now->modify('+1 day'));
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $handler = new ChangeCustomerHandler($repository, $this->access(OrganizationAccessDecision::GRANTED), $clock, $this->transactions(), $events);
+    $result = $handler(new ChangeCustomerCommand(self::ACTOR, self::ORG, self::ID, 'restore', 1));
+
+    self::assertSame(1, $result->customer->revision);
+    self::assertSame($now, $result->customer->createdAt);
+    self::assertSame($now, $result->customer->updatedAt);
+  }
+
+  #[Test]
+  #[DataProvider('deniedMutationPreconditions')]
+  public function deniesMutationBeforeCheckingPreconditions(OrganizationAccessDecision $decision, ?int $revision, string $message): void
+  {
+    $repository = $this->createMock(CustomerRepositoryPort::class);
+    $repository->expects(self::never())->method('find');
+    $repository->expects(self::never())->method('save');
+    $transactions = $this->createMock(TransactionManagerPort::class);
+    $transactions->expects(self::never())->method('transactional');
+    $clock = $this->createMock(ClockPort::class);
+    $clock->expects(self::never())->method('now');
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('resolveAccess')->with(self::ACTOR, self::ORG, 'organization.customers.manage')->willReturn($decision);
+    $handler = new ChangeCustomerHandler($repository, new CustomerAccessGuard($authorization), $clock, $transactions, $events);
+
+    $this->expectException(CustomerException::class);
+    $this->expectExceptionMessage($message);
+    $handler(new ChangeCustomerCommand(self::ACTOR, self::ORG, self::ID, 'patch', $revision, ['name' => 'Changed']));
+  }
+
+  /**
+   * @return iterable<string,array{OrganizationAccessDecision,?int,string}>
+   */
+  public static function deniedMutationPreconditions(): iterable
+  {
+    yield 'missing permission, absent revision' => [OrganizationAccessDecision::MISSING_PERMISSION, null, 'Missing customer permission.'];
+    yield 'missing permission, malformed revision' => [OrganizationAccessDecision::MISSING_PERMISSION, -1, 'Missing customer permission.'];
+    yield 'outside scope, absent revision' => [OrganizationAccessDecision::OUTSIDE_SCOPE, null, 'Customer not found.'];
+    yield 'outside scope, malformed revision' => [OrganizationAccessDecision::OUTSIDE_SCOPE, -1, 'Customer not found.'];
+  }
+
+  #[Test]
   public function staleRevisionNeverWrites(): void
   {
     $now = new DateTimeImmutable();
-    $customer = Customer::create(self::ID, self::ORG, 'Owner', null, null, null, [], $now);
+    $customer = Customer::create(self::ID, self::ORG, new CustomerDetails('Owner', null, null, null, []), $now);
     $repository = $this->createMock(CustomerRepositoryPort::class);
-    $repository->method('find')->willReturn($customer);
+    $repository->expects(self::once())->method('find')->with(self::ID, self::ORG, true)->willReturn($customer);
     $repository->expects(self::never())->method('save');
     $clock = $this->createMock(ClockPort::class);
     $clock->expects(self::never())->method('now');

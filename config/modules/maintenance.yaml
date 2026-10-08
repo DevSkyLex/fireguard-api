@@ -70,6 +70,9 @@ services:
   Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort:
     alias: Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenancePlanRepository
 
+  Maintenance\Application\Port\Outbound\Plan\MaintenanceLegacyPlanPort:
+    alias: Maintenance\Application\Service\MaintenanceLegacyPlanService
+
   Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenancePlanRepository:
     arguments:
       $connection: '@doctrine.dbal.main_connection'

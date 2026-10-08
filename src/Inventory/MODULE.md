@@ -55,7 +55,9 @@ CUMP allocates total balance value proportionally with one final half-up roundin
 
 ## Configuration
 
-`config/modules/inventory.yaml` wires every service and explicitly uses the main entity manager and transaction manager. Doctrine maps `Inventory\\Infrastructure\\Persistence\\Doctrine\\Record` only under main. Routes register the Inventory API Resource directory. DATABASE_STORAGE_TIMEZONE controls persisted wall-clock timestamps; reads and writes convert through that zone.
+`config/modules/inventory.yaml` wires every service and explicitly uses the main connection for the SQL repository and the main entity manager for its transaction manager. Pure row mapping and collection predicates do not open connections; advisory fences use the repository's existing main transaction. Doctrine maps `Inventory\\Infrastructure\\Persistence\\Doctrine\\Record` only under main. Routes register the Inventory API Resource directory. DATABASE_STORAGE_TIMEZONE controls persisted wall-clock timestamps; reads and writes convert through that zone.
+
+Within `Infrastructure/Persistence/Doctrine`, `Query` owns the pure collection predicates, `Lock` owns transaction-scoped advisory fences, and `Mapper` restores persisted values. The repository constructs its lock collaborator with the same explicitly wired main connection. Query and lock collaborators are outside service discovery and never receive a separate default connection.
 
 Migration `Version20261006111000` adds the scoped reference catalog, balances, immutable movement ledger, consumption declarations and operation receipts. Balances have an organization/warehouse/part unique key and a nonnegative database constraint. No auth/main joins are used.
 

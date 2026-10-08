@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Uuid;
@@ -76,6 +76,48 @@ final class UuidTest extends TestCase
 
     $this->assertTrue(condition: $u1->equals($u2));
     $this->assertFalse(condition: $u1->equals($u3));
+  }
+
+  /**
+   * Method testRejectsInvalidIdentifierWithoutCreatingAnObject.
+   *
+   * Preserves identifier rejection at validation-only call sites.
+   *
+   * @since 2.1.0
+   *
+   * @param string $value the invalid identifier
+   *
+   * @return void no return value
+   */
+  #[Test]
+  #[DataProvider(methodName: 'invalidIdentifiers')]
+  public function testRejectsInvalidIdentifierWithoutCreatingAnObject(string $value): void
+  {
+    $this->expectException(exception: InvalidValueException::class);
+    $this->expectExceptionMessage(message: 'Invalid UUID provided.');
+
+    Uuid::assertValid($value);
+  }
+
+  /**
+   * Method invalidIdentifiers.
+   *
+   * Supplies malformed identifiers and unsupported UUID bits.
+   *
+   * @since 2.1.0
+   *
+   * @return array<string, array{string}> invalid identifiers
+   */
+  public static function invalidIdentifiers(): array
+  {
+    return [
+      'empty' => [''],
+      'malformed' => ['invalid-uuid'],
+      'unsupported zero version' => ['550e8400-e29b-01d4-a716-446655440000'],
+      'unsupported eighth version' => ['550e8400-e29b-81d4-a716-446655440000'],
+      'unsupported variant' => ['550e8400-e29b-41d4-7716-446655440000'],
+      'trailing text' => ['550e8400-e29b-41d4-a716-446655440000x'],
+    ];
   }
 
   // #endregion

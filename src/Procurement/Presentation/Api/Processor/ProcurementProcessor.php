@@ -65,7 +65,10 @@ final readonly class ProcurementProcessor implements ProcessorInterface
       }
     }
     $header = $request?->headers->get('If-Match');
-    $revision = null === $header ? null : (1 === preg_match('/^"revision-(\\d+)"$/', $header, $matches) ? (int) $matches[1] : -1);
+    $revision = null;
+    if (null !== $header) {
+      $revision = 1 === preg_match('/^"revision-(\\d+)"$/', $header, $matches) ? (int) $matches[1] : -1;
+    }
     /** @var ManageProcurementResult $result */
     $result = $this->commands->dispatch(new ManageProcurementCommand($actorId, $this->identifier($uriVariables, 'organizationId') ?? '', $action, $this->identifier($uriVariables, 'id'), $revision, $payload));
 

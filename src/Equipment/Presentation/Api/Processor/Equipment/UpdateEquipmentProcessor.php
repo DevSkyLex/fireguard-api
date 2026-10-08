@@ -104,28 +104,8 @@ final readonly class UpdateEquipmentProcessor implements ProcessorInterface
     }
 
     try {
-      $body = $this->requests?->getCurrentRequest()?->getContent();
-      $decoded = null !== $body && '' !== $body ? json_decode($body, true) : [];
-      $fields = is_array($decoded) ? $decoded : [];
       /** @var UpdateEquipmentResult $result */
-      $result = $this->commandBus->dispatch(new UpdateEquipmentCommand(
-        organizationId: $organizationId,
-        equipmentId: $equipmentId,
-        type: $data->type,
-        subType: $data->subType,
-        brand: $data->brand,
-        model: $data->model,
-        serialNumber: $data->serialNumber,
-        locationLabel: $data->locationLabel,
-        name: $data->name,
-        assetCode: $data->assetCode,
-        criticality: $data->criticality,
-        technicalProperties: $data->technicalProperties,
-        hasName: array_key_exists('name', $fields) || null !== $data->name,
-        hasAssetCode: array_key_exists('assetCode', $fields) || null !== $data->assetCode,
-        hasCriticality: array_key_exists('criticality', $fields) || null !== $data->criticality,
-        hasTechnicalProperties: array_key_exists('technicalProperties', $fields) || [] !== $data->technicalProperties,
-      ));
+      $result = $this->commandBus->dispatch($this->command($data, $organizationId, $equipmentId));
     } catch (EquipmentNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (EquipmentSerialNumberAlreadyExistsException $exception) {
@@ -152,6 +132,45 @@ final readonly class UpdateEquipmentProcessor implements ProcessorInterface
     }
 
     return $this->outputFactory->read($organizationId, $result->equipmentId);
+  }
+
+  /**
+   * Method command
+   *
+   * Preserves omitted identity fields while allowing explicitly submitted null values to clear them.
+   *
+   * @access private
+   *
+   * @param UpdateEquipmentInput $data deserialized equipment values
+   * @param string $organizationId owning organization
+   * @param string $equipmentId equipment being changed
+   *
+   * @return UpdateEquipmentCommand update values and their explicit presence flags
+   */
+  private function command(UpdateEquipmentInput $data, string $organizationId, string $equipmentId): UpdateEquipmentCommand
+  {
+    $body = $this->requests?->getCurrentRequest()?->getContent();
+    $decoded = null !== $body && '' !== $body ? json_decode($body, true) : [];
+    $fields = is_array($decoded) ? $decoded : [];
+
+    return new UpdateEquipmentCommand(
+      organizationId: $organizationId,
+      equipmentId: $equipmentId,
+      type: $data->type,
+      subType: $data->subType,
+      brand: $data->brand,
+      model: $data->model,
+      serialNumber: $data->serialNumber,
+      locationLabel: $data->locationLabel,
+      name: $data->name,
+      assetCode: $data->assetCode,
+      criticality: $data->criticality,
+      technicalProperties: $data->technicalProperties,
+      hasName: array_key_exists('name', $fields) || null !== $data->name,
+      hasAssetCode: array_key_exists('assetCode', $fields) || null !== $data->assetCode,
+      hasCriticality: array_key_exists('criticality', $fields) || null !== $data->criticality,
+      hasTechnicalProperties: array_key_exists('technicalProperties', $fields) || [] !== $data->technicalProperties,
+    );
   }
   // #endregion
 }

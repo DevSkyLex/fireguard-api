@@ -17,7 +17,7 @@ use function preg_match;
  * by UuidFactory in the Application layer to maintain hexagonal purity.
  *
  * @category ValueObject
- * @version 2.0.0
+ * @version 2.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -50,9 +50,7 @@ readonly class Uuid implements Stringable
    */
   public function __construct(public string $value)
   {
-    if ('' === $value || !preg_match(self::PATTERN, $value)) {
-      throw InvalidValueException::because(message: 'Invalid UUID provided.');
-    }
+    self::assertValid($value);
   }
 
   /**
@@ -72,6 +70,27 @@ readonly class Uuid implements Stringable
   // #endregion
 
   // #region Methods
+  /**
+   * Method assertValid.
+   *
+   * Validates an identifier without allocating a value object when callers
+   * retain their original string representation.
+   *
+   * @since 2.1.0
+   *
+   * @param string $value the UUID string
+   *
+   * @return void no return value
+   *
+   * @throws InvalidValueException if the UUID format is invalid
+   */
+  public static function assertValid(string $value): void
+  {
+    if ('' === $value || !preg_match(self::PATTERN, $value)) {
+      throw InvalidValueException::because(message: 'Invalid UUID provided.');
+    }
+  }
+
   /**
    * Method equals.
    *

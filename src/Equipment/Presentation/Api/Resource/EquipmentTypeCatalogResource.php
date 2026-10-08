@@ -30,7 +30,7 @@ use Equipment\Presentation\Api\Provider\EquipmentTypeCatalog\EquipmentTypeCatalo
       output: EquipmentTypeOutput::class,
       provider: EquipmentTypeCatalogProvider::class,
       paginationEnabled: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::AUTHENTICATED,
       normalizationContext: ['groups' => ['equipment_type:read']],
       openapi: new Operation(tags: ['Equipment'], summary: 'List organization equipment types, including archived types', responses: [
         200 => new Response(description: 'Catalog including archived descriptors'),
@@ -44,7 +44,7 @@ use Equipment\Presentation\Api\Provider\EquipmentTypeCatalog\EquipmentTypeCatalo
       input: false,
       output: EquipmentTypeOutput::class,
       provider: EquipmentTypeCatalogProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::AUTHENTICATED,
       normalizationContext: ['groups' => ['equipment_type:read']],
       openapi: new Operation(tags: ['Equipment'], summary: 'Read an organization equipment type', responses: [
         200 => new Response(description: 'Equipment type descriptor'),
@@ -60,7 +60,7 @@ use Equipment\Presentation\Api\Provider\EquipmentTypeCatalog\EquipmentTypeCatalo
       input: CreateEquipmentTypeInput::class,
       output: EquipmentTypeOutput::class,
       processor: EquipmentTypeCatalogProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::AUTHENTICATED,
       denormalizationContext: ['groups' => ['equipment_type:write'], 'allow_extra_attributes' => false],
       normalizationContext: ['groups' => ['equipment_type:read']],
       openapi: new Operation(tags: ['Equipment'], summary: 'Create an organization equipment type', responses: [
@@ -79,7 +79,7 @@ use Equipment\Presentation\Api\Provider\EquipmentTypeCatalog\EquipmentTypeCatalo
       input: PatchEquipmentTypeInput::class,
       output: EquipmentTypeOutput::class,
       processor: EquipmentTypeCatalogProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::AUTHENTICATED,
       denormalizationContext: ['groups' => ['equipment_type:write'], 'allow_extra_attributes' => false],
       normalizationContext: ['groups' => ['equipment_type:read']],
       openapi: new Operation(tags: ['Equipment'], summary: 'Update or archive a type using its observed revision', responses: [
@@ -94,4 +94,12 @@ use Equipment\Presentation\Api\Provider\EquipmentTypeCatalog\EquipmentTypeCatalo
 )]
 final class EquipmentTypeCatalogResource
 {
+  // #region Constants
+  /**
+   * Constant AUTHENTICATED
+   *
+   * Organization-scoped providers and processors perform the contextual permission checks.
+   */
+  private const string AUTHENTICATED = "is_granted('ROLE_USER')";
+  // #endregion
 }

@@ -68,7 +68,7 @@ final readonly class CustomerProcessor implements ProcessorInterface
       }
     }
     $header = $this->requests->getCurrentRequest()?->headers->get('If-Match');
-    $revision = null === $header ? null : (1 === preg_match('/^"revision-(\d+)"$/', $header, $matches) ? (int) $matches[1] : -1);
+    $revision = $this->revision($header);
     /** @var ChangeCustomerResult $result */
     $result = $this->commands->dispatch(new ChangeCustomerCommand($actorId, $organizationId, $this->identifier($uriVariables, 'id'), $action, $revision, $changes));
 
@@ -83,5 +83,25 @@ final readonly class CustomerProcessor implements ProcessorInterface
     $value = $variables[$key] ?? null;
 
     return is_string($value) ? $value : '';
+  }
+
+  /**
+   * Method revision
+   *
+   * Distinguishes absent and malformed preconditions for the application access-first checks.
+   *
+   * @access private
+   *
+   * @param string|null $header the If-Match header
+   *
+   * @return int|null the supplied revision, null when absent or -1 when malformed
+   */
+  private function revision(?string $header): ?int
+  {
+    if (null === $header) {
+      return null;
+    }
+
+    return 1 === preg_match('/^"revision-(\d+)"$/', $header, $matches) ? (int) $matches[1] : -1;
   }
 }

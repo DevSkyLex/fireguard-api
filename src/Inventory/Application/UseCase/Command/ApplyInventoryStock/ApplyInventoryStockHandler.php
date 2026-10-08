@@ -11,7 +11,7 @@ use InvalidArgumentException;
 use Inventory\Application\Contract\Stock\{InventoryOperationReceipt,InventoryReceiptResult};
 use Inventory\Application\Port\Outbound\InventoryStorePort;
 use Inventory\Domain\Exception\{InventoryConflictException,InventoryNotFoundException};
-use Inventory\Domain\Model\Stock\{ConsumptionDeclaration, InventoryReference, StockBalance, StockMovement, StockValuation};
+use Inventory\Domain\Model\Stock\{ConsumptionDeclaration, InventoryReference, StockBalance, StockMovement, StockReturnValuation, StockValuation};
 use Inventory\Domain\ValueObject\StockQuantity;
 use LogicException;
 use MaintenanceCost\Application\Port\Inbound\MaintenanceCurrencyPort;
@@ -33,6 +33,16 @@ use const JSON_THROW_ON_ERROR;
 /** Atomically retains physical declarations, full stock issues, valuation and immutable replay snapshots. @category UseCase */
 final readonly class ApplyInventoryStockHandler implements CommandHandler
 {
+  /**
+   * Constant DECLARATION_NOT_FOUND
+   */
+  private const string DECLARATION_NOT_FOUND = 'Consumption declaration not found.';
+
+  /**
+   * Constant ZERO
+   */
+  private const string ZERO = '0.000000';
+
   public function __construct(private InventoryStorePort $store, private TransactionManagerPort $transactions, private \Shared\Application\Port\Outbound\UuidGeneratorPort $ids, private MaintenanceCurrencyPort $currency, private InterventionInventoryContextPort $interventions)
   {
   }
@@ -40,8 +50,8 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
   public function __invoke(ApplyInventoryStockCommand $command): ApplyInventoryStockResult
   {
     $command = $this->canonical($command);
-    new Uuid($command->organizationId);
-    new Uuid($command->actorId);
+    Uuid::assertValid($command->organizationId);
+    Uuid::assertValid($command->actorId);
     if (!in_array($command->kind, ['receipt', 'receipt_return', 'consumption', 'return', 'correction', 'reconcile'], true)) {
       throw new InvalidArgumentException('Unknown inventory operation.');
     }
@@ -51,7 +61,7 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     if (null === $command->clientOperationId) {
       throw new InvalidArgumentException('A stable clientOperationId is required.');
     }
-    new Uuid($command->clientOperationId);
+    Uuid::assertValid($command->clientOperationId);
     $quantity = new StockQuantity($command->quantity ?? '', 'correction' === $command->kind)->value;
     $hash = hash('sha256', json_encode(['kind' => $command->kind, 'partId' => $command->partId, 'warehouseId' => $command->warehouseId, 'quantity' => $quantity, 'occurredAt' => $command->occurredAt?->format('c'), 'interventionId' => $command->interventionId, 'workItemId' => $command->workItemId, 'equipmentId' => $command->equipmentId, 'reason' => $command->reason, 'unitCost' => null === $command->unitCost ? null : $this->amount($command->unitCost), 'currency' => $command->currency, 'sourceReceiptId' => $command->sourceReceiptId, 'originalId' => $command->originalId], JSON_THROW_ON_ERROR));
 
@@ -99,7 +109,7 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
       return $this->interventions->validate($command->organizationId, $command->interventionId ?? throw new InvalidArgumentException('An intervention is required.'), $command->workItemId, $command->equipmentId, $command->actorId);
     }
     if ('return' === $command->kind) {
-      $declaration = $this->store->declaration($command->organizationId, $command->originalId ?? throw new InvalidArgumentException('An original consumption is required.')) ?? throw new InventoryNotFoundException('Consumption declaration not found.');
+      $declaration = $this->store->declaration($command->organizationId, $command->originalId ?? throw new InvalidArgumentException('An original consumption is required.')) ?? throw new InventoryNotFoundException(self::DECLARATION_NOT_FOUND);
 
       return $this->interventions->validate($command->organizationId, $declaration->interventionId, $declaration->workItemId, $declaration->equipmentId, $command->actorId);
     }
@@ -113,7 +123,7 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     $intervention = $command->interventionId ?? throw new InvalidArgumentException('An interventionId is required.');
     foreach ([$intervention, $command->workItemId, $command->equipmentId] as $id) {
       if (null !== $id) {
-        new Uuid($id);
+        Uuid::assertValid($id);
       }
     }
     [$part,$warehouse] = $this->references($org, $command->partId, $command->warehouseId);
@@ -161,15 +171,15 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
   private function reconcile(ApplyInventoryStockCommand $command): ApplyInventoryStockResult
   {
     $id = $command->originalId ?? throw new InvalidArgumentException('A declarationId is required.');
-    new Uuid($id);
+    Uuid::assertValid($id);
     // Parent scope is read before locking declaration: advisory parent -> declaration -> balance, same order as publication.
     $candidate = $this->store->declaration($command->organizationId, $id);
     if (null === $candidate) {
-      throw new InventoryNotFoundException('Consumption declaration not found.');
+      throw new InventoryNotFoundException(self::DECLARATION_NOT_FOUND);
     }
     $context = $this->interventions->validate($command->organizationId, $candidate->interventionId, $candidate->workItemId, $candidate->equipmentId, $command->actorId);
     $currency = $this->currency->lock($command->organizationId);
-    $declaration = $this->store->declaration($command->organizationId, $id, true) ?? throw new InventoryNotFoundException('Consumption declaration not found.');
+    $declaration = $this->store->declaration($command->organizationId, $id, true) ?? throw new InventoryNotFoundException(self::DECLARATION_NOT_FOUND);
     if ('confirmed' === $declaration->status) {
       return new ApplyInventoryStockResult(declaration:$declaration, replayed:true);
     }
@@ -190,7 +200,7 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     $unit = null === $command->unitCost ? null : $this->amount($command->unitCost);
     $value = null === $unit ? null : DecimalAmount::fromString($unit)->multiply(DecimalAmount::fromString($quantity))->toString();
     $balance = $this->store->balanceForUpdate($command->organizationId, $warehouse->id, $part->id);
-    $valuation = new StockValuation(null === $balance ? '0.000000' : $balance->quantity, null === $balance ? '0.000000' : $balance->totalValue)->receive($quantity, $value);
+    $valuation = new StockValuation(null === $balance ? self::ZERO : $balance->quantity, null === $balance ? self::ZERO : $balance->totalValue)->receive($quantity, $value);
     $movement = new StockMovement($this->ids->generate(), $command->organizationId, $part->id, $warehouse->id, 'receipt', $quantity, $unit, $value, $currency, 'Procurement receipt', $command->actorId, new DateTimeImmutable(), sourceReceiptId:$command->sourceReceiptId);
     $this->store->saveBalance(new StockBalance(null === $balance ? $this->ids->generate() : $balance->id, $command->organizationId, $part->id, $warehouse->id, $valuation->quantity, $valuation->totalValue, $currency));
     $this->store->saveMovement($movement);
@@ -201,25 +211,9 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
   private function returnStock(ApplyInventoryStockCommand $command, string $quantity, string $currency, ?InventoryInterventionContext $context): ApplyInventoryStockResult
   {
     $reason = $this->reason($command->reason);
-    $originalId = $command->originalId ?? throw new InvalidArgumentException('The original declaration or movement is required.');
-    new Uuid($originalId);
     $org = $command->organizationId;
-    $late = false;
-    if ('return' === $command->kind) {
-      $declaration = $this->store->declaration($org, $originalId);
-      if (null === $declaration) {
-        throw new InventoryNotFoundException('Consumption declaration not found.');
-      }
-      $late = ($context ?? throw new LogicException('Missing work context.'))->published;
-      if (null === $declaration->movementId) {
-        throw new InventoryConflictException('An unresolved declaration cannot be returned to stock.');
-      }
-      $originalId = $declaration->movementId;
-    }
-    $original = $this->store->movement($org, $originalId) ?? throw new InventoryNotFoundException('Stock movement not found.');
-    if (('return' === $command->kind && 'consumption' !== $original->kind) || ('receipt_return' === $command->kind && 'receipt' !== $original->kind)) {
-      throw new InventoryConflictException('The referenced movement is not returnable.');
-    }
+    [$original,$late] = $this->returnableMovement($command, $context);
+    $originalId = $original->id;
     [$part,$warehouse] = $this->references($org, $original->partId, $original->warehouseId);
     $balance = $this->store->balanceForUpdate($org, $warehouse->id, $part->id) ?? throw new InventoryConflictException('Missing inventory balance.');
     $returned = DecimalAmount::fromString($this->store->linkedQuantity($org, $originalId));
@@ -235,24 +229,8 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
       return new ApplyInventoryStockResult(receipt:new InventoryReceiptResult('', $quantity, null, null, blockedReason:'stock_insufficient'));
     }
     $unit = $original->unitCost;
-    $originalValue = null === $original->totalValue ? null : DecimalAmount::fromString($original->totalValue);
-    if (null !== $originalValue && $originalValue->isNegative()) {
-      $originalValue = DecimalAmount::zero()->subtract($originalValue);
-    }
-    // Allocate from the remaining original value so rounding cannot overcredit partial returns.
-    $lastReturn = 0 === $cumulativeQuantity->compareTo($originalQuantity);
     $linkedValue = $this->store->linkedValue($org, $originalId);
-    $value = null;
-    if ('return' === $command->kind && null !== $originalValue && null !== $linkedValue) {
-      $remainingValue = $originalValue->subtract(DecimalAmount::fromString($linkedValue));
-      if ($remainingValue->isNegative()) {
-        throw new InventoryConflictException('Original stock valuation is inconsistent.');
-      }
-      $value = $lastReturn ? $remainingValue->toString() : $remainingValue->multiplyAndDivide(DecimalAmount::fromString($quantity), $originalQuantity->subtract($returned))->toString();
-    }
-    if ('return' === $command->kind && null !== $value && DecimalAmount::fromString($value)->isNegative()) {
-      throw new InventoryConflictException('Original stock valuation is inconsistent.');
-    }
+    $value = 'return' === $command->kind ? StockReturnValuation::allocate($original, $quantity, $returned->toString(), $linkedValue) : null;
     $sign = 'return' === $command->kind ? 1 : -1;
     $valuation = new StockValuation($balance->quantity, $balance->totalValue);
     if (1 === $sign) {
@@ -263,11 +241,45 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
       $value = $issue->totalValue;
       $unit = $issue->unitCost;
     }
-    $movement = new StockMovement($this->ids->generate(), $org, $part->id, $warehouse->id, $command->kind, 1 === $sign ? $quantity : $this->negative($quantity), $unit, null === $value ? null : (1 === $sign ? $value : $this->negative($value)), $currency, $reason, $command->actorId, new DateTimeImmutable(), $original->interventionId, $original->workItemId, $original->equipmentId, $originalId, $original->sourceReceiptId, $late);
+    $signedValue = $value;
+    if (-1 === $sign && null !== $value) {
+      $signedValue = $this->negative($value);
+    }
+    $movement = new StockMovement($this->ids->generate(), $org, $part->id, $warehouse->id, $command->kind, 1 === $sign ? $quantity : $this->negative($quantity), $unit, $signedValue, $currency, $reason, $command->actorId, new DateTimeImmutable(), $original->interventionId, $original->workItemId, $original->equipmentId, $originalId, $original->sourceReceiptId, $late);
     $this->store->saveBalance(new StockBalance($balance->id, $org, $part->id, $warehouse->id, $next->quantity, $next->totalValue, $currency));
     $this->store->saveMovement($movement);
 
     return new ApplyInventoryStockResult(movement:$movement, receipt:new InventoryReceiptResult($movement->id, $quantity, $unit, $value));
+  }
+
+  /**
+   * Method returnableMovement
+   *
+   * Resolves the original movement and its publication status before taking the stock lock.
+   *
+   * @access private
+   *
+   * @param ApplyInventoryStockCommand $command the canonical return command
+   * @param InventoryInterventionContext|null $context the already validated work context
+   *
+   * @return array{StockMovement,bool} the original movement and late flag
+   */
+  private function returnableMovement(ApplyInventoryStockCommand $command, ?InventoryInterventionContext $context): array
+  {
+    $originalId = $command->originalId ?? throw new InvalidArgumentException('The original declaration or movement is required.');
+    Uuid::assertValid($originalId);
+    $late = false;
+    if ('return' === $command->kind) {
+      $declaration = $this->store->declaration($command->organizationId, $originalId) ?? throw new InventoryNotFoundException(self::DECLARATION_NOT_FOUND);
+      $late = ($context ?? throw new LogicException('Missing work context.'))->published;
+      $originalId = $declaration->movementId ?? throw new InventoryConflictException('An unresolved declaration cannot be returned to stock.');
+    }
+    $original = $this->store->movement($command->organizationId, $originalId) ?? throw new InventoryNotFoundException('Stock movement not found.');
+    if (('return' === $command->kind && 'consumption' !== $original->kind) || ('receipt_return' === $command->kind && 'receipt' !== $original->kind)) {
+      throw new InventoryConflictException('The referenced movement is not returnable.');
+    }
+
+    return [$original, $late];
   }
 
   private function correct(ApplyInventoryStockCommand $command, string $quantity, string $currency): ApplyInventoryStockResult
@@ -275,7 +287,7 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     $reason = $this->reason($command->reason);
     [$part,$warehouse] = $this->references($command->organizationId, $command->partId, $command->warehouseId);
     $balance = $this->store->balanceForUpdate($command->organizationId, $warehouse->id, $part->id);
-    $valuation = new StockValuation(null === $balance ? '0.000000' : $balance->quantity, null === $balance ? '0.000000' : $balance->totalValue);
+    $valuation = new StockValuation(null === $balance ? self::ZERO : $balance->quantity, null === $balance ? self::ZERO : $balance->totalValue);
     $delta = DecimalAmount::fromString($quantity);
     $value = null;
     $unit = null;
@@ -303,8 +315,9 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
   {
     if (null === $partId || null === $warehouseId) {
       throw new InvalidArgumentException('Part and warehouse identifiers are required.');
-    }new Uuid($partId);
-    new Uuid($warehouseId);
+    }
+    Uuid::assertValid($partId);
+    Uuid::assertValid($warehouseId);
     $part = $this->store->reference('parts', $org, $partId, true) ?? throw new InventoryNotFoundException('Inventory reference not found.');
     $warehouse = $this->store->reference('warehouses', $org, $warehouseId, true) ?? throw new InventoryNotFoundException('Inventory reference not found.');
 

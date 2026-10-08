@@ -96,6 +96,29 @@ final class ExportArtifactTest extends TestCase
   }
 
   #[Test]
+  #[DataProvider('nonAsciiNumericText')]
+  public function onlyAsciiDecimalDigitsCanBypassCsvFormulaNeutralization(string $value): void
+  {
+    $cells = $this->csvRow(ExportArtifact::csv([['amount' => $value, 'minutes' => $value]], true));
+    self::assertSame("'" . $value, $cells['amount']);
+    self::assertSame("'" . $value, $cells['minutes']);
+  }
+
+  /**
+   * Method nonAsciiNumericText
+   *
+   * @access public
+   *
+   * @return iterable<string,array{string}> textual numeric lookalikes retain formula protection
+   */
+  public static function nonAsciiNumericText(): iterable
+  {
+    yield 'Arabic digits' => ['-١٢.٣٤'];
+    yield 'full width digits' => ['-１２.３４'];
+    yield 'mixed digits' => ['-1.٢'];
+  }
+
+  #[Test]
   public function rowIdentityIsStableAndDifferentForDistinctSourceKeys(): void
   {
     $id = ExportArtifact::rowId('publication:one:work:two');

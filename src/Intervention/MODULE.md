@@ -17,7 +17,9 @@ or rewritten on read; contact fields in legacy identity nodes are minimized at t
 read boundary.
 
 Published directories and batches are bounded to 100 interventions. Economic directories
-use at most 100 rows per page; a report source window returns at most 501 rows and an exact
+keep organization scope and pagination explicit; `InterventionEconomicSourceFilter` groups
+literal search, source dates, operational identity and finance-authorized additional identifiers.
+Directories use at most 100 rows per page; a report source window returns at most 501 rows and an exact
 filtered total so its caller can refuse scopes above 500. The window is inclusive at the
 start and exclusive at the end. Published work uses original publication evidence time;
 unpublished work uses planned start or creation. Literal title/number search and optional

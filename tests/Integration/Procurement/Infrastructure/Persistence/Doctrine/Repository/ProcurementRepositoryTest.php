@@ -14,7 +14,7 @@ use Procurement\Application\Contract\{ProcurementOperationState, ProcurementRece
 use Procurement\Domain\Event\ProcurementChangedEvent;
 use Procurement\Domain\Exception\ProcurementException;
 use Procurement\Domain\Model\{PurchaseOrder, Supplier};
-use Procurement\Domain\ValueObject\ProcurementLine;
+use Procurement\Domain\ValueObject\{ProcurementGoodsIdentity, ProcurementLine, SupplierDetails};
 use Procurement\Infrastructure\Persistence\Doctrine\Repository\ProcurementRepository;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
@@ -85,8 +85,8 @@ final class ProcurementRepositoryTest extends TestCase
   #[Test]
   public function creationResourcesAndReplayIdentitiesCommitOrRollbackTogether(): void
   {
-    $supplier = Supplier::create(self::SUPPLIER, self::ORG, 'Creation retry supplier', null, null, null, [], $this->now());
-    $order = PurchaseOrder::create(self::ORDER, self::ORG, self::SUPPLIER, 'EUR', 'Creation retry draft', [ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '1', null)], $this->now());
+    $supplier = Supplier::create(self::SUPPLIER, self::ORG, new SupplierDetails('Creation retry supplier', null, null, null, []), $this->now());
+    $order = PurchaseOrder::create(self::ORDER, self::ORG, self::SUPPLIER, 'EUR', 'Creation retry draft', [ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '1', null)], $this->now());
     $write = function () use ($supplier, $order): void {
       $this->repository->saveSupplier($supplier);
       $this->repository->saveOrder($order);
@@ -218,7 +218,7 @@ final class ProcurementRepositoryTest extends TestCase
   #[Test]
   public function foreignIdentifiersAreNotLoadedAndUnrelatedOrganizationsDoNotBlock(): void
   {
-    $this->repository->saveSupplier(Supplier::create(self::SUPPLIER, self::ORG, 'Supplier', null, null, null, [], $this->now()));
+    $this->repository->saveSupplier(Supplier::create(self::SUPPLIER, self::ORG, new SupplierDetails('Supplier', null, null, null, []), $this->now()));
     $this->repository->saveOrder($this->order());
     $this->repository->saveReceipt($this->receipt());
     $other = new ProcurementRepository($this->b);
@@ -240,12 +240,12 @@ final class ProcurementRepositoryTest extends TestCase
   #[Test]
   public function allSupplierSelectionRetainsActiveAndArchivedWithExactPagedCount(): void
   {
-    $active = Supplier::create(self::SUPPLIER, self::ORG, 'Safety active', null, null, null, [], $this->now());
-    $archived = Supplier::create(self::ORDER, self::ORG, 'Safety archived', null, null, null, [], $this->now());
+    $active = Supplier::create(self::SUPPLIER, self::ORG, new SupplierDetails('Safety active', null, null, null, []), $this->now());
+    $archived = Supplier::create(self::ORDER, self::ORG, new SupplierDetails('Safety archived', null, null, null, []), $this->now());
     $archived->archive(1, $this->now());
     $this->repository->saveSupplier($active);
     $this->repository->saveSupplier($archived);
-    $this->repository->saveSupplier(Supplier::create(self::LINE, self::ORG, 'Unrelated', null, null, null, [], $this->now()));
+    $this->repository->saveSupplier(Supplier::create(self::LINE, self::ORG, new SupplierDetails('Unrelated', null, null, null, []), $this->now()));
 
     self::assertSame([self::SUPPLIER], array_map(static fn (Supplier $supplier): string => $supplier->id, $this->repository->suppliers(self::ORG, 'Safety', false, 0, 30)));
     self::assertSame([self::ORDER], array_map(static fn (Supplier $supplier): string => $supplier->id, $this->repository->suppliers(self::ORG, 'Safety', true, 0, 30)));
@@ -258,7 +258,7 @@ final class ProcurementRepositoryTest extends TestCase
 
   private function order(string $quantity = '1.000000'): PurchaseOrder
   {
-    $order = PurchaseOrder::create(self::ORDER, self::ORG, self::SUPPLIER, 'EUR', 'Purchase', [ProcurementLine::create(self::LINE, 'part', self::PART, null, [], $quantity, '4.250000')], $this->now());
+    $order = PurchaseOrder::create(self::ORDER, self::ORG, self::SUPPLIER, 'EUR', 'Purchase', [ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), $quantity, '4.250000')], $this->now());
     $order->order(1, $this->now());
 
     return $order;

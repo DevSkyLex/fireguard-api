@@ -127,6 +127,7 @@ final class ParkAnomaliesApiTest extends WebTestCase
     $client = $this->client(['organization.inspection.read']);
     $this->get($client, '/park-anomalies-summary', 403);
     $this->get($client, '/park-anomalies', 403);
+    $this->get($client, '/inspections?family=fire', 403);
   }
 
   #[Test]
@@ -135,6 +136,7 @@ final class ParkAnomaliesApiTest extends WebTestCase
     $client = $this->client(['organization.equipment.read']);
     $this->get($client, '/park-anomalies-summary', 403);
     $this->get($client, '/park-anomalies', 403);
+    $this->get($client, '/inspections?family=fire', 403);
   }
 
   #[Test]
@@ -149,6 +151,10 @@ final class ParkAnomaliesApiTest extends WebTestCase
     }
     $client->request('GET', '/api/organizations/' . self::id(900) . '/park-anomalies-summary');
     self::assertResponseStatusCodeSame(404);
+    foreach ([900, 999] as $organization) {
+      $client->request('GET', '/api/organizations/' . self::id($organization) . '/inspections?family=fire');
+      self::assertResponseStatusCodeSame(404);
+    }
   }
 
   #[Test]

@@ -73,13 +73,48 @@ final readonly class MaintenanceExportProcessor implements ProcessorInterface
       $payload['resourceId'] = $this->string($uriVariables, 'resourceId');
     }
     $header = $request?->headers->get('If-Match');
-    $revision = null === $header ? null : (1 === preg_match('/^"revision-(\d+)"$/', $header, $matches) ? (int) $matches[1] : -1);
+    $revision = $this->revision($header);
+    $id = 'reference' === $action ? $payload['resourceId'] : $this->optionalId($uriVariables);
     /**
      * @var ManageMaintenanceExportResult $result
      */
-    $result = $this->commands->dispatch(new ManageMaintenanceExportCommand($actor, $this->string($uriVariables, 'organizationId'), $action, 'reference' === $action ? $payload['resourceId'] : (is_string($uriVariables['id'] ?? null) ? $uriVariables['id'] : null), $revision, $payload));
+    $result = $this->commands->dispatch(new ManageMaintenanceExportCommand($actor, $this->string($uriVariables, 'organizationId'), $action, $id, $revision, $payload));
 
     return 'reference' === $result->kind ? MaintenanceExportReferenceOutput::fromProjection($result->data, $result->replayed) : MaintenanceExportOutput::fromProjection($result->data, $result->replayed);
+  }
+
+  /**
+   * Method revision
+   *
+   * Missing and malformed preconditions retain their distinct command values.
+   *
+   * @access private
+   *
+   * @param string|null $header supplied If-Match value
+   *
+   * @return int|null parsed revision, null when absent or minus one when malformed
+   */
+  private function revision(?string $header): ?int
+  {
+    if (null === $header) {
+      return null;
+    }
+
+    return 1 === preg_match('/^"revision-(\d+)"$/', $header, $matches) ? (int) $matches[1] : -1;
+  }
+
+  /**
+   * Method optionalId
+   *
+   * @access private
+   *
+   * @param array<string,mixed> $variables scoped route
+   *
+   * @return string|null supplied document identifier
+   */
+  private function optionalId(array $variables): ?string
+  {
+    return is_string($variables['id'] ?? null) ? $variables['id'] : null;
   }
 
   /**

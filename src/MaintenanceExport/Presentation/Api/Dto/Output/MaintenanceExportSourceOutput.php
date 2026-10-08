@@ -69,7 +69,7 @@ final class MaintenanceExportSourceOutput
    *
    * @return self transport output
    */
-  public static function fromProjection(array $data, bool $replayed = false): self
+  public static function fromProjection(array $data): self
   {
     /**
      * @var array{id:string,number:int,name:string,type:string,publishedAt:string|null,publicationId:string|null,site:array{id:string,name:string}|null,customer:array{id:string,name:string}|null,snapshotState:string,identityComplete:bool,ready:bool,blockedReason:string|null} $data

@@ -41,7 +41,10 @@ final readonly class MaintenanceCostProcessor implements ProcessorInterface
     $interventionId = is_string($uriVariables['id'] ?? null) ? $uriVariables['id'] : '';
     $request = $this->requests->getCurrentRequest();
     $header = $request?->headers->get('If-Match');
-    $revision = null === $header ? null : (1 === preg_match('/^"revision-(\d+)"$/D', $header, $matches) ? (int) $matches[1] : -1);
+    $revision = null;
+    if (null !== $header) {
+      $revision = 1 === preg_match('/^"revision-(\d+)"$/D', $header, $matches) ? (int) $matches[1] : -1;
+    }
     /** @var WriteMaintenanceCostResult $result */
     $result = $this->commands->dispatch(new WriteMaintenanceCostCommand($actorId, $organizationId, $interventionId, MaintenanceCostOperations::PLANNING === $operation->getName() ? 'planning' : 'expense', $request?->getPayload()->all() ?? [], $revision));
 

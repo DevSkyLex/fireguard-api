@@ -9,10 +9,12 @@ use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
+use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestLifecycle, ServiceRequestTarget, ServiceRequestTimeline};
 use stdClass;
 
 use function fclose;
 use function fopen;
+use function get_object_vars;
 use function str_repeat;
 
 use const INF;
@@ -48,11 +50,51 @@ final class ServiceRequestTest extends TestCase
 
   // #region Methods
   #[Test]
+  public function reconstitutesEveryHistoricalFieldWithoutApplyingCreationNormalization(): void
+  {
+    $name = 'Retained equipment';
+    $snapshot = ['equipment' => ['name' => &$name], 'site' => null, 'customer' => null, 'retainedNumericFact' => 1.0];
+    $requestedAt = self::now();
+    $updatedAt = $requestedAt->modify('+5 hours');
+    $qualifiedAt = $requestedAt->modify('+1 hour');
+    $rejectedAt = $requestedAt->modify('+2 hours');
+    $cancelledAt = $requestedAt->modify('+3 hours');
+    $convertedAt = $requestedAt->modify('+4 hours');
+    $request = ServiceRequest::reconstitute(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, self::SITE_ID, $snapshot, self::INSPECTION_ID, self::NON_CONFORMITY_ID), new ServiceRequestContent('  Historical title  ', '  Historical description  ', 'historical-priority'), new ServiceRequestLifecycle('converted', 19, new ServiceRequestTimeline($requestedAt, $updatedAt, $qualifiedAt, $rejectedAt, $cancelledAt, $convertedAt), 'Retained decision', 'Retained qualification', self::INTERVENTION_ID, self::TASK_ID));
+    $name = 'Live renamed equipment';
+
+    self::assertSame([
+      'id' => self::ID,
+      'organizationId' => self::ORGANIZATION_ID,
+      'equipmentId' => self::EQUIPMENT_ID,
+      'siteId' => self::SITE_ID,
+      'targetSnapshot' => ['equipment' => ['name' => 'Retained equipment'], 'site' => null, 'customer' => null, 'retainedNumericFact' => 1.0],
+      'title' => '  Historical title  ',
+      'description' => '  Historical description  ',
+      'priority' => 'historical-priority',
+      'originInspectionId' => self::INSPECTION_ID,
+      'originNonConformityId' => self::NON_CONFORMITY_ID,
+      'status' => 'converted',
+      'revision' => 19,
+      'requestedAt' => $requestedAt,
+      'updatedAt' => $updatedAt,
+      'qualifiedAt' => $qualifiedAt,
+      'rejectedAt' => $rejectedAt,
+      'cancelledAt' => $cancelledAt,
+      'convertedAt' => $convertedAt,
+      'decisionReason' => 'Retained decision',
+      'qualificationNote' => 'Retained qualification',
+      'interventionId' => self::INTERVENTION_ID,
+      'taskId' => self::TASK_ID,
+    ], get_object_vars($request));
+  }
+
+  #[Test]
   public function createsANormalizedRequestWithStableTargetAndOrigin(): void
   {
     $now = self::now();
     $snapshot = ['equipment' => ['name' => 'Extinguisher', 'assetCode' => 'EXT-01'], 'site' => ['name' => 'Warehouse'], 'customer' => null];
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, self::EQUIPMENT_ID, self::SITE_ID, $snapshot, '  Repair extinguisher  ', "  Pressure gauge damaged\nCheck the seal.  ", $now, originInspectionId: self::INSPECTION_ID, originNonConformityId: self::NON_CONFORMITY_ID);
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, self::SITE_ID, $snapshot, self::INSPECTION_ID, self::NON_CONFORMITY_ID), new ServiceRequestContent('  Repair extinguisher  ', "  Pressure gauge damaged\nCheck the seal.  ", 'normal'), $now);
 
     self::assertSame(self::ID, $request->id);
     self::assertSame(self::ORGANIZATION_ID, $request->organizationId);
@@ -95,7 +137,7 @@ final class ServiceRequestTest extends TestCase
   #[DataProvider('validTargets')]
   public function acceptsAnEquipmentOrASiteTarget(?string $equipmentId, ?string $siteId): void
   {
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, $equipmentId, $siteId, [], 'Repair', 'Repair needed', self::now());
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget($equipmentId, $siteId, [], null, null), new ServiceRequestContent('Repair', 'Repair needed', 'normal'), self::now());
 
     self::assertSame($equipmentId, $request->equipmentId);
     self::assertSame($siteId, $request->siteId);
@@ -107,7 +149,7 @@ final class ServiceRequestTest extends TestCase
   #[Test]
   public function requiresAnEquipmentBeforeQualifyingASiteRequest(): void
   {
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, null, self::SITE_ID, ['site' => ['label' => 'Warehouse']], 'Repair', 'Leak in the building', self::now());
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(null, self::SITE_ID, ['site' => ['label' => 'Warehouse']], null, null), new ServiceRequestContent('Repair', 'Leak in the building', 'normal'), self::now());
     $this->expectException(ServiceRequestException::class);
 
     $request->qualify('Repair approved', self::now());
@@ -116,7 +158,7 @@ final class ServiceRequestTest extends TestCase
   #[Test]
   public function assignsTheEquipmentOfASiteRequestBeforeQualification(): void
   {
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, null, self::SITE_ID, ['site' => ['label' => 'Warehouse']], 'Repair', 'Leak in the building', self::now(), originInspectionId: self::INSPECTION_ID, originNonConformityId: self::NON_CONFORMITY_ID);
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(null, self::SITE_ID, ['site' => ['label' => 'Warehouse']], self::INSPECTION_ID, self::NON_CONFORMITY_ID), new ServiceRequestContent('Repair', 'Leak in the building', 'normal'), self::now());
     $assignedAt = self::now()->modify('+1 hour');
     $snapshot = ['site' => ['label' => 'Warehouse'], 'equipment' => ['label' => 'Valve', 'rating' => 1.0]];
     $assigned = $request->assignEquipment(self::EQUIPMENT_ID, self::SITE_ID, $snapshot, $assignedAt);
@@ -158,7 +200,7 @@ final class ServiceRequestTest extends TestCase
   #[DataProvider('invalidAssignments')]
   public function refusesAssignmentsThatLoseOrChangeTheOriginalSite(string $equipmentId, ?string $siteId): void
   {
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, null, self::SITE_ID, [], 'Repair', 'Leak in the building', self::now());
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(null, self::SITE_ID, [], null, null), new ServiceRequestContent('Repair', 'Leak in the building', 'normal'), self::now());
     $this->expectException(ServiceRequestException::class);
 
     $request->assignEquipment($equipmentId, $siteId, [], self::now());
@@ -187,7 +229,7 @@ final class ServiceRequestTest extends TestCase
   #[Test]
   public function refusesAnEquipmentAssignmentBeforeTheLatestRevision(): void
   {
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, null, self::SITE_ID, [], 'Repair', 'Leak in the building', self::now())->change(['priority' => 'high'], self::now()->modify('+1 hour'));
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(null, self::SITE_ID, [], null, null), new ServiceRequestContent('Repair', 'Leak in the building', 'normal'), self::now())->change(['priority' => 'high'], self::now()->modify('+1 hour'));
     $this->expectException(ServiceRequestException::class);
 
     $request->assignEquipment(self::EQUIPMENT_ID, self::SITE_ID, [], self::now());
@@ -213,7 +255,7 @@ final class ServiceRequestTest extends TestCase
   {
     $this->expectException(ServiceRequestException::class);
 
-    ServiceRequest::create($id, $organizationId, $equipmentId, $siteId, [], 'Repair', 'Repair needed', self::now(), originInspectionId: $inspectionId, originNonConformityId: $nonConformityId);
+    ServiceRequest::create($id, $organizationId, new ServiceRequestTarget($equipmentId, $siteId, [], $inspectionId, $nonConformityId), new ServiceRequestContent('Repair', 'Repair needed', 'normal'), self::now());
   }
 
   /**
@@ -231,7 +273,7 @@ final class ServiceRequestTest extends TestCase
   #[DataProvider('priorities')]
   public function acceptsEveryDeclaredPriority(string $priority): void
   {
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, self::EQUIPMENT_ID, null, [], 'Repair', 'Repair needed', self::now(), $priority);
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, null, [], null, null), new ServiceRequestContent('Repair', 'Repair needed', $priority), self::now());
 
     self::assertSame($priority, $request->priority);
   }
@@ -255,7 +297,7 @@ final class ServiceRequestTest extends TestCase
   {
     $this->expectException(ServiceRequestException::class);
 
-    ServiceRequest::create(self::ID, self::ORGANIZATION_ID, self::EQUIPMENT_ID, null, [], $title, $description, self::now(), $priority);
+    ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, null, [], null, null), new ServiceRequestContent($title, $description, $priority), self::now());
   }
 
   #[Test]
@@ -263,7 +305,7 @@ final class ServiceRequestTest extends TestCase
   {
     $title = str_repeat('é', 160);
     $description = str_repeat('é', 10000);
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, self::EQUIPMENT_ID, null, [], $title, $description, self::now());
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, null, [], null, null), new ServiceRequestContent($title, $description, 'normal'), self::now());
 
     self::assertSame($title, $request->title);
     self::assertSame($description, $request->description);
@@ -296,7 +338,7 @@ final class ServiceRequestTest extends TestCase
   {
     $this->expectException(ServiceRequestException::class);
 
-    ServiceRequest::create(self::ID, self::ORGANIZATION_ID, self::EQUIPMENT_ID, null, $snapshot, 'Repair', 'Repair needed', self::now());
+    ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, null, $snapshot, null, null), new ServiceRequestContent('Repair', 'Repair needed', 'normal'), self::now());
   }
 
   #[Test]
@@ -307,7 +349,7 @@ final class ServiceRequestTest extends TestCase
     $this->expectException(ServiceRequestException::class);
 
     try {
-      ServiceRequest::create(self::ID, self::ORGANIZATION_ID, self::EQUIPMENT_ID, null, ['stream' => $stream], 'Repair', 'Repair needed', self::now());
+      ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, null, ['stream' => $stream], null, null), new ServiceRequestContent('Repair', 'Repair needed', 'normal'), self::now());
     } finally {
       fclose($stream);
     }
@@ -318,7 +360,7 @@ final class ServiceRequestTest extends TestCase
   {
     $label = 'Extinguisher';
     $snapshot = ['nested' => ['label' => &$label]];
-    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, self::EQUIPMENT_ID, null, $snapshot, 'Repair', 'Repair needed', self::now());
+    $request = ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, null, $snapshot, null, null), new ServiceRequestContent('Repair', 'Repair needed', 'normal'), self::now());
     $label = 'Changed afterwards';
 
     self::assertIsArray($request->targetSnapshot['nested']);
@@ -605,7 +647,7 @@ final class ServiceRequestTest extends TestCase
 
   private static function request(): ServiceRequest
   {
-    return ServiceRequest::create(self::ID, self::ORGANIZATION_ID, self::EQUIPMENT_ID, self::SITE_ID, ['equipment' => ['label' => 'Extinguisher'], 'site' => ['label' => 'Warehouse']], 'Repair', 'Repair needed', self::now(), originInspectionId: self::INSPECTION_ID, originNonConformityId: self::NON_CONFORMITY_ID);
+    return ServiceRequest::create(self::ID, self::ORGANIZATION_ID, new ServiceRequestTarget(self::EQUIPMENT_ID, self::SITE_ID, ['equipment' => ['label' => 'Extinguisher'], 'site' => ['label' => 'Warehouse']], self::INSPECTION_ID, self::NON_CONFORMITY_ID), new ServiceRequestContent('Repair', 'Repair needed', 'normal'), self::now());
   }
 
   private static function inState(string $state): ServiceRequest

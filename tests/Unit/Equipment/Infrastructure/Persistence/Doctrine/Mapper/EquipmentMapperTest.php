@@ -13,7 +13,7 @@ use Equipment\Domain\ValueObject\{
   EquipmentStatus,
   EquipmentType
 };
-use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment, RestoredEquipmentHistory};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
@@ -56,6 +56,15 @@ final class EquipmentMapperTest extends TestCase
     self::assertSame('Hall', $equipment->locationLabel());
     self::assertEquals(new DateTimeImmutable('2026-01-05T00:00:00+00:00'), $equipment->installedAt());
     self::assertEquals(new DateTimeImmutable('2026-01-06T00:00:00+00:00'), $equipment->commissionedAt());
+    self::assertSame($record->createdAt, $equipment->createdAt());
+    self::assertSame($record->updatedAt, $equipment->updatedAt());
+    self::assertSame($record->predecessorEquipmentId, $equipment->predecessorEquipmentId());
+    self::assertSame($record->successorEquipmentId, $equipment->successorEquipmentId());
+    self::assertSame($record->planPosition, $equipment->planPosition()?->toArray());
+    self::assertSame($record->name, $equipment->identity()->name);
+    self::assertSame($record->assetCode, $equipment->identity()->assetCode);
+    self::assertSame($record->criticality, $equipment->identity()->criticality);
+    self::assertSame($record->technicalProperties, $equipment->identity()->technicalProperties);
   }
 
   #[Test]
@@ -129,8 +138,7 @@ final class EquipmentMapperTest extends TestCase
       assignment: new RestoredEquipmentAssignment(
         status: EquipmentStatus::IN_STOCK,
       ),
-      createdAt: $now,
-      updatedAt: $now,
+      history: new RestoredEquipmentHistory(createdAt: $now, updatedAt: $now),
     );
 
     $record = EquipmentMapper::toRecord($equipment);
@@ -157,8 +165,7 @@ final class EquipmentMapperTest extends TestCase
         status: EquipmentStatus::DECOMMISSIONED,
         facilityId: EquipmentFacilityId::fromString(self::FACILITY_ID),
       ),
-      createdAt: $now,
-      updatedAt: $now,
+      history: new RestoredEquipmentHistory(createdAt: $now, updatedAt: $now),
     );
 
     $record = EquipmentMapper::toRecord($equipment);
@@ -191,6 +198,13 @@ final class EquipmentMapperTest extends TestCase
     $record->model = 'ABC-9';
     $record->serialNumber = 'EXT-001';
     $record->locationLabel = 'Hall';
+    $record->name = 'Hall extinguisher';
+    $record->assetCode = 'EXT-001';
+    $record->criticality = 'high';
+    $record->technicalProperties = [['key' => 'charge', 'value' => '6', 'unit' => 'kg']];
+    $record->predecessorEquipmentId = '550e8400-e29b-41d4-a716-446655493004';
+    $record->successorEquipmentId = '550e8400-e29b-41d4-a716-446655493005';
+    $record->planPosition = ['attachmentId' => '550e8400-e29b-41d4-a716-446655493006', 'x' => 0.25, 'y' => 0.75];
     $record->status = 'operational';
     $record->installedAt = new DateTimeImmutable('2026-01-05T00:00:00+00:00');
     $record->commissionedAt = new DateTimeImmutable('2026-01-06T00:00:00+00:00');

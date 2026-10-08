@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\Port\Inbound;
 
 use DateTimeImmutable;
-use Intervention\Application\Contract\Publication\{InterventionEconomicContext, InterventionEconomicContextPage, InterventionPublicationFacts, InterventionPublicationFactsPage};
+use Intervention\Application\Contract\Publication\{InterventionEconomicContext, InterventionEconomicContextPage, InterventionEconomicSourceFilter, InterventionPublicationFacts, InterventionPublicationFactsPage};
 
 /**
  * Interface InterventionPublicationFactsPort
@@ -85,17 +85,11 @@ interface InterventionPublicationFactsPort
    * @param string $organizationId authorized owning organization
    * @param int $page one-based page
    * @param int $itemsPerPage 1 to 100
-   * @param ?string $search literal title or organization sequence search
-   * @param ?DateTimeImmutable $from inclusive source date
-   * @param ?DateTimeImmutable $to exclusive source date
-   * @param ?string $siteId optional root site
-   * @param ?string $customerId optional internal client
-   * @param ?string $equipmentId optional asset target
-   * @param list<string> $financialInterventionIds at most 10000 finance-authorized additional matching sources; search and dates still apply
+   * @param ?InterventionEconomicSourceFilter $filter operational predicates and finance-authorized additional identifiers; search and dates apply to all matches
    *
    * @return InterventionEconomicContextPage bounded matching contexts with exact count
    */
-  public function economicPage(string $organizationId, int $page = 1, int $itemsPerPage = 50, ?string $search = null, ?DateTimeImmutable $from = null, ?DateTimeImmutable $to = null, ?string $siteId = null, ?string $customerId = null, ?string $equipmentId = null, array $financialInterventionIds = []): InterventionEconomicContextPage;
+  public function economicPage(string $organizationId, int $page = 1, int $itemsPerPage = 50, ?InterventionEconomicSourceFilter $filter = null): InterventionEconomicContextPage;
 
   /**
    * Method economicWindow

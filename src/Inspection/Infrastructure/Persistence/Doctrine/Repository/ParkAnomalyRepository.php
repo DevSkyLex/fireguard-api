@@ -81,14 +81,12 @@ final readonly class ParkAnomalyRepository implements ParkAnomalyGatewayPort
    */
   public function findCandidateEquipmentIds(string $organizationId): array
   {
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn(
       'SELECT DISTINCT i.equipment_id' . self::BASE_SELECTION . ' ORDER BY i.equipment_id ASC',
       $this->parameters($organizationId),
       ['openStatuses' => ArrayParameterType::STRING],
     );
-
-    return $ids;
   }
 
   /**

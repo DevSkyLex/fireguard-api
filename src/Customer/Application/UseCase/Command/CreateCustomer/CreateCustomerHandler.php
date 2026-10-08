@@ -9,6 +9,7 @@ use Customer\Application\Port\Outbound\CustomerRepositoryPort;
 use Customer\Application\Service\CustomerAccessGuard;
 use Customer\Domain\Event\CustomerChangedEvent;
 use Customer\Domain\Model\Customer\Customer;
+use Customer\Domain\ValueObject\CustomerDetails;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort, UuidGeneratorPort};
 
@@ -24,7 +25,7 @@ final readonly class CreateCustomerHandler implements CommandHandler
     $this->access->assertAccess($command->actorId, $command->organizationId, true);
 
     return $this->transactions->transactional(function () use ($command): CreateCustomerResult {
-      $customer = Customer::create($this->ids->generate(), $command->organizationId, $command->name, $command->code, $command->email, $command->phone, $command->contacts, $this->clock->now());
+      $customer = Customer::create($this->ids->generate(), $command->organizationId, new CustomerDetails($command->name, $command->code, $command->email, $command->phone, $command->contacts), $this->clock->now());
       $this->customers->save($customer);
       $this->events->dispatch(new CustomerChangedEvent($customer->organizationId, $customer->id, 'created', $customer->revision, $customer->updatedAt));
 

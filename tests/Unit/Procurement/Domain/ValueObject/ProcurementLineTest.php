@@ -7,13 +7,15 @@ namespace Tests\Unit\Procurement\Domain\ValueObject;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Procurement\Domain\Exception\ProcurementException;
-use Procurement\Domain\ValueObject\ProcurementLine;
+use Procurement\Domain\ValueObject\{ProcurementGoodsIdentity, ProcurementLine, ProcurementLineAmounts};
 use Shared\Domain\Exception\InvalidValueException;
 use stdClass;
 
+use function json_encode;
 use function str_repeat;
 
 use const INF;
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Class ProcurementLineTest
@@ -39,7 +41,7 @@ final class ProcurementLineTest extends TestCase
   #[Test]
   public function articleCodeLabelAndUnitStayFrozenThroughReceiptsAndReturns(): void
   {
-    $line = ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '2.500000', null, 'REF', 'Foam concentrate', 'litre');
+    $line = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, [], 'REF', 'Foam concentrate', 'litre'), '2.500000', null);
     $received = $line->receive('1.250000');
     $returned = $received->returnReceived('0.250000');
     self::assertSame('REF', $returned->partCode);
@@ -47,6 +49,23 @@ final class ProcurementLineTest extends TestCase
     self::assertSame('litre', $returned->partUnit);
     self::assertSame('1.250000', $returned->receivedQuantity);
     self::assertSame('0.250000', $returned->returnedQuantity);
+  }
+
+  /**
+   * Method retainedLineSnapshotKeepsItsPersistedJsonShape
+   *
+   * Prevents typed internal state from changing historical JSON columns or their exact quantities.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function retainedLineSnapshotKeepsItsPersistedJsonShape(): void
+  {
+    $line = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, [], 'REF', 'Foam concentrate', 'litre'), '2.5', null)->receive('1.25')->returnReceived('0.25');
+
+    self::assertSame('{"id":"018fa001-1111-7111-8111-111111111111","kind":"part","partId":"018fa002-1111-7111-8111-111111111111","typeCode":null,"identityTemplate":[],"quantity":"2.500000","unitCost":null,"receivedQuantity":"1.250000","returnedQuantity":"0.250000","partCode":"REF","partLabel":"Foam concentrate","partUnit":"litre"}', json_encode($line, JSON_THROW_ON_ERROR));
   }
   // #endregion
 
@@ -61,7 +80,7 @@ final class ProcurementLineTest extends TestCase
   #[Test]
   public function testConsumableFractionsAndCostsAreCanonicalExactStrings(): void
   {
-    $line = ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '0001.25', '00012.123456');
+    $line = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '0001.25', '00012.123456');
 
     self::assertSame(self::LINE, $line->id);
     self::assertSame('part', $line->kind);
@@ -85,8 +104,8 @@ final class ProcurementLineTest extends TestCase
   #[Test]
   public function testUnknownUnitCostStaysDifferentFromKnownZero(): void
   {
-    $unknown = ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '1', null);
-    $knownZero = ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '1', '0');
+    $unknown = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '1', null);
+    $knownZero = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '1', '0');
 
     self::assertNull($unknown->unitCost);
     self::assertSame('0.000000', $knownZero->unitCost);
@@ -103,7 +122,7 @@ final class ProcurementLineTest extends TestCase
   public function testEquipmentKeepsDeclarativeTemplateAndWholeUnits(): void
   {
     $template = ['name' => 'Portable extinguisher', 'brand' => 'Example', 'technicalProperties' => [['key' => 'capacity', 'value' => '6', 'unit' => 'kg']]];
-    $line = ProcurementLine::create(self::LINE, 'equipment_to_individualize', null, ' fire_extinguisher ', $template, '3.000000', '120.5');
+    $line = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('equipment_to_individualize', null, ' fire_extinguisher ', $template), '3.000000', '120.5');
 
     self::assertSame('equipment_to_individualize', $line->kind);
     self::assertNull($line->partId);
@@ -124,7 +143,7 @@ final class ProcurementLineTest extends TestCase
   #[Test]
   public function testReceivedAndReturnedSnapshotsDoNotMutateOriginalLine(): void
   {
-    $original = ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '1.25', '10');
+    $original = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '1.25', '10');
     $received = $original->receive('0.75');
     $returned = $received->returnReceived('0.25');
 
@@ -154,7 +173,7 @@ final class ProcurementLineTest extends TestCase
   {
     $this->expectException(ProcurementException::class);
 
-    ProcurementLine::create(self::LINE, 'part', self::PART, null, [], $quantity, null);
+    ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), $quantity, null);
   }
 
   /**
@@ -181,8 +200,8 @@ final class ProcurementLineTest extends TestCase
   #[Test]
   public function testMaximumQuantityAndSmallestFractionAreAccepted(): void
   {
-    self::assertSame('100000.000000', ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '100000', null)->quantity);
-    self::assertSame('0.000001', ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '0.000001', null)->quantity);
+    self::assertSame('100000.000000', ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '100000', null)->quantity);
+    self::assertSame('0.000001', ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '0.000001', null)->quantity);
   }
 
   /**
@@ -203,7 +222,7 @@ final class ProcurementLineTest extends TestCase
   {
     $this->expectException(ProcurementException::class);
 
-    ProcurementLine::create(self::LINE, $kind, $partId, $typeCode, $template, '2', null);
+    ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity($kind, $partId, $typeCode, $template), '2', null);
   }
 
   /**
@@ -241,7 +260,7 @@ final class ProcurementLineTest extends TestCase
   {
     $this->expectException(ProcurementException::class);
 
-    ProcurementLine::reconstitute(self::LINE, 'equipment_to_individualize', null, 'fire_extinguisher', [], $ordered, null, $received, $returned);
+    ProcurementLine::reconstitute(self::LINE, new ProcurementGoodsIdentity('equipment_to_individualize', null, 'fire_extinguisher', []), new ProcurementLineAmounts($ordered, null, $received, $returned));
   }
 
   /**
@@ -274,7 +293,7 @@ final class ProcurementLineTest extends TestCase
   {
     $this->expectException(ProcurementException::class);
 
-    ProcurementLine::reconstitute(self::LINE, 'part', self::PART, null, [], '5', null, $received, $returned);
+    ProcurementLine::reconstitute(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), new ProcurementLineAmounts('5', null, $received, $returned));
   }
 
   /**
@@ -302,7 +321,7 @@ final class ProcurementLineTest extends TestCase
   #[Test]
   public function testOverReceptionDoesNotPartiallyChangeLine(): void
   {
-    $line = ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '1.25', null)->receive('1');
+    $line = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '1.25', null)->receive('1');
 
     try {
       $line->receive('0.250001');
@@ -325,7 +344,7 @@ final class ProcurementLineTest extends TestCase
   #[Test]
   public function testAlreadyReturnedUnitsCannotBeReturnedAgain(): void
   {
-    $line = ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '2', null)->receive('2')->returnReceived('1.5');
+    $line = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '2', null)->receive('2')->returnReceived('1.5');
     $this->expectException(ProcurementException::class);
 
     $line->returnReceived('0.500001');
@@ -343,7 +362,7 @@ final class ProcurementLineTest extends TestCase
   {
     $this->expectException(ProcurementException::class);
 
-    ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '1', '-0.000001');
+    ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '1', '-0.000001');
   }
 
   /**
@@ -361,7 +380,7 @@ final class ProcurementLineTest extends TestCase
   {
     $this->expectException(InvalidValueException::class);
 
-    ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '1', $cost);
+    ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '1', $cost);
   }
 
   /**
@@ -394,7 +413,7 @@ final class ProcurementLineTest extends TestCase
   {
     $this->expectException(ProcurementException::class);
 
-    ProcurementLine::create(self::LINE, 'equipment_to_individualize', null, 'fire_extinguisher', $template, '1', null);
+    ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('equipment_to_individualize', null, 'fire_extinguisher', $template), '1', null);
   }
 
   /**

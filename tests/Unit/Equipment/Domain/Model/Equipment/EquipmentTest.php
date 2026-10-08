@@ -7,8 +7,8 @@ namespace Tests\Unit\Equipment\Domain\Model\Equipment;
 use DateTimeImmutable;
 use Equipment\Domain\Exception\EquipmentAlreadyDecommissionedException;
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
-use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment, RestoredEquipmentHistory};
+use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentIdentity, EquipmentOrganizationId, EquipmentStatus, EquipmentType, EquipmentTypeCode, PlanPosition};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -170,6 +170,10 @@ final class EquipmentTest extends TestCase
     $updatedAt = new DateTimeImmutable('2026-02-01 09:00:00');
     $installedAt = new DateTimeImmutable('2026-01-15 10:00:00');
     $commissionedAt = new DateTimeImmutable('2026-01-20 11:00:00');
+    $identity = EquipmentIdentity::fromValues('Sprinkler ceiling', 'SP-777', 'high');
+    $position = new PlanPosition(self::FACILITY_ID, 0.25, 0.75);
+    $predecessorId = '550e8400-e29b-41d4-a716-446655449004';
+    $successorId = '550e8400-e29b-41d4-a716-446655449005';
 
     $equipment = Equipment::reconstitute(
       id: EquipmentId::fromString(self::EQUIP_ID),
@@ -181,15 +185,21 @@ final class EquipmentTest extends TestCase
         model: 'TY-B',
         serialNumber: 'SN-777',
         locationLabel: 'Ceiling',
+        identity: $identity,
       ),
       assignment: new RestoredEquipmentAssignment(
         status: EquipmentStatus::OPERATIONAL,
         facilityId: EquipmentFacilityId::fromString(self::FACILITY_ID),
         installedAt: $installedAt,
         commissionedAt: $commissionedAt,
+        planPosition: $position,
       ),
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
+      history: new RestoredEquipmentHistory(
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+        predecessorEquipmentId: $predecessorId,
+        successorEquipmentId: $successorId,
+      ),
     );
 
     self::assertSame(EquipmentStatus::OPERATIONAL, $equipment->status());
@@ -203,6 +213,39 @@ final class EquipmentTest extends TestCase
     self::assertSame($updatedAt, $equipment->updatedAt());
     self::assertSame($installedAt, $equipment->installedAt());
     self::assertSame($commissionedAt, $equipment->commissionedAt());
+    self::assertSame($position, $equipment->planPosition());
+    self::assertSame($identity, $equipment->identity());
+    self::assertSame($predecessorId, $equipment->predecessorEquipmentId());
+    self::assertSame($successorId, $equipment->successorEquipmentId());
+  }
+
+  #[Test]
+  public function testReconstitutePreservesLegacyStateWithoutCreationOrLifecycleValidation(): void
+  {
+    $createdAt = new DateTimeImmutable('2026-02-01');
+    $updatedAt = new DateTimeImmutable('2026-01-01');
+    $brand = ' ' . str_repeat('a', 101) . ' ';
+
+    $equipment = Equipment::reconstitute(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentTypeCode::fromString('historical_custom_type'),
+      details: new EquipmentCatalogDetails(brand: $brand, subType: ' '),
+      assignment: new RestoredEquipmentAssignment(status: EquipmentStatus::OPERATIONAL),
+      history: new RestoredEquipmentHistory(createdAt: $createdAt, updatedAt: $updatedAt),
+    );
+
+    self::assertSame('historical_custom_type', $equipment->type()->value);
+    self::assertSame($brand, $equipment->brand());
+    self::assertSame(' ', $equipment->subType());
+    self::assertSame(EquipmentStatus::OPERATIONAL, $equipment->status());
+    self::assertNull($equipment->facilityId());
+    self::assertNull($equipment->commissionedAt());
+    self::assertSame($createdAt, $equipment->createdAt());
+    self::assertSame($updatedAt, $equipment->updatedAt());
+    self::assertNull($equipment->predecessorEquipmentId());
+    self::assertNull($equipment->successorEquipmentId());
+    self::assertSame([], $equipment->identity()->technicalProperties);
   }
 
   #[Test]
@@ -353,8 +396,7 @@ final class EquipmentTest extends TestCase
         status: EquipmentStatus::OPERATIONAL,
         facilityId: null,
       ),
-      createdAt: new DateTimeImmutable(),
-      updatedAt: new DateTimeImmutable(),
+      history: new RestoredEquipmentHistory(createdAt: new DateTimeImmutable(), updatedAt: new DateTimeImmutable()),
     );
 
     $this->expectException(InvalidArgumentException::class);

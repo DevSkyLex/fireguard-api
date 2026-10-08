@@ -17,7 +17,7 @@ final readonly class MaintenanceCostAccessGuard
 
   public function assertAccess(string $actorId, string $organizationId, bool $write): void
   {
-    new Uuid($organizationId);
+    Uuid::assertValid($organizationId);
     $decision = $this->authorization->resolveAccess($actorId, $organizationId, $write ? 'organization.maintenance_cost.manage' : 'organization.maintenance_cost.read');
     if ($decision->isOutsideScope()) {
       throw MaintenanceCostException::notFound();

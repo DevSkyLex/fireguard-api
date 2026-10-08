@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use ServiceRequest\Application\Port\Outbound\ServiceRequestRepositoryPort;
 use ServiceRequest\Application\UseCase\Command\ConvertServiceRequest\{ConvertServiceRequestCommand, ConvertServiceRequestResult};
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
+use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestTarget};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\{KernelBrowser, Test\WebTestCase};
 
@@ -602,7 +603,7 @@ final class ServiceRequestApiTest extends WebTestCase
   {
     $now = new DateTimeImmutable('2026-10-05T10:00:00+00:00');
     $snapshot = $extraSnapshot + ['equipment' => null === $equipmentId ? null : ['id' => $equipmentId, 'name' => 'Extinguisher A', 'assetCode' => 'EXT-A', 'status' => 'in_service'], 'site' => ['id' => self::SITE, 'name' => 'Fire site'], 'customer' => ['id' => self::CUSTOMER, 'name' => 'Internal client']];
-    $request = ServiceRequest::create($id, $organizationId, $equipmentId, self::SITE, $snapshot, 'Seal damaged', 'Replace the broken seal and verify tightness.', $now);
+    $request = ServiceRequest::create($id, $organizationId, new ServiceRequestTarget($equipmentId, self::SITE, $snapshot, null, null), new ServiceRequestContent('Seal damaged', 'Replace the broken seal and verify tightness.', 'normal'), $now);
     if ($qualified) {
       $request = $request->qualify('Field repair accepted', $now->modify('+1 minute'));
     }

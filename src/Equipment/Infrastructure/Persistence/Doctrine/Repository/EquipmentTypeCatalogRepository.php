@@ -123,14 +123,14 @@ final readonly class EquipmentTypeCatalogRepository implements EquipmentTypeCata
         default => 'fire',
       };
 
-      return new EquipmentTypeDefinition($type->value, $type->label(), $family);
+      $definition = new EquipmentTypeDefinition($type->value, $type->label(), $family);
+    } elseif ('' !== trim($typeCode) && false !== $connection->fetchOne('SELECT 1 FROM equipment WHERE organization_id = :organization AND type = :code LIMIT 1', ['organization' => $organizationId, 'code' => $typeCode])) {
+      $definition = new EquipmentTypeDefinition($typeCode, $typeCode, 'other', true);
+    } else {
+      $definition = null;
     }
 
-    if ('' !== trim($typeCode) && false !== $connection->fetchOne('SELECT 1 FROM equipment WHERE organization_id = :organization AND type = :code LIMIT 1', ['organization' => $organizationId, 'code' => $typeCode])) {
-      return new EquipmentTypeDefinition($typeCode, $typeCode, 'other', true);
-    }
-
-    return null;
+    return $definition;
   }
 
   /**

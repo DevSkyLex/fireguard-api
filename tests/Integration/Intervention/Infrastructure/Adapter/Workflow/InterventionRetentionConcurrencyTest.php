@@ -124,7 +124,7 @@ final class InterventionRetentionConcurrencyTest extends KernelTestCase
     $task->createdAt = $task->updatedAt = $now;
     $main->persist($task);
     $main->flush();
-    $store = new InventoryRepository($main);
+    $store = new InventoryRepository($main->getConnection());
     $this->a->transactional(function () use ($store): void {
       $store->saveReference('parts', new InventoryReference(self::PART, self::ORG, 'RET', 'Retained part', 'piece', 'part'));
       $store->saveReference('warehouses', new InventoryReference(self::WAREHOUSE, self::ORG, 'RET', 'Retained warehouse'));
@@ -163,7 +163,7 @@ final class InterventionRetentionConcurrencyTest extends KernelTestCase
     $this->b->beginTransaction();
     $work = new InterventionCostSourceFactsAdapter($this->writer);
     $currency = new MaintenanceCurrencyAdapter($this->b);
-    $stock = new InventoryRepository($this->writer);
+    $stock = new InventoryRepository($this->writer->getConnection());
     $inventory = new InventoryInterventionResourcesAdapter($stock, $currency);
     $costs = new MaintenanceCostRepository($this->writer);
     $calculator = new MaintenanceCostCalculator();

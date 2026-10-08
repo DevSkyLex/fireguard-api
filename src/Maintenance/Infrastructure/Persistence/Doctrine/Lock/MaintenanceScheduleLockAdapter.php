@@ -16,6 +16,15 @@ use function usort;
 /** Transaction-scoped lock also protects the first insert, before a row exists. */
 final readonly class MaintenanceScheduleLockAdapter implements MaintenanceScheduleLockPort
 {
+  // #region Properties
+  /**
+   * Constant ADVISORY_LOCK_SQL
+   *
+   * Acquires a transaction-scoped lock from the stable maintenance scope key.
+   */
+  private const string ADVISORY_LOCK_SQL = 'SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -52,8 +61,8 @@ final readonly class MaintenanceScheduleLockAdapter implements MaintenanceSchedu
   public function synchronized(string $organizationId, string $equipmentId, callable $work): mixed
   {
     return $this->connection->transactional(function () use ($organizationId, $equipmentId, $work): mixed {
-      $this->connection->executeStatement('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', ['key' => 'maintenance.engine.' . $organizationId]);
-      $this->connection->executeStatement('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', [
+      $this->connection->executeStatement(self::ADVISORY_LOCK_SQL, ['key' => 'maintenance.engine.' . $organizationId]);
+      $this->connection->executeStatement(self::ADVISORY_LOCK_SQL, [
         'key' => 'maintenance.schedule.' . $organizationId . '.' . $equipmentId,
       ]);
 
@@ -77,7 +86,7 @@ final readonly class MaintenanceScheduleLockAdapter implements MaintenanceSchedu
       $organizations = array_unique(array_map(static fn (array $scope): string => $scope['organizationId'], $scopes));
       sort($organizations);
       foreach ($organizations as $organizationId) {
-        $this->connection->executeStatement('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', ['key' => 'maintenance.engine.' . $organizationId]);
+        $this->connection->executeStatement(self::ADVISORY_LOCK_SQL, ['key' => 'maintenance.engine.' . $organizationId]);
       }
       $values = [];
       $parameters = [];

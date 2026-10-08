@@ -14,7 +14,7 @@ use Equipment\Domain\ValueObject\{
   EquipmentTypeCode,
   PlanPosition
 };
-use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment, RestoredEquipmentHistory};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -66,10 +66,12 @@ final class EquipmentMapper
         commissionedAt: $record->commissionedAt,
         planPosition: null !== $record->planPosition ? PlanPosition::fromArray($record->planPosition) : null,
       ),
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      predecessorEquipmentId: $record->predecessorEquipmentId,
-      successorEquipmentId: $record->successorEquipmentId,
+      history: new RestoredEquipmentHistory(
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+        predecessorEquipmentId: $record->predecessorEquipmentId,
+        successorEquipmentId: $record->successorEquipmentId,
+      ),
     );
   }
 

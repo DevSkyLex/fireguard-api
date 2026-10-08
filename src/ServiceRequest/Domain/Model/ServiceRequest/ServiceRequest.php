@@ -7,6 +7,7 @@ namespace ServiceRequest\Domain\Model\ServiceRequest;
 use DateTimeImmutable;
 use JsonException;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
+use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestLifecycle, ServiceRequestTarget, ServiceRequestTimeline};
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Uuid;
 
@@ -38,61 +39,217 @@ final readonly class ServiceRequest
 {
   private const array PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 
+  // #region Properties
   /**
-   * @param array<string,mixed> $targetSnapshot retained owner-published target identity
+   * Property id. Stable request identity.
    */
-  private function __construct(
-    public string $id,
-    public string $organizationId,
-    public ?string $equipmentId,
-    public ?string $siteId,
-    public array $targetSnapshot,
-    public string $title,
-    public string $description,
-    public string $priority,
-    public ?string $originInspectionId,
-    public ?string $originNonConformityId,
-    public string $status,
-    public int $revision,
-    public DateTimeImmutable $requestedAt,
-    public DateTimeImmutable $updatedAt,
-    public ?DateTimeImmutable $qualifiedAt = null,
-    public ?DateTimeImmutable $rejectedAt = null,
-    public ?DateTimeImmutable $cancelledAt = null,
-    public ?DateTimeImmutable $convertedAt = null,
-    public ?string $decisionReason = null,
-    public ?string $qualificationNote = null,
-    public ?string $interventionId = null,
-    public ?string $taskId = null,
-  ) {
-  }
+  public string $id;
 
   /**
-   * @param array<string,mixed> $targetSnapshot retained equipment, site and internal customer identity
+   * Property organizationId. Owning organization.
    */
-  public static function create(string $id, string $organizationId, ?string $equipmentId, ?string $siteId, array $targetSnapshot, string $title, string $description, DateTimeImmutable $now, string $priority = 'normal', ?string $originInspectionId = null, ?string $originNonConformityId = null): self
+  public string $organizationId;
+
+  /**
+   * Property equipmentId. Selected equipment, absent for an unqualified site-only request.
+   */
+  public ?string $equipmentId;
+
+  /**
+   * Property siteId. Original root site or explicit reserve-equipment absence.
+   */
+  public ?string $siteId;
+
+  /**
+   * Property targetSnapshot
+   *
+   * @var array<string,mixed> isolated retained owner identity
+   */
+  public array $targetSnapshot;
+
+  /**
+   * Property title. Retained request title.
+   */
+  public string $title;
+
+  /**
+   * Property description. Retained repair explanation.
+   */
+  public string $description;
+
+  /**
+   * Property priority. Retained priority.
+   */
+  public string $priority;
+
+  /**
+   * Property originInspectionId. Original inspection evidence.
+   */
+  public ?string $originInspectionId;
+
+  /**
+   * Property originNonConformityId. Original non-conformity evidence.
+   */
+  public ?string $originNonConformityId;
+
+  /**
+   * Property status. Retained lifecycle state.
+   */
+  public string $status;
+
+  /**
+   * Property revision. Exact optimistic revision.
+   */
+  public int $revision;
+
+  /**
+   * Property requestedAt. Original creation instant.
+   */
+  public DateTimeImmutable $requestedAt;
+
+  /**
+   * Property updatedAt. Latest change instant.
+   */
+  public DateTimeImmutable $updatedAt;
+
+  /**
+   * Property qualifiedAt. Original qualification instant.
+   */
+  public ?DateTimeImmutable $qualifiedAt;
+
+  /**
+   * Property rejectedAt. Explicit rejection instant.
+   */
+  public ?DateTimeImmutable $rejectedAt;
+
+  /**
+   * Property cancelledAt. Explicit cancellation instant.
+   */
+  public ?DateTimeImmutable $cancelledAt;
+
+  /**
+   * Property convertedAt. Committed conversion instant.
+   */
+  public ?DateTimeImmutable $convertedAt;
+
+  /**
+   * Property decisionReason. Retained rejection or cancellation reason.
+   */
+  public ?string $decisionReason;
+
+  /**
+   * Property qualificationNote. Retained qualification explanation.
+   */
+  public ?string $qualificationNote;
+
+  /**
+   * Property interventionId. Committed conversion intervention.
+   */
+  public ?string $interventionId;
+
+  /**
+   * Property taskId. Committed conversion task.
+   */
+  public ?string $taskId;
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Every public field preserves its persisted meaning while typed state groups keep restoration explicit.
+   *
+   * @access private
+   *
+   * @param string $id retained request identity
+   * @param string $organizationId owning organization
+   * @param ServiceRequestTarget $target isolated retained target and origin evidence
+   * @param ServiceRequestContent $content retained request content
+   * @param ServiceRequestLifecycle $lifecycle retained revision, decisions and chronology
+   *
+   * @return void
+   */
+  private function __construct(string $id, string $organizationId, ServiceRequestTarget $target, ServiceRequestContent $content, ServiceRequestLifecycle $lifecycle)
+  {
+    $this->id = $id;
+    $this->organizationId = $organizationId;
+    $this->equipmentId = $target->equipmentId;
+    $this->siteId = $target->siteId;
+    $this->targetSnapshot = $target->snapshot;
+    $this->originInspectionId = $target->originInspectionId;
+    $this->originNonConformityId = $target->originNonConformityId;
+    $this->title = $content->title;
+    $this->description = $content->description;
+    $this->priority = $content->priority;
+    $this->status = $lifecycle->status;
+    $this->revision = $lifecycle->revision;
+    $this->requestedAt = $lifecycle->timeline->requestedAt;
+    $this->updatedAt = $lifecycle->timeline->updatedAt;
+    $this->qualifiedAt = $lifecycle->timeline->qualifiedAt;
+    $this->rejectedAt = $lifecycle->timeline->rejectedAt;
+    $this->cancelledAt = $lifecycle->timeline->cancelledAt;
+    $this->convertedAt = $lifecycle->timeline->convertedAt;
+    $this->decisionReason = $lifecycle->decisionReason;
+    $this->qualificationNote = $lifecycle->qualificationNote;
+    $this->interventionId = $lifecycle->interventionId;
+    $this->taskId = $lifecycle->taskId;
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method create
+   *
+   * Validates newly declared references before isolating the target and normalizing content.
+   *
+   * @access public
+   *
+   * @param string $id generated request identity
+   * @param string $organizationId owning organization
+   * @param ServiceRequestTarget $target declared owner target and origin evidence
+   * @param ServiceRequestContent $content declared title, description and priority
+   * @param DateTimeImmutable $now creation instant
+   *
+   * @return self requested state at revision one
+   */
+  public static function create(string $id, string $organizationId, ServiceRequestTarget $target, ServiceRequestContent $content, DateTimeImmutable $now): self
   {
     self::uuid($id);
     self::uuid($organizationId);
-    foreach ([$equipmentId, $siteId, $originInspectionId, $originNonConformityId] as $reference) {
+    foreach ([$target->equipmentId, $target->siteId, $target->originInspectionId, $target->originNonConformityId] as $reference) {
       if (null !== $reference) {
         self::uuid($reference);
       }
     }
-    if (null === $equipmentId && null === $siteId) {
+    if (null === $target->equipmentId && null === $target->siteId) {
       throw ServiceRequestException::invalid('A service request must target an equipment or a site.');
     }
-    $targetSnapshot = self::snapshot($targetSnapshot);
+    $target = new ServiceRequestTarget($target->equipmentId, $target->siteId, self::snapshot($target->snapshot), $target->originInspectionId, $target->originNonConformityId);
+    $content = new ServiceRequestContent(self::requiredText($content->title, 160, 'Title'), self::requiredText($content->description, 10000, 'Description'), self::priority($content->priority));
 
-    return new self($id, $organizationId, $equipmentId, $siteId, $targetSnapshot, self::requiredText($title, 160, 'Title'), self::requiredText($description, 10000, 'Description'), self::priority($priority), $originInspectionId, $originNonConformityId, 'requested', 1, $now, $now);
+    return new self($id, $organizationId, $target, $content, new ServiceRequestLifecycle('requested', 1, new ServiceRequestTimeline($now, $now)));
   }
 
   /**
-   * @param array<string,mixed> $targetSnapshot persisted retained target identity
+   * Method reconstitute
+   *
+   * Historical content and lifecycle are retained exactly; only JSON isolation is reapplied.
+   *
+   * @access public
+   *
+   * @param string $id persisted request identity
+   * @param string $organizationId persisted owning organization
+   * @param ServiceRequestTarget $target persisted target and original evidence
+   * @param ServiceRequestContent $content persisted content without new-write normalization
+   * @param ServiceRequestLifecycle $lifecycle persisted revision, decisions and all lifecycle dates
+   *
+   * @return self exact persisted aggregate
    */
-  public static function reconstitute(string $id, string $organizationId, ?string $equipmentId, ?string $siteId, array $targetSnapshot, string $title, string $description, string $priority, ?string $originInspectionId, ?string $originNonConformityId, string $status, int $revision, DateTimeImmutable $requestedAt, DateTimeImmutable $updatedAt, ?DateTimeImmutable $qualifiedAt = null, ?DateTimeImmutable $rejectedAt = null, ?DateTimeImmutable $cancelledAt = null, ?DateTimeImmutable $convertedAt = null, ?string $decisionReason = null, ?string $qualificationNote = null, ?string $interventionId = null, ?string $taskId = null): self
+  public static function reconstitute(string $id, string $organizationId, ServiceRequestTarget $target, ServiceRequestContent $content, ServiceRequestLifecycle $lifecycle): self
   {
-    return new self($id, $organizationId, $equipmentId, $siteId, self::snapshot($targetSnapshot), $title, $description, $priority, $originInspectionId, $originNonConformityId, $status, $revision, $requestedAt, $updatedAt, $qualifiedAt, $rejectedAt, $cancelledAt, $convertedAt, $decisionReason, $qualificationNote, $interventionId, $taskId);
+    $target = new ServiceRequestTarget($target->equipmentId, $target->siteId, self::snapshot($target->snapshot), $target->originInspectionId, $target->originNonConformityId);
+
+    return new self($id, $organizationId, $target, $content, $lifecycle);
   }
 
   /**
@@ -114,7 +271,7 @@ final readonly class ServiceRequest
       return $this;
     }
 
-    return new self($this->id, $this->organizationId, $this->equipmentId, $this->siteId, $this->targetSnapshot, $title, $description, $priority, $this->originInspectionId, $this->originNonConformityId, $this->status, $this->revision + 1, $this->requestedAt, $now, $this->qualifiedAt, $this->rejectedAt, $this->cancelledAt, $this->convertedAt, $this->decisionReason, $this->qualificationNote, $this->interventionId, $this->taskId);
+    return new self($this->id, $this->organizationId, $this->target(), new ServiceRequestContent($title, $description, $priority), new ServiceRequestLifecycle($this->status, $this->revision + 1, new ServiceRequestTimeline($this->requestedAt, $now, $this->qualifiedAt, $this->rejectedAt, $this->cancelledAt, $this->convertedAt), $this->decisionReason, $this->qualificationNote, $this->interventionId, $this->taskId));
   }
 
   public function qualify(?string $note, DateTimeImmutable $now): self
@@ -141,7 +298,7 @@ final readonly class ServiceRequest
       self::uuid($siteId);
     }
 
-    return new self($this->id, $this->organizationId, $equipmentId, $siteId, self::snapshot($targetSnapshot), $this->title, $this->description, $this->priority, $this->originInspectionId, $this->originNonConformityId, $this->status, $this->revision + 1, $this->requestedAt, $now, $this->qualifiedAt, $this->rejectedAt, $this->cancelledAt, $this->convertedAt, $this->decisionReason, $this->qualificationNote, $this->interventionId, $this->taskId);
+    return new self($this->id, $this->organizationId, new ServiceRequestTarget($equipmentId, $siteId, self::snapshot($targetSnapshot), $this->originInspectionId, $this->originNonConformityId), new ServiceRequestContent($this->title, $this->description, $this->priority), new ServiceRequestLifecycle($this->status, $this->revision + 1, new ServiceRequestTimeline($this->requestedAt, $now, $this->qualifiedAt, $this->rejectedAt, $this->cancelledAt, $this->convertedAt), $this->decisionReason, $this->qualificationNote, $this->interventionId, $this->taskId));
   }
 
   public function reject(string $reason, DateTimeImmutable $now): self
@@ -169,7 +326,19 @@ final readonly class ServiceRequest
 
   private function transition(string $status, DateTimeImmutable $now, ?string $decisionReason = null, ?string $qualificationNote = null, ?string $interventionId = null, ?string $taskId = null): self
   {
-    return new self($this->id, $this->organizationId, $this->equipmentId, $this->siteId, $this->targetSnapshot, $this->title, $this->description, $this->priority, $this->originInspectionId, $this->originNonConformityId, $status, $this->revision + 1, $this->requestedAt, $now, 'qualified' === $status ? $now : $this->qualifiedAt, 'rejected' === $status ? $now : $this->rejectedAt, 'cancelled' === $status ? $now : $this->cancelledAt, 'converted' === $status ? $now : $this->convertedAt, $decisionReason ?? $this->decisionReason, $qualificationNote ?? $this->qualificationNote, $interventionId ?? $this->interventionId, $taskId ?? $this->taskId);
+    return new self($this->id, $this->organizationId, $this->target(), new ServiceRequestContent($this->title, $this->description, $this->priority), new ServiceRequestLifecycle($status, $this->revision + 1, new ServiceRequestTimeline($this->requestedAt, $now, 'qualified' === $status ? $now : $this->qualifiedAt, 'rejected' === $status ? $now : $this->rejectedAt, 'cancelled' === $status ? $now : $this->cancelledAt, 'converted' === $status ? $now : $this->convertedAt), $decisionReason ?? $this->decisionReason, $qualificationNote ?? $this->qualificationNote, $interventionId ?? $this->interventionId, $taskId ?? $this->taskId));
+  }
+
+  /**
+   * Method target
+   *
+   * @access private
+   *
+   * @return ServiceRequestTarget retained target and original evidence
+   */
+  private function target(): ServiceRequestTarget
+  {
+    return new ServiceRequestTarget($this->equipmentId, $this->siteId, $this->targetSnapshot, $this->originInspectionId, $this->originNonConformityId);
   }
 
   private function assertEditable(DateTimeImmutable $now): void
@@ -193,7 +362,7 @@ final readonly class ServiceRequest
   private static function uuid(string $value): void
   {
     try {
-      new Uuid($value);
+      Uuid::assertValid($value);
     } catch (InvalidValueException) {
       throw ServiceRequestException::invalid('Invalid service request identifier or reference.');
     }
@@ -247,13 +416,37 @@ final readonly class ServiceRequest
         throw ServiceRequestException::invalid('Target snapshot is too large.');
       }
 
-      /** @var array<string,mixed> $isolated */
-      $isolated = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-
-      return $isolated;
+      return self::snapshotObject(json_decode($json, true, 512, JSON_THROW_ON_ERROR));
     } catch (JsonException) {
       throw ServiceRequestException::invalid('Target snapshot must contain valid JSON values.');
     }
+  }
+
+  /**
+   * Method snapshotObject
+   *
+   * Restores the decoded object through a checked string-keyed mapping.
+   *
+   * @access private
+   *
+   * @param mixed $decoded isolated JSON result
+   *
+   * @return array<string,mixed> explicitly object-shaped isolated identity
+   */
+  private static function snapshotObject(mixed $decoded): array
+  {
+    if (!is_array($decoded)) {
+      throw ServiceRequestException::invalid('Target snapshot must be a JSON object.');
+    }
+    $snapshot = [];
+    foreach ($decoded as $key => $value) {
+      if (!is_string($key)) {
+        throw ServiceRequestException::invalid('Target snapshot must be a JSON object.');
+      }
+      $snapshot[$key] = $value;
+    }
+
+    return $snapshot;
   }
 
   private static function snapshotValue(mixed $value, int $depth): void
@@ -269,4 +462,5 @@ final readonly class ServiceRequest
       throw ServiceRequestException::invalid('Target snapshot must contain immutable JSON values.');
     }
   }
+  // #endregion
 }

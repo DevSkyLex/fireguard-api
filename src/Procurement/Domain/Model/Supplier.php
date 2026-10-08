@@ -6,18 +6,8 @@ namespace Procurement\Domain\Model;
 
 use DateTimeImmutable;
 use Procurement\Domain\Exception\ProcurementException;
+use Procurement\Domain\ValueObject\{SupplierDetails, SupplierHistory};
 use Shared\Domain\ValueObject\Uuid;
-
-use function array_is_list;
-use function count;
-use function filter_var;
-use function in_array;
-use function is_array;
-use function is_string;
-use function mb_strlen;
-use function trim;
-
-use const FILTER_VALIDATE_EMAIL;
 
 /**
  * Class Supplier
@@ -28,13 +18,33 @@ use const FILTER_VALIDATE_EMAIL;
  */
 final class Supplier
 {
+  /**
+   * Property createdAt
+   */
+  public readonly DateTimeImmutable $createdAt;
+
   // #region Properties
   /**
-   * Property contacts
+   * Property details
    *
-   * @var list<array{name:string,email:?string,phone:?string,role:?string}>
+   * Holds validated contact data adopted together by each mutation.
    */
-  private array $contacts;
+  private SupplierDetails $details;
+
+  /**
+   * Property updatedAt
+   */
+  private DateTimeImmutable $updatedAt;
+
+  /**
+   * Property archivedAt
+   */
+  private ?DateTimeImmutable $archivedAt;
+
+  /**
+   * Property revision
+   */
+  private int $revision;
   // #endregion
 
   // #region Constructor
@@ -47,42 +57,20 @@ final class Supplier
    *
    * @param string $id the stable supplier UUID
    * @param string $organizationId the owning organization UUID
-   * @param string $name the display name
-   * @param ?string $code the organization's external supplier reference
-   * @param ?string $email the main supplier email
-   * @param ?string $phone the main supplier telephone
-   * @param array<mixed> $contacts the declarative contact records
-   * @param ?DateTimeImmutable $archivedAt the archival instant
-   * @param DateTimeImmutable $createdAt the creation instant
-   * @param DateTimeImmutable $updatedAt the latest update instant
-   * @param int $revision the positive resource revision
+   * @param SupplierDetails $details the details value
+   * @param SupplierHistory $history the history value
    *
    * @return void
    */
-  private function __construct(
-    public readonly string $id,
-    public readonly string $organizationId,
-    private string $name,
-    private ?string $code,
-    private ?string $email,
-    private ?string $phone,
-    array $contacts,
-    private ?DateTimeImmutable $archivedAt,
-    public readonly DateTimeImmutable $createdAt,
-    private DateTimeImmutable $updatedAt,
-    private int $revision,
-  ) {
-    new Uuid($id);
-    new Uuid($organizationId);
-    if ($revision < 1 || $updatedAt < $createdAt || (null !== $archivedAt && ($archivedAt < $createdAt || $archivedAt > $updatedAt))) {
-      throw ProcurementException::invalid('Supplier revision and historical timestamps are inconsistent.');
-    }
-
-    $this->name = self::normalizeName($name);
-    $this->code = self::normalizeText($code, 80);
-    $this->email = self::normalizeEmail($email);
-    $this->phone = self::normalizeText($phone, 40);
-    $this->contacts = self::normalizeContacts($contacts);
+  private function __construct(public readonly string $id, public readonly string $organizationId, SupplierDetails $details, SupplierHistory $history)
+  {
+    Uuid::assertValid($id);
+    Uuid::assertValid($organizationId);
+    $this->details = $details;
+    $this->archivedAt = $history->archivedAt;
+    $this->createdAt = $history->createdAt;
+    $this->updatedAt = $history->updatedAt;
+    $this->revision = $history->revision;
   }
   // #endregion
 
@@ -96,18 +84,14 @@ final class Supplier
    *
    * @param string $id the supplier UUID
    * @param string $organizationId the organization UUID
-   * @param string $name the supplier name
-   * @param ?string $code the external supplier reference
-   * @param ?string $email the main email
-   * @param ?string $phone the main telephone
-   * @param array<mixed> $contacts the supplier's contacts
    * @param DateTimeImmutable $now the creation instant
+   * @param SupplierDetails $details the details value
    *
    * @return self the active supplier
    */
-  public static function create(string $id, string $organizationId, string $name, ?string $code, ?string $email, ?string $phone, array $contacts, DateTimeImmutable $now): self
+  public static function create(string $id, string $organizationId, SupplierDetails $details, DateTimeImmutable $now): self
   {
-    return new self($id, $organizationId, $name, $code, $email, $phone, $contacts, null, $now, $now, 1);
+    return new self($id, $organizationId, $details, new SupplierHistory(null, $now, $now, 1));
   }
 
   /**
@@ -119,21 +103,14 @@ final class Supplier
    *
    * @param string $id the supplier UUID
    * @param string $organizationId the organization UUID
-   * @param string $name the supplier name
-   * @param ?string $code the external supplier reference
-   * @param ?string $email the main email
-   * @param ?string $phone the main telephone
-   * @param array<mixed> $contacts the supplier's contacts
-   * @param ?DateTimeImmutable $archivedAt the archival instant
-   * @param DateTimeImmutable $createdAt the creation instant
-   * @param DateTimeImmutable $updatedAt the latest update instant
-   * @param int $revision the positive resource revision
+   * @param SupplierDetails $details the details value
+   * @param SupplierHistory $history the history value
    *
    * @return self the restored supplier
    */
-  public static function reconstitute(string $id, string $organizationId, string $name, ?string $code, ?string $email, ?string $phone, array $contacts, ?DateTimeImmutable $archivedAt, DateTimeImmutable $createdAt, DateTimeImmutable $updatedAt, int $revision): self
+  public static function reconstitute(string $id, string $organizationId, SupplierDetails $details, SupplierHistory $history): self
   {
-    return new self($id, $organizationId, $name, $code, $email, $phone, $contacts, $archivedAt, $createdAt, $updatedAt, $revision);
+    return new self($id, $organizationId, $details, $history);
   }
 
   /**
@@ -161,17 +138,7 @@ final class Supplier
       throw ProcurementException::conflict('An archived supplier cannot be changed.');
     }
 
-    $name = self::normalizeName($name);
-    $code = self::normalizeText($code, 80);
-    $email = self::normalizeEmail($email);
-    $phone = self::normalizeText($phone, 40);
-    $contacts = self::normalizeContacts($contacts);
-
-    $this->name = $name;
-    $this->code = $code;
-    $this->email = $email;
-    $this->phone = $phone;
-    $this->contacts = $contacts;
+    $this->details = new SupplierDetails($name, $code, $email, $phone, $contacts);
     $this->touch($now);
   }
 
@@ -208,7 +175,7 @@ final class Supplier
    */
   public function name(): string
   {
-    return $this->name;
+    return $this->details->name;
   }
 
   /**
@@ -220,7 +187,7 @@ final class Supplier
    */
   public function code(): ?string
   {
-    return $this->code;
+    return $this->details->code;
   }
 
   /**
@@ -232,7 +199,7 @@ final class Supplier
    */
   public function email(): ?string
   {
-    return $this->email;
+    return $this->details->email;
   }
 
   /**
@@ -244,7 +211,7 @@ final class Supplier
    */
   public function phone(): ?string
   {
-    return $this->phone;
+    return $this->details->phone;
   }
 
   /**
@@ -256,7 +223,7 @@ final class Supplier
    */
   public function contacts(): array
   {
-    return $this->contacts;
+    return $this->details->contacts;
   }
 
   /**
@@ -354,99 +321,5 @@ final class Supplier
     ++$this->revision;
   }
 
-  /**
-   * Method normalizeName
-   *
-   * @access private
-   *
-   * @param string $value the raw display name
-   *
-   * @return string the required normalized name
-   */
-  private static function normalizeName(string $value): string
-  {
-    $value = trim($value);
-    if ('' === $value || mb_strlen($value) > 160) {
-      throw ProcurementException::invalid('Supplier and contact names must contain 1 to 160 characters.');
-    }
-
-    return $value;
-  }
-
-  /**
-   * Method normalizeText
-   *
-   * @access private
-   *
-   * @param ?string $value the nullable raw text
-   * @param int $maximum the maximum character count
-   *
-   * @return ?string the normalized text
-   */
-  private static function normalizeText(?string $value, int $maximum): ?string
-  {
-    $value = null === $value ? null : trim($value);
-    if (null !== $value && mb_strlen($value) > $maximum) {
-      throw ProcurementException::invalid('Supplier text exceeds its maximum length.');
-    }
-
-    return '' === $value ? null : $value;
-  }
-
-  /**
-   * Method normalizeEmail
-   *
-   * @access private
-   *
-   * @param ?string $value the nullable email
-   *
-   * @return ?string the normalized email
-   */
-  private static function normalizeEmail(?string $value): ?string
-  {
-    $value = self::normalizeText($value, 254);
-    if (null !== $value && false === filter_var($value, FILTER_VALIDATE_EMAIL)) {
-      throw ProcurementException::invalid('Invalid supplier email.');
-    }
-
-    return $value;
-  }
-
-  /**
-   * Method normalizeContacts
-   *
-   * @access private
-   *
-   * @param array<mixed> $contacts the raw contact list
-   *
-   * @return list<array{name:string,email:?string,phone:?string,role:?string}> the validated contacts
-   */
-  private static function normalizeContacts(array $contacts): array
-  {
-    if (!array_is_list($contacts) || count($contacts) > 50) {
-      throw ProcurementException::invalid('Supplier contacts must be a list of at most 50 contacts.');
-    }
-
-    $normalized = [];
-    foreach ($contacts as $contact) {
-      if (!is_array($contact) || !is_string($contact['name'] ?? null)) {
-        throw ProcurementException::invalid('Each supplier contact requires a name.');
-      }
-      foreach ($contact as $key => $value) {
-        if (!in_array($key, ['name', 'email', 'phone', 'role'], true) || (null !== $value && !is_string($value))) {
-          throw ProcurementException::invalid('Invalid supplier contact field.');
-        }
-      }
-      /** @var array{name:string,email?:?string,phone?:?string,role?:?string} $contact */
-      $normalized[] = [
-        'name' => self::normalizeName($contact['name']),
-        'email' => self::normalizeEmail($contact['email'] ?? null),
-        'phone' => self::normalizeText($contact['phone'] ?? null, 40),
-        'role' => self::normalizeText($contact['role'] ?? null, 80),
-      ];
-    }
-
-    return $normalized;
-  }
   // #endregion
 }

@@ -28,6 +28,19 @@ use const IMAGETYPE_WEBP;
  */
 final readonly class ImageInputValidationAdapter implements ImageInputValidationPort
 {
+  // #region Constants
+  /**
+   * Constant INVALID_GIF_CONTENT.
+   *
+   * Shared failure text for malformed GIF blocks.
+   *
+   * @since 1.1.0
+   *
+   * @var string INVALID_GIF_CONTENT
+   */
+  private const string INVALID_GIF_CONTENT = 'Invalid GIF image content.';
+  // #endregion
+
   // #region Methods
   /**
    * Method validate
@@ -106,7 +119,7 @@ final readonly class ImageInputValidationAdapter implements ImageInputValidation
   {
     $length = strlen($contents);
     if ($length < 13) {
-      throw new InvalidImageInputException('Invalid GIF image content.');
+      throw new InvalidImageInputException(self::INVALID_GIF_CONTENT);
     }
 
     $packed = ord($contents[10]);
@@ -122,7 +135,7 @@ final readonly class ImageInputValidationAdapter implements ImageInputValidation
       }
 
       if (',' !== $marker || $offset + 10 > $length) {
-        throw new InvalidImageInputException('Invalid GIF image content.');
+        throw new InvalidImageInputException(self::INVALID_GIF_CONTENT);
       }
 
       $descriptor = substr($contents, $offset + 1, 9);
@@ -139,7 +152,7 @@ final readonly class ImageInputValidationAdapter implements ImageInputValidation
       return;
     }
 
-    throw new InvalidImageInputException('Invalid GIF image content.');
+    throw new InvalidImageInputException(self::INVALID_GIF_CONTENT);
   }
 
   /**
@@ -169,7 +182,7 @@ final readonly class ImageInputValidationAdapter implements ImageInputValidation
       $offset += $blockLength;
     }
 
-    throw new InvalidImageInputException('Invalid GIF image content.');
+    throw new InvalidImageInputException(self::INVALID_GIF_CONTENT);
   }
   // #endregion
 }

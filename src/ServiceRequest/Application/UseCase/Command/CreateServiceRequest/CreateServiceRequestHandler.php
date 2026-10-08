@@ -9,6 +9,7 @@ use ServiceRequest\Application\Port\Outbound\{ServiceRequestOriginPort, ServiceR
 use ServiceRequest\Application\Service\{ServiceRequestAccessGuard, ServiceRequestTargetGuard};
 use ServiceRequest\Domain\Event\ServiceRequestChangedEvent;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
+use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestTarget};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort, UuidGeneratorPort};
 
@@ -27,7 +28,7 @@ final readonly class CreateServiceRequestHandler implements CommandHandler
       $snapshot = $this->targets->snapshot($command->organizationId, $command->equipmentId, $command->siteId);
       $siteId = $snapshot['site']['id'] ?? null;
       $this->origins->assertMatches($command->organizationId, $command->equipmentId, $siteId, $command->originInspectionId, $command->originNonConformityId);
-      $request = ServiceRequest::create($this->ids->generate(), $command->organizationId, $command->equipmentId, $siteId, $snapshot, $command->title, $command->description, $this->clock->now(), $command->priority, $command->originInspectionId, $command->originNonConformityId);
+      $request = ServiceRequest::create($this->ids->generate(), $command->organizationId, new ServiceRequestTarget($command->equipmentId, $siteId, $snapshot, $command->originInspectionId, $command->originNonConformityId), new ServiceRequestContent($command->title, $command->description, $command->priority), $this->clock->now());
       $this->requests->save($request);
       $this->events->dispatch(new ServiceRequestChangedEvent($request->organizationId, $request->id, 'requested', $request->revision, $request->updatedAt));
 

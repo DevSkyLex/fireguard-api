@@ -445,14 +445,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
    */
   private function applyScalarFields(EquipmentRecord $record, array $patch): void
   {
-    if (array_key_exists('type', $patch)) {
-      $type = $patch['type'];
-      if (!is_string($type) || '' === $type) {
-        throw new InterventionConflictException('Equipment type cannot be empty.');
-      }
-      $this->typeCatalog?->validateAvailableType($this->organizationId($record->organization), $type, $record->type);
-      $record->type = $type;
-    }
+    $this->applyType($record, $patch);
 
     foreach (['subType', 'brand', 'model', 'serialNumber', 'locationLabel'] as $property) {
       if (array_key_exists($property, $patch)) {
@@ -464,6 +457,48 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       }
     }
 
+    $this->applyStatus($record, $patch);
+    $this->applyIdentity($record, $patch);
+  }
+
+  /**
+   * Method applyType
+   *
+   * Validates a submitted catalog type while preserving an unchanged historical type.
+   *
+   * @access private
+   *
+   * @param EquipmentRecord $record equipment being changed
+   * @param array<string, mixed> $patch submitted changes
+   *
+   * @return void
+   */
+  private function applyType(EquipmentRecord $record, array $patch): void
+  {
+    if (array_key_exists('type', $patch)) {
+      $type = $patch['type'];
+      if (!is_string($type) || '' === $type) {
+        throw new InterventionConflictException('Equipment type cannot be empty.');
+      }
+      $this->typeCatalog?->validateAvailableType($this->organizationId($record->organization), $type, $record->type);
+      $record->type = $type;
+    }
+  }
+
+  /**
+   * Method applyStatus
+   *
+   * Accepts only known statuses before the published transition checks run.
+   *
+   * @access private
+   *
+   * @param EquipmentRecord $record equipment being changed
+   * @param array<string, mixed> $patch submitted changes
+   *
+   * @return void
+   */
+  private function applyStatus(EquipmentRecord $record, array $patch): void
+  {
     if (array_key_exists('status', $patch)) {
       $status = $patch['status'];
       if (!is_string($status) || !in_array($status, self::STATUSES, true)) {
@@ -471,14 +506,27 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       }
       $record->status = $status;
     }
+  }
+
+  /**
+   * Method applyIdentity
+   *
+   * Revalidates the complete declarative identity while preserving omitted fields and explicit nulls.
+   *
+   * @access private
+   *
+   * @param EquipmentRecord $record equipment being changed
+   * @param array<string, mixed> $patch submitted changes
+   *
+   * @return void
+   */
+  private function applyIdentity(EquipmentRecord $record, array $patch): void
+  {
     $identityFields = ['name', 'assetCode', 'criticality'];
     foreach ($identityFields as $field) {
       if (array_key_exists($field, $patch) && null !== $patch[$field] && !is_string($patch[$field])) {
         throw new InterventionConflictException('Equipment identity fields must be strings or null.');
       }
-    }
-    if (array_key_exists('technicalProperties', $patch) && !is_array($patch['technicalProperties'])) {
-      throw new InterventionConflictException('Equipment technicalProperties must be a list.');
     }
     $properties = $record->technicalProperties;
     if (array_key_exists('technicalProperties', $patch)) {

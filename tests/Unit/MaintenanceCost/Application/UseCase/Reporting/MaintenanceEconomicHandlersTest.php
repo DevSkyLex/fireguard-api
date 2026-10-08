@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\MaintenanceCost\Application\UseCase\Reporting;
 
 use DateTimeImmutable;
-use Intervention\Application\Contract\Publication\{InterventionEconomicContext, InterventionEconomicContextPage};
+use Intervention\Application\Contract\Publication\{InterventionEconomicContext, InterventionEconomicContextPage, InterventionEconomicSourceFilter};
 use Intervention\Application\Port\Inbound\InterventionPublicationFactsPort;
 use Intervention\Application\Port\Outbound\{InterventionEconomicScopePort, InterventionEquipmentSnapshotPort};
 use Inventory\Application\Port\Inbound\InventoryInterventionResourcesPort;
@@ -99,7 +99,7 @@ final class MaintenanceEconomicHandlersTest extends TestCase
   public function testDirectoryScopeAndSearchAreForwardedUnderFinanceReadOnly(): void
   {
     $work = $this->createMock(InterventionPublicationFactsPort::class);
-    $work->expects(self::once())->method('economicPage')->with(self::ORG, 2, 10, 'repair', null, null, null, null, null, [])->willReturn(new InterventionEconomicContextPage([], 15, 2, 10));
+    $work->expects(self::once())->method('economicPage')->with(self::ORG, 2, 10, new InterventionEconomicSourceFilter(search: 'repair'))->willReturn(new InterventionEconomicContextPage([], 15, 2, 10));
     $result = new ListMaintenanceEconomicDossiersHandler($this->access(OrganizationAccessDecision::GRANTED), $work, $this->directory())(new ListMaintenanceEconomicDossiersQuery('actor', self::ORG, 2, 10, 'repair'));
     self::assertSame(15, $result->page->totalItems);
     self::assertSame(2, $result->page->page);

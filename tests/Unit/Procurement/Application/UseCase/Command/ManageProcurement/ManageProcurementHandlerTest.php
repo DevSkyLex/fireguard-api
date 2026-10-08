@@ -22,7 +22,7 @@ use Procurement\Application\Service\ProcurementProjection;
 use Procurement\Application\UseCase\Command\ManageProcurement\{ManageProcurementCommand, ManageProcurementHandler};
 use Procurement\Domain\Exception\ProcurementException;
 use Procurement\Domain\Model\{PurchaseOrder, Supplier};
-use Procurement\Domain\ValueObject\ProcurementLine;
+use Procurement\Domain\ValueObject\{ProcurementGoodsIdentity, ProcurementLine, SupplierDetails};
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, UuidGeneratorPort};
 
 use function array_key_exists;
@@ -94,7 +94,7 @@ final class ManageProcurementHandlerTest extends TestCase
   protected function setUp(): void
   {
     $this->now = new DateTimeImmutable('2026-10-06T12:00:00Z');
-    $this->supplier = Supplier::create(self::SUPPLIER, self::ORG, 'Fire parts', null, null, null, [], $this->now);
+    $this->supplier = Supplier::create(self::SUPPLIER, self::ORG, new SupplierDetails('Fire parts', null, null, null, []), $this->now);
     $this->order = PurchaseOrder::create(self::ORDER, self::ORG, self::SUPPLIER, 'EUR', 'Parts purchase', [$this->partLine()], $this->now);
     $this->order->order(1, $this->now);
     $this->repository = $this->createMock(ProcurementRepositoryPort::class);
@@ -140,6 +140,7 @@ final class ManageProcurementHandlerTest extends TestCase
     $this->events->expects(self::once())->method('dispatch');
     $input = ['clientOperationId' => self::OPERATION, 'name' => 'Supplier', 'contacts' => []];
     $first = ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_supplier', payload: $input));
+    self::assertSame('6b36cf32ff25ba666e12d79fd5c8c2f6c3eb1be57636bbfd282d19da0b6de127', $this->operations[self::OPERATION]->fingerprint);
     $retry = ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_supplier', payload: ['contacts' => [], 'name' => 'Supplier', 'clientOperationId' => strtoupper(self::OPERATION)]));
     self::assertSame(self::RECEIPT, $first->data['id']);
     self::assertSame($first->data, $retry->data);
@@ -168,6 +169,7 @@ final class ManageProcurementHandlerTest extends TestCase
     $this->events->expects(self::once())->method('dispatch');
     $input = ['clientOperationId' => self::OPERATION, 'name' => 'Draft', 'supplierId' => self::SUPPLIER, 'lines' => [['kind' => 'part', 'partId' => self::PART, 'quantity' => '2']]];
     $first = ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_order', payload: $input));
+    self::assertSame('b052703bfdd39e7f299ec9d711a3db1097fc2cb33b2894f631c47cc6f330ee8e', $this->operations[self::OPERATION]->fingerprint);
     $input['supplierId'] = strtoupper(self::SUPPLIER);
     $input['lines'][0]['partId'] = strtoupper(self::PART);
     $retry = ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_order', payload: $input));
@@ -195,6 +197,7 @@ final class ManageProcurementHandlerTest extends TestCase
   {
     $this->stock->expects(self::once())->method('receive')->with(self::callback(static fn (InventoryReceiptRequest $request): bool => '1.250000' === $request->quantity && '4.250000' === $request->unitCost && self::RECEIPT === $request->sourceReceiptId))->willReturn(new InventoryReceiptResult(self::OPERATION, '1.250000', '4.250000', '5.312500'));
     $first = ($this->handler)($this->receive());
+    self::assertSame('1ffcd427a7f93355ea6b3d672ffa7a1b2b5b2e230d190b5375261fa48a9142fa', $this->operations[self::OPERATION]->fingerprint);
     $replay = ($this->handler)($this->receive());
     self::assertSame('1.250000', $first->data['quantity']);
     self::assertTrue($replay->replayed);
@@ -373,12 +376,12 @@ final class ManageProcurementHandlerTest extends TestCase
 
   private function partLine(): ProcurementLine
   {
-    return ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '2.500000', '4.250000');
+    return ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), '2.500000', '4.250000');
   }
 
   private function hardwareReceipt(): void
   {
-    $line = ProcurementLine::create(self::LINE, 'equipment_to_individualize', null, 'fire_extinguisher', ['name' => 'Reserve extinguisher'], '1.000000', null);
+    $line = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('equipment_to_individualize', null, 'fire_extinguisher', ['name' => 'Reserve extinguisher']), '1.000000', null);
     $this->order = PurchaseOrder::create(self::ORDER, self::ORG, self::SUPPLIER, 'EUR', 'Reserve assets', [$line], $this->now);
     $this->order->order(1, $this->now);
     $this->order->recordReceipt(2, self::LINE, '1.000000', $this->now);

@@ -19,6 +19,7 @@ use ServiceRequest\Application\UseCase\Command\ConvertServiceRequest\{ConvertSer
 use ServiceRequest\Domain\Event\ServiceRequestChangedEvent;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
+use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestTarget};
 use ServiceRequest\Domain\ValueObject\ServiceRequestConversionReceipt;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
 
@@ -403,7 +404,7 @@ final class ConvertServiceRequestHandlerTest extends TestCase
 
   private static function requested(): ServiceRequest
   {
-    return ServiceRequest::create(self::REQUEST, self::ORGANIZATION, self::EQUIPMENT, self::SITE, ['equipment' => ['id' => self::EQUIPMENT, 'name' => 'Extinguisher', 'assetCode' => 'EXT-01', 'status' => 'operational'], 'site' => ['id' => self::SITE, 'name' => 'Warehouse'], 'customer' => ['id' => self::OTHER_REQUEST, 'name' => 'Building owner']], 'Repair extinguisher', 'Pressure gauge damaged', self::now());
+    return ServiceRequest::create(self::REQUEST, self::ORGANIZATION, new ServiceRequestTarget(self::EQUIPMENT, self::SITE, ['equipment' => ['id' => self::EQUIPMENT, 'name' => 'Extinguisher', 'assetCode' => 'EXT-01', 'status' => 'operational'], 'site' => ['id' => self::SITE, 'name' => 'Warehouse'], 'customer' => ['id' => self::OTHER_REQUEST, 'name' => 'Building owner']], null, null), new ServiceRequestContent('Repair extinguisher', 'Pressure gauge damaged', 'normal'), self::now());
   }
 
   private static function qualified(): ServiceRequest

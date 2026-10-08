@@ -95,6 +95,9 @@ handlers are the single business entry points for permissions, target validation
 revision checks and transaction coordination. Presentation only translates DTOs,
 commands, queries and errors. PostgreSQL persistence uses the explicit main
 manager, scoped reads, row locks, compare-and-swap updates and receipt uniqueness.
+Creation and restoration group target/origin evidence, content, lifecycle and dates
+in typed domain values. Restoration preserves every historical field without
+reapplying creation normalization, and isolates retained snapshot JSON.
 
 Equipment implements `ServiceRequestEquipmentTargetPort`; Facility implements
 `ServiceRequestSiteTargetPort` using its published hierarchy and Customer's public
@@ -118,7 +121,9 @@ routes, QR identities and offline queues.
 ## Testing
 
 Domain tests cover lifecycle, immutable targets, text bounds, valid identities,
-chronology and exact receipt identity. PostgreSQL repository tests exercise scoped
+chronology, complete raw historical restoration and exact receipt identity.
+Transport tests preserve omitted versus explicit-null patch fields and parsed
+optimistic preconditions. PostgreSQL repository tests exercise scoped
 filters, stable pagination, row locking, revisions, uniqueness and atomic rollback.
 Handler tests cover denied access before persistence, explicit qualification,
 retained site/customer identity, matching and conflicting replay, collisions and
