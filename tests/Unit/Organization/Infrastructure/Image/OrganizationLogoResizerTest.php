@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Infrastructure\Image;
 
 use Organization\Infrastructure\Image\OrganizationLogoResizer;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Image\InvalidImageInputException;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Infrastructure\Image\ImageInputValidationAdapter;
+use Tests\Support\Image\ImageFixtures;
 
+use function getimagesizefromstring;
 use function imagecreatetruecolor;
 use function imagepng;
 use function ob_get_clean;
@@ -66,7 +70,7 @@ final class OrganizationLogoResizerTest extends TestCase
           && 'WEBP' === substr($contents, 8, 4)),
       );
 
-    new OrganizationLogoResizer($fileStorage)->resize(self::ORGANIZATION_ID, $this->pngBytes(1024, 768));
+    new OrganizationLogoResizer($fileStorage, new ImageInputValidationAdapter())->resize(self::ORGANIZATION_ID, $this->pngBytes(1024, 768));
   }
 
   #[Test]
@@ -80,7 +84,7 @@ final class OrganizationLogoResizerTest extends TestCase
         $written = $contents;
       });
 
-    new OrganizationLogoResizer($fileStorage)->resize(self::ORGANIZATION_ID, $this->pngBytes(2048, 2048));
+    new OrganizationLogoResizer($fileStorage, new ImageInputValidationAdapter())->resize(self::ORGANIZATION_ID, $this->pngBytes(2048, 2048));
 
     self::assertNotNull($written);
     self::assertLessThan(
@@ -100,7 +104,7 @@ final class OrganizationLogoResizerTest extends TestCase
       ->method('delete')
       ->with(OrganizationLogoResizer::pathFor(self::ORGANIZATION_ID));
 
-    new OrganizationLogoResizer($fileStorage)->delete(self::ORGANIZATION_ID);
+    new OrganizationLogoResizer($fileStorage, new ImageInputValidationAdapter())->delete(self::ORGANIZATION_ID);
   }
 
   #[Test]
@@ -111,7 +115,85 @@ final class OrganizationLogoResizerTest extends TestCase
     $fileStorage->method('exists')->willReturn(false);
     $fileStorage->expects(self::never())->method('delete');
 
-    new OrganizationLogoResizer($fileStorage)->delete(self::ORGANIZATION_ID);
+    new OrganizationLogoResizer($fileStorage, new ImageInputValidationAdapter())->delete(self::ORGANIZATION_ID);
+  }
+
+  #[Test]
+  public function testRejectsOversizedGeometryBeforeAnyStorageMutation(): void
+  {
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+    $fileStorage->expects(self::never())->method('delete');
+
+    $this->expectException(InvalidImageInputException::class);
+    $this->expectExceptionMessage('Image exceeds the 4194304 pixel limit.');
+
+    new OrganizationLogoResizer($fileStorage, new ImageInputValidationAdapter())->resize(self::ORGANIZATION_ID, ImageFixtures::pngHeader(2048, 2049));
+  }
+
+  #[Test]
+  #[DataProvider('undecodableSources')]
+  public function testRejectsAnUndecodableImageBeforeAnyStorageMutation(string $contents): void
+  {
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+    $fileStorage->expects(self::never())->method('delete');
+
+    $this->expectException(InvalidImageInputException::class);
+    $this->expectExceptionMessage('Unable to decode the uploaded image.');
+
+    new OrganizationLogoResizer($fileStorage, new ImageInputValidationAdapter())->resize(self::ORGANIZATION_ID, $contents);
+  }
+
+  #[Test]
+  #[DataProvider('acceptedSources')]
+  public function testAcceptedSourcesProduceAStaticWebpLogo(string $contents, int $expectedDimension): void
+  {
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())
+      ->method('write')
+      ->willReturnCallback(static function (string $path, string $contents) use ($expectedDimension): void {
+        $dimensions = getimagesizefromstring($contents);
+        self::assertNotFalse($dimensions);
+        self::assertSame([$expectedDimension, $expectedDimension], [$dimensions[0], $dimensions[1]]);
+        self::assertSame('image/webp', $dimensions['mime']);
+        self::assertStringNotContainsString('ANIM', $contents);
+        self::assertStringNotContainsString('ANMF', $contents);
+      });
+
+    new OrganizationLogoResizer($fileStorage, new ImageInputValidationAdapter())->resize(self::ORGANIZATION_ID, $contents);
+  }
+
+  /**
+   * Method undecodableSources
+   *
+   * Exercises sources with bounded headers that native decoding must reject.
+   *
+   * @access public
+   *
+   * @return iterable<string, array{string}> the malformed image sources
+   */
+  public static function undecodableSources(): iterable
+  {
+    yield 'truncated PNG pixels' => [ImageFixtures::pngHeader(1, 1)];
+    yield 'WebP lossy canvas mismatch' => [ImageFixtures::webpWithCanvas(false, 1)];
+    yield 'WebP lossless canvas mismatch' => [ImageFixtures::webpWithCanvas(true, 1)];
+  }
+
+  /**
+   * Method acceptedSources
+   *
+   * Exercises first-frame GIF conversion and consistent extended WebP sources.
+   *
+   * @access public
+   *
+   * @return iterable<string, array{string, int}> the valid source and output dimension
+   */
+  public static function acceptedSources(): iterable
+  {
+    yield 'animated GIF' => [ImageFixtures::animatedGif(), 1];
+    yield 'WebP lossy matching canvas' => [ImageFixtures::webpWithCanvas(false, 32), 32];
+    yield 'WebP lossless matching canvas' => [ImageFixtures::webpWithCanvas(true, 32), 32];
   }
 
   /**

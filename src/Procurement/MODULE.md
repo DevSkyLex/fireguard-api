@@ -33,7 +33,7 @@ All routes are under `/api/organizations/{organizationId}/procurement` and requi
 
 Collections use Hydra pagination, default 30 and maximum 100. Supplier filters include search and archived: omission or false selects active suppliers, true selects archived suppliers, and explicit all selects both with the same scoped count and pagination. Order filters include status and supplierId. All resource references are resolved in the same organization.
 
-Mutations of an existing resource require `If-Match: "revision-N"`. Receipt creation uses the order revision; individualization and return declaration use the receipt revision; return reconciliation uses the return revision. A matching saved clientOperationId replays before the stale revision check. UUID representations are normalized to lowercase.
+Mutations of an existing resource require `If-Match: "revision-N"`. Receipt creation uses the order revision; individualization and return declaration use the receipt revision; return reconciliation uses the return revision. A matching saved clientOperationId replays before the stale revision check. UUID representations are normalized to lowercase. Supplier and purchase-draft creation also accept clientOperationId: the web client retains it across transport retries, the main transaction saves the created resource and its operation receipt atomically, and an exact retry returns the same resource with replayed=true without another event or revision. Changed submitted values or reuse across operation kinds returns 409. Omitted creation keys remain accepted for older callers; those callers cannot recover a lost response idempotently.
 
 ## Flows
 
@@ -51,7 +51,7 @@ A physical supply return preserves its quantity and reason even when available c
 
 Presentation translates DTOs into CommandBusPort and QueryBusPort messages. ManageProcurementHandler and ReadProcurementHandler are the sole mutation and read entry points. Domain models enforce order lifecycle, exact quantities, line separation, contact validity and optimistic revisions.
 
-ProcurementRepository uses an explicitly named main DBAL connection. It scopes every lookup and serializes mutations with a transaction-scoped organization advisory lock. Physical receipt and return identity fields are immutable on repository updates. Stable operation declarations and motivated return evidence are retained.
+ProcurementRepository uses an explicitly named main DBAL connection. It scopes every lookup and serializes mutations with a transaction-scoped organization advisory lock. Physical receipt and return identity fields are immutable on repository updates. Stable operation declarations and motivated return evidence are retained. Creation receipts share the organization-scoped operation ledger; its historical receipt_id field identifies the created supplier/order for creation kinds and a physical receipt for delivery kinds. Object-key order and UUID spelling do not change a creation fingerprint; generated order-line identities remain attached to the first saved draft. All stock bridges acquire currency before Inventory operation, reference and balance locks; intervention stock paths acquire their publication fence/parent first.
 
 Cross-module access uses published Application contracts and ports: InventoryStockReceiptPort, InventoryPartDirectoryPort, EquipmentReserveReceiptPort, MaintenanceCurrencyPort and OrganizationAuthorizationPort. The module never reads sibling persistence records during production execution.
 
@@ -61,11 +61,11 @@ Cross-module access uses published Application contracts and ports: InventorySto
 
 The module requires `organization.procurement.read/manage`. Part receipts, supply returns and reconciliation additionally require `organization.inventory.manage`; individualization requires `organization.equipment.write`. Cost visibility independently requires `organization.maintenance_cost.read`; explicitly writing or clearing a unitCost requires `organization.maintenance_cost.manage`. Hidden prices are omitted from projections and DTOs; an authorized unknown cost remains null.
 
-Additive main migrations 20261006112000–20261006112002 add suppliers, orders, physical receipts, immutable operation keys, returns and scoped indexes. UTC timestamps carry datetime_immutable type comments. Decimal columns use NUMERIC(24,6).
+Additive main migrations 20261006112000–20261006112002 add suppliers, orders, physical receipts, immutable operation keys, returns and scoped indexes. Additive main migration Version20261008121000 widens supplier codes to the validated 80-character limit. Its rollback is refused by PostgreSQL while references longer than 64 characters remain, preserving retained supplier data. UTC timestamps carry datetime_immutable type comments. Decimal columns use NUMERIC(24,6).
 
 ## Testing
 
-Domain tests cover supplier contacts/archive, order transitions, fractional consumables, integer equipment, bounded receipts and returns. Handler and transport tests cover authority, isolated financial visibility, exact decimals, optimistic revision, operation replay and UUID aliases.
+Domain tests cover supplier contacts/archive, order transitions, fractional consumables, integer equipment, bounded receipts and returns. Handler and transport tests cover authority, isolated financial visibility, exact decimals, optimistic revision, creation and physical-operation replay, changed creation payload conflicts, UUID aliases and supplier-code boundaries 64/65/80/81.
 
 PostgreSQL integration tests use independent connections for organization locks, the last quantity, retained declarations, transaction rollback and outbox visibility. Functional API tests exercise real inventory receipt/return bridges and real quota-backed equipment individualization, including partial delivery, archived suppliers, hidden costs, replay, cancellation and organization denial.
 

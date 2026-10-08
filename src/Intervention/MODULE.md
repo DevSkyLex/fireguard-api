@@ -108,6 +108,19 @@ deleted while retained children, assignments or intervention resources still
 use them. The 409 `intervention_draft_dependencies` response provides typed
 dependency counts, without disclosing inaccessible resource identifiers.
 
+Hard DELETE of a draft or abandoned intervention, or a prepared task, refuses with
+409 when retained time, expense, financial preparation,
+inventory declaration/movement or preventive occurrence references exist. The
+check runs through owner-published Application ports in the main mutation
+transaction. Deletion takes the Inventory intervention fence before the parent
+row lock, so concurrent physical declarations cannot be orphaned. Expense writes
+share the parent lock. Task occurrence identities remain retained after a retry
+moves the current occurrence to a newer intervention. Empty drafts remain deletable.
+
+Retention regressions use real financial, physical and preventive bridges. Two
+independent PostgreSQL sessions prove that DELETE waits for an uncommitted expense
+or consumption, then refuses after the fact commits for both parent and task scopes.
+
 Publication scheduling commits the publication row and its `main_outbox` command
 together. Execution commits all resource mutations, the completed status and its
 durable event in one main transaction. A failure rolls these writes back before
@@ -195,7 +208,9 @@ independent of the requested page and filters.
 
 | Method | Path                                                       | Description                                                       |
 | ------ | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| GET    | `/intervention-work-items/{taskId}/time-entries`           | Authorized entries and their retained revisions                   |
+| GET    | `/intervention-work-items/{taskId}/time-entries`           | Authorized current entries, paginated with exact total and next page |
+| GET    | `/intervention-work-items/{taskId}/time-entries/{entryId}/versions` | Retained revisions, newest first with an exclusive revision cursor |
+| GET    | `/intervention-work-items/{taskId}/time-entries/{entryId}` | One authorized current entry, including conflict-review server values |
 | POST   | `/intervention-work-items/{taskId}/time-entries`           | Record actual work with a stable client entry identifier          |
 | PATCH  | `/intervention-work-items/{taskId}/time-entries/{entryId}` | Correct an entry against its own `If-Match` revision              |
 | DELETE | `/intervention-work-items/{taskId}/time-entries/{entryId}` | Cancel an entry against its own revision without deleting history |
@@ -208,6 +223,23 @@ organization dates no later than today, and notes are optional. Entries retain
 the beneficiary, the acting author and every correction version. Cancelled time
 no longer contributes to actual totals but still prevents physical deletion of
 its task and parent intervention.
+
+Journal reads accept a positive `page` (default 1) and `itemsPerPage` from 1 to 100
+(default 30), and return `totalItems` and nullable `nextPage`. Optional `ownOnly`
+(default false) limits both the entries and exact total to the current member
+before pagination, even when the caller has time management rights. Omitting it
+or passing false never expands a caller's authorized beneficiary scope. Malformed
+scope selectors return 400. Current reads and
+mutation responses expose only the latest inline `versions` row, `totalVersions`
+and nullable `nextBeforeRevision`; they never hydrate older history. The history
+endpoint accepts `beforeRevision` (exclusive, omitted for newest) and the same
+bounded `itemsPerPage`, and returns the complete retained `totalItems` and nullable
+`nextBeforeRevision`. Newly appended versions do not shift an older-history cursor.
+All durable versions remain reachable; no retention or deletion accompanies paging.
+History uses the journal's beneficiary scope: foreign tasks and other members' entries
+remain hidden with 404 unless the caller has time management rights. Malformed,
+zero, negative or oversized pagination returns 400. Create replay reads only the
+original revision needed to compare the original payload.
 
 `organization.interventions.time.write` permits authorized contributors to record
 their own time; `organization.interventions.time.manage` is required to act for
@@ -961,6 +993,11 @@ which reaches into the `auth` database's `User` module through
 since `OrganizationMemberRecord` itself carries no display name).
 
 ### Export (CSV)
+
+User-controlled names, facility labels and assignee names are protected against
+spreadsheet formula interpretation, including prefixes after control whitespace.
+The trailing `_fireguard_text_encoding=apostrophe-v1` metadata identifies reversible
+text protection; callers requiring original values can decode the marked cells.
 
 | Method | Path                    | Description                                                                                                                                                                                                                                             |
 | ------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

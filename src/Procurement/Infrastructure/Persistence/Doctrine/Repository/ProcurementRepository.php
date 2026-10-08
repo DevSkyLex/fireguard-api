@@ -122,7 +122,7 @@ final readonly class ProcurementRepository implements ProcurementRepositoryPort
     $existing = $this->operation($operation->organizationId, $operation->clientOperationId);
     if (null !== $existing) {
       if ($existing->kind !== $operation->kind || $existing->fingerprint !== $operation->fingerprint || $existing->receiptId !== $operation->receiptId) {
-        throw ProcurementException::conflict('The physical declaration key cannot be reused.');
+        throw ProcurementException::conflict('The retained operation key cannot be reused.');
       }
 
       return;

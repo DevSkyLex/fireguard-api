@@ -55,6 +55,19 @@ Failed download/validation retains the installed file. `--check` reports validit
 
 ### Outbound Port -> Adapter
 
+`SpreadsheetSafeTextPort` protects formula prefixes, leading control/space text and
+literal apostrophes in spreadsheet-facing CSV. A versioned `_fireguard_text_encoding`
+column permits the Import parser to restore original text only for explicitly marked
+rows; unmarked files retain their historical literal values and trimming rules.
+Typed numeric columns bypass text protection. Marked CSV uses RFC4180 quote escaping.
+
+`ImageInputValidationPort` checks compressed bytes (5 MiB), native header dimensions
+(4096 pixels per axis) and the total input budget (4,194,304 pixels) before GD decodes
+avatars or organization logos. GIF preflight also checks the first image descriptor
+and its containment within the logical screen, independently of GD's version.
+Their image manager disables animation decoding and
+uses only the native first frame. Invalid headers and over-budget input return 422.
+
 Application code invokes a contract; an infrastructure adapter implements the external operation. Dependency ownership stays inward even when runtime calls go outward.
 
 ```mermaid

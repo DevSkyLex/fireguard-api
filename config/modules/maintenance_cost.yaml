@@ -31,6 +31,13 @@ services:
   MaintenanceCost\Application\Port\Inbound\MaintenanceCostReadPort:
     alias: MaintenanceCost\Infrastructure\Adapter\Reporting\MaintenanceCostReadAdapter
 
+  MaintenanceCost\Infrastructure\Adapter\Intervention\MaintenanceCostInterventionHistoryAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  MaintenanceCost\Application\Port\Inbound\MaintenanceCostInterventionHistoryPort:
+    alias: MaintenanceCost\Infrastructure\Adapter\Intervention\MaintenanceCostInterventionHistoryAdapter
+
   maintenance_cost.main_transaction_manager:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:

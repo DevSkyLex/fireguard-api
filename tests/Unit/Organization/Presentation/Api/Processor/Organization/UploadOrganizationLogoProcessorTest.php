@@ -16,13 +16,15 @@ use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrgan
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Infrastructure\Image\OrganizationLogoResizer;
 use Organization\Presentation\Api\Processor\Organization\UploadOrganizationLogoProcessor;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Image\InvalidImageInputException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Infrastructure\Image\ImageInputValidationAdapter;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -31,6 +33,7 @@ use Symfony\Component\HttpKernel\Exception\{
   BadRequestHttpException,
   UnprocessableEntityHttpException
 };
+use Tests\Support\Image\ImageFixtures;
 
 use function file_put_contents;
 use function imagecreatetruecolor;
@@ -281,6 +284,45 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
     }
   }
 
+  #[Test]
+  #[DataProvider('rejectedImageHeaders')]
+  public function testRejectedImagesPreserveTheExistingLogoAndOrganizationState(string $contents, string $message): void
+  {
+    $request = new Request();
+    $request->files->set('logo', new UploadedFile($this->temporaryFile($contents), 'logo.png', 'image/png', test: true));
+
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('delete');
+    $storage->expects(self::never())->method('write');
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $processor = $this->createProcessor(request: $request, commandBus: $commandBus, queryBus: $queryBus, fileStorage: $storage);
+
+    $this->expectException(InvalidImageInputException::class);
+    $this->expectExceptionMessage($message);
+
+    $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  /**
+   * Method rejectedImageHeaders
+   *
+   * Covers geometry rejection before decode and header-valid truncated pixels.
+   *
+   * @access public
+   *
+   * @return iterable<string, array{string, string}> the rejected source cases
+   */
+  public static function rejectedImageHeaders(): iterable
+  {
+    yield 'oversized geometry' => [ImageFixtures::pngHeader(2048, 2049), 'Image exceeds the 4194304 pixel limit.'];
+    yield 'malformed pixels' => [ImageFixtures::pngHeader(1, 1), 'Unable to decode the uploaded image.'];
+    yield 'GIF first-frame geometry' => [ImageFixtures::gifFirstFrameHeader(2048, 2049), 'Image exceeds the 4194304 pixel limit.'];
+  }
+
   private function createProcessor(
     ?Request $request = null,
     ?CommandBusPort $commandBus = null,
@@ -306,6 +348,7 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
       requestStack: $requestStack,
       logoResizer: new OrganizationLogoResizer(
         $fileStorage ?? $this->createStub(FileStoragePort::class),
+        new ImageInputValidationAdapter(),
       ),
       commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,

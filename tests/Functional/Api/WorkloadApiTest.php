@@ -7,6 +7,8 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionTimeEntryRecord, InterventionTimeEntryVersionRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionTimeEntryRepository;
 use Organization\Infrastructure\Adapter\Workforce\OrganizationWorkforceDirectoryAdapter;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
@@ -18,9 +20,12 @@ use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 
 use function array_keys;
 use function array_unique;
+use function count;
 use function json_decode;
 use function json_encode;
+use function memory_get_usage;
 use function random_int;
+use function range;
 use function sort;
 
 use const JSON_THROW_ON_ERROR;
@@ -292,7 +297,9 @@ final class WorkloadApiTest extends WebTestCase
     self::assertResponseIsSuccessful();
     $entry = $this->value($this->value($client), 'entry');
     self::assertSame(2, $this->value($entry, 'revision'));
-    self::assertCount(2, $this->listValue($this->value($entry, 'versions')));
+    self::assertCount(1, $this->listValue($this->value($entry, 'versions')));
+    self::assertSame(2, $this->value($entry, 'totalVersions'));
+    self::assertSame(2, $this->value($entry, 'nextBeforeRevision'));
     $this->requestApi('PATCH', $path . '/' . $id, [...$correction, 'minutes' => 60], 1);
     self::assertResponseStatusCodeSame(412);
     $this->requestApi('DELETE', $path . '/' . $id, null, 2);
@@ -301,7 +308,182 @@ final class WorkloadApiTest extends WebTestCase
     self::assertResponseIsSuccessful();
     $entry = $this->value($this->value($client), 'entries', 0);
     self::assertTrue($this->value($entry, 'cancelled'));
-    self::assertCount(3, $this->listValue($this->value($entry, 'versions')));
+    self::assertCount(1, $this->listValue($this->value($entry, 'versions')));
+    self::assertSame(3, $this->value($entry, 'totalVersions'));
+    $client = $this->requestApi('GET', $path . '/' . $id . '/versions');
+    self::assertResponseIsSuccessful();
+    self::assertCount(3, $this->listValue($this->value($client, 'versions')));
+    self::assertSame(3, $this->value($client, 'totalItems'));
+    self::assertNull($this->value($client, 'nextBeforeRevision'));
+    self::assertSame(3, $this->value($client, 'versions', 0, 'revision'));
+    self::assertSame(1, $this->value($client, 'versions', 2, 'revision'));
+  }
+
+  #[Test]
+  public function testTimeJournalAndHistoryStayBoundedAndEveryRetainedRowIsReachable(): void
+  {
+    $this->seed(['*']);
+    $task = $this->seedTask(180, 'published', $this->memberId);
+    /** @var EntityManagerInterface $em */
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $connection = $em->getConnection();
+    $identifiers = [];
+    for ($index = 0; $index < 125; ++$index) {
+      $id = Uuid::v4()->toRfc4122();
+      $identifiers[] = $id;
+      $connection->executeStatement(
+        'INSERT INTO intervention_time_entries (id, work_item_id, organization_id, member_id, worked_on, minutes, note, cancelled, revision, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 65, ?, false, 65, ?, ?, NOW(), NOW())',
+        [$id, $task, $this->organizationId, $this->memberId, '2026-01-01', 'Volume journal', $this->memberId, $this->memberId],
+      );
+      $connection->executeStatement(
+        'INSERT INTO intervention_time_entry_versions (entry_id, revision, worked_on, minutes, note, cancelled, actor_id, recorded_at) SELECT ?, revision, ?, revision, ?, false, ?, NOW() FROM generate_series(1, 65) AS revision',
+        [$id, '2026-01-01', 'Volume journal', $this->memberId],
+      );
+    }
+    $em->clear();
+    $em->getClassMetadata(InterventionTimeEntryRecord::class);
+    $memoryBefore = memory_get_usage();
+    $bounded = new InterventionTimeEntryRepository($em)->list($task, null, 1, 100);
+    self::assertCount(100, $bounded);
+    self::assertCount(100, $em->getUnitOfWork()->getIdentityMap()[InterventionTimeEntryRecord::class] ?? []);
+    self::assertSame([], $em->getUnitOfWork()->getIdentityMap()[InterventionTimeEntryVersionRecord::class] ?? []);
+    self::assertLessThan(8 * 1024 * 1024, memory_get_usage() - $memoryBefore, 'One journal page must not allocate its retained history.');
+    $path = '/api/intervention-work-items/' . $task . '/time-entries';
+    $default = $this->value($this->requestApi('GET', $path));
+    self::assertResponseIsSuccessful();
+    self::assertCount(30, $this->listValue($this->value($default, 'entries')));
+    self::assertSame(125, $this->value($default, 'totalItems'));
+    $seen = [];
+    $page = 1;
+    do {
+      $body = $this->value($this->requestApi('GET', $path . '?page=' . $page . '&itemsPerPage=100'));
+      self::assertResponseIsSuccessful();
+      foreach ($this->listValue($this->value($body, 'entries')) as $entry) {
+        $seen[] = $this->stringValue($entry, 'id');
+        self::assertCount(1, $this->listValue($this->value($entry, 'versions')));
+        self::assertSame(65, $this->value($entry, 'totalVersions'));
+        self::assertSame(65, $this->value($entry, 'nextBeforeRevision'));
+      }
+      $page = $this->value($body, 'nextPage');
+      if (null !== $page) {
+        self::assertIsInt($page);
+      }
+    } while (null !== $page);
+    self::assertCount(125, array_unique($seen));
+    $historyPath = $path . '/' . $identifiers[0] . '/versions';
+    $current = $this->value($this->requestApi('GET', $path . '/' . $identifiers[0]));
+    self::assertResponseIsSuccessful();
+    self::assertSame($identifiers[0], $this->value($current, 'entry', 'id'));
+    self::assertCount(1, $this->listValue($this->value($current, 'entry', 'versions')));
+    $versions = [];
+    $cursor = null;
+    do {
+      $body = $this->value($this->requestApi('GET', $historyPath . '?itemsPerPage=10' . (null !== $cursor ? '&beforeRevision=' . $cursor : '')));
+      self::assertResponseIsSuccessful();
+      self::assertSame(65, $this->value($body, 'totalItems'));
+      $batch = $this->listValue($this->value($body, 'versions'));
+      self::assertLessThanOrEqual(10, count($batch));
+      foreach ($batch as $version) {
+        $versions[] = $this->value($version, 'revision');
+      }
+      $cursor = $this->value($body, 'nextBeforeRevision');
+      if (null !== $cursor) {
+        self::assertIsInt($cursor);
+      }
+    } while (null !== $cursor);
+    self::assertSame(range(65, 1), $versions);
+    $client = $this->requestApi('POST', $path, ['id' => $identifiers[0], 'workedOn' => '2026-01-01', 'minutes' => 1, 'note' => 'Volume journal']);
+    self::assertResponseStatusCodeSame(201);
+    self::assertSame(65, $this->value($client, 'entry', 'revision'));
+    self::assertCount(1, $this->listValue($this->value($client, 'entry', 'versions')));
+    $client = $this->requestApi('PATCH', $path . '/' . $identifiers[0], ['workedOn' => '2026-01-01', 'minutes' => 66, 'note' => 'Correction'], 65);
+    self::assertResponseIsSuccessful();
+    self::assertSame(66, $this->value($client, 'entry', 'totalVersions'));
+    self::assertCount(1, $this->listValue($this->value($client, 'entry', 'versions')));
+    $body = $this->value($this->requestApi('GET', $historyPath . '?beforeRevision=56&itemsPerPage=10'));
+    self::assertSame(55, $this->value($body, 'versions', 0, 'revision'));
+    self::assertSame(66, $this->value($body, 'totalItems'));
+  }
+
+  #[Test]
+  public function testTimeManagerOwnOnlyFiltersBeforePaginationAndExactCounting(): void
+  {
+    $this->seed(['organization.interventions.time.manage']);
+    $task = $this->seedTask(60, 'published', $this->memberId);
+    /** @var EntityManagerInterface $em */
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $otherMember = Uuid::v4()->toRfc4122();
+    $ownIdentifiers = [];
+    for ($day = 1; $day <= 6; ++$day) {
+      $id = Uuid::v4()->toRfc4122();
+      $beneficiary = $day <= 3 ? $this->memberId : $otherMember;
+      if ($day <= 3) {
+        $ownIdentifiers[] = $id;
+      }
+      $em->getConnection()->executeStatement(
+        'INSERT INTO intervention_time_entries (id, work_item_id, organization_id, member_id, worked_on, minutes, cancelled, revision, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 60, false, 1, ?, ?, NOW(), NOW())',
+        [$id, $task, $this->organizationId, $beneficiary, '2026-01-0' . $day, $this->memberId, $this->memberId],
+      );
+    }
+    $path = '/api/intervention-work-items/' . $task . '/time-entries';
+    $first = $this->value($this->requestApi('GET', $path . '?ownOnly=true&itemsPerPage=2'));
+    self::assertResponseIsSuccessful();
+    self::assertSame(3, $this->value($first, 'totalItems'));
+    self::assertSame(2, $this->value($first, 'nextPage'));
+    self::assertCount(2, $this->listValue($this->value($first, 'entries')));
+    self::assertSame($ownIdentifiers[2], $this->value($first, 'entries', 0, 'id'));
+    self::assertSame($ownIdentifiers[1], $this->value($first, 'entries', 1, 'id'));
+    $second = $this->value($this->requestApi('GET', $path . '?ownOnly=true&itemsPerPage=2&page=2'));
+    self::assertResponseIsSuccessful();
+    self::assertSame(3, $this->value($second, 'totalItems'));
+    self::assertNull($this->value($second, 'nextPage'));
+    self::assertCount(1, $this->listValue($this->value($second, 'entries')));
+    self::assertSame($ownIdentifiers[0], $this->value($second, 'entries', 0, 'id'));
+    foreach (['?itemsPerPage=2', '?ownOnly=false&itemsPerPage=2'] as $filter) {
+      $all = $this->value($this->requestApi('GET', $path . $filter));
+      self::assertResponseIsSuccessful();
+      self::assertSame(6, $this->value($all, 'totalItems'));
+      self::assertSame($otherMember, $this->value($all, 'entries', 0, 'memberId'));
+    }
+  }
+
+  #[Test]
+  public function testTimePaginationRejectsMalformedValuesAndHistoryPreservesBeneficiaryIsolation(): void
+  {
+    $this->seed([]);
+    $task = $this->seedTask(60, 'published', $this->memberId);
+    /** @var EntityManagerInterface $em */
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $id = Uuid::v4()->toRfc4122();
+    $em->getConnection()->executeStatement(
+      'INSERT INTO intervention_time_entries (id, work_item_id, organization_id, member_id, worked_on, minutes, cancelled, revision, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 60, false, 1, ?, ?, NOW(), NOW())',
+      [$id, $task, $this->organizationId, Uuid::v4()->toRfc4122(), '2026-01-01', $this->memberId, $this->memberId],
+    );
+    $path = '/api/intervention-work-items/' . $task . '/time-entries';
+    foreach (['page=0', 'page=-1', 'page=1.5', 'page[]=1', 'itemsPerPage=0', 'itemsPerPage=101', 'itemsPerPage=abc', 'ownOnly=invalid', 'ownOnly[]=true', 'ownOnly='] as $filter) {
+      $this->requestApi('GET', $path . '?' . $filter);
+      self::assertResponseStatusCodeSame(400);
+    }
+    foreach (['beforeRevision=0', 'beforeRevision=-1', 'beforeRevision=1.5', 'beforeRevision[]=1', 'itemsPerPage=101'] as $filter) {
+      $this->requestApi('GET', $path . '/' . $id . '/versions?' . $filter);
+      self::assertResponseStatusCodeSame(400);
+    }
+    $body = $this->value($this->requestApi('GET', $path));
+    self::assertSame(0, $this->value($body, 'totalItems'));
+    $body = $this->value($this->requestApi('GET', $path . '?ownOnly=false'));
+    self::assertResponseIsSuccessful();
+    self::assertSame(0, $this->value($body, 'totalItems'));
+    self::assertSame([], $this->value($body, 'entries'));
+    $this->requestApi('GET', $path . '/' . $id . '/versions');
+    self::assertResponseStatusCodeSame(404);
+    $this->requestApi('GET', $path . '/' . $id);
+    self::assertResponseStatusCodeSame(404);
+    $otherTask = $this->seedTask(60, 'published', $this->memberId);
+    $this->requestApi('GET', '/api/intervention-work-items/' . $otherTask . '/time-entries/' . $id . '/versions');
+    self::assertResponseStatusCodeSame(404);
+    $this->userId = Uuid::v4()->toRfc4122();
+    $this->requestApi('GET', $path . '/' . $id . '/versions');
+    self::assertResponseStatusCodeSame(404);
   }
 
   #[Test]

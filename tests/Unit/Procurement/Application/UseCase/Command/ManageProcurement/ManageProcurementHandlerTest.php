@@ -133,6 +133,64 @@ final class ManageProcurementHandlerTest extends TestCase
   }
 
   #[Test]
+  public function supplierCreationRetryUsesTheCommittedIdentityAndEmitsOnce(): void
+  {
+    $this->repository->expects(self::once())->method('saveSupplier')->willReturnCallback(function (Supplier $supplier): void { $this->supplier = $supplier; });
+    $this->repository->expects(self::once())->method('saveOperation');
+    $this->events->expects(self::once())->method('dispatch');
+    $input = ['clientOperationId' => self::OPERATION, 'name' => 'Supplier', 'contacts' => []];
+    $first = ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_supplier', payload: $input));
+    $retry = ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_supplier', payload: ['contacts' => [], 'name' => 'Supplier', 'clientOperationId' => strtoupper(self::OPERATION)]));
+    self::assertSame(self::RECEIPT, $first->data['id']);
+    self::assertSame($first->data, $retry->data);
+    self::assertTrue($retry->replayed);
+    self::assertSame(1, $this->supplier->revision());
+  }
+
+  #[Test]
+  public function supplierCreationIdentityRejectsChangedPayloadBeforeAnotherSave(): void
+  {
+    $this->repository->expects(self::once())->method('saveSupplier');
+    $this->events->expects(self::once())->method('dispatch');
+    $input = ['clientOperationId' => self::OPERATION, 'name' => 'Supplier'];
+    ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_supplier', payload: $input));
+    $input['name'] = 'Another supplier';
+    $this->expectException(ProcurementException::class);
+    $this->expectExceptionMessage('different declaration');
+    ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_supplier', payload: $input));
+  }
+
+  #[Test]
+  public function draftCreationRetryRetainsGeneratedLineIdsAndDoesNotSaveOrEmitTwice(): void
+  {
+    $this->repository->expects(self::once())->method('saveOrder');
+    $this->repository->expects(self::once())->method('saveOperation');
+    $this->events->expects(self::once())->method('dispatch');
+    $input = ['clientOperationId' => self::OPERATION, 'name' => 'Draft', 'supplierId' => self::SUPPLIER, 'lines' => [['kind' => 'part', 'partId' => self::PART, 'quantity' => '2']]];
+    $first = ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_order', payload: $input));
+    $input['supplierId'] = strtoupper(self::SUPPLIER);
+    $input['lines'][0]['partId'] = strtoupper(self::PART);
+    $retry = ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_order', payload: $input));
+    self::assertSame(self::RECEIPT, $first->data['id']);
+    self::assertSame($first->data, $retry->data);
+    self::assertTrue($retry->replayed);
+    self::assertSame(1, $this->order->revision());
+  }
+
+  #[Test]
+  public function draftCreationIdentityRejectsChangedLines(): void
+  {
+    $this->repository->expects(self::once())->method('saveOrder');
+    $this->events->expects(self::once())->method('dispatch');
+    $input = ['clientOperationId' => self::OPERATION, 'name' => 'Draft', 'supplierId' => self::SUPPLIER, 'lines' => [['kind' => 'part', 'partId' => self::PART, 'quantity' => '2']]];
+    ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_order', payload: $input));
+    $input['lines'][0]['quantity'] = '3';
+    $this->expectException(ProcurementException::class);
+    $this->expectExceptionMessage('different declaration');
+    ($this->handler)(new ManageProcurementCommand(self::ACTOR, self::ORG, 'create_order', payload: $input));
+  }
+
+  #[Test]
   public function partialDecimalReceiptReplaysWithoutAnotherStockMovementOrRevision(): void
   {
     $this->stock->expects(self::once())->method('receive')->with(self::callback(static fn (InventoryReceiptRequest $request): bool => '1.250000' === $request->quantity && '4.250000' === $request->unitCost && self::RECEIPT === $request->sourceReceiptId))->willReturn(new InventoryReceiptResult(self::OPERATION, '1.250000', '4.250000', '5.312500'));

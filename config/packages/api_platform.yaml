@@ -63,6 +63,7 @@ api_platform:
   # The prescribed fix for a handler that wants a status is a DOMAIN exception,
   # not an entry here. That work is cleanup, not a defect: nothing is broken.
   exception_to_status:
+    Shared\Application\Contract\Image\InvalidImageInputException: 422
     Audit\Domain\Exception\AuditEventNotFoundException: 404
     Workload\Domain\Exception\WorkloadNotFoundException: 404
     Workload\Domain\Exception\WorkloadAccessDeniedException: 403

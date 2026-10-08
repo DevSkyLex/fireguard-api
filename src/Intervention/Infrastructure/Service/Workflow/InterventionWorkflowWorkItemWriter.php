@@ -160,7 +160,7 @@ final readonly class InterventionWorkflowWorkItemWriter
   /**
    * Method deleteWorkItem
    *
-   * Deletes a prepared work item without time history and updates its parent timestamp.
+   * Deletes a prepared work item without retained facts and updates its parent timestamp.
    *
    * @access private
    *
@@ -176,7 +176,7 @@ final readonly class InterventionWorkflowWorkItemWriter
     if ('draft' !== $intervention->status) {
       throw new InterventionConflictException('Only prepared work items can be deleted.');
     }
-    $this->runtime->support->assertNoTimeHistory($intervention, $record);
+    $this->runtime->support->assertNoRetainedHistory($intervention, $record);
     $this->runtime->entityManager->remove($record);
     $this->runtime->support->touch($intervention, new DateTimeImmutable());
     $this->runtime->entityManager->flush();

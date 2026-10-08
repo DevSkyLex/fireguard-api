@@ -226,6 +226,11 @@ Channel details:
   - optional custom template: `deliveryPayload['email']['template']`,
   - optional template vars: `deliveryPayload['email']['context']`,
   - `deliveryPayload['email']['body']` is still supported as default-template body override,
+  - the default template autoescapes the body as plain text, including an email-only body override.
+    Producer-trusted HTML requires `deliveryPayload['email']['bodyIsHtml'] === true`; every untrusted
+    interpolation in that HTML must already be escaped. Template context cannot enable this flag.
+    Stored notifications and Mercure bodies retain their original content. Dedicated templates keep
+    their own escaping rules; invitation and digest translated markup escapes organization names,
   - every transactional email (including the OTP code email) extends
     `templates/notification/email/layout.html.twig`, which follows the web app's visual
     language (neutral zinc ramp, vermilion fill for the primary button only, dark scheme via
@@ -416,11 +421,17 @@ entries; neither is a separate inbox source yet.
   - `MERCURE_PUBLIC_URL`
   - `MERCURE_JWT_SECRET`
 - Email delivery relies on shared mailer configuration (`MAILER_DSN`, sender config in Shared mail adapter).
+- `app:notification:send` treats its `body` argument as text by default. Operators sending trusted
+  HTML must pass `--body-is-html`; the flag only changes email rendering, not the stored body.
 
 ## Testing
 
 Security template tests verify escaping, en/fr/es approximate wording and DB-IP attribution;
 email-change producer tests keep geography out of persistent Notification fields.
+Membership, intervention review/reminder and plan-over-quota email coverage follows the producers
+through the real default Twig template, requiring tenant markup to remain literal text while
+stored notification and Mercure content stays unchanged. Template tests cover strict HTML opt-in
+and context override denial, while console tests cover the explicit `--body-is-html` option.
 
 
 - Unit tests: `tests/Unit/Notification`

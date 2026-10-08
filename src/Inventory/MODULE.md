@@ -29,6 +29,12 @@ Balances and movements attach `valuation` only when the caller holds maintenance
 
 ## Flows
 
+`InventoryInterventionHistoryPort` exposes the existence of every retained
+declaration or movement without quantities or values. Intervention deletion uses
+its shared work fence before the parent row lock and refuses hard DELETE while
+these references exist, including received_pending declarations and fully
+returned consumptions. Return and reconciliation keep their operational context.
+
 A valid physical consumption is saved before resolution in the same main transaction. It debits the complete requested quantity and its CUMP value or remains received_pending without any stock movement. No partial issue or negative balance is possible. Archived references and absent balance books also retain the declaration. Reconciliation uses the declaration's original quantity and work context.
 
 Each operation has an organization-scoped stable identity and payload hash. A conflicting body returns 409. Replaying consumption returns its original response snapshot even if the declaration has since been reconciled; detail reads return its current status. Confirmed receipts, returns and corrections replay their immutable movement.
@@ -41,7 +47,7 @@ Returned intervention parts cannot exceed their original consumption. Every corr
 
 Handlers inject the inventory store, main transaction manager and published Intervention/MaintenanceCost ports. The repository only queries Inventory tables. Organization authorization occurs at the HTTP boundary; Intervention validates work ownership, equipment scope and execution. Procurement and intervention costs call public Application ports/contracts.
 
-All stock paths acquire the organization currency lock before the balance lock. Consumption and publication share the `inventory-intervention:{organizationId}:{interventionId}` advisory fence before the parent intervention lock. Publication refuses received unresolved declarations and captures immutable facts. Late declarations and returns remain current cost facts with linked adjustments; they never mutate an existing dossier.
+Stock paths acquire locks in one order: intervention publication fence and parent when applicable, organization currency, stable operation identity, declaration/references, then balance. Procurement receipts and reversals enter the same currency-before-operation/reference order. Reconciliation reads its immutable parent scope before acquiring the work fence and currency, then locks the declaration. Consumption and publication share the `inventory-intervention:{organizationId}:{interventionId}` advisory fence before the parent intervention lock. Publication refuses received unresolved declarations and captures immutable facts. Late declarations and returns remain current cost facts with linked adjustments; they never mutate an existing dossier.
 
 The public intervention resource port also supplies finance-authorized direct-equipment candidate intervention identifiers from owned movements and pending declarations. Both the equipment input and distinct intervention output are bounded to 10000 identities, with an explicit refusal of oversized scopes. No quantities, valuations or sibling persistence cross this directory projection; MaintenanceCost verifies actual current/captured allocations before selecting a financial dossier.
 
@@ -55,7 +61,11 @@ Migration `Version20261006111000` adds the scoped reference catalog, balances, i
 
 ## Testing
 
-Domain tests cover weighted average allocation, fractional quantities, last-issue residuals and incomplete values. Handler tests cover shortages, missing books, late facts, original-snapshot replay and exact partial returns across tiny, fractional, mixed and unknown valuations. PostgreSQL functional tests cover reconciliation, returns with tiny rounding residuals and replay, money permissions, archived history, scoped 404s, unchanged published dossiers and search/pagination parity. A two-session PostgreSQL integration test disputes the final part and proves one confirmed issue plus one intact pending declaration.
+Retention coverage checks abandoned parents and prepared tasks with both confirmed
+and received_pending declarations. Rejected DELETE preserves balances, details,
+returns and reconciliation; a fully returned issue still retains its history.
+
+Domain tests cover weighted average allocation, fractional quantities, last-issue residuals and incomplete values. Handler tests cover shortages, missing books, late facts, original-snapshot replay and exact partial returns across tiny, fractional, mixed and unknown valuations. PostgreSQL functional tests cover reconciliation, returns with tiny rounding residuals and replay, money permissions, archived history, scoped 404s, unchanged published dossiers and search/pagination parity. Two-session PostgreSQL integration tests use the real currency adapter to dispute the final part and to serialize Procurement reception against intervention consumption, retaining exact balances and replay receipts.
 
 Use `make test-db` once to build the isolated template, then run the focused Inventory suites. Source/test PHPStan, container lint, both Deptrac configurations, OpenAPI and main schema gates are required.
 

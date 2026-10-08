@@ -1439,9 +1439,6 @@ deptrac:
       - Shared\Infrastructure\DataFixtures\SeedTimeline
       - Shared\Infrastructure\DataFixtures\SeedUuid
       - User\Infrastructure\DataFixtures\UserFixtures
-    Organization\Infrastructure\Image\OrganizationLogoResizer:
-      - Intervention\Image\Drivers\Gd\Driver
-      - Intervention\Image\ImageManager
     Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord:
       - Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord
       - Equipment\Infrastructure\Persistence\Doctrine\Record\TagRecord
@@ -1720,9 +1717,6 @@ deptrac:
       - Shared\Infrastructure\DataFixtures\SeedUuid
       - Shared\Infrastructure\Service\UuidEventIdProvider
       - Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter
-    User\Infrastructure\Image\AvatarResizer:
-      - Intervention\Image\Drivers\Gd\Driver
-      - Intervention\Image\ImageManager
     User\Infrastructure\Persistence\Doctrine\Record\UserRecord:
       - Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord
     User\Infrastructure\Persistence\Doctrine\Repository\UserRepository:

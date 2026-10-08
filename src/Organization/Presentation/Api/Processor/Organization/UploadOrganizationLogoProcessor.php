@@ -13,6 +13,7 @@ use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrga
 use Organization\Infrastructure\Image\OrganizationLogoResizer;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationRegisteredAddressOutput};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Outbound\ImageInputValidationPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -55,7 +56,7 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
    *
    * @var int
    */
-  private const int MAX_FILE_SIZE = 5 * 1024 * 1024;
+  private const int MAX_FILE_SIZE = ImageInputValidationPort::MAX_BYTES;
 
   /**
    * Constant ALLOWED_MIME_TYPES.
@@ -164,7 +165,7 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
       );
     }
 
-    $sourceContents = file_get_contents($file->getPathname());
+    $sourceContents = file_get_contents($file->getPathname(), length: self::MAX_FILE_SIZE + 1);
     if (false === $sourceContents) {
       throw new UnprocessableEntityHttpException('Failed to read the uploaded file.');
     }

@@ -191,6 +191,10 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       'type' => $command->type, 'subType' => $command->subType, 'brand' => $command->brand,
       'model' => $command->model, 'serialNumber' => $command->serialNumber, 'locationLabel' => $command->locationLabel,
       'facility' => null !== $command->facilityId ? '/api/facilities/' . $command->facilityId : null,
+      'name' => $command->name,
+      'assetCode' => $command->assetCode,
+      'criticality' => $command->criticality,
+      'technicalProperties' => $command->technicalProperties,
     ]);
     if (null === $operation->resourceId) {
       return null;

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Image;
 
+use Intervention\Image\Drivers\Gd\Decoders\BinaryImageDecoder;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\Exceptions\DecoderException;
 use Intervention\Image\ImageManager;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Contract\Image\InvalidImageInputException;
+use Shared\Application\Port\Outbound\{FileStoragePort, ImageInputValidationPort};
 
 use function sprintf;
 
@@ -65,9 +68,11 @@ readonly class OrganizationLogoResizer
    * @since 1.0.0
    *
    * @param FileStoragePort $fileStorage port used to persist the image
+   * @param ImageInputValidationPort $imageInputValidation bounds the source before decoding
    */
   public function __construct(
     private FileStoragePort $fileStorage,
+    private ImageInputValidationPort $imageInputValidation,
   ) {
   }
   // #endregion
@@ -85,11 +90,20 @@ readonly class OrganizationLogoResizer
    * @param string $sourceContents the raw binary content of the uploaded image
    *
    * @return void no return value
+   *
+   * @throws InvalidImageInputException if the source is invalid or exceeds the image budget
    */
   public function resize(string $organizationId, string $sourceContents): void
   {
-    $manager = new ImageManager(new Driver());
-    $image = $manager->read($sourceContents);
+    $this->imageInputValidation->validate($sourceContents);
+    $manager = new ImageManager(new Driver(), decodeAnimation: false);
+
+    try {
+      $image = $manager->read($sourceContents, BinaryImageDecoder::class);
+    } catch (DecoderException $exception) {
+      throw new InvalidImageInputException('Unable to decode the uploaded image.', previous: $exception);
+    }
+
     $image->scaleDown(self::MAX_DIMENSION, self::MAX_DIMENSION);
     $encoded = $image->toWebp(self::WEBP_QUALITY);
 

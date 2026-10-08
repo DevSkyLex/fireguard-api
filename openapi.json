@@ -27092,6 +27092,48 @@
                         },
                         "style": "simple",
                         "explode": false
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "InterventionTime page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "InterventionTime itemsPerPage",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 30
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "ownOnly",
+                        "in": "query",
+                        "description": "Limit entries and their total to the current member, including for time managers.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "style": "form",
+                        "explode": true
                     }
                 ]
             },
@@ -27206,6 +27248,94 @@
             }
         },
         "/api/intervention-work-items/{taskId}/time-entries/{entryId}": {
+            "get": {
+                "operationId": "intervention_time_get",
+                "tags": [
+                    "InterventionTime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "InterventionTime resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InterventionTime.TimeEntryOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a InterventionTime resource.",
+                "description": "Retrieves a InterventionTime resource.",
+                "parameters": [
+                    {
+                        "name": "taskId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "entryId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
             "delete": {
                 "operationId": "intervention_time_cancel",
                 "tags": [
@@ -27428,6 +27558,124 @@
                     },
                     "required": true
                 }
+            }
+        },
+        "/api/intervention-work-items/{taskId}/time-entries/{entryId}/versions": {
+            "get": {
+                "operationId": "intervention_time_versions",
+                "tags": [
+                    "InterventionTime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "InterventionTime resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InterventionTime.TimeEntryHistoryOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a InterventionTime resource.",
+                "description": "Retrieves a InterventionTime resource.",
+                "parameters": [
+                    {
+                        "name": "taskId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "entryId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "beforeRevision",
+                        "in": "query",
+                        "description": "Exclusive revision cursor; omitted for the newest retained revisions.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "InterventionTime itemsPerPage",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 30
+                        },
+                        "style": "form",
+                        "explode": true
+                    }
+                ]
             }
         },
         "/api/intervention-work-items": {
@@ -47512,7 +47760,7 @@
                     "content": {
                         "application/ld+json": {
                             "schema": {
-                                "$ref": "#/components/schemas/Procurement.ChangePurchaseOrderInput-procurement.write"
+                                "$ref": "#/components/schemas/Procurement.CreatePurchaseOrderInput-procurement.write"
                             }
                         }
                     },
@@ -49113,7 +49361,7 @@
                     "content": {
                         "application/ld+json": {
                             "schema": {
-                                "$ref": "#/components/schemas/Procurement.ChangeSupplierInput-procurement.write"
+                                "$ref": "#/components/schemas/Procurement.CreateSupplierInput-procurement.write"
                             }
                         }
                     },
@@ -67074,6 +67322,45 @@
                     }
                 }
             },
+            "InterventionTime.TimeEntryHistoryOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "description": "Method __construct",
+                                "type": "string"
+                            },
+                            "versions": {
+                                "description": "Method __construct",
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/TimeEntryVersionView.jsonld"
+                                }
+                            },
+                            "totalItems": {
+                                "description": "Method __construct",
+                                "type": "integer"
+                            },
+                            "itemsPerPage": {
+                                "description": "Method __construct",
+                                "type": "integer"
+                            },
+                            "nextBeforeRevision": {
+                                "description": "Method __construct",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "description": "InterventionTimeResource."
+            },
             "InterventionTime.TimeEntryOutput.jsonld": {
                 "allOf": [
                     {
@@ -67112,6 +67399,25 @@
                                 "items": {
                                     "$ref": "#/components/schemas/TimeEntryView.jsonld"
                                 }
+                            },
+                            "totalItems": {
+                                "description": "complete scoped entry count",
+                                "type": "integer"
+                            },
+                            "page": {
+                                "description": "one-based requested journal page",
+                                "type": "integer"
+                            },
+                            "itemsPerPage": {
+                                "description": "maximum entries in this response",
+                                "type": "integer"
+                            },
+                            "nextPage": {
+                                "description": "next journal page, null when complete",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             }
                         }
                     }
@@ -78136,43 +78442,6 @@
                     }
                 }
             },
-            "Procurement.ChangePurchaseOrderInput-procurement.write": {
-                "type": "object",
-                "description": "Exact and idempotent internal procurement; commercial billing remains in the ERP.",
-                "properties": {
-                    "name": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "supplierId": {
-                        "format": "uuid",
-                        "externalDocs": {
-                            "url": "https://schema.org/identifier"
-                        },
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "lines": {
-                        "type": [
-                            "array",
-                            "null"
-                        ],
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            }
-                        }
-                    }
-                }
-            },
             "Procurement.ChangePurchaseOrderInput-procurement.write.jsonMergePatch": {
                 "type": "object",
                 "description": "Exact and idempotent internal procurement; commercial billing remains in the ERP.",
@@ -78194,51 +78463,6 @@
                         ]
                     },
                     "lines": {
-                        "type": [
-                            "array",
-                            "null"
-                        ],
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            }
-                        }
-                    }
-                }
-            },
-            "Procurement.ChangeSupplierInput-procurement.write": {
-                "type": "object",
-                "description": "Exact and idempotent internal procurement; commercial billing remains in the ERP.",
-                "properties": {
-                    "name": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "code": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "email": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "phone": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "contacts": {
                         "type": [
                             "array",
                             "null"
@@ -78284,6 +78508,118 @@
                         ]
                     },
                     "contacts": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "Procurement.CreatePurchaseOrderInput-procurement.write": {
+                "type": "object",
+                "description": "Exact and idempotent internal procurement; commercial billing remains in the ERP.",
+                "properties": {
+                    "name": {
+                        "description": "Property name",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "clientOperationId": {
+                        "format": "uuid",
+                        "description": "Property clientOperationId",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "supplierId": {
+                        "format": "uuid",
+                        "description": "Property supplierId",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "lines": {
+                        "description": "Property lines",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "Procurement.CreateSupplierInput-procurement.write": {
+                "type": "object",
+                "description": "Exact and idempotent internal procurement; commercial billing remains in the ERP.",
+                "properties": {
+                    "name": {
+                        "description": "Property name",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "clientOperationId": {
+                        "format": "uuid",
+                        "description": "Property clientOperationId",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "code": {
+                        "description": "Property code",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "email": {
+                        "description": "Property email",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "phone": {
+                        "description": "Property phone",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "contacts": {
+                        "description": "Property contacts",
                         "type": [
                             "array",
                             "null"
@@ -80450,10 +80786,22 @@
                         "type": "string"
                     },
                     "versions": {
+                        "description": "bounded latest revision; older durable history is paged separately",
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/TimeEntryVersionView.jsonld"
                         }
+                    },
+                    "totalVersions": {
+                        "description": "complete durable revision count",
+                        "type": "integer"
+                    },
+                    "nextBeforeRevision": {
+                        "description": "exclusive cursor for older retained revisions",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 }
             },

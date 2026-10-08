@@ -189,6 +189,12 @@ first seven would silently break the bulk import round trip.
 `tests/Unit/Facility/Presentation/Api/Service/FacilityCsvWriterTest.php` freezes
 the first-seven-columns ordering.
 
+Text cells protect formula prefixes, leading control whitespace and literal
+apostrophes. An appended `_fireguard_text_encoding=apostrophe-v1` column lets
+Import restore their original values before provisioning. Coordinates and
+`levelIndex` keep their plain numeric representation, including negative values.
+The first seven columns and their reimport meanings remain unchanged.
+
 A `FacilitiesExportedEvent` is dispatched after a successful export, carrying
 only the applied filter **names** (`filterKeys`), never their raw values. The
 Audit module wires it centrally to the `facility.list_exported` action — this

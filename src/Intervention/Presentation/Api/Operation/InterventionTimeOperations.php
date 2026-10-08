@@ -20,6 +20,16 @@ final class InterventionTimeOperations
   public const string LIST = 'intervention_time_list';
 
   /**
+   * Constant VERSIONS
+   */
+  public const string VERSIONS = 'intervention_time_versions';
+
+  /**
+   * Constant GET
+   */
+  public const string GET = 'intervention_time_get';
+
+  /**
    * Constant CREATE
    */
   public const string CREATE = 'intervention_time_create';

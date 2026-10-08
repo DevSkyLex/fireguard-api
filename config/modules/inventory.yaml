@@ -42,3 +42,10 @@ services:
   Inventory\Infrastructure\Adapter\Intervention\InventoryInterventionResourcesAdapter: ~
   Inventory\Application\Port\Inbound\InventoryInterventionResourcesPort:
     alias: Inventory\Infrastructure\Adapter\Intervention\InventoryInterventionResourcesAdapter
+
+  Inventory\Infrastructure\Adapter\Intervention\InventoryInterventionHistoryAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Inventory\Application\Port\Inbound\InventoryInterventionHistoryPort:
+    alias: Inventory\Infrastructure\Adapter\Intervention\InventoryInterventionHistoryAdapter

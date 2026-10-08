@@ -9,6 +9,7 @@ use Import\Infrastructure\Csv\CsvRowStreamer;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 
 use function array_fill;
 use function array_keys;
@@ -43,13 +44,13 @@ final class CsvRowStreamerTest extends TestCase
   #[Test]
   public function testItImplementsTheCsvRowStreamerPort(): void
   {
-    self::assertInstanceOf(CsvRowStreamerPort::class, new CsvRowStreamer());
+    self::assertInstanceOf(CsvRowStreamerPort::class, new CsvRowStreamer(new SpreadsheetSafeTextAdapter()));
   }
 
   #[Test]
   public function testItStreamsCommaSeparatedRowsKeyedByHeader(): void
   {
-    $rows = iterator_to_array(new CsvRowStreamer()->rows("name,type\nExtincteur,fire_extinguisher\nDetecteur,smoke_detector\n"));
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("name,type\nExtincteur,fire_extinguisher\nDetecteur,smoke_detector\n"));
 
     self::assertSame([1, 2], array_keys($rows));
     self::assertSame(['name' => 'Extincteur', 'type' => 'fire_extinguisher'], $rows[1]);
@@ -59,7 +60,7 @@ final class CsvRowStreamerTest extends TestCase
   #[Test]
   public function testItSniffsTheFrenchExcelSemicolonDelimiter(): void
   {
-    $rows = iterator_to_array(new CsvRowStreamer()->rows("nom;type\nExtincteur;fire_extinguisher\n"));
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("nom;type\nExtincteur;fire_extinguisher\n"));
 
     self::assertSame(['nom' => 'Extincteur', 'type' => 'fire_extinguisher'], $rows[1]);
   }
@@ -69,7 +70,7 @@ final class CsvRowStreamerTest extends TestCase
   {
     // A comma anywhere in the header means the file is comma-delimited and
     // the semicolons belong to the data.
-    $rows = iterator_to_array(new CsvRowStreamer()->rows("name,note\nExtincteur,\"a;b\"\n"));
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("name,note\nExtincteur,\"a;b\"\n"));
 
     self::assertSame(['name' => 'Extincteur', 'note' => 'a;b'], $rows[1]);
   }
@@ -77,7 +78,7 @@ final class CsvRowStreamerTest extends TestCase
   #[Test]
   public function testItStripsAUtf8Bom(): void
   {
-    $rows = iterator_to_array(new CsvRowStreamer()->rows("\xEF\xBB\xBFname,type\nExtincteur,fire_extinguisher\n"));
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("\xEF\xBB\xBFname,type\nExtincteur,fire_extinguisher\n"));
 
     self::assertArrayHasKey('name', $rows[1]);
     self::assertSame('Extincteur', $rows[1]['name']);
@@ -86,15 +87,32 @@ final class CsvRowStreamerTest extends TestCase
   #[Test]
   public function testItTrimsHeaderAndCellWhitespace(): void
   {
-    $rows = iterator_to_array(new CsvRowStreamer()->rows("  name , type \n  Extincteur ,  fire_extinguisher \n"));
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("  name , type \n  Extincteur ,  fire_extinguisher \n"));
 
     self::assertSame(['name' => 'Extincteur', 'type' => 'fire_extinguisher'], $rows[1]);
   }
 
   #[Test]
+  public function testItDoesNotStripLiteralApostrophesFromUnmarkedImports(): void
+  {
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("name\n'=1+1\n''literal\n"));
+
+    self::assertSame("'=1+1", $rows[1]['name']);
+    self::assertSame("''literal", $rows[2]['name']);
+  }
+
+  #[Test]
+  public function testItDoesNotDecodeAnUnknownEncodingVersion(): void
+  {
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("name,_fireguard_text_encoding\n'=1+1,unknown-version\n"));
+
+    self::assertSame(['name' => "'=1+1"], $rows[1]);
+  }
+
+  #[Test]
   public function testItSkipsFullyBlankLinesWithoutConsumingARowNumber(): void
   {
-    $rows = iterator_to_array(new CsvRowStreamer()->rows("name\nA\n\nB\n"));
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("name\nA\n\nB\n"));
 
     self::assertSame([1, 2], array_keys($rows));
     self::assertSame('A', $rows[1]['name']);
@@ -104,7 +122,7 @@ final class CsvRowStreamerTest extends TestCase
   #[Test]
   public function testItPadsShortRowsAndDropsUnnamedColumns(): void
   {
-    $rows = iterator_to_array(new CsvRowStreamer()->rows("name,type,\nExtincteur\n"));
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("name,type,\nExtincteur\n"));
 
     self::assertSame(['name' => 'Extincteur', 'type' => ''], $rows[1]);
   }
@@ -112,7 +130,7 @@ final class CsvRowStreamerTest extends TestCase
   #[Test]
   public function testItIgnoresExtraTrailingColumns(): void
   {
-    $rows = iterator_to_array(new CsvRowStreamer()->rows("name\nExtincteur,ignored,also-ignored\n"));
+    $rows = iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("name\nExtincteur,ignored,also-ignored\n"));
 
     self::assertSame(['name' => 'Extincteur'], $rows[1]);
   }
@@ -124,7 +142,7 @@ final class CsvRowStreamerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('The CSV file is empty.');
 
-    iterator_to_array(new CsvRowStreamer()->rows($contents));
+    iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows($contents));
   }
 
   #[Test]
@@ -133,13 +151,13 @@ final class CsvRowStreamerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('The CSV file has no header row.');
 
-    iterator_to_array(new CsvRowStreamer()->rows("\xEF\xBB\xBF"));
+    iterator_to_array(new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows("\xEF\xBB\xBF"));
   }
 
   #[Test]
   public function testItRefusesAFileExceedingTheRowCap(): void
   {
-    $streamer = new CsvRowStreamer(maxRows: 2);
+    $streamer = new CsvRowStreamer(new SpreadsheetSafeTextAdapter(), maxRows: 2);
 
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('The CSV file exceeds the maximum of 2 data rows.');
@@ -150,7 +168,7 @@ final class CsvRowStreamerTest extends TestCase
   #[Test]
   public function testItAcceptsExactlyTheRowCap(): void
   {
-    self::assertSame(2, new CsvRowStreamer(maxRows: 2)->countDataRows("name\nA\nB\n"));
+    self::assertSame(2, new CsvRowStreamer(new SpreadsheetSafeTextAdapter(), maxRows: 2)->countDataRows("name\nA\nB\n"));
   }
 
   #[Test]
@@ -158,13 +176,13 @@ final class CsvRowStreamerTest extends TestCase
   {
     $contents = "name\n" . implode('', array_fill(0, 10, "row\n"));
 
-    self::assertSame(10, new CsvRowStreamer()->countDataRows($contents));
+    self::assertSame(10, new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->countDataRows($contents));
   }
 
   #[Test]
   public function testCountDataRowsReturnsZeroForAHeaderOnlyFile(): void
   {
-    self::assertSame(0, new CsvRowStreamer()->countDataRows("name,type\n"));
+    self::assertSame(0, new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->countDataRows("name,type\n"));
   }
 
   #[Test]
@@ -174,7 +192,7 @@ final class CsvRowStreamerTest extends TestCase
     // the rest of the file has been parsed.
     $contents = "name\n" . str_repeat("Extincteur\n", 1000);
 
-    $generator = new CsvRowStreamer()->rows($contents);
+    $generator = new CsvRowStreamer(new SpreadsheetSafeTextAdapter())->rows($contents);
 
     self::assertSame(['name' => 'Extincteur'], $generator->current());
     self::assertSame(1, $generator->key());

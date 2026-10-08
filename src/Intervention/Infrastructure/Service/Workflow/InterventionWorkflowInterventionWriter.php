@@ -98,7 +98,7 @@ final readonly class InterventionWorkflowInterventionWriter
       if (!in_array($intervention->status, ['draft', 'abandoned'], true)) {
         throw new InterventionConflictException('Only draft or abandoned interventions can be deleted.');
       }
-      $this->runtime->support->assertNoTimeHistory($intervention);
+      $this->runtime->support->assertNoRetainedHistory($intervention);
       // Purge any still-draft resource records this intervention created before
       // removing it, so no orphaned drafts (and their unique client ids) survive.
       $this->draftPublisher->discard($intervention->id, false);

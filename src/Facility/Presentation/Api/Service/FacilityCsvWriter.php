@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Facility\Presentation\Api\Service;
 
 use Facility\Application\Contract\Export\FacilityExportRow;
+use Shared\Application\Port\Outbound\SpreadsheetSafeTextPort;
 
+use function array_map;
 use function fputcsv;
 
 /**
@@ -31,7 +33,7 @@ use function fputcsv;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class FacilityCsvWriter
+final readonly class FacilityCsvWriter
 {
   // #region Constants
   /**
@@ -58,7 +60,19 @@ final class FacilityCsvWriter
     'createdAt',
     'updatedAt',
     'levelIndex',
+    SpreadsheetSafeTextPort::ENCODING_COLUMN,
   ];
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Constructor
+   *
+   * @param SpreadsheetSafeTextPort $spreadsheetText reversible text-cell encoder
+   */
+  public function __construct(private SpreadsheetSafeTextPort $spreadsheetText)
+  {
+  }
   // #endregion
 
   // #region Methods
@@ -74,10 +88,17 @@ final class FacilityCsvWriter
    */
   public function write(array $rows, $handle): void
   {
-    fputcsv($handle, self::HEADER, escape: '\\');
+    fputcsv($handle, self::HEADER, escape: '');
 
     foreach ($rows as $row) {
-      fputcsv($handle, $this->toRow($row), escape: '\\');
+      $original = $this->toRow($row);
+      $cells = array_map($this->spreadsheetText->encode(...), $original);
+      // Coordinates and floor levels are typed numeric values, including negatives.
+      foreach ([4, 5, 11] as $numericColumn) {
+        $cells[$numericColumn] = $original[$numericColumn];
+      }
+      $cells[] = SpreadsheetSafeTextPort::ENCODING_VERSION;
+      fputcsv($handle, $cells, escape: '');
     }
   }
 

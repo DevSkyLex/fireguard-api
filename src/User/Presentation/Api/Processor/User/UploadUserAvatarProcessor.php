@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use DateTimeInterface;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Outbound\ImageInputValidationPort;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -51,7 +52,7 @@ final readonly class UploadUserAvatarProcessor implements ProcessorInterface
    *
    * @var int
    */
-  private const int MAX_FILE_SIZE = 5 * 1024 * 1024;
+  private const int MAX_FILE_SIZE = ImageInputValidationPort::MAX_BYTES;
 
   /**
    * Constant ALLOWED_MIME_TYPES.
@@ -143,12 +144,11 @@ final readonly class UploadUserAvatarProcessor implements ProcessorInterface
       );
     }
 
-    $sourceContents = file_get_contents($file->getPathname());
+    $sourceContents = file_get_contents($file->getPathname(), length: self::MAX_FILE_SIZE + 1);
     if (false === $sourceContents) {
       throw new UnprocessableEntityHttpException('Failed to read the uploaded file.');
     }
 
-    $this->avatarResizer->delete($id);
     $this->avatarResizer->resize($id, $sourceContents);
 
     // Append an upload-time version token so the canonical URL changes on each

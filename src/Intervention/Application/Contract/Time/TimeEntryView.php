@@ -29,7 +29,9 @@ final readonly class TimeEntryView
    * @param string $updatedBy member who authored the latest version
    * @param string $createdAt timestamp when the resource was created
    * @param string $updatedAt timestamp of the latest persisted version
-   * @param list<TimeEntryVersionView> $versions
+   * @param list<TimeEntryVersionView> $versions bounded latest revision; older durable history is paged separately
+   * @param int $totalVersions complete durable revision count
+   * @param ?int $nextBeforeRevision exclusive cursor for older retained revisions
    */
   public function __construct(
     public string $id,
@@ -44,7 +46,9 @@ final readonly class TimeEntryView
     public string $updatedBy,
     public string $createdAt,
     public string $updatedAt,
-    public array $versions,
+    public array $versions = [],
+    public int $totalVersions = 0,
+    public ?int $nextBeforeRevision = null,
   ) {
   }
 }

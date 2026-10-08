@@ -8,6 +8,7 @@ use Intervention\Application\Contract\Export\InterventionExportRow;
 use Intervention\Presentation\Api\Service\InterventionCsvWriter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 
 use function explode;
 use function fclose;
@@ -29,7 +30,7 @@ final class InterventionCsvWriterTest extends TestCase
   #[Test]
   public function testWriteEmitsTheHeaderRowFirst(): void
   {
-    $writer = new InterventionCsvWriter();
+    $writer = new InterventionCsvWriter(new SpreadsheetSafeTextAdapter());
 
     $handle = fopen('php://memory', 'w+');
     self::assertNotFalse($handle);
@@ -41,7 +42,7 @@ final class InterventionCsvWriterTest extends TestCase
 
     $lines = explode("\n", $content);
     self::assertSame(
-      ['id', 'name', 'type', 'status', 'priority', 'facility', 'assignee', 'due_at', 'created_at', 'updated_at'],
+      ['id', 'name', 'type', 'status', 'priority', 'facility', 'assignee', 'due_at', 'created_at', 'updated_at', '_fireguard_text_encoding'],
       str_getcsv($lines[0], escape: '\\'),
     );
   }
@@ -64,7 +65,7 @@ final class InterventionCsvWriterTest extends TestCase
       updatedAt: '2026-08-02T00:00:00+00:00',
     );
 
-    $writer = new InterventionCsvWriter();
+    $writer = new InterventionCsvWriter(new SpreadsheetSafeTextAdapter());
     $handle = fopen('php://memory', 'w+');
     self::assertNotFalse($handle);
 
@@ -99,7 +100,7 @@ final class InterventionCsvWriterTest extends TestCase
       updatedAt: '2026-08-02T00:00:00+00:00',
     );
 
-    $writer = new InterventionCsvWriter();
+    $writer = new InterventionCsvWriter(new SpreadsheetSafeTextAdapter());
     $handle = fopen('php://memory', 'w+');
     self::assertNotFalse($handle);
 

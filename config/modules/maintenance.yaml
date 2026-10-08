@@ -80,6 +80,13 @@ services:
   Maintenance\Application\Port\Inbound\MaintenanceOperationResultsPort:
     alias: Maintenance\Application\Service\MaintenancePlanAuthorityService
 
+  Maintenance\Infrastructure\Adapter\Intervention\MaintenanceInterventionHistoryAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Maintenance\Application\Port\Inbound\MaintenanceInterventionHistoryPort:
+    alias: Maintenance\Infrastructure\Adapter\Intervention\MaintenanceInterventionHistoryAdapter
+
   Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort:
     alias: Maintenance\Infrastructure\Adapter\Equipment\MaintenanceOperationsDueAdapter
 

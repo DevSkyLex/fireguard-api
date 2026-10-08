@@ -23,6 +23,11 @@ and creation event. Receipt/onboarding replays preserve their original result.
 Published resources can target published facilities only; a draft can also
 target another draft belonging to the same intervention.
 
+Onboarding receipts compare the complete prepared equipment identity, including
+`name`, `assetCode`, `criticality` and `technicalProperties`. An exact retry returns
+the original equipment; changing any prepared identity field returns a conflict
+before another quota debit or save.
+
 `GET /api/organizations/{organizationId}/facilities/{facilityId}/equipment-summary`
 is Equipment-owned and requires Equipment read access. `includeDescendants`
 defaults to true. It returns `scope` (`subtree` or `direct`), `totalItems`, four
@@ -316,6 +321,12 @@ seventh (`id`, `status`, `facilityId`, `facilityName`, `installedAt`,
 `commissionedAt`, `createdAt`, `updatedAt`) is read-only metadata the
 importer ignores. The frozen slice is asserted by
 `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest.php`.
+
+Text cells protect formula prefixes, leading control whitespace and literal
+apostrophes. The appended `_fireguard_text_encoding=apostrophe-v1` metadata lets
+Import remove that protection before provisioning, retaining original formulas
+and apostrophes as stored text while the downloaded CSV remains safe to open.
+The first seven columns and their reimport meanings remain unchanged.
 
 **QR label sheet (added 2026-08-28).** `GET .../equipment/labels`
 (`EXPORT_EQUIPMENT_LABELS`, on a dedicated `EquipmentLabelSheetResource` for

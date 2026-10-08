@@ -84,7 +84,13 @@ final class SendNotificationConsoleCommand extends Command
       ->addArgument(
         name: 'body',
         mode: InputArgument::REQUIRED,
-        description: 'Body of the notification (plain text or HTML)',
+        description: 'Body of the notification (plain text by default; use --body-is-html for trusted HTML)',
+      )
+      ->addOption(
+        name: 'body-is-html',
+        shortcut: null,
+        mode: InputOption::VALUE_NONE,
+        description: 'Render the email body as trusted HTML; escape all untrusted values before interpolation',
       )
       ->addOption(
         name: 'user-id',
@@ -116,7 +122,7 @@ final class SendNotificationConsoleCommand extends Command
 The <info>%command.name%</info> command sends a notification to a user.
 
 Send via e-mail only:
-  <info>php %command.full_name% organization.invitation "You're invited" "<p>Join us!</p>" --email=user@example.com</info>
+  <info>php %command.full_name% organization.invitation "You're invited" "<p>Join us!</p>" --email=user@example.com --body-is-html</info>
 
 Send via both channels:
   <info>php %command.full_name% system.announcement "Maintenance" "Scheduled maintenance tonight." --user-id=<uuid> --email=user@example.com --channels=email,mercure</info>
@@ -206,6 +212,9 @@ HELP
       subject: $subject,
       body: $body,
       channels: $channels,
+      deliveryPayload: true === $input->getOption('body-is-html')
+        ? [NotificationChannel::EMAIL->value => ['bodyIsHtml' => true]]
+        : [],
       recipientUserId: $userId,
       recipientEmail: $email,
       organizationId: $organizationId,

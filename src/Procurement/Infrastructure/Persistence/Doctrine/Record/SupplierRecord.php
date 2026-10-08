@@ -23,7 +23,7 @@ class SupplierRecord
   #[ORM\Column(name: 'name', type: 'string', length: 160)]
   public string $name;
 
-  #[ORM\Column(name: 'code', type: 'string', length: 64, nullable: true)]
+  #[ORM\Column(name: 'code', type: 'string', length: 80, nullable: true)]
   public ?string $code = null;
 
   #[ORM\Column(name: 'email', type: 'string', length: 254, nullable: true)]

@@ -26,6 +26,9 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
 };
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionTimeEntryRecord;
 use InvalidArgumentException;
+use Inventory\Application\Port\Inbound\InventoryInterventionHistoryPort;
+use Maintenance\Application\Port\Inbound\MaintenanceInterventionHistoryPort;
+use MaintenanceCost\Application\Port\Inbound\MaintenanceCostInterventionHistoryPort;
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
@@ -51,6 +54,9 @@ final readonly class InterventionWorkflowMutationSupport
    * @param InterventionMemberPolicy $memberPolicy policy for organization membership and intervention roles
    * @param InterventionResourceGatewayPort $resources port used to resolve linked resource ownership
    * @param OrganizationWorkforceDirectoryPort $workforce directory used to read organization and member context
+   * @param InventoryInterventionHistoryPort $inventory physical history and shared declaration fence
+   * @param MaintenanceCostInterventionHistoryPort $costs existence of retained financial references
+   * @param MaintenanceInterventionHistoryPort $maintenance retained occurrence references
    *
    * @return void
    */
@@ -59,6 +65,9 @@ final readonly class InterventionWorkflowMutationSupport
     private InterventionMemberPolicy $memberPolicy,
     private InterventionResourceGatewayPort $resources,
     private OrganizationWorkforceDirectoryPort $workforce,
+    private InventoryInterventionHistoryPort $inventory,
+    private MaintenanceCostInterventionHistoryPort $costs,
+    private MaintenanceInterventionHistoryPort $maintenance,
     private ?\Facility\Application\Port\Inbound\FacilityLifecycleReferencePort $facilities = null,
     private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
   ) {
@@ -404,6 +413,56 @@ final readonly class InterventionWorkflowMutationSupport
     }
     if ((int) $qb->getQuery()->getSingleScalarResult() > 0) {
       throw new InterventionConflictException('Time history must be retained; this resource cannot be deleted.');
+    }
+  }
+
+  /**
+   * Method lockRetentionFence
+   *
+   * Acquires the physical declaration fence before the parent lock, matching Inventory writers.
+   *
+   * @access public
+   *
+   * @param string $organizationId owning organization
+   * @param string $interventionId parent of the resource being deleted
+   *
+   * @return void
+   */
+  public function lockRetentionFence(string $organizationId, string $interventionId): void
+  {
+    $this->inventory->lock($organizationId, $interventionId);
+  }
+
+  /**
+   * Method assertNoRetainedHistory
+   *
+   * Checks owner-published references in the same main transaction under the parent lock.
+   * Task occurrence links remain retained when a retry moves the occurrence to newer work.
+   *
+   * @access public
+   *
+   * @param InterventionRecord $intervention locked operational parent
+   * @param ?InterventionWorkItemRecord $item optional locked task scope
+   *
+   * @return void
+   *
+   * @throws InterventionConflictException when deleting would orphan retained facts
+   */
+  public function assertNoRetainedHistory(InterventionRecord $intervention, ?InterventionWorkItemRecord $item = null): void
+  {
+    $this->assertNoTimeHistory($intervention, $item);
+    $organizationId = $this->organizationId($intervention);
+    if ($this->costs->hasHistory($organizationId, $intervention->id, $item?->id)
+      || $this->inventory->hasHistory($organizationId, $intervention->id, $item?->id)) {
+      throw new InterventionConflictException('Financial and inventory history must be retained; this resource cannot be deleted.');
+    }
+    $hasOccurrence = null !== $item
+      ? null !== $item->occurrenceId
+      : (int) $this->entityManager->createQueryBuilder()->select('COUNT(w.id)')->from(InterventionWorkItemRecord::class, 'w')
+        ->where('w.intervention = :intervention AND w.occurrenceId IS NOT NULL')->setParameter('intervention', $intervention)
+        ->getQuery()->getSingleScalarResult() > 0;
+    if ($hasOccurrence || (null === $item && $this->maintenance->hasHistory($organizationId, $intervention->id))) {
+      throw new InterventionConflictException('Preventive occurrence history must be retained; this resource cannot be deleted.');
     }
   }
 

@@ -104,6 +104,12 @@ services:
   Intervention\Application\UseCase\Query\Time\ListTimeEntries\ListTimeEntriesHandler:
     tags: ['messenger.message_handler']
 
+  Intervention\Application\UseCase\Query\Time\ListTimeEntryVersions\ListTimeEntryVersionsHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Time\GetTimeEntry\GetTimeEntryHandler:
+    tags: ['messenger.message_handler']
+
   # Bind the rich-text comment sanitizer (Quill / PrimeNG editor output).
   Intervention\Presentation\Api\Processor\InterventionActivityProcessor:
     arguments:

@@ -8,8 +8,10 @@ use Generator;
 use Import\Application\Port\Outbound\CsvRowStreamerPort;
 use Import\Infrastructure\Exception\CsvStreamOpenException;
 use InvalidArgumentException;
+use Shared\Application\Port\Outbound\SpreadsheetSafeTextPort;
 
 use function array_map;
+use function array_search;
 use function fclose;
 use function fgetcsv;
 use function fopen;
@@ -75,8 +77,10 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
    * @since 1.0.0
    *
    * @param int $maxRows the maximum number of data rows accepted
+   * @param SpreadsheetSafeTextPort $spreadsheetText decoder for explicitly marked exports
    */
   public function __construct(
+    private SpreadsheetSafeTextPort $spreadsheetText,
     private int $maxRows = self::DEFAULT_MAX_ROWS,
   ) {
   }
@@ -128,9 +132,11 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
 
       /** @var list<string> $header */
       $header = array_map(static fn (?string $column): string => trim($column ?? ''), $header);
+      $encodingColumn = array_search(SpreadsheetSafeTextPort::ENCODING_COLUMN, $header, true);
+      $escape = false === $encodingColumn ? '\\' : '';
 
       $rowNumber = 0;
-      while (false !== ($row = fgetcsv($stream, 0, $delimiter, escape: '\\'))) {
+      while (false !== ($row = fgetcsv($stream, 0, $delimiter, escape: $escape))) {
         if ([null] === $row) {
           // A fully blank line: fgetcsv() reports it as [null].
           continue;
@@ -222,13 +228,17 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
    */
   private function combine(array $header, array $row): array
   {
+    $encodingColumn = array_search(SpreadsheetSafeTextPort::ENCODING_COLUMN, $header, true);
+    $encoded = false !== $encodingColumn
+      && SpreadsheetSafeTextPort::ENCODING_VERSION === ($row[$encodingColumn] ?? '');
     $values = [];
     foreach ($header as $index => $column) {
-      if ('' === $column) {
+      if ('' === $column || SpreadsheetSafeTextPort::ENCODING_COLUMN === $column) {
         continue;
       }
 
-      $values[$column] = trim($row[$index] ?? '');
+      $cell = $row[$index] ?? '';
+      $values[$column] = $encoded ? $this->spreadsheetText->decode($cell) : trim($cell);
     }
 
     return $values;

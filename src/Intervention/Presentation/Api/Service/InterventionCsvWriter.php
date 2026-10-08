@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Intervention\Presentation\Api\Service;
 
 use Intervention\Application\Contract\Export\InterventionExportRow;
+use Shared\Application\Port\Outbound\SpreadsheetSafeTextPort;
 
+use function array_map;
 use function fputcsv;
 
 /**
@@ -22,7 +24,7 @@ use function fputcsv;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class InterventionCsvWriter
+final readonly class InterventionCsvWriter
 {
   // #region Constants
   /**
@@ -43,7 +45,19 @@ final class InterventionCsvWriter
     'due_at',
     'created_at',
     'updated_at',
+    SpreadsheetSafeTextPort::ENCODING_COLUMN,
   ];
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Constructor
+   *
+   * @param SpreadsheetSafeTextPort $spreadsheetText reversible text-cell encoder
+   */
+  public function __construct(private SpreadsheetSafeTextPort $spreadsheetText)
+  {
+  }
   // #endregion
 
   // #region Methods
@@ -59,10 +73,12 @@ final class InterventionCsvWriter
    */
   public function write(array $rows, $handle): void
   {
-    fputcsv($handle, self::HEADER, escape: '\\');
+    fputcsv($handle, self::HEADER, escape: '');
 
     foreach ($rows as $row) {
-      fputcsv($handle, $this->toRow($row), escape: '\\');
+      $cells = array_map($this->spreadsheetText->encode(...), $this->toRow($row));
+      $cells[] = SpreadsheetSafeTextPort::ENCODING_VERSION;
+      fputcsv($handle, $cells, escape: '');
     }
   }
 
