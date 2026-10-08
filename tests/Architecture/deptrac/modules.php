@@ -21,6 +21,10 @@ return static function (DeptracConfig $config): void {
       $surface = '(?:Application\\(?:Port|Contract|Message)\\|Domain\\)';
     }
     $prefix = '^' . preg_quote($module, '/') . '\\';
+    if ('Intervention' === $module) {
+      // Composer resolves this more-specific prefix to intervention/image in vendor.
+      $prefix .= '(?!Image\\)';
+    }
     $public[$module] = Layer::withName($module . 'Public')->collectors(ClassLikeConfig::create($prefix . $surface));
     $private[$module] = Layer::withName($module . 'Private')->collectors(ClassLikeConfig::create($prefix . '(?!' . $surface . ').*'));
     $config->layers($public[$module], $private[$module]);

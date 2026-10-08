@@ -1,12 +1,11 @@
 {% extends 'notification/email/layout.html.twig' %}
 
-{# Generic notification email. The notification itself sits in a card; the heading and the note around it do not.
-   `body` is trusted markup supplied by the notifying module (it is the in-app notification text). #}
+{# Generic notification email. Bodies are plain text unless the channel explicitly opts into trusted HTML. #}
 {% block content %}
   <h1>{{ subject }}</h1>
   <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="item-card" bgcolor="#fcfcfc">
     <tr>
-      <td class="prose">{{ body|raw }}</td>
+      <td class="prose">{% if bodyIsHtml|default(false) %}{{ body|raw }}{% else %}{{ body }}{% endif %}</td>
     </tr>
   </table>
   <p class="muted" style="margin: 16px 0 0;">You are receiving this email because of your notification settings in Fireguard. You can change which notifications you receive from your Fireguard account.</p>

@@ -39,6 +39,55 @@ final class MaintenancePlanApiTest extends WebTestCase
   private ?string $loggedUserId = null;
 
   #[Test]
+  public function abandonedOccurrenceWorkCannotBeDeletedAndRetriesKeepItsOriginalIdentity(): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->login($client, self::ADMIN);
+    $input = $this->input('maintenance', 'P1M');
+    $input['active'] = true;
+    $plan = $this->request($client, 'POST', '/plans', $input);
+    self::assertSame(201, $client->getResponse()->getStatusCode());
+    self::assertIsString($plan['id']);
+    $this->request($client, 'POST', '/plans/activate');
+    $first = $this->request($client, 'POST', '/plans/' . $plan['id'] . '/generate', []);
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    self::assertIsString($first['interventionId']);
+    $before = $this->request($client, 'GET', '/plans/' . $plan['id']);
+    self::assertIsArray($before['openOccurrence']);
+    $taskId = $this->main()->getConnection()->fetchOne('SELECT id FROM intervention_work_items WHERE intervention_id = :id', ['id' => $first['interventionId']]);
+    self::assertIsString($taskId);
+    $this->request($client, 'DELETE', '/api/intervention-work-items/' . $taskId, headers: ['HTTP_IF_MATCH' => '"revision-1"']);
+    self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $currentWork = $this->request($client, 'GET', '/api/interventions/' . $first['interventionId']);
+    self::assertIsInt($currentWork['revision']);
+    $abandoned = $this->request($client, 'PATCH', '/api/interventions/' . $first['interventionId'], ['status' => 'abandoned', 'responsible' => '780e8402' . substr(self::ADMIN, 8)], ['HTTP_IF_MATCH' => '"revision-' . $currentWork['revision'] . '"']);
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    self::assertSame('abandoned', $abandoned['status']);
+    self::assertIsInt($abandoned['revision']);
+    $this->request($client, 'DELETE', '/api/interventions/' . $first['interventionId'], headers: ['HTTP_IF_MATCH' => '"revision-' . $abandoned['revision'] . '"']);
+    self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $replay = $this->request($client, 'POST', '/plans/' . $plan['id'] . '/generate', []);
+    self::assertTrue($replay['replayed']);
+    self::assertSame($first['interventionId'], $replay['interventionId']);
+    $retry = $this->request($client, 'POST', '/plans/' . $plan['id'] . '/generate', ['retry' => true]);
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    self::assertSame($first['occurrenceId'], $retry['occurrenceId']);
+    self::assertIsString($retry['interventionId']);
+    self::assertNotSame($first['interventionId'], $retry['interventionId']);
+    $after = $this->request($client, 'GET', '/plans/' . $plan['id']);
+    self::assertIsArray($after['openOccurrence']);
+    self::assertSame($before['openOccurrence']['dueAt'], $after['openOccurrence']['dueAt']);
+    self::assertSame(2, $after['openOccurrence']['attempt']);
+    $newWork = $this->request($client, 'GET', '/api/interventions/' . $retry['interventionId']);
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    self::assertSame('draft', $newWork['status']);
+    $this->request($client, 'DELETE', '/api/interventions/' . $first['interventionId'], headers: ['HTTP_IF_MATCH' => '"revision-' . $abandoned['revision'] . '"']);
+    self::assertSame(409, $client->getResponse()->getStatusCode(), 'Previous task occurrence identities retain the old attempt after retry.');
+    self::assertSame(1, $this->main()->getConnection()->fetchOne('SELECT COUNT(*) FROM maintenance_occurrences WHERE organization_id = :org', ['org' => self::ORG]));
+  }
+
+  #[Test]
   public function preparePreviewEnableGenerateAndReplayKeepIndependentOperations(): void
   {
     $client = static::createClient();
@@ -273,10 +322,11 @@ final class MaintenancePlanApiTest extends WebTestCase
 
   /**
    * @param array<string, mixed>|null $body
+   * @param array<string, string> $headers request preconditions
    *
    * @return array<string, mixed>
    */
-  private function request(KernelBrowser &$client, string $method, string $path, ?array $body = null): array
+  private function request(KernelBrowser &$client, string $method, string $path, ?array $body = null, array $headers = []): array
   {
     self::ensureKernelShutdown();
     $client = static::createClient();
@@ -284,7 +334,7 @@ final class MaintenancePlanApiTest extends WebTestCase
       $this->login($client, $this->loggedUserId);
     }
     $url = str_starts_with($path, '/api/') ? $path : '/api/organizations/' . self::ORG . '/maintenance' . $path;
-    $client->request($method, $url, server: ['CONTENT_TYPE' => 'PATCH' === $method ? 'application/merge-patch+json' : 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'], content: null === $body ? null : json_encode((object) $body, JSON_THROW_ON_ERROR));
+    $client->request($method, $url, server: $headers + ['CONTENT_TYPE' => 'PATCH' === $method ? 'application/merge-patch+json' : 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'], content: null === $body ? null : json_encode((object) $body, JSON_THROW_ON_ERROR));
     $content = (string) $client->getResponse()->getContent();
 
     if ('' === $content) {

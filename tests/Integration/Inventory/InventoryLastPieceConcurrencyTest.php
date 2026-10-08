@@ -9,14 +9,25 @@ use DateTimeImmutable;
 use Doctrine\DBAL\{Connection,DriverManager};
 use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\ORM\{EntityManager,EntityManagerInterface};
+use Equipment\Application\Port\Inbound\EquipmentReserveReceiptPort;
 use Intervention\Application\Contract\Inventory\InventoryInterventionContext;
 use Intervention\Application\Port\Inbound\InterventionInventoryContextPort;
 use Inventory\Application\UseCase\Command\ApplyInventoryStock\{ApplyInventoryStockCommand,ApplyInventoryStockHandler};
 use Inventory\Domain\Model\Stock\{InventoryReference,StockBalance};
+use Inventory\Infrastructure\Adapter\Procurement\{InventoryPartDirectoryAdapter, InventoryStockReceiptAdapter};
 use Inventory\Infrastructure\Persistence\Doctrine\Repository\InventoryRepository;
 use MaintenanceCost\Application\Port\Inbound\MaintenanceCurrencyPort;
+use MaintenanceCost\Infrastructure\Adapter\Currency\MaintenanceCurrencyAdapter;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Application\Port\Outbound\{TransactionManagerPort,UuidGeneratorPort};
+use Procurement\Application\Service\ProcurementProjection;
+use Procurement\Application\UseCase\Command\ManageProcurement\{ManageProcurementCommand, ManageProcurementHandler};
+use Procurement\Domain\Model\{PurchaseOrder, Supplier};
+use Procurement\Domain\ValueObject\ProcurementLine;
+use Procurement\Infrastructure\Persistence\Doctrine\Repository\ProcurementRepository;
+use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort,UuidGeneratorPort};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function str_pad;
@@ -70,6 +81,53 @@ final class InventoryLastPieceConcurrencyTest extends KernelTestCase
   }
 
   #[Test]
+  public function procurementReceptionAndConsumptionShareCurrencyBeforeIdentityAndReferenceLocks(): void
+  {
+    $other = new EntityManager($this->b, $this->main->getConfiguration());
+    $procurement = $this->procurement($other);
+    $receive = new ManageProcurementCommand('bec10000-0000-4000-8000-000000000005', self::ORG, 'receive', 'bec10000-0000-4000-8000-000000000101', 2, ['clientOperationId' => 'bec10000-0000-4000-8000-000000000103', 'lineId' => 'bec10000-0000-4000-8000-000000000102', 'warehouseId' => self::WAREHOUSE, 'quantity' => '1', 'receivedAt' => '2026-10-06T10:00:00Z']);
+    $currency = new MaintenanceCurrencyAdapter($this->a);
+    $interleavedCurrency = $this->createStub(MaintenanceCurrencyPort::class);
+    $delivered = null;
+    $interleavedCurrency->method('lock')->willReturnCallback(function (string $organizationId) use ($currency, $procurement, $receive, &$delivered): string {
+      if (null === $delivered) {
+        // Session B enters the real reception bridge while A is active, immediately before A's currency lock.
+        $delivered = $procurement($receive);
+        self::assertSame('stock_received', $delivered->data['status']);
+        // A must not yet own its operation lock: Procurement already owns currency before entering Inventory.
+        self::assertTrue($this->b->fetchOne('SELECT pg_try_advisory_xact_lock(hashtextextended(?, 0))', ['inventory-operation:' . self::ORG . ':' . $this->consume(10)->clientOperationId]));
+      }
+
+      return $currency->lock($organizationId);
+    });
+    $workerA = $this->handler($this->main, $this->a, 10, $interleavedCurrency);
+    $this->b->executeStatement("SET lock_timeout='150ms'");
+    $this->a->executeStatement("SET lock_timeout='150ms'");
+    $this->b->beginTransaction();
+
+    try {
+      $workerA($this->consume(10));
+      self::fail('Consumption must serialize behind the reception transaction currency lock.');
+    } catch (DriverException $exception) {
+      self::assertSame('55P03', $exception->getSQLState(), 'The wait is bounded by the test, never resolved by a deadlock victim.');
+    }
+    self::assertNotNull($delivered, 'Reception must acquire references successfully before A acquires currency.');
+    self::assertSame(0, $this->b->fetchOne('SELECT COUNT(*) FROM inventory_declarations WHERE organization_id=?', [self::ORG]));
+    $this->b->commit();
+    $consumed = $workerA($this->consume(10));
+    self::assertNotNull($consumed->declaration);
+    self::assertSame('confirmed', $consumed->declaration->status);
+    self::assertTrue($workerA($this->consume(10))->replayed);
+    self::assertTrue($procurement($receive)->replayed);
+    self::assertSame('1.000000', $this->a->fetchOne('SELECT quantity FROM inventory_balances WHERE organization_id=?', [self::ORG]));
+    self::assertSame('7.000000', $this->a->fetchOne('SELECT total_value FROM inventory_balances WHERE organization_id=?', [self::ORG]));
+    self::assertSame(2, $this->a->fetchOne('SELECT COUNT(*) FROM inventory_movements WHERE organization_id=?', [self::ORG]));
+    self::assertSame(2, $this->a->fetchOne('SELECT COUNT(*) FROM inventory_operation_receipts WHERE organization_id=?', [self::ORG]));
+    self::assertSame(1, $this->a->fetchOne('SELECT COUNT(*) FROM procurement_receipts WHERE organization_id=?', [self::ORG]));
+    self::assertSame(1, $this->a->fetchOne('SELECT COUNT(*) FROM procurement_operations WHERE organization_id=?', [self::ORG]));
+  }
+
+  #[Test]
   public function theSecondWorkerWaitsThenPersistsItsFullPendingDeclaration(): void
   {
     $workerA = $this->handler($this->main, $this->a, 10);
@@ -100,20 +158,41 @@ final class InventoryLastPieceConcurrencyTest extends KernelTestCase
     self::assertSame(2, $this->b->fetchOne('SELECT COUNT(*) FROM inventory_declarations WHERE organization_id=?', [self::ORG]));
   }
 
+  private function procurement(EntityManagerInterface $em): ManageProcurementHandler
+  {
+    $repository = new ProcurementRepository($this->b);
+    $now = new DateTimeImmutable('2026-10-06T12:00:00Z');
+    $supplier = Supplier::create('bec10000-0000-4000-8000-000000000100', self::ORG, 'Concurrency supplier', null, null, null, [], $now);
+    $order = PurchaseOrder::create('bec10000-0000-4000-8000-000000000101', self::ORG, $supplier->id, 'EUR', 'Concurrent receipt', [ProcurementLine::create('bec10000-0000-4000-8000-000000000102', 'part', self::PART, null, [], '1', '7')], $now);
+    $order->order(1, $now);
+    $repository->saveSupplier($supplier);
+    $repository->saveOrder($order);
+    $inventory = $this->handler($em, $this->b, 30);
+    $bus = $this->createStub(CommandBusPort::class);
+    $bus->method('dispatch')->willReturnCallback($inventory(...));
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    $authorization->method('hasPermission')->willReturn(true);
+    $clock = $this->createStub(ClockPort::class);
+    $clock->method('now')->willReturn($now);
+    $ids = $this->createStub(UuidGeneratorPort::class);
+    $ids->method('generate')->willReturn('bec10000-0000-4000-8000-000000000104');
+
+    return new ManageProcurementHandler($repository, $authorization, new MaintenanceCurrencyAdapter($this->b), new InventoryPartDirectoryAdapter(new InventoryRepository($em)), new InventoryStockReceiptAdapter($bus), $this->createStub(EquipmentReserveReceiptPort::class), new ProcurementProjection(), $clock, $ids, $this->createStub(EventDispatcherPort::class));
+  }
+
   private function consume(int $n): ApplyInventoryStockCommand
   {
     return new ApplyInventoryStockCommand(self::ORG, 'bec10000-0000-4000-8000-000000000005', 'consumption', 'bec10000-0000-4000-8000-' . str_pad((string) $n, 12, '0', STR_PAD_LEFT), self::PART, self::WAREHOUSE, '1', new DateTimeImmutable('2026-10-06T10:00:00+00:00'), 'bec10000-0000-4000-8000-' . str_pad((string) ($n + 100), 12, '0', STR_PAD_LEFT));
   }
 
-  private function handler(EntityManagerInterface $em, Connection $connection, int $counter): ApplyInventoryStockHandler
+  private function handler(EntityManagerInterface $em, Connection $connection, int $counter, ?MaintenanceCurrencyPort $currency = null): ApplyInventoryStockHandler
   {
     $tx = $this->createStub(TransactionManagerPort::class);
     $tx->method('transactional')->willReturnCallback(static fn (callable $call): mixed => $connection->transactional(static fn (Connection $active): mixed => $call()));
     $ids = $this->createStub(UuidGeneratorPort::class);
     $ids->method('generate')->willReturnCallback(static function () use (&$counter): string {return 'bec20000-0000-4000-8000-' . str_pad((string) ++$counter, 12, '0', STR_PAD_LEFT); });
-    $currency = $this->createStub(MaintenanceCurrencyPort::class);
-    $currency->method('lock')->willReturn('EUR');
-    $currency->method('forOrganization')->willReturn('EUR');
+    $currency ??= new MaintenanceCurrencyAdapter($connection);
     $context = $this->createStub(InterventionInventoryContextPort::class);
     $context->method('validate')->willReturn(new InventoryInterventionContext(false));
 
@@ -122,7 +201,7 @@ final class InventoryLastPieceConcurrencyTest extends KernelTestCase
 
   private function clean(): void
   {
-    foreach (['inventory_operation_receipts', 'inventory_declarations', 'inventory_movements', 'inventory_balances', 'inventory_parts', 'inventory_warehouses'] as $table) {
+    foreach (['procurement_operations', 'procurement_receipts', 'procurement_orders', 'procurement_suppliers', 'inventory_operation_receipts', 'inventory_declarations', 'inventory_movements', 'inventory_balances', 'inventory_parts', 'inventory_warehouses', 'maintenance_cost_currency_settings'] as $table) {
       $this->a->executeStatement('DELETE FROM ' . $table . ' WHERE organization_id=?', [self::ORG]);
     }
     $this->main->clear();

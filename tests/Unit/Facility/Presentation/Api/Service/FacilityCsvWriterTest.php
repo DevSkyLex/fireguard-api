@@ -8,6 +8,7 @@ use Facility\Application\Contract\Export\FacilityExportRow;
 use Facility\Presentation\Api\Service\FacilityCsvWriter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 
 use function array_slice;
 use function fclose;
@@ -46,7 +47,7 @@ final class FacilityCsvWriterTest extends TestCase
   #[Test]
   public function testWriteFormatsCoordinatesAsPlainDecimalStringsAndFallsBackToEmptyForNulls(): void
   {
-    $writer = new FacilityCsvWriter();
+    $writer = new FacilityCsvWriter(new SpreadsheetSafeTextAdapter());
 
     $rowWithCoordinates = new FacilityExportRow(
       id: 'facility-1',
@@ -91,7 +92,7 @@ final class FacilityCsvWriterTest extends TestCase
   public function testHeaderEndsWithLevelIndexAfterTheFrozenImportContract(): void
   {
     self::assertSame(
-      ['parentCode', 'id', 'status', 'createdAt', 'updatedAt', 'levelIndex'],
+      ['parentCode', 'id', 'status', 'createdAt', 'updatedAt', 'levelIndex', '_fireguard_text_encoding'],
       array_slice(FacilityCsvWriter::HEADER, 6),
       'levelIndex is a new trailing column — it must never be inserted before the frozen import prefix.',
     );
@@ -100,7 +101,7 @@ final class FacilityCsvWriterTest extends TestCase
   #[Test]
   public function testWriteFormatsLevelIndexAsAPlainIntegerStringAndFallsBackToEmptyForNull(): void
   {
-    $writer = new FacilityCsvWriter();
+    $writer = new FacilityCsvWriter(new SpreadsheetSafeTextAdapter());
 
     $rowWithLevelIndex = new FacilityExportRow(
       id: 'facility-3',
@@ -140,6 +141,6 @@ final class FacilityCsvWriterTest extends TestCase
     fclose($handle);
 
     self::assertStringContainsString('facility-3,active,2026-08-01T00:00:00+00:00,2026-08-02T00:00:00+00:00,-1', $csv);
-    self::assertStringContainsString('facility-4,active,2026-08-01T00:00:00+00:00,2026-08-02T00:00:00+00:00,' . "\n", $csv);
+    self::assertStringContainsString('facility-4,active,2026-08-01T00:00:00+00:00,2026-08-02T00:00:00+00:00,,apostrophe-v1' . "\n", $csv);
   }
 }

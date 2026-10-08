@@ -289,6 +289,8 @@ jobs:
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_APP_DIR: ${{ vars.VPS_APP_DIR }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+      ANSIBLE_HOST_KEY_CHECKING: "true"
       VPS_HEALTHCHECK_URL: ${{ vars.VPS_HEALTHCHECK_URL }}
       VPS_HEALTHCHECK_VALIDATE_CERTS: ${{ vars.VPS_HEALTHCHECK_VALIDATE_CERTS || 'true' }}
       GHCR_USERNAME: ${{ vars.GHCR_USERNAME || github.actor }}
@@ -375,7 +377,7 @@ jobs:
             exit 1
           fi
 
-          for value in VPS_HOST VPS_USER VPS_SSH_KEY IMAGE_REF VPS_APP_DIR COMPOSE_PROJECT_NAME VOLUME_PREFIX API_HOST MERCURE_HOST TRAEFIK_API_ROUTER_NAME TRAEFIK_MERCURE_ROUTER_NAME DEFAULT_URI MERCURE_PUBLIC_URL; do
+          for value in VPS_HOST VPS_USER VPS_SSH_KEY VPS_SSH_KNOWN_HOSTS IMAGE_REF VPS_APP_DIR COMPOSE_PROJECT_NAME VOLUME_PREFIX API_HOST MERCURE_HOST TRAEFIK_API_ROUTER_NAME TRAEFIK_MERCURE_ROUTER_NAME DEFAULT_URI MERCURE_PUBLIC_URL; do
             test -n "${!value}" || { echo "$value is required."; exit 1; }
           done
 
@@ -389,13 +391,39 @@ jobs:
             test -n "$FIXTURE_IMAGE_REF" || { echo "FIXTURE_IMAGE_REF is required to reset development fixtures."; exit 1; }
           fi
 
+      - name: Configure reviewed SSH host trust
+        shell: bash
+        run: |
+          set -eu
+          known_hosts="$RUNNER_TEMP/fireguard-api-known_hosts"
+          matching_keys="$known_hosts.match"
+          trap 'rm -f "$matching_keys"' EXIT
+          case "$VPS_PORT" in
+            ''|*[!0-9]*) echo "VPS_PORT must be a valid port."; exit 1 ;;
+          esac
+          if [ "${#VPS_PORT}" -gt 5 ]; then
+            echo "VPS_PORT must be a valid port."; exit 1
+          fi
+          port=$((10#$VPS_PORT))
+          if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+            echo "VPS_PORT must be a valid port."; exit 1
+          fi
+          test -n "$VPS_SSH_KNOWN_HOSTS" || { echo "VPS_SSH_KNOWN_HOSTS is required."; exit 1; }
+          printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" > "$known_hosts"
+          chmod 600 "$known_hosts"
+          host_lookup="$VPS_HOST"
+          if [ "$port" -ne 22 ]; then host_lookup="[$VPS_HOST]:$port"; fi
+          ssh-keygen -F "$host_lookup" -f "$known_hosts" > "$matching_keys" ||
+            { echo "No approved SSH host key matches the deployment target."; exit 1; }
+          ssh-keygen -l -f "$matching_keys" > /dev/null 2>&1 ||
+            { echo "The approved SSH host key material is invalid."; exit 1; }
+          printf 'VPS_PORT=%s\n' "$port" >> "$GITHUB_ENV"
+
       - name: Configure SSH
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "$VPS_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
 
       - name: Install Ansible
         run: |
@@ -411,4 +439,6 @@ jobs:
           } > .deploy/inventory.ini
 
       - name: Run Ansible deployment
-        run: ansible-playbook -i .deploy/inventory.ini ansible/deploy.yml
+        run: |
+          export ANSIBLE_SSH_COMMON_ARGS="-o UserKnownHostsFile=\"$RUNNER_TEMP/fireguard-api-known_hosts\" -o GlobalKnownHostsFile=/dev/null -o StrictHostKeyChecking=yes"
+          ansible-playbook -i .deploy/inventory.ini ansible/deploy.yml

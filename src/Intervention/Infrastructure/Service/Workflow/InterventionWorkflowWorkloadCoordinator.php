@@ -71,7 +71,10 @@ final readonly class InterventionWorkflowWorkloadCoordinator
     if (null === $context) {
       throw InterventionNotFoundException::withId($mutation->id ?? 'unknown');
     }
-    // Parent first, sorted members next, task rows last, shared with time writes.
+    if ('delete' === $mutation->action) {
+      $this->support->lockRetentionFence($context->organizationId, $context->interventionId);
+    }
+    // Deletion fences first, parent next, sorted members then tasks, shared with time writes.
     $parent = $this->support->intervention($context->interventionId);
     $this->entityManager->refresh($parent);
     $members = [];

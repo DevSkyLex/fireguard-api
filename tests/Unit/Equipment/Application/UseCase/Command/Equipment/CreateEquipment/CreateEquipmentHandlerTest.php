@@ -297,6 +297,10 @@ final class CreateEquipmentHandlerTest extends TestCase
         self::assertSame('create_first_equipment', $step);
         self::assertSame($organizationId, $actualOrganizationId);
         self::assertSame('/api/facilities/' . $facilityId, $payload['facility']);
+        self::assertSame('Entrance extinguisher', $payload['name']);
+        self::assertSame('FG-001', $payload['assetCode']);
+        self::assertSame('high', $payload['criticality']);
+        self::assertSame([['key' => 'capacity', 'value' => '6', 'unit' => 'kg']], $payload['technicalProperties']);
 
         return new OrganizationSetupOperation($step, $context->itemKey, []);
       },
@@ -346,6 +350,10 @@ final class CreateEquipmentHandlerTest extends TestCase
         resourceId: null,
         setupContext: $context,
         facilityId: $facilityId,
+        name: 'Entrance extinguisher',
+        assetCode: 'FG-001',
+        criticality: 'high',
+        technicalProperties: [['key' => 'capacity', 'value' => '6', 'unit' => 'kg']],
       ),
     );
 

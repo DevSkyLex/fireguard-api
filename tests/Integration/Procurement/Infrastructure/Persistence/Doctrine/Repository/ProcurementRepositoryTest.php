@@ -83,6 +83,44 @@ final class ProcurementRepositoryTest extends TestCase
   }
 
   #[Test]
+  public function creationResourcesAndReplayIdentitiesCommitOrRollbackTogether(): void
+  {
+    $supplier = Supplier::create(self::SUPPLIER, self::ORG, 'Creation retry supplier', null, null, null, [], $this->now());
+    $order = PurchaseOrder::create(self::ORDER, self::ORG, self::SUPPLIER, 'EUR', 'Creation retry draft', [ProcurementLine::create(self::LINE, 'part', self::PART, null, [], '1', null)], $this->now());
+    $write = function () use ($supplier, $order): void {
+      $this->repository->saveSupplier($supplier);
+      $this->repository->saveOrder($order);
+      $this->repository->saveOperation(new ProcurementOperationState(self::ORG, self::OPERATION, 'create_supplier', 'supplier-fingerprint', self::SUPPLIER));
+      $this->repository->saveOperation(new ProcurementOperationState(self::ORG, self::RECEIPT, 'create_order', 'order-fingerprint', self::ORDER));
+      $other = new ProcurementRepository($this->b);
+      self::assertNull($other->supplier(self::ORG, self::SUPPLIER));
+      self::assertNull($other->order(self::ORG, self::ORDER));
+      self::assertNull($other->operation(self::ORG, self::OPERATION));
+      self::assertNull($other->operation(self::ORG, self::RECEIPT));
+    };
+
+    try {
+      $this->repository->synchronized(self::ORG, static function () use ($write): void {
+        $write();
+
+        throw new RuntimeException('Fail before the creation transaction commits.');
+      });
+    } catch (RuntimeException $exception) {
+      self::assertSame('Fail before the creation transaction commits.', $exception->getMessage());
+    }
+    self::assertNull($this->repository->supplier(self::ORG, self::SUPPLIER));
+    self::assertNull($this->repository->order(self::ORG, self::ORDER));
+    self::assertNull($this->repository->operation(self::ORG, self::OPERATION));
+    self::assertNull($this->repository->operation(self::ORG, self::RECEIPT));
+    $this->repository->synchronized(self::ORG, $write);
+    $other = new ProcurementRepository($this->b);
+    self::assertSame(self::SUPPLIER, $other->supplier(self::ORG, self::SUPPLIER)?->id);
+    self::assertSame(self::ORDER, $other->order(self::ORG, self::ORDER)?->id);
+    self::assertSame(self::SUPPLIER, $other->operation(self::ORG, self::OPERATION)?->receiptId);
+    self::assertSame(self::ORDER, $other->operation(self::ORG, self::RECEIPT)?->receiptId);
+  }
+
+  #[Test]
   public function exactQuantitiesCostsAndMotivatedDeclarationsRoundTrip(): void
   {
     $order = $this->order('2.500000');

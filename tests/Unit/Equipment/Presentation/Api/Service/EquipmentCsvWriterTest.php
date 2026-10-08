@@ -8,6 +8,7 @@ use Equipment\Application\Contract\Export\EquipmentExportRow;
 use Equipment\Presentation\Api\Service\EquipmentCsvWriter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 
 use function array_slice;
 use function explode;
@@ -48,7 +49,7 @@ final class EquipmentCsvWriterTest extends TestCase
   #[Test]
   public function testWriteEmitsTheHeaderAndOneRowPerEquipment(): void
   {
-    $writer = new EquipmentCsvWriter();
+    $writer = new EquipmentCsvWriter(new SpreadsheetSafeTextAdapter());
     $row = new EquipmentExportRow(
       id: 'equipment-1',
       type: 'fire_extinguisher',
@@ -86,7 +87,7 @@ final class EquipmentCsvWriterTest extends TestCase
   #[Test]
   public function testWriteFallsBackToTheFacilityIdWhenTheNameIsUnresolvedAndToEmptyWhenAbsent(): void
   {
-    $writer = new EquipmentCsvWriter();
+    $writer = new EquipmentCsvWriter(new SpreadsheetSafeTextAdapter());
     $unresolved = new EquipmentExportRow(
       id: 'equipment-2',
       type: 'smoke_detector',

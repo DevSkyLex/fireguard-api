@@ -6,11 +6,11 @@ namespace Tests\Functional\Api;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
 use Inventory\Application\Contract\Stock\{InventoryReceiptRequest,InventoryReceiptReturnRequest};
 use Inventory\Application\Port\Inbound\{InventoryInterventionResourcesPort, InventoryStockReceiptPort};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -34,6 +34,74 @@ final class InventoryApiTest extends WebTestCase
   private const string ROLE = 'beb10000-0000-4000-8000-000000000004';
 
   private int $operation = 100;
+
+  /**
+   * @return iterable<string, array{bool, bool}>
+   */
+  public static function retainedConsumptionScopes(): iterable
+  {
+    yield 'abandoned confirmed consumption' => [true, false];
+    yield 'abandoned pending consumption' => [false, false];
+    yield 'prepared task confirmed consumption' => [true, true];
+    yield 'prepared task pending consumption' => [false, true];
+  }
+
+  #[Test]
+  #[DataProvider('retainedConsumptionScopes')]
+  public function physicalFactsRetainTheirWorkAndRemainReturnableOrReconcilable(bool $confirmed, bool $targetTask): void
+  {
+    $client = $this->client();
+    [$part, $warehouse] = $this->catalog($client);
+    $this->correct($client, $part, $warehouse, '2', '3');
+    $work = $this->manager()->find(InterventionRecord::class, self::INTERVENTION);
+    self::assertInstanceOf(InterventionRecord::class, $work);
+    $work->type = 'corrective_maintenance';
+    $taskId = null;
+    if ($targetTask) {
+      $work->status = 'draft';
+      $task = new InterventionWorkItemRecord();
+      $taskId = $this->op();
+      $task->id = $taskId;
+      $task->intervention = $work;
+      $task->action = 'inventory';
+      $task->status = 'planned';
+      $task->source = 'planned';
+      $task->createdAt = $task->updatedAt = new DateTimeImmutable();
+      $this->manager()->persist($task);
+      $this->manager()->flush();
+    }
+    $this->manager()->flush();
+    $payload = $this->consumption($part, $warehouse, $confirmed ? '1' : '3');
+    $payload['workItemId'] = $taskId;
+    $declaration = $this->request($client, 'POST', 'inventory-consumptions', $payload, 201);
+    self::assertSame($confirmed ? 'confirmed' : 'received_pending', $declaration['status']);
+    self::assertIsString($declaration['id']);
+    if (!$targetTask) {
+      $this->workflowRequest($client, 'PATCH', '/api/interventions/' . self::INTERVENTION, 1, ['status' => 'abandoned']);
+      self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    }
+    $path = $targetTask ? '/api/intervention-work-items/' . $taskId : '/api/interventions/' . self::INTERVENTION;
+    $before = $this->balance($client);
+    $this->workflowRequest($client, 'DELETE', $path, $targetTask ? 1 : 2);
+    self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $retained = $this->request($client, 'GET', 'inventory-consumptions/' . $declaration['id']);
+    self::assertSame($declaration['status'], $retained['status']);
+    self::assertSame($declaration['movementId'], $retained['movementId']);
+    self::assertSame($before['quantity'], $this->balance($client)['quantity']);
+    if ($confirmed) {
+      $this->request($client, 'POST', 'inventory-returns', ['clientOperationId' => $this->op(), 'consumptionId' => $declaration['id'], 'quantity' => '1', 'reason' => 'Unused after abandonment'], 201);
+      self::assertSame('2.000000', $this->balance($client)['quantity']);
+      // Even a fully returned issue is a retained immutable history.
+      $this->workflowRequest($client, 'DELETE', $path, $targetTask ? 1 : 2);
+      self::assertSame(409, $client->getResponse()->getStatusCode());
+    } else {
+      $this->correct($client, $part, $warehouse, '1', '3');
+      $resolved = $this->request($client, 'POST', 'inventory-consumptions/' . $declaration['id'] . '/reconcile', [], 200);
+      self::assertSame('confirmed', $resolved['status']);
+      self::assertSame($declaration['id'], $resolved['id']);
+      self::assertSame('0.000000', $this->balance($client)['quantity']);
+    }
+  }
 
   #[Test]
   public function supplierReturnsAreValuedAtCurrentCumpWhileBoundedByOriginalQuantity(): void
@@ -404,6 +472,14 @@ final class InventoryApiTest extends WebTestCase
   private function op(): string
   {
     return 'beb10000-0000-4000-8000-' . str_pad((string) ++$this->operation, 12, '0', STR_PAD_LEFT);
+  }
+
+  /**
+   * @param array<string, mixed>|null $body workflow payload
+   */
+  private function workflowRequest(KernelBrowser $client, string $method, string $path, int $revision, ?array $body = null): void
+  {
+    $client->request($method, $path, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json', 'HTTP_IF_MATCH' => '"revision-' . $revision . '"'], content: null === $body ? null : json_encode($body, JSON_THROW_ON_ERROR));
   }
 
   private function manager(): EntityManagerInterface

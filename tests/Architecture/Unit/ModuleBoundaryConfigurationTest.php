@@ -23,6 +23,51 @@ use function preg_match;
  */
 final class ModuleBoundaryConfigurationTest extends TestCase
 {
+  /**
+   * Method vendorImageNamespaceDoesNotGrantAccessToPrivateInterventionClasses
+   *
+   * Proves the exact Composer-owned vendor prefix is uncollected while internal
+   * image infrastructure and existing Intervention records remain private.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function vendorImageNamespaceDoesNotGrantAccessToPrivateInterventionClasses(): void
+  {
+    $root = dirname(__DIR__, 3);
+    $config = new DeptracConfig();
+    /** @var callable(DeptracConfig): void $configure */
+    $configure = require $root . '/tests/Architecture/deptrac/modules.php';
+    $configure($config);
+    /** @var array{layers: array<string, array{collectors: list<array{value: string}>}>, ruleset: array<string, array<int|string, string>>} $definition */
+    $definition = $config->toArray();
+    $public = $definition['layers']['InterventionPublic']['collectors'][0]['value'];
+    $private = $definition['layers']['InterventionPrivate']['collectors'][0]['value'];
+
+    foreach ([
+      'Intervention\\Image\\ImageManager',
+      'Intervention\\Image\\Drivers\\Gd\\Driver',
+      'Intervention\\Image\\Drivers\\Gd\\Decoders\\BinaryImageDecoder',
+      'Intervention\\Image\\Exceptions\\DecoderException',
+    ] as $vendorClass) {
+      self::assertSame(0, preg_match('/' . $public . '/', $vendorClass));
+      self::assertSame(0, preg_match('/' . $private . '/', $vendorClass));
+    }
+
+    foreach ([
+      'Intervention\\Infrastructure\\Image\\PrivateRecord',
+      'Intervention\\Infrastructure\\Persistence\\Doctrine\\Record\\InterventionRecord',
+    ] as $privateClass) {
+      self::assertSame(0, preg_match('/' . $public . '/', $privateClass));
+      self::assertSame(1, preg_match('/' . $private . '/', $privateClass));
+    }
+    foreach (['UserPrivate', 'UserPublic', 'OrganizationPrivate', 'OrganizationPublic'] as $consumer) {
+      self::assertNotContains('InterventionPrivate', $definition['ruleset'][$consumer]);
+    }
+  }
+
   #[Test]
   public function everyDocumentedModuleHasDisjointPublicAndPrivateCollectors(): void
   {

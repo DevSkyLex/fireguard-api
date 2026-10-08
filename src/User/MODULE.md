@@ -42,6 +42,16 @@ frontend's localized typed registries are the source of these values).
 
 ## Flows
 
+Avatar uploads accept JPEG, PNG, WebP and GIF sources of at most 5 MiB, 4,096 pixels
+per axis and 4,194,304 pixels in total. Header validation runs before GD allocates
+the source raster. Animation decoding is disabled; animated GIF uploads retain the
+first frame as a static WebP. GIF logical-screen and first-frame dimensions are
+validated independently before decoding; the first frame must fit its screen.
+The source is decoded once for all four variants,
+and all variants are encoded before replacing existing files. Invalid geometry
+or malformed image content returns HTTP 422 without deleting the current avatar
+or updating its URL.
+
 Creation and email-verification INFO logs retain only the technical user identifier.
 They omit email addresses and usernames; account events and notification delivery
 contracts retain their existing behavior.
@@ -358,6 +368,7 @@ Presence endpoints require authentication (401). Missing, null or non-boolean
 server error, while realtime delivery failures do not change a successful response.
 
 - `EmailOwnershipUnavailableException` -> inactive/missing account or changed address (403, `email_ownership_unavailable`)
+- `InvalidImageInputException` -> avatar source exceeds the byte/dimension/pixel budget or cannot be decoded (422)
 
 - `UserAlreadyExistsException` -> user already exists
 - `UserNotFoundException` -> user not found

@@ -138,16 +138,46 @@ final class OnboardingSetupApiTest extends WebTestCase
     self::assertResponseStatusCodeSame(201);
     $this->call($client, 'POST', '/api/onboarding/organization/steps/create_first_facility/execute');
     self::assertResponseStatusCodeSame(200);
-    $equipment = ['type' => 'fire_extinguisher', 'facility' => '/api/facilities/' . $facility];
+    $equipment = [
+      'type' => 'fire_extinguisher',
+      'facility' => '/api/facilities/' . $facility,
+      'name' => 'Entrance extinguisher',
+      'assetCode' => 'FG-001',
+      'criticality' => 'high',
+      'technicalProperties' => [['key' => 'capacity', 'value' => '6', 'unit' => 'kg']],
+    ];
     $this->prepare($client, $session, 'create_first_equipment', [['itemKey' => 'equipment', 'payload' => $equipment]]);
     $this->call($client, 'POST', '/api/organizations/' . $org . '/equipment', [...$equipment, 'onboardingSessionId' => $session, 'onboardingItemKey' => 'equipment']);
     self::assertResponseStatusCodeSame(201);
     $created = $this->body($client);
     self::assertSame($facility, $created['facilityId']);
+    foreach (['name', 'assetCode', 'criticality', 'technicalProperties'] as $field) {
+      self::assertSame($equipment[$field], $created[$field]);
+    }
     $this->call($client, 'POST', '/api/organizations/' . $org . '/equipment', [...$equipment, 'onboardingSessionId' => $session, 'onboardingItemKey' => 'equipment']);
     self::assertResponseStatusCodeSame(201);
     self::assertSame($created['id'], $this->body($client)['id']);
     self::assertSame($created['installedAt'], $this->body($client)['installedAt']);
+    $changes = [
+      'name' => 'Different extinguisher',
+      'assetCode' => 'FG-002',
+      'criticality' => 'critical',
+      'technicalProperties' => [['key' => 'capacity', 'value' => '9', 'unit' => 'kg']],
+    ];
+    foreach ($changes as $field => $value) {
+      $this->call($client, 'POST', '/api/organizations/' . $org . '/equipment', [
+        ...$equipment,
+        $field => $value,
+        'onboardingSessionId' => $session,
+        'onboardingItemKey' => 'equipment',
+      ]);
+      self::assertResponseStatusCodeSame(409);
+    }
+    $manager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $manager);
+    $equipmentCount = $manager->getConnection()->fetchOne('SELECT COUNT(*) FROM equipment WHERE organization_id = ?', [$org]);
+    self::assertTrue(is_int($equipmentCount) || is_string($equipmentCount));
+    self::assertSame(1, (int) $equipmentCount);
   }
 
   #[Test]

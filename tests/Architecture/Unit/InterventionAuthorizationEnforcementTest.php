@@ -201,6 +201,8 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
     $requiredCalls = match ($handler) {
       'WriteTimeEntryHandler' => ['assertWrite'],
       'ListTimeEntriesHandler' => ['actor', 'canManage'],
+      'ListTimeEntryVersionsHandler' => ['actor', 'canManage'],
+      'GetTimeEntryHandler' => ['actor', 'canManage'],
       default => [],
     };
     if ([] === $requiredCalls || !str_contains($contents, 'InterventionTimeAccessPolicy')) {

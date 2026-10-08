@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Procurement\Application\UseCase\Command\ManageProcurement\{ManageProcurementCommand, ManageProcurementResult};
 use Procurement\Domain\Exception\ProcurementException;
-use Procurement\Presentation\Api\Dto\Input\{ChangePurchaseOrderInput, ChangeSupplierInput, IndividualizeReceiptInput, ReceivePurchaseOrderInput, ReturnProcurementReceiptInput};
+use Procurement\Presentation\Api\Dto\Input\{ChangePurchaseOrderInput, ChangeSupplierInput, CreatePurchaseOrderInput, CreateSupplierInput, IndividualizeReceiptInput, ReceivePurchaseOrderInput, ReturnProcurementReceiptInput};
 use Procurement\Presentation\Api\Dto\Output\{ProcurementReceiptOutput, ProcurementReturnOutput, PurchaseOrderOutput, SupplierOutput};
 use Procurement\Presentation\Api\Operation\ProcurementOperations;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -23,7 +23,7 @@ use function preg_match;
 use function property_exists;
 
 /** Maps transport primitives and revisions into the only authorized mutation entry point.
- * @implements ProcessorInterface<ChangeSupplierInput|ChangePurchaseOrderInput|ReceivePurchaseOrderInput|IndividualizeReceiptInput|ReturnProcurementReceiptInput|null,SupplierOutput|PurchaseOrderOutput|ProcurementReceiptOutput|ProcurementReturnOutput>
+ * @implements ProcessorInterface<CreateSupplierInput|CreatePurchaseOrderInput|ChangeSupplierInput|ChangePurchaseOrderInput|ReceivePurchaseOrderInput|IndividualizeReceiptInput|ReturnProcurementReceiptInput|null,SupplierOutput|PurchaseOrderOutput|ProcurementReceiptOutput|ProcurementReturnOutput>
  */
 final readonly class ProcurementProcessor implements ProcessorInterface
 {

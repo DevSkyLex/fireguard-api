@@ -1214,6 +1214,18 @@ cannot extend a grant, and an unreadable organization status never grants a writ
 
 Resolve authenticated identity through public auth-side contracts, enforce membership/admission/policy and quotas in main, then persist the owned mutation. Durable invitation and setup workflows retain their transactional and replay rules described above.
 
+Logo uploads accept JPEG, PNG, WebP and GIF sources of at most 5 MiB, 4,096 pixels
+per axis and 4,194,304 pixels in total. Header validation runs before GD allocates
+the source raster. Animation decoding is disabled; animated GIF uploads retain
+the first frame as a static WebP. GIF logical-screen and first-frame dimensions
+are validated independently before decoding; the first frame must fit its screen.
+Invalid geometry or malformed image content
+returns HTTP 422 without replacing the existing logo or updating its URL.
+
+Membership email bodies are autoescaped as plain text by the default notification
+template; stored notifications and Mercure text preserve the original organization
+name.
+
 ## Configuration
 
 Bindings are defined in [Organization configuration](../../config/modules/organization.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.

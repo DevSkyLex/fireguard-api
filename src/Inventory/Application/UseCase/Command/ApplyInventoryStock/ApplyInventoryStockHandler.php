@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Inventory\Application\UseCase\Command\ApplyInventoryStock;
 
 use DateTimeImmutable;
+use Intervention\Application\Contract\Inventory\InventoryInterventionContext;
 use Intervention\Application\Port\Inbound\InterventionInventoryContextPort;
 use InvalidArgumentException;
 use Inventory\Application\Contract\Stock\{InventoryOperationReceipt,InventoryReceiptResult};
@@ -55,25 +56,22 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     $hash = hash('sha256', json_encode(['kind' => $command->kind, 'partId' => $command->partId, 'warehouseId' => $command->warehouseId, 'quantity' => $quantity, 'occurredAt' => $command->occurredAt?->format('c'), 'interventionId' => $command->interventionId, 'workItemId' => $command->workItemId, 'equipmentId' => $command->equipmentId, 'reason' => $command->reason, 'unitCost' => null === $command->unitCost ? null : $this->amount($command->unitCost), 'currency' => $command->currency, 'sourceReceiptId' => $command->sourceReceiptId, 'originalId' => $command->originalId], JSON_THROW_ON_ERROR));
 
     return $this->transactions->transactional(function () use ($command, $quantity, $hash): ApplyInventoryStockResult {
+      // Work fences precede currency; currency precedes operation and stock locks, including Procurement calls.
+      $context = $this->validateWorkContext($command);
+      $currency = $this->currency->lock($command->organizationId);
       $receipt = $this->store->operationForUpdate($command->organizationId, $command->clientOperationId ?? throw new LogicException('Missing operation identity.'));
       if (null !== $receipt) {
         if ($receipt->payloadHash !== $hash) {
           throw new InventoryConflictException('clientOperationId was already used for another declaration.');
         }
-        if ('consumption' === $command->kind) {
-          $this->interventions->validate($command->organizationId, $command->interventionId ?? throw new InvalidArgumentException('An intervention is required.'), $command->workItemId, $command->equipmentId, $command->actorId);
-        } elseif ('return' === $command->kind) {
-          $declaration = $this->store->declaration($command->organizationId, $command->originalId ?? throw new InvalidArgumentException('An original consumption is required.')) ?? throw new InventoryNotFoundException('Consumption declaration not found.');
-          $this->interventions->validate($command->organizationId, $declaration->interventionId, $declaration->workItemId, $declaration->equipmentId, $command->actorId);
-        }
 
         return $this->replay($command, $receipt);
       }
       $result = match($command->kind) {
-        'receipt' => $this->receive($command, $quantity),
-        'consumption' => $this->consume($command, $quantity),
-        'return','receipt_return' => $this->returnStock($command, $quantity),
-        default => $this->correct($command, $quantity),
+        'receipt' => $this->receive($command, $quantity, $currency),
+        'consumption' => $this->consume($command, $quantity, $currency, $context ?? throw new LogicException('Missing work context.')),
+        'return','receipt_return' => $this->returnStock($command, $quantity, $currency, $context),
+        default => $this->correct($command, $quantity, $currency),
       };
       if (null !== $result->receipt?->blockedReason) {
         return $result;
@@ -84,7 +82,32 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     });
   }
 
-  private function consume(ApplyInventoryStockCommand $command, string $quantity): ApplyInventoryStockResult
+  /**
+   * Method validateWorkContext
+   *
+   * Acquires the publication fence and parent lock before any financial or stock lock.
+   *
+   * @access private
+   *
+   * @param ApplyInventoryStockCommand $command the canonical operation
+   *
+   * @return ?InventoryInterventionContext the authorized work context when linked to an intervention
+   */
+  private function validateWorkContext(ApplyInventoryStockCommand $command): ?InventoryInterventionContext
+  {
+    if ('consumption' === $command->kind) {
+      return $this->interventions->validate($command->organizationId, $command->interventionId ?? throw new InvalidArgumentException('An intervention is required.'), $command->workItemId, $command->equipmentId, $command->actorId);
+    }
+    if ('return' === $command->kind) {
+      $declaration = $this->store->declaration($command->organizationId, $command->originalId ?? throw new InvalidArgumentException('An original consumption is required.')) ?? throw new InventoryNotFoundException('Consumption declaration not found.');
+
+      return $this->interventions->validate($command->organizationId, $declaration->interventionId, $declaration->workItemId, $declaration->equipmentId, $command->actorId);
+    }
+
+    return null;
+  }
+
+  private function consume(ApplyInventoryStockCommand $command, string $quantity, string $currency, InventoryInterventionContext $context): ApplyInventoryStockResult
   {
     $org = $command->organizationId;
     $intervention = $command->interventionId ?? throw new InvalidArgumentException('An interventionId is required.');
@@ -93,14 +116,13 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
         new Uuid($id);
       }
     }
-    $context = $this->interventions->validate($org, $intervention, $command->workItemId, $command->equipmentId, $command->actorId);
     [$part,$warehouse] = $this->references($org, $command->partId, $command->warehouseId);
     $occurred = $command->occurredAt ?? throw new InvalidArgumentException('An occurredAt date is required.');
     $declaration = new ConsumptionDeclaration($this->ids->generate(), $org, $part->id, $warehouse->id, $quantity, $intervention, $command->workItemId, $command->equipmentId, $command->actorId, $occurred, 'received_pending', null, null, $context->published);
     // Persist the complete physical fact before its resolution. Insufficient stock returns normally.
     $this->store->saveDeclaration($declaration);
 
-    return new ApplyInventoryStockResult(declaration:$this->resolve($declaration, $part, $warehouse, $context->published));
+    return new ApplyInventoryStockResult(declaration:$this->resolve($declaration, $part, $warehouse, $context->published, $currency));
   }
 
   private function canonical(ApplyInventoryStockCommand $c): ApplyInventoryStockCommand
@@ -108,9 +130,8 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     return new ApplyInventoryStockCommand(strtolower($c->organizationId), strtolower($c->actorId), $c->kind, null === $c->clientOperationId ? null : strtolower($c->clientOperationId), null === $c->partId ? null : strtolower($c->partId), null === $c->warehouseId ? null : strtolower($c->warehouseId), $c->quantity, $c->occurredAt, null === $c->interventionId ? null : strtolower($c->interventionId), null === $c->workItemId ? null : strtolower($c->workItemId), null === $c->equipmentId ? null : strtolower($c->equipmentId), $c->reason, $c->unitCost, $c->currency, null === $c->sourceReceiptId ? null : strtolower($c->sourceReceiptId), null === $c->originalId ? null : strtolower($c->originalId));
   }
 
-  private function resolve(ConsumptionDeclaration $declaration, InventoryReference $part, InventoryReference $warehouse, bool $late): ConsumptionDeclaration
+  private function resolve(ConsumptionDeclaration $declaration, InventoryReference $part, InventoryReference $warehouse, bool $late, string $currency): ConsumptionDeclaration
   {
-    $currency = $this->currency->lock($declaration->organizationId);
     $balance = $this->store->balanceForUpdate($declaration->organizationId, $warehouse->id, $part->id);
     $reason = match(true) {
       $part->archived || $warehouse->archived => 'archived_reference',null === $balance => 'missing_balance',DecimalAmount::fromString($balance->quantity)->compareTo(DecimalAmount::fromString($declaration->quantity)) < 0 => 'insufficient_stock',default => null
@@ -147,22 +168,22 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
       throw new InventoryNotFoundException('Consumption declaration not found.');
     }
     $context = $this->interventions->validate($command->organizationId, $candidate->interventionId, $candidate->workItemId, $candidate->equipmentId, $command->actorId);
+    $currency = $this->currency->lock($command->organizationId);
     $declaration = $this->store->declaration($command->organizationId, $id, true) ?? throw new InventoryNotFoundException('Consumption declaration not found.');
     if ('confirmed' === $declaration->status) {
       return new ApplyInventoryStockResult(declaration:$declaration, replayed:true);
     }
     [$part,$warehouse] = $this->references($command->organizationId, $declaration->partId, $declaration->warehouseId);
 
-    return new ApplyInventoryStockResult(declaration:$this->resolve($declaration, $part, $warehouse, $context->published || $declaration->late));
+    return new ApplyInventoryStockResult(declaration:$this->resolve($declaration, $part, $warehouse, $context->published || $declaration->late, $currency));
   }
 
-  private function receive(ApplyInventoryStockCommand $command, string $quantity): ApplyInventoryStockResult
+  private function receive(ApplyInventoryStockCommand $command, string $quantity, string $currency): ApplyInventoryStockResult
   {
     [$part,$warehouse] = $this->references($command->organizationId, $command->partId, $command->warehouseId);
     if ($part->archived || $warehouse->archived) {
       throw new InventoryConflictException('Archived inventory references cannot receive stock.');
     }
-    $currency = $this->currency->lock($command->organizationId);
     if ($command->currency !== $currency) {
       throw new InventoryConflictException('Receipt currency must match the organization currency.');
     }
@@ -177,7 +198,7 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     return new ApplyInventoryStockResult(movement:$movement, receipt:new InventoryReceiptResult($movement->id, $quantity, $unit, $value));
   }
 
-  private function returnStock(ApplyInventoryStockCommand $command, string $quantity): ApplyInventoryStockResult
+  private function returnStock(ApplyInventoryStockCommand $command, string $quantity, string $currency, ?InventoryInterventionContext $context): ApplyInventoryStockResult
   {
     $reason = $this->reason($command->reason);
     $originalId = $command->originalId ?? throw new InvalidArgumentException('The original declaration or movement is required.');
@@ -189,8 +210,7 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
       if (null === $declaration) {
         throw new InventoryNotFoundException('Consumption declaration not found.');
       }
-      $context = $this->interventions->validate($org, $declaration->interventionId, $declaration->workItemId, $declaration->equipmentId, $command->actorId);
-      $late = $context->published;
+      $late = ($context ?? throw new LogicException('Missing work context.'))->published;
       if (null === $declaration->movementId) {
         throw new InventoryConflictException('An unresolved declaration cannot be returned to stock.');
       }
@@ -201,7 +221,6 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
       throw new InventoryConflictException('The referenced movement is not returnable.');
     }
     [$part,$warehouse] = $this->references($org, $original->partId, $original->warehouseId);
-    $currency = $this->currency->lock($org);
     $balance = $this->store->balanceForUpdate($org, $warehouse->id, $part->id) ?? throw new InventoryConflictException('Missing inventory balance.');
     $returned = DecimalAmount::fromString($this->store->linkedQuantity($org, $originalId));
     $originalQuantity = DecimalAmount::fromString($original->quantity);
@@ -251,11 +270,10 @@ final readonly class ApplyInventoryStockHandler implements CommandHandler
     return new ApplyInventoryStockResult(movement:$movement, receipt:new InventoryReceiptResult($movement->id, $quantity, $unit, $value));
   }
 
-  private function correct(ApplyInventoryStockCommand $command, string $quantity): ApplyInventoryStockResult
+  private function correct(ApplyInventoryStockCommand $command, string $quantity, string $currency): ApplyInventoryStockResult
   {
     $reason = $this->reason($command->reason);
     [$part,$warehouse] = $this->references($command->organizationId, $command->partId, $command->warehouseId);
-    $currency = $this->currency->lock($command->organizationId);
     $balance = $this->store->balanceForUpdate($command->organizationId, $warehouse->id, $part->id);
     $valuation = new StockValuation(null === $balance ? '0.000000' : $balance->quantity, null === $balance ? '0.000000' : $balance->totalValue);
     $delta = DecimalAmount::fromString($quantity);

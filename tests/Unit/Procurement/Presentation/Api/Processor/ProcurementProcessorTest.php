@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Procurement\Application\UseCase\Command\ManageProcurement\{ManageProcurementCommand, ManageProcurementResult};
 use Procurement\Domain\Exception\ProcurementException;
-use Procurement\Presentation\Api\Dto\Input\{ChangePurchaseOrderInput, ChangeSupplierInput, IndividualizeReceiptInput, ReceivePurchaseOrderInput, ReturnProcurementReceiptInput};
+use Procurement\Presentation\Api\Dto\Input\{ChangePurchaseOrderInput, ChangeSupplierInput, CreateSupplierInput, IndividualizeReceiptInput, ReceivePurchaseOrderInput, ReturnProcurementReceiptInput};
 use Procurement\Presentation\Api\Dto\Output\{ProcurementReceiptOutput, PurchaseOrderOutput, SupplierOutput};
 use Procurement\Presentation\Api\Operation\ProcurementOperations;
 use Procurement\Presentation\Api\Processor\ProcurementProcessor;
@@ -66,12 +66,13 @@ final class ProcurementProcessorTest extends TestCase
   #[Test]
   public function testSupplierCreationForwardsOnlyExplicitFields(): void
   {
-    $input = new ChangeSupplierInput();
+    $input = new CreateSupplierInput();
+    $input->clientOperationId = self::OPERATION;
     $input->name = 'Supplier';
     $input->email = 'sales@example.com';
-    $requests = $this->requests(['name' => 'Supplier', 'email' => 'sales@example.com']);
+    $requests = $this->requests(['name' => 'Supplier', 'email' => 'sales@example.com', 'clientOperationId' => self::OPERATION]);
     $bus = $this->createMock(CommandBusPort::class);
-    $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ManageProcurementCommand $command): bool => self::ACTOR === $command->actorId && self::ORGANIZATION === $command->organizationId && 'create_supplier' === $command->action && null === $command->id && null === $command->expectedRevision && ['name' => 'Supplier', 'email' => 'sales@example.com'] === $command->payload))->willReturn(new ManageProcurementResult('supplier', $this->projection('supplier')));
+    $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ManageProcurementCommand $command): bool => self::ACTOR === $command->actorId && self::ORGANIZATION === $command->organizationId && 'create_supplier' === $command->action && null === $command->id && null === $command->expectedRevision && ['name' => 'Supplier', 'email' => 'sales@example.com', 'clientOperationId' => self::OPERATION] === $command->payload))->willReturn(new ManageProcurementResult('supplier', $this->projection('supplier')));
     $processor = new ProcurementProcessor($bus, $this->actor(), $requests);
 
     $output = $processor->process($input, new Post(name: ProcurementOperations::CREATE_SUPPLIER), ['organizationId' => self::ORGANIZATION]);

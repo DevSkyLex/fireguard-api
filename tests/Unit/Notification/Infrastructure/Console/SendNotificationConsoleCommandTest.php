@@ -13,12 +13,13 @@ use Notification\Application\Contract\Notification\{
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Infrastructure\Console\SendNotificationConsoleCommand;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Tests\Support\Notification\EmailPipelineTestTrait;
 
 /**
  * Test SendNotificationConsoleCommand.
@@ -31,6 +32,8 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(SendNotificationConsoleCommand::class)]
 final class SendNotificationConsoleCommandTest extends TestCase
 {
+  use EmailPipelineTestTrait;
+
   // #region Constants
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655440001';
 
@@ -49,6 +52,7 @@ final class SendNotificationConsoleCommandTest extends TestCase
     self::assertTrue($definition->hasOption('user-id'));
     self::assertTrue($definition->hasOption('email'));
     self::assertTrue($definition->hasOption('organization-id'));
+    self::assertFalse($definition->getOption('body-is-html')->getDefault());
     self::assertSame(
       NotificationChannel::EMAIL->value,
       $definition->getOption('channels')->getDefault(),
@@ -68,7 +72,8 @@ final class SendNotificationConsoleCommandTest extends TestCase
         && [NotificationChannel::EMAIL] === $request->channels
         && 'user@example.com' === $request->recipientEmail
         && null === $request->recipientUserId
-        && null === $request->organizationId))
+        && null === $request->organizationId
+        && [] === $request->deliveryPayload))
       ->willReturn($this->sentNotification());
 
     $tester = new CommandTester($this->createCommand($port));
@@ -82,6 +87,62 @@ final class SendNotificationConsoleCommandTest extends TestCase
 
     self::assertSame(Command::SUCCESS, $exitCode);
     self::assertStringContainsString('notification-id', $tester->getDisplay());
+  }
+
+  #[Test]
+  #[DataProvider('htmlModes')]
+  public function testTrustedHtmlRequiresAnExplicitOperatorFlag(bool $bodyIsHtml): void
+  {
+    $body = '<p>Operator announcement</p>';
+    $port = $this->createMock(NotificationPort::class);
+    $port->expects(self::once())->method('send')
+      ->with(self::callback(static fn (SendNotificationRequest $request): bool => $body === $request->body
+        && ($bodyIsHtml ? [NotificationChannel::EMAIL->value => ['bodyIsHtml' => true]] : []) === $request->deliveryPayload))
+      ->willReturn($this->sentNotification());
+    $tester = new CommandTester($this->createCommand($port));
+    $arguments = [
+      'type' => NotificationType::SYSTEM_ANNOUNCEMENT,
+      'subject' => 'Announcement',
+      'body' => $body,
+      '--email' => 'user@example.com',
+    ];
+    if ($bodyIsHtml) {
+      $arguments['--body-is-html'] = true;
+    }
+
+    self::assertSame(Command::SUCCESS, $tester->execute($arguments));
+  }
+
+  /**
+   * @return iterable<string, array{bool}>
+   */
+  public static function htmlModes(): iterable
+  {
+    yield 'plain text by default' => [false];
+    yield 'explicit trusted HTML' => [true];
+  }
+
+  #[Test]
+  public function testExplicitOperatorHtmlSurvivesTheRealDeliveryPipeline(): void
+  {
+    $body = '<p>Operator <strong>announcement</strong></p>';
+    $notifications = $this->emailPipeline(self::USER_ID, 'user@example.com', 'system', 'Announcement', false);
+    $tester = new CommandTester($this->createCommand($notifications));
+
+    self::assertSame(Command::SUCCESS, $tester->execute([
+      'type' => NotificationType::SYSTEM_ANNOUNCEMENT,
+      'subject' => 'Announcement',
+      'body' => $body,
+      '--email' => 'user@example.com',
+      '--user-id' => self::USER_ID,
+      '--channels' => 'email,mercure',
+      '--body-is-html' => true,
+    ]));
+    self::assertNotNull($this->storedEmailNotification);
+    self::assertSame($body, $this->storedEmailNotification->body());
+    self::assertSame($this->storedEmailNotification, $this->mercureEmailNotification);
+    self::assertIsString($this->renderedNotificationEmail);
+    self::assertStringContainsString('<td class="prose">' . $body . '</td>', $this->renderedNotificationEmail);
   }
 
   #[Test]

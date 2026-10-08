@@ -96,7 +96,17 @@ have the same value.
 Deployment secrets:
 
 - `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
+- `VPS_SSH_KNOWN_HOSTS`: complete approved OpenSSH known_hosts entries for this
+  environment, verified through an authenticated operator/provider channel.
 - `GHCR_TOKEN` if the workflow token is insufficient
+
+SSH deployment fails before Ansible when the reviewed host-key secret is absent,
+invalid or does not match the configured host and port. Port 22 uses the bare host;
+other ports use `[host]:port`, including IPv6. Hashed entries and multiple approved
+keys are supported. Strict checking uses only this reviewed file; the workflow
+never obtains trust from a network scan. For a host-key rotation, verify the new
+key independently and update the environment secret before redeploying. Existing
+image rollbacks use the same current workflow trust gate.
 
 Application secrets specific to each environment:
 

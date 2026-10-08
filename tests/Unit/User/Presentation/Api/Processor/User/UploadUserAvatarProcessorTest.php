@@ -6,12 +6,16 @@ namespace Tests\Unit\User\Presentation\Api\Processor\User;
 
 use ApiPlatform\Metadata\Post;
 use DateTimeImmutable;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Image\InvalidImageInputException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Infrastructure\Image\ImageInputValidationAdapter;
 use Symfony\Component\HttpFoundation\{File\UploadedFile, Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Tests\Support\Image\ImageFixtures;
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Command\User\UpdateUser\UpdateUserCommand;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
@@ -149,7 +153,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
 
     /** @var AvatarResizer&MockObject $resizer */
     $resizer = $this->createMock(AvatarResizer::class);
-    $resizer->expects(self::once())->method('delete')->with('user-1');
+    $resizer->expects(self::never())->method('delete');
     $resizer->expects(self::once())->method('resize')->with('user-1', self::isString());
 
     /** @var CommandBusPort&MockObject $commandBus */
@@ -210,7 +214,6 @@ final class UploadUserAvatarProcessorTest extends TestCase
       ->willReturn(new GetUserResult(user: null));
 
     $resizer = $this->createStub(AvatarResizer::class);
-    $resizer->method('delete');
     $resizer->method('resize');
 
     $processor = new UploadUserAvatarProcessor(
@@ -344,6 +347,57 @@ final class UploadUserAvatarProcessorTest extends TestCase
       restore_error_handler();
       @unlink($tmpFile);
     }
+  }
+
+  #[Test]
+  #[DataProvider('rejectedImageHeaders')]
+  public function testRejectedImagesPreserveTheExistingAvatarAndUserState(string $contents, string $message): void
+  {
+    $tmpFile = $this->createTempFile($contents, 'image/png');
+    $request = new Request();
+    $request->files->set('avatar', new UploadedFile($tmpFile, 'avatar.png', 'image/png', test: true));
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('delete');
+    $storage->expects(self::never())->method('write');
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $processor = new UploadUserAvatarProcessor(
+      requestStack: $requestStack,
+      avatarResizer: new AvatarResizer($storage, new ImageInputValidationAdapter()),
+      commandBus: $commandBus,
+      queryBus: $queryBus,
+    );
+
+    $this->expectException(InvalidImageInputException::class);
+    $this->expectExceptionMessage($message);
+
+    try {
+      $processor->process(null, new Post(), ['id' => 'user-1']);
+    } finally {
+      @unlink($tmpFile);
+    }
+  }
+
+  /**
+   * Method rejectedImageHeaders
+   *
+   * Covers geometry rejection before decode and header-valid truncated pixels.
+   *
+   * @access public
+   *
+   * @return iterable<string, array{string, string}> the rejected source cases
+   */
+  public static function rejectedImageHeaders(): iterable
+  {
+    yield 'oversized geometry' => [ImageFixtures::pngHeader(2048, 2049), 'Image exceeds the 4194304 pixel limit.'];
+    yield 'malformed pixels' => [ImageFixtures::pngHeader(1, 1), 'Unable to decode the uploaded image.'];
+    yield 'GIF first-frame geometry' => [ImageFixtures::gifFirstFrameHeader(2048, 2049), 'Image exceeds the 4194304 pixel limit.'];
   }
 
   // #region Helpers

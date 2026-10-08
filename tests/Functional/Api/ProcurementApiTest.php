@@ -16,6 +16,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use function array_column;
 use function json_decode;
 use function json_encode;
+use function str_repeat;
 use function strtoupper;
 use function substr;
 
@@ -49,6 +50,86 @@ final class ProcurementApiTest extends WebTestCase
   private const string THIRD_OPERATION = '790e8400-e29b-41d4-a716-446655448012';
 
   private ?string $loggedUserId = null;
+
+  #[Test]
+  public function creationRetriesReuseSavedSuppliersAndDraftsAndRejectChangedDeclarations(): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->login($client, self::ADMIN);
+    $supplierInput = ['clientOperationId' => self::OPERATION, 'name' => 'Retry supplier', 'contacts' => [['name' => 'Buyer', 'email' => 'buyer@example.com']]];
+    $firstSupplier = $this->request($client, 'POST', '/suppliers', $supplierInput);
+    self::assertSame(201, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $supplierInput['clientOperationId'] = strtoupper(self::OPERATION);
+    $supplierReplay = $this->request($client, 'POST', '/suppliers', $supplierInput);
+    self::assertSame(201, $client->getResponse()->getStatusCode());
+    self::assertSame($firstSupplier['id'], $supplierReplay['id']);
+    self::assertTrue($supplierReplay['replayed']);
+    self::assertSame(1, $supplierReplay['revision']);
+    $supplierInput['contacts'][0]['email'] = 'changed@example.com';
+    $this->request($client, 'POST', '/suppliers', $supplierInput);
+    self::assertSame(409, $client->getResponse()->getStatusCode());
+    $orderInput = ['clientOperationId' => self::SECOND_OPERATION, 'name' => 'Retry draft', 'supplierId' => $this->id($firstSupplier), 'lines' => [['kind' => 'part', 'partId' => self::PART, 'quantity' => '2', 'unitCost' => '3']]];
+    $firstOrder = $this->request($client, 'POST', '/orders', $orderInput);
+    self::assertSame(201, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $orderReplay = $this->request($client, 'POST', '/orders', $orderInput);
+    self::assertSame(201, $client->getResponse()->getStatusCode());
+    self::assertSame($firstOrder['id'], $orderReplay['id']);
+    self::assertSame($firstOrder['lines'], $orderReplay['lines']);
+    self::assertTrue($orderReplay['replayed']);
+    self::assertSame(1, $orderReplay['revision']);
+    $orderInput['lines'][0]['unitCost'] = '4';
+    $this->request($client, 'POST', '/orders', $orderInput);
+    self::assertSame(409, $client->getResponse()->getStatusCode());
+    self::assertSame(1, $this->main()->getConnection()->fetchOne('SELECT COUNT(*) FROM procurement_suppliers WHERE organization_id = ?', [self::ORG]));
+    self::assertSame(1, $this->main()->getConnection()->fetchOne('SELECT COUNT(*) FROM procurement_orders WHERE organization_id = ?', [self::ORG]));
+    self::assertSame(2, $this->main()->getConnection()->fetchOne('SELECT COUNT(*) FROM procurement_operations WHERE organization_id = ?', [self::ORG]));
+    $this->login($client, self::READER);
+    $this->request($client, 'POST', '/orders', $orderInput);
+    self::assertSame(403, $client->getResponse()->getStatusCode());
+    $this->login($client, self::OUTSIDER);
+    $this->request($client, 'POST', '/orders', $orderInput);
+    self::assertSame(404, $client->getResponse()->getStatusCode());
+  }
+
+  /**
+   * @param int $length the public supplier reference length
+   * @param int $status the expected validation status
+   */
+  #[Test]
+  #[DataProvider('supplierCodeLengths')]
+  public function supplierCodeBoundaryMatchesPersistenceForCreateAndPatch(int $length, int $status): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->login($client, self::ADMIN);
+    $code = str_repeat('C', $length);
+    $created = $this->request($client, 'POST', '/suppliers', ['name' => 'Code boundary', 'code' => $code]);
+    self::assertSame($status, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    if (201 === $status) {
+      self::assertSame($code, $created['code']);
+      $supplierId = $this->id($created);
+    } else {
+      $supplierId = $this->id($this->supplier($client));
+    }
+    $changed = $this->request($client, 'PATCH', '/suppliers/' . $supplierId, ['code' => $code], 1);
+    self::assertSame(201 === $status ? 200 : $status, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    if (201 === $status) {
+      self::assertSame($code, $changed['code']);
+      self::assertSame($code, $this->main()->getConnection()->fetchOne('SELECT code FROM procurement_suppliers WHERE id = ?', [$supplierId]));
+    }
+  }
+
+  /**
+   * @return iterable<string,array{int,int}>
+   */
+  public static function supplierCodeLengths(): iterable
+  {
+    yield 'former limit' => [64, 201];
+    yield 'above former limit' => [65, 201];
+    yield 'public limit' => [80, 201];
+    yield 'above public limit' => [81, 422];
+  }
 
   #[Test]
   public function suppliersRetainContactsAndHistoryWithOptimisticRevision(): void

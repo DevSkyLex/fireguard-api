@@ -22,10 +22,10 @@ final readonly class SendNotificationRequest
    *
    * @param string $type the notification type
    * @param string $subject the subject
-   * @param string $body the body content
+   * @param string $body the stored body content, rendered as plain text by the default email template
    * @param list<NotificationChannel> $channels the delivery channels
    * @param array<string, mixed> $payload the payload data
-   * @param array<string, mixed> $deliveryPayload ephemeral delivery payload (not persisted)
+   * @param array<string, mixed> $deliveryPayload ephemeral delivery payload (not persisted); email.bodyIsHtml must be true to render producer-trusted HTML, with every untrusted interpolation escaped
    * @param string|null $recipientUserId the recipient user identifier
    * @param string|null $recipientEmail the recipient email
    * @param string|null $organizationId the organization this notification belongs to, when any (nullable: account-level notifications and platform announcements legitimately have none)

@@ -73,6 +73,13 @@ filters rows before pagination and the total count. An explicit unauthorized kin
 Comma/semicolon delimiters and UTF-8 BOM are supported. Unknown columns are ignored.
 The 5000-data-row limit is counted before provisioning.
 
+Ordinary equipment/facility exports append `_fireguard_text_encoding=apostrophe-v1`
+to identify spreadsheet-safe text. Only rows with that exact marker are decoded,
+once, before their provisioning factories run; literal apostrophes and formula-like
+business text survive reimport. Marked rows use RFC4180 escaping and retain original
+cell whitespace until existing factory normalization. Unmarked imports retain their
+historical trimming and literal apostrophes, without spreadsheet decoding.
+
 | Kind      | Columns                                                                                      |
 | --------- | -------------------------------------------------------------------------------------------- |
 | equipment | type (required), subType, brand, model, serialNumber, locationLabel, facilityCode            |

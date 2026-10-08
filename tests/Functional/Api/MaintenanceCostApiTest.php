@@ -14,6 +14,10 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberR
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\{KernelBrowser, Test\WebTestCase};
+use Tests\Support\Auth\InteractiveTokenFactory;
+use Tests\Support\Factory\UserTestFactory;
+use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Domain\ValueObject\UserId;
 
 use function json_decode;
 use function json_encode;
@@ -37,6 +41,69 @@ final class MaintenanceCostApiTest extends WebTestCase
   private const string WORK = '750e8400-e29b-41d4-a716-448040000020';
 
   private const string TASK = '750e8400-e29b-41d4-a716-448040000021';
+
+  #[Test]
+  public function draftExpenseWithoutTimeRetainsItsInterventionAndReportTotal(): void
+  {
+    $client = $this->client();
+    $this->ownerBearerSession($client);
+    $work = $this->main()->find(InterventionRecord::class, self::WORK);
+    self::assertInstanceOf(InterventionRecord::class, $work);
+    $work->createdAt = new DateTimeImmutable('2026-01-01T00:00:00Z');
+    $this->main()->flush();
+    $expenseId = $this->seedExpense();
+    $client->request('DELETE', '/api/interventions/' . self::WORK, server: ['HTTP_IF_MATCH' => '"revision-1"']);
+    self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $cost = $this->request($client, 'GET');
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    self::assertIsArray($cost['current']);
+    self::assertSame('50.000001', $cost['current']['total']);
+    self::assertIsArray($cost['current']['items']);
+    self::assertCount(1, $cost['current']['items']);
+    self::assertIsArray($cost['current']['items'][0]);
+    self::assertSame($expenseId, $cost['current']['items'][0]['sourceId']);
+    $client->request('GET', '/api/organizations/' . self::ORG . '/maintenance-cost/reports?from=2026-01-01&to=2026-01-31', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $report = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    self::assertIsArray($report);
+    self::assertSame(1, $report['interventionCount']);
+    self::assertIsArray($report['current']);
+    self::assertSame('50.000001', $report['current']['total']);
+  }
+
+  #[Test]
+  public function taskExpenseRetainsItsPreparedTask(): void
+  {
+    $client = $this->client();
+    $this->ownerBearerSession($client);
+    $expenseId = $this->seedExpense();
+    $client->request('DELETE', '/api/intervention-work-items/' . self::TASK, server: ['HTTP_IF_MATCH' => '"revision-1"']);
+    self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $cost = $this->request($client, 'GET');
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    self::assertIsArray($cost['current']);
+    self::assertIsArray($cost['current']['items']);
+    self::assertIsArray($cost['current']['items'][0]);
+    self::assertSame($expenseId, $cost['current']['items'][0]['sourceId']);
+    self::assertSame(self::TASK, $cost['current']['items'][0]['workItemId']);
+  }
+
+  #[Test]
+  public function preparedFinancialResourcesRetainTheirTaskAndParent(): void
+  {
+    $client = $this->client();
+    $this->ownerBearerSession($client);
+    $this->request($client, 'PATCH', '/planning', ['resources' => [['workItemId' => self::TASK, 'kind' => 'external', 'description' => 'Prepared specialist visit', 'amount' => '30']]], ['HTTP_IF_MATCH' => '"revision-0"']);
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    foreach (['/api/intervention-work-items/' . self::TASK, '/api/interventions/' . self::WORK] as $path) {
+      $client->request('DELETE', $path, server: ['HTTP_IF_MATCH' => '"revision-1"']);
+      self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    }
+    $planning = $this->costStore()->planning(self::ORG, self::WORK);
+    self::assertSame(1, $planning->revision);
+    self::assertSame(self::TASK, $planning->resources[0]['workItemId']);
+    self::assertSame('30.000000', $planning->resources[0]['amount']);
+  }
 
   #[Test]
   public function anEmptyInterventionHasAKnownZeroCost(): void
@@ -488,6 +555,15 @@ final class MaintenanceCostApiTest extends WebTestCase
     $store = self::getContainer()->get(MaintenanceCostStorePort::class);
 
     return $store;
+  }
+
+  private function ownerBearerSession(KernelBrowser $client): void
+  {
+    $client->disableReboot();
+    $users = $this->createStub(UserRepositoryPort::class);
+    $users->method('findById')->willReturnCallback(static fn (UserId $id) => UserTestFactory::createActive((string) $id, (string) $id . '@example.com'));
+    self::getContainer()->set(UserRepositoryPort::class, $users);
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . InteractiveTokenFactory::issue(self::getContainer(), self::OWNER, self::OWNER . '@example.com'));
   }
 
   private function main(): EntityManagerInterface

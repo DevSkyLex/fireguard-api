@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -143,7 +144,7 @@ final class ExportInterventionsControllerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       security: $security,
       criteriaFactory: new InterventionExportCriteriaFactory(),
-      csvWriter: new InterventionCsvWriter(),
+      csvWriter: new InterventionCsvWriter(new SpreadsheetSafeTextAdapter()),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -220,7 +221,7 @@ final class ExportInterventionsControllerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       security: $security,
       criteriaFactory: new InterventionExportCriteriaFactory(),
-      csvWriter: new InterventionCsvWriter(),
+      csvWriter: new InterventionCsvWriter(new SpreadsheetSafeTextAdapter()),
     );
   }
 }

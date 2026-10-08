@@ -25,6 +25,12 @@ Publication acquires the Inventory intervention fence before the operational wor
 
 ## Flows
 
+`MaintenanceCostInterventionHistoryPort` exposes only the existence of owned
+financial references. Intervention and task DELETE checks run under the same
+main parent lock as expense and preparation writes. Any expense, financial
+preparation or frozen contribution retains its referenced operational work;
+rejected deletion preserves detail reads, directory discovery and report totals.
+
 Reporting selects interventions by completed publication date, or planned start/creation for work that remains unpublished. These dates describe the work dossier, not the occurrence date of each time or material fact. The organization date window is bounded to 500 candidate interventions before applying financial target filters, because direct material references need not occur among operational tasks. An oversized candidate window requires narrower dates; target filters cannot lift that cap. At most 50000 combined financial contributions are calculated. No truncated total is returned. The operational finance directory independently remains paginated when a report window is too large.
 
 Each financial contribution is allocated once. Time and targeted expenses follow their work item. Material keeps its direct equipment identity even without a work item. Financial filters first retain matching source dossiers from current/frozen contribution identities and captured operational targets, then separate known different targets from the selected amounts. Missing target scope stays explicitly unallocated rather than being silently treated as a different site or client. Global expenses and budgets remain unallocated within the matching dossiers. All retained amounts reconcile against the selected source dossiers, with excluded targets shown separately; they are not claimed as attributable to a selected asset.
@@ -52,6 +58,10 @@ Allocation fields extend existing JSON snapshots additively and do not require a
 Additive main migration 20261007150000 widens only frozen `total` and `knownTotal` to NUMERIC(38,6), so summing valid individual eighteen-digit expenses or computed time costs cannot overflow a published aggregate. Individual expense, budget and hourly-rate input validation remains unchanged.
 
 ## Testing
+
+Retention coverage records expenses on drafts without time entries and verifies
+DELETE refusal, readable task contributions and unchanged exact report totals.
+Financial preparation also retains the referenced task and parent.
 
 Unit tests cover single allocation across multiple equipment targets, direct materials, missing historical identity, exact sums beyond eighteen digits, unknown prices, resource/budget separation, current versus frozen costs, compound target filters, full-scope pagination, reconciliation and strict leap/calendar bounds. Handler and provider tests cover finance authorization before source reads and refusal of partial or oversized source windows.
 

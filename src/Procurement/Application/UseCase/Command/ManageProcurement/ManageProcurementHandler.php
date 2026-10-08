@@ -35,6 +35,7 @@ use function in_array;
 use function is_array;
 use function is_string;
 use function json_encode;
+use function ksort;
 use function preg_match;
 use function strlen;
 use function strtolower;
@@ -69,6 +70,17 @@ final readonly class ManageProcurementHandler implements CommandHandler
     $finance = $this->authorization->hasPermission($command->actorId, $command->organizationId, 'organization.maintenance_cost.read');
 
     return $this->repository->synchronized($command->organizationId, function () use ($command, $finance): ManageProcurementResult {
+      $creation = in_array($command->action, ['create_supplier', 'create_order'], true);
+      $operationId = $creation && null !== ($command->payload['clientOperationId'] ?? null) ? $this->operationId($command) : null;
+      $creationPayload = $command->payload;
+      unset($creationPayload['clientOperationId']);
+      $fingerprint = null === $operationId ? '' : $this->fingerprint($this->creationPayload($creationPayload));
+      if (null !== $operationId) {
+        $replay = $this->replay($command, $operationId, $command->action, $fingerprint, $finance);
+        if (null !== $replay) {
+          return $replay;
+        }
+      }
       $result = match ($command->action) {
         'create_supplier', 'change_supplier', 'archive_supplier' => $this->supplier($command),
         'create_order', 'change_order', 'order', 'cancel_remaining' => $this->order($command, $finance),
@@ -78,6 +90,13 @@ final readonly class ManageProcurementHandler implements CommandHandler
         'reconcile_return' => $this->reconcileReturn($command, $finance),
         default => throw ProcurementException::invalid('Unknown procurement mutation.'),
       };
+      if (null !== $operationId) {
+        $resourceId = $result->data['id'] ?? null;
+        if (!is_string($resourceId)) {
+          throw ProcurementException::conflict('The created resource has no durable identity.');
+        }
+        $this->repository->saveOperation(new ProcurementOperationState($command->organizationId, $operationId, $command->action, $fingerprint, $resourceId, $command->payload + ['actorId' => $command->actorId]));
+      }
       if (!$result->replayed) {
         $resourceId = $result->data['id'] ?? null;
         if (is_string($resourceId)) {
@@ -91,7 +110,7 @@ final readonly class ManageProcurementHandler implements CommandHandler
 
   private function supplier(ManageProcurementCommand $command): ManageProcurementResult
   {
-    $this->fields($command->payload, ['name', 'code', 'email', 'phone', 'contacts']);
+    $this->fields($command->payload, 'create_supplier' === $command->action ? ['name', 'code', 'email', 'phone', 'contacts', 'clientOperationId'] : ['name', 'code', 'email', 'phone', 'contacts']);
     $now = $this->clock->now();
     if ('create_supplier' === $command->action) {
       $supplier = Supplier::create($this->ids->generate(), $command->organizationId, $this->text($command->payload, 'name'), $this->optionalText($command->payload, 'code'), $this->optionalText($command->payload, 'email'), $this->optionalText($command->payload, 'phone'), $this->contacts($command->payload['contacts'] ?? []), $now);
@@ -111,7 +130,7 @@ final readonly class ManageProcurementHandler implements CommandHandler
 
   private function order(ManageProcurementCommand $command, bool $finance): ManageProcurementResult
   {
-    $this->fields($command->payload, ['name', 'supplierId', 'lines']);
+    $this->fields($command->payload, 'create_order' === $command->action ? ['name', 'supplierId', 'lines', 'clientOperationId'] : ['name', 'supplierId', 'lines']);
     $now = $this->clock->now();
     if ('create_order' === $command->action) {
       $supplierId = $this->uuid($this->text($command->payload, 'supplierId'));
@@ -422,6 +441,16 @@ final readonly class ManageProcurementHandler implements CommandHandler
     if ($operation->kind !== $kind || $operation->fingerprint !== $fingerprint) {
       throw ProcurementException::conflict('The offline operation identifier already belongs to a different declaration.');
     }
+    if ('create_supplier' === $kind) {
+      $supplier = $this->repository->supplier($command->organizationId, $operation->receiptId) ?? throw ProcurementException::conflict('The saved creation has no supplier.');
+
+      return new ManageProcurementResult('supplier', $this->projection->supplier($supplier), true);
+    }
+    if ('create_order' === $kind) {
+      $order = $this->repository->order($command->organizationId, $operation->receiptId) ?? throw ProcurementException::conflict('The saved creation has no order.');
+
+      return new ManageProcurementResult('order', $this->projection->order($order, $finance), true);
+    }
     if ('reconcile_return' === $kind) {
       $returnId = $operation->declaration['returnId'] ?? null;
       $return = is_string($returnId) ? $this->repository->returnDeclaration($command->organizationId, $returnId) : null;
@@ -434,11 +463,39 @@ final readonly class ManageProcurementHandler implements CommandHandler
   }
 
   /**
-   * @param array<string,mixed> $values
+   * @param array<array-key,mixed> $values
    */
   private function fingerprint(array $values): string
   {
     return hash('sha256', json_encode($values, JSON_THROW_ON_ERROR));
+  }
+
+  /**
+   * Method creationPayload
+   *
+   * Keeps object-key order and UUID spelling from changing a retained creation's identity.
+   * Generated resource and line UUIDs are deliberately absent from the submitted fingerprint.
+   *
+   * @access private
+   *
+   * @param array<array-key,mixed> $payload the submitted creation values
+   *
+   * @return array<array-key,mixed> the deterministic submitted values
+   */
+  private function creationPayload(array $payload): array
+  {
+    foreach ($payload as $field => $value) {
+      if (is_array($value)) {
+        $payload[$field] = $this->creationPayload($value);
+      } elseif (is_string($value) && in_array($field, ['id', 'supplierId', 'partId'], true)) {
+        $payload[$field] = $this->uuid($value);
+      }
+    }
+    if (!array_is_list($payload)) {
+      ksort($payload);
+    }
+
+    return $payload;
   }
 
   /**

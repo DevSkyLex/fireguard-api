@@ -192,7 +192,7 @@ final readonly class WriteTimeEntryHandler implements CommandHandler
     if ($existing->createdBy !== $actor || $existing->memberId !== ($command->memberId ?? $actor)) {
       return false;
     }
-    $original = $existing->versions[0] ?? null;
+    $original = $this->entries->originalVersion($existing->id);
 
     return null !== $original && $original->workedOn === $command->workedOn && $original->minutes === $command->minutes && $original->note === $command->note;
   }

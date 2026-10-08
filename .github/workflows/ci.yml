@@ -698,7 +698,7 @@ jobs:
         working-directory: ansible/tests
         run: >-
           python3 -B -m unittest -v
-          test_topology test_deployment_maintenance
+          test_topology test_deployment_maintenance test_ssh_host_trust
 
       - name: Validate production and development Compose files
         run: |

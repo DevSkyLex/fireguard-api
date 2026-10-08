@@ -56,6 +56,12 @@ existing work is replayed; retry is explicit and permitted only after abandonmen
 a skipped published task, or unsuccessful servicing. Its original occurrence id
 and due date remain unchanged. Outputs expose the server's retryAllowed decision.
 
+`MaintenanceInterventionHistoryPort` publishes occurrence references to the
+operational deletion guard. Generated work remains accessible after abandonment:
+hard DELETE returns 409, preserving normal replay and retry of the original
+occurrence and due date. The old task's occurrence link also retains previous
+attempts after a retry moves the current occurrence to a new intervention.
+
 | Method | Path                                | Description                                                                                                                                                                                                                                                                                                                                                                                                       | Permission                                                              |
 | ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | GET    | `/api/maintenance/schedules`        | List schedules (filters: `organization` _(required)_, `facility`, `equipmentType`, `dueStatus`, `dueBefore`; 30/page, client page size)                                                                                                                                                                                                                                                                           | `organization.maintenance.read`                                         |
@@ -417,6 +423,10 @@ automatically — no backfill migration is needed.
   manager arguments)
 
 ## Testing
+
+Occurrence retention coverage generates work, refuses task DELETE, abandons the
+parent, refuses parent DELETE, then verifies replay and retry keep the original
+occurrence and due date while both previous and current work remain accessible.
 
 - New operation coverage: Unit/Maintenance Domain, plan command/query handlers,
   plan processor/provider; Functional/Api/MaintenancePlanApiTest; and the PostgreSQL

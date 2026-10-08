@@ -132,6 +132,7 @@ final readonly class EmailNotificationChannelAdapter implements EmailNotificatio
         'recipientEmail' => null !== $recipient ? (string) $recipient : null,
       ],
       $this->extractContext($channelPayload),
+      ['bodyIsHtml' => true === ($channelPayload['bodyIsHtml'] ?? false)],
     );
   }
 
