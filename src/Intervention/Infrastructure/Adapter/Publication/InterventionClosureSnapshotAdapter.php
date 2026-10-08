@@ -29,6 +29,7 @@ use function preg_match;
  */
 final readonly class InterventionClosureSnapshotAdapter
 {
+  // #region Constructor
   /**
    * Method __construct
    *
@@ -46,7 +47,9 @@ final readonly class InterventionClosureSnapshotAdapter
   public function __construct(private EntityManagerInterface $entityManager, private InterventionMemberNamingPort $members, private InterventionSiteCustomerSnapshotPort $sites, private InterventionEquipmentSnapshotPort $equipment, private InterventionPublicationFactsMapper $facts, private InterventionInspectionResultPort $inspections)
   {
   }
+  // #endregion
 
+  // #region Methods
   /**
    * Method capture
    *
@@ -72,38 +75,15 @@ final readonly class InterventionClosureSnapshotAdapter
     $changes = $this->entityManager->getRepository(InterventionChangeRecord::class)->findBy(['intervention' => $intervention], null, 10001);
     /** @var list<InterventionTimeEntryRecord> $times */
     $times = $this->entityManager->createQueryBuilder()->select('t')->from(InterventionTimeEntryRecord::class, 't')->join('t.workItem', 'w')->where('w.intervention = :intervention AND t.organizationId = :organization')->setParameter('intervention', $intervention)->setParameter('organization', $organizationId)->orderBy('t.id', 'ASC')->setMaxResults(10001)->getQuery()->getResult();
-    foreach ([$items, $attachments, $activities, $changes, $times] as $records) {
-      if (count($records) > 10000) {
-        throw new InterventionFactsScopeTooLarge('A publication dossier exceeds 10000 records in one source; split the work before publication.');
-      }
-    }
-    $equipmentIds = [];
-    foreach ($items as $item) {
-      foreach ([$item->target, $item->resultResource] as $target) {
-        $equipmentId = $this->facts->equipmentId($target);
-        if (null !== $equipmentId) {
-          $equipmentIds[] = $equipmentId;
-        }
-      }
-    }
-    $equipmentSnapshots = $this->equipment->snapshots($organizationId, array_values(array_unique($equipmentIds)));
+    $this->assertSourcesBounded([$items, $attachments, $activities, $changes, $times]);
+    $equipmentSnapshots = $this->equipmentSnapshots($organizationId, $items);
     $memberIds = [$intervention->responsibleId, ...$intervention->participants, ...array_map(static fn (InterventionWorkItemRecord $item): ?string => $item->assigneeId, $items), ...array_map(static fn (InterventionActivityRecord $activity): ?string => $activity->actorId, $activities)];
     $names = $this->members->displayNamesFor($organizationId, array_values(array_unique(array_filter($memberIds, is_string(...)))));
     $identity = $this->sites->snapshot($organizationId, $intervention->siteId);
     $site = ['site' => $identity['site'], 'customer' => null === $identity['customer'] ? null : ['id' => $identity['customer']['id'], 'name' => $identity['customer']['name']]];
     $capturedAt = ($publishedAt ?? new DateTimeImmutable())->format('c');
-    $spentMinutes = [];
-    foreach ($times as $entry) {
-      if (!$entry->cancelled && null !== $entry->workItem) {
-        $spentMinutes[$entry->workItem->id] = ($spentMinutes[$entry->workItem->id] ?? 0) + $entry->minutes;
-      }
-    }
-    $evidenceCounts = [];
-    foreach ($attachments as $attachment) {
-      if (null !== $attachment->workItem) {
-        $evidenceCounts[$attachment->workItem->id] = ($evidenceCounts[$attachment->workItem->id] ?? 0) + 1;
-      }
-    }
+    $spentMinutes = $this->spentMinutes($times);
+    $evidenceCounts = $this->evidenceCounts($attachments);
     $workItems = array_map(fn (InterventionWorkItemRecord $item): array => $this->workItem($item, $organizationId, $spentMinutes[$item->id] ?? 0, $evidenceCounts[$item->id] ?? 0, $equipmentSnapshots[$this->facts->equipmentId($item->target) ?? ''] ?? null, $equipmentSnapshots[$this->facts->equipmentId($item->resultResource) ?? ''] ?? null, $capturedAt), $items);
     $evidence = array_map(static fn (InterventionAttachmentRecord $attachment): array => ['id' => $attachment->id, 'fileName' => $attachment->fileName, 'kind' => $attachment->kind, 'mimeType' => $attachment->mimeType, 'size' => $attachment->size, 'label' => $attachment->label, 'workItemId' => $attachment->workItem?->id, 'revision' => $attachment->revision, 'uploadedAt' => $attachment->uploadedAt->format('c')], $attachments);
     $timeEntries = array_map(static fn (InterventionTimeEntryRecord $entry): array => ['id' => $entry->id, 'workItemId' => $entry->workItem?->id, 'memberId' => $entry->memberId, 'workedOn' => $entry->workedOn, 'minutes' => $entry->minutes, 'note' => $entry->note, 'cancelled' => $entry->cancelled, 'revision' => $entry->revision], $times);
@@ -126,6 +106,99 @@ final readonly class InterventionClosureSnapshotAdapter
     $report['activities'] = $reportActivities;
 
     return ['version' => 2, 'capturedAt' => $capturedAt, 'publishedAt' => $capturedAt, 'publicationId' => $publicationId, 'interventionId' => $intervention->id, 'revision' => $intervention->revision + 1, 'number' => $intervention->number, 'name' => $intervention->name, 'type' => $intervention->type, 'createdAt' => $intervention->createdAt->format('c'), 'plannedStartAt' => $intervention->plannedStartAt?->format('c'), 'dueAt' => $intervention->dueAt?->format('c'), ...$site, 'memberNames' => $names, 'workItems' => $workItems, 'attachments' => $evidence, 'timeEntries' => $timeEntries, 'report' => $report];
+  }
+
+  /**
+   * Method assertSourcesBounded
+   *
+   * Refuses oversized sources before resolving owner identities or constructing the dossier.
+   *
+   * @access private
+   *
+   * @param list<list<object>> $sources loaded owned record collections
+   *
+   * @return void
+   */
+  private function assertSourcesBounded(array $sources): void
+  {
+    foreach ($sources as $records) {
+      if (count($records) > 10000) {
+        throw new InterventionFactsScopeTooLarge('A publication dossier exceeds 10000 records in one source; split the work before publication.');
+      }
+    }
+  }
+
+  /**
+   * Method equipmentSnapshots
+   *
+   * Resolves original targets and replacement successors together through the equipment owner's public bridge.
+   *
+   * @access private
+   *
+   * @param string $organizationId owning organization
+   * @param list<InterventionWorkItemRecord> $items bounded reviewed tasks
+   *
+   * @return array<string,InterventionEquipmentSnapshot> owner-supplied immutable equipment identity
+   */
+  private function equipmentSnapshots(string $organizationId, array $items): array
+  {
+    $ids = [];
+    foreach ($items as $item) {
+      foreach ([$item->target, $item->resultResource] as $target) {
+        $id = $this->facts->equipmentId($target);
+        if (null !== $id) {
+          $ids[] = $id;
+        }
+      }
+    }
+
+    return $this->equipment->snapshots($organizationId, array_values(array_unique($ids)));
+  }
+
+  /**
+   * Method spentMinutes
+   *
+   * Captures only uncancelled entries without modifying the independent journal.
+   *
+   * @access private
+   *
+   * @param list<InterventionTimeEntryRecord> $times bounded source entries
+   *
+   * @return array<string,int> whole minutes grouped by task
+   */
+  private function spentMinutes(array $times): array
+  {
+    $minutes = [];
+    foreach ($times as $entry) {
+      if (!$entry->cancelled && null !== $entry->workItem) {
+        $minutes[$entry->workItem->id] = ($minutes[$entry->workItem->id] ?? 0) + $entry->minutes;
+      }
+    }
+
+    return $minutes;
+  }
+
+  /**
+   * Method evidenceCounts
+   *
+   * Counts task-linked proof without including intervention-only attachments.
+   *
+   * @access private
+   *
+   * @param list<InterventionAttachmentRecord> $attachments bounded source evidence
+   *
+   * @return array<string,int> evidence counts grouped by task
+   */
+  private function evidenceCounts(array $attachments): array
+  {
+    $counts = [];
+    foreach ($attachments as $attachment) {
+      if (null !== $attachment->workItem) {
+        $counts[$attachment->workItem->id] = ($counts[$attachment->workItem->id] ?? 0) + 1;
+      }
+    }
+
+    return $counts;
   }
 
   /**
@@ -185,4 +258,5 @@ final readonly class InterventionClosureSnapshotAdapter
       'updatedAt' => $item->updatedAt->format('c'),
     ];
   }
+  // #endregion
 }

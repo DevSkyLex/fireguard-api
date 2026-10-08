@@ -13,11 +13,8 @@ use Procurement\Application\Contract\Reporting\ProcurementEconomicOverview;
 
 use function array_map;
 use function array_slice;
-use function bcadd;
-use function bccomp;
 use function bcsub;
 use function count;
-use function usort;
 
 /**
  * Class MaintenanceEconomicAggregator
@@ -35,79 +32,139 @@ final readonly class MaintenanceEconomicAggregator
    */
   public function report(ReadMaintenanceEconomicReportQuery $query, string $currency, array $contexts, array $views, ProcurementEconomicOverview $procurement): MaintenanceEconomicReport
   {
-    $eligibleContexts = [];
-    foreach ($contexts as $context) {
-      $view = $views[$context->id] ?? throw MaintenanceCostException::notFound();
-      if ($view->organizationId !== $query->organizationId || $context->organizationId !== $query->organizationId || $view->currency !== $currency) {
-        throw MaintenanceCostException::conflict('Economic sources do not share one authorized organization currency.');
-      }
-      if ($this->eligible($query, $context, $view)) {
-        $eligibleContexts[] = $context;
-      }
-    }
-    $contexts = $eligibleContexts;
-    $buckets = [];
-    $unallocated = new MaintenanceEconomicBucket(null, null);
-    $selected = ['current' => new MaintenanceEconomicAccumulator(), 'frozen' => new MaintenanceEconomicAccumulator(), 'planned' => new MaintenanceEconomicAccumulator(), 'budget' => new MaintenanceEconomicAccumulator()];
-    $source = ['current' => new MaintenanceEconomicAccumulator(), 'frozen' => new MaintenanceEconomicAccumulator(), 'planned' => new MaintenanceEconomicAccumulator()];
-    $excluded = ['current' => new MaintenanceEconomicAccumulator(), 'frozen' => new MaintenanceEconomicAccumulator(), 'planned' => new MaintenanceEconomicAccumulator()];
+    $contexts = $this->eligibleContexts($query, $currency, $contexts, $views);
+    $aggregation = new MaintenanceEconomicAggregation();
     $published = 0;
     $missing = 0;
     $factCount = 0;
     foreach ($contexts as $context) {
       $view = $views[$context->id] ?? throw MaintenanceCostException::notFound();
-      if ($view->organizationId !== $query->organizationId || $context->organizationId !== $query->organizationId || $view->currency !== $currency) {
-        throw MaintenanceCostException::conflict('Economic sources do not share one authorized organization currency.');
-      }
+      $this->assertSource($query, $currency, $context, $view);
       $isPublished = 'published' === $context->status;
       $published += $isPublished ? 1 : 0;
       $missing += $isPublished && ('snapshot_missing' === $context->snapshotState || null === $view->frozen) ? 1 : 0;
-      foreach (['current' => $view->current->items, 'frozen' => $view->frozen?->totals->items ?? []] as $kind => $items) {
-        foreach ($items as $item) {
-          if ($item->currency !== $currency) {
-            throw MaintenanceCostException::conflict('A contribution uses another organization currency.');
-          }
-          $allocation = $this->allocation($item, $context);
-          $this->retain($kind, $item->amount, $allocation, $context->id, $query, $buckets, $unallocated, $selected, $source, $excluded);
-          $this->bounded(++$factCount);
-        }
-      }
-      if ($isPublished && null === $view->frozen) {
-        $this->retain('frozen', null, $this->emptyAllocation(), $context->id, $query, $buckets, $unallocated, $selected, $source, $excluded);
-      }
-      $planning = $isPublished && null !== $view->frozen?->planning ? $view->frozen->planning : $view->planning;
-      $unallocated->budget->add($planning->plannedBudget);
-      $selected['budget']->add($planning->plannedBudget);
-      $unallocated->source($context->id, $isPublished ? 'captured' : 'live', false, null);
-      if ([] === $planning->resources) {
-        $this->retain('planned', $planning->plannedBudget, $this->emptyAllocation(), $context->id, $query, $buckets, $unallocated, $selected, $source, $excluded);
-      } else {
-        foreach ($planning->resources as $resource) {
-          $item = new MaintenanceCostItem('planning', 'planning', $resource['workItemId'], 'planning', null, $resource['amount'], $currency, $resource['description'], '');
-          $this->retain('planned', $resource['amount'], $this->allocation($item, $context), $context->id, $query, $buckets, $unallocated, $selected, $source, $excluded);
-          $this->bounded(++$factCount);
-        }
-      }
+      $this->retainActualCosts($query, $currency, $context, $view, $aggregation, $factCount);
+      $this->retainPlanning($query, $currency, $context, $view, $aggregation, $factCount);
     }
-    $rows = [];
-    foreach ($buckets as $bucket) {
-      $rows[] = $bucket->row();
-    }
-    usort($rows, static fn ($a, $b): int => ($a->name ?? $a->id ?? '') <=> ($b->name ?? $b->id ?? ''));
-    $current = $selected['current']->amount();
-    $planned = $selected['planned']->amount();
-    $reconciled = true;
-    foreach (['current', 'frozen', 'planned'] as $kind) {
-      $includedAmount = $selected[$kind]->amount();
-      $excludedAmount = $excluded[$kind]->amount();
-      $sourceAmount = $source[$kind]->amount();
-      $sum = bcadd($includedAmount->knownTotal, $excludedAmount->knownTotal, 6);
-      $reconciled = $reconciled && 0 === bccomp($sum, $sourceAmount->knownTotal, 6)
-        && $includedAmount->contributionCount + $excludedAmount->contributionCount === $sourceAmount->contributionCount
-        && $includedAmount->unknownCount + $excludedAmount->unknownCount === $sourceAmount->unknownCount;
+    $rows = $aggregation->rows();
+    $current = $aggregation->amount('current');
+    $planned = $aggregation->amount('planned');
+
+    return new MaintenanceEconomicReport($query->organizationId, $query->from, $query->to, $query->groupBy, $currency, $query->page, $query->itemsPerPage, count($rows), count($contexts), $published, count($contexts) - $published, $missing, array_slice($rows, ($query->page - 1) * $query->itemsPerPage, $query->itemsPerPage), $aggregation->unallocated->row(), $current, $aggregation->amount('frozen'), $planned, $aggregation->amount('budget'), $current->complete && $planned->complete && $planned->contributionCount > 0 ? bcsub($current->knownTotal, $planned->knownTotal, 6) : null, $aggregation->reconciliation(), $procurement, array_map(static fn (InterventionEconomicContext $context): array => ['id' => $context->id, 'number' => $context->number, 'name' => $context->name, 'status' => $context->status, 'snapshotState' => $context->snapshotState], $contexts));
+  }
+
+  /**
+   * Method eligibleContexts
+   *
+   * Authorizes every candidate before financial target selection.
+   *
+   * @access private
+   *
+   * @param ReadMaintenanceEconomicReportQuery $query authorized report scope
+   * @param string $currency organization currency
+   * @param list<InterventionEconomicContext> $contexts bounded candidate dossiers
+   * @param array<string,MaintenanceCostView> $views private facts by dossier identity
+   *
+   * @return list<InterventionEconomicContext> dossiers retained by source target identities
+   */
+  private function eligibleContexts(ReadMaintenanceEconomicReportQuery $query, string $currency, array $contexts, array $views): array
+  {
+    $eligible = [];
+    foreach ($contexts as $context) {
+      $view = $views[$context->id] ?? throw MaintenanceCostException::notFound();
+      $this->assertSource($query, $currency, $context, $view);
+      if ($this->eligible($query, $context, $view)) {
+        $eligible[] = $context;
+      }
     }
 
-    return new MaintenanceEconomicReport($query->organizationId, $query->from, $query->to, $query->groupBy, $currency, $query->page, $query->itemsPerPage, count($rows), count($contexts), $published, count($contexts) - $published, $missing, array_slice($rows, ($query->page - 1) * $query->itemsPerPage, $query->itemsPerPage), $unallocated->row(), $current, $selected['frozen']->amount(), $planned, $selected['budget']->amount(), $current->complete && $planned->complete && $planned->contributionCount > 0 ? bcsub($current->knownTotal, $planned->knownTotal, 6) : null, ['sourceCurrent' => $source['current']->amount(), 'excludedCurrent' => $excluded['current']->amount(), 'sourceFrozen' => $source['frozen']->amount(), 'excludedFrozen' => $excluded['frozen']->amount(), 'sourcePlanned' => $source['planned']->amount(), 'excludedPlanned' => $excluded['planned']->amount(), 'reconciled' => $reconciled], $procurement, array_map(static fn (InterventionEconomicContext $context): array => ['id' => $context->id, 'number' => $context->number, 'name' => $context->name, 'status' => $context->status, 'snapshotState' => $context->snapshotState], $contexts));
+    return $eligible;
+  }
+
+  /**
+   * Method assertSource
+   *
+   * Keeps operational and private source facts inside one authorized organization currency.
+   *
+   * @access private
+   *
+   * @param ReadMaintenanceEconomicReportQuery $query authorized organization scope
+   * @param string $currency organization currency
+   * @param InterventionEconomicContext $context operational source
+   * @param MaintenanceCostView $view private source
+   *
+   * @return void
+   */
+  private function assertSource(ReadMaintenanceEconomicReportQuery $query, string $currency, InterventionEconomicContext $context, MaintenanceCostView $view): void
+  {
+    if ($view->organizationId !== $query->organizationId || $context->organizationId !== $query->organizationId || $view->currency !== $currency) {
+      throw MaintenanceCostException::conflict('Economic sources do not share one authorized organization currency.');
+    }
+  }
+
+  /**
+   * Method retainActualCosts
+   *
+   * Values current and captured facts separately, including an explicit unknown for a missing private publication.
+   *
+   * @access private
+   *
+   * @param ReadMaintenanceEconomicReportQuery $query selected target scope
+   * @param string $currency organization currency
+   * @param InterventionEconomicContext $context source allocation identities
+   * @param MaintenanceCostView $view current and captured financial facts
+   * @param MaintenanceEconomicAggregation $aggregation report accumulation state
+   * @param int $factCount contributions retained across every source
+   *
+   * @return void
+   */
+  private function retainActualCosts(ReadMaintenanceEconomicReportQuery $query, string $currency, InterventionEconomicContext $context, MaintenanceCostView $view, MaintenanceEconomicAggregation $aggregation, int &$factCount): void
+  {
+    foreach (['current' => $view->current->items, 'frozen' => $view->frozen?->totals->items ?? []] as $kind => $items) {
+      foreach ($items as $item) {
+        if ($item->currency !== $currency) {
+          throw MaintenanceCostException::conflict('A contribution uses another organization currency.');
+        }
+        $this->retain($kind, $item->amount, $this->allocation($item, $context), $context->id, $query, $aggregation);
+        $this->bounded(++$factCount);
+      }
+    }
+    if ('published' === $context->status && null === $view->frozen) {
+      $this->retain('frozen', null, $this->emptyAllocation(), $context->id, $query, $aggregation);
+    }
+  }
+
+  /**
+   * Method retainPlanning
+   *
+   * Published preparation remains frozen; resources replace the budget baseline rather than adding it twice.
+   *
+   * @access private
+   *
+   * @param ReadMaintenanceEconomicReportQuery $query selected target scope
+   * @param string $currency organization currency
+   * @param InterventionEconomicContext $context source allocation identities
+   * @param MaintenanceCostView $view live and captured preparation
+   * @param MaintenanceEconomicAggregation $aggregation report accumulation state
+   * @param int $factCount contributions retained across every source
+   *
+   * @return void
+   */
+  private function retainPlanning(ReadMaintenanceEconomicReportQuery $query, string $currency, InterventionEconomicContext $context, MaintenanceCostView $view, MaintenanceEconomicAggregation $aggregation, int &$factCount): void
+  {
+    $isPublished = 'published' === $context->status;
+    $planning = $isPublished && null !== $view->frozen?->planning ? $view->frozen->planning : $view->planning;
+    $aggregation->budget($planning->plannedBudget, $context->id, $isPublished);
+    if ([] === $planning->resources) {
+      $this->retain('planned', $planning->plannedBudget, $this->emptyAllocation(), $context->id, $query, $aggregation);
+
+      return;
+    }
+    foreach ($planning->resources as $resource) {
+      $item = new MaintenanceCostItem('planning', 'planning', $resource['workItemId'], 'planning', null, $resource['amount'], $currency, $resource['description'], '');
+      $this->retain('planned', $resource['amount'], $this->allocation($item, $context), $context->id, $query, $aggregation);
+      $this->bounded(++$factCount);
+    }
   }
 
   /**
@@ -137,49 +194,27 @@ final readonly class MaintenanceEconomicAggregator
     $id = $item->equipmentId ?? $task?->equipmentId;
     $identity = $task?->equipmentIdentity;
 
-    return ['identityState' => 'live' === $context->snapshotState ? 'live' : (null !== $identity ? 'captured' : 'incomplete'), 'equipment' => null === $id ? null : ['id' => $id, 'name' => $identity?->name, 'assetReference' => $identity?->assetReference], 'site' => $task?->site, 'customer' => $task?->customer];
+    $state = null !== $identity ? 'captured' : 'incomplete';
+    if ('live' === $context->snapshotState) {
+      $state = 'live';
+    }
+
+    return ['identityState' => $state, 'equipment' => null === $id ? null : ['id' => $id, 'name' => $identity?->name, 'assetReference' => $identity?->assetReference], 'site' => $task?->site, 'customer' => $task?->customer];
   }
 
   /**
    * @param array{identityState:string,equipment:?array{id:string,name:?string,assetReference:?string},site:?array{id:string,name:string},customer:?array{id:string,name:string}} $allocation
-   * @param array<string,MaintenanceEconomicBucket> $buckets
-   * @param array<string,MaintenanceEconomicAccumulator> $selected
-   * @param array<string,MaintenanceEconomicAccumulator> $source
-   * @param array<string,MaintenanceEconomicAccumulator> $excluded
+   * @param MaintenanceEconomicAggregation $aggregation related bucket and reconciliation state
    */
-  private function retain(string $kind, ?string $amount, array $allocation, string $interventionId, ReadMaintenanceEconomicReportQuery $query, array &$buckets, MaintenanceEconomicBucket $unallocated, array $selected, array $source, array $excluded): void
+  private function retain(string $kind, ?string $amount, array $allocation, string $interventionId, ReadMaintenanceEconomicReportQuery $query, MaintenanceEconomicAggregation $aggregation): void
   {
-    $source[$kind]->add($amount);
     $identity = match ($query->groupBy) {
       'equipment' => $allocation['equipment'],
       'site' => $allocation['site'],
       'customer' => $allocation['customer'],
       default => throw MaintenanceCostException::invalid('Unknown economic grouping.'),
     };
-    $hasAllocation = null !== $allocation['equipment'] || null !== $allocation['site'] || null !== $allocation['customer'];
-    $matches = $this->matches($query, $allocation);
-    if ($hasAllocation && false === $matches) {
-      $excluded[$kind]->add($amount);
-
-      return;
-    }
-    if (null === $matches) {
-      $identity = null;
-    }
-    $selected[$kind]->add($amount);
-    if (null === $identity) {
-      $bucket = $unallocated;
-    } else {
-      $bucket = $buckets[$identity['id']] ??= new MaintenanceEconomicBucket($identity['id'], $identity['name']);
-    }
-    $target = match ($kind) {
-      'current' => $bucket->current,
-      'frozen' => $bucket->frozen,
-      'planned' => $bucket->planned,
-      default => throw MaintenanceCostException::invalid('Unknown economic contribution.'),
-    };
-    $target->add($amount);
-    $bucket->source($interventionId, $allocation['identityState'], null !== $identity && 'incomplete' !== $allocation['identityState'], $identity['name'] ?? null);
+    $aggregation->retain($kind, $amount, $allocation, $interventionId, $identity, $this->matches($query, $allocation));
   }
 
   /**
@@ -225,23 +260,42 @@ final readonly class MaintenanceEconomicAggregator
     if (null === $query->equipmentId && null === $query->siteId && null === $query->customerId) {
       return true;
     }
-    foreach ([...$view->current->items, ...($view->frozen?->totals->items ?? [])] as $item) {
-      $allocation = $this->allocation($item, $context);
-      $hasTarget = null !== $allocation['equipment'] || null !== $allocation['site'] || null !== $allocation['customer'];
-      if ($hasTarget && false !== $this->matches($query, $allocation)) {
-        return true;
-      }
+    $items = [...$view->current->items, ...($view->frozen?->totals->items ?? [])];
+    if ($this->hasEligibleTarget($query, $context, $items)) {
+      return true;
     }
+    $taskTargets = [];
     foreach ($context->workItems as $task) {
-      $item = new MaintenanceCostItem('target', 'target', $task->id, 'target', null, null, $view->currency, '', '');
-      $allocation = $this->allocation($item, $context);
-      $hasTarget = null !== $allocation['equipment'] || null !== $allocation['site'] || null !== $allocation['customer'];
-      if ($hasTarget && false !== $this->matches($query, $allocation)) {
-        return true;
-      }
+      $taskTargets[] = new MaintenanceCostItem('target', 'target', $task->id, 'target', null, null, $view->currency, '', '');
     }
     $root = ['identityState' => 'live' === $context->snapshotState ? 'live' : 'captured', 'equipment' => null, 'site' => $context->site, 'customer' => $context->customer];
 
-    return null === $query->equipmentId && true === $this->matches($query, $root);
+    return $this->hasEligibleTarget($query, $context, $taskTargets) || (null === $query->equipmentId && true === $this->matches($query, $root));
+  }
+
+  /**
+   * Method hasEligibleTarget
+   *
+   * Unknown filter dimensions remain eligible only when the source has at least one target identity.
+   *
+   * @access private
+   *
+   * @param ReadMaintenanceEconomicReportQuery $query selected target scope
+   * @param InterventionEconomicContext $context captured task fallback identities
+   * @param list<MaintenanceCostItem> $items financial facts or minimal operational target placeholders
+   *
+   * @return bool whether any source target can satisfy the selection
+   */
+  private function hasEligibleTarget(ReadMaintenanceEconomicReportQuery $query, InterventionEconomicContext $context, array $items): bool
+  {
+    foreach ($items as $item) {
+      $allocation = $this->allocation($item, $context);
+      $hasTarget = null !== $allocation['equipment'] || null !== $allocation['site'] || null !== $allocation['customer'];
+      if ($hasTarget && false !== $this->matches($query, $allocation)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

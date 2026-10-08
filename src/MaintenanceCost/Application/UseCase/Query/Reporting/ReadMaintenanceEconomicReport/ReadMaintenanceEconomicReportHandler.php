@@ -39,7 +39,7 @@ final readonly class ReadMaintenanceEconomicReportHandler implements QueryHandle
     }
     foreach ([$query->siteId, $query->customerId, $query->equipmentId] as $identifier) {
       if (null !== $identifier) {
-        new Uuid($identifier);
+        Uuid::assertValid($identifier);
       }
     }
     // Financial direct-material targets need not exist among operational tasks.

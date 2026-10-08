@@ -6,16 +6,10 @@ namespace Procurement\Domain\Model;
 
 use DateTimeImmutable;
 use Procurement\Domain\Exception\ProcurementException;
-use Procurement\Domain\ValueObject\{ProcurementLine, PurchaseOrderStatus};
-use Shared\Domain\ValueObject\{DecimalAmount, Uuid};
+use Procurement\Domain\ValueObject\{ProcurementLine, PurchaseOrderHistory, PurchaseOrderIdentity, PurchaseOrderLines, PurchaseOrderStatus};
+use Shared\Domain\ValueObject\Uuid;
 
-use function array_is_list;
-use function array_values;
-use function count;
 use function in_array;
-use function mb_strlen;
-use function preg_match;
-use function trim;
 
 /**
  * Class PurchaseOrder
@@ -28,11 +22,45 @@ final class PurchaseOrder
 {
   // #region Properties
   /**
+   * Constant ZERO_QUANTITY
+   *
+   * Uses the exact canonical quantity spelling retained in line snapshots.
+   */
+  private const string ZERO_QUANTITY = '0.000000';
+
+  /**
+   * Property createdAt
+   */
+  public readonly DateTimeImmutable $createdAt;
+
+  /**
    * Property lines
    *
-   * @var list<ProcurementLine>
+   * Holds immutable validated snapshots of the retained line quantities.
    */
-  private array $lines;
+  private PurchaseOrderLines $lines;
+
+  /**
+   * Property identity
+   *
+   * Holds draft values adopted together after validation.
+   */
+  private PurchaseOrderIdentity $identity;
+
+  /**
+   * Property updatedAt
+   */
+  private DateTimeImmutable $updatedAt;
+
+  /**
+   * Property status
+   */
+  private PurchaseOrderStatus $status;
+
+  /**
+   * Property revision
+   */
+  private int $revision;
   // #endregion
 
   // #region Constructor
@@ -45,39 +73,22 @@ final class PurchaseOrder
    *
    * @param string $id the stable order UUID
    * @param string $organizationId the owning organization UUID
-   * @param string $supplierId the supplier UUID
-   * @param string $currency the uppercase organization currency
-   * @param string $name the order's display name
-   * @param list<ProcurementLine> $lines the immutable line snapshots
-   * @param PurchaseOrderStatus $status the gross reception lifecycle
-   * @param int $revision the positive resource revision
-   * @param DateTimeImmutable $createdAt the creation instant
-   * @param DateTimeImmutable $updatedAt the latest update instant
+   * @param PurchaseOrderLines $lines the immutable line snapshots
+   * @param PurchaseOrderIdentity $identity the identity value
+   * @param PurchaseOrderHistory $history the history value
    *
    * @return void
    */
-  private function __construct(
-    public readonly string $id,
-    public readonly string $organizationId,
-    private string $supplierId,
-    private string $currency,
-    private string $name,
-    array $lines,
-    private PurchaseOrderStatus $status,
-    private int $revision,
-    public readonly DateTimeImmutable $createdAt,
-    private DateTimeImmutable $updatedAt,
-  ) {
-    new Uuid($id);
-    new Uuid($organizationId);
-    new Uuid($supplierId);
-    if ($revision < 1 || $updatedAt < $createdAt) {
-      throw ProcurementException::invalid('Purchase-order revision and historical timestamps are inconsistent.');
-    }
-
-    $this->currency = self::normalizeCurrency($currency);
-    $this->name = self::normalizeName($name);
-    $this->lines = self::validateLines($lines);
+  private function __construct(public readonly string $id, public readonly string $organizationId, PurchaseOrderIdentity $identity, PurchaseOrderLines $lines, PurchaseOrderHistory $history)
+  {
+    Uuid::assertValid($id);
+    Uuid::assertValid($organizationId);
+    $this->identity = $identity;
+    $this->lines = $lines;
+    $this->status = $history->status;
+    $this->revision = $history->revision;
+    $this->createdAt = $history->createdAt;
+    $this->updatedAt = $history->updatedAt;
     $this->assertRestoredStatus();
   }
   // #endregion
@@ -102,7 +113,7 @@ final class PurchaseOrder
    */
   public static function create(string $id, string $organizationId, string $supplierId, string $currency, string $name, array $lines, DateTimeImmutable $now): self
   {
-    return new self($id, $organizationId, $supplierId, $currency, $name, $lines, PurchaseOrderStatus::DRAFT, 1, $now, $now);
+    return new self($id, $organizationId, new PurchaseOrderIdentity($supplierId, $currency, $name), new PurchaseOrderLines($lines), new PurchaseOrderHistory(PurchaseOrderStatus::DRAFT, 1, $now, $now));
   }
 
   /**
@@ -114,20 +125,15 @@ final class PurchaseOrder
    *
    * @param string $id the order UUID
    * @param string $organizationId the owning organization UUID
-   * @param string $supplierId the supplier UUID
-   * @param string $currency the organization currency
-   * @param string $name the display name
-   * @param list<ProcurementLine> $lines the persisted line snapshots
-   * @param PurchaseOrderStatus $status the persisted lifecycle
-   * @param int $revision the persisted resource revision
-   * @param DateTimeImmutable $createdAt the creation instant
-   * @param DateTimeImmutable $updatedAt the latest update instant
+   * @param PurchaseOrderLines $lines the persisted line snapshots
+   * @param PurchaseOrderIdentity $identity the identity value
+   * @param PurchaseOrderHistory $history the history value
    *
    * @return self the restored order
    */
-  public static function reconstitute(string $id, string $organizationId, string $supplierId, string $currency, string $name, array $lines, PurchaseOrderStatus $status, int $revision, DateTimeImmutable $createdAt, DateTimeImmutable $updatedAt): self
+  public static function reconstitute(string $id, string $organizationId, PurchaseOrderIdentity $identity, PurchaseOrderLines $lines, PurchaseOrderHistory $history): self
   {
-    return new self($id, $organizationId, $supplierId, $currency, $name, $lines, $status, $revision, $createdAt, $updatedAt);
+    return new self($id, $organizationId, $identity, $lines, $history);
   }
 
   /**
@@ -154,19 +160,15 @@ final class PurchaseOrder
       throw ProcurementException::conflict('Only a draft purchase order can be changed.');
     }
 
-    new Uuid($supplierId);
-    $currency = self::normalizeCurrency($currency);
-    $name = self::normalizeName($name);
-    $lines = self::validateLines($lines);
-    foreach ($lines as $line) {
-      if ('0.000000' !== $line->receivedQuantity || '0.000000' !== $line->returnedQuantity) {
+    $identity = new PurchaseOrderIdentity($supplierId, $currency, $name);
+    $lines = new PurchaseOrderLines($lines);
+    foreach ($lines->values() as $line) {
+      if (self::ZERO_QUANTITY !== $line->receivedQuantity || self::ZERO_QUANTITY !== $line->returnedQuantity) {
         throw ProcurementException::invalid('Draft lines cannot contain receipt or return history.');
       }
     }
 
-    $this->supplierId = $supplierId;
-    $this->currency = $currency;
-    $this->name = $name;
+    $this->identity = $identity;
     $this->lines = $lines;
     $this->touch($now);
   }
@@ -187,7 +189,7 @@ final class PurchaseOrder
   {
     $this->assertRevision($expectedRevision);
     $this->assertTime($now);
-    if (PurchaseOrderStatus::DRAFT !== $this->status || [] === $this->lines) {
+    if (PurchaseOrderStatus::DRAFT !== $this->status || [] === $this->lines->values()) {
       throw ProcurementException::conflict('Ordering requires a nonempty draft.');
     }
 
@@ -245,12 +247,8 @@ final class PurchaseOrder
       throw ProcurementException::conflict('This order cannot receive new quantities.');
     }
 
-    $index = $this->lineIndex($lineId);
-    $line = $this->lines[$index]->receive($quantity);
-    $lines = $this->lines;
-    $lines[$index] = $line;
-    $this->lines = array_values($lines);
-    $this->status = $this->receivedStatus();
+    $this->lines = $this->lines->receive($lineId, $quantity);
+    $this->status = $this->lines->receivedStatus();
     $this->touch($now);
   }
 
@@ -277,11 +275,7 @@ final class PurchaseOrder
       throw ProcurementException::conflict('An order must retain received goods before recording a return.');
     }
 
-    $index = $this->lineIndex($lineId);
-    $line = $this->lines[$index]->returnReceived($quantity);
-    $lines = $this->lines;
-    $lines[$index] = $line;
-    $this->lines = array_values($lines);
+    $this->lines = $this->lines->returnReceived($lineId, $quantity);
     $this->touch($now);
   }
 
@@ -294,7 +288,7 @@ final class PurchaseOrder
    */
   public function supplierId(): string
   {
-    return $this->supplierId;
+    return $this->identity->supplierId;
   }
 
   /**
@@ -306,7 +300,7 @@ final class PurchaseOrder
    */
   public function currency(): string
   {
-    return $this->currency;
+    return $this->identity->currency;
   }
 
   /**
@@ -318,7 +312,7 @@ final class PurchaseOrder
    */
   public function name(): string
   {
-    return $this->name;
+    return $this->identity->name;
   }
 
   /**
@@ -330,7 +324,7 @@ final class PurchaseOrder
    */
   public function lines(): array
   {
-    return $this->lines;
+    return $this->lines->values();
   }
 
   /**
@@ -382,49 +376,6 @@ final class PurchaseOrder
   }
 
   /**
-   * Method lineIndex
-   *
-   * @access private
-   *
-   * @param string $lineId the retained line UUID
-   *
-   * @return int its current list index
-   */
-  private function lineIndex(string $lineId): int
-  {
-    foreach ($this->lines as $index => $line) {
-      if ($line->id === $lineId) {
-        return $index;
-      }
-    }
-
-    throw ProcurementException::invalid('The order does not contain this line.');
-  }
-
-  /**
-   * Method receivedStatus
-   *
-   * @access private
-   *
-   * @return PurchaseOrderStatus the lifecycle derived from gross receipts
-   */
-  private function receivedStatus(): PurchaseOrderStatus
-  {
-    $received = DecimalAmount::zero();
-    $remaining = DecimalAmount::zero();
-    foreach ($this->lines as $line) {
-      $received = $received->add(DecimalAmount::fromString($line->receivedQuantity));
-      $remaining = $remaining->add(DecimalAmount::fromString($line->remainingQuantity()));
-    }
-
-    if ($received->isZero()) {
-      return PurchaseOrderStatus::ORDERED;
-    }
-
-    return $remaining->isZero() ? PurchaseOrderStatus::RECEIVED : PurchaseOrderStatus::PARTIAL_RECEIVED;
-  }
-
-  /**
    * Method assertRestoredStatus
    *
    * @access private
@@ -434,8 +385,8 @@ final class PurchaseOrder
   private function assertRestoredStatus(): void
   {
     if (PurchaseOrderStatus::DRAFT === $this->status) {
-      foreach ($this->lines as $line) {
-        if ('0.000000' !== $line->receivedQuantity || '0.000000' !== $line->returnedQuantity) {
+      foreach ($this->lines->values() as $line) {
+        if (self::ZERO_QUANTITY !== $line->receivedQuantity || self::ZERO_QUANTITY !== $line->returnedQuantity) {
           throw ProcurementException::invalid('Draft lines cannot contain receipt or return history.');
         }
       }
@@ -445,74 +396,9 @@ final class PurchaseOrder
     if (PurchaseOrderStatus::CANCELLED === $this->status) {
       return;
     }
-    if ([] === $this->lines || $this->receivedStatus() !== $this->status) {
+    if ([] === $this->lines->values() || $this->lines->receivedStatus() !== $this->status) {
       throw ProcurementException::invalid('Purchase-order status must agree with retained receipt quantities.');
     }
-  }
-
-  /**
-   * Method validateLines
-   *
-   * @access private
-   *
-   * @param array<array-key, mixed> $lines the raw candidate line snapshots
-   *
-   * @return list<ProcurementLine> the bounded list with unique identities
-   */
-  private static function validateLines(array $lines): array
-  {
-    if (!array_is_list($lines) || count($lines) > 500) {
-      throw ProcurementException::invalid('A purchase order needs a list of at most 500 lines.');
-    }
-
-    $identities = [];
-    $validated = [];
-    foreach ($lines as $line) {
-      if (!$line instanceof ProcurementLine || isset($identities[$line->id])) {
-        throw ProcurementException::invalid('Purchase-order lines must have unique validated identities.');
-      }
-      $identities[$line->id] = true;
-      $validated[] = $line;
-    }
-
-    return $validated;
-  }
-
-  /**
-   * Method normalizeCurrency
-   *
-   * @access private
-   *
-   * @param string $currency the declared organization currency
-   *
-   * @return string the validated currency
-   */
-  private static function normalizeCurrency(string $currency): string
-  {
-    if (1 !== preg_match('/^[A-Z]{3}$/D', $currency)) {
-      throw ProcurementException::invalid('A purchase-order currency must contain three uppercase letters.');
-    }
-
-    return $currency;
-  }
-
-  /**
-   * Method normalizeName
-   *
-   * @access private
-   *
-   * @param string $name the raw display name
-   *
-   * @return string the normalized display name
-   */
-  private static function normalizeName(string $name): string
-  {
-    $name = trim($name);
-    if ('' === $name || mb_strlen($name) > 160) {
-      throw ProcurementException::invalid('A purchase-order name must contain 1 to 160 characters.');
-    }
-
-    return $name;
   }
 
   /**

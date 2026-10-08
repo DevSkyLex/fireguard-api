@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Application\Contract\Publication\{InterventionEconomicContext, InterventionEconomicContextPage, InterventionFactsScopeTooLarge, InterventionPublicationFacts, InterventionPublicationFactsPage, InterventionPublishedWorkFact};
+use Intervention\Application\Contract\Publication\{InterventionEconomicContext, InterventionEconomicContextPage, InterventionEconomicSourceFilter, InterventionFactsScopeTooLarge, InterventionPublicationFacts, InterventionPublicationFactsPage, InterventionPublishedWorkFact};
 use Intervention\Application\Port\Inbound\InterventionPublicationFactsPort;
 use Intervention\Application\Port\Outbound\{InterventionEconomicScopePort, InterventionEquipmentSnapshotPort};
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionPublicationFactsMapper;
@@ -64,6 +64,16 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
    * Reads canonical and historical JSON equipment targets without casting arbitrary target strings as JSON.
    */
   private const string TARGET_ID = "COALESCE(substring(w.target from '^/api/equipment/([^/]+)$'), substring(w.target from '\"equipmentId\"[[:space:]]*:[[:space:]]*\"([^\"]+)\"'))";
+
+  /**
+   * Constant SQL_AND
+   */
+  private const string SQL_AND = ' AND ';
+
+  /**
+   * Constant SQL_WHERE
+   */
+  private const string SQL_WHERE = ' WHERE ';
   // #endregion
 
   // #region Constructor
@@ -184,21 +194,15 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
    * @param string $organizationId authorized owning organization
    * @param int $page one-based page
    * @param int $itemsPerPage bounded size
-   * @param ?string $search literal source title or number
-   * @param ?DateTimeImmutable $from inclusive source date
-   * @param ?DateTimeImmutable $to exclusive source date
-   * @param ?string $siteId optional root site
-   * @param ?string $customerId optional internal client
-   * @param ?string $equipmentId optional asset
-   * @param list<string> $financialInterventionIds bounded finance-authorized additional source identities
+   * @param ?InterventionEconomicSourceFilter $filter bounded operational predicates and authorized financial-source identities
    *
    * @return InterventionEconomicContextPage exact matching source directory
    */
-  public function economicPage(string $organizationId, int $page = 1, int $itemsPerPage = 50, ?string $search = null, ?DateTimeImmutable $from = null, ?DateTimeImmutable $to = null, ?string $siteId = null, ?string $customerId = null, ?string $equipmentId = null, array $financialInterventionIds = []): InterventionEconomicContextPage
+  public function economicPage(string $organizationId, int $page = 1, int $itemsPerPage = 50, ?InterventionEconomicSourceFilter $filter = null): InterventionEconomicContextPage
   {
     $this->pagination($page, $itemsPerPage, 100);
 
-    return $this->economicSources($organizationId, $page, $itemsPerPage, $search, $from, $to, $siteId, $customerId, $equipmentId, $financialInterventionIds);
+    return $this->economicSources($organizationId, $page, $itemsPerPage, $filter ?? new InterventionEconomicSourceFilter());
   }
 
   /**
@@ -220,7 +224,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
   {
     $this->pagination(1, $limit, 501);
 
-    return $this->economicSources($organizationId, 1, $limit, null, $from, $to, $siteId, $customerId, $equipmentId);
+    return $this->economicSources($organizationId, 1, $limit, new InterventionEconomicSourceFilter(from: $from, to: $to, siteId: $siteId, customerId: $customerId, equipmentId: $equipmentId));
   }
 
   /**
@@ -233,45 +237,39 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
    * @param string $organizationId owning organization
    * @param int $page validated page
    * @param int $size validated source limit
-   * @param ?string $search literal title or sequence
-   * @param ?DateTimeImmutable $from inclusive source date
-   * @param ?DateTimeImmutable $to exclusive source date
-   * @param ?string $siteId optional root site
-   * @param ?string $customerId optional client
-   * @param ?string $equipmentId optional equipment
-   * @param list<string> $financialInterventionIds bounded additional matching sources
+   * @param InterventionEconomicSourceFilter $filter bounded source predicates and authorized additional identifiers
    *
    * @return InterventionEconomicContextPage bounded exact directory
    */
-  private function economicSources(string $organizationId, int $page, int $size, ?string $search, ?DateTimeImmutable $from, ?DateTimeImmutable $to, ?string $siteId, ?string $customerId, ?string $equipmentId, array $financialInterventionIds = []): InterventionEconomicContextPage
+  private function economicSources(string $organizationId, int $page, int $size, InterventionEconomicSourceFilter $filter): InterventionEconomicContextPage
   {
-    $financialInterventionIds = array_values(array_unique($financialInterventionIds));
+    $financialInterventionIds = array_values(array_unique($filter->financialInterventionIds));
     if (count($financialInterventionIds) > 10000) {
       throw new InterventionFactsScopeTooLarge('The financial source scope exceeds 10000 intervention identifiers.');
     }
-    if (null !== $from && null !== $to && $from >= $to) {
+    if (null !== $filter->from && null !== $filter->to && $filter->from >= $filter->to) {
       throw new InvalidArgumentException('The source window must have an exclusive end after its start.');
     }
     $filters = ['i.organization_id = :organization'];
     $parameters = ['organization' => $organizationId];
     $types = [];
-    if (null !== $from) {
+    if (null !== $filter->from) {
       $filters[] = self::SOURCE_DATE . ' >= :from';
-      $parameters['from'] = $from->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
+      $parameters['from'] = $filter->from->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     }
-    if (null !== $to) {
+    if (null !== $filter->to) {
       $filters[] = self::SOURCE_DATE . ' < :to';
-      $parameters['to'] = $to->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
+      $parameters['to'] = $filter->to->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     }
-    if (null !== $search && '' !== $search) {
-      if (mb_strlen($search, 'UTF-8') > 160) {
+    if (null !== $filter->search && '' !== $filter->search) {
+      if (mb_strlen($filter->search, 'UTF-8') > 160) {
         throw new InvalidArgumentException('The source search may contain at most 160 characters.');
       }
       $filters[] = "(CASE WHEN i.status = 'published' THEN COALESCE(i.closure_snapshot::jsonb ->> 'name', i.closure_snapshot::jsonb -> 'report' ->> 'name', i.name) ELSE i.name END ILIKE :search ESCAPE '!' OR i.number::text ILIKE :search ESCAPE '!')";
-      $parameters['search'] = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search) . '%';
+      $parameters['search'] = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $filter->search) . '%';
     }
-    if (null !== $siteId || null !== $customerId || null !== $equipmentId) {
-      $identityFilter = $this->identityFilter($organizationId, $siteId, $customerId, $equipmentId, $parameters, $types);
+    if (null !== $filter->siteId || null !== $filter->customerId || null !== $filter->equipmentId) {
+      $identityFilter = $this->identityFilter($organizationId, $filter->siteId, $filter->customerId, $filter->equipmentId, $parameters, $types);
       if ([] !== $financialInterventionIds) {
         $parameters['financialSources'] = $financialInterventionIds;
         $types['financialSources'] = ArrayParameterType::STRING;
@@ -279,12 +277,29 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
       }
       $filters[] = $identityFilter;
     }
-    $where = implode(' AND ', $filters);
+    $where = implode(self::SQL_AND, $filters);
     $total = $this->total($where, $parameters, $types);
     if (0 === $total) {
       return new InterventionEconomicContextPage([], 0, $page, $size);
     }
     $rows = $this->rows($where, $parameters, $types, $size, ($page - 1) * $size);
+
+    return new InterventionEconomicContextPage($this->contexts($rows), $total, $page, $size);
+  }
+
+  /**
+   * Method contexts
+   *
+   * Enforces the combined task bound while mapping the same exact page selected by the count predicate.
+   *
+   * @access private
+   *
+   * @param list<array<string,mixed>> $rows bounded owned source rows
+   *
+   * @return list<InterventionEconomicContext> immutable or explicitly current contexts
+   */
+  private function contexts(array $rows): array
+  {
     $items = [];
     $taskCount = 0;
     foreach ($rows as $row) {
@@ -296,7 +311,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
       $items[] = $context;
     }
 
-    return new InterventionEconomicContextPage($items, $total, $page, $size);
+    return $items;
   }
 
   /**
@@ -317,6 +332,28 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
    */
   private function identityFilter(string $organizationId, ?string $siteId, ?string $customerId, ?string $equipmentId, array &$parameters, array &$types): string
   {
+    $published = $this->publishedIdentityFilter($siteId, $customerId, $equipmentId, $parameters);
+    $live = $this->liveIdentityFilter($organizationId, $siteId, $customerId, $equipmentId, $parameters, $types);
+
+    return "((i.status = 'published' AND (" . $published . ")) OR (i.status <> 'published' AND (" . $live . ')))';
+  }
+
+  /**
+   * Method publishedIdentityFilter
+   *
+   * Combines retained root and same-task identity without consulting current locations or assets.
+   *
+   * @access private
+   *
+   * @param ?string $siteId retained root site filter
+   * @param ?string $customerId retained internal client filter
+   * @param ?string $equipmentId retained asset filter
+   * @param array<string,mixed> $parameters shared bound values
+   *
+   * @return string immutable published source predicate
+   */
+  private function publishedIdentityFilter(?string $siteId, ?string $customerId, ?string $equipmentId, array &$parameters): string
+  {
     $root = [];
     $task = [];
     if (null !== $siteId) {
@@ -333,10 +370,32 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
       $parameters['equipment'] = $equipmentId;
       $task[] = "COALESCE(j -> 'equipmentIdentity' ->> 'id', substring(j ->> 'target' from '^/api/equipment/([^/]+)$'), substring(j ->> 'target' from '\"equipmentId\"[[:space:]]*:[[:space:]]*\"([^\"]+)\"')) = :equipment";
     }
-    $published = "EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(i.closure_snapshot::jsonb -> 'workItems', '[]'::jsonb)) j WHERE " . implode(' AND ', $task) . ')';
+    $published = "EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(i.closure_snapshot::jsonb -> 'workItems', '[]'::jsonb)) j WHERE " . implode(self::SQL_AND, $task) . ')';
     if (null === $equipmentId && [] !== $root) {
-      $published = '(' . implode(' AND ', $root) . ') OR ' . $published;
+      $published = '(' . implode(self::SQL_AND, $root) . ') OR ' . $published;
     }
+
+    return $published;
+  }
+
+  /**
+   * Method liveIdentityFilter
+   *
+   * Resolves bounded current organization scopes only for unpublished sources.
+   *
+   * @access private
+   *
+   * @param string $organizationId owning organization
+   * @param ?string $siteId current root site filter
+   * @param ?string $customerId current internal client filter
+   * @param ?string $equipmentId current asset filter
+   * @param array<string,mixed> $parameters shared bound values
+   * @param array<string,int> $types shared array parameter types
+   *
+   * @return string current source predicate or explicit false
+   */
+  private function liveIdentityFilter(string $organizationId, ?string $siteId, ?string $customerId, ?string $equipmentId, array &$parameters, array &$types): string
+  {
     $live = [];
     $scope = null === $siteId && null === $customerId ? null : $this->scopes->facilityIds($organizationId, $siteId, $customerId);
     $equipmentScope = null === $scope ? null : $this->equipment->equipmentIdsInFacilities($organizationId, $scope);
@@ -355,7 +414,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
       }
     }
 
-    return "((i.status = 'published' AND (" . $published . ")) OR (i.status <> 'published' AND (" . ([] === $live ? 'FALSE' : implode(' OR ', $live)) . ')))';
+    return [] === $live ? 'FALSE' : implode(' OR ', $live);
   }
 
   /**
@@ -376,7 +435,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
   {
     $this->assertPageBounded($where, $parameters, $types, $limit, $offset, $maximumTasks);
 
-    return $this->entityManager->getConnection()->fetchAllAssociative('SELECT i.*, p.id AS publication_id, p.completed_at AS published_at ' . self::SOURCE . ' WHERE ' . $where . ' ORDER BY i.created_at DESC, i.id ASC LIMIT ' . $limit . ' OFFSET ' . $offset, $parameters, $types);
+    return $this->entityManager->getConnection()->fetchAllAssociative('SELECT i.*, p.id AS publication_id, p.completed_at AS published_at ' . self::SOURCE . self::SQL_WHERE . $where . ' ORDER BY i.created_at DESC, i.id ASC LIMIT ' . $limit . ' OFFSET ' . $offset, $parameters, $types);
   }
 
   /**
@@ -397,7 +456,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
    */
   private function assertPageBounded(string $where, array $parameters, array $types, int $limit, int $offset, int $maximumTasks): void
   {
-    $selected = 'SELECT i.id, i.status, i.closure_snapshot ' . self::SOURCE . ' WHERE ' . $where . ' ORDER BY i.created_at DESC, i.id ASC LIMIT ' . $limit . ' OFFSET ' . $offset;
+    $selected = 'SELECT i.id, i.status, i.closure_snapshot ' . self::SOURCE . self::SQL_WHERE . $where . ' ORDER BY i.created_at DESC, i.id ASC LIMIT ' . $limit . ' OFFSET ' . $offset;
     $snapshotTasks = "CASE WHEN jsonb_typeof(s.closure_snapshot::jsonb -> 'workItems') = 'array' THEN jsonb_array_length(s.closure_snapshot::jsonb -> 'workItems') ELSE 0 END";
     $snapshotProofs = "CASE WHEN jsonb_typeof(s.closure_snapshot::jsonb -> 'attachments') = 'array' THEN jsonb_array_length(s.closure_snapshot::jsonb -> 'attachments') ELSE 0 END";
     $snapshotTimes = "CASE WHEN jsonb_typeof(s.closure_snapshot::jsonb -> 'timeEntries') = 'array' THEN jsonb_array_length(s.closure_snapshot::jsonb -> 'timeEntries') ELSE 0 END";
@@ -425,7 +484,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
    */
   private function total(string $where, array $parameters, array $types): int
   {
-    $total = $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) ' . self::SOURCE . ' WHERE ' . $where, $parameters, $types);
+    $total = $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) ' . self::SOURCE . self::SQL_WHERE . $where, $parameters, $types);
 
     return is_int($total) || is_string($total) ? (int) $total : throw new UnexpectedValueException('The scoped intervention count is unavailable.');
   }

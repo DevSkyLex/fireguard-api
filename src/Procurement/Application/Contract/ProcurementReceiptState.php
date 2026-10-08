@@ -40,6 +40,10 @@ final class ProcurementReceiptState
       return 'returned';
     }
 
-    return 'part' === $this->kind ? 'stock_received' : ([] === $this->equipmentIds ? 'awaiting_individualization' : 'individualized');
+    if ('part' === $this->kind) {
+      return 'stock_received';
+    }
+
+    return [] === $this->equipmentIds ? 'awaiting_individualization' : 'individualized';
   }
 }

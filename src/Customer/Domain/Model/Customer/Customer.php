@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Customer\Domain\Model\Customer;
 
 use Customer\Domain\Exception\CustomerException;
+use Customer\Domain\ValueObject\{CustomerDetails, CustomerHistory};
 use DateTimeImmutable;
 use Shared\Domain\ValueObject\Uuid;
 
@@ -20,48 +21,161 @@ use function trim;
 
 use const FILTER_VALIDATE_EMAIL;
 
-/** Class Customer. Organization-owned internal customer with retained archival history. @category Model */
+/**
+ * Class Customer
+ *
+ * Owns an organization's customer identity, validated details and retained archival history.
+ *
+ * @category Model
+ */
 final readonly class Customer
 {
+  // #region Properties
   /**
-   * @param list<array{name:string,email:?string,phone:?string,role:?string}> $contacts
+   * Property id
    */
-  private function __construct(
-    public string $id,
-    public string $organizationId,
-    public string $name,
-    public ?string $code,
-    public ?string $email,
-    public ?string $phone,
-    public array $contacts,
-    public ?DateTimeImmutable $archivedAt,
-    public DateTimeImmutable $createdAt,
-    public DateTimeImmutable $updatedAt,
-    public int $revision,
-  ) {
-  }
+  public string $id;
 
   /**
-   * @param array<mixed> $contacts
+   * Property organizationId
    */
-  public static function create(string $id, string $organizationId, string $name, ?string $code, ?string $email, ?string $phone, array $contacts, DateTimeImmutable $now): self
+  public string $organizationId;
+
+  /**
+   * Property name
+   */
+  public string $name;
+
+  /**
+   * Property code
+   */
+  public ?string $code;
+
+  /**
+   * Property email
+   */
+  public ?string $email;
+
+  /**
+   * Property phone
+   */
+  public ?string $phone;
+
+  /**
+   * Property contacts
+   *
+   * @var list<array{name:string,email:?string,phone:?string,role:?string}>
+   */
+  public array $contacts;
+
+  /**
+   * Property archivedAt
+   */
+  public ?DateTimeImmutable $archivedAt;
+
+  /**
+   * Property createdAt
+   */
+  public DateTimeImmutable $createdAt;
+
+  /**
+   * Property updatedAt
+   */
+  public DateTimeImmutable $updatedAt;
+
+  /**
+   * Property revision
+   */
+  public int $revision;
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Method __construct
+   *
+   * Combines customer details and history while preserving the public aggregate state.
+   *
+   * @access private
+   *
+   * @param string $id the customer identifier
+   * @param string $organizationId the owning organization identifier
+   * @param CustomerDetails $details validated or faithfully restored customer details
+   * @param CustomerHistory $history the persisted lifecycle state
+   *
+   * @return void
+   */
+  private function __construct(string $id, string $organizationId, CustomerDetails $details, CustomerHistory $history)
   {
-    new Uuid($id);
-    new Uuid($organizationId);
-
-    return new self($id, $organizationId, self::name($name), self::text($code, 80), self::email($email), self::text($phone, 40), self::contacts($contacts), null, $now, $now, 1);
+    $this->id = $id;
+    $this->organizationId = $organizationId;
+    $this->name = $details->name;
+    $this->code = $details->code;
+    $this->email = $details->email;
+    $this->phone = $details->phone;
+    /** @var list<array{name:string,email:?string,phone:?string,role:?string}> $contacts */
+    $contacts = $details->contacts;
+    $this->contacts = $contacts;
+    $this->archivedAt = $history->archivedAt;
+    $this->createdAt = $history->createdAt;
+    $this->updatedAt = $history->updatedAt;
+    $this->revision = $history->revision;
   }
+  // #endregion
 
+  // #region Methods
   /**
-   * @param list<array{name:string,email:?string,phone:?string,role:?string}> $contacts
+   * Method create
+   *
+   * Validates identifiers before normalizing details and starting the first revision.
+   *
+   * @access public
+   *
+   * @param string $id the customer identifier
+   * @param string $organizationId the owning organization identifier
+   * @param CustomerDetails $details the supplied descriptive fields
+   * @param DateTimeImmutable $now the creation time
+   *
+   * @return self the validated customer
    */
-  public static function reconstitute(string $id, string $organizationId, string $name, ?string $code, ?string $email, ?string $phone, array $contacts, ?DateTimeImmutable $archivedAt, DateTimeImmutable $createdAt, DateTimeImmutable $updatedAt, int $revision): self
+  public static function create(string $id, string $organizationId, CustomerDetails $details, DateTimeImmutable $now): self
   {
-    return new self($id, $organizationId, $name, $code, $email, $phone, $contacts, $archivedAt, $createdAt, $updatedAt, $revision);
+    Uuid::assertValid($id);
+    Uuid::assertValid($organizationId);
+
+    return new self($id, $organizationId, self::normalize($details), new CustomerHistory(null, $now, $now, 1));
   }
 
   /**
-   * @param array<string,mixed> $changes
+   * Method reconstitute
+   *
+   * Restores every persisted field without normalization or creation-time validation.
+   * The repository supplies the retained contact shapes and lifecycle revision.
+   *
+   * @access public
+   *
+   * @param string $id the persisted customer identifier
+   * @param string $organizationId the persisted owner identifier
+   * @param CustomerDetails $details the exact persisted descriptive fields
+   * @param CustomerHistory $history the exact persisted lifecycle state
+   *
+   * @return self the retained customer state
+   */
+  public static function reconstitute(string $id, string $organizationId, CustomerDetails $details, CustomerHistory $history): self
+  {
+    return new self($id, $organizationId, $details, $history);
+  }
+
+  /**
+   * Method change
+   *
+   * Applies supplied fields while retaining omitted values and clearing explicit nulls.
+   *
+   * @access public
+   *
+   * @param array<string,mixed> $changes the fields present in the patch
+   * @param DateTimeImmutable $now the mutation time
+   *
+   * @return self the customer at its next revision
    */
   public function change(array $changes, DateTimeImmutable $now): self
   {
@@ -86,27 +200,92 @@ final readonly class Customer
     /** @var ?string $phone */ $phone = array_key_exists('phone', $changes) ? $changes['phone'] : $this->phone;
     /** @var array<mixed> $contacts */ $contacts = $changes['contacts'] ?? $this->contacts;
 
-    return new self($this->id, $this->organizationId, self::name($name), self::text($code, 80), self::email($email), self::text($phone, 40), self::contacts($contacts), $this->archivedAt, $this->createdAt, $now, $this->revision + 1);
+    $details = self::normalize(new CustomerDetails($name, $code, $email, $phone, $contacts));
+
+    return new self($this->id, $this->organizationId, $details, new CustomerHistory($this->archivedAt, $this->createdAt, $now, $this->revision + 1));
   }
 
+  /**
+   * Method archive
+   *
+   * Retains customer details and makes archival replay idempotent.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $now the archival time
+   *
+   * @return self the archived customer or its unchanged retained state
+   */
   public function archive(DateTimeImmutable $now): self
   {
     if (null !== $this->archivedAt) {
       return $this;
     }
 
-    return new self($this->id, $this->organizationId, $this->name, $this->code, $this->email, $this->phone, $this->contacts, $now, $this->createdAt, $now, $this->revision + 1);
+    return new self($this->id, $this->organizationId, $this->details(), new CustomerHistory($now, $this->createdAt, $now, $this->revision + 1));
   }
 
+  /**
+   * Method restore
+   *
+   * Clears archival state once while retaining creation history and descriptive fields.
+   *
+   * @access public
+   *
+   * @param DateTimeImmutable $now the restoration time
+   *
+   * @return self the active customer or its unchanged retained state
+   */
   public function restore(DateTimeImmutable $now): self
   {
     if (null === $this->archivedAt) {
       return $this;
     }
 
-    return new self($this->id, $this->organizationId, $this->name, $this->code, $this->email, $this->phone, $this->contacts, null, $this->createdAt, $now, $this->revision + 1);
+    return new self($this->id, $this->organizationId, $this->details(), new CustomerHistory(null, $this->createdAt, $now, $this->revision + 1));
   }
 
+  /**
+   * Method details
+   *
+   * Groups the retained descriptive fields without revalidating historical state.
+   *
+   * @access private
+   *
+   * @return CustomerDetails the current descriptive state
+   */
+  private function details(): CustomerDetails
+  {
+    return new CustomerDetails($this->name, $this->code, $this->email, $this->phone, $this->contacts);
+  }
+
+  /**
+   * Method normalize
+   *
+   * Enforces creation and edit invariants independently of retained restoration state.
+   *
+   * @access private
+   *
+   * @param CustomerDetails $details the supplied descriptive fields
+   *
+   * @return CustomerDetails the normalized and validated descriptive state
+   */
+  private static function normalize(CustomerDetails $details): CustomerDetails
+  {
+    return new CustomerDetails(self::name($details->name), self::text($details->code, 80), self::email($details->email), self::text($details->phone, 40), self::contacts($details->contacts));
+  }
+
+  /**
+   * Method name
+   *
+   * Requires a nonempty normalized customer or contact name within the domain limit.
+   *
+   * @access private
+   *
+   * @param string $value the supplied name
+   *
+   * @return string the normalized name
+   */
   private static function name(string $value): string
   {
     $value = trim($value);
@@ -117,6 +296,18 @@ final readonly class Customer
     return $value;
   }
 
+  /**
+   * Method text
+   *
+   * Normalizes optional fields and enforces their character limits.
+   *
+   * @access private
+   *
+   * @param string|null $value the nullable supplied field
+   * @param int $max the maximum character count
+   *
+   * @return string|null the normalized field, with empty strings cleared
+   */
   private static function text(?string $value, int $max): ?string
   {
     $value = null === $value ? null : trim($value);
@@ -127,6 +318,17 @@ final readonly class Customer
     return '' === $value ? null : $value;
   }
 
+  /**
+   * Method email
+   *
+   * Normalizes optional email addresses and requires a valid retained format for edits.
+   *
+   * @access private
+   *
+   * @param string|null $value the nullable supplied address
+   *
+   * @return string|null the validated address
+   */
   private static function email(?string $value): ?string
   {
     $value = self::text($value, 254);
@@ -138,7 +340,13 @@ final readonly class Customer
   }
 
   /**
-   * @param array<mixed> $contacts
+   * Method contacts
+   *
+   * Validates contact shapes and normalizes their optional descriptive fields.
+   *
+   * @access private
+   *
+   * @param array<mixed> $contacts the supplied contact list
    *
    * @return list<array{name:string,email:?string,phone:?string,role:?string}>
    */
@@ -163,4 +371,5 @@ final readonly class Customer
 
     return $normalized;
   }
+  // #endregion
 }

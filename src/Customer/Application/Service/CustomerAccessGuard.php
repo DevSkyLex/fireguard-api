@@ -17,7 +17,7 @@ final readonly class CustomerAccessGuard
 
   public function assertAccess(string $actorId, string $organizationId, bool $write): void
   {
-    new Uuid($organizationId);
+    Uuid::assertValid($organizationId);
     $decision = $this->authorization->resolveAccess($actorId, $organizationId, $write ? 'organization.customers.manage' : 'organization.customers.read');
     if ($decision->isOutsideScope()) {
       throw CustomerException::notFound();

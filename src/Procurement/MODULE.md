@@ -53,11 +53,15 @@ Presentation translates DTOs into CommandBusPort and QueryBusPort messages. Mana
 
 ProcurementRepository uses an explicitly named main DBAL connection. It scopes every lookup and serializes mutations with a transaction-scoped organization advisory lock. Physical receipt and return identity fields are immutable on repository updates. Stable operation declarations and motivated return evidence are retained. Creation receipts share the organization-scoped operation ledger; its historical receipt_id field identifies the created supplier/order for creation kinds and a physical receipt for delivery kinds. Object-key order and UUID spelling do not change a creation fingerprint; generated order-line identities remain attached to the first saved draft. All stock bridges acquire currency before Inventory operation, reference and balance locks; intervention stock paths acquire their publication fence/parent first.
 
+The repository owns the persistence port and transaction. Its internal Doctrine table adapter applies scoped row reads, pagination predicates and immutable-column updates on the same connection; a separate mapper reconstructs domain state from retained rows. These components remain private implementation details and expose no SQL through Application ports.
+
 Cross-module access uses published Application contracts and ports: InventoryStockReceiptPort, InventoryPartDirectoryPort, EquipmentReserveReceiptPort, MaintenanceCurrencyPort and OrganizationAuthorizationPort. The module never reads sibling persistence records during production execution.
 
 ## Configuration
 
 `config/modules/procurement.yaml` binds the repository to main and registers providers, processors, the exception subscriber and message handlers. Events use MainTransactionEventDispatcher.
+
+The table adapter is constructed by the explicitly main-bound repository with its own connection. It is not registered as a separate service; module resource loading covers Presentation and Application services only.
 
 The module requires `organization.procurement.read/manage`. Part receipts, supply returns and reconciliation additionally require `organization.inventory.manage`; individualization requires `organization.equipment.write`. Cost visibility independently requires `organization.maintenance_cost.read`; explicitly writing or clearing a unitCost requires `organization.maintenance_cost.manage`. Hidden prices are omitted from projections and DTOs; an authorized unknown cost remains null.
 

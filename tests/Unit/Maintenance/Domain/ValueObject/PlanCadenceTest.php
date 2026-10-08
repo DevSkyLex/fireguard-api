@@ -95,7 +95,7 @@ final class PlanCadenceTest extends TestCase
    */
   public static function invalidCadences(): iterable
   {
-    foreach (['', 'P0D', 'P01D', 'P-1D', 'P1Y6M', 'PT1H', 'P1.5D', 'P3651D', 'P521W', 'P121M', 'P11Y', 'P1D\n', ' P1D'] as $value) {
+    foreach (['', 'P0D', 'P01D', 'P-1D', 'P1Y6M', 'PT1H', 'P1.5D', 'P3651D', 'P521W', 'P121M', 'P11Y', 'P1D\n', ' P1D', 'P1٢D', 'P1２D'] as $value) {
       yield $value => [$value];
     }
   }

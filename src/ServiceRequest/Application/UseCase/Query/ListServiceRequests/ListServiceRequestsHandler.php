@@ -34,7 +34,7 @@ final readonly class ListServiceRequestsHandler implements QueryHandler
     try {
       foreach ([$query->equipmentId, $query->siteId] as $id) {
         if (null !== $id) {
-          new Uuid($id);
+          Uuid::assertValid($id);
         }
       }
     } catch (InvalidValueException) {

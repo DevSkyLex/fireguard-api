@@ -22,6 +22,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
@@ -342,6 +343,51 @@ final class UpdateEquipmentProcessorTest extends TestCase
       operation: new Patch(),
       uriVariables: $this->updateUriVariables(),
     );
+  }
+
+  #[Test]
+  #[DataProvider('identityPatchBodies')]
+  public function identityPresenceDistinguishesOmittedFieldsFromExplicitClears(string $body, bool $present): void
+  {
+    $requests = new RequestStack();
+    $requests->push(Request::create('/api/equipment', 'PATCH', content: $body));
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())->method('dispatch')
+      ->with(self::callback(static function (UpdateEquipmentCommand $command) use ($present): bool {
+        self::assertSame($present, $command->hasName);
+        self::assertSame($present, $command->hasAssetCode);
+        self::assertSame($present, $command->hasCriticality);
+        self::assertSame($present, $command->hasTechnicalProperties);
+        self::assertNull($command->name);
+        self::assertNull($command->assetCode);
+        self::assertNull($command->criticality);
+        self::assertSame([], $command->technicalProperties);
+
+        return true;
+      }))
+      ->willThrowException(new RuntimeException('Command inspected.'));
+
+    $processor = new UpdateEquipmentProcessor(
+      $commandBus,
+      $authorization,
+      $this->updateSecurity(),
+      \Tests\Support\MutationDetailFixtures::equipment(null),
+      $requests,
+    );
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Command inspected.');
+    $processor->process(new UpdateEquipmentInput(), new Patch(), $this->updateUriVariables());
+  }
+
+  /**
+   * @return iterable<string, array{string, bool}>
+   */
+  public static function identityPatchBodies(): iterable
+  {
+    yield 'omitted' => ['{}', false];
+    yield 'explicit clears' => ['{"name":null,"assetCode":null,"criticality":null,"technicalProperties":[]}', true];
   }
 
   /**

@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Procurement\Domain\Exception\ProcurementException;
 use Procurement\Domain\Model\Supplier;
+use Procurement\Domain\ValueObject\{SupplierDetails, SupplierHistory};
 use Shared\Domain\Exception\InvalidValueException;
 
 use function array_fill;
@@ -46,7 +47,7 @@ final class SupplierTest extends TestCase
   #[Test]
   public function testCreationNormalizesContactFieldsAndPreservesIdentity(): void
   {
-    $supplier = Supplier::create(self::SUPPLIER, self::ORGANIZATION, ' Supplier Example ', ' SUP-1 ', ' purchases@example.com ', ' 01 23 45 67 89 ', [['name' => ' Alice ', 'email' => ' alice@example.com ', 'role' => ' Sales ']], $this->now());
+    $supplier = Supplier::create(self::SUPPLIER, self::ORGANIZATION, new SupplierDetails(' Supplier Example ', ' SUP-1 ', ' purchases@example.com ', ' 01 23 45 67 89 ', [['name' => ' Alice ', 'email' => ' alice@example.com ', 'role' => ' Sales ']]), $this->now());
 
     self::assertSame(self::SUPPLIER, $supplier->id);
     self::assertSame(self::ORGANIZATION, $supplier->organizationId);
@@ -72,7 +73,7 @@ final class SupplierTest extends TestCase
   #[Test]
   public function testBlankOptionalFieldsBecomeNull(): void
   {
-    $supplier = Supplier::create(self::SUPPLIER, self::ORGANIZATION, 'Example', ' ', ' ', ' ', [], $this->now());
+    $supplier = Supplier::create(self::SUPPLIER, self::ORGANIZATION, new SupplierDetails('Example', ' ', ' ', ' ', []), $this->now());
 
     self::assertNull($supplier->code());
     self::assertNull($supplier->email());
@@ -193,7 +194,7 @@ final class SupplierTest extends TestCase
   {
     $this->expectException(ProcurementException::class);
 
-    Supplier::create(self::SUPPLIER, self::ORGANIZATION, 'Example', null, null, null, $contacts, $this->now());
+    Supplier::create(self::SUPPLIER, self::ORGANIZATION, new SupplierDetails('Example', null, null, null, $contacts), $this->now());
   }
 
   /**
@@ -226,7 +227,7 @@ final class SupplierTest extends TestCase
   {
     $this->expectException(InvalidValueException::class);
 
-    Supplier::create('invalid', self::ORGANIZATION, 'Example', null, null, null, [], $this->now());
+    Supplier::create('invalid', self::ORGANIZATION, new SupplierDetails('Example', null, null, null, []), $this->now());
   }
 
   /**
@@ -240,7 +241,7 @@ final class SupplierTest extends TestCase
   public function testRestorationKeepsArchiveAndRevision(): void
   {
     $archivedAt = new DateTimeImmutable('2026-10-07T10:00:00+00:00');
-    $supplier = Supplier::reconstitute(self::SUPPLIER, self::ORGANIZATION, 'Supplier', 'SUP', 'supplier@example.com', null, [], $archivedAt, $this->now(), $archivedAt, 4);
+    $supplier = Supplier::reconstitute(self::SUPPLIER, self::ORGANIZATION, new SupplierDetails('Supplier', 'SUP', 'supplier@example.com', null, []), new SupplierHistory($archivedAt, $this->now(), $archivedAt, 4));
 
     self::assertFalse($supplier->isActive());
     self::assertSame(4, $supplier->revision());
@@ -261,7 +262,7 @@ final class SupplierTest extends TestCase
   {
     $this->expectException(ProcurementException::class);
 
-    Supplier::reconstitute(self::SUPPLIER, self::ORGANIZATION, 'Supplier', null, null, null, [], null, $this->now(), $this->now(), 0);
+    Supplier::reconstitute(self::SUPPLIER, self::ORGANIZATION, new SupplierDetails('Supplier', null, null, null, []), new SupplierHistory(null, $this->now(), $this->now(), 0));
   }
 
   /**
@@ -289,7 +290,7 @@ final class SupplierTest extends TestCase
    */
   private function supplier(): Supplier
   {
-    return Supplier::create(self::SUPPLIER, self::ORGANIZATION, 'Original supplier', null, 'supplier@example.com', null, [], $this->now());
+    return Supplier::create(self::SUPPLIER, self::ORGANIZATION, new SupplierDetails('Original supplier', null, 'supplier@example.com', null, []), $this->now());
   }
 
   /**

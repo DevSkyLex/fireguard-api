@@ -16,7 +16,8 @@ use Equipment\Domain\ValueObject\{
   EquipmentType,
   EquipmentTypeCode,
   PlanPosition,
-  RestoredEquipmentAssignment
+  RestoredEquipmentAssignment,
+  RestoredEquipmentHistory
 };
 use InvalidArgumentException;
 
@@ -127,17 +128,17 @@ final class Equipment
   /**
    * Method reconstitute.
    *
-   * Reconstitutes an equipment aggregate from persisted state.
+   * Restores persisted state without applying creation normalization or replaying lifecycle transitions.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param EquipmentId $id the equipment identifier
    * @param EquipmentOrganizationId $organizationId the organization identifier
-   * @param EquipmentType $type the equipment type
+   * @param EquipmentType|EquipmentTypeCode $type the equipment type
    * @param EquipmentCatalogDetails $details the persisted catalog fields
    * @param RestoredEquipmentAssignment $assignment the persisted lifecycle and placement
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param DateTimeImmutable $updatedAt the update timestamp
+   * @param RestoredEquipmentHistory $history the persisted timestamps and replacement lineage
    *
    * @return self the reconstituted equipment aggregate
    */
@@ -147,18 +148,15 @@ final class Equipment
     EquipmentType|EquipmentTypeCode $type,
     EquipmentCatalogDetails $details,
     RestoredEquipmentAssignment $assignment,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?string $predecessorEquipmentId = null,
-    ?string $successorEquipmentId = null,
+    RestoredEquipmentHistory $history,
   ): self {
     return new self(
       id: $id,
       organizationId: $organizationId,
       type: $type,
       status: $assignment->status,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
+      createdAt: $history->createdAt,
+      updatedAt: $history->updatedAt,
       facilityId: $assignment->facilityId,
       subType: $details->subType,
       brand: $details->brand,
@@ -169,8 +167,8 @@ final class Equipment
       commissionedAt: $assignment->commissionedAt,
       planPosition: $assignment->planPosition,
       identity: $details->identity ?? EquipmentIdentity::fromValues(),
-      predecessorEquipmentId: $predecessorEquipmentId,
-      successorEquipmentId: $successorEquipmentId,
+      predecessorEquipmentId: $history->predecessorEquipmentId,
+      successorEquipmentId: $history->successorEquipmentId,
     );
   }
 

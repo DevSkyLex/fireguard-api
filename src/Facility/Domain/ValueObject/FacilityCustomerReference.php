@@ -15,7 +15,7 @@ final readonly class FacilityCustomerReference
     if (null === $customerId) {
       return;
     }
-    new Uuid($customerId);
+    Uuid::assertValid($customerId);
     if (FacilityType::SITE !== $type || null !== $parentId) {
       throw FacilityCustomerAssignmentException::rootRequired();
     }

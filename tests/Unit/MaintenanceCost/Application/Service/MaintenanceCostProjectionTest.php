@@ -9,7 +9,7 @@ use Intervention\Application\Contract\Cost\InterventionTimeCostFact;
 use Intervention\Application\Port\Inbound\InterventionCostSourceFactsPort;
 use Inventory\Application\Contract\Stock\InventoryCostFact;
 use Inventory\Application\Port\Inbound\InventoryInterventionResourcesPort;
-use MaintenanceCost\Application\Contract\Cost\{MaintenanceCostItem, MaintenanceCostSnapshot, MaintenanceCostTotals};
+use MaintenanceCost\Application\Contract\Cost\{MaintenanceCostItem, MaintenanceCostSnapshot, MaintenanceCostTotals, MaintenanceExpense};
 use MaintenanceCost\Application\Contract\Rate\MaintenanceRateSnapshot;
 use MaintenanceCost\Application\Port\Inbound\{MaintenanceCurrencyPort, MaintenanceRatePort};
 use MaintenanceCost\Application\Port\Outbound\MaintenanceCostStorePort;
@@ -66,11 +66,50 @@ final class MaintenanceCostProjectionTest extends TestCase
     self::assertFalse($frozen->totals->complete);
   }
 
+  public function testChangingTheWorkedDateUsesItsEffectiveRateAndRetainsTheCapturedCorrectionAnchor(): void
+  {
+    $original = new MaintenanceCostItem('time:entry:1', 'time', 'task', 'entry', 1, '50.000000', 'EUR', 'Work', '2026-10-01', null, '100.000000', 'initial-rate');
+    $frozen = new MaintenanceCostSnapshot(1, '2026-10-02T10:00:00Z', 'publication', 4, 'EUR', new MaintenanceCostTotals('50.000000', '50.000000', true, [$original]));
+    $changed = new InterventionTimeCostFact('entry', 'task', 'member', '2026-10-02', 30, 2, false, 'Corrected date', new DateTimeImmutable('2026-10-03T10:00:00Z'));
+    $current = $this->projection([$changed], new MaintenanceRateSnapshot('new-rate', 'member', '200.000000', 'EUR', '2026-10-02'))->current('org', 'order', 'EUR', $frozen);
+
+    self::assertSame('100.000000', $current->total);
+    self::assertSame('200.000000', $current->items[0]->hourlyAmount);
+    self::assertSame('new-rate', $current->items[0]->rateId);
+    self::assertSame('time:entry:1', $current->items[0]->correctionOf);
+    self::assertSame('50.000000', $frozen->totals->total);
+  }
+
+  public function testLateTimeRetainsItsPublicationAnchor(): void
+  {
+    $frozen = new MaintenanceCostSnapshot(1, '2026-10-02T10:00:00Z', 'publication', 4, 'EUR', new MaintenanceCostTotals('0.000000', '0.000000', true, []));
+    $current = $this->projection([$this->time(1, 30)], new MaintenanceRateSnapshot('rate', 'member', '100.000000', 'EUR', '2026-09-01'))->current('org', 'order', 'EUR', $frozen);
+
+    self::assertSame('50.000000', $current->total);
+    self::assertSame('publication:publication', $current->items[0]->correctionOf);
+    self::assertSame([], $frozen->totals->items);
+  }
+
+  public function testAppendOnlyCorrectionsKeepTheirOriginalSourceInsteadOfTheLatePublicationAnchor(): void
+  {
+    $frozen = new MaintenanceCostSnapshot(1, '2026-10-02T10:00:00Z', 'publication', 4, 'EUR', new MaintenanceCostTotals('0.000000', '0.000000', true, []));
+    $date = new DateTimeImmutable('2026-10-03T10:00:00Z');
+    $material = new InventoryCostFact('return', 'part', '-1.000000', '5.000000', '-5.000000', 'EUR', $date, 'task', 'movement');
+    $expense = new MaintenanceExpense('adjustment', 'org', 'order', 'task', 'client', '-2.000000', 'EUR', 'Correction', $date, 'original-expense', 'actor', 'payload-hash', $date);
+    $current = $this->projection([], null, [$material], [$expense])->current('org', 'order', 'EUR', $frozen);
+
+    self::assertSame('-7.000000', $current->total);
+    self::assertSame('material:movement', $current->items[0]->correctionOf);
+    self::assertSame('expense:original-expense', $current->items[1]->correctionOf);
+    self::assertSame('0.000000', $frozen->totals->total);
+  }
+
   /**
    * @param list<InterventionTimeCostFact> $times
    * @param list<InventoryCostFact> $materials
+   * @param list<MaintenanceExpense> $expenses
    */
-  private function projection(array $times, ?MaintenanceRateSnapshot $rate, array $materials = []): MaintenanceCostProjection
+  private function projection(array $times, ?MaintenanceRateSnapshot $rate, array $materials = [], array $expenses = []): MaintenanceCostProjection
   {
     $work = $this->createStub(InterventionCostSourceFactsPort::class);
     $work->method('timeFacts')->willReturn($times);
@@ -79,7 +118,7 @@ final class MaintenanceCostProjectionTest extends TestCase
     $rates = $this->createStub(MaintenanceRatePort::class);
     $rates->method('forMember')->willReturn($rate);
     $store = $this->createStub(MaintenanceCostStorePort::class);
-    $store->method('expenses')->willReturn([]);
+    $store->method('expenses')->willReturn($expenses);
 
     return new MaintenanceCostProjection($work, $inventory, $this->createStub(MaintenanceCurrencyPort::class), $rates, $store, new MaintenanceCostCalculator());
   }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaintenanceCost\Application\UseCase\Query\Reporting\ListMaintenanceEconomicDossiers;
 
+use Intervention\Application\Contract\Publication\InterventionEconomicSourceFilter;
 use Intervention\Application\Port\Inbound\InterventionPublicationFactsPort;
 use MaintenanceCost\Application\Service\{MaintenanceCostAccessGuard, MaintenanceEconomicDirectory};
 use MaintenanceCost\Domain\Exception\MaintenanceCostException;
@@ -35,12 +36,13 @@ final readonly class ListMaintenanceEconomicDossiersHandler implements QueryHand
     $window = null !== $query->from && null !== $query->to ? MaintenanceEconomicWindow::fromDates($query->from, $query->to) : null;
     foreach ([$query->siteId, $query->customerId, $query->equipmentId] as $identifier) {
       if (null !== $identifier) {
-        new Uuid($identifier);
+        Uuid::assertValid($identifier);
       }
     }
 
     $financialIds = $this->directory->matchingIds($query->organizationId, $query->siteId, $query->customerId, $query->equipmentId);
-    $page = $this->work->economicPage($query->organizationId, $query->page, $query->itemsPerPage, $query->search, $window?->from, $window?->to, $query->siteId, $query->customerId, $query->equipmentId, $financialIds);
+    $filter = new InterventionEconomicSourceFilter($query->search, $window?->from, $window?->to, $query->siteId, $query->customerId, $query->equipmentId, $financialIds);
+    $page = $this->work->economicPage($query->organizationId, $query->page, $query->itemsPerPage, $filter);
     $equipment = [];
     foreach ($page->items as $context) {
       $equipment[$context->id] = $this->directory->equipment($query->organizationId, $context->id);

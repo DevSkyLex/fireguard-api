@@ -8,8 +8,8 @@ use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment, RestoredEquipmentHistory};
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentIdentity, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -112,6 +112,46 @@ final class EquipmentRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testPublishedRetiredEquipmentPreservesReplacementHistoryAcrossAnUpdate(): void
+  {
+    $id = '660e8400-e29b-41d4-a716-4466554c0022';
+    $predecessorId = '660e8400-e29b-41d4-a716-4466554c0023';
+    $successorId = '660e8400-e29b-41d4-a716-4466554c0024';
+    $createdAt = new DateTimeImmutable('2025-01-01T00:00:00+00:00');
+    $updatedAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $this->persistEquipmentRecord($id, self::ORGANIZATION_ID, 'published', 'SN-RETIRED', $createdAt, 'decommissioned');
+    $this->entityManager->flush();
+
+    $record = $this->entityManager->find(EquipmentRecord::class, $id);
+    self::assertInstanceOf(EquipmentRecord::class, $record);
+    $record->updatedAt = $updatedAt;
+    $record->predecessorEquipmentId = $predecessorId;
+    $record->successorEquipmentId = $successorId;
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $equipment = $this->repository->findPublishedById(EquipmentId::fromString($id));
+    self::assertInstanceOf(Equipment::class, $equipment);
+    self::assertSame(EquipmentStatus::DECOMMISSIONED, $equipment->status());
+    self::assertEquals($createdAt, $equipment->createdAt());
+    self::assertEquals($updatedAt, $equipment->updatedAt());
+    self::assertSame($predecessorId, $equipment->predecessorEquipmentId());
+    self::assertSame($successorId, $equipment->successorEquipmentId());
+
+    $equipment->updateIdentity(EquipmentIdentity::fromValues(name: 'Retired equipment'));
+    $this->repository->save($equipment);
+    $this->entityManager->clear();
+
+    $reloaded = $this->repository->findPublishedById(EquipmentId::fromString($id));
+    self::assertInstanceOf(Equipment::class, $reloaded);
+    self::assertSame('Retired equipment', $reloaded->identity()->name);
+    self::assertSame(EquipmentStatus::DECOMMISSIONED, $reloaded->status());
+    self::assertEquals($createdAt, $reloaded->createdAt());
+    self::assertSame($predecessorId, $reloaded->predecessorEquipmentId());
+    self::assertSame($successorId, $reloaded->successorEquipmentId());
+  }
+
+  #[Test]
   public function testFindByOrganizationIdIsScopedPaginatedAndExcludesDrafts(): void
   {
     $this->persistEquipmentRecord('660e8400-e29b-41d4-a716-4466554c0030', self::ORGANIZATION_ID, 'published', 'SN-A', new DateTimeImmutable('2026-01-01T00:00:00+00:00'));
@@ -193,8 +233,10 @@ final class EquipmentRepositoryTest extends KernelTestCase
       assignment: new RestoredEquipmentAssignment(
         status: $status,
       ),
-      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      history: new RestoredEquipmentHistory(
+        createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      ),
     );
   }
 

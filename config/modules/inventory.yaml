@@ -6,9 +6,11 @@ services:
   Inventory\Presentation\:
     resource: '../../src/Inventory/Presentation'
 
+  # Pure query helpers and repository-owned locks are outside service discovery.
+  # The lock receives only the repository's explicitly wired main connection.
   Inventory\Infrastructure\Persistence\Doctrine\Repository\InventoryRepository:
     arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
+      $connection: '@doctrine.dbal.main_connection'
 
   Inventory\Application\Port\Outbound\InventoryStorePort:
     alias: Inventory\Infrastructure\Persistence\Doctrine\Repository\InventoryRepository

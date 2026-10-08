@@ -14,6 +14,12 @@ use const DATE_ATOM;
 final readonly class ProcurementProjection
 {
   /**
+   * Method supplier
+   *
+   * @access public
+   *
+   * @param Supplier $supplier the supplier value
+   *
    * @return array<string,mixed>
    */
   public function supplier(Supplier $supplier): array
@@ -22,6 +28,13 @@ final readonly class ProcurementProjection
   }
 
   /**
+   * Method order
+   *
+   * @access public
+   *
+   * @param PurchaseOrder $order the order value
+   * @param bool $financialVisible the financialVisible value
+   *
    * @return array<string,mixed>
    */
   public function order(PurchaseOrder $order, bool $financialVisible): array
@@ -35,6 +48,13 @@ final readonly class ProcurementProjection
   }
 
   /**
+   * Method receipt
+   *
+   * @access public
+   *
+   * @param ProcurementReceiptState $receipt the receipt value
+   * @param bool $financialVisible the financialVisible value
+   *
    * @return array<string,mixed>
    */
   public function receipt(ProcurementReceiptState $receipt, bool $financialVisible): array
@@ -49,6 +69,12 @@ final readonly class ProcurementProjection
   }
 
   /**
+   * Method returnDeclaration
+   *
+   * @access public
+   *
+   * @param ProcurementReturnState $return the return value
+   *
    * @return array<string,mixed>
    */
   public function returnDeclaration(ProcurementReturnState $return): array
@@ -57,6 +83,13 @@ final readonly class ProcurementProjection
   }
 
   /**
+   * Method line
+   *
+   * @access private
+   *
+   * @param ProcurementLine $line the line value
+   * @param bool $financialVisible the financialVisible value
+   *
    * @return array<string,mixed>
    */
   private function line(ProcurementLine $line, bool $financialVisible): array

@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test, UsesClass};
 use PHPUnit\Framework\TestCase;
 use Procurement\Domain\Exception\ProcurementException;
 use Procurement\Domain\Model\PurchaseOrder;
+use Procurement\Domain\ValueObject\{ProcurementGoodsIdentity, ProcurementLineAmounts, PurchaseOrderHistory, PurchaseOrderIdentity, PurchaseOrderLines};
 use Procurement\Domain\ValueObject\{ProcurementLine, PurchaseOrderStatus};
 
 /**
@@ -112,7 +113,7 @@ final class PurchaseOrderTest extends TestCase
   public function testPartialReceiptsAdvanceLifecycleAcrossAllLines(): void
   {
     $equipmentLineId = '018fa006-1111-7111-8111-111111111111';
-    $equipment = ProcurementLine::create($equipmentLineId, 'equipment_to_individualize', null, 'fire_extinguisher', ['name' => 'Extinguisher'], '2', '100');
+    $equipment = ProcurementLine::create($equipmentLineId, new ProcurementGoodsIdentity('equipment_to_individualize', null, 'fire_extinguisher', ['name' => 'Extinguisher']), '2', '100');
     $order = $this->purchaseOrder([$this->line('5'), $equipment]);
     $order->order(1, $this->now());
     $order->recordReceipt(2, self::LINE, '2', $this->now());
@@ -370,10 +371,10 @@ final class PurchaseOrderTest extends TestCase
   #[DataProvider('inconsistentHistory')]
   public function testRestorationRejectsStateNotMatchingGrossReceipts(PurchaseOrderStatus $status, string $received): void
   {
-    $line = ProcurementLine::reconstitute(self::LINE, 'part', self::PART, null, [], '5', null, $received, '0');
+    $line = ProcurementLine::reconstitute(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), new ProcurementLineAmounts('5', null, $received, '0'));
     $this->expectException(ProcurementException::class);
 
-    PurchaseOrder::reconstitute(self::ORDER, self::ORGANIZATION, self::SUPPLIER, 'EUR', 'Restored order', [$line], $status, 3, $this->now(), $this->now());
+    PurchaseOrder::reconstitute(self::ORDER, self::ORGANIZATION, new PurchaseOrderIdentity(self::SUPPLIER, 'EUR', 'Restored order'), new PurchaseOrderLines([$line]), new PurchaseOrderHistory($status, 3, $this->now(), $this->now()));
   }
 
   /**
@@ -402,8 +403,8 @@ final class PurchaseOrderTest extends TestCase
   #[Test]
   public function testRestorationRetainsCancelledRemainderAndSupplierReturns(): void
   {
-    $line = ProcurementLine::reconstitute(self::LINE, 'part', self::PART, null, [], '5', '10', '2', '0.5');
-    $order = PurchaseOrder::reconstitute(self::ORDER, self::ORGANIZATION, self::SUPPLIER, 'EUR', 'Restored order', [$line], PurchaseOrderStatus::CANCELLED, 7, $this->now(), $this->now());
+    $line = ProcurementLine::reconstitute(self::LINE, new ProcurementGoodsIdentity('part', self::PART, null, []), new ProcurementLineAmounts('5', '10', '2', '0.5'));
+    $order = PurchaseOrder::reconstitute(self::ORDER, self::ORGANIZATION, new PurchaseOrderIdentity(self::SUPPLIER, 'EUR', 'Restored order'), new PurchaseOrderLines([$line]), new PurchaseOrderHistory(PurchaseOrderStatus::CANCELLED, 7, $this->now(), $this->now()));
 
     self::assertSame(7, $order->revision());
     self::assertTrue($order->cancelledRemaining());
@@ -490,7 +491,7 @@ final class PurchaseOrderTest extends TestCase
    */
   private function line(string $quantity = '5', string $id = self::LINE): ProcurementLine
   {
-    return ProcurementLine::create($id, 'part', self::PART, null, [], $quantity, '10.123456');
+    return ProcurementLine::create($id, new ProcurementGoodsIdentity('part', self::PART, null, []), $quantity, '10.123456');
   }
 
   /**

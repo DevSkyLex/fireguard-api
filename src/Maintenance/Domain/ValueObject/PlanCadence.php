@@ -62,7 +62,7 @@ final readonly class PlanCadence
    */
   public static function fromString(string $value): self
   {
-    if (1 !== preg_match('/^P([1-9][0-9]{0,3})([DWMY])$/D', $value, $matches)) {
+    if (1 !== preg_match('/^P([1-9]\d{0,3})([DWMY])$/D', $value, $matches)) {
       throw InvalidValueException::because('A plan cadence must use one positive day, week, month or year unit.');
     }
 

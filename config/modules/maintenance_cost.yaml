@@ -8,6 +8,7 @@ services:
 
   MaintenanceCost\Application\Service\:
     resource: '../../src/MaintenanceCost/Application/Service'
+    exclude: '../../src/MaintenanceCost/Application/Service/MaintenanceEconomicAggregation.php'
 
   MaintenanceCost\Domain\Service\:
     resource: '../../src/MaintenanceCost/Domain/Service'

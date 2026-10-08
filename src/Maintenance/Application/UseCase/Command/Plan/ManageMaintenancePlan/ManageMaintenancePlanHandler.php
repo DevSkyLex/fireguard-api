@@ -8,28 +8,27 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Intervention\Application\Contract\Draft\{CreateInterventionDraftRequest, InterventionDraftWorkItem};
 use Intervention\Application\Port\Inbound\{InterventionDraftFactoryPort, InterventionMaintenanceWorkPort};
+use Maintenance\Application\Contract\Directory\TrackableEquipment;
 use Maintenance\Application\Contract\Plan\{MaintenanceOccurrenceState, MaintenancePlanDetails, MaintenancePlanState};
-use Maintenance\Application\Contract\Schedule\MaintenanceScheduleSnapshot;
+use Maintenance\Application\Contract\Schedule\{MaintenanceScheduleSnapshot, MaintenanceScheduleView};
 use Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort;
 use Maintenance\Application\Port\Outbound\Directory\{MaintenanceEquipmentDirectoryPort, MaintenanceFacilityLifecyclePort};
-use Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort;
+use Maintenance\Application\Port\Outbound\Plan\{MaintenanceLegacyPlanPort, MaintenancePlanStorePort};
 use Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort;
+use Maintenance\Application\Service\MaintenancePlanModelFactory;
 use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
 use Maintenance\Domain\Event\Reminder\MaintenanceReminderRequestedEvent;
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException, MaintenanceValidationException};
-use Maintenance\Domain\Model\{MaintenanceOccurrence, MaintenancePlan};
+use Maintenance\Domain\Model\MaintenancePlan;
 use Maintenance\Domain\Service\MaintenanceScheduleRecomputePolicy;
-use Maintenance\Domain\ValueObject\{MaintenanceDueStatus, MaintenanceOperationKind, PeriodicityInterval, PlanCadence};
+use Maintenance\Domain\ValueObject\{MaintenanceControlDates, MaintenanceDueStatus, MaintenanceOperationKind, MaintenancePlanIdentity, PeriodicityInterval, PlanCadence};
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationWorkforceDirectoryPort};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, UuidGeneratorPort};
 
-use function array_map;
 use function count;
 use function in_array;
 use function max;
-use function mb_strlen;
-use function trim;
 
 /** Coordinates plans, reservations, drafts and publication on one locked main transaction. */
 final readonly class ManageMaintenancePlanHandler implements CommandHandler
@@ -46,6 +45,7 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     private ClockPort $clock,
     private UuidGeneratorPort $ids,
     private EventDispatcherPort $events,
+    private MaintenanceLegacyPlanPort $legacy,
     private int $maxCampaignWorkItems = 25,
     private ?OrganizationWorkforceDirectoryPort $regional = null,
   ) {
@@ -65,7 +65,7 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
       'create' => $this->create($command),
       'update', 'archive' => $this->update($command),
       'set_legacy_override' => $this->legacyOverride($command),
-      'prepare_legacy' => $this->prepareLegacy($command->organizationId),
+      'prepare_legacy' => new ManageMaintenancePlanResult(mode: $this->plans->engineMode($command->organizationId), preparedCount: $this->legacy->prepare($command->organizationId)),
       'activate' => $this->activate($command->organizationId),
       'generate' => $this->generate($command),
       'campaign' => $this->campaign($command),
@@ -104,9 +104,9 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     $zone = new DateTimeZone($timezone);
     $anchor = $this->calendarDate($command->anchorAt, $command->anchorOn, $zone) ?? throw new MaintenanceValidationException('A first calendar date is required.');
     $next = $this->calendarDate($command->nextDueAt, $command->nextDueOn, $zone);
-    $model = MaintenancePlan::create($this->ids->generate(), $command->organizationId, $equipment->equipmentId, $command->name, MaintenanceOperationKind::from($command->operationKind), PlanCadence::fromString($command->interval), $anchor, $now);
+    $model = MaintenancePlan::create(new MaintenancePlanIdentity($this->ids->generate(), $command->organizationId, $equipment->equipmentId), $command->name, MaintenanceOperationKind::from($command->operationKind), PlanCadence::fromString($command->interval), $anchor, $now);
     $plan = new MaintenancePlanState($model->id, $model->organizationId, $model->equipmentId, $equipment->facilityId, $equipment->equipmentType, $model->name, $model->kind->value, $model->cadence->value, 'fixed', $model->anchorAt, $next ?? $model->nextDueAt(), $command->active ?? false, null, null, null, $now, $now, $timezone);
-    $this->model($plan);
+    MaintenancePlanModelFactory::plan($plan);
     $this->plans->save($plan);
     $this->projection($plan->organizationId, $plan->equipmentId);
 
@@ -123,76 +123,36 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
       }
       $plan->active = false;
       $plan->archivedAt = $this->clock->now();
-    } else {
-      if (null !== $plan->archivedAt) {
-        throw new MaintenanceValidationException('An archived plan cannot be edited.');
+      $plan->updatedAt = $this->clock->now();
+      $this->plans->save($plan);
+      $this->projection($plan->organizationId, $plan->equipmentId);
+
+      return $this->details($plan);
+    }
+    if (null !== $plan->archivedAt) {
+      throw new MaintenanceValidationException('An archived plan cannot be edited.');
+    }
+    if (null !== $open && (null !== $command->interval || null !== $command->anchorAt || null !== $command->nextDueAt || null !== $command->anchorOn || null !== $command->nextDueOn)) {
+      throw new MaintenanceValidationException('An open occurrence retains its cadence and original due date.');
+    }
+    $plan->name = $command->name ?? $plan->name;
+    $plan->interval = $command->interval ?? $plan->interval;
+    $plan->anchorAt = $this->calendarDate($command->anchorAt, $command->anchorOn, new DateTimeZone($plan->calendarTimezone)) ?? $plan->anchorAt;
+    $plan->nextDueAt = $this->calendarDate($command->nextDueAt, $command->nextDueOn, new DateTimeZone($plan->calendarTimezone)) ?? $plan->nextDueAt;
+    $plan->active = $command->active ?? $plan->active;
+    MaintenancePlanModelFactory::plan($plan);
+    if (null !== $plan->legacyScheduleId && null !== $command->interval) {
+      $source = $this->schedules->findById($plan->legacyScheduleId) ?? throw MaintenanceNotFoundException::withId($plan->legacyScheduleId);
+      if (null !== $plan->lastCompletedAt && null === $command->nextDueAt && null === $command->nextDueOn) {
+        $plan->nextDueAt = PlanCadence::legacyFromString($plan->interval)->addTo($plan->lastCompletedAt);
       }
-      if (null !== $open && (null !== $command->interval || null !== $command->anchorAt || null !== $command->nextDueAt || null !== $command->anchorOn || null !== $command->nextDueOn)) {
-        throw new MaintenanceValidationException('An open occurrence retains its cadence and original due date.');
-      }
-      $plan->name = $command->name ?? $plan->name;
-      $plan->interval = $command->interval ?? $plan->interval;
-      $plan->anchorAt = $this->calendarDate($command->anchorAt, $command->anchorOn, new DateTimeZone($plan->calendarTimezone)) ?? $plan->anchorAt;
-      $plan->nextDueAt = $this->calendarDate($command->nextDueAt, $command->nextDueOn, new DateTimeZone($plan->calendarTimezone)) ?? $plan->nextDueAt;
-      $plan->active = $command->active ?? $plan->active;
-      $this->model($plan);
-      if (null !== $plan->legacyScheduleId && null !== $command->interval) {
-        $source = $this->schedules->findById($plan->legacyScheduleId) ?? throw MaintenanceNotFoundException::withId($plan->legacyScheduleId);
-        if (null !== $plan->lastCompletedAt && null === $command->nextDueAt && null === $command->nextDueOn) {
-          $plan->nextDueAt = PlanCadence::legacyFromString($plan->interval)->addTo($plan->lastCompletedAt);
-        }
-        $this->schedules->save(new MaintenanceScheduleSnapshot($source->id, $source->organizationId, $source->equipmentId, $source->facilityId, $source->equipmentType, $plan->interval, $source->lastInspectionClosedAt, $source->nextDueAt, $source->dueStatus, $source->lastRemindedAt, $source->remindedFor, $this->clock->now()));
-      }
+      $this->schedules->save(new MaintenanceScheduleSnapshot($source->id, $source->organizationId, $source->equipmentId, $source->facilityId, $source->equipmentType, $plan->interval, $source->lastInspectionClosedAt, $source->nextDueAt, $source->dueStatus, $source->lastRemindedAt, $source->remindedFor, $this->clock->now()));
     }
     $plan->updatedAt = $this->clock->now();
     $this->plans->save($plan);
     $this->projection($plan->organizationId, $plan->equipmentId);
 
     return $this->details($plan);
-  }
-
-  private function prepareLegacy(string $organizationId): ManageMaintenancePlanResult
-  {
-    if ('plans' === $this->plans->engineMode($organizationId)) {
-      return new ManageMaintenancePlanResult(mode: 'plans', preparedCount: $this->plans->count($organizationId));
-    }
-    $policy = $this->compliance->compliancePolicy($organizationId);
-    $page = 1;
-    $prepared = 0;
-    do {
-      $schedules = $this->schedules->list($organizationId, null, null, null, null, $page++, 200);
-      foreach ($schedules->items as $schedule) {
-        $interval = $schedule->intervalOverride ?? $policy->periodicityFor($schedule->equipmentType);
-        if (null === $interval) {
-          continue;
-        }
-        PlanCadence::legacyFromString($interval);
-        $now = $this->clock->now();
-        $existing = $this->plans->findByLegacySchedule($organizationId, $schedule->id);
-        $plan = new MaintenancePlanState(null !== $existing ? $existing->id : $this->ids->generate(), $organizationId, $schedule->equipmentId, $schedule->facilityId, $schedule->equipmentType, null !== $existing ? $existing->name : 'Periodic control', 'control', $interval, 'legacy', $schedule->nextDueAt ?? $existing?->anchorAt, $schedule->nextDueAt ?? $existing?->nextDueAt, false, $schedule->id, $schedule->lastInspectionClosedAt, $existing?->archivedAt, null !== $existing ? $existing->createdAt : $now, $now);
-        $this->plans->save($plan);
-        ++$prepared;
-      }
-    } while (200 === count($schedules->items));
-    $offset = 0;
-    do {
-      $plans = $this->plans->list($organizationId, 200, $offset, includeArchived: true);
-      foreach ($plans as $plan) {
-        if (null === $plan->legacyScheduleId) {
-          continue;
-        }
-        $schedule = $this->schedules->findById($plan->legacyScheduleId);
-        if (null === $schedule || null === ($schedule->intervalOverride ?? $policy->periodicityFor($schedule->equipmentType))) {
-          $plan->active = false;
-          $plan->archivedAt ??= $this->clock->now();
-          $plan->updatedAt = $this->clock->now();
-          $this->plans->save($plan);
-        }
-      }
-      $offset += 200;
-    } while (200 === count($plans));
-
-    return new ManageMaintenancePlanResult(mode: 'legacy', preparedCount: $prepared);
   }
 
   private function legacyOverride(ManageMaintenancePlanCommand $command): ManageMaintenancePlanResult
@@ -222,46 +182,7 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     if ('plans' === $this->plans->engineMode($organizationId)) {
       return new ManageMaintenancePlanResult(mode: 'plans', preparedCount: $this->plans->count($organizationId));
     }
-    $prepared = $this->prepareLegacy($organizationId)->preparedCount;
-    $offset = 0;
-    do {
-      $page = $this->plans->list($organizationId, 200, $offset);
-      $equipmentIds = array_map(static fn (MaintenancePlanState $plan): string => $plan->equipmentId, $page);
-      $candidates = $this->work->findOpenLegacyInspectionWork($organizationId, $equipmentIds);
-      foreach ($page as $plan) {
-        if (null !== $plan->archivedAt) {
-          continue;
-        }
-        if (null === $plan->legacyScheduleId) {
-          if ('control' === $plan->operationKind && [] !== ($candidates[$plan->equipmentId] ?? [])) {
-            $schedule = $this->schedules->findByOrganizationAndEquipment($organizationId, $plan->equipmentId);
-            if (null === $schedule || null === $this->plans->findByLegacySchedule($organizationId, $schedule->id)) {
-              throw new MaintenanceValidationException('Existing control work cannot be mapped safely to the new operation; resolve it before activation.');
-            }
-          }
-
-          continue;
-        }
-        $matches = $candidates[$plan->equipmentId] ?? [];
-        if (count($matches) > 1) {
-          throw new MaintenanceValidationException('Ambiguous legacy work for equipment ' . $plan->equipmentId . '; resolve duplicate open controls before activation.');
-        }
-        if (1 === count($matches)) {
-          $match = $matches[0];
-          if ('submitted' === $this->work->status($organizationId, $match->interventionId)) {
-            throw new MaintenanceValidationException('Complete the submitted legacy intervention before activating plans.');
-          }
-          $occurrence = new MaintenanceOccurrenceState($this->ids->generate(), $plan->id, $organizationId, $plan->nextDueAt ?? $this->clock->now(), 'open', 1, $match->interventionId, null, null, $this->clock->now(), $this->clock->now(), $match->number);
-          $this->plans->saveOccurrence($occurrence);
-          $this->work->attachOccurrence($organizationId, $match->workItemId, $plan->id, $occurrence->id, 'control');
-        }
-        $plan->active = true;
-        $plan->updatedAt = $this->clock->now();
-        $this->plans->save($plan);
-      }
-      $offset += 200;
-    } while (200 === count($page));
-    $this->plans->activateEngine($organizationId, $this->clock->now());
+    $prepared = $this->legacy->activate($organizationId);
     $offset = 0;
     do {
       $page = $this->plans->list($organizationId, 200, $offset);
@@ -303,7 +224,7 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     do {
       $page = $this->plans->list($command->organizationId, 200, $offset, operationKind: 'control');
       foreach ($page as $plan) {
-        if (!$this->trackable($plan, false) || (null !== $command->facilityId && $plan->facilityId !== $command->facilityId) || (null !== $command->equipmentType && $plan->equipmentType !== $command->equipmentType) || (null !== $plan->nextDueAt && $plan->nextDueAt > $before) || null !== $this->plans->openOccurrence($plan->organizationId, $plan->id)) {
+        if (!$this->campaignCandidate($plan, $command, $before)) {
           continue;
         }
         $selected[] = $plan;
@@ -324,6 +245,29 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
   }
 
   /**
+   * Method campaignCandidate
+   *
+   * Refreshes current scope and legacy cadence before applying campaign filters,
+   * deferring saves until all due-ordered pages have been read.
+   *
+   * @access private
+   *
+   * @param MaintenancePlanState $plan the control candidate
+   * @param ManageMaintenancePlanCommand $command the campaign filters
+   * @param DateTimeImmutable $before the inclusive due cutoff
+   *
+   * @return bool whether unassigned work can be reserved for this control
+   */
+  private function campaignCandidate(MaintenancePlanState $plan, ManageMaintenancePlanCommand $command, DateTimeImmutable $before): bool
+  {
+    return $this->trackable($plan, false)
+      && (null === $command->facilityId || $plan->facilityId === $command->facilityId)
+      && (null === $command->equipmentType || $plan->equipmentType === $command->equipmentType)
+      && (null === $plan->nextDueAt || $plan->nextDueAt <= $before)
+      && null === $this->plans->openOccurrence($plan->organizationId, $plan->id);
+  }
+
+  /**
    * @param list<MaintenancePlanState> $plans
    */
   private function generatePlans(array $plans, string $name, ?string $actorUserId, bool $retry): ManageMaintenancePlanResult
@@ -340,7 +284,7 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     $first = $plans[0];
     $draft = $this->drafts->create(new CreateInterventionDraftRequest(organizationId: $first->organizationId, type: 'control' === $first->operationKind ? 'inspection_campaign' : 'preventive_maintenance', name: $name, origin: 'maintenance:plan', workItems: $items, actorUserId: $actorUserId));
     foreach ($occurrences as $occurrence) {
-      $model = $this->occurrenceModel($occurrence);
+      $model = MaintenancePlanModelFactory::occurrence($occurrence);
       $retry ? $model->retryAttempt($draft->interventionId) : $model->beginAttempt($draft->interventionId);
       $occurrence->attempt = $model->attempt();
       $occurrence->interventionId = $model->interventionId();
@@ -374,7 +318,7 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     if ('validate_result' === $command->action) {
       return $this->details($plan);
     }
-    $model = $this->occurrenceModel($occurrence);
+    $model = MaintenancePlanModelFactory::occurrence($occurrence);
     $completed = $model->validateResult(MaintenanceOperationKind::from($plan->operationKind), 'passed' === $result->outcome, $result->resultId, $this->clock->now());
     $occurrence->status = $model->state();
     $occurrence->resultId = $model->resultId();
@@ -383,7 +327,7 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     $this->plans->saveOccurrence($occurrence);
     $this->plans->saveReceipt($result);
     if ($completed) {
-      $calendar = $this->model($plan);
+      $calendar = MaintenancePlanModelFactory::plan($plan);
       $calendar->complete(null === $plan->lastCompletedAt ? $result->performedAt : max($plan->lastCompletedAt, $result->performedAt));
       $plan->nextDueAt = $calendar->nextDueAt();
       $plan->lastCompletedAt = null === $plan->lastCompletedAt ? $result->performedAt : max($plan->lastCompletedAt, $result->performedAt);
@@ -411,53 +355,64 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     }
     $existing = $this->schedules->findByOrganizationAndEquipment($organizationId, $equipmentId);
     $policy = $this->compliance->compliancePolicy($organizationId);
-    $next = null;
-    $last = null;
-    $tracked = false;
-    $missingDueDate = false;
+    $dates = MaintenanceControlDates::empty();
     $offset = 0;
     do {
       $page = $this->plans->list($organizationId, 200, $offset, $equipmentId, 'control');
       foreach ($page as $plan) {
-        if (!$plan->active || !$this->refreshLegacyPolicy($plan)) {
+        if (!$plan->active || !$this->legacy->refreshPolicy($plan)) {
           continue;
         }
-        $tracked = true;
-        if (null === $plan->nextDueAt) {
-          $missingDueDate = true;
-        }
-        if (null !== $plan->nextDueAt && (null === $next || $plan->nextDueAt < $next)) {
-          $next = $plan->nextDueAt;
-        }
-        if (null !== $plan->lastCompletedAt && (null === $last || $plan->lastCompletedAt > $last)) {
-          $last = $plan->lastCompletedAt;
-        }
+        $dates = $dates->including($plan->nextDueAt, $plan->lastCompletedAt);
       }
       $offset += 200;
     } while (200 === count($page));
-    if ($missingDueDate) {
-      $next = null;
-    }
+    $next = $dates->nextDueAt;
+    $last = $dates->lastCompletedAt;
+    $tracked = $dates->tracked;
     if ('decommissioned' === $equipment->status || $this->facilities->isArchived($equipment->facilityId, $organizationId)) {
       $tracked = false;
       $next = null;
     }
     $rules = new MaintenanceScheduleRecomputePolicy();
     $dueStatus = $rules->computeDueStatus($next, $tracked ? PeriodicityInterval::fromString('P1Y') : null, $this->clock->now(), $policy->reminderWindowDays);
-    $remindedFor = $existing?->remindedFor;
-    $lastRemindedAt = $existing?->lastRemindedAt;
-    if ($rules->shouldResetRemindedFor($existing?->nextDueAt, $next)) {
-      $remindedFor = null;
-    }
-    if ($tracked && null !== $next && null === $remindedFor && in_array($dueStatus, [MaintenanceDueStatus::DUE_SOON, MaintenanceDueStatus::OVERDUE], true)) {
-      $this->events->dispatch(new MaintenanceReminderRequestedEvent($organizationId, $equipmentId, $equipment->facilityId, $next, MaintenanceDueStatus::OVERDUE === $dueStatus));
-      $remindedFor = $next;
-      $lastRemindedAt = $this->clock->now();
-    }
+    [$remindedFor, $lastRemindedAt] = $this->projectionReminder($equipment, $existing, $next, $tracked, $dueStatus);
     $utc = new DateTimeZone('UTC');
     $this->schedules->save(new MaintenanceScheduleSnapshot($existing?->id, $organizationId, $equipmentId, $equipment->facilityId, $equipment->equipmentType, $existing?->intervalOverride, $last?->setTimezone($utc), $next?->setTimezone($utc), $dueStatus->value, $lastRemindedAt?->setTimezone($utc), $remindedFor?->setTimezone($utc), $this->clock->now()));
 
     return new ManageMaintenancePlanResult(mode: 'plans');
+  }
+
+  /**
+   * Method projectionReminder
+   *
+   * Retains reminder evidence and enqueues only a newly due control projection.
+   *
+   * @access private
+   *
+   * @param TrackableEquipment $equipment the current scoped equipment
+   * @param ?MaintenanceScheduleView $existing the prior control projection
+   * @param ?DateTimeImmutable $next the combined control due date
+   * @param bool $tracked whether the current equipment has an eligible control
+   * @param MaintenanceDueStatus $dueStatus the current control status
+   *
+   * @return array{?DateTimeImmutable, ?DateTimeImmutable} the due date already reminded and reminder timestamp
+   */
+  private function projectionReminder(TrackableEquipment $equipment, ?MaintenanceScheduleView $existing, ?DateTimeImmutable $next, bool $tracked, MaintenanceDueStatus $dueStatus): array
+  {
+    $remindedFor = $existing?->remindedFor;
+    $lastRemindedAt = $existing?->lastRemindedAt;
+    $rules = new MaintenanceScheduleRecomputePolicy();
+    if ($rules->shouldResetRemindedFor($existing?->nextDueAt, $next)) {
+      $remindedFor = null;
+    }
+    if ($tracked && null !== $next && null === $remindedFor && in_array($dueStatus, [MaintenanceDueStatus::DUE_SOON, MaintenanceDueStatus::OVERDUE], true)) {
+      $this->events->dispatch(new MaintenanceReminderRequestedEvent($equipment->organizationId, $equipment->equipmentId, $equipment->facilityId, $next, MaintenanceDueStatus::OVERDUE === $dueStatus));
+      $remindedFor = $next;
+      $lastRemindedAt = $this->clock->now();
+    }
+
+    return [$remindedFor, $lastRemindedAt];
   }
 
   private function assertTrackable(MaintenancePlanState $plan): void
@@ -489,38 +444,7 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     $plan->facilityId = $equipment->facilityId;
     $plan->equipmentType = $equipment->equipmentType;
 
-    return $this->refreshLegacyPolicy($plan, $savePolicy);
-  }
-
-  /**
-   * Historical operations retain their override/default source after the engine handover.
-   */
-  private function refreshLegacyPolicy(MaintenancePlanState $plan, bool $save = true): bool
-  {
-    if (null === $plan->legacyScheduleId) {
-      return true;
-    }
-    $schedule = $this->schedules->findById($plan->legacyScheduleId);
-    if (null === $schedule) {
-      return false;
-    }
-    $interval = $schedule->intervalOverride ?? $this->compliance->compliancePolicy($plan->organizationId)->periodicityFor($plan->equipmentType);
-    if (null === $interval) {
-      return false;
-    }
-    if ($interval !== $plan->interval && null === $this->plans->openOccurrence($plan->organizationId, $plan->id)) {
-      $cadence = PlanCadence::legacyFromString($interval);
-      $plan->interval = $cadence->value;
-      if (null !== $plan->lastCompletedAt) {
-        $plan->nextDueAt = $cadence->addTo($plan->lastCompletedAt);
-      }
-      $plan->updatedAt = $this->clock->now();
-      if ($save) {
-        $this->plans->save($plan);
-      }
-    }
-
-    return true;
+    return $this->legacy->refreshPolicy($plan, $savePolicy);
   }
 
   private function requirePlan(string $organizationId, ?string $id): MaintenancePlanState
@@ -542,20 +466,6 @@ final readonly class ManageMaintenancePlanHandler implements CommandHandler
     }
 
     return $parsed;
-  }
-
-  private function model(MaintenancePlanState $plan): MaintenancePlan
-  {
-    if (mb_strlen(trim($plan->name)) > 160) {
-      throw new MaintenanceValidationException('A plan name cannot exceed 160 characters.');
-    }
-
-    return MaintenancePlan::reconstitute($plan->id, $plan->organizationId, $plan->equipmentId, $plan->name, MaintenanceOperationKind::from($plan->operationKind), 'legacy' === $plan->cadenceMode ? PlanCadence::legacyFromString($plan->interval) : PlanCadence::fromString($plan->interval), $plan->anchorAt, $plan->nextDueAt, $plan->createdAt, 'legacy' === $plan->cadenceMode, null !== $plan->archivedAt);
-  }
-
-  private function occurrenceModel(MaintenanceOccurrenceState $occurrence): MaintenanceOccurrence
-  {
-    return MaintenanceOccurrence::reconstitute($occurrence->id, $occurrence->planId, $occurrence->dueAt, $occurrence->createdAt, $occurrence->attempt, $occurrence->interventionId, $occurrence->completedAt, $occurrence->resultId);
   }
 
   private function canRetry(MaintenanceOccurrenceState $occurrence): bool

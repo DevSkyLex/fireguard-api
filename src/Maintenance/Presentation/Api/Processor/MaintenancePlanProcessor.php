@@ -44,6 +44,35 @@ final readonly class MaintenancePlanProcessor implements ProcessorInterface
       MaintenancePlanOperations::ACTIVATE => 'activate',
       default => throw new BadRequestHttpException('Unsupported maintenance operation.'),
     };
+    /** @var ManageMaintenancePlanResult $result */
+    $result = $this->commands->dispatch($this->command($data, $action, $organizationId, $actor, $planId));
+
+    return match ($action) {
+      'archive' => null,
+      'prepare_legacy', 'activate' => $this->engineOutput($result),
+      'generate' => $this->generationOutput($result),
+      default => null === $result->details ? null : $this->outputs->fromDetails($result->details),
+    };
+  }
+
+  /**
+   * Method command
+   *
+   * Translates mutable fields while preserving omitted patch values and the
+   * operation's equipment/kind identity.
+   *
+   * @access private
+   *
+   * @param mixed $data the operation's request DTO
+   * @param string $action the supported plan action
+   * @param string $organizationId the route's organization
+   * @param string $actor the authenticated actor
+   * @param ?string $planId the existing plan, absent for collection actions
+   *
+   * @return ManageMaintenancePlanCommand the command to dispatch
+   */
+  private function command(mixed $data, string $action, string $organizationId, string $actor, ?string $planId): ManageMaintenancePlanCommand
+  {
     $change = $data instanceof ChangeMaintenancePlanInput ? $data : null;
     $generate = $data instanceof GenerateMaintenancePlanInput ? $data : null;
     if (('create' === $action || 'update' === $action) && null === $change) {
@@ -52,45 +81,66 @@ final readonly class MaintenancePlanProcessor implements ProcessorInterface
     if ('update' === $action && (null !== $change?->equipmentId || null !== $change?->operationKind)) {
       throw new BadRequestHttpException('Equipment and operation kind are immutable; prepare a separate plan.');
     }
-    /** @var ManageMaintenancePlanResult $result */
-    $result = $this->commands->dispatch(new ManageMaintenancePlanCommand(
+
+    return new ManageMaintenancePlanCommand(
       $action,
       $organizationId,
       $actor,
       planId: $planId,
       equipmentId: $change?->equipmentId,
-      name: null !== $change ? $change->name : (null !== $generate ? $generate->name : null),
+      name: $change->name ?? $generate->name ?? null,
       operationKind: $change?->operationKind,
       interval: $change?->interval,
       anchorAt: $this->date($change?->anchorAt),
       nextDueAt: $this->date($change?->nextDueAt),
       active: $change?->active,
-      retry: null !== $generate ? $generate->retry : false,
+      retry: $generate->retry ?? false,
       anchorOn: $change?->anchorOn,
       nextDueOn: $change?->nextDueOn,
-    ));
-    if ('archive' === $action) {
-      return null;
-    }
-    if ('prepare_legacy' === $action || 'activate' === $action) {
-      $output = new MaintenancePlanEngineOutput();
-      $output->mode = $result->mode;
-      $output->preparedCount = $result->preparedCount;
+    );
+  }
 
-      return $output;
-    }
-    if ('generate' === $action) {
-      $output = new GenerateMaintenancePlanOutput();
-      $output->occurrenceId = $result->occurrenceId ?? '';
-      $output->interventionId = $result->interventionId ?? '';
-      $output->number = $result->number ?? 0;
-      $output->workItemsCount = $result->workItemsCount;
-      $output->replayed = $result->replayed;
+  /**
+   * Method engineOutput
+   *
+   * Exposes the authority and preparation count returned by an engine action.
+   *
+   * @access private
+   *
+   * @param ManageMaintenancePlanResult $result the engine action result
+   *
+   * @return MaintenancePlanEngineOutput the transport response
+   */
+  private function engineOutput(ManageMaintenancePlanResult $result): MaintenancePlanEngineOutput
+  {
+    $output = new MaintenancePlanEngineOutput();
+    $output->mode = $result->mode;
+    $output->preparedCount = $result->preparedCount;
 
-      return $output;
-    }
+    return $output;
+  }
 
-    return null === $result->details ? null : $this->outputs->fromDetails($result->details);
+  /**
+   * Method generationOutput
+   *
+   * Exposes the stable occurrence and the generated or replayed attempt.
+   *
+   * @access private
+   *
+   * @param ManageMaintenancePlanResult $result the generation receipt
+   *
+   * @return GenerateMaintenancePlanOutput the transport response
+   */
+  private function generationOutput(ManageMaintenancePlanResult $result): GenerateMaintenancePlanOutput
+  {
+    $output = new GenerateMaintenancePlanOutput();
+    $output->occurrenceId = $result->occurrenceId ?? '';
+    $output->interventionId = $result->interventionId ?? '';
+    $output->number = $result->number ?? 0;
+    $output->workItemsCount = $result->workItemsCount;
+    $output->replayed = $result->replayed;
+
+    return $output;
   }
 
   private function date(?string $value): ?DateTimeImmutable

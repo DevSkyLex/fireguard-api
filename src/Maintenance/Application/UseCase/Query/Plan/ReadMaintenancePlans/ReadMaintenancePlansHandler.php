@@ -9,7 +9,7 @@ use Maintenance\Application\Contract\Plan\{MaintenancePlanDetails, MaintenancePl
 use Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort;
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException, MaintenanceValidationException};
 use Maintenance\Domain\Model\MaintenancePlan;
-use Maintenance\Domain\ValueObject\{MaintenanceOperationKind, PlanCadence};
+use Maintenance\Domain\ValueObject\{MaintenanceOperationKind, MaintenancePlanCalendar, MaintenancePlanIdentity, PlanCadence};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
 
@@ -43,7 +43,19 @@ final readonly class ReadMaintenancePlansHandler implements QueryHandler
     }
     if (null !== $query->planId) {
       $plan = $this->plans->find($query->organizationId, $query->planId) ?? throw MaintenanceNotFoundException::withId($query->planId);
-      $model = MaintenancePlan::reconstitute($plan->id, $plan->organizationId, $plan->equipmentId, $plan->name, MaintenanceOperationKind::from($plan->operationKind), 'legacy' === $plan->cadenceMode ? PlanCadence::legacyFromString($plan->interval) : PlanCadence::fromString($plan->interval), $plan->anchorAt, $plan->nextDueAt, $plan->createdAt, 'legacy' === $plan->cadenceMode, null !== $plan->archivedAt);
+      $model = MaintenancePlan::reconstitute(
+        new MaintenancePlanIdentity($plan->id, $plan->organizationId, $plan->equipmentId),
+        $plan->name,
+        MaintenanceOperationKind::from($plan->operationKind),
+        new MaintenancePlanCalendar(
+          'legacy' === $plan->cadenceMode ? PlanCadence::legacyFromString($plan->interval) : PlanCadence::fromString($plan->interval),
+          $plan->anchorAt,
+          $plan->nextDueAt,
+          'legacy' === $plan->cadenceMode,
+        ),
+        $plan->createdAt,
+        null !== $plan->archivedAt,
+      );
 
       return new ReadMaintenancePlansResult(items: [$this->details($plan)], total: 1, dates: 'preview' === $query->action ? $model->preview() : [], mode: $mode);
     }

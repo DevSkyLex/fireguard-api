@@ -10,6 +10,7 @@ use ServiceRequest\Application\Port\Outbound\{ServiceRequestRepositoryPort, Serv
 use ServiceRequest\Application\Service\{ServiceRequestAccessGuard, ServiceRequestTargetGuard};
 use ServiceRequest\Domain\Event\ServiceRequestChangedEvent;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
+use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
 use ServiceRequest\Domain\ValueObject\ServiceRequestConversionReceipt;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
@@ -41,18 +42,12 @@ final readonly class ConvertServiceRequestHandler implements CommandHandler
       if ($command->expectedRevision < 1) {
         throw ServiceRequestException::stale();
       }
-      $operationId = $this->uuid($command->clientOperationId);
-      $existingInterventionId = null === $command->existingInterventionId ? null : $this->uuid($command->existingInterventionId);
-      $existingTaskId = null === $command->existingTaskId ? null : $this->uuid($command->existingTaskId);
-      if (null !== $existingTaskId && null === $existingInterventionId) {
-        throw ServiceRequestException::invalid('An existing task requires its intervention identifier.');
-      }
-      $hash = hash('sha256', json_encode(['requestId' => $request->id, 'existingInterventionId' => $existingInterventionId, 'existingTaskId' => $existingTaskId], JSON_THROW_ON_ERROR));
+      $intent = $this->intent($command, $request->id);
+      $operationId = $intent['operationId'];
+      $hash = $intent['hash'];
       $receipt = $this->requests->conversionReceiptForRequest($request->id, $request->organizationId);
       if (null !== $receipt) {
-        if ($receipt->clientOperationId !== $operationId || $receipt->payloadHash !== $hash || 'converted' !== $request->status || $request->interventionId !== $receipt->interventionId || $request->taskId !== $receipt->taskId) {
-          throw ServiceRequestException::operationConflict();
-        }
+        $this->assertReplay($request, $receipt, $operationId, $hash);
 
         return new ConvertServiceRequestResult(ServiceRequestView::fromRequest($request));
       }
@@ -63,7 +58,7 @@ final readonly class ConvertServiceRequestHandler implements CommandHandler
       if ('qualified' !== $request->status || null === $request->equipmentId) {
         throw ServiceRequestException::transitionConflict('Only qualified equipment repair requests can be converted.');
       }
-      $selection = new ServiceRequestWorkRequest($request->organizationId, $request->id, $command->actorId, $request->equipmentId, $request->siteId, $request->title, $request->description, $existingInterventionId, $existingTaskId, $operationId);
+      $selection = new ServiceRequestWorkRequest($request->organizationId, $request->id, $command->actorId, $request->equipmentId, $request->siteId, $request->title, $request->description, $intent['interventionId'], $intent['taskId'], $operationId);
       $this->work->reserveSelection($selection);
       $this->targets->snapshot($request->organizationId, $request->equipmentId, $request->siteId);
       $link = $this->work->createOrLink($selection);
@@ -77,10 +72,56 @@ final readonly class ConvertServiceRequestHandler implements CommandHandler
     });
   }
 
+  /**
+   * Method intent
+   *
+   * Receipt identity includes the canonical explicit work selection in its original key order.
+   *
+   * @access private
+   *
+   * @param ConvertServiceRequestCommand $command requested operation and work selection
+   * @param string $requestId locked request identity
+   *
+   * @return array{operationId:string,interventionId:string|null,taskId:string|null,hash:string} canonical conversion intent
+   */
+  private function intent(ConvertServiceRequestCommand $command, string $requestId): array
+  {
+    $operationId = $this->uuid($command->clientOperationId);
+    $interventionId = null === $command->existingInterventionId ? null : $this->uuid($command->existingInterventionId);
+    $taskId = null === $command->existingTaskId ? null : $this->uuid($command->existingTaskId);
+    if (null !== $taskId && null === $interventionId) {
+      throw ServiceRequestException::invalid('An existing task requires its intervention identifier.');
+    }
+    $hash = hash('sha256', json_encode(['requestId' => $requestId, 'existingInterventionId' => $interventionId, 'existingTaskId' => $taskId], JSON_THROW_ON_ERROR));
+
+    return ['operationId' => $operationId, 'interventionId' => $interventionId, 'taskId' => $taskId, 'hash' => $hash];
+  }
+
+  /**
+   * Method assertReplay
+   *
+   * Matching committed receipts bypass current target checks without admitting a changed key or work link.
+   *
+   * @access private
+   *
+   * @param ServiceRequest $request locked retained request
+   * @param ServiceRequestConversionReceipt $receipt original committed conversion
+   * @param string $operationId canonical operation key
+   * @param string $hash canonical work selection fingerprint
+   *
+   * @return void rejects incompatible or inconsistent replay
+   */
+  private function assertReplay(ServiceRequest $request, ServiceRequestConversionReceipt $receipt, string $operationId, string $hash): void
+  {
+    if ($receipt->clientOperationId !== $operationId || $receipt->payloadHash !== $hash || 'converted' !== $request->status || $request->interventionId !== $receipt->interventionId || $request->taskId !== $receipt->taskId) {
+      throw ServiceRequestException::operationConflict();
+    }
+  }
+
   private function uuid(string $value): string
   {
     try {
-      new Uuid($value);
+      Uuid::assertValid($value);
     } catch (InvalidValueException) {
       throw ServiceRequestException::invalid('Invalid conversion identifier.');
     }

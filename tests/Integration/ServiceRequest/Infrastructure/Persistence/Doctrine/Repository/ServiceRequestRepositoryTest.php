@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
+use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestTarget};
 use ServiceRequest\Domain\ValueObject\ServiceRequestConversionReceipt;
 use ServiceRequest\Infrastructure\Persistence\Doctrine\Repository\ServiceRequestRepository;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -153,7 +154,7 @@ final class ServiceRequestRepositoryTest extends KernelTestCase
   #[Test]
   public function persistsTheExplicitEquipmentSelectionForASiteOnlyRequest(): void
   {
-    $request = ServiceRequest::create(self::REQUEST_ID, self::ORGANIZATION_ID, null, self::SITE_ID, ['site' => ['id' => self::SITE_ID, 'name' => 'Warehouse']], 'Locate leak', 'Equipment to identify', self::now());
+    $request = ServiceRequest::create(self::REQUEST_ID, self::ORGANIZATION_ID, new ServiceRequestTarget(null, self::SITE_ID, ['site' => ['id' => self::SITE_ID, 'name' => 'Warehouse']], null, null), new ServiceRequestContent('Locate leak', 'Equipment to identify', 'normal'), self::now());
     $this->repository->save($request);
     $this->entityManager->clear();
     $loaded = $this->repository->find(self::REQUEST_ID, self::ORGANIZATION_ID);
@@ -382,7 +383,7 @@ final class ServiceRequestRepositoryTest extends KernelTestCase
 
   private static function request(string $id = self::REQUEST_ID, string $organizationId = self::ORGANIZATION_ID, string $equipmentId = self::EQUIPMENT_ID, string $siteId = self::SITE_ID, string $title = 'Repair extinguisher', string $description = 'Pressure gauge damaged'): ServiceRequest
   {
-    return ServiceRequest::create($id, $organizationId, $equipmentId, $siteId, ['equipment' => ['id' => $equipmentId, 'name' => 'Extinguisher', 'assetCode' => 'EXT-01'], 'site' => ['id' => $siteId, 'name' => 'Warehouse'], 'customer' => ['id' => self::SECOND_OPERATION_ID, 'name' => 'Building owner']], $title, $description, self::now(), 'high', self::INSPECTION_ID, self::NON_CONFORMITY_ID);
+    return ServiceRequest::create($id, $organizationId, new ServiceRequestTarget($equipmentId, $siteId, ['equipment' => ['id' => $equipmentId, 'name' => 'Extinguisher', 'assetCode' => 'EXT-01'], 'site' => ['id' => $siteId, 'name' => 'Warehouse'], 'customer' => ['id' => self::SECOND_OPERATION_ID, 'name' => 'Building owner']], self::INSPECTION_ID, self::NON_CONFORMITY_ID), new ServiceRequestContent($title, $description, 'high'), self::now());
   }
 
   private static function convertedRequest(string $id = self::REQUEST_ID, string $organizationId = self::ORGANIZATION_ID): ServiceRequest

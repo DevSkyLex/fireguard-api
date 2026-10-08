@@ -19,21 +19,31 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Http\OperationParameterReader;
 use Shared\Presentation\Api\Search\SearchExtractor;
 use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function is_numeric;
 use function is_string;
 use function max;
 
-/** @implements ProviderInterface<InspectionOutput> */
+/**
+ * Class ListInspectionsProvider.
+ *
+ * Translates authorized inspection collection requests into queries and paginated outputs.
+ *
+ * @category Provider
+ *
+ * @implements ProviderInterface<InspectionOutput>
+ */
 final readonly class ListInspectionsProvider implements ProviderInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  // #region Constructor
   /**
    * Constructor.
    *
@@ -55,55 +65,171 @@ final readonly class ListInspectionsProvider implements ProviderInterface
     private RequestStack $requestStack,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
-   * @return TraversablePaginator<InspectionOutput>
+   * Method provide.
+   *
+   * Authorizes the requested collection before dispatching its filtered query.
+   *
+   * @access public
+   *
+   * @param Operation $operation the collection operation
+   * @param array<string, mixed> $uriVariables the organization and optional facility route scope
+   * @param array<string, mixed> $context the parsed pagination, search and sorting context
+   *
+   * @return TraversablePaginator<InspectionOutput> the inspection collection page
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
+  {
+    $user = $this->authenticatedUser();
+    $organizationId = self::organizationId($uriVariables);
+    $this->assertReadAccess($user, $organizationId);
+    $bounds = self::pageBounds($operation, $context);
+    $query = $this->listQuery(
+      $operation,
+      $uriVariables,
+      $context,
+      $organizationId,
+      ($bounds['page'] - 1) * $bounds['itemsPerPage'],
+      $bounds['itemsPerPage'],
+    );
+
+    return $this->paginator($this->queryResult($query), $bounds['page'], $bounds['itemsPerPage']);
+  }
+
+  /**
+   * Method authenticatedUser.
+   *
+   * Requires the security principal expected by organization authorization.
+   *
+   * @access private
+   *
+   * @return SecurityUser the authenticated caller
+   */
+  private function authenticatedUser(): SecurityUser
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
+    return $user;
+  }
+
+  /**
+   * Method organizationId.
+   *
+   * Requires the organization scope supplied by the collection route.
+   *
+   * @access private
+   *
+   * @param array<string, mixed> $uriVariables the collection route variables
+   *
+   * @return string the organization identifier
+   */
+  private static function organizationId(array $uriVariables): string
+  {
     $organizationId = $uriVariables['organizationId'] ?? null;
     if (!is_string($organizationId) || '' === $organizationId) {
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
+    return $organizationId;
+  }
+
+  /**
+   * Method hasParkScope.
+   *
+   * Preserves the raw request filters that trigger the additional equipment permission.
+   *
+   * @access private
+   *
+   * @return bool whether the request explicitly selects a parc scope
+   */
+  private function hasParkScope(): bool
+  {
     $requestQuery = $this->requestStack->getCurrentRequest()?->query;
-    $scoped = null !== self::optionalString($requestQuery?->get('family')) || null !== self::optionalString($requestQuery?->get('customerId')) || ($requestQuery?->getBoolean('includeDescendants', false) ?? false);
-    if ($scoped) {
-      foreach (['organization.inspection.read', 'organization.equipment.read'] as $permission) {
-        $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
-        if ($decision->isOutsideScope()) {
-          throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('Organization not found.');
-        }
-        if (!$decision->isGranted()) {
-          throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
-        }
+
+    return null !== self::optionalString($requestQuery?->get('family'))
+      || null !== self::optionalString($requestQuery?->get('customerId'))
+      || ($requestQuery?->getBoolean('includeDescendants', false) ?? false);
+  }
+
+  /**
+   * Method assertReadAccess.
+   *
+   * Keeps legacy direct reads and explicit parc reads on their existing authorization paths.
+   *
+   * @access private
+   *
+   * @param SecurityUser $user the authenticated caller
+   * @param string $organizationId the requested organization scope
+   *
+   * @return void
+   */
+  private function assertReadAccess(SecurityUser $user, string $organizationId): void
+  {
+    if (!$this->hasParkScope()) {
+      if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.inspection.read')) {
+        throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
       }
-    } elseif (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.inspection.read')) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
+
+      return;
     }
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
-    /** @var array<string, mixed> $filters */
+    foreach (['organization.inspection.read', 'organization.equipment.read'] as $permission) {
+      $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
+      if ($decision->isOutsideScope()) {
+        throw new NotFoundHttpException('Organization not found.');
+      }
+      if (!$decision->isGranted()) {
+        throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
+      }
+    }
+  }
+
+  /**
+   * Method pageBounds.
+   *
+   * Retains numeric pagination coercion, defaults and the minimum of one.
+   *
+   * @access private
+   *
+   * @param Operation $operation the collection operation with parsed parameters
+   * @param array<string, mixed> $context the legacy filter context
+   *
+   * @return array{page: int, itemsPerPage: int} the transport pagination bounds
+   */
+  private static function pageBounds(Operation $operation, array $context): array
+  {
+    $filters = OperationParameterReader::filters($operation, $context);
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
 
     $page = is_numeric($pageValue) ? (int) $pageValue : 1;
     $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
 
-    $page = max(1, $page);
-    $itemsPerPage = max(1, $itemsPerPage);
+    return ['page' => max(1, $page), 'itemsPerPage' => max(1, $itemsPerPage)];
+  }
 
-    $offset = ($page - 1) * $itemsPerPage;
-    $query = $this->listQuery($operation, $uriVariables, $context, $organizationId, $offset, $itemsPerPage);
-
+  /**
+   * Method queryResult.
+   *
+   * Preserves HTTP validation mapping and the original cause for wrapped query failures.
+   *
+   * @access private
+   *
+   * @param ListInspectionsQuery $query the authorized collection query
+   *
+   * @return PaginatedResult<GetInspectionResult> the filtered inspection page
+   */
+  private function queryResult(ListInspectionsQuery $query): PaginatedResult
+  {
     try {
-      /** @var PaginatedResult<GetInspectionResult> $queryResult */
-      $queryResult = $this->queryBus->ask($query);
+      /** @var PaginatedResult<GetInspectionResult> */
+      return $this->queryBus->ask($query);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
@@ -114,7 +240,23 @@ final readonly class ListInspectionsProvider implements ProviderInterface
 
       throw $exception;
     }
+  }
 
+  /**
+   * Method paginator.
+   *
+   * Maps the query page to the existing inspection output and Hydra pagination shape.
+   *
+   * @access private
+   *
+   * @param PaginatedResult<GetInspectionResult> $queryResult the inspection page
+   * @param int $page the current transport page
+   * @param int $itemsPerPage the requested transport page size
+   *
+   * @return TraversablePaginator<InspectionOutput> the mapped inspection page
+   */
+  private function paginator(PaginatedResult $queryResult, int $page, int $itemsPerPage): TraversablePaginator
+  {
     $outputs = [];
     foreach ($queryResult->items as $inspection) {
       $outputs[] = $this->mapResult($inspection);
@@ -129,8 +271,20 @@ final readonly class ListInspectionsProvider implements ProviderInterface
   }
 
   /**
-   * @param array<string, mixed> $uriVariables
-   * @param array<string, mixed> $context
+   * Method listQuery.
+   *
+   * Translates parsed filters while preserving facility route precedence.
+   *
+   * @access private
+   *
+   * @param Operation $operation the collection operation
+   * @param array<string, mixed> $uriVariables the collection route scope
+   * @param array<string, mixed> $context the search and sorting context
+   * @param string $organizationId the authorized organization scope
+   * @param int $offset the zero-based page offset
+   * @param int $itemsPerPage the page size
+   *
+   * @return ListInspectionsQuery the filtered inspection query
    */
   private function listQuery(
     Operation $operation,
@@ -140,7 +294,7 @@ final readonly class ListInspectionsProvider implements ProviderInterface
     int $offset,
     int $itemsPerPage,
   ): ListInspectionsQuery {
-    $params = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $params = OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $facilityId = self::optionalString($uriVariables['facilityId'] ?? null) ?? $params->get('facilityId');
 
     return new ListInspectionsQuery(
@@ -196,4 +350,5 @@ final readonly class ListInspectionsProvider implements ProviderInterface
   {
     return $this->outputMapper->fromGetResult($result);
   }
+  // #endregion
 }

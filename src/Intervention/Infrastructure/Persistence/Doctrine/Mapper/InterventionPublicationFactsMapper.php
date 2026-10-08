@@ -46,17 +46,24 @@ final readonly class InterventionPublicationFactsMapper
   {
     $published = 'published' === $row['status'];
     $report = is_array($snapshot['report'] ?? null) ? $snapshot['report'] : [];
-    $items = $published ? (null === $snapshot ? [] : $this->snapshotItems($snapshot)) : $liveItems;
-    $complete = !$published || null !== $snapshot;
-    if (null !== ($row['site_id'] ?? null) && null === ($published ? $this->identity($snapshot['site'] ?? null) : $liveSite)) {
-      $complete = false;
+    $items = $liveItems;
+    $site = $liveSite;
+    $customer = $liveCustomer;
+    $state = 'live';
+    $plannedStartAt = $row['planned_start_at'];
+    $dueAt = $row['due_at'];
+    $publishedAt = null;
+    $publicationId = null;
+    if ($published) {
+      $items = null === $snapshot ? [] : $this->snapshotItems($snapshot);
+      $site = $this->identity($snapshot['site'] ?? null);
+      $customer = $this->identity($snapshot['customer'] ?? null);
+      $state = null === $snapshot ? 'snapshot_missing' : 'available';
+      $plannedStartAt = $snapshot['plannedStartAt'] ?? $report['plannedStartAt'] ?? null;
+      $dueAt = $snapshot['dueAt'] ?? $report['dueAt'] ?? null;
+      $publishedAt = $this->date($snapshot['publishedAt'] ?? $row['published_at'] ?? $snapshot['capturedAt'] ?? null);
+      $publicationId = $this->nullableString($snapshot['publicationId'] ?? $row['publication_id'] ?? null);
     }
-    foreach ($items as $item) {
-      if (null !== $item->equipmentId && (null === $item->equipmentIdentity || (null !== $item->equipmentIdentity->facilityId && null === $item->equipmentIdentity->site))) {
-        $complete = false;
-      }
-    }
-    $state = !$published ? 'live' : (null === $snapshot ? 'snapshot_missing' : 'available');
 
     return new InterventionEconomicContext(
       $this->requiredString($row['id']),
@@ -67,15 +74,15 @@ final readonly class InterventionPublicationFactsMapper
       $this->requiredString($row['status']),
       $this->integer($snapshot['revision'] ?? $row['revision']),
       $this->date($snapshot['createdAt'] ?? $row['created_at']) ?? throw new UnexpectedValueException('The owned intervention creation time is missing.'),
-      $this->date($published ? ($snapshot['plannedStartAt'] ?? $report['plannedStartAt'] ?? null) : $row['planned_start_at']),
-      $this->date($published ? ($snapshot['dueAt'] ?? $report['dueAt'] ?? null) : $row['due_at']),
-      $published ? $this->date($snapshot['publishedAt'] ?? $row['published_at'] ?? $snapshot['capturedAt'] ?? null) : null,
-      $published ? $this->nullableString($snapshot['publicationId'] ?? $row['publication_id'] ?? null) : null,
+      $this->date($plannedStartAt),
+      $this->date($dueAt),
+      $publishedAt,
+      $publicationId,
       $state,
       is_int($snapshot['version'] ?? null) ? $snapshot['version'] : null,
-      $complete,
-      $published ? $this->identity($snapshot['site'] ?? null) : $liveSite,
-      $published ? $this->identity($snapshot['customer'] ?? null) : $liveCustomer,
+      $this->identityComplete($published, $snapshot, $row['site_id'] ?? null, $site, $items),
+      $site,
+      $customer,
       $items,
     );
   }
@@ -101,10 +108,7 @@ final readonly class InterventionPublicationFactsMapper
     }
 
     /** @var array<string,mixed> $value */
-    /** @var array<string,mixed> $minimized */
-    $minimized = $this->minimizeIdentities($value);
-
-    return $minimized;
+    return $this->minimizeIdentities($value);
   }
 
   /**
@@ -194,6 +198,35 @@ final readonly class InterventionPublicationFactsMapper
   }
 
   /**
+   * Method identityComplete
+   *
+   * Requires the retained dossier and location identity when a source or task declares them.
+   *
+   * @access private
+   *
+   * @param bool $published whether live identity is forbidden
+   * @param ?array<string,mixed> $snapshot supported retained dossier
+   * @param mixed $siteId declared root location identifier
+   * @param ?array{id:string,name:string} $site resolved original or current site
+   * @param list<InterventionPublishedWorkFact> $items bounded task facts
+   *
+   * @return bool whether all declared operational identity is available
+   */
+  private function identityComplete(bool $published, ?array $snapshot, mixed $siteId, ?array $site, array $items): bool
+  {
+    if (($published && null === $snapshot) || (null !== $siteId && null === $site)) {
+      return false;
+    }
+    foreach ($items as $item) {
+      if (null !== $item->equipmentId && (null === $item->equipmentIdentity || (null !== $item->equipmentIdentity->facilityId && null === $item->equipmentIdentity->site))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
    * Method snapshotItems
    *
    * A version-one asset target remains identifiable but lacks complete captured equipment and per-task location identity.
@@ -253,9 +286,11 @@ final readonly class InterventionPublicationFactsMapper
    *
    * @access private
    *
-   * @param array<array-key,mixed> $source retained JSON object or list
+   * @template TKey of array-key
    *
-   * @return array<array-key,mixed> retained operational facts with minimal identity nodes
+   * @param array<TKey,mixed> $source retained JSON object or list
+   *
+   * @return array<TKey,mixed> retained operational facts with minimal identity nodes
    */
   private function minimizeIdentities(array $source): array
   {

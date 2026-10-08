@@ -103,6 +103,39 @@ final readonly class WriteMaintenanceCostHandler implements CommandHandler
     $rawAmount = $this->string($command->values['amount'] ?? null, 26);
     $amount = $this->amount($rawAmount, true);
     $date = $this->string($command->values['incurredAt'] ?? null, 40);
+    $incurredAt = $this->incurredAt($date);
+    $workItemId = $this->nullableId($command->values['workItemId'] ?? null);
+    if (null !== $workItemId && !in_array($workItemId, $context->workItemIds, true)) {
+      throw MaintenanceCostException::notFound();
+    }
+    $adjustmentOf = $this->nullableId($command->values['adjustmentOf'] ?? null);
+    $this->assertAdjustment($command, $adjustmentOf, $amount);
+    $payloadHash = hash('sha256', json_encode([$command->interventionId, $workItemId, $amount, $description, $incurredAt->format('c'), $adjustmentOf], JSON_THROW_ON_ERROR));
+    $existing = $this->store->expenseByClientId($command->organizationId, $clientId);
+    if (null !== $existing) {
+      if ($existing->payloadHash !== $payloadHash || $existing->createdBy !== $command->actorId) {
+        throw MaintenanceCostException::conflict('This expense identifier is already used by another declaration.');
+      }
+
+      return;
+    }
+    $currency = $this->currencies->lock($command->organizationId);
+    $this->store->saveExpense(new MaintenanceExpense($this->uuids->generate(), $command->organizationId, $command->interventionId, $workItemId, $clientId, $amount, $currency, $description, $incurredAt, $adjustmentOf, $command->actorId, $payloadHash, $this->clock->now()));
+  }
+
+  /**
+   * Method incurredAt
+   *
+   * Keeps the actual expense date timezone-qualified, calendar-valid and no later than now.
+   *
+   * @access private
+   *
+   * @param string $date literal declared date
+   *
+   * @return DateTimeImmutable validated UTC instant
+   */
+  private function incurredAt(string $date): DateTimeImmutable
+  {
     if (1 !== preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/D', $date)) {
       throw MaintenanceCostException::invalid('The expense date must identify its timezone.');
     }
@@ -119,11 +152,25 @@ final readonly class WriteMaintenanceCostHandler implements CommandHandler
     if ($incurredAt > $this->clock->now()) {
       throw MaintenanceCostException::invalid('An actual expense cannot be dated in the future.');
     }
-    $workItemId = $this->nullableId($command->values['workItemId'] ?? null);
-    if (null !== $workItemId && !in_array($workItemId, $context->workItemIds, true)) {
-      throw MaintenanceCostException::notFound();
-    }
-    $adjustmentOf = $this->nullableId($command->values['adjustmentOf'] ?? null);
+
+    return $incurredAt;
+  }
+
+  /**
+   * Method assertAdjustment
+   *
+   * Corrections reference one original expense in the same work dossier.
+   *
+   * @access private
+   *
+   * @param WriteMaintenanceCostCommand $command authorized mutation
+   * @param ?string $adjustmentOf original expense identity
+   * @param string $amount exact signed amount
+   *
+   * @return void
+   */
+  private function assertAdjustment(WriteMaintenanceCostCommand $command, ?string $adjustmentOf, string $amount): void
+  {
     if (null !== $adjustmentOf) {
       $original = $this->store->expense($command->organizationId, $adjustmentOf);
       if (null === $original || $original->interventionId !== $command->interventionId || null !== $original->adjustmentOf) {
@@ -132,17 +179,6 @@ final readonly class WriteMaintenanceCostHandler implements CommandHandler
     } elseif (DecimalAmount::fromString($amount)->isNegative()) {
       throw MaintenanceCostException::invalid('A negative expense requires its original expense and a correction reason.');
     }
-    $payloadHash = hash('sha256', json_encode([$command->interventionId, $workItemId, $amount, $description, $incurredAt->format('c'), $adjustmentOf], JSON_THROW_ON_ERROR));
-    $existing = $this->store->expenseByClientId($command->organizationId, $clientId);
-    if (null !== $existing) {
-      if ($existing->payloadHash !== $payloadHash || $existing->createdBy !== $command->actorId) {
-        throw MaintenanceCostException::conflict('This expense identifier is already used by another declaration.');
-      }
-
-      return;
-    }
-    $currency = $this->currencies->lock($command->organizationId);
-    $this->store->saveExpense(new MaintenanceExpense($this->uuids->generate(), $command->organizationId, $command->interventionId, $workItemId, $clientId, $amount, $currency, $description, $incurredAt, $adjustmentOf, $command->actorId, $payloadHash, $this->clock->now()));
   }
 
   /**
@@ -155,43 +191,83 @@ final readonly class WriteMaintenanceCostHandler implements CommandHandler
     }
     $result = [];
     foreach ($input as $resource) {
-      if (!is_array($resource)) {
-        throw MaintenanceCostException::invalid('Estimated resources must be structured objects.');
-      }
-      foreach ($resource as $key => $value) {
-        if (!in_array($key, ['workItemId', 'kind', 'description', 'quantity', 'unitCost', 'estimatedMinutes', 'amount'], true)) {
-          throw MaintenanceCostException::invalid('Unknown estimated resource field.');
-        }
-      }
-      $workItemId = $this->nullableId($resource['workItemId'] ?? null);
-      if (null !== $workItemId && !in_array($workItemId, $context->workItemIds, true)) {
-        throw MaintenanceCostException::notFound();
-      }
-      $kind = $this->string($resource['kind'] ?? null, 16);
-      if (!in_array($kind, ['time', 'material', 'external'], true)) {
-        throw MaintenanceCostException::invalid('Unknown estimated resource kind.');
-      }
-      $quantity = $this->nullableAmount($resource['quantity'] ?? null);
-      $unitCost = $this->nullableAmount($resource['unitCost'] ?? null);
-      $minutes = $this->nullableMinutes($resource['estimatedMinutes'] ?? null);
-      $amount = $this->nullableAmount($resource['amount'] ?? null);
-      if ('time' === $kind) {
-        if (null !== $quantity) {
-          throw MaintenanceCostException::invalid('A time estimate cannot include a material quantity.');
-        }
-        $amount = null !== $unitCost && null !== $minutes ? $this->calculator->timeAmount($unitCost, $minutes) : null;
-      } elseif ('material' === $kind) {
-        if (null !== $minutes) {
-          throw MaintenanceCostException::invalid('A material estimate cannot include work minutes.');
-        }
-        $amount = null !== $unitCost && null !== $quantity ? DecimalAmount::fromString($unitCost)->multiply(DecimalAmount::fromString($quantity))->toString() : null;
-      } elseif (null !== $quantity || null !== $unitCost || null !== $minutes) {
-        throw MaintenanceCostException::invalid('An external estimate uses its explicit amount without quantity, rate or minutes.');
-      }
-      $result[] = ['workItemId' => $workItemId, 'kind' => $kind, 'description' => $this->string($resource['description'] ?? null, 1000), 'quantity' => $quantity, 'unitCost' => $unitCost, 'estimatedMinutes' => $minutes, 'amount' => $amount];
+      $result[] = $this->resource($resource, $context);
     }
 
     return $result;
+  }
+
+  /**
+   * Method resource
+   *
+   * Validates one estimate and recalculates its kind-specific amount without retaining stale prices.
+   *
+   * @access private
+   *
+   * @param mixed $resource declared structured estimate
+   * @param InterventionCostContext $context owned work-item identities
+   *
+   * @return array{workItemId:?string,kind:string,description:string,quantity:?string,unitCost:?string,estimatedMinutes:?int,amount:?string} complete normalized estimate
+   */
+  private function resource(mixed $resource, InterventionCostContext $context): array
+  {
+    if (!is_array($resource)) {
+      throw MaintenanceCostException::invalid('Estimated resources must be structured objects.');
+    }
+    foreach ($resource as $key => $value) {
+      if (!in_array($key, ['workItemId', 'kind', 'description', 'quantity', 'unitCost', 'estimatedMinutes', 'amount'], true)) {
+        throw MaintenanceCostException::invalid('Unknown estimated resource field.');
+      }
+    }
+    $workItemId = $this->nullableId($resource['workItemId'] ?? null);
+    if (null !== $workItemId && !in_array($workItemId, $context->workItemIds, true)) {
+      throw MaintenanceCostException::notFound();
+    }
+    $kind = $this->string($resource['kind'] ?? null, 16);
+    if (!in_array($kind, ['time', 'material', 'external'], true)) {
+      throw MaintenanceCostException::invalid('Unknown estimated resource kind.');
+    }
+    $quantity = $this->nullableAmount($resource['quantity'] ?? null);
+    $unitCost = $this->nullableAmount($resource['unitCost'] ?? null);
+    $minutes = $this->nullableMinutes($resource['estimatedMinutes'] ?? null);
+    $amount = $this->nullableAmount($resource['amount'] ?? null);
+    $amount = $this->resourceAmount($kind, $quantity, $unitCost, $minutes, $amount);
+
+    return ['workItemId' => $workItemId, 'kind' => $kind, 'description' => $this->string($resource['description'] ?? null, 1000), 'quantity' => $quantity, 'unitCost' => $unitCost, 'estimatedMinutes' => $minutes, 'amount' => $amount];
+  }
+
+  /**
+   * Method resourceAmount
+   *
+   * Uses the estimate kind's inputs and keeps insufficient valuations unknown.
+   *
+   * @access private
+   *
+   * @param string $kind validated estimate category
+   * @param ?string $quantity exact material quantity
+   * @param ?string $unitCost exact unit price or hourly amount
+   * @param ?int $minutes estimated work duration
+   * @param ?string $amount declared external amount
+   *
+   * @return ?string exact estimate when all required inputs exist
+   */
+  private function resourceAmount(string $kind, ?string $quantity, ?string $unitCost, ?int $minutes, ?string $amount): ?string
+  {
+    if ('time' === $kind) {
+      if (null !== $quantity) {
+        throw MaintenanceCostException::invalid('A time estimate cannot include a material quantity.');
+      }
+      $amount = null !== $unitCost && null !== $minutes ? $this->calculator->timeAmount($unitCost, $minutes) : null;
+    } elseif ('material' === $kind) {
+      if (null !== $minutes) {
+        throw MaintenanceCostException::invalid('A material estimate cannot include work minutes.');
+      }
+      $amount = null !== $unitCost && null !== $quantity ? DecimalAmount::fromString($unitCost)->multiply(DecimalAmount::fromString($quantity))->toString() : null;
+    } elseif (null !== $quantity || null !== $unitCost || null !== $minutes) {
+      throw MaintenanceCostException::invalid('An external estimate uses its explicit amount without quantity, rate or minutes.');
+    }
+
+    return $amount;
   }
 
   private function nullableAmount(mixed $value): ?string
@@ -228,7 +304,7 @@ final readonly class WriteMaintenanceCostHandler implements CommandHandler
       return null;
     }
     $id = $this->string($value, 36);
-    new Uuid($id);
+    Uuid::assertValid($id);
 
     return $id;
   }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaintenanceExport\Application\UseCase\Command\ManageMaintenanceExport;
 
+use DateTimeImmutable;
 use DateTimeZone;
 use MaintenanceExport\Application\Contract\ExportOperation;
 use MaintenanceExport\Application\Port\Outbound\{MaintenanceExportIdentityPort, MaintenanceExportRepositoryPort, MaintenanceExportSourcePort};
@@ -28,6 +29,8 @@ use function sort;
  * Authorization, bounded source capture and durable receipts share one main transaction.
  *
  * @category Handler
+ *
+ * @phpstan-type ExportPayload array{clientOperationId:string,interventionIds:list<string>,system:string,includeInternalCosts:bool,resourceType:string,resourceId:string,reference:string,reason:string,externalImportReference:string}
  */
 final readonly class ManageMaintenanceExportHandler
 {
@@ -62,87 +65,16 @@ final readonly class ManageMaintenanceExportHandler
     return $this->repository->synchronized($org, function () use ($command, $org, $actor, $payload, $operationId, $id, $fingerprint): ManageMaintenanceExportResult {
       $receipt = $this->repository->operation($org, $actor, $operationId);
       if (null !== $receipt) {
-        if ($receipt->fingerprint !== $fingerprint || $receipt->action !== $command->action) {
-          throw MaintenanceExportException::conflict('The operation identifier belongs to another declaration.');
-        }
-        if (true === ($receipt->result['includeInternalCosts'] ?? false)) {
-          $this->authorize($actor, $org, 'organization.maintenance_cost.read');
-        }
-
-        return new ManageMaintenanceExportResult('reference' === $command->action ? 'reference' : 'export', $receipt->result, true);
+        return $this->replay($command, $receipt, $fingerprint, $actor, $org);
       }
       $now = $this->clock->now()->setTimezone(new DateTimeZone('UTC'));
-      if ('reference' === $command->action) {
-        $resourceType = $payload['resourceType'];
-        $resourceId = $payload['resourceId'];
-        $system = $payload['system'];
-        if (!$this->identities->exists($org, $resourceType, $resourceId)) {
-          throw MaintenanceExportException::notFound();
-        }
-        $existing = $this->repository->reference($org, $system, $resourceType, $resourceId);
-        if (null === $command->expectedRevision) {
-          throw MaintenanceExportException::revisionRequired();
-        }
-        if ($command->expectedRevision !== ($existing->revision ?? 0)) {
-          throw MaintenanceExportException::stale();
-        }
-        $reference = new ExternalReference($existing->id ?? $this->ids->generate(), $org, $system, $resourceType, $resourceId, $payload['reference'], ($existing->revision ?? 0) + 1, $now);
-        $this->repository->saveReference($reference);
-        $result = $reference->projection();
-        $resourceId = $reference->id;
-      } elseif ('confirm' === $command->action) {
-        $document = $this->document($org, $id);
-        $this->financialAccess($actor, $org, $document->includeInternalCosts);
-        $expected = $command->expectedRevision ?? throw MaintenanceExportException::revisionRequired();
-        $document->confirm($expected, $operationId, $payload['externalImportReference'], $actor, $now);
-        $this->repository->saveDocument($document);
-        $result = $document->projection();
-        $resourceId = $document->id;
-      } else {
-        $previous = 'adjustment' === $command->action ? $this->document($org, $id) : null;
-        if (null !== $previous) {
-          $this->financialAccess($actor, $org, $previous->includeInternalCosts);
-          $previous->assertRevision($command->expectedRevision);
-          if ($this->repository->hasAdjustment($org, $previous->id)) {
-            throw MaintenanceExportException::conflict('Adjust the latest export in the chain.');
-          }
-        }
-        $financial = $previous->includeInternalCosts ?? $payload['includeInternalCosts'];
-        $this->financialAccess($actor, $org, $financial);
-        $sourceIds = $previous->sourceInterventionIds ?? $payload['interventionIds'];
-        $system = $previous->system ?? $payload['system'];
-        $facts = $this->sources->capture($org, $sourceIds, $system, $financial, null !== $previous);
-        $newId = $this->ids->generate();
-        $rows = null === $previous ? ExportRows::initial($facts->baseline) : ExportRows::adjustment($previous->baseline, $facts->baseline, $newId);
-        $baseline = $facts->baseline;
-        // Subsequent corrections must refer to the rows actually introduced by this adjustment.
-        foreach ($baseline as $key => $fact) {
-          if (null !== $previous && isset($previous->baseline[$key])) {
-            $baseline[$key]['id'] = $previous->baseline[$key]['id'];
-          }
-        }
-        foreach ($rows as $row) {
-          if ('add' !== ($row['change'] ?? null)) {
-            continue;
-          }
-          $key = $row['logicalSourceKey'] ?? null;
-          if (is_string($key) && isset($baseline[$key])) {
-            $baseline[$key]['id'] = $row['id'];
-          }
-        }
-        $kind = null === $previous ? 'initial' : 'adjustment';
-        $original = null === $previous ? null : ($previous->originalExportId ?? $previous->id);
-        $reason = null === $previous ? null : $payload['reason'];
-        $metadata = ['schema' => 'fireguard.maintenance-prestations', 'schemaVersion' => 1, 'exportId' => $newId, 'organizationId' => $org, 'system' => $system, 'kind' => $kind, 'originalExportId' => $original, 'adjustmentOf' => $previous?->id, 'reason' => $reason, 'generatedAt' => $now->format('c'), 'actorId' => $actor, 'sourceInterventionIds' => $sourceIds, 'includeInternalCosts' => $financial, 'rows' => $rows];
-        if ($financial) {
-          $metadata['costsComplete'] = $facts->costsComplete;
-          $metadata['incompleteCostCount'] = $facts->incompleteCostCount;
-        }
-        $document = new ExportDocument($newId, $org, $actor, $kind, $system, $financial, $sourceIds, $original, $previous?->id, $reason, $now, $rows, $baseline, ExportArtifact::json($metadata), ExportArtifact::csv($rows, $financial), $facts->costsComplete, $facts->incompleteCostCount);
-        $this->repository->saveDocument($document);
-        $result = $document->projection();
-        $resourceId = $document->id;
-      }
+      $resource = match ($command->action) {
+        'reference' => $this->writeReference($command, $org, $payload, $now),
+        'confirm' => $this->confirmDocument($command, $org, $actor, $id, $payload, $now),
+        default => $this->generateDocument($command, $org, $actor, $id, $payload, $now),
+      };
+      $result = $resource->projection();
+      $resourceId = $resource->id;
       $this->repository->saveOperation(new ExportOperation($org, $actor, $operationId, $command->action, $fingerprint, $resourceId, $result));
       $this->events->dispatch(new MaintenanceExportChangedEvent($org, $resourceId, $command->action, $now));
 
@@ -151,49 +83,262 @@ final readonly class ManageMaintenanceExportHandler
   }
 
   /**
+   * Method replay
+   *
+   * Original receipt authorization precedes stale revisions and never repeats effects.
+   *
+   * @access private
+   *
+   * @param ManageMaintenanceExportCommand $command canonical operation intent
+   * @param ExportOperation $receipt immutable original response
+   * @param string $fingerprint canonical intent hash
+   * @param string $actor authorized actor
+   * @param string $org authorized organization
+   *
+   * @return ManageMaintenanceExportResult original authorized metadata
+   */
+  private function replay(ManageMaintenanceExportCommand $command, ExportOperation $receipt, string $fingerprint, string $actor, string $org): ManageMaintenanceExportResult
+  {
+    if ($receipt->fingerprint !== $fingerprint || $receipt->action !== $command->action) {
+      throw MaintenanceExportException::conflict('The operation identifier belongs to another declaration.');
+    }
+    $this->financialAccess($actor, $org, true === ($receipt->result['includeInternalCosts'] ?? false));
+
+    return new ManageMaintenanceExportResult('reference' === $command->action ? 'reference' : 'export', $receipt->result, true);
+  }
+
+  /**
+   * Method writeReference
+   *
+   * @access private
+   *
+   * @param ManageMaintenanceExportCommand $command optimistic reference mutation
+   * @param string $org authorized organization
+   * @param ExportPayload $payload canonical declared mapping
+   * @param DateTimeImmutable $now transaction timestamp
+   *
+   * @return ExternalReference durably saved owner-scoped mapping
+   */
+  private function writeReference(ManageMaintenanceExportCommand $command, string $org, array $payload, DateTimeImmutable $now): ExternalReference
+  {
+    $resourceType = $payload['resourceType'];
+    $resourceId = $payload['resourceId'];
+    $system = $payload['system'];
+    if (!$this->identities->exists($org, $resourceType, $resourceId)) {
+      throw MaintenanceExportException::notFound();
+    }
+    $existing = $this->repository->reference($org, $system, $resourceType, $resourceId);
+    if (null === $command->expectedRevision) {
+      throw MaintenanceExportException::revisionRequired();
+    }
+    if ($command->expectedRevision !== ($existing->revision ?? 0)) {
+      throw MaintenanceExportException::stale();
+    }
+    $reference = new ExternalReference($existing->id ?? $this->ids->generate(), $org, $system, $resourceType, $resourceId, $payload['reference'], ($existing->revision ?? 0) + 1, $now);
+    $this->repository->saveReference($reference);
+
+    return $reference;
+  }
+
+  /**
+   * Method confirmDocument
+   *
+   * @access private
+   *
+   * @param ManageMaintenanceExportCommand $command optimistic acknowledgement
+   * @param string $org authorized organization
+   * @param string $actor authorized actor
+   * @param string|null $id scoped artifact identity
+   * @param ExportPayload $payload canonical import receipt
+   * @param DateTimeImmutable $now transaction timestamp
+   *
+   * @return ExportDocument saved acknowledgement with unchanged artifacts
+   */
+  private function confirmDocument(ManageMaintenanceExportCommand $command, string $org, string $actor, ?string $id, array $payload, DateTimeImmutable $now): ExportDocument
+  {
+    $document = $this->document($org, $id);
+    $this->financialAccess($actor, $org, $document->includeInternalCosts);
+    $expected = $command->expectedRevision ?? throw MaintenanceExportException::revisionRequired();
+    $document->confirm($expected, $payload['clientOperationId'], $payload['externalImportReference'], $actor, $now);
+    $this->repository->saveDocument($document);
+
+    return $document;
+  }
+
+  /**
+   * Method generateDocument
+   *
+   * Source capture and saved bytes remain inside the receipt transaction.
+   *
+   * @access private
+   *
+   * @param ManageMaintenanceExportCommand $command initial or correcting intent
+   * @param string $org authorized organization
+   * @param string $actor authorized actor
+   * @param string|null $id preceding artifact identity
+   * @param ExportPayload $payload canonical declaration
+   * @param DateTimeImmutable $now transaction timestamp
+   *
+   * @return ExportDocument durably retained original or compensating artifact
+   */
+  private function generateDocument(ManageMaintenanceExportCommand $command, string $org, string $actor, ?string $id, array $payload, DateTimeImmutable $now): ExportDocument
+  {
+    $previous = $this->previousDocument($command, $org, $actor, $id);
+    $financial = $previous->includeInternalCosts ?? $payload['includeInternalCosts'];
+    $this->financialAccess($actor, $org, $financial);
+    $sourceIds = $previous->sourceInterventionIds ?? $payload['interventionIds'];
+    $system = $previous->system ?? $payload['system'];
+    $facts = $this->sources->capture($org, $sourceIds, $system, $financial, null !== $previous);
+    $newId = $this->ids->generate();
+    $rows = null === $previous ? ExportRows::initial($facts->baseline) : ExportRows::adjustment($previous->baseline, $facts->baseline, $newId);
+    $baseline = $this->retainedBaseline($facts->baseline, $previous, $rows);
+    $kind = null === $previous ? 'initial' : 'adjustment';
+    $original = $previous->originalExportId ?? $previous?->id;
+    $reason = null === $previous ? null : $payload['reason'];
+    $metadata = ['schema' => 'fireguard.maintenance-prestations', 'schemaVersion' => 1, 'exportId' => $newId, 'organizationId' => $org, 'system' => $system, 'kind' => $kind, 'originalExportId' => $original, 'adjustmentOf' => $previous?->id, 'reason' => $reason, 'generatedAt' => $now->format('c'), 'actorId' => $actor, 'sourceInterventionIds' => $sourceIds, 'includeInternalCosts' => $financial, 'rows' => $rows];
+    if ($financial) {
+      $metadata['costsComplete'] = $facts->costsComplete;
+      $metadata['incompleteCostCount'] = $facts->incompleteCostCount;
+    }
+    $document = new ExportDocument($newId, $org, $actor, $kind, $system, $financial, $sourceIds, $original, $previous?->id, $reason, $now, $rows, $baseline, ExportArtifact::json($metadata), ExportArtifact::csv($rows, $financial), $facts->costsComplete, $facts->incompleteCostCount);
+    $this->repository->saveDocument($document);
+
+    return $document;
+  }
+
+  /**
+   * Method previousDocument
+   *
+   * Financial authorization precedes revision and chain checks.
+   *
+   * @access private
+   *
+   * @param ManageMaintenanceExportCommand $command correcting intent
+   * @param string $org authorized organization
+   * @param string $actor authorized actor
+   * @param string|null $id preceding artifact identity
+   *
+   * @return ExportDocument|null latest artifact, absent for initial generation
+   */
+  private function previousDocument(ManageMaintenanceExportCommand $command, string $org, string $actor, ?string $id): ?ExportDocument
+  {
+    if ('adjustment' !== $command->action) {
+      return null;
+    }
+    $previous = $this->document($org, $id);
+    $this->financialAccess($actor, $org, $previous->includeInternalCosts);
+    $previous->assertRevision($command->expectedRevision);
+    if ($this->repository->hasAdjustment($org, $previous->id)) {
+      throw MaintenanceExportException::conflict('Adjust the latest export in the chain.');
+    }
+
+    return $previous;
+  }
+
+  /**
+   * Method retainedBaseline
+   *
+   * Subsequent corrections refer to the rows actually introduced by the preceding artifact.
+   *
+   * @access private
+   *
+   * @param array<string,array<string,mixed>> $baseline captured source facts
+   * @param ExportDocument|null $previous preceding retained artifact
+   * @param list<array<string,mixed>> $rows newly exported rows
+   *
+   * @return array<string,array<string,mixed>> source facts with retained artifact row identities
+   */
+  private function retainedBaseline(array $baseline, ?ExportDocument $previous, array $rows): array
+  {
+    foreach ($baseline as $key => $fact) {
+      if (null !== $previous && isset($previous->baseline[$key])) {
+        $baseline[$key]['id'] = $previous->baseline[$key]['id'];
+      }
+    }
+    foreach ($rows as $row) {
+      if ('add' !== ($row['change'] ?? null)) {
+        continue;
+      }
+      $key = $row['logicalSourceKey'] ?? null;
+      if (is_string($key) && isset($baseline[$key])) {
+        $baseline[$key]['id'] = $row['id'];
+      }
+    }
+
+    return $baseline;
+  }
+
+  /**
    * Method canonicalPayload
    *
-   * @return array{clientOperationId:string,interventionIds:list<string>,system:string,includeInternalCosts:bool,resourceType:string,resourceId:string,reference:string,reason:string,externalImportReference:string} hashable canonical intent
+   * @return ExportPayload hashable canonical intent
    */
   private function canonicalPayload(ManageMaintenanceExportCommand $command): array
   {
     $payload = $command->payload;
     $operation = $this->text($payload, 'clientOperationId');
     $result = ['clientOperationId' => ExportIdentity::uuid($operation), 'interventionIds' => [], 'system' => '', 'includeInternalCosts' => false, 'resourceType' => '', 'resourceId' => '', 'reference' => '', 'reason' => '', 'externalImportReference' => ''];
-    if ('create' === $command->action) {
-      $ids = $payload['interventionIds'] ?? null;
-      if (!is_array($ids) || count($ids) < 1 || count($ids) > 100) {
-        throw MaintenanceExportException::invalid('Select between one and 100 published interventions.');
-      }
-      $canonical = [];
-      foreach ($ids as $source) {
-        if (!is_string($source)) {
-          throw MaintenanceExportException::invalid('Invalid intervention identifier.');
-        } $uuid = ExportIdentity::uuid($source);
-        $canonical[$uuid] = $uuid;
-      }
-      if (count($canonical) !== count($ids)) {
-        throw MaintenanceExportException::invalid('Duplicate intervention identifiers are not allowed.');
-      }
-      $canonical = array_values($canonical);
-      sort($canonical);
-      $financial = $payload['includeInternalCosts'] ?? false;
-      if (!is_bool($financial)) {
-        throw MaintenanceExportException::invalid('includeInternalCosts must be a boolean.');
-      }
-      $result = [...$result, 'interventionIds' => $canonical, 'system' => ExportIdentity::system($this->text($payload, 'system')), 'includeInternalCosts' => $financial];
-    } elseif ('adjustment' === $command->action) {
-      $result['reason'] = ExportIdentity::text($this->text($payload, 'reason'), 1000);
-    } elseif ('confirm' === $command->action) {
-      $result['externalImportReference'] = ExportIdentity::text($this->text($payload, 'externalImportReference'), 200);
-    } elseif ('reference' === $command->action) {
-      $result = [...$result, 'resourceType' => ExportIdentity::resourceType($this->text($payload, 'resourceType')), 'resourceId' => ExportIdentity::uuid($this->text($payload, 'resourceId')), 'system' => ExportIdentity::system($this->text($payload, 'system')), 'reference' => ExportIdentity::text($this->text($payload, 'reference'), 200)];
-    } else {
-      throw MaintenanceExportException::invalid('Unknown export operation.');
-    }
+    $result = match ($command->action) {
+      'create' => [...$result, ...$this->createPayload($payload)],
+      'adjustment' => [...$result, 'reason' => ExportIdentity::text($this->text($payload, 'reason'), 1000)],
+      'confirm' => [...$result, 'externalImportReference' => ExportIdentity::text($this->text($payload, 'externalImportReference'), 200)],
+      'reference' => [...$result, 'resourceType' => ExportIdentity::resourceType($this->text($payload, 'resourceType')), 'resourceId' => ExportIdentity::uuid($this->text($payload, 'resourceId')), 'system' => ExportIdentity::system($this->text($payload, 'system')), 'reference' => ExportIdentity::text($this->text($payload, 'reference'), 200)],
+      default => throw MaintenanceExportException::invalid('Unknown export operation.'),
+    };
     ksort($result);
 
     return $result;
+  }
+
+  /**
+   * Method createPayload
+   *
+   * @access private
+   *
+   * @param array<string,mixed> $payload initial declaration
+   *
+   * @return array{interventionIds:list<string>,system:string,includeInternalCosts:bool} canonical source selection
+   */
+  private function createPayload(array $payload): array
+  {
+    $canonical = $this->interventionIds($payload['interventionIds'] ?? null);
+    $financial = $payload['includeInternalCosts'] ?? false;
+    if (!is_bool($financial)) {
+      throw MaintenanceExportException::invalid('includeInternalCosts must be a boolean.');
+    }
+
+    return ['interventionIds' => $canonical, 'system' => ExportIdentity::system($this->text($payload, 'system')), 'includeInternalCosts' => $financial];
+  }
+
+  /**
+   * Method interventionIds
+   *
+   * @access private
+   *
+   * @param mixed $ids declared source selection
+   *
+   * @return list<string> bounded unique normalized and sorted identities
+   */
+  private function interventionIds(mixed $ids): array
+  {
+    if (!is_array($ids) || count($ids) < 1 || count($ids) > 100) {
+      throw MaintenanceExportException::invalid('Select between one and 100 published interventions.');
+    }
+    $canonical = [];
+    foreach ($ids as $source) {
+      if (!is_string($source)) {
+        throw MaintenanceExportException::invalid('Invalid intervention identifier.');
+      }
+      $uuid = ExportIdentity::uuid($source);
+      $canonical[$uuid] = $uuid;
+    }
+    if (count($canonical) !== count($ids)) {
+      throw MaintenanceExportException::invalid('Duplicate intervention identifiers are not allowed.');
+    }
+    $canonical = array_values($canonical);
+    sort($canonical);
+
+    return $canonical;
   }
 
   /**

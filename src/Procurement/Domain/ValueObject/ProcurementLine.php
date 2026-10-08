@@ -7,18 +7,6 @@ namespace Procurement\Domain\ValueObject;
 use Procurement\Domain\Exception\ProcurementException;
 use Shared\Domain\ValueObject\{DecimalAmount, Uuid};
 
-use function array_is_list;
-use function count;
-use function in_array;
-use function is_array;
-use function is_bool;
-use function is_finite;
-use function is_float;
-use function is_int;
-use function is_string;
-use function mb_strlen;
-use function trim;
-
 /**
  * Class ProcurementLine
  *
@@ -28,69 +16,107 @@ use function trim;
  */
 final readonly class ProcurementLine
 {
+  // #region Properties
+  /**
+   * Property id
+   */
+  public string $id;
+
+  /**
+   * Property kind
+   */
+  public string $kind;
+
+  /**
+   * Property partId
+   */
+  public ?string $partId;
+
+  /**
+   * Property typeCode
+   */
+  public ?string $typeCode;
+
+  /**
+   * Property identityTemplate
+   *
+   * @var array<string,mixed> */
+  public array $identityTemplate;
+
+  /**
+   * Property quantity
+   */
+  public string $quantity;
+
+  /**
+   * Property unitCost
+   */
+  public ?string $unitCost;
+
+  /**
+   * Property receivedQuantity
+   */
+  public string $receivedQuantity;
+
+  /**
+   * Property returnedQuantity
+   */
+  public string $returnedQuantity;
+
+  /**
+   * Property partCode
+   */
+  public ?string $partCode;
+
+  /**
+   * Property partLabel
+   */
+  public ?string $partLabel;
+
+  /**
+   * Property partUnit
+   */
+  public ?string $partUnit;
+
+  /**
+   * Property identity
+   */
+  private ProcurementGoodsIdentity $identity;
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
    *
-   * Validates quantities and line identity without mutating physical history.
+   * Adopts a validated snapshot only when equipment quantities remain whole units.
    *
    * @access private
    *
    * @param string $id the stable order-line UUID
-   * @param string $kind part or equipment_to_individualize
-   * @param ?string $partId the article UUID for a consumable line
-   * @param ?string $typeCode the declared type for individually tracked equipment
-   * @param array<string, mixed> $identityTemplate the bounded declarative identity template
-   * @param string $quantity the exact ordered quantity with six fractional digits
-   * @param ?string $unitCost the exact nonnegative unit amount with six fractional digits, or unknown
-   * @param string $receivedQuantity the exact retained gross received quantity
-   * @param string $returnedQuantity the exact retained quantity returned to the supplier
+   * @param ProcurementGoodsIdentity $identity the validated goods snapshot
+   * @param ProcurementLineAmounts $amounts the exact retained quantities and price
    *
    * @return void
    */
-  private function __construct(
-    public string $id,
-    public string $kind,
-    public ?string $partId,
-    public ?string $typeCode,
-    public array $identityTemplate,
-    public string $quantity,
-    public ?string $unitCost,
-    public string $receivedQuantity,
-    public string $returnedQuantity,
-    public ?string $partCode = null,
-    public ?string $partLabel = null,
-    public ?string $partUnit = null,
-  ) {
-    new Uuid($id);
-    if (!in_array($kind, ['part', 'equipment_to_individualize'], true)) {
-      throw ProcurementException::invalid('Unknown procurement line kind.');
-    }
-    $ordered = DecimalAmount::fromString($quantity);
-    $received = DecimalAmount::fromString($receivedQuantity);
-    $returned = DecimalAmount::fromString($returnedQuantity);
-    if ($ordered->isNegative() || $ordered->isZero() || $ordered->compareTo(DecimalAmount::fromInt(100000)) > 0 || $received->isNegative() || $received->compareTo($ordered) > 0 || $returned->isNegative() || $returned->compareTo($received) > 0) {
-      throw ProcurementException::invalid('An ordered line needs a positive quantity up to 100000 and bounded receipt and return quantities.');
-    }
-
-    if ('part' === $kind) {
-      if (null === $partId || null !== $typeCode || [] !== $identityTemplate) {
-        throw ProcurementException::invalid('A part line needs only an article identity.');
-      }
-      new Uuid($partId);
-    } elseif (null !== $partId || null === $typeCode || '' === $typeCode || mb_strlen($typeCode) > 32) {
-      throw ProcurementException::invalid('An equipment line needs a type code and cannot also refer to a consumable article.');
-    }
-    if ('equipment_to_individualize' === $kind && (!$ordered->isInteger() || !$received->isInteger() || !$returned->isInteger())) {
+  private function __construct(string $id, ProcurementGoodsIdentity $identity, ProcurementLineAmounts $amounts)
+  {
+    Uuid::assertValid($id);
+    if ('equipment_to_individualize' === $identity->kind && (!DecimalAmount::fromString($amounts->quantity)->isInteger() || !DecimalAmount::fromString($amounts->receivedQuantity)->isInteger() || !DecimalAmount::fromString($amounts->returnedQuantity)->isInteger())) {
       throw ProcurementException::invalid('Individually tracked equipment quantities must be whole units.');
     }
-
-    self::validateTemplate($identityTemplate);
-    foreach ([[$partCode, 100], [$partLabel, 255], [$partUnit, 32]] as [$value, $maximum]) {
-      if (null !== $value && ('' === trim($value) || mb_strlen($value) > $maximum)) {
-        throw ProcurementException::invalid('The retained article identity exceeds its allowed length.');
-      }
-    }
+    $this->id = $id;
+    $this->kind = $identity->kind;
+    $this->partId = $identity->partId;
+    $this->typeCode = $identity->typeCode;
+    $this->identityTemplate = $identity->identityTemplate;
+    $this->quantity = $amounts->quantity;
+    $this->unitCost = $amounts->unitCost;
+    $this->receivedQuantity = $amounts->receivedQuantity;
+    $this->returnedQuantity = $amounts->returnedQuantity;
+    $this->partCode = $identity->partCode;
+    $this->partLabel = $identity->partLabel;
+    $this->partUnit = $identity->partUnit;
+    $this->identity = $identity;
   }
   // #endregion
 
@@ -103,18 +129,15 @@ final readonly class ProcurementLine
    * @access public
    *
    * @param string $id the stable line UUID
-   * @param string $kind part or equipment_to_individualize
-   * @param ?string $partId the article UUID
-   * @param ?string $typeCode the declared equipment type
-   * @param array<string, mixed> $identityTemplate the declarative template
+   * @param ProcurementGoodsIdentity $identity the validated goods snapshot
    * @param string $quantity the positive exact ordered quantity
    * @param ?string $unitCost the exact unit amount, or unknown
    *
    * @return self the draft line
    */
-  public static function create(string $id, string $kind, ?string $partId, ?string $typeCode, array $identityTemplate, string $quantity, ?string $unitCost, ?string $partCode = null, ?string $partLabel = null, ?string $partUnit = null): self
+  public static function create(string $id, ProcurementGoodsIdentity $identity, string $quantity, ?string $unitCost): self
   {
-    return self::reconstitute($id, $kind, $partId, $typeCode, $identityTemplate, $quantity, $unitCost, '0.000000', '0.000000', $partCode, $partLabel, $partUnit);
+    return new self($id, $identity, new ProcurementLineAmounts($quantity, $unitCost));
   }
 
   /**
@@ -125,25 +148,14 @@ final readonly class ProcurementLine
    * @access public
    *
    * @param string $id the stable line UUID
-   * @param string $kind part or equipment_to_individualize
-   * @param ?string $partId the article UUID
-   * @param ?string $typeCode the declared equipment type
-   * @param array<string, mixed> $identityTemplate the declarative template
-   * @param string $quantity the positive exact ordered quantity
-   * @param ?string $unitCost the exact unit amount, or unknown
-   * @param string $receivedQuantity the retained exact gross received quantity
-   * @param string $returnedQuantity the retained exact returned quantity
+   * @param ProcurementGoodsIdentity $identity the validated goods snapshot
+   * @param ProcurementLineAmounts $amounts the exact retained quantities and price
    *
    * @return self the validated line snapshot
    */
-  public static function reconstitute(string $id, string $kind, ?string $partId, ?string $typeCode, array $identityTemplate, string $quantity, ?string $unitCost, string $receivedQuantity, string $returnedQuantity, ?string $partCode = null, ?string $partLabel = null, ?string $partUnit = null): self
+  public static function reconstitute(string $id, ProcurementGoodsIdentity $identity, ProcurementLineAmounts $amounts): self
   {
-    $cost = null === $unitCost ? null : DecimalAmount::fromString($unitCost);
-    if (null !== $cost && $cost->isNegative()) {
-      throw ProcurementException::invalid('A procurement unit cost cannot be negative.');
-    }
-
-    return new self($id, $kind, $partId, null === $typeCode ? null : trim($typeCode), $identityTemplate, DecimalAmount::fromString($quantity)->toString(), $cost?->toString(), DecimalAmount::fromString($receivedQuantity)->toString(), DecimalAmount::fromString($returnedQuantity)->toString(), $partCode, $partLabel, $partUnit);
+    return new self($id, $identity, $amounts);
   }
 
   /**
@@ -164,7 +176,7 @@ final readonly class ProcurementLine
       throw ProcurementException::invalid('A receipt quantity must be positive and cannot exceed the remaining delivery.');
     }
 
-    return new self($this->id, $this->kind, $this->partId, $this->typeCode, $this->identityTemplate, $this->quantity, $this->unitCost, DecimalAmount::fromString($this->receivedQuantity)->add($received)->toString(), $this->returnedQuantity, $this->partCode, $this->partLabel, $this->partUnit);
+    return new self($this->id, $this->identity, new ProcurementLineAmounts($this->quantity, $this->unitCost, DecimalAmount::fromString($this->receivedQuantity)->add($received)->toString(), $this->returnedQuantity));
   }
 
   /**
@@ -185,7 +197,7 @@ final readonly class ProcurementLine
       throw ProcurementException::invalid('A return quantity must be positive and cannot exceed received units not already returned.');
     }
 
-    return new self($this->id, $this->kind, $this->partId, $this->typeCode, $this->identityTemplate, $this->quantity, $this->unitCost, $this->receivedQuantity, DecimalAmount::fromString($this->returnedQuantity)->add($returned)->toString(), $this->partCode, $this->partLabel, $this->partUnit);
+    return new self($this->id, $this->identity, new ProcurementLineAmounts($this->quantity, $this->unitCost, $this->receivedQuantity, DecimalAmount::fromString($this->returnedQuantity)->add($returned)->toString()));
   }
 
   /**
@@ -210,83 +222,6 @@ final readonly class ProcurementLine
   public function returnableQuantity(): string
   {
     return DecimalAmount::fromString($this->receivedQuantity)->subtract(DecimalAmount::fromString($this->returnedQuantity))->toString();
-  }
-
-  /**
-   * Method validateTemplate
-   *
-   * The template is declarative JSON; individual identities are validated through
-   * the Equipment public contract when the goods are actually received.
-   *
-   * @access private
-   *
-   * @param array<array-key, mixed> $template the raw identity template
-   *
-   * @return void
-   */
-  private static function validateTemplate(array $template): void
-  {
-    if (([] !== $template && array_is_list($template)) || count($template) > 50) {
-      throw ProcurementException::invalid('An equipment identity template must be a bounded object.');
-    }
-    foreach ($template as $key => $value) {
-      if (!is_string($key) || '' === trim($key) || mb_strlen($key) > 64) {
-        throw ProcurementException::invalid('Identity template field names must contain 1 to 64 characters.');
-      }
-    }
-
-    $nodes = 0;
-    self::validateTemplateValue($template, 0, $nodes);
-  }
-
-  /**
-   * Method validateTemplateValue
-   *
-   * Rejects objects, nonfinite numbers and unbounded payloads without interpreting
-   * or executing declarative identity properties.
-   *
-   * @access private
-   *
-   * @param mixed $value the candidate JSON value
-   * @param int $depth the current nesting depth
-   * @param int $nodes the number of already visited values
-   *
-   * @return void
-   */
-  private static function validateTemplateValue(mixed $value, int $depth, int &$nodes): void
-  {
-    if (++$nodes > 500 || $depth > 4) {
-      throw ProcurementException::invalid('An identity template exceeds its size or depth bound.');
-    }
-    if (null === $value || is_bool($value) || is_int($value)) {
-      return;
-    }
-    if (is_string($value)) {
-      if (mb_strlen($value) > 2000) {
-        throw ProcurementException::invalid('An identity template value exceeds its maximum length.');
-      }
-
-      return;
-    }
-    if (is_float($value)) {
-      if (!is_finite($value)) {
-        throw ProcurementException::invalid('Identity template numbers must be finite.');
-      }
-
-      return;
-    }
-    if (is_array($value)) {
-      foreach ($value as $key => $item) {
-        if (is_string($key) && mb_strlen($key) > 64) {
-          throw ProcurementException::invalid('An identity template field name exceeds its maximum length.');
-        }
-        self::validateTemplateValue($item, $depth + 1, $nodes);
-      }
-
-      return;
-    }
-
-    throw ProcurementException::invalid('Identity templates must contain declarative JSON values.');
   }
   // #endregion
 }

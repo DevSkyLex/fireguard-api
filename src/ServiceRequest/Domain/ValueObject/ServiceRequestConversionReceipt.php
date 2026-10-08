@@ -25,7 +25,7 @@ final readonly class ServiceRequestConversionReceipt
   {
     try {
       foreach ([$organizationId, $requestId, $clientOperationId, $interventionId, $taskId] as $id) {
-        new Uuid($id);
+        Uuid::assertValid($id);
       }
     } catch (InvalidValueException) {
       throw ServiceRequestException::invalid('Invalid service request conversion identifier.');

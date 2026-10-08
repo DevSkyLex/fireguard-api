@@ -16,6 +16,7 @@ use Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicy
 use Maintenance\Application\Port\Outbound\Directory\{MaintenanceEquipmentDirectoryPort, MaintenanceFacilityLifecyclePort};
 use Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort;
 use Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort;
+use Maintenance\Application\Service\MaintenanceLegacyPlanService;
 use Maintenance\Application\UseCase\Command\Plan\ManageMaintenancePlan\{ManageMaintenancePlanCommand, ManageMaintenancePlanHandler};
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException, MaintenanceValidationException};
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -126,7 +127,8 @@ final class ManageMaintenancePlanHandlerTest extends TestCase
     $ids->method('generate')->willReturn(self::OCCURRENCE);
     $this->events = $this->createMock(EventDispatcherPort::class);
     $this->events->expects(self::atMost(3))->method('dispatch');
-    $this->handler = new ManageMaintenancePlanHandler($this->store, $this->schedules, $this->equipment, $this->facilities, $policy, $this->drafts, $this->work, $authorization, $clock, $ids, $this->events);
+    $legacy = new MaintenanceLegacyPlanService($this->store, $this->schedules, $policy, $this->work, $clock, $ids);
+    $this->handler = new ManageMaintenancePlanHandler($this->store, $this->schedules, $this->equipment, $this->facilities, $policy, $this->drafts, $this->work, $authorization, $clock, $ids, $this->events, $legacy);
   }
 
   #[Test]

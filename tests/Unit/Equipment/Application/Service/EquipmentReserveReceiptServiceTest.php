@@ -11,7 +11,7 @@ use Equipment\Domain\Model\EquipmentTypeCatalog\EquipmentTypeDefinition;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException,OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
@@ -68,6 +68,35 @@ final class EquipmentReserveReceiptServiceTest extends TestCase
     $quota->expects(self::never())->method('assertCanAddMultiple');
     $this->expectException(InvalidValueException::class);
     $this->service($commands, $quota)->reserve(new EquipmentReserveReceiptRequest(self::ORG, self::ACTOR, 'fire_extinguisher', ['assetCode' => 'SAME'], 2));
+  }
+
+  #[Test]
+  #[DataProvider('invalidIdentifiers')]
+  public function invalidIdentifiersAreRejectedBeforeAuthorizationOrReserveCreation(string $organizationId, string $actorId): void
+  {
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::never())->method('dispatch');
+    $transactions = $this->createMock(TransactionManagerPort::class);
+    $transactions->expects(self::never())->method('transactional');
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAddMultiple');
+    $catalog = $this->createMock(EquipmentTypeCatalogPort::class);
+    $catalog->expects(self::never())->method('find');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::never())->method('resolveAccess');
+
+    $this->expectException(InvalidValueException::class);
+    new EquipmentReserveReceiptService($commands, $transactions, $quota, $catalog, $authorization)
+      ->reserve(new EquipmentReserveReceiptRequest($organizationId, $actorId, 'fire_extinguisher', [], 1));
+  }
+
+  /**
+   * @return iterable<string, array{string, string}>
+   */
+  public static function invalidIdentifiers(): iterable
+  {
+    yield 'organization' => ['invalid-organization', self::ACTOR];
+    yield 'actor' => [self::ORG, 'invalid-actor'];
   }
 
   private function service(CommandBusPort $commands, OrganizationQuotaPort $quota, OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED, bool $archived = false): EquipmentReserveReceiptService

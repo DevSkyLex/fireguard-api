@@ -7,6 +7,11 @@ namespace Inventory\Presentation\Api\Operation;
 /** @category Operation */
 final class InventoryOperations
 {
+  /**
+   * Constant AUTHENTICATED_USER
+   */
+  public const string AUTHENTICATED_USER = "is_granted('ROLE_USER')";
+
   public const string PARTS_LIST = 'inventory_parts_list';
 
   public const string PARTS_GET = 'inventory_parts_get';

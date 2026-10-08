@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Maintenance\Domain\Model;
 
 use DateTimeImmutable;
-use Maintenance\Domain\ValueObject\{MaintenanceOperationKind, PlanCadence};
+use Maintenance\Domain\ValueObject\{MaintenanceOperationKind, MaintenancePlanCalendar, MaintenancePlanIdentity, PlanCadence};
 use Shared\Domain\Exception\InvalidValueException;
-use Shared\Domain\ValueObject\Uuid;
 
-use function max;
 use function mb_strlen;
 use function trim;
 
@@ -22,6 +20,50 @@ use function trim;
  */
 final class MaintenancePlan
 {
+  // #region Properties
+  /**
+   * Property id
+   *
+   * Identifies the operation within its validated ownership scope.
+   */
+  public readonly string $id;
+
+  /**
+   * Property organizationId
+   *
+   * Identifies the organization owning the operation.
+   */
+  public readonly string $organizationId;
+
+  /**
+   * Property equipmentId
+   *
+   * Identifies the equipment whose operation is independently scheduled.
+   */
+  public readonly string $equipmentId;
+
+  /**
+   * Property cadence
+   *
+   * Exposes the immutable interval and calculation mode.
+   */
+  public readonly PlanCadence $cadence;
+
+  /**
+   * Property anchorAt
+   *
+   * Retains the original calendar anchor through month-end clamping.
+   */
+  public readonly ?DateTimeImmutable $anchorAt;
+
+  /**
+   * Property legacy
+   *
+   * Exposes the explicit historical arithmetic marker.
+   */
+  public readonly bool $legacy;
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -30,52 +72,33 @@ final class MaintenancePlan
    *
    * @access private
    *
-   * @param string $id the plan UUID
-   * @param string $organizationId the owning organization UUID
-   * @param string $equipmentId the equipment UUID
+   * @param MaintenancePlanIdentity $identity the validated plan ownership scope
    * @param string $name the operation's display name
    * @param MaintenanceOperationKind $kind the independently scheduled operation
-   * @param PlanCadence $cadence the explicit interval and calculation mode
-   * @param ?DateTimeImmutable $anchorAt the original fixed due date, absent for unscheduled historical rows
-   * @param ?DateTimeImmutable $nextDueAt the next due date
+   * @param MaintenancePlanCalendar $calendar the validated anchored or historical calendar
    * @param DateTimeImmutable $createdAt the creation instant
-   * @param bool $legacy whether the plan preserves historical sliding arithmetic
    * @param bool $archived whether generation has been stopped
    *
    * @return void
    */
   private function __construct(
-    public readonly string $id,
-    public readonly string $organizationId,
-    public readonly string $equipmentId,
+    MaintenancePlanIdentity $identity,
     public readonly string $name,
     public readonly MaintenanceOperationKind $kind,
-    public readonly PlanCadence $cadence,
-    public readonly ?DateTimeImmutable $anchorAt,
-    private ?DateTimeImmutable $nextDueAt,
+    private MaintenancePlanCalendar $calendar,
     public readonly DateTimeImmutable $createdAt,
-    public readonly bool $legacy,
     private bool $archived,
   ) {
-    new Uuid($id);
-    new Uuid($organizationId);
-    new Uuid($equipmentId);
-
     if ('' === trim($name) || mb_strlen($name) > 200) {
       throw InvalidValueException::because('A maintenance plan needs a name of at most 200 characters.');
     }
 
-    if ($legacy !== $cadence->legacy || (!$legacy && (null === $anchorAt || null === $nextDueAt))) {
-      throw InvalidValueException::because('A fixed plan needs an anchor and next due date; its calculation mode must match its cadence.');
-    }
-
-    if (null !== $anchorAt && null !== $nextDueAt && !$legacy && $nextDueAt < $anchorAt) {
-      throw InvalidValueException::because('A fixed plan cannot be due before its original anchor.');
-    }
-
-    if (null !== $anchorAt && null !== $nextDueAt && !$legacy && $cadence->preview($anchorAt, $nextDueAt, 1)[0]->format('U.u') !== $nextDueAt->format('U.u')) {
-      throw InvalidValueException::because('A fixed plan must be due on a calendar slot derived from its original anchor.');
-    }
+    $this->id = $identity->id;
+    $this->organizationId = $identity->organizationId;
+    $this->equipmentId = $identity->equipmentId;
+    $this->cadence = $calendar->cadence;
+    $this->anchorAt = $calendar->anchorAt;
+    $this->legacy = $calendar->legacy;
   }
   // #endregion
 
@@ -87,9 +110,7 @@ final class MaintenancePlan
    *
    * @access public
    *
-   * @param string $id the plan UUID
-   * @param string $organizationId the owning organization UUID
-   * @param string $equipmentId the equipment UUID
+   * @param MaintenancePlanIdentity $identity the validated plan ownership scope
    * @param string $name the operation's display name
    * @param MaintenanceOperationKind $kind the independently scheduled operation
    * @param PlanCadence $cadence the explicit interval
@@ -100,9 +121,7 @@ final class MaintenancePlan
    * @return self the new plan
    */
   public static function create(
-    string $id,
-    string $organizationId,
-    string $equipmentId,
+    MaintenancePlanIdentity $identity,
     string $name,
     MaintenanceOperationKind $kind,
     PlanCadence $cadence,
@@ -110,7 +129,7 @@ final class MaintenancePlan
     DateTimeImmutable $now,
     bool $legacy = false,
   ): self {
-    return new self($id, $organizationId, $equipmentId, trim($name), $kind, $cadence, $firstDueAt, $firstDueAt, $now, $legacy, false);
+    return new self($identity, trim($name), $kind, MaintenancePlanCalendar::start($cadence, $firstDueAt, $legacy), $now, false);
   }
 
   /**
@@ -121,34 +140,24 @@ final class MaintenancePlan
    *
    * @access public
    *
-   * @param string $id the plan UUID
-   * @param string $organizationId the owning organization UUID
-   * @param string $equipmentId the equipment UUID
+   * @param MaintenancePlanIdentity $identity the validated plan ownership scope
    * @param string $name the operation's display name
    * @param MaintenanceOperationKind $kind the independently scheduled operation
-   * @param PlanCadence $cadence the explicit interval
-   * @param ?DateTimeImmutable $firstDueAt the original calendar anchor
-   * @param ?DateTimeImmutable $nextDueAt the stored due date
+   * @param MaintenancePlanCalendar $calendar the restored calendar with its original anchor and due slot
    * @param DateTimeImmutable $createdAt the original creation instant
-   * @param bool $legacy whether the plan preserves historical sliding arithmetic
    * @param bool $archived whether generation is stopped
    *
    * @return self the restored plan
    */
   public static function reconstitute(
-    string $id,
-    string $organizationId,
-    string $equipmentId,
+    MaintenancePlanIdentity $identity,
     string $name,
     MaintenanceOperationKind $kind,
-    PlanCadence $cadence,
-    ?DateTimeImmutable $firstDueAt,
-    ?DateTimeImmutable $nextDueAt,
+    MaintenancePlanCalendar $calendar,
     DateTimeImmutable $createdAt,
-    bool $legacy,
     bool $archived,
   ): self {
-    return new self($id, $organizationId, $equipmentId, $name, $kind, $cadence, $firstDueAt, $nextDueAt, $createdAt, $legacy, $archived);
+    return new self($identity, $name, $kind, $calendar, $createdAt, $archived);
   }
 
   /**
@@ -162,7 +171,7 @@ final class MaintenancePlan
    */
   public function nextDueAt(): ?DateTimeImmutable
   {
-    return $this->nextDueAt;
+    return $this->calendar->nextDueAt;
   }
 
   /**
@@ -192,11 +201,7 @@ final class MaintenancePlan
    */
   public function preview(int $count = 3): array
   {
-    if (null === $this->nextDueAt) {
-      return [];
-    }
-
-    return $this->cadence->preview($this->anchorAt ?? $this->nextDueAt, $this->nextDueAt, $count);
+    return $this->calendar->preview($count);
   }
 
   /**
@@ -213,17 +218,7 @@ final class MaintenancePlan
    */
   public function complete(DateTimeImmutable $validatedAt): void
   {
-    if ($this->legacy) {
-      $this->nextDueAt = $this->cadence->addTo($validatedAt);
-
-      return;
-    }
-
-    if (null === $this->anchorAt || null === $this->nextDueAt) {
-      throw InvalidValueException::because('A fixed maintenance plan needs an explicit calendar.');
-    }
-
-    $this->nextDueAt = $this->cadence->nextAfter($this->anchorAt, max($this->nextDueAt, $validatedAt));
+    $this->calendar = $this->calendar->advance($validatedAt);
   }
 
   /**
@@ -254,7 +249,7 @@ final class MaintenancePlan
    */
   public function canGenerate(bool $siteArchived, bool $equipmentRetired): bool
   {
-    return !$this->archived && !$siteArchived && !$equipmentRetired && null !== $this->nextDueAt;
+    return !$this->archived && !$siteArchived && !$equipmentRetired && null !== $this->calendar->nextDueAt;
   }
   // #endregion
 }

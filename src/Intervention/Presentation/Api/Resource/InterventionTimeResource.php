@@ -20,7 +20,7 @@ use Intervention\Presentation\Api\Provider\InterventionTimeProvider;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(shortName: 'InterventionTime', normalizationContext: ['skip_null_values' => false], operations: [
-  new Get(name: InterventionTimeOperations::GET, uriTemplate: '/intervention-work-items/{taskId}/time-entries/{entryId}', uriVariables: ['taskId', 'entryId'], output: TimeEntryOutput::class, provider: InterventionTimeProvider::class, security: self::SECURITY_ROLE_USER),
+  new Get(name: InterventionTimeOperations::GET, uriTemplate: self::ENTRY_URI, uriVariables: ['taskId', 'entryId'], output: TimeEntryOutput::class, provider: InterventionTimeProvider::class, security: self::SECURITY_ROLE_USER),
   new Get(name: InterventionTimeOperations::LIST, uriTemplate: '/intervention-work-items/{taskId}/time-entries', uriVariables: ['taskId'], output: TimeJournalOutput::class, provider: InterventionTimeProvider::class, security: self::SECURITY_ROLE_USER, parameters: [
     'page' => new QueryParameter(schema: ['type' => 'integer', 'minimum' => 1, 'default' => 1], castToArray: false, castToNativeType: false, constraints: []),
     'itemsPerPage' => new QueryParameter(schema: ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 30], castToArray: false, castToNativeType: false, constraints: []),
@@ -31,12 +31,19 @@ use Intervention\Presentation\Api\Provider\InterventionTimeProvider;
     'itemsPerPage' => new QueryParameter(schema: ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 30], castToArray: false, castToNativeType: false, constraints: []),
   ]),
   new Post(name: InterventionTimeOperations::CREATE, uriTemplate: '/intervention-work-items/{taskId}/time-entries', uriVariables: ['taskId'], read: false, input: WriteTimeEntryInput::class, output: TimeEntryOutput::class, processor: InterventionTimeProcessor::class, status: 201, security: self::SECURITY_ROLE_USER),
-  new Patch(name: InterventionTimeOperations::CORRECT, uriTemplate: '/intervention-work-items/{taskId}/time-entries/{entryId}', uriVariables: ['taskId', 'entryId'], read: false, input: WriteTimeEntryInput::class, output: TimeEntryOutput::class, processor: InterventionTimeProcessor::class, security: self::SECURITY_ROLE_USER),
-  new Delete(name: InterventionTimeOperations::CANCEL, uriTemplate: '/intervention-work-items/{taskId}/time-entries/{entryId}', uriVariables: ['taskId', 'entryId'], read: false, input: false, output: false, processor: InterventionTimeProcessor::class, status: 204, security: self::SECURITY_ROLE_USER),
+  new Patch(name: InterventionTimeOperations::CORRECT, uriTemplate: self::ENTRY_URI, uriVariables: ['taskId', 'entryId'], read: false, input: WriteTimeEntryInput::class, output: TimeEntryOutput::class, processor: InterventionTimeProcessor::class, security: self::SECURITY_ROLE_USER),
+  new Delete(name: InterventionTimeOperations::CANCEL, uriTemplate: self::ENTRY_URI, uriVariables: ['taskId', 'entryId'], read: false, input: false, output: false, processor: InterventionTimeProcessor::class, status: 204, security: self::SECURITY_ROLE_USER),
 ])]
 final class InterventionTimeResource
 {
   // #region Constants
+  /**
+   * Constant ENTRY_URI
+   *
+   * Identifies one time entry consistently for reading, correction and cancellation.
+   */
+  private const string ENTRY_URI = '/intervention-work-items/{taskId}/time-entries/{entryId}';
+
   /**
    * Constant SECURITY_ROLE_USER
    */

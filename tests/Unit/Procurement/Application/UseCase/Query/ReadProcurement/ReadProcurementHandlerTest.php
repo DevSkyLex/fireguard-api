@@ -16,7 +16,7 @@ use Procurement\Application\Service\ProcurementProjection;
 use Procurement\Application\UseCase\Query\ReadProcurement\{ReadProcurementHandler, ReadProcurementQuery};
 use Procurement\Domain\Exception\ProcurementException;
 use Procurement\Domain\Model\{PurchaseOrder, Supplier};
-use Procurement\Domain\ValueObject\ProcurementLine;
+use Procurement\Domain\ValueObject\{ProcurementGoodsIdentity, ProcurementLine, SupplierDetails};
 
 use function array_key_exists;
 
@@ -477,7 +477,7 @@ final class ReadProcurementHandlerTest extends TestCase
    */
   private function supplier(): Supplier
   {
-    return Supplier::create(self::SUPPLIER, self::ORGANIZATION, 'Supplier', 'SUP', 'sales@example.com', null, [], $this->now());
+    return Supplier::create(self::SUPPLIER, self::ORGANIZATION, new SupplierDetails('Supplier', 'SUP', 'sales@example.com', null, []), $this->now());
   }
 
   /**
@@ -489,7 +489,7 @@ final class ReadProcurementHandlerTest extends TestCase
    */
   private function order(): PurchaseOrder
   {
-    $line = ProcurementLine::create(self::LINE, 'part', '018fa007-1111-7111-8111-111111111111', null, [], '0.25', '12.123456');
+    $line = ProcurementLine::create(self::LINE, new ProcurementGoodsIdentity('part', '018fa007-1111-7111-8111-111111111111', null, []), '0.25', '12.123456');
 
     return PurchaseOrder::create(self::ORDER, self::ORGANIZATION, self::SUPPLIER, 'EUR', 'Order', [$line], $this->now());
   }

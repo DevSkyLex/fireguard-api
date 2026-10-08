@@ -17,6 +17,7 @@ use ServiceRequest\Application\UseCase\Command\ChangeServiceRequest\{ChangeServi
 use ServiceRequest\Domain\Event\ServiceRequestChangedEvent;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
+use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestTarget};
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
 
 /**
@@ -210,10 +211,10 @@ final class ChangeServiceRequestHandlerTest extends TestCase
 
   private function request(?string $equipmentId = self::EQUIPMENT): ServiceRequest
   {
-    return ServiceRequest::create(self::REQUEST, self::ORGANIZATION, $equipmentId, self::SITE, [
+    return ServiceRequest::create(self::REQUEST, self::ORGANIZATION, new ServiceRequestTarget($equipmentId, self::SITE, [
       'equipment' => null === $equipmentId ? null : ['id' => $equipmentId, 'name' => 'Extincteur', 'assetCode' => 'EXT-001', 'status' => 'active'],
       'site' => ['id' => self::SITE, 'name' => 'Reported site'],
       'customer' => ['id' => self::CUSTOMER, 'name' => 'Reported customer'],
-    ], 'Poignée cassée', 'Le contrôle signale une poignée cassée.', new DateTimeImmutable('2026-10-06T11:00:00+00:00'), originInspectionId: self::INSPECTION);
+    ], self::INSPECTION, null), new ServiceRequestContent('Poignée cassée', 'Le contrôle signale une poignée cassée.', 'normal'), new DateTimeImmutable('2026-10-06T11:00:00+00:00'));
   }
 }

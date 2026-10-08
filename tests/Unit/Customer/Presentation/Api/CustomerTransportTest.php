@@ -10,12 +10,13 @@ use Customer\Application\UseCase\Command\ChangeCustomer\{ChangeCustomerCommand, 
 use Customer\Application\UseCase\Command\CreateCustomer\{CreateCustomerCommand, CreateCustomerResult};
 use Customer\Application\UseCase\Query\ListCustomers\{ListCustomersQuery, ListCustomersResult};
 use Customer\Domain\Model\Customer\Customer;
+use Customer\Domain\ValueObject\CustomerDetails;
 use Customer\Presentation\Api\Dto\Input\{ChangeCustomerInput, CreateCustomerInput};
 use Customer\Presentation\Api\Operation\CustomerOperations;
 use Customer\Presentation\Api\Processor\CustomerProcessor;
 use Customer\Presentation\Api\Provider\CustomerProvider;
 use DateTimeImmutable;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\CurrentActorPort;
@@ -53,6 +54,33 @@ final class CustomerTransportTest extends TestCase
   }
 
   #[Test]
+  #[DataProvider('revisionHeaders')]
+  public function preservesAbsentAndMalformedRevisionHeadersForApplicationChecks(?string $header, ?int $revision): void
+  {
+    $requests = new RequestStack();
+    $request = Request::create('/', 'PATCH', content: '{"code":null}');
+    if (null !== $header) {
+      $request->headers->set('If-Match', $header);
+    }
+    $requests->push($request);
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::once())->method('dispatch')->with(self::callback(static fn (ChangeCustomerCommand $command): bool => $revision === $command->expectedRevision && ['code' => null] === $command->changes))->willReturn(new ChangeCustomerResult($this->view()));
+
+    new CustomerProcessor($commands, $this->actor(), $requests)->process(new ChangeCustomerInput(), new Patch(name: CustomerOperations::PATCH), ['organizationId' => self::ORG, 'id' => self::ID]);
+  }
+
+  /**
+   * @return iterable<string,array{?string,?int}>
+   */
+  public static function revisionHeaders(): iterable
+  {
+    yield 'absent' => [null, null];
+    yield 'unquoted' => ['revision-1', -1];
+    yield 'invalid number' => ['"revision-invalid"', -1];
+    yield 'negative number' => ['"revision--1"', -1];
+  }
+
+  #[Test]
   public function collectionCarriesSearchArchivalAndPagination(): void
   {
     $requests = new RequestStack();
@@ -66,7 +94,7 @@ final class CustomerTransportTest extends TestCase
 
   private function view(): CustomerView
   {
-    return CustomerView::fromCustomer(Customer::create(self::ID, self::ORG, 'Owner', null, null, null, [], new DateTimeImmutable()));
+    return CustomerView::fromCustomer(Customer::create(self::ID, self::ORG, new CustomerDetails('Owner', null, null, null, []), new DateTimeImmutable()));
   }
 
   private function actor(): CurrentActorPort

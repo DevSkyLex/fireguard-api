@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maintenance\Domain\Model;
 
 use DateTimeImmutable;
-use Maintenance\Domain\ValueObject\MaintenanceOperationKind;
+use Maintenance\Domain\ValueObject\{MaintenanceOccurrenceAttempt, MaintenanceOperationKind};
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Uuid;
 
@@ -30,10 +30,7 @@ final class MaintenanceOccurrence
    * @param string $planId the owning plan UUID
    * @param DateTimeImmutable $dueAt the immutable original due date
    * @param DateTimeImmutable $createdAt the reservation instant
-   * @param int $attempt the number of explicitly started attempts
-   * @param ?string $interventionId the latest attempted intervention UUID
-   * @param ?DateTimeImmutable $completedAt the validated completion instant
-   * @param ?string $resultId the latest validated result UUID
+   * @param MaintenanceOccurrenceAttempt $attempt the validated work and receipt lifecycle
    *
    * @return void
    */
@@ -42,29 +39,11 @@ final class MaintenanceOccurrence
     public readonly string $planId,
     public readonly DateTimeImmutable $dueAt,
     public readonly DateTimeImmutable $createdAt,
-    private int $attempt,
-    private ?string $interventionId,
-    private ?DateTimeImmutable $completedAt,
-    private ?string $resultId,
+    private MaintenanceOccurrenceAttempt $attempt,
   ) {
-    new Uuid($id);
-    new Uuid($planId);
-    if (null !== $interventionId) {
-      new Uuid($interventionId);
-    }
-    if (null !== $resultId) {
-      new Uuid($resultId);
-    }
-
-    if ($attempt < 0 || (0 === $attempt) !== (null === $interventionId)) {
-      throw InvalidValueException::because('An occurrence attempt must identify its intervention.');
-    }
-
-    if (null !== $resultId && null === $interventionId) {
-      throw InvalidValueException::because('An occurrence result must belong to an explicit attempt.');
-    }
-
-    if (null !== $completedAt && (null === $resultId || $completedAt < $createdAt)) {
+    Uuid::assertValid($id);
+    Uuid::assertValid($planId);
+    if (null !== $attempt->completedAt && $attempt->completedAt < $createdAt) {
       throw InvalidValueException::because('A completed occurrence must retain a validated result after reservation.');
     }
   }
@@ -87,7 +66,7 @@ final class MaintenanceOccurrence
    */
   public static function open(string $id, string $planId, DateTimeImmutable $dueAt, DateTimeImmutable $now): self
   {
-    return new self($id, $planId, $dueAt, $now, 0, null, null, null);
+    return new self($id, $planId, $dueAt, $now, MaintenanceOccurrenceAttempt::unattempted());
   }
 
   /**
@@ -101,10 +80,7 @@ final class MaintenanceOccurrence
    * @param string $planId the owning plan UUID
    * @param DateTimeImmutable $dueAt the immutable original due date
    * @param DateTimeImmutable $createdAt the reservation instant
-   * @param int $attempt the explicit attempt count
-   * @param ?string $interventionId the latest attempted intervention UUID
-   * @param ?DateTimeImmutable $completedAt the completion instant
-   * @param ?string $resultId the latest validated result UUID
+   * @param MaintenanceOccurrenceAttempt $attempt the restored work and receipt lifecycle
    *
    * @return self the restored occurrence
    */
@@ -113,12 +89,9 @@ final class MaintenanceOccurrence
     string $planId,
     DateTimeImmutable $dueAt,
     DateTimeImmutable $createdAt,
-    int $attempt,
-    ?string $interventionId,
-    ?DateTimeImmutable $completedAt,
-    ?string $resultId,
+    MaintenanceOccurrenceAttempt $attempt,
   ): self {
-    return new self($id, $planId, $dueAt, $createdAt, $attempt, $interventionId, $completedAt, $resultId);
+    return new self($id, $planId, $dueAt, $createdAt, $attempt);
   }
 
   /**
@@ -134,17 +107,7 @@ final class MaintenanceOccurrence
    */
   public function beginAttempt(string $interventionId): void
   {
-    new Uuid($interventionId);
-
-    if ($this->interventionId === $interventionId) {
-      return;
-    }
-    if (null !== $this->completedAt || null !== $this->interventionId) {
-      throw InvalidValueException::because('An existing occurrence attempt needs an explicit retry.');
-    }
-
-    $this->interventionId = $interventionId;
-    $this->attempt = 1;
+    $this->attempt = $this->attempt->beginAttempt($interventionId);
   }
 
   /**
@@ -161,18 +124,7 @@ final class MaintenanceOccurrence
    */
   public function retryAttempt(string $interventionId): void
   {
-    new Uuid($interventionId);
-
-    if (null !== $this->completedAt || null === $this->interventionId) {
-      throw InvalidValueException::because('Only an attempted open occurrence can be retried.');
-    }
-    if ($this->interventionId === $interventionId) {
-      return;
-    }
-
-    ++$this->attempt;
-    $this->interventionId = $interventionId;
-    $this->resultId = null;
+    $this->attempt = $this->attempt->retryAttempt($interventionId);
   }
 
   /**
@@ -196,21 +148,18 @@ final class MaintenanceOccurrence
     string $resultId,
     DateTimeImmutable $validatedAt,
   ): bool {
-    new Uuid($resultId);
+    Uuid::assertValid($resultId);
 
-    if ($this->resultId === $resultId) {
-      return null !== $this->completedAt;
+    if ($this->attempt->resultId === $resultId) {
+      return null !== $this->attempt->completedAt;
     }
-    if (null === $this->interventionId || null !== $this->resultId || null !== $this->completedAt || $validatedAt < $this->createdAt) {
+    if ($validatedAt < $this->createdAt) {
       throw InvalidValueException::because('A result must validate the current occurrence attempt exactly once.');
     }
 
-    $this->resultId = $resultId;
-    if ($kind->completesOccurrence($successful)) {
-      $this->completedAt = $validatedAt;
-    }
+    $this->attempt = $this->attempt->validateResult($kind, $successful, $resultId, $validatedAt);
 
-    return null !== $this->completedAt;
+    return null !== $this->attempt->completedAt;
   }
 
   /**
@@ -224,7 +173,7 @@ final class MaintenanceOccurrence
    */
   public function state(): string
   {
-    return null === $this->completedAt ? 'open' : 'completed';
+    return null === $this->attempt->completedAt ? 'open' : 'completed';
   }
 
   /**
@@ -238,7 +187,7 @@ final class MaintenanceOccurrence
    */
   public function attempt(): int
   {
-    return $this->attempt;
+    return $this->attempt->number;
   }
 
   /**
@@ -252,7 +201,7 @@ final class MaintenanceOccurrence
    */
   public function interventionId(): ?string
   {
-    return $this->interventionId;
+    return $this->attempt->interventionId;
   }
 
   /**
@@ -266,7 +215,7 @@ final class MaintenanceOccurrence
    */
   public function completedAt(): ?DateTimeImmutable
   {
-    return $this->completedAt;
+    return $this->attempt->completedAt;
   }
 
   /**
@@ -280,7 +229,7 @@ final class MaintenanceOccurrence
    */
   public function resultId(): ?string
   {
-    return $this->resultId;
+    return $this->attempt->resultId;
   }
   // #endregion
 }

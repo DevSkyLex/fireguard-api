@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
+use Throwable;
 
 use function is_string;
 use function str_starts_with;
@@ -32,7 +33,7 @@ final readonly class MaintenanceCostFailureSubscriber implements EventSubscriber
     $costOperation = is_string($operation) && (str_starts_with($operation, 'maintenance_cost_') || str_starts_with($operation, 'maintenance_economic_'));
     $error = $event->getThrowable();
     do {
-      $reason = $error instanceof MaintenanceCostException ? $error->reason : ($costOperation && ($error instanceof InvalidValueException || $error instanceof NotNormalizableValueException) ? 'maintenance_cost_invalid' : null);
+      $reason = $this->reason($error, $costOperation);
       if (null !== $reason) {
         $status = match ($reason) {
           'maintenance_cost_not_found' => 404,
@@ -48,5 +49,26 @@ final readonly class MaintenanceCostFailureSubscriber implements EventSubscriber
       }
       $error = $error->getPrevious();
     } while (null !== $error);
+  }
+
+  /**
+   * Method reason
+   *
+   * Limits generic validation errors to this module's operations.
+   *
+   * @access private
+   *
+   * @param Throwable $error failure at the current exception-chain position
+   * @param bool $costOperation whether this request belongs to the financial surface
+   *
+   * @return ?string module error code when owned by this subscriber
+   */
+  private function reason(Throwable $error, bool $costOperation): ?string
+  {
+    if ($error instanceof MaintenanceCostException) {
+      return $error->reason;
+    }
+
+    return $costOperation && ($error instanceof InvalidValueException || $error instanceof NotNormalizableValueException) ? 'maintenance_cost_invalid' : null;
   }
 }

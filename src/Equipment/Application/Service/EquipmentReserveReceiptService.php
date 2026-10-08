@@ -32,8 +32,8 @@ final readonly class EquipmentReserveReceiptService implements EquipmentReserveR
 
   public function reserve(EquipmentReserveReceiptRequest $request): EquipmentReserveReceiptResult
   {
-    new Uuid($request->organizationId);
-    new Uuid($request->actorId);
+    Uuid::assertValid($request->organizationId);
+    Uuid::assertValid($request->actorId);
     if ($request->quantity < 1 || $request->quantity > 100) {
       throw new InvalidValueException('Reserve batches must contain between one and one hundred equipment.');
     }

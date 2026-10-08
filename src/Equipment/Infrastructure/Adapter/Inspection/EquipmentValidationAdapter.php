@@ -24,6 +24,15 @@ use function sprintf;
  */
 final readonly class EquipmentValidationAdapter implements EquipmentValidationPort
 {
+  // #region Constants
+  /**
+   * Constant NOT_FOUND_MESSAGE
+   *
+   * Unknown and foreign equipment share the same refusal.
+   */
+  private const string NOT_FOUND_MESSAGE = 'Equipment with ID "%s" not found.';
+  // #endregion
+
   // #region Constructor
   /**
    * Method __construct
@@ -51,7 +60,7 @@ final readonly class EquipmentValidationAdapter implements EquipmentValidationPo
     $equipment = $this->equipmentRepository->findById(EquipmentId::fromString($equipmentId));
 
     if (null === $equipment || (string) $equipment->organizationId() !== $organizationId) {
-      throw new InvalidArgumentException(sprintf('Equipment with ID "%s" not found.', $equipmentId));
+      throw new InvalidArgumentException(sprintf(self::NOT_FOUND_MESSAGE, $equipmentId));
     }
   }
 
@@ -66,7 +75,7 @@ final readonly class EquipmentValidationAdapter implements EquipmentValidationPo
       $equipment = null;
     }
     if (null === $equipment || (string) $equipment->organizationId() !== $organizationId) {
-      throw new InvalidArgumentException(sprintf('Equipment with ID "%s" not found.', $equipmentId));
+      throw new InvalidArgumentException(sprintf(self::NOT_FOUND_MESSAGE, $equipmentId));
     }
   }
 
@@ -78,7 +87,7 @@ final readonly class EquipmentValidationAdapter implements EquipmentValidationPo
     $equipment = $this->equipmentRepository->findById(EquipmentId::fromString($equipmentId));
 
     if (null === $equipment || (string) $equipment->organizationId() !== $organizationId) {
-      throw new InvalidArgumentException(sprintf('Equipment with ID "%s" not found.', $equipmentId));
+      throw new InvalidArgumentException(sprintf(self::NOT_FOUND_MESSAGE, $equipmentId));
     }
 
     if ($equipment->status()->isDecommissioned()) {

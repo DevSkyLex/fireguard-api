@@ -7,6 +7,7 @@ namespace Customer\Infrastructure\Persistence\Doctrine\Repository;
 use Customer\Application\Port\Outbound\CustomerRepositoryPort;
 use Customer\Domain\Exception\CustomerException;
 use Customer\Domain\Model\Customer\Customer;
+use Customer\Domain\ValueObject\{CustomerDetails, CustomerHistory};
 use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,6 +21,15 @@ use const JSON_THROW_ON_ERROR;
 /** Class CustomerRepository. Scoped PostgreSQL persistence and concurrency on main. @category Repository */
 final readonly class CustomerRepository implements CustomerRepositoryPort
 {
+  // #region Constants
+  /**
+   * Constant TIMESTAMP_FORMAT
+   *
+   * Preserves the existing PostgreSQL timestamp representation for every lifecycle date.
+   */
+  private const string TIMESTAMP_FORMAT = 'Y-m-d H:i:s.u';
+  // #endregion
+
   public function __construct(private EntityManagerInterface $entityManager)
   {
   }
@@ -34,7 +44,7 @@ final readonly class CustomerRepository implements CustomerRepositoryPort
   public function save(Customer $customer, ?int $expectedRevision = null): void
   {
     $connection = $this->entityManager->getConnection();
-    $values = ['organization_id' => $customer->organizationId, 'name' => $customer->name, 'code' => $customer->code, 'email' => $customer->email, 'phone' => $customer->phone, 'contacts' => json_encode($customer->contacts, JSON_THROW_ON_ERROR), 'archived_at' => $customer->archivedAt?->format('Y-m-d H:i:s.u'), 'created_at' => $customer->createdAt->format('Y-m-d H:i:s.u'), 'updated_at' => $customer->updatedAt->format('Y-m-d H:i:s.u'), 'revision' => $customer->revision];
+    $values = ['organization_id' => $customer->organizationId, 'name' => $customer->name, 'code' => $customer->code, 'email' => $customer->email, 'phone' => $customer->phone, 'contacts' => json_encode($customer->contacts, JSON_THROW_ON_ERROR), 'archived_at' => $customer->archivedAt?->format(self::TIMESTAMP_FORMAT), 'created_at' => $customer->createdAt->format(self::TIMESTAMP_FORMAT), 'updated_at' => $customer->updatedAt->format(self::TIMESTAMP_FORMAT), 'revision' => $customer->revision];
 
     try {
       if (null === $expectedRevision) {
@@ -83,6 +93,9 @@ final readonly class CustomerRepository implements CustomerRepositoryPort
     /** @var list<array{name:string,email:?string,phone:?string,role:?string}> $contacts */
     $contacts = json_decode((string) $row['contacts'], true, 512, JSON_THROW_ON_ERROR);
 
-    return Customer::reconstitute((string) $row['id'], (string) $row['organization_id'], (string) $row['name'], null === $row['code'] ? null : (string) $row['code'], null === $row['email'] ? null : (string) $row['email'], null === $row['phone'] ? null : (string) $row['phone'], $contacts, null === $row['archived_at'] ? null : new DateTimeImmutable((string) $row['archived_at']), new DateTimeImmutable((string) $row['created_at']), new DateTimeImmutable((string) $row['updated_at']), (int) $row['revision']);
+    $details = new CustomerDetails((string) $row['name'], null === $row['code'] ? null : (string) $row['code'], null === $row['email'] ? null : (string) $row['email'], null === $row['phone'] ? null : (string) $row['phone'], $contacts);
+    $history = new CustomerHistory(null === $row['archived_at'] ? null : new DateTimeImmutable((string) $row['archived_at']), new DateTimeImmutable((string) $row['created_at']), new DateTimeImmutable((string) $row['updated_at']), (int) $row['revision']);
+
+    return Customer::reconstitute((string) $row['id'], (string) $row['organization_id'], $details, $history);
   }
 }

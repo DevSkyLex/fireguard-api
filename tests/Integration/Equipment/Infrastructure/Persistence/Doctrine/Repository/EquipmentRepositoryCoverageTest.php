@@ -10,7 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment, RestoredEquipmentHistory};
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use Equipment\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentTimelineParametersMapper;
@@ -96,8 +96,10 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       assignment: new RestoredEquipmentAssignment(
         status: EquipmentStatus::IN_STOCK,
       ),
-      createdAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      history: new RestoredEquipmentHistory(
+        createdAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      ),
     ));
     $this->entityManager->clear();
 
@@ -117,8 +119,10 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
         status: EquipmentStatus::OPERATIONAL,
         facilityId: EquipmentFacilityId::fromString(self::FACILITY_A),
       ),
-      createdAt: new DateTimeImmutable('2026-06-06T00:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-05T00:00:00+00:00'),
+      history: new RestoredEquipmentHistory(
+        createdAt: new DateTimeImmutable('2026-06-06T00:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-05T00:00:00+00:00'),
+      ),
     ));
     $this->entityManager->clear();
 
@@ -151,8 +155,10 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       assignment: new RestoredEquipmentAssignment(
         status: EquipmentStatus::IN_STOCK,
       ),
-      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      history: new RestoredEquipmentHistory(
+        createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      ),
     ));
     $this->entityManager->clear();
 
@@ -168,8 +174,10 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       assignment: new RestoredEquipmentAssignment(
         status: EquipmentStatus::IN_STOCK,
       ),
-      createdAt: new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
+      history: new RestoredEquipmentHistory(
+        createdAt: new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
+      ),
     ));
   }
 
@@ -323,8 +331,10 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       assignment: new RestoredEquipmentAssignment(
         status: EquipmentStatus::IN_STOCK,
       ),
-      createdAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      history: new RestoredEquipmentHistory(
+        createdAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      ),
     ));
   }
 

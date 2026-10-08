@@ -88,13 +88,7 @@ final readonly class ExportArtifact
     foreach ($rows as $row) {
       $cells = [];
       foreach ($columns as $column) {
-        $value = $row[$column] ?? null;
-        $cell = is_bool($value) ? ($value ? 'true' : 'false') : (is_string($value) || is_int($value) ? (string) $value : '');
-        $numeric = in_array($column, ['minutes', 'amount', 'sourceRevision', 'publicationRevision', 'evidenceCount'], true) && 1 === preg_match('/^-?[0-9]+(?:\.[0-9]+)?$/', $cell);
-        if (!$numeric && 1 === preg_match('/^[\x00-\x20]*[=+\-@]/', $cell)) {
-          $cell = "'" . $cell;
-        }
-        $cells[] = '"' . str_replace('"', '""', $cell) . '"';
+        $cells[] = self::csvCell($row[$column] ?? null, $column);
       }
       $lines[] = implode(',', $cells);
     }
@@ -118,6 +112,47 @@ final readonly class ExportArtifact
     $hex = hash('sha256', $key);
 
     return substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-5' . substr($hex, 13, 3) . '-8' . substr($hex, 17, 3) . '-' . substr($hex, 20, 12);
+  }
+
+  /**
+   * Method csvCell
+   *
+   * Preserves ASCII decimal columns while neutralizing formulas in textual values.
+   *
+   * @access private
+   *
+   * @param mixed $value retained column value
+   * @param string $column ordered CSV column
+   *
+   * @return string formula-safe RFC4180 quoted cell
+   */
+  private static function csvCell(mixed $value, string $column): string
+  {
+    $cell = self::csvText($value);
+    $numeric = in_array($column, ['minutes', 'amount', 'sourceRevision', 'publicationRevision', 'evidenceCount'], true) && 1 === preg_match('/^-?\d+(?:\.\d+)?$/', $cell);
+    if (!$numeric && 1 === preg_match('/^[\x00-\x20]*[=+\-@]/', $cell)) {
+      $cell = "'" . $cell;
+    }
+
+    return '"' . str_replace('"', '""', $cell) . '"';
+  }
+
+  /**
+   * Method csvText
+   *
+   * @access private
+   *
+   * @param mixed $value retained scalar or explicit unknown
+   *
+   * @return string exact CSV scalar representation
+   */
+  private static function csvText(mixed $value): string
+  {
+    if (is_bool($value)) {
+      return $value ? 'true' : 'false';
+    }
+
+    return is_string($value) || is_int($value) ? (string) $value : '';
   }
 
   /**

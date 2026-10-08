@@ -60,26 +60,11 @@ final readonly class ExportRows
     foreach ($keys as $key) {
       $old = $before[$key] ?? null;
       $new = $after[$key] ?? null;
-      $oldComparable = $old;
-      $newComparable = $new;
-      if (null !== $oldComparable) {
-        unset($oldComparable['id']);
-      }
-      if (null !== $newComparable) {
-        unset($newComparable['id']);
-      }
-      if (null !== $oldComparable && null !== $newComparable && ExportArtifact::json($oldComparable) === ExportArtifact::json($newComparable)) {
+      if (null !== $old && null !== $new && self::sameFacts($old, $new)) {
         continue;
       }
       if (null !== $old) {
-        $reversal = [...$old, 'id' => ExportArtifact::rowId($adjustmentId . '|reverse|' . $key), 'change' => 'reverse', 'correctionOf' => $old['id']];
-        if (is_int($old['minutes'] ?? null)) {
-          $reversal['minutes'] = -$old['minutes'];
-        }
-        if (is_string($old['amount'] ?? null)) {
-          $reversal['amount'] = DecimalAmount::zero()->subtract(DecimalAmount::fromString($old['amount']))->toString();
-        }
-        $rows[] = $reversal;
+        $rows[] = self::reversal($old, $adjustmentId, $key);
       }
       if (null !== $new) {
         $rows[] = [...$new, 'id' => ExportArtifact::rowId($adjustmentId . '|add|' . $key), 'change' => 'add', 'correctionOf' => $old['id'] ?? null];
@@ -91,6 +76,51 @@ final readonly class ExportRows
     self::assertBounded($rows);
 
     return $rows;
+  }
+
+  /**
+   * Method sameFacts
+   *
+   * Artifact row identity and PostgreSQL object ordering cannot invent a correction.
+   *
+   * @access private
+   *
+   * @param array<string,mixed> $before preceding retained fact
+   * @param array<string,mixed> $after current source fact
+   *
+   * @return bool canonical facts are unchanged
+   */
+  private static function sameFacts(array $before, array $after): bool
+  {
+    unset($before['id'], $after['id']);
+
+    return ExportArtifact::json($before) === ExportArtifact::json($after);
+  }
+
+  /**
+   * Method reversal
+   *
+   * Unknown amounts remain unknown; known quantities are compensated exactly.
+   *
+   * @access private
+   *
+   * @param array<string,mixed> $row preceding retained row
+   * @param string $adjustmentId identity of the compensating artifact
+   * @param string $key stable logical source key
+   *
+   * @return array<string,mixed> linked compensating row
+   */
+  private static function reversal(array $row, string $adjustmentId, string $key): array
+  {
+    $reversal = [...$row, 'id' => ExportArtifact::rowId($adjustmentId . '|reverse|' . $key), 'change' => 'reverse', 'correctionOf' => $row['id']];
+    if (is_int($row['minutes'] ?? null)) {
+      $reversal['minutes'] = -$row['minutes'];
+    }
+    if (is_string($row['amount'] ?? null)) {
+      $reversal['amount'] = DecimalAmount::zero()->subtract(DecimalAmount::fromString($row['amount']))->toString();
+    }
+
+    return $reversal;
   }
 
   /**

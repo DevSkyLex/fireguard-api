@@ -96,9 +96,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
   {
     try {
       $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
-      $type = null !== $query->type
-        ? (null === $this->selectionScopes ? \Equipment\Domain\ValueObject\EquipmentType::from($query->type)->value : EquipmentTypeCode::fromString($query->type)->value)
-        : null;
+      $type = $this->typeFilter($query->type);
       $status = null !== $query->status ? EquipmentStatus::from($query->status)->value : null;
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
@@ -108,17 +106,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       throw InvalidValueException::because('Invalid maintenanceDueStatus filter.');
     }
 
-    $facilityIds = null;
-    if ($query->includeDescendants) {
-      if (null === $query->facilityId) {
-        throw InvalidValueException::because('includeDescendants requires a facilityId.');
-      }
-      $facilityId = EquipmentFacilityId::fromString($query->facilityId);
-      $facilityIds = $this->facilitySubtree->findPublishedSubtreeIds((string) $organizationId, (string) $facilityId);
-      if ([] === $facilityIds) {
-        throw EquipmentNotFoundException::forFacilityScope((string) $facilityId);
-      }
-    }
+    $facilityIds = $this->facilityScope($organizationId, $query);
 
     $criteria = new EquipmentListCriteria(
       facilityId: $query->includeDescendants ? null : $query->facilityId,
@@ -182,6 +170,58 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,
     );
+  }
+
+  /**
+   * Method typeFilter
+   *
+   * Keeps legacy enum validation when no organization catalog resolver is configured.
+   *
+   * @access private
+   *
+   * @param ?string $type requested equipment type, when filtered
+   *
+   * @return ?string validated type code
+   */
+  private function typeFilter(?string $type): ?string
+  {
+    if (null === $type) {
+      return null;
+    }
+    if (null === $this->selectionScopes) {
+      return \Equipment\Domain\ValueObject\EquipmentType::from($type)->value;
+    }
+
+    return EquipmentTypeCode::fromString($type)->value;
+  }
+
+  /**
+   * Method facilityScope
+   *
+   * Resolves a published subtree only for descendant-inclusive requests.
+   *
+   * @access private
+   *
+   * @param EquipmentOrganizationId $organizationId owning organization
+   * @param ListEquipmentsQuery $query requested facility scope
+   *
+   * @return ?list<string> bounded descendant identifiers or null for direct scope
+   */
+  private function facilityScope(EquipmentOrganizationId $organizationId, ListEquipmentsQuery $query): ?array
+  {
+    if (!$query->includeDescendants) {
+      return null;
+    }
+    if (null === $query->facilityId) {
+      throw InvalidValueException::because('includeDescendants requires a facilityId.');
+    }
+    $facilityId = EquipmentFacilityId::fromString($query->facilityId);
+    $facilityIds = $this->facilitySubtree->findPublishedSubtreeIds((string) $organizationId, (string) $facilityId);
+    if ([] === $facilityIds) {
+      throw EquipmentNotFoundException::forFacilityScope((string) $facilityId);
+    }
+
+    return $facilityIds;
   }
 
   /**

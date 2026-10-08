@@ -9,7 +9,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Intervention\Application\Contract\Publication\InterventionFactsScopeTooLarge;
+use Intervention\Application\Contract\Publication\{InterventionEconomicSourceFilter, InterventionFactsScopeTooLarge};
 use Intervention\Application\Port\Inbound\InterventionPublicationFactsPort;
 use Intervention\Infrastructure\Adapter\Publication\InterventionPublicationFactsAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord, PublicationRecord};
@@ -80,7 +80,7 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     self::assertSame(4, $result->totalItems);
     self::assertEqualsCanonicalizing([$start->id, $newest->id, $planned->id, $created->id], array_map(static fn ($context): string => $context->id, $result->items));
     self::assertSame(self::id(204), $this->port()->published($this->organization->id, $newest->id)?->publicationId);
-    $page = $this->port()->economicPage($this->organization->id, from: $from, to: $to);
+    $page = $this->port()->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(from: $from, to: $to));
     self::assertSame(4, $page->totalItems);
     self::assertSame(serialize($result->items), serialize($page->items));
   }
@@ -115,23 +115,23 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     $ids = [$first->id, $second->id, $first->id, $other->id];
     $port = $this->port();
     foreach ([1 => $first->id, 2 => $second->id] as $page => $expected) {
-      $result = $port->economicPage($this->organization->id, page: $page, itemsPerPage: 1, search: 'financial', from: new DateTimeImmutable('2026-10-01T00:00:00Z'), to: new DateTimeImmutable('2026-11-01T00:00:00Z'), equipmentId: self::id(999), financialInterventionIds: $ids);
+      $result = $port->economicPage($this->organization->id, page: $page, itemsPerPage: 1, filter: new InterventionEconomicSourceFilter(search: 'financial', from: new DateTimeImmutable('2026-10-01T00:00:00Z'), to: new DateTimeImmutable('2026-11-01T00:00:00Z'), equipmentId: self::id(999), financialInterventionIds: $ids));
       self::assertSame(2, $result->totalItems);
       self::assertCount(1, $result->items);
       self::assertSame($expected, $result->items[0]->id);
     }
-    $emptyPage = $port->economicPage($this->organization->id, page: 3, itemsPerPage: 1, equipmentId: self::id(999), financialInterventionIds: $ids);
+    $emptyPage = $port->economicPage($this->organization->id, page: 3, itemsPerPage: 1, filter: new InterventionEconomicSourceFilter(equipmentId: self::id(999), financialInterventionIds: $ids));
     self::assertSame(2, $emptyPage->totalItems);
     self::assertSame([], $emptyPage->items);
-    self::assertSame(0, $port->economicPage($this->organization->id, search: 'absent', equipmentId: self::id(999), financialInterventionIds: $ids)->totalItems);
-    self::assertSame(0, $port->economicPage($this->organization->id, from: new DateTimeImmutable('2026-09-01T00:00:00Z'), to: new DateTimeImmutable('2026-10-01T00:00:00Z'), equipmentId: self::id(999), financialInterventionIds: $ids)->totalItems);
+    self::assertSame(0, $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(search: 'absent', equipmentId: self::id(999), financialInterventionIds: $ids))->totalItems);
+    self::assertSame(0, $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(from: new DateTimeImmutable('2026-09-01T00:00:00Z'), to: new DateTimeImmutable('2026-10-01T00:00:00Z'), equipmentId: self::id(999), financialInterventionIds: $ids))->totalItems);
   }
 
   public function testFinancialIdentityUnionRefusesOversizedInput(): void
   {
     $this->expectException(InterventionFactsScopeTooLarge::class);
     $this->expectExceptionMessage('exceeds 10000');
-    $this->port()->economicPage($this->organization->id, financialInterventionIds: array_map(self::id(...), range(1, 10001)));
+    $this->port()->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(financialInterventionIds: array_map(self::id(...), range(1, 10001))));
   }
 
   public function testCapturedPublicationIdentityAndOffsetDateTakePriorityOverLaterCompletionRows(): void
@@ -169,7 +169,7 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     $published = $this->port()->publishedPage($this->organization->id, search: '%_');
     self::assertSame(1, $published->totalItems);
     self::assertSame($captured->id, $published->items[0]->id);
-    $economic = $this->port()->economicPage($this->organization->id, search: '%_');
+    $economic = $this->port()->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(search: '%_'));
     self::assertSame(2, $economic->totalItems);
     self::assertEqualsCanonicalizing([$captured->id, $live->id], array_map(static fn ($context): string => $context->id, $economic->items));
     self::assertSame(1, $this->port()->publishedPage($this->organization->id, search: 'alarm!')->totalItems);
@@ -184,7 +184,7 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     $this->entityManager->flush();
 
     $published = $this->port()->publishedPage($this->organization->id, search: $search);
-    $economic = $this->port()->economicPage($this->organization->id, search: $search);
+    $economic = $this->port()->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(search: $search));
     self::assertSame(1, $published->totalItems);
     self::assertSame($captured->id, $published->items[0]->id);
     self::assertSame(1, $economic->totalItems);
@@ -262,11 +262,11 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     $this->publication(201, $other, '2026-10-01T10:00:00Z');
     $this->entityManager->flush();
     $port = $this->port();
-    foreach ([$port->economicPage($this->organization->id, siteId: self::id(311)), $port->economicPage($this->organization->id, customerId: self::id(310)), $port->economicPage($this->organization->id, equipmentId: self::id(312)), $port->economicPage($this->organization->id, siteId: self::id(321)), $port->economicPage($this->organization->id, customerId: self::id(320))] as $result) {
+    foreach ([$port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(siteId: self::id(311))), $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(customerId: self::id(310))), $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(equipmentId: self::id(312))), $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(siteId: self::id(321))), $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(customerId: self::id(320)))] as $result) {
       self::assertSame(1, $result->totalItems);
       self::assertSame($record->id, $result->items[0]->id);
     }
-    self::assertSame(0, $port->economicPage($this->organization->id, siteId: self::id(311), customerId: self::id(330), equipmentId: self::id(312))->totalItems);
+    self::assertSame(0, $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(siteId: self::id(311), customerId: self::id(330), equipmentId: self::id(312)))->totalItems);
     $context = $port->economicContext($this->organization->id, $record->id);
     self::assertNotNull($context);
     self::assertSame([self::id(302), self::id(312)], array_map(static fn ($work): ?string => $work->equipmentId, $context->workItems));
@@ -300,7 +300,7 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     self::assertNull($context->workItems[2]->customer);
     self::assertNull($context->workItems[3]->equipmentId);
     self::assertFalse($context->identityComplete);
-    $result = $this->port()->economicPage($this->organization->id, siteId: $site->id, customerId: $customer->id, equipmentId: $equipment->id);
+    $result = $this->port()->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(siteId: $site->id, customerId: $customer->id, equipmentId: $equipment->id));
     self::assertSame(1, $result->totalItems);
     self::assertSame($record->id, $result->items[0]->id);
   }
@@ -385,9 +385,9 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     self::assertNull($context->site);
     self::assertNull($context->customer);
     self::assertSame([], $context->workItems);
-    self::assertSame(0, $port->economicPage($this->organization->id, siteId: $site->id)->totalItems);
-    self::assertSame(0, $port->economicPage($this->organization->id, customerId: $customer->id)->totalItems);
-    self::assertSame(0, $port->economicPage($this->organization->id, equipmentId: $equipment->id)->totalItems);
+    self::assertSame(0, $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(siteId: $site->id))->totalItems);
+    self::assertSame(0, $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(customerId: $customer->id))->totalItems);
+    self::assertSame(0, $port->economicPage($this->organization->id, filter: new InterventionEconomicSourceFilter(equipmentId: $equipment->id))->totalItems);
   }
 
   public function testVersionOneRetainsKnownTargetsWithoutInventingFullAssetIdentityOrValidation(): void

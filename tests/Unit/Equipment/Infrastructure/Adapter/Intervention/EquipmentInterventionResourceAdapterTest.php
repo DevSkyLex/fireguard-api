@@ -169,6 +169,36 @@ final class EquipmentInterventionResourceAdapterTest extends TestCase
     self::assertNull($record->planPosition);
   }
 
+  #[Test]
+  public function identityPatchesPreserveOmittedValuesAndClearOnlySubmittedFields(): void
+  {
+    $record = $this->draftRecord('in_stock');
+    $record->recordStatus = 'published';
+    $record->name = 'Panel';
+    $record->assetCode = 'AST-001';
+    $record->criticality = 'high';
+    $record->technicalProperties = [['key' => 'voltage', 'value' => '24', 'unit' => 'V']];
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($record);
+    $synchronizer = $this->createMock(EquipmentMaintenanceLogSynchronizerPort::class);
+    $synchronizer->expects(self::never())->method('syncForStatusTransition');
+    $adapter = $this->adapter($entityManager, $synchronizer);
+
+    $adapter->apply(self::ORGANIZATION_ID, '/api/equipment/' . self::EQUIPMENT_ID, ['brand' => 'Sicli']);
+    self::assertSame('Panel', $record->name);
+    self::assertSame('AST-001', $record->assetCode);
+    self::assertSame('high', $record->criticality);
+    self::assertSame([['key' => 'voltage', 'value' => '24', 'unit' => 'V']], $record->technicalProperties);
+
+    $adapter->apply(self::ORGANIZATION_ID, '/api/equipment/' . self::EQUIPMENT_ID, ['name' => null, 'technicalProperties' => []]);
+    self::assertNull($record->name);
+    self::assertSame([], $record->technicalProperties);
+    self::assertSame('AST-001', $record->assetCode);
+    self::assertSame('high', $record->criticality);
+    self::assertSame('Sicli', $record->brand);
+  }
+
   private function adapter(
     EntityManagerInterface $entityManager,
     EquipmentMaintenanceLogSynchronizerPort $synchronizer,

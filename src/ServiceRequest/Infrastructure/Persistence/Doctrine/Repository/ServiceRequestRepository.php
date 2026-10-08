@@ -13,7 +13,7 @@ use LogicException;
 use ServiceRequest\Application\Port\Outbound\ServiceRequestRepositoryPort;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
-use ServiceRequest\Domain\ValueObject\ServiceRequestConversionReceipt;
+use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestConversionReceipt, ServiceRequestLifecycle, ServiceRequestTarget, ServiceRequestTimeline};
 
 use function array_map;
 use function json_decode;
@@ -173,28 +173,11 @@ final readonly class ServiceRequestRepository implements ServiceRequestRepositor
     $snapshot = json_decode($row['target_snapshot'], true, 512, JSON_THROW_ON_ERROR);
 
     return ServiceRequest::reconstitute(
-      id: $row['id'],
-      organizationId: $row['organization_id'],
-      equipmentId: $row['equipment_id'],
-      siteId: $row['site_id'],
-      targetSnapshot: $snapshot,
-      title: $row['title'],
-      description: $row['description'],
-      priority: $row['priority'],
-      originInspectionId: $row['origin_inspection_id'],
-      originNonConformityId: $row['origin_non_conformity_id'],
-      status: $row['status'],
-      revision: (int) $row['revision'],
-      requestedAt: new DateTimeImmutable($row['requested_at'], new DateTimeZone('UTC')),
-      updatedAt: new DateTimeImmutable($row['updated_at'], new DateTimeZone('UTC')),
-      qualifiedAt: self::date($row['qualified_at']),
-      rejectedAt: self::date($row['rejected_at']),
-      cancelledAt: self::date($row['cancelled_at']),
-      convertedAt: self::date($row['converted_at']),
-      decisionReason: $row['decision_reason'],
-      qualificationNote: $row['qualification_note'],
-      interventionId: $row['intervention_id'],
-      taskId: $row['task_id'],
+      $row['id'],
+      $row['organization_id'],
+      new ServiceRequestTarget($row['equipment_id'], $row['site_id'], $snapshot, $row['origin_inspection_id'], $row['origin_non_conformity_id']),
+      new ServiceRequestContent($row['title'], $row['description'], $row['priority']),
+      new ServiceRequestLifecycle($row['status'], (int) $row['revision'], new ServiceRequestTimeline(new DateTimeImmutable($row['requested_at'], new DateTimeZone('UTC')), new DateTimeImmutable($row['updated_at'], new DateTimeZone('UTC')), self::date($row['qualified_at']), self::date($row['rejected_at']), self::date($row['cancelled_at']), self::date($row['converted_at'])), $row['decision_reason'], $row['qualification_note'], $row['intervention_id'], $row['task_id']),
     );
   }
 

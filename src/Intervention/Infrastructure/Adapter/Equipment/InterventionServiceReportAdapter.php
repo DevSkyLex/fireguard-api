@@ -90,15 +90,7 @@ final readonly class InterventionServiceReportAdapter implements InterventionSer
         }
       }
     }
-    if ('published' === $intervention->status) {
-      foreach ($this->entityManager->getRepository(InterventionWorkItemRecord::class)->findBy(['intervention' => $intervention, 'status' => 'completed', 'action' => ['maintenance', 'repair', 'replacement']], ['id' => 'ASC']) as $item) {
-        if (isset($reportedWorkItems[$item->id]) || 'validated' !== ($item->executionResult['state'] ?? null) || !is_string($item->executionResult['equipmentId'] ?? null)) {
-          continue;
-        }
-        $fact = WorkItemExecutionResult::fromPayload($item->executionResult);
-        $equipment[] = new ServicedEquipmentEntry($fact->equipmentId, $item->action, 'operation:' . $item->id, $item->id, performedAt: $fact->performedAt, notes: $fact->workPerformed, authorId: is_string($item->executionResult['authorId'] ?? null) ? $item->executionResult['authorId'] : null);
-      }
-    }
+    $equipment = [...$equipment, ...$this->completedOperations($intervention, $reportedWorkItems)];
 
     return new InterventionServiceReport(
       number: $intervention->number,
@@ -141,6 +133,35 @@ final readonly class InterventionServiceReportAdapter implements InterventionSer
       notes: $fact?->workPerformed,
       authorId: null !== $fact && is_string($authorId) ? $authorId : null,
     );
+  }
+
+  /**
+   * Method completedOperations
+   *
+   * Adds validated operations only after publication and avoids duplicating tasks represented by applied changes.
+   *
+   * @access private
+   *
+   * @param InterventionRecord $intervention owned intervention
+   * @param array<string,true> $reportedWorkItems tasks already represented in the applied-change history
+   *
+   * @return list<ServicedEquipmentEntry> additional immutable service facts
+   */
+  private function completedOperations(InterventionRecord $intervention, array $reportedWorkItems): array
+  {
+    if ('published' !== $intervention->status) {
+      return [];
+    }
+    $equipment = [];
+    foreach ($this->entityManager->getRepository(InterventionWorkItemRecord::class)->findBy(['intervention' => $intervention, 'status' => 'completed', 'action' => ['maintenance', 'repair', 'replacement']], ['id' => 'ASC']) as $item) {
+      if (isset($reportedWorkItems[$item->id]) || 'validated' !== ($item->executionResult['state'] ?? null) || !is_string($item->executionResult['equipmentId'] ?? null)) {
+        continue;
+      }
+      $fact = WorkItemExecutionResult::fromPayload($item->executionResult);
+      $equipment[] = new ServicedEquipmentEntry($fact->equipmentId, $item->action, 'operation:' . $item->id, $item->id, performedAt: $fact->performedAt, notes: $fact->workPerformed, authorId: is_string($item->executionResult['authorId'] ?? null) ? $item->executionResult['authorId'] : null);
+    }
+
+    return $equipment;
   }
 
   /**

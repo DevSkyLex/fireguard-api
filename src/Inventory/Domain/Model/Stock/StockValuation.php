@@ -11,6 +11,11 @@ use Shared\Domain\ValueObject\DecimalAmount;
 /** Nonnegative quantities and CUMP, with all remaining value allocated on the last issue. @category Model */
 final readonly class StockValuation
 {
+  /**
+   * Constant ZERO
+   */
+  private const string ZERO = '0.000000';
+
   public function __construct(public string $quantity, public ?string $totalValue)
   {
     if (DecimalAmount::fromString($quantity)->isNegative() || (null !== $totalValue && DecimalAmount::fromString($totalValue)->isNegative())) {
@@ -24,9 +29,9 @@ final readonly class StockValuation
     if (null !== $value && DecimalAmount::fromString($value)->isNegative()) {
       throw new InventoryConflictException('Receipt valuation cannot be negative.');
     }
-    $known = '0.000000' === $this->quantity || null !== $this->totalValue;
+    $known = self::ZERO === $this->quantity || null !== $this->totalValue;
 
-    return new self(DecimalAmount::fromString($this->quantity)->add(DecimalAmount::fromString($quantity))->toString(), $known && null !== $value ? DecimalAmount::fromString($this->totalValue ?? '0.000000')->add(DecimalAmount::fromString($value))->toString() : null);
+    return new self(DecimalAmount::fromString($this->quantity)->add(DecimalAmount::fromString($quantity))->toString(), $known && null !== $value ? DecimalAmount::fromString($this->totalValue ?? self::ZERO)->add(DecimalAmount::fromString($value))->toString() : null);
   }
 
   public function issue(string $quantity): StockIssue
@@ -43,7 +48,13 @@ final readonly class StockValuation
       }
     }
     $remaining = DecimalAmount::fromString($this->quantity)->subtract(DecimalAmount::fromString($quantity))->toString();
+    $remainingValue = null;
+    if (self::ZERO === $remaining) {
+      $remainingValue = self::ZERO;
+    } elseif (null !== $value) {
+      $remainingValue = DecimalAmount::fromString($this->totalValue ?? self::ZERO)->subtract(DecimalAmount::fromString($value))->toString();
+    }
 
-    return new StockIssue(new self($remaining, '0.000000' === $remaining ? '0.000000' : (null === $value ? null : DecimalAmount::fromString($this->totalValue ?? '0.000000')->subtract(DecimalAmount::fromString($value))->toString())), $value, null === $value ? null : DecimalAmount::fromString($value)->divide(DecimalAmount::fromString($quantity))->toString());
+    return new StockIssue(new self($remaining, $remainingValue), $value, null === $value ? null : DecimalAmount::fromString($value)->divide(DecimalAmount::fromString($quantity))->toString());
   }
 }

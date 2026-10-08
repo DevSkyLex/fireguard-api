@@ -65,6 +65,11 @@ final class MaintenanceEconomicBucket
     $planned = $this->planned->amount();
     $variance = $current->complete && $planned->complete && $planned->contributionCount > 0 ? bcsub($current->knownTotal, $planned->knownTotal, 6) : null;
 
-    return new MaintenanceEconomicRow($this->id, $this->name, null === $this->id ? 'unallocated' : ('' === $this->state ? 'incomplete' : $this->state), null !== $this->id && $this->allocationComplete, $current, $this->frozen->amount(), $planned, $this->budget->amount(), $variance, array_keys($this->interventions));
+    $state = '' === $this->state ? 'incomplete' : $this->state;
+    if (null === $this->id) {
+      $state = 'unallocated';
+    }
+
+    return new MaintenanceEconomicRow($this->id, $this->name, $state, null !== $this->id && $this->allocationComplete, $current, $this->frozen->amount(), $planned, $this->budget->amount(), $variance, array_keys($this->interventions));
   }
 }
