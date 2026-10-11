@@ -134,6 +134,16 @@ contract tests covering its current error and access-order semantics.
 - Infrastructure: Symfony adapters, serializer normalizer, event dispatcher/listener,
   and infrastructure exceptions.
 
+Pure parsing, revision and merge-patch behavior belongs to the published
+`Application/Contract/Http` contracts. Module-local operation readers expose only
+their used channels and retain framework `ParameterNotFound`, parameter-bag copies
+and HTTP 400 handling. `ParsedQueryParameters` and `ParsedHeaderValue` own nesting
+and value validation; `MergePatchDocument` and `RevisionPrecondition` own mutation
+parsing. Request-stack access and HTTP 428/412 translation remain with the HTTP
+facades in their owning modules.
+Seed timeline and identifier helpers likewise have one pure implementation under
+`Application/Contract/Seed`; composition does not expose technical fixture helpers.
+
 Key folders:
 
 - `src/Shared/Application/Contract`
@@ -391,8 +401,11 @@ identity never replaces a system delivery's actor. No bearer, secret or email is
 
 Integration subscribers consume owner-published `Application/Contract/Event` snapshots.
 The shared decoder delegates historical conversion to tagged owner-local adapters before
-dispatch. Historical Domain FQCN remain deserializable; converters copy persisted state
-without rerunning constructors. Stable event names, original timestamps and identifiers,
+dispatch. Historical Domain FQCN remain deserializable; converters restore the public
+snapshot through its typed constructor, supplying the original occurrence time and
+reading identifiers through their public getters. New events retain their default current
+timestamp; restoration never bypasses private properties or constructor invariants.
+Stable event names, original timestamps and identifiers,
 actor attribution, envelope stamps and consumer receipts survive the conversion and replay.
 Already-public snapshots, including storage cleanup requests, pass through unchanged.
 Owner converters are explicitly registered in Shared's composition YAML, including modules

@@ -145,30 +145,12 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
 
     try {
       $members = $this->members->findByOrganizationId(OrganizationId::fromString($organizationId));
+      $requested = array_filter($members, static fn (OrganizationMember $member): bool => in_array($member->id()->value, $memberIds, true));
+
+      return $this->displayNamesForMembers($requested);
     } catch (InvalidValueException) {
       return [];
     }
-
-    $requested = array_filter($members, static fn (OrganizationMember $member): bool => in_array($member->id()->value, $memberIds, true));
-
-    try {
-      $users = $this->queryBus->findByIds(array_values(array_unique(array_map(static fn (OrganizationMember $member): string => $member->userId(), $requested))));
-    } catch (Throwable) {
-      return [];
-    }
-    $names = [];
-    foreach ($requested as $member) {
-      if (!in_array($member->id()->value, $memberIds, true)) {
-        continue;
-      }
-
-      $name = $this->displayNameFor($users[$member->userId()] ?? null);
-      if (null !== $name) {
-        $names[$member->id()->value] = $name;
-      }
-    }
-
-    return $names;
   }
 
   /**
@@ -210,6 +192,35 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
   // #endregion
 
   // #region Internals
+  /**
+   * Method displayNamesForMembers.
+   *
+   * Reads account profiles once for the already scoped membership projection.
+   *
+   * @access private
+   *
+   * @param array<OrganizationMember> $requested the requested organization members
+   *
+   * @return array<string, string> available names keyed by member identifier
+   */
+  private function displayNamesForMembers(array $requested): array
+  {
+    try {
+      $users = $this->queryBus->findByIds(array_values(array_unique(array_map(static fn (OrganizationMember $member): string => $member->userId(), $requested))));
+    } catch (Throwable) {
+      return [];
+    }
+    $names = [];
+    foreach ($requested as $member) {
+      $name = $this->displayNameFor($users[$member->userId()] ?? null);
+      if (null !== $name) {
+        $names[$member->id()->value] = $name;
+      }
+    }
+
+    return $names;
+  }
+
   /**
    * Method displayNameFor.
    *

@@ -37,6 +37,7 @@ final readonly class MessagingChannelCreatedEvent
    * @param string $name the channel display name
    * @param string $createdByMemberId the creating member's identifier
    * @param ?string $actorUserId the acting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -44,8 +45,9 @@ final readonly class MessagingChannelCreatedEvent
     public string $name,
     public string $createdByMemberId,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

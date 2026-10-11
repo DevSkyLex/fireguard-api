@@ -39,14 +39,16 @@ final readonly class FacilitySubtreeDuplicatedEvent
    * @param string $sourceFacilityId the duplicated subtree's source facility ID
    * @param string $newRootFacilityId the new subtree's root facility ID
    * @param int $nodeCount the number of facility nodes created by the duplication (root included)
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $sourceFacilityId,
     public string $newRootFacilityId,
     public int $nodeCount,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

@@ -42,30 +42,10 @@ final readonly class InspectionMediaProvider implements ProviderInterface
     if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
-    $inspectionId = $uriVariables['inspectionId'] ?? null;
-    $nonConformityId = $uriVariables['nonConformityId'] ?? null;
-    if (isset($uriVariables['nonConformityId']) && (!is_string($nonConformityId) || '' === $nonConformityId)) {
-      throw new BadRequestHttpException('The nonConformityId URI parameter is required.');
-    }
-    if (isset($uriVariables['inspectionId']) && (!is_string($inspectionId) || '' === $inspectionId)) {
-      throw new BadRequestHttpException('The inspectionId URI parameter is required.');
-    }
-    if (is_string($inspectionId) || is_string($nonConformityId)) {
-      /** @var ResolveInspectionMediaResult $scope */
-      $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), inspectionId: is_string($inspectionId) ? $inspectionId : null, nonConformityId: is_string($nonConformityId) ? $nonConformityId : null));
-      /** @var ListInspectionAttachmentsResult $result */
-      $result = $this->queryBus->ask(new ListInspectionAttachmentsQuery($scope->organizationId, $scope->inspectionId, is_string($nonConformityId) ? $nonConformityId : null));
-      $outputs = [];
-      foreach ($result->attachments as $attachment) {
-        $output = new InspectionAttachmentOutput();
-        $output->inspectionId = $scope->inspectionId;
-        foreach (['id', 'nonConformityId', 'fileName', 'mimeType', 'size', 'label', 'uploadedAt'] as $field) {
-          $output->{$field} = $attachment[$field];
-        }
-        $outputs[] = $output;
-      }
-
-      return $outputs;
+    $nonConformityId = $this->parentId($uriVariables, 'nonConformityId');
+    $inspectionId = $this->parentId($uriVariables, 'inspectionId');
+    if (null !== $inspectionId || null !== $nonConformityId) {
+      return $this->collection($user, $inspectionId, $nonConformityId);
     }
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
@@ -94,5 +74,59 @@ final readonly class InspectionMediaProvider implements ProviderInterface
     $output->nonConformityId = $view->nonConformityId;
 
     return $output;
+  }
+
+  /**
+   * Method collection
+   *
+   * Resolves the authorized parent before reading and projecting its attachments.
+   *
+   * @access private
+   *
+   * @param AuthenticatedUser $user the authenticated actor
+   * @param ?string $inspectionId the optional inspection route scope
+   * @param ?string $nonConformityId the optional field-proof route scope
+   *
+   * @return list<InspectionAttachmentOutput> the attachment collection
+   */
+  private function collection(AuthenticatedUser $user, ?string $inspectionId, ?string $nonConformityId): array
+  {
+    /** @var ResolveInspectionMediaResult $scope */
+    $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), inspectionId: $inspectionId, nonConformityId: $nonConformityId));
+    /** @var ListInspectionAttachmentsResult $result */
+    $result = $this->queryBus->ask(new ListInspectionAttachmentsQuery($scope->organizationId, $scope->inspectionId, $nonConformityId));
+    $outputs = [];
+    foreach ($result->attachments as $attachment) {
+      $output = new InspectionAttachmentOutput();
+      $output->inspectionId = $scope->inspectionId;
+      foreach (['id', 'nonConformityId', 'fileName', 'mimeType', 'size', 'label', 'uploadedAt'] as $field) {
+        $output->{$field} = $attachment[$field];
+      }
+      $outputs[] = $output;
+    }
+
+    return $outputs;
+  }
+
+  /**
+   * Method parentId
+   *
+   * Distinguishes an absent parent from a malformed URI value.
+   *
+   * @access private
+   *
+   * @param array<string, mixed> $uriVariables the route values
+   * @param string $name the requested parent parameter
+   *
+   * @return ?string the optional validated parent identifier
+   */
+  private function parentId(array $uriVariables, string $name): ?string
+  {
+    $value = $uriVariables[$name] ?? null;
+    if (isset($uriVariables[$name]) && (!is_string($value) || '' === $value)) {
+      throw new BadRequestHttpException('The ' . $name . ' URI parameter is required.');
+    }
+
+    return is_string($value) ? $value : null;
   }
 }

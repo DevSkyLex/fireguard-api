@@ -126,7 +126,7 @@ organization's document branding
 (`Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort`:
 display name, logo inlined as a base64 `data:` URI — dompdf keeps remote
 loading off — legal identity, regional settings) and reformat every date
-through `Shared\Application\Document\DocumentDateFormatter` (org
+through `Shared\Application\Contract\Document\DocumentDateFormatter` (org
 timezone + `dateFormat` pattern) → `SafetyRegisterPdfRendererPort::render()`
 (Twig → dompdf) → dispatch `SafetyRegisterExportedEvent` → stream
 `application/pdf` with a `Content-Disposition: attachment` header.

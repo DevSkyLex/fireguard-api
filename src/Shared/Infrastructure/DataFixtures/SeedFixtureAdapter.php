@@ -99,27 +99,64 @@ final class SeedFixtureAdapter implements FixtureInterface, SharedFixtureInterfa
       $this->fixture->setSeedReferences($this->references);
     }
     $this->fixture->load($this->manager);
+
+    return $this->projectReferences($this->referenceRepository);
+  }
+
+  /**
+   * Method projectReferences
+   *
+   * Publishes named scalar snapshots without exposing owner-local Records to other fixtures.
+   *
+   * @access private
+   *
+   * @param ReferenceRepository $references loaded references from the owning executor
+   *
+   * @return array<string, SeedReference> the permitted fixture projections
+   */
+  private function projectReferences(ReferenceRepository $references): array
+  {
     $projections = [];
-    foreach ($this->referenceRepository->getReferencesByClass() as $objects) {
+    foreach ($references->getReferencesByClass() as $objects) {
       foreach ($objects as $name => $object) {
         if (!is_string($name)) {
           continue;
         }
-        $fields = get_object_vars($object);
-        if (!is_string($fields['id'] ?? null)) {
-          continue;
+        $projection = $this->projectReference($object);
+        if (null !== $projection) {
+          $projections[$name] = $projection;
         }
-        $projections[$name] = new SeedReference(
-          id: $fields['id'],
-          type: is_string($fields['type'] ?? null) ? $fields['type'] : '',
-          status: is_string($fields['status'] ?? null) ? $fields['status'] : '',
-          facilityId: is_string($fields['facilityId'] ?? null) ? $fields['facilityId'] : null,
-          name: is_string($fields['name'] ?? null) ? $fields['name'] : null,
-        );
       }
     }
 
     return $projections;
+  }
+
+  /**
+   * Method projectReference
+   *
+   * Selects only the published seed facts from public Record fields.
+   *
+   * @access private
+   *
+   * @param object $object the owner-local reference
+   *
+   * @return ?SeedReference the scalar snapshot, or null without a string identifier
+   */
+  private function projectReference(object $object): ?SeedReference
+  {
+    $fields = get_object_vars($object);
+    if (!is_string($fields['id'] ?? null)) {
+      return null;
+    }
+
+    return new SeedReference(
+      id: $fields['id'],
+      type: is_string($fields['type'] ?? null) ? $fields['type'] : '',
+      status: is_string($fields['status'] ?? null) ? $fields['status'] : '',
+      facilityId: is_string($fields['facilityId'] ?? null) ? $fields['facilityId'] : null,
+      name: is_string($fields['name'] ?? null) ? $fields['name'] : null,
+    );
   }
   // #endregion
 }

@@ -38,14 +38,16 @@ final readonly class OrganizationPlanChangedEvent
    * @param string $planId the new plan ID
    * @param string|null $previousPlanId the previous plan ID
    * @param list<string> $overQuotaResources resources whose usage exceeds the new plan's caps
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $planId,
     public ?string $previousPlanId = null,
     public array $overQuotaResources = [],
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

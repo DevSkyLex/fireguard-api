@@ -71,6 +71,24 @@ final readonly class OrganizationMemberNotificationDirectoryService implements O
     if ('*' === $granted || '*.*' === $granted || '*.*.*' === $granted || $granted === $required) {
       return true;
     }
+
+    return $this->matchesSegments($granted, $required);
+  }
+
+  /**
+   * Method matchesSegments.
+   *
+   * Preserves the authorization capability's terminal and single-segment wildcards.
+   *
+   * @access private
+   *
+   * @param string $granted the non-empty permission pattern
+   * @param string $required the non-empty required permission
+   *
+   * @return bool whether all required segments are covered
+   */
+  private function matchesSegments(string $granted, string $required): bool
+  {
     $grantedSegments = explode('.', $granted);
     $requiredSegments = explode('.', $required);
     foreach ($grantedSegments as $index => $segment) {

@@ -37,13 +37,15 @@ final readonly class TeamUpdatedEvent
    * @param string $organizationId the organization ID
    * @param string $teamId the team ID
    * @param string $name the team name after update
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $teamId,
     public string $name,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

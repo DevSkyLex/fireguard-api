@@ -8,15 +8,19 @@ use DateTimeImmutable;
 use Facility\Application\Port\Outbound\FacilityPlanReferenceCleanupPort;
 use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\{DeleteFacilityAttachmentCommand, DeleteFacilityAttachmentHandler, DeleteFacilityAttachmentResult};
+use Facility\Domain\Exception\FacilityAccessDeniedException;
 use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotFoundException};
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentRestoredState};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{FileCleanupPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
+use Throwable;
 
 #[CoversClass(DeleteFacilityAttachmentHandler::class)]
 final class DeleteFacilityAttachmentHandlerTest extends TestCase
@@ -48,7 +52,7 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
     $cleanup->expects(self::once())->method('request')->with($attachment->file()->storagePath);
 
     $handler = new DeleteFacilityAttachmentHandler(
-      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       cleanup: $cleanup,
@@ -79,7 +83,7 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
     $cleanup->expects(self::never())->method('request');
 
     $handler = new DeleteFacilityAttachmentHandler(
-      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       cleanup: $cleanup,
@@ -121,7 +125,7 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
     $cleanup->expects(self::never())->method('request');
 
     $handler = new DeleteFacilityAttachmentHandler(
-      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       cleanup: $cleanup,
@@ -150,7 +154,7 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
     $cleanup->expects(self::never())->method('request');
 
     $handler = new DeleteFacilityAttachmentHandler(
-      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
       cleanup: $cleanup,
@@ -165,6 +169,44 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       facilityId: 'also-not-a-uuid',
       attachmentId: 'still-not-a-uuid',
     ));
+  }
+
+  /**
+   * Method authorizationPrecedesRevisionAndDurableCleanup
+   *
+   * @param class-string<Throwable> $exceptionClass expected denial contract
+   */
+  #[Test]
+  #[DataProvider('authorizationDenials')]
+  public function authorizationPrecedesRevisionAndDurableCleanup(OrganizationAccessDecision $decision, string $exceptionClass, string $message): void
+  {
+    $facilities = $this->createStub(FacilityRepositoryPort::class);
+    $facilities->method('findById')->willReturn($this->facility());
+    $attachments = $this->createMock(FacilityAttachmentRepositoryPort::class);
+    $attachments->expects(self::once())->method('lock');
+    $attachments->expects(self::once())->method('findById')->willReturn($this->attachment());
+    $attachments->expects(self::never())->method('delete');
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::never())->method('request');
+    $references = $this->createMock(FacilityPlanReferenceCleanupPort::class);
+    $references->expects(self::never())->method('clearForAttachment');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('resolveAccess')->with('writer', self::ORG_ID, 'organization.facilities.write')->willReturn($decision);
+    $handler = new DeleteFacilityAttachmentHandler($facilities, $attachments, $cleanup, $references, $this->transactionManager(), $authorization);
+    $this->expectException($exceptionClass);
+    $this->expectExceptionMessage($message);
+    $handler(new DeleteFacilityAttachmentCommand(self::ORG_ID, self::FACILITY_ID, self::ATTACHMENT_ID, userId: 'writer', expectedRevision: 99));
+  }
+
+  /**
+   * Method authorizationDenials
+   *
+   * @return iterable<string, array{OrganizationAccessDecision, class-string<Throwable>, string}>
+   */
+  public static function authorizationDenials(): iterable
+  {
+    yield 'outside scope' => [OrganizationAccessDecision::OUTSIDE_SCOPE, FacilityAttachmentNotFoundException::class, 'Attachment not found.'];
+    yield 'missing permission' => [OrganizationAccessDecision::MISSING_PERMISSION, FacilityAccessDeniedException::class, 'Missing organization.facilities.write permission.'];
   }
 
   private function transactionManager(): TransactionManagerPort

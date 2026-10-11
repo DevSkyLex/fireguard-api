@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\E2E;
 
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Shared\Infrastructure\DataFixtures\SeedUuid;
+use Shared\Application\Contract\Seed\SeedUuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 

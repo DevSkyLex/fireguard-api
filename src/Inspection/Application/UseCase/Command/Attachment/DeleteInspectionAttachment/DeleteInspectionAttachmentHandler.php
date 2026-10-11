@@ -81,15 +81,7 @@ final readonly class DeleteInspectionAttachmentHandler implements CommandHandler
         throw InspectionRevisionMismatchException::stale();
       }
 
-      if (null !== $command->userId) {
-        $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.inspection.write');
-        if ($decision->isOutsideScope()) {
-          throw new InspectionNotFoundException('Non-conformity not found.');
-        }
-        if (!$decision->isGranted()) {
-          throw new InspectionAccessDeniedException('Missing organization.inspection.write permission.');
-        }
-      }
+      $this->assertDeleteAccess($command);
       $this->attachmentRepository->delete($attachmentId);
       $this->fileCleanup->request($attachment->storagePath());
 
@@ -98,6 +90,31 @@ final readonly class DeleteInspectionAttachmentHandler implements CommandHandler
         inspectionId: (string) $inspectionId,
       );
     });
+  }
+
+  /**
+   * Method assertDeleteAccess
+   *
+   * Preserves the scoped denial checks after the locked attachment revision comparison.
+   *
+   * @access private
+   *
+   * @param DeleteInspectionAttachmentCommand $command the actor and organization scope
+   *
+   * @return void
+   */
+  private function assertDeleteAccess(DeleteInspectionAttachmentCommand $command): void
+  {
+    if (null === $command->userId) {
+      return;
+    }
+    $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.inspection.write');
+    if ($decision->isOutsideScope()) {
+      throw new InspectionNotFoundException('Non-conformity not found.');
+    }
+    if (!$decision->isGranted()) {
+      throw new InspectionAccessDeniedException('Missing organization.inspection.write permission.');
+    }
   }
   // #endregion
 }

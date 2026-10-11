@@ -41,6 +41,7 @@ final readonly class InterventionPublishedEvent
    * @param string $interventionId the intervention ID
    * @param string $publicationId the publication ID
    * @param list<string> $recipientMemberIds members notified after the publication commits
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -48,8 +49,9 @@ final readonly class InterventionPublishedEvent
     public string $publicationId,
     public string $interventionName = '',
     public array $recipientMemberIds = [],
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

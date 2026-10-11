@@ -41,6 +41,7 @@ final readonly class OrganizationInvitationAcceptedEvent
    * @param string $userId the accepting user ID
    * @param string $userEmail the accepting user email
    * @param list<string> $roleIds the member role IDs after acceptance
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -49,8 +50,9 @@ final readonly class OrganizationInvitationAcceptedEvent
     public string $userId,
     public string $userEmail,
     public array $roleIds = [],
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

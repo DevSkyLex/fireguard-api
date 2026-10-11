@@ -38,6 +38,7 @@ final readonly class MessagingConversationArchivedEvent
    * @param string $subjectType the conversation subject type
    * @param ?string $subjectId the conversation subject identifier, if any
    * @param ?string $actorUserId the acting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -45,8 +46,9 @@ final readonly class MessagingConversationArchivedEvent
     public string $subjectType,
     public ?string $subjectId,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

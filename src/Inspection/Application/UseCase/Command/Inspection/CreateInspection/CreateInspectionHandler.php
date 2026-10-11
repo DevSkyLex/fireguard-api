@@ -20,7 +20,7 @@ use Inspection\Domain\ValueObject\{
   Inspector,
   InspectorType
 };
-use Intervention\Application\Contract\Resource\InterventionResourceType;
+use Intervention\Application\Contract\Resource\{InterventionResourceAssignment, InterventionResourceType};
 use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use InvalidArgumentException;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
@@ -89,113 +89,196 @@ final readonly class CreateInspectionHandler implements CommandHandler
   public function __invoke(CreateInspectionCommand $command): CreateInspectionResult
   {
     return $this->transactionManager->transactional(function () use ($command): CreateInspectionResult {
-      if (null !== $command->actorUserId) {
-        $permission = null === $command->interventionId ? 'organization.inspection.write'
-          : $this->interventionResources->mutationPermission($command->interventionId, $command->actorUserId, $command->organizationId);
-        $decision = $this->authorization->resolveAccess($command->actorUserId, $command->organizationId, $permission);
-        if ($decision->isOutsideScope()) {
-          throw new InspectionNotFoundException('Organization not found.');
-        }
-        if (!$decision->isGranted()) {
-          throw new InspectionAccessDeniedException('Missing ' . $permission . ' permission.');
-        }
-      }
+      $this->assertCreateAccess($command);
       $this->interventionResources->assertOfflineCreate(InterventionResourceType::INSPECTION, $command->clientId);
-
-      try {
-        $this->equipmentValidation->assertEquipmentIsInspectable($command->equipmentId, $command->organizationId, $command->facilityId);
-
-        $organizationId = InspectionOrganizationId::fromString($command->organizationId);
-        $equipmentId = InspectionEquipmentId::fromString($command->equipmentId);
-        $facilityId = null !== $command->facilityId ? InspectionFacilityId::fromString($command->facilityId) : null;
-        $checklistId = null !== $command->checklistId ? InspectionChecklistId::fromString($command->checklistId) : null;
-
-        $result = InspectionResult::from($command->result);
-        $inspectorType = InspectorType::from($command->inspectorType);
-
-        $inspector = match ($inspectorType) {
-          InspectorType::USER => Inspector::forUser(
-            userId: ('' === $command->inspectorUserId ? null : $command->inspectorUserId) ?? $command->actorUserId ?? throw InvalidValueException::because('User ID is required for USER inspector type.'),
-            name: $command->inspectorName,
-          ),
-          InspectorType::EXTERNAL => Inspector::forExternal(
-            name: $command->inspectorName,
-            organizationName: $command->inspectorOrganizationName,
-          ),
-        };
-
-        $performedAt = new DateTimeImmutable($command->performedAt);
-
-        /** @var InspectionId $inspectionId */
-        $inspectionId = null === $command->resourceId
-          ? new InspectionId($this->uuidFactory->generate())
-          : InspectionId::fromString($command->resourceId);
-
-        $inspection = Inspection::create(
-          id: $inspectionId,
-          organizationId: $organizationId,
-          equipmentId: $equipmentId,
-          inspector: $inspector,
-          result: $result,
-          performedAt: $performedAt,
-          options: new InspectionCreationOptions(
-            facilityId: $facilityId,
-            checklistId: $checklistId,
-            notes: $command->notes,
-            signature: $command->signature,
-          ),
-        );
-      } catch (InvalidValueException|ValueError $exception) {
-        throw InvalidValueException::because($exception->getMessage(), $exception);
-      } catch (Exception $exception) {
-        if (!$exception instanceof InvalidArgumentException) {
-          throw InvalidValueException::because($exception->getMessage(), $exception);
-        }
-
-        throw $exception;
-      }
-
-      // Enforce the plan quota and persist atomically: assertCanAdd takes a
-      // transaction-scoped advisory lock so concurrent creates at the cap cannot
-      // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
-      $this->transactionManager->transactional(function () use ($command, $inspection): void {
-        if (null !== $command->facilityId) {
-          $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId, $command->interventionId);
-        }
-        $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::INSPECTIONS);
-        $this->locks->withLock($command->organizationId, $command->checklistId, function () use ($command, $inspection): void {
-          if (null !== $command->checklistId) {
-            $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
-          }
-          $this->inspectionRepository->save($inspection);
-        });
-      });
-
+      $inspection = $this->createInspection($command);
+      $this->saveWithinQuota($command, $inspection);
       $assignment = $this->interventionResources->attach(InterventionResourceType::INSPECTION, (string) $inspection->id(), $command->organizationId, $command->interventionId, $command->clientId);
 
-      return new CreateInspectionResult(
-        inspectionId: (string) $inspection->id(),
-        organizationId: (string) $inspection->organizationId(),
-        equipmentId: (string) $inspection->equipmentId(),
-        facilityId: $inspection->facilityId()?->__toString(),
-        result: $inspection->result()->value,
-        status: $inspection->status()->value,
-        performedAt: $inspection->performedAt()->format('c'),
-        inspectorType: $inspection->inspector()->type->value,
-        inspectorName: $inspection->inspector()->name,
-        inspectorUserId: $inspection->inspector()->userId,
-        inspectorOrganizationName: $inspection->inspector()->organizationName,
-        checklistId: $inspection->checklistId()?->__toString(),
-        notes: $inspection->notes(),
-        signature: $inspection->signature(),
-        createdAt: $inspection->createdAt(),
-        updatedAt: $inspection->updatedAt(),
-        interventionId: $assignment->interventionId,
-        recordStatus: $assignment->recordStatus,
-        revision: $assignment->revision,
-        inspectorProfile: $this->profile($inspection->inspector()->userId),
-      );
+      return $this->result($inspection, $assignment);
     });
+  }
+
+  /**
+   * Method assertCreateAccess
+   *
+   * Checks the actor before offline identity and reference validation.
+   *
+   * @access private
+   *
+   * @param CreateInspectionCommand $command the requested creation and actor
+   *
+   * @return void
+   */
+  private function assertCreateAccess(CreateInspectionCommand $command): void
+  {
+    if (null === $command->actorUserId) {
+      return;
+    }
+    $permission = null === $command->interventionId ? 'organization.inspection.write'
+      : $this->interventionResources->mutationPermission($command->interventionId, $command->actorUserId, $command->organizationId);
+    $decision = $this->authorization->resolveAccess($command->actorUserId, $command->organizationId, $permission);
+    if ($decision->isOutsideScope()) {
+      throw new InspectionNotFoundException('Organization not found.');
+    }
+    if (!$decision->isGranted()) {
+      throw new InspectionAccessDeniedException('Missing ' . $permission . ' permission.');
+    }
+  }
+
+  /**
+   * Method createInspection
+   *
+   * Builds the aggregate while retaining creation-value exception semantics.
+   *
+   * @access private
+   *
+   * @param CreateInspectionCommand $command the validated transport values
+   *
+   * @return Inspection the new inspection aggregate
+   */
+  private function createInspection(CreateInspectionCommand $command): Inspection
+  {
+    try {
+      $this->equipmentValidation->assertEquipmentIsInspectable($command->equipmentId, $command->organizationId, $command->facilityId);
+
+      $organizationId = InspectionOrganizationId::fromString($command->organizationId);
+      $equipmentId = InspectionEquipmentId::fromString($command->equipmentId);
+      $facilityId = null !== $command->facilityId ? InspectionFacilityId::fromString($command->facilityId) : null;
+      $checklistId = null !== $command->checklistId ? InspectionChecklistId::fromString($command->checklistId) : null;
+
+      $result = InspectionResult::from($command->result);
+      $inspectorType = InspectorType::from($command->inspectorType);
+
+      $inspector = $this->inspector($command, $inspectorType);
+
+      $performedAt = new DateTimeImmutable($command->performedAt);
+
+      /** @var InspectionId $inspectionId */
+      $inspectionId = null === $command->resourceId
+        ? new InspectionId($this->uuidFactory->generate())
+        : InspectionId::fromString($command->resourceId);
+
+      return Inspection::create(
+        id: $inspectionId,
+        organizationId: $organizationId,
+        equipmentId: $equipmentId,
+        inspector: $inspector,
+        result: $result,
+        performedAt: $performedAt,
+        options: new InspectionCreationOptions(
+          facilityId: $facilityId,
+          checklistId: $checklistId,
+          notes: $command->notes,
+          signature: $command->signature,
+        ),
+      );
+    } catch (InvalidValueException|ValueError $exception) {
+      throw InvalidValueException::because($exception->getMessage(), $exception);
+    } catch (Exception $exception) {
+      if (!$exception instanceof InvalidArgumentException) {
+        throw InvalidValueException::because($exception->getMessage(), $exception);
+      }
+
+      throw $exception;
+    }
+
+  }
+
+  /**
+   * Method inspector
+   *
+   * Resolves a blank or absent internal inspector to the acting user.
+   *
+   * @access private
+   *
+   * @param CreateInspectionCommand $command the inspector details and actor fallback
+   * @param InspectorType $inspectorType the selected inspector kind
+   *
+   * @return Inspector the inspection's inspector value
+   */
+  private function inspector(CreateInspectionCommand $command, InspectorType $inspectorType): Inspector
+  {
+    return match ($inspectorType) {
+      InspectorType::USER => Inspector::forUser(
+        userId: ('' === $command->inspectorUserId ? null : $command->inspectorUserId) ?? $command->actorUserId ?? throw InvalidValueException::because('User ID is required for USER inspector type.'),
+        name: $command->inspectorName,
+      ),
+      InspectorType::EXTERNAL => Inspector::forExternal(
+        name: $command->inspectorName,
+        organizationName: $command->inspectorOrganizationName,
+      ),
+    };
+  }
+
+  /**
+   * Method saveWithinQuota
+   *
+   * Validates facility and checklist references in their existing nested transaction and lock.
+   *
+   * @access private
+   *
+   * @param CreateInspectionCommand $command the reference and organization scope
+   * @param Inspection $inspection the new aggregate
+   *
+   * @return void
+   */
+  private function saveWithinQuota(CreateInspectionCommand $command, Inspection $inspection): void
+  {
+    // Enforce the plan quota and persist atomically: assertCanAdd takes a
+    // transaction-scoped advisory lock so concurrent creates at the cap cannot
+    // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
+    $this->transactionManager->transactional(function () use ($command, $inspection): void {
+      if (null !== $command->facilityId) {
+        $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId, $command->interventionId);
+      }
+      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::INSPECTIONS);
+      $this->locks->withLock($command->organizationId, $command->checklistId, function () use ($command, $inspection): void {
+        if (null !== $command->checklistId) {
+          $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
+        }
+        $this->inspectionRepository->save($inspection);
+      });
+    });
+
+  }
+
+  /**
+   * Method result
+   *
+   * Projects the saved inspection and its intervention assignment into the creation result.
+   *
+   * @access private
+   *
+   * @param Inspection $inspection the saved aggregate
+   * @param InterventionResourceAssignment $assignment the committed assignment snapshot
+   *
+   * @return CreateInspectionResult the creation response data
+   */
+  private function result(Inspection $inspection, InterventionResourceAssignment $assignment): CreateInspectionResult
+  {
+    return new CreateInspectionResult(
+      inspectionId: (string) $inspection->id(),
+      organizationId: (string) $inspection->organizationId(),
+      equipmentId: (string) $inspection->equipmentId(),
+      facilityId: $inspection->facilityId()?->__toString(),
+      result: $inspection->result()->value,
+      status: $inspection->status()->value,
+      performedAt: $inspection->performedAt()->format('c'),
+      inspectorType: $inspection->inspector()->type->value,
+      inspectorName: $inspection->inspector()->name,
+      inspectorUserId: $inspection->inspector()->userId,
+      inspectorOrganizationName: $inspection->inspector()->organizationName,
+      checklistId: $inspection->checklistId()?->__toString(),
+      notes: $inspection->notes(),
+      signature: $inspection->signature(),
+      createdAt: $inspection->createdAt(),
+      updatedAt: $inspection->updatedAt(),
+      interventionId: $assignment->interventionId,
+      recordStatus: $assignment->recordStatus,
+      revision: $assignment->revision,
+      inspectorProfile: $this->profile($inspection->inspector()->userId),
+    );
   }
 
   private function profile(?string $userId): ?\User\Application\Contract\User\UserView

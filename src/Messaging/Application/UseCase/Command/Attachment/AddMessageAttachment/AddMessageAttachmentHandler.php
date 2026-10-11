@@ -250,6 +250,7 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
     try {
       $this->logger->warning($message, ['error' => $failure->getMessage()]);
     } catch (Throwable) {
+      // A diagnostic failure must not replace the original persistence failure or prevent durable cleanup.
     }
   }
   // #endregion

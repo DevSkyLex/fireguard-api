@@ -17,7 +17,9 @@ interface IntegrationEventSnapshotPort
   /**
    * Method copy
    *
-   * Preserves properties and scalarizes identifier values explicitly represented as strings by the contract.
+   * Preserves properties through the typed constructor and scalarizes identifier values represented as strings.
+   * Constructor parameters must match public legacy fields or public parameterless accessors;
+   * the owner supplies the exact historical-to-public class mapping.
    *
    * @access public
    *

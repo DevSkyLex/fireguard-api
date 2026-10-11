@@ -41,6 +41,7 @@ final readonly class WebhookSubscriptionCreatedEvent
    * @param string $urlHost the target URL's host component only
    * @param list<string> $eventTypes the subscribed public event type allowlist
    * @param ?string $actorUserId the acting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -48,8 +49,9 @@ final readonly class WebhookSubscriptionCreatedEvent
     public string $urlHost,
     public array $eventTypes,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

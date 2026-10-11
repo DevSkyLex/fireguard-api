@@ -48,56 +48,44 @@ final readonly class OAuthDataLifecycleAdapter implements OAuthDataLifecyclePort
    */
   public function retainUntil(DateTimeImmutable $cutoff, bool $dryRun): array
   {
-    $counts = [];
-    $query = $this->entityManager->createQueryBuilder();
-    if ($dryRun) {
-      $query->select('COUNT(c)')->from(ConsentRecord::class, 'c');
-    } else {
-      $query->delete(ConsentRecord::class, 'c');
-    }
-    $query->where('c.revokedAt IS NOT NULL AND c.revokedAt < :cutoff')->setParameter('cutoff', $cutoff);
-    $count = $dryRun ? $query->getQuery()->getSingleScalarResult() : $query->getQuery()->execute();
-    if (!is_numeric($count)) {
-      throw new UnexpectedValueException('Lifecycle query returned an invalid count.');
-    }
-    $counts['consents'] = (int) $count;
-    $query = $this->entityManager->createQueryBuilder();
-    if ($dryRun) {
-      $query->select('COUNT(at)')->from(AccessTokenRecord::class, 'at');
-    } else {
-      $query->delete(AccessTokenRecord::class, 'at');
-    }
-    $query->where('at.expiry < :cutoff')->setParameter('cutoff', $cutoff);
-    $count = $dryRun ? $query->getQuery()->getSingleScalarResult() : $query->getQuery()->execute();
-    if (!is_numeric($count)) {
-      throw new UnexpectedValueException('Lifecycle query returned an invalid count.');
-    }
-    $counts['access_tokens'] = (int) $count;
-    $query = $this->entityManager->createQueryBuilder();
-    if ($dryRun) {
-      $query->select('COUNT(rt)')->from(RefreshTokenRecord::class, 'rt');
-    } else {
-      $query->delete(RefreshTokenRecord::class, 'rt');
-    }
-    $query->where('rt.expiry < :cutoff')->setParameter('cutoff', $cutoff);
-    $count = $dryRun ? $query->getQuery()->getSingleScalarResult() : $query->getQuery()->execute();
-    if (!is_numeric($count)) {
-      throw new UnexpectedValueException('Lifecycle query returned an invalid count.');
-    }
-    $counts['refresh_tokens'] = (int) $count;
-    $query = $this->entityManager->createQueryBuilder();
-    if ($dryRun) {
-      $query->select('COUNT(ac)')->from(AuthCodeRecord::class, 'ac');
-    } else {
-      $query->delete(AuthCodeRecord::class, 'ac');
-    }
-    $query->where('ac.expiry < :cutoff')->setParameter('cutoff', $cutoff);
-    $count = $dryRun ? $query->getQuery()->getSingleScalarResult() : $query->getQuery()->execute();
-    if (!is_numeric($count)) {
-      throw new UnexpectedValueException('Lifecycle query returned an invalid count.');
-    }
-    $counts['auth_codes'] = (int) $count;
+    return [
+      'consents' => $this->retainRecords(ConsentRecord::class, 'c', 'c.revokedAt IS NOT NULL AND c.revokedAt < :cutoff', $cutoff, $dryRun),
+      'access_tokens' => $this->retainRecords(AccessTokenRecord::class, 'at', 'at.expiry < :cutoff', $cutoff, $dryRun),
+      'refresh_tokens' => $this->retainRecords(RefreshTokenRecord::class, 'rt', 'rt.expiry < :cutoff', $cutoff, $dryRun),
+      'auth_codes' => $this->retainRecords(AuthCodeRecord::class, 'ac', 'ac.expiry < :cutoff', $cutoff, $dryRun),
+    ];
+  }
 
-    return $counts;
+  /**
+   * Method retainRecords.
+   *
+   * Counts or deletes records matching an owner-local retention predicate.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param class-string $recordClass the owned Doctrine Record
+   * @param string $alias the query alias
+   * @param string $condition the owner-local retention predicate
+   * @param DateTimeImmutable $cutoff the retention deadline
+   * @param bool $dryRun whether to count without deleting
+   *
+   * @return int the affected record count
+   */
+  private function retainRecords(string $recordClass, string $alias, string $condition, DateTimeImmutable $cutoff, bool $dryRun): int
+  {
+    $query = $this->entityManager->createQueryBuilder();
+    if ($dryRun) {
+      $query->select('COUNT(' . $alias . ')')->from($recordClass, $alias);
+    } else {
+      $query->delete($recordClass, $alias);
+    }
+    $query->where($condition)->setParameter('cutoff', $cutoff);
+    $count = $dryRun ? $query->getQuery()->getSingleScalarResult() : $query->getQuery()->execute();
+    if (!is_numeric($count)) {
+      throw new UnexpectedValueException('Lifecycle query returned an invalid count.');
+    }
+
+    return (int) $count;
   }
 }

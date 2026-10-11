@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace Equipment\Presentation\Api\Http;
 
+use Shared\Application\Contract\Http\MergePatchDocument;
 use Symfony\Component\HttpFoundation\RequestStack;
-
-use function array_keys;
-use function is_array;
-use function is_string;
-use function json_decode;
 
 /**
  * Domain MergePatchFields.
@@ -47,28 +43,7 @@ final readonly class MergePatchFields
     if (null === $request || 'PATCH' !== $request->getMethod()) {
       return [];
     }
-    $fields = json_decode($request->getContent(), true);
-    if (!is_array($fields) || !self::hasOnlyStringKeys($fields)) {
-      return [];
-    }
 
-    /** @var array<string, mixed> $fields */
-    return $fields;
-  }
-
-  /**
-   * @since 1.0.0
-   *
-   * @param array<array-key, mixed> $fields decoded JSON fields
-   */
-  private static function hasOnlyStringKeys(array $fields): bool
-  {
-    foreach (array_keys($fields) as $key) {
-      if (!is_string($key)) {
-        return false;
-      }
-    }
-
-    return true;
+    return MergePatchDocument::fields($request->getContent());
   }
 }

@@ -15,8 +15,8 @@ use Intervention\Infrastructure\DataFixtures\InterventionFixtures;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionAttachmentRecord, InterventionChangeRecord, InterventionLabelRecord, InterventionNumberCounterRecord, InterventionRecord, InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateItemRecord, InterventionTemplateRecord, InterventionWorkItemRecord, PublicationRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Contract\Seed\SeedUuid;
 use Shared\Infrastructure\DataFixtures\{SeedFixtureAdapter, SeedReferenceRegistryAdapter};
-use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function count;

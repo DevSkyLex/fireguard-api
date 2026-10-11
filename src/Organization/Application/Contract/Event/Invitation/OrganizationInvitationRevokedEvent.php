@@ -38,14 +38,16 @@ final readonly class OrganizationInvitationRevokedEvent
    * @param string $invitationId the invitation ID
    * @param string $revokedByUserId the revoking user ID
    * @param string $reason why the invitation was revoked (manual, delivery_failed)
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $invitationId,
     public string $revokedByUserId,
     public string $reason = 'manual',
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

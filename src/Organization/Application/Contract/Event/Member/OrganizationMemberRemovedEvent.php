@@ -38,13 +38,15 @@ final readonly class OrganizationMemberRemovedEvent
    * @param string $organizationId the organization ID
    * @param string $memberId the membership ID
    * @param string $userId the user ID of the removed member
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $memberId,
     public string $userId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

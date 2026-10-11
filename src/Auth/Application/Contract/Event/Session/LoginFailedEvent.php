@@ -38,13 +38,15 @@ final readonly class LoginFailedEvent
    * @param string $email the email used in the attempt
    * @param string|null $ipAddress the IP address
    * @param string $reason the failure reason
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $email,
     public ?string $ipAddress,
     public string $reason,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

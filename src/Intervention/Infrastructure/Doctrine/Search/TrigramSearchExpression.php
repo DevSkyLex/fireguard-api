@@ -5,25 +5,13 @@ declare(strict_types=1);
 namespace Intervention\Infrastructure\Doctrine\Search;
 
 use Doctrine\ORM\QueryBuilder;
-use Shared\Application\Contract\Search\SearchCriteria;
-
-use function addcslashes;
-use function array_map;
-use function implode;
-use function mb_strtolower;
-use function sprintf;
-use function trim;
+use Shared\Application\Contract\Search\{SearchCriteria, TrigramSearchPredicate};
 
 /**
  * Service TrigramSearchExpression.
  *
- * Centralizes the free-text search predicate pushed down into repository
- * query builders. Emits a case-insensitive `LOWER(<col>) LIKE :<param>` OR
- * clause across the given column expressions, with the search term properly
- * escaped for the `%`/`_` LIKE wildcards, so every collection shares a single
- * wildcard-safe, index-aligned predicate (the `lower(col)` shape matches the
- * `gin_trgm_ops` expression indexes introduced separately). Emits no
- * predicate at all when the term is null/blank.
+ * Binds the shared pure search predicate to Intervention-owned query builders.
+ * Column selection remains local; normalization and wildcard escaping have one shared implementation.
  *
  * @category Search
  * @version 1.0.0
@@ -32,18 +20,6 @@ use function trim;
  */
 final class TrigramSearchExpression
 {
-  /**
-   * The DQL escape character declared on every `LIKE` predicate this builder
-   * emits, matching the backslash used by {@see self::likeValue()}.
-   *
-   * The `ESCAPE '\'` clause is declared explicitly rather than left to the
-   * platform default. PostgreSQL already defaults to backslash, so this is
-   * belt-and-braces — but it keeps the escaping contract stated in the query
-   * itself instead of resting on a server-side default that a future
-   * `standard_conforming_strings`-style change could move.
-   */
-  private const string ESCAPE_CHARACTER = '\\';
-
   // #region Methods
   /**
    * Method apply.
@@ -60,28 +36,10 @@ final class TrigramSearchExpression
    */
   public static function apply(QueryBuilder $queryBuilder, string $paramName, ?string $term, string ...$columnExpressions): void
   {
-    if ([] === $columnExpressions) {
-      return;
+    $predicate = TrigramSearchPredicate::build($paramName, $term, ...$columnExpressions);
+    if (null !== $predicate) {
+      $queryBuilder->andWhere($predicate->expression)->setParameter($paramName, $predicate->value);
     }
-
-    $normalizedTerm = self::normalize($term);
-    if (null === $normalizedTerm) {
-      return;
-    }
-
-    $predicates = array_map(
-      static fn (string $columnExpression): string => sprintf(
-        'LOWER(%s) LIKE :%s ESCAPE \'%s\'',
-        $columnExpression,
-        $paramName,
-        self::ESCAPE_CHARACTER,
-      ),
-      $columnExpressions,
-    );
-
-    $queryBuilder
-      ->andWhere('(' . implode(' OR ', $predicates) . ')')
-      ->setParameter($paramName, self::likeValue($normalizedTerm));
   }
 
   /**
@@ -116,29 +74,8 @@ final class TrigramSearchExpression
    */
   public static function likeValue(string $normalizedTerm): string
   {
-    return '%' . addcslashes(mb_strtolower($normalizedTerm), '%_') . '%';
+    return TrigramSearchPredicate::likeValue($normalizedTerm);
   }
 
-  /**
-   * Method normalize.
-   *
-   * Trims the term and collapses a blank value to null.
-   *
-   * @since 1.0.0
-   *
-   * @param ?string $term the raw term
-   *
-   * @return ?string the normalized term
-   */
-  private static function normalize(?string $term): ?string
-  {
-    if (null === $term) {
-      return null;
-    }
-
-    $trimmed = trim($term);
-
-    return '' !== $trimmed ? $trimmed : null;
-  }
   // #endregion
 }

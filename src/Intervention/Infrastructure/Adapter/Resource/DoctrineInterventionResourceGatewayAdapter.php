@@ -397,7 +397,48 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
       ];
     }
     $this->addOwnedResourceMetrics($values, $interventionIds);
+    $this->addWorkflowMetrics($values, $interventionIds);
+    $this->addActivityAndAttachmentMetrics($values, $interventionIds);
+    $this->addLabelMetrics($values, $interventionIds);
 
+    $metrics = [];
+    foreach ($values as $interventionId => $value) {
+      $metrics[$interventionId] = new InterventionListMetrics(...$value);
+    }
+
+    return $metrics;
+  }
+
+  /**
+   * Method equipmentDrafts.
+   *
+   * Executes the equipment drafts operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   *
+   * @return list<InterventionEquipmentDraft> the equipment drafts result
+   */
+  public function equipmentDrafts(string $interventionId): array
+  {
+    return $this->equipmentDraftProvider->equipmentDrafts($interventionId);
+  }
+
+  /**
+   * Method addWorkflowMetrics
+   *
+   * Folds grouped task progress and proposed change counts into the requested page.
+   *
+   * @access private
+   *
+   * @param array<string, array{facilities: int, equipment: int, inspections: int, workItems: int, completedWorkItems: int, requiredIncomplete: int, proposedChanges: int, resourceBlockers: int, commentsCount: int, hasSignature: bool, labels: list<array{id: string, name: string, color: string}>}> $values page metrics indexed by intervention
+   * @param list<string> $interventionIds requested page identities
+   *
+   * @return void
+   */
+  private function addWorkflowMetrics(array &$values, array $interventionIds): void
+  {
     /** @var list<array{interventionId: string, total: string|int, completed: string|int, requiredIncomplete: string|int}> $workItemRows */
     $workItemRows = $this->entityManager->createQueryBuilder()
       ->select(
@@ -437,6 +478,22 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
       }
     }
 
+  }
+
+  /**
+   * Method addActivityAndAttachmentMetrics
+   *
+   * Reads comments and completion signature presence with one grouped query each.
+   *
+   * @access private
+   *
+   * @param array<string, array{facilities: int, equipment: int, inspections: int, workItems: int, completedWorkItems: int, requiredIncomplete: int, proposedChanges: int, resourceBlockers: int, commentsCount: int, hasSignature: bool, labels: list<array{id: string, name: string, color: string}>}> $values page metrics indexed by intervention
+   * @param list<string> $interventionIds requested page identities
+   *
+   * @return void
+   */
+  private function addActivityAndAttachmentMetrics(array &$values, array $interventionIds): void
+  {
     $connection = $this->entityManager->getConnection();
     $types = ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING];
     /** @var list<array{intervention_id: string, total: int|string}> $comments */
@@ -453,6 +510,24 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
         $values[$interventionId]['hasSignature'] = true;
       }
     }
+  }
+
+  /**
+   * Method addLabelMetrics
+   *
+   * Keeps label ordering stable without hydrating a collection per intervention.
+   *
+   * @access private
+   *
+   * @param array<string, array{facilities: int, equipment: int, inspections: int, workItems: int, completedWorkItems: int, requiredIncomplete: int, proposedChanges: int, resourceBlockers: int, commentsCount: int, hasSignature: bool, labels: list<array{id: string, name: string, color: string}>}> $values page metrics indexed by intervention
+   * @param list<string> $interventionIds requested page identities
+   *
+   * @return void
+   */
+  private function addLabelMetrics(array &$values, array $interventionIds): void
+  {
+    $connection = $this->entityManager->getConnection();
+    $types = ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING];
     /** @var list<array{intervention_id: string, id: string, name: string, color: string}> $labels */
     $labels = $connection->fetchAllAssociative('SELECT a.intervention_id, l.id, l.name, l.color FROM intervention_label_assignments a JOIN intervention_labels l ON l.id = a.label_id WHERE a.intervention_id IN (:ids) ORDER BY a.intervention_id, l.id', ['ids' => $interventionIds], $types);
     foreach ($labels as $label) {
@@ -461,28 +536,6 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
       }
     }
 
-    $metrics = [];
-    foreach ($values as $interventionId => $value) {
-      $metrics[$interventionId] = new InterventionListMetrics(...$value);
-    }
-
-    return $metrics;
-  }
-
-  /**
-   * Method equipmentDrafts.
-   *
-   * Executes the equipment drafts operation.
-   *
-   * @since 1.0.0
-   *
-   * @param string $interventionId the intervention id value
-   *
-   * @return list<InterventionEquipmentDraft> the equipment drafts result
-   */
-  public function equipmentDrafts(string $interventionId): array
-  {
-    return $this->equipmentDraftProvider->equipmentDrafts($interventionId);
   }
 
   /**

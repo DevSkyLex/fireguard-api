@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Doctrine;
 
+use Doctrine\DBAL\Schema\Schema;
 use Doctrine\ORM\Tools\Event\GenerateSchemaEventArgs;
 
 /**
@@ -58,6 +59,23 @@ final readonly class ScalarForeignKeySchemaListener
   public function postGenerateSchema(GenerateSchemaEventArgs $args): void
   {
     $schema = $args->getSchema();
+    $this->addOrganizationKeys($schema);
+    $this->addUserRoleKeys($schema);
+  }
+
+  /**
+   * Method addOrganizationKeys
+   *
+   * Retains the existing main-side organization constraints for present owner tables.
+   *
+   * @access private
+   *
+   * @param Schema $schema the owning entity manager's schema
+   *
+   * @return void
+   */
+  private function addOrganizationKeys(Schema $schema): void
+  {
 
     if ($schema->hasTable('organizations')) {
       foreach (self::ORGANIZATION_KEYS as $tableName => $constraintName) {
@@ -74,7 +92,21 @@ final readonly class ScalarForeignKeySchemaListener
         }
       }
     }
+  }
 
+  /**
+   * Method addUserRoleKeys
+   *
+   * Keeps auth-side membership constraints without introducing a cascade deletion.
+   *
+   * @access private
+   *
+   * @param Schema $schema the owning entity manager's schema
+   *
+   * @return void
+   */
+  private function addUserRoleKeys(Schema $schema): void
+  {
     if ($schema->hasTable('user_roles') && $schema->hasTable('users') && $schema->hasTable('roles')) {
       $table = $schema->getTable('user_roles');
       foreach (['users' => ['user_id', 'FK_54FCD59FA76ED395'], 'roles' => ['role_id', 'FK_54FCD59FD60322AC']] as $target => [$column, $name]) {

@@ -40,6 +40,7 @@ final readonly class OrganizationInvitationSentEvent
    * @param string $invitedEmail the invited email address
    * @param string $invitedByUserId the inviting user ID
    * @param bool $resend whether this is a resend of an existing invitation
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -47,8 +48,9 @@ final readonly class OrganizationInvitationSentEvent
     public string $invitedEmail,
     public string $invitedByUserId,
     public bool $resend = false,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

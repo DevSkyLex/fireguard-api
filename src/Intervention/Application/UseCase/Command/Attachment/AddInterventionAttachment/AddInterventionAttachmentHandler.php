@@ -117,15 +117,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
    */
   public function __invoke(AddInterventionAttachmentCommand $command): AddInterventionAttachmentResult
   {
-    try {
-      /** @var InterventionAttachmentId $attachmentId */
-      $attachmentId = null === $command->attachmentId
-        ? new InterventionAttachmentId($this->uuidFactory->generate())
-        : InterventionAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw InvalidValueException::because($exception->getMessage(), $exception);
-    }
-
+    $attachmentId = $this->attachmentId($command);
     $storagePath = StoragePathScheme::build(
       module: 'intervention',
       parentId: $command->interventionId,
@@ -139,59 +131,151 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       $result = $this->attachmentRepository->withUploadLock(
         $command->interventionId,
         (string) $attachmentId,
-        function () use ($command, $attachmentId, $storagePath, $attempt): AddInterventionAttachmentResult {
-          // The resource gateway takes a row lock, so its reads and all permission
-          // checks must run inside the upload transaction rather than before it.
-          $context = $this->interventionResourceManager->interventionContext($command->interventionId);
-          if (null === $context) {
-            throw InterventionNotFoundException::withId($command->interventionId);
-          }
-          $existing = $this->attachmentRepository->findById($attachmentId);
-          if (null !== $existing) {
-            $existingContext = $this->interventionResourceManager->interventionContext($existing->interventionId());
-            if (null === $existingContext || !$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
-              throw new InterventionNotFoundException('Attachment not found.');
-            }
-            $decision = $this->authorization->resolveAccess($command->userId, $existingContext->organizationId, 'organization.interventions.read');
-            if ($decision->isOutsideScope()) {
-              throw new InterventionNotFoundException('Attachment not found.');
-            }
-            if (!$decision->isGranted()) {
-              throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
-            }
-            if ($existing->interventionId() !== $command->interventionId) {
-              throw new InterventionConflictException('Attachment client UUID is already assigned to another intervention.');
-            }
-
-            return $this->result($existing);
-          }
-          $this->authorizeAttachment($command, $context);
-          $kind = InterventionAttachmentKind::tryFrom($command->kind);
-          if (null === $kind) {
-            throw new InterventionValidationException(sprintf('Unknown attachment kind "%s".', $command->kind));
-          }
-          self::assertSignatureAllowed($command, $context, $kind);
-
-          return $this->upload($command, $attachmentId, $kind, $storagePath, $attempt);
-        },
+        fn (): AddInterventionAttachmentResult => $this->processLockedUpload($command, $attachmentId, $storagePath, $attempt),
       );
     } catch (Throwable $exception) {
-      if ($attempt->written && !$exception instanceof CommitOutcomeUnknownException) {
-        try {
-          $this->fileStorage->delete($storagePath);
-        } catch (Throwable $cleanupFailure) {
-          try {
-            $this->logger->warning('Unable to compensate a rolled-back intervention upload.', ['storagePath' => $storagePath, 'error' => $cleanupFailure->getMessage()]);
-          } catch (Throwable) {
-            // Diagnostics must preserve the original persistence failure.
-          }
-        }
-      }
+      $this->compensateUpload($attempt, $storagePath, $exception);
 
       throw $exception;
     }
 
     return $result;
+  }
+
+  /**
+   * Method attachmentId
+   *
+   * Resolves the client identity before acquiring the upload locks.
+   *
+   * @access private
+   *
+   * @param AddInterventionAttachmentCommand $command requested or generated identity
+   *
+   * @return InterventionAttachmentId validated attachment identity
+   */
+  private function attachmentId(AddInterventionAttachmentCommand $command): InterventionAttachmentId
+  {
+    try {
+      return null === $command->attachmentId
+        ? new InterventionAttachmentId($this->uuidFactory->generate())
+        : InterventionAttachmentId::fromString($command->attachmentId);
+    } catch (InvalidValueException $exception) {
+      throw InvalidValueException::because($exception->getMessage(), $exception);
+    }
+  }
+
+  /**
+   * Method processLockedUpload
+   *
+   * Rechecks replay and mutation authorization inside the identity and parent locks.
+   *
+   * @access private
+   *
+   * @param AddInterventionAttachmentCommand $command upload request and actor
+   * @param InterventionAttachmentId $attachmentId locked attachment identity
+   * @param string $storagePath blob key owned by this attempt
+   * @param AttachmentUploadAttempt $attempt tracks compensation ownership
+   *
+   * @return AddInterventionAttachmentResult stored or replayed attachment
+   */
+  private function processLockedUpload(AddInterventionAttachmentCommand $command, InterventionAttachmentId $attachmentId, string $storagePath, AttachmentUploadAttempt $attempt): AddInterventionAttachmentResult
+  {
+    $context = $this->interventionResourceManager->interventionContext($command->interventionId);
+    if (null === $context) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+    $existing = $this->attachmentRepository->findById($attachmentId);
+    if (null !== $existing) {
+      $this->authorizeReplay($command, $context, $existing);
+
+      return $this->result($existing);
+    }
+    $this->authorizeAttachment($command, $context);
+    $kind = InterventionAttachmentKind::tryFrom($command->kind);
+    if (null === $kind) {
+      throw new InterventionValidationException(sprintf('Unknown attachment kind "%s".', $command->kind));
+    }
+    self::assertSignatureAllowed($command, $context, $kind);
+
+    return $this->upload($command, $attachmentId, $kind, $storagePath, $attempt);
+  }
+
+  /**
+   * Method authorizeReplay
+   *
+   * Preserves read denial before revealing a conflicting parent identity.
+   *
+   * @access private
+   *
+   * @param AddInterventionAttachmentCommand $command replay request and actor
+   * @param InterventionAssignmentContext $context requested parent scope
+   * @param InterventionAttachment $existing winning attachment row
+   *
+   * @return void
+   */
+  private function authorizeReplay(AddInterventionAttachmentCommand $command, InterventionAssignmentContext $context, InterventionAttachment $existing): void
+  {
+    $existingContext = $this->interventionResourceManager->interventionContext($existing->interventionId());
+    if (null === $existingContext || !$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
+      throw new InterventionNotFoundException('Attachment not found.');
+    }
+    $decision = $this->authorization->resolveAccess($command->userId, $existingContext->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw new InterventionNotFoundException('Attachment not found.');
+    }
+    if (!$decision->isGranted()) {
+      throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
+    }
+    if ($existing->interventionId() !== $command->interventionId) {
+      throw new InterventionConflictException('Attachment client UUID is already assigned to another intervention.');
+    }
+  }
+
+  /**
+   * Method compensateUpload
+   *
+   * Deletes only this attempt's blob when persistence failed with a known rollback.
+   *
+   * @access private
+   *
+   * @param AttachmentUploadAttempt $attempt tracks whether bytes may exist
+   * @param string $storagePath blob key owned by this attempt
+   * @param Throwable $failure original persistence failure
+   *
+   * @return void
+   */
+  private function compensateUpload(AttachmentUploadAttempt $attempt, string $storagePath, Throwable $failure): void
+  {
+    if (!$attempt->written || $failure instanceof CommitOutcomeUnknownException) {
+      return;
+    }
+
+    try {
+      $this->fileStorage->delete($storagePath);
+    } catch (Throwable $cleanupFailure) {
+      $this->logCompensationFailure($storagePath, $cleanupFailure);
+    }
+  }
+
+  /**
+   * Method logCompensationFailure
+   *
+   * Keeps diagnostic failures from replacing the original SQL or commit exception.
+   *
+   * @access private
+   *
+   * @param string $storagePath failed cleanup key
+   * @param Throwable $cleanupFailure storage cleanup failure
+   *
+   * @return void
+   */
+  private function logCompensationFailure(string $storagePath, Throwable $cleanupFailure): void
+  {
+    try {
+      $this->logger->warning('Unable to compensate a rolled-back intervention upload.', ['storagePath' => $storagePath, 'error' => $cleanupFailure->getMessage()]);
+    } catch (Throwable) {
+      // Diagnostics must preserve the original persistence failure.
+    }
   }
 
   /**

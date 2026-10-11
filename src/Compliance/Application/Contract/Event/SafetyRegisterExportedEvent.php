@@ -44,6 +44,7 @@ final readonly class SafetyRegisterExportedEvent
    * @param string $planKey the organization's plan key at export time
    * @param string $scope `organization` or `facility`
    * @param string $generatedAt ISO 8601 datetime the exported register snapshot was generated at
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -52,8 +53,9 @@ final readonly class SafetyRegisterExportedEvent
     public string $planKey,
     public string $scope,
     public string $generatedAt,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

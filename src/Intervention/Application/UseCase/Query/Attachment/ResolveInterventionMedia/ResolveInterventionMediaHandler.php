@@ -17,6 +17,13 @@ use Shared\Application\Message\QueryHandler;
  */
 final readonly class ResolveInterventionMediaHandler implements QueryHandler
 {
+  /**
+   * Constant ATTACHMENT_NOT_FOUND
+   *
+   * Stable denial message for missing media and resources outside the actor's scope.
+   */
+  private const string ATTACHMENT_NOT_FOUND = 'Attachment not found.';
+
   public function __construct(private InterventionMediaLookupPort $media, private OrganizationAuthorizationPort $authorization)
   {
   }
@@ -27,12 +34,12 @@ final readonly class ResolveInterventionMediaHandler implements QueryHandler
     if (null !== $query->interventionId) {
       $requestedOrganization = $this->media->organizationId($query->interventionId);
       if (null === $requestedOrganization || $this->authorization->resolveAccess($query->userId, $requestedOrganization, 'organization.interventions.read')->isOutsideScope()) {
-        throw new InterventionAttachmentNotFoundException('Attachment not found.');
+        throw new InterventionAttachmentNotFoundException(self::ATTACHMENT_NOT_FOUND);
       }
     }
     $attachment = null === $query->attachmentId ? null : $this->media->attachment($query->attachmentId);
     if (null === $attachment && !$query->replay) {
-      throw new InterventionAttachmentNotFoundException('Attachment not found.');
+      throw new InterventionAttachmentNotFoundException(self::ATTACHMENT_NOT_FOUND);
     }
     if (null === $attachment) {
       return new ResolveInterventionMediaResult($requestedOrganization ?? '', $query->interventionId ?? '');
@@ -40,7 +47,7 @@ final readonly class ResolveInterventionMediaHandler implements QueryHandler
     if (!$query->deletion) {
       $decision = $this->authorization->resolveAccess($query->userId, $attachment->organizationId, 'organization.interventions.read');
       if ($decision->isOutsideScope()) {
-        throw new InterventionAttachmentNotFoundException('Attachment not found.');
+        throw new InterventionAttachmentNotFoundException(self::ATTACHMENT_NOT_FOUND);
       }
       if (!$decision->isGranted()) {
         throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');

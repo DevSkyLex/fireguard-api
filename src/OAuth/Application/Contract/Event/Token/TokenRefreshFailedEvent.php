@@ -39,13 +39,15 @@ final readonly class TokenRefreshFailedEvent
    * @param string|null $userId the user ID if known
    * @param string|null $ipAddress the IP address
    * @param string $reason the failure reason
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public readonly ?string $userId,
     public readonly ?string $ipAddress,
     public readonly string $reason,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

@@ -147,16 +147,47 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
     $pagination = PaginationExtractor::fromContext($context);
     $itemsPerPage = min($pagination->itemsPerPage, self::MAX_ITEMS_PER_PAGE);
     $offset = ($pagination->page - 1) * $itemsPerPage;
+    $result = $this->queryEvents($organizationId, $user->getId(), $filters, new Pagination(offset: $offset, limit: $itemsPerPage));
+    $displayNameCache = $this->displayNamesForActors($result);
+    $outputs = [];
+    foreach ($result->items as $event) {
+      $outputs[] = $this->mapToOutput($event, $displayNameCache);
+    }
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $pagination->page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $result->total,
+    );
+  }
+
+  /**
+   * Method queryEvents.
+   *
+   * Preserves the audit feed's indistinguishable missing-organization and non-member refusals.
+   *
+   * @access private
+   *
+   * @param string $organizationId the organization scope
+   * @param string $userId the authenticated caller
+   * @param array<string, mixed> $filters the transport filters
+   * @param Pagination $pagination the clamped audit page
+   *
+   * @return PaginatedResult<OrganizationAuditEventResult> the authorized audit page
+   */
+  private function queryEvents(string $organizationId, string $userId, array $filters, Pagination $pagination): PaginatedResult
+  {
 
     try {
-      /** @var PaginatedResult<OrganizationAuditEventResult> $result */
-      $result = $this->queryBus->ask(new ListOrganizationAuditEventsQuery(
+      /** @var PaginatedResult<OrganizationAuditEventResult> */
+      return $this->queryBus->ask(new ListOrganizationAuditEventsQuery(
         organizationId: $organizationId,
-        userId: $user->getId(),
+        userId: $userId,
         action: $this->stringOrNull($filters['action'] ?? null),
         from: $this->parseDateFilter($filters, 'from'),
         to: $this->parseDateFilter($filters, 'to'),
-        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+        pagination: $pagination,
       ));
     } catch (OrganizationAccessDeniedException $exception) {
       throw new AccessDeniedHttpException($exception->getMessage(), $exception);
@@ -181,6 +212,21 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
       throw $exception;
     }
 
+  }
+
+  /**
+   * Method displayNamesForActors.
+   *
+   * Resolves one profile batch containing only actors this organization is allowed to name.
+   *
+   * @access private
+   *
+   * @param PaginatedResult<OrganizationAuditEventResult> $result the authorized audit page
+   *
+   * @return array<string, ?string> available display names keyed by account identifier
+   */
+  private function displayNamesForActors(PaginatedResult $result): array
+  {
     /** @var array<string, ?string> $displayNameCache */
     $displayNameCache = [];
     $userIds = [];
@@ -197,17 +243,8 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
     } catch (Throwable) {
       $displayNameCache = [];
     }
-    $outputs = [];
-    foreach ($result->items as $event) {
-      $outputs[] = $this->mapToOutput($event, $displayNameCache);
-    }
 
-    return new TraversablePaginator(
-      traversable: new ArrayIterator($outputs),
-      currentPage: (float) $pagination->page,
-      itemsPerPage: (float) $itemsPerPage,
-      totalItems: (float) $result->total,
-    );
+    return $displayNameCache;
   }
 
   /**

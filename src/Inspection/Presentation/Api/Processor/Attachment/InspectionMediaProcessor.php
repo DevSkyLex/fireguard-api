@@ -50,33 +50,63 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
       throw new AccessDeniedHttpException('Authentication required.');
     }
     if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
-      $id = $uriVariables['id'] ?? null;
-      if (!is_string($id)) {
-        throw new NotFoundHttpException('Attachment not found.');
-      }
-      /** @var ResolveInspectionMediaResult $scope */
-      $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), attachmentId: $id, write: true, deletion: true));
-      if (null === $scope->attachment) {
-        throw new NotFoundHttpException('Attachment not found.');
-      }
-      $this->revisionGuard->assertMatches($scope->attachment->revision);
-      $this->commandBus->dispatch(new DeleteInspectionAttachmentCommand(organizationId: $scope->organizationId, inspectionId: $scope->inspectionId, attachmentId: $scope->attachment->id, expectedRevision: $scope->attachment->revision, userId: $user->getId()));
+      $this->delete($user, $uriVariables);
 
       return null;
     }
-    $inspectionId = $uriVariables['inspectionId'] ?? null;
-    $nonConformityId = $uriVariables['nonConformityId'] ?? null;
-    if (isset($uriVariables['nonConformityId']) && (!is_string($nonConformityId) || '' === $nonConformityId)) {
-      throw new BadRequestHttpException('The nonConformityId URI parameter is required.');
+
+    return $this->upload($user, $uriVariables);
+  }
+
+  /**
+   * Method delete
+   *
+   * Reads the authorized attachment before translating its revision precondition.
+   *
+   * @access private
+   *
+   * @param AuthenticatedUser $user the authenticated actor
+   * @param array<string, mixed> $uriVariables the attachment URI values
+   *
+   * @return void
+   */
+  private function delete(AuthenticatedUser $user, array $uriVariables): void
+  {
+    $id = $uriVariables['id'] ?? null;
+    if (!is_string($id)) {
+      throw new NotFoundHttpException('Attachment not found.');
     }
-    if (isset($uriVariables['inspectionId']) && (!is_string($inspectionId) || '' === $inspectionId)) {
-      throw new BadRequestHttpException('The inspectionId URI parameter is required.');
+    /** @var ResolveInspectionMediaResult $scope */
+    $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), attachmentId: $id, write: true, deletion: true));
+    if (null === $scope->attachment) {
+      throw new NotFoundHttpException('Attachment not found.');
     }
-    if (!is_string($inspectionId) && !is_string($nonConformityId)) {
+    $this->revisionGuard->assertMatches($scope->attachment->revision);
+    $this->commandBus->dispatch(new DeleteInspectionAttachmentCommand(organizationId: $scope->organizationId, inspectionId: $scope->inspectionId, attachmentId: $scope->attachment->id, expectedRevision: $scope->attachment->revision, userId: $user->getId()));
+
+  }
+
+  /**
+   * Method upload
+   *
+   * Resolves the authorized parent before reading the multipart payload.
+   *
+   * @access private
+   *
+   * @param AuthenticatedUser $user the authenticated actor
+   * @param array<string, mixed> $uriVariables the parent URI values
+   *
+   * @return InspectionAttachmentOutput the uploaded attachment projection
+   */
+  private function upload(AuthenticatedUser $user, array $uriVariables): InspectionAttachmentOutput
+  {
+    $nonConformityId = $this->parentId($uriVariables, 'nonConformityId');
+    $inspectionId = $this->parentId($uriVariables, 'inspectionId');
+    if (null === $inspectionId && null === $nonConformityId) {
       throw new BadRequestHttpException('The inspectionId URI parameter is required.');
     }
     /** @var ResolveInspectionMediaResult $scope */
-    $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), inspectionId: is_string($inspectionId) ? $inspectionId : null, nonConformityId: is_string($nonConformityId) ? $nonConformityId : null, write: true));
+    $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), inspectionId: $inspectionId, nonConformityId: $nonConformityId, write: true));
     $uploaded = $this->attachmentGuard->fromRequest($this->currentRequest());
     /** @var AddInspectionAttachmentResult $result */
     $result = $this->commandBus->dispatch(new AddInspectionAttachmentCommand(
@@ -86,7 +116,7 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
       contents: $uploaded->contents,
       mimeType: $uploaded->mimeType,
       size: $uploaded->size,
-      nonConformityId: is_string($nonConformityId) ? $nonConformityId : null,
+      nonConformityId: $nonConformityId,
       label: $uploaded->label,
       userId: $user->getId(),
     ));
@@ -102,6 +132,28 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
     $output->nonConformityId = $result->nonConformityId;
 
     return $output;
+  }
+
+  /**
+   * Method parentId
+   *
+   * Distinguishes an absent parent from a malformed URI value.
+   *
+   * @access private
+   *
+   * @param array<string, mixed> $uriVariables the route values
+   * @param string $name the requested parent parameter
+   *
+   * @return ?string the optional validated parent identifier
+   */
+  private function parentId(array $uriVariables, string $name): ?string
+  {
+    $value = $uriVariables[$name] ?? null;
+    if (isset($uriVariables[$name]) && (!is_string($value) || '' === $value)) {
+      throw new BadRequestHttpException('The ' . $name . ' URI parameter is required.');
+    }
+
+    return is_string($value) ? $value : null;
   }
 
   private function currentRequest(): Request

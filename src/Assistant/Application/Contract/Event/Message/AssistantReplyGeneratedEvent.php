@@ -40,14 +40,16 @@ final readonly class AssistantReplyGeneratedEvent
    * @param string $threadId the assistant thread identifier
    * @param string $assistantMessageId the completed assistant reply identifier
    * @param ?int $tokenCount the generated token count, if known
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $threadId,
     public string $assistantMessageId,
     public ?int $tokenCount,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

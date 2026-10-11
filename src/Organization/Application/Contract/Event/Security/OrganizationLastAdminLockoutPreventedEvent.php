@@ -40,14 +40,16 @@ final readonly class OrganizationLastAdminLockoutPreventedEvent
    * @param string $attemptedAction the refused operation (remove_member, unassign_role, remove_members, update_role_permissions, delete_role)
    * @param string|null $memberId the targeted membership ID when applicable
    * @param string|null $roleId the targeted role ID when applicable
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $attemptedAction,
     public ?string $memberId = null,
     public ?string $roleId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

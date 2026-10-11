@@ -40,6 +40,7 @@ final readonly class ImportJobFailedEvent
    * @param string $kind the provisioned resource kind (`equipment`|`facility`)
    * @param string $jobError the catastrophic failure reason
    * @param string $createdBy the user identifier who created the job
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $importJobId,
@@ -47,8 +48,9 @@ final readonly class ImportJobFailedEvent
     public string $kind,
     public string $jobError,
     public string $createdBy,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

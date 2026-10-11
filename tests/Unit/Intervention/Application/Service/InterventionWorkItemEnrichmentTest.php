@@ -14,7 +14,7 @@ use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilit
 use Organization\Application\Contract\Member\OrganizationMemberView;
 use Organization\Application\Contract\Workforce\OrganizationWorkforceMember;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationMemberDirectoryPort, OrganizationWorkforceDirectoryPort};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use User\Application\Contract\User\UserView;
@@ -204,14 +204,94 @@ final class InterventionWorkItemEnrichmentTest extends TestCase
     }
   }
 
+  #[Test]
+  public function testMixedPagesKeepOriginalOrderAndMalformedHistoricalReferencesRemainReadable(): void
+  {
+    $equipment = $this->createMock(InterventionEquipmentSummaryPort::class);
+    $equipment->expects(self::never())->method('summaries');
+    $sites = $this->createMock(InterventionSiteNamingPort::class);
+    $sites->expects(self::never())->method('findNamesByIds');
+    $workforce = $this->createMock(OrganizationWorkforceDirectoryPort::class);
+    $workforce->expects(self::exactly(2))->method('members')->willReturn([]);
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::never())->method('findByIds');
+    $views = [
+      $this->workItem('first', '/api/equipment/', 'member/bad', 'org-a'),
+      new InterventionWorkflowView('change', 'org-a', ['id' => 'change', 'status' => 'pending']),
+      new InterventionWorkflowView('intervention', 'org-a', ['id' => 'parent', 'status' => 42, 'participants' => []]),
+      $this->workItem('second', '/api/facilities/malformed/path', null, 'org-b'),
+      new InterventionWorkflowView('work_item', 'org-a', ['id' => 'third', 'target' => ['retained' => 'legacy'], 'assignee' => ['legacy']]),
+    ];
+
+    $result = $this->enrichment($equipment, $sites, $workforce, $users)->enrich($views, 'caller');
+
+    $ids = [];
+    foreach ($result as $view) {
+      $ids[] = $view->data['id'];
+    }
+    self::assertSame(['first', 'change', 'parent', 'second', 'third'], $ids);
+    self::assertSame($views[1], $result[1]);
+    self::assertSame([...$views[2]->data, 'allowedTransitions' => []], $result[2]->data);
+    foreach ([0, 3, 4] as $index) {
+      self::assertSame([...$views[$index]->data, 'targetSummary' => null, 'assigneeProfile' => null, 'allowedActions' => []], $result[$index]->data);
+      self::assertArrayNotHasKey('targetSummary', $views[$index]->data);
+    }
+  }
+
+  #[Test]
+  #[DataProvider('displayNameFallbackCases')]
+  public function testProfileNamesPreserveTheNameUsernameAndIdentityFallback(string $firstName, string $lastName, string $username, string $expected): void
+  {
+    $workforce = $this->createStub(OrganizationWorkforceDirectoryPort::class);
+    $workforce->method('members')->willReturn([new OrganizationWorkforceMember('member-1', 'user-1', true)]);
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::once())->method('findByIds')->with(['user-1'])->willReturn(['user-1' => $this->user($firstName, $lastName, $username)]);
+
+    $result = $this->enrichment(workforce: $workforce, users: $users)->enrich([$this->workItem('task', null, 'member-1')], 'caller');
+
+    self::assertSame([
+      'member' => '/api/organizations/org/members/member-1', 'userId' => 'user-1',
+      'displayName' => $expected, 'firstName' => $firstName, 'lastName' => $lastName, 'avatarUrl' => 'avatar.png',
+    ], $result[0]->data['assigneeProfile']);
+  }
+
+  /**
+   * @return iterable<string, array{string, string, string, string}>
+   */
+  public static function displayNameFallbackCases(): iterable
+  {
+    yield 'trimmed personal name wins' => [' Ada ', ' Example ', 'username', 'Ada   Example'];
+    yield 'empty name uses username' => ['', '', 'username', 'username'];
+    yield 'whitespace with empty username uses identity' => [' ', ' ', '', 'user-1'];
+    yield 'retained zero name preserves PHP fallback' => ['0', '', 'username', 'username'];
+    yield 'retained zero username uses identity' => ['', '', '0', 'user-1'];
+  }
+
+  #[Test]
+  public function testWorkforceFailurePreservesTargetDisplaysWithoutResolvingAccounts(): void
+  {
+    $sites = $this->createMock(InterventionSiteNamingPort::class);
+    $sites->expects(self::once())->method('findNamesByIds')->with('org', ['facility-1'])->willReturn(['facility-1' => 'Warehouse']);
+    $workforce = $this->createMock(OrganizationWorkforceDirectoryPort::class);
+    $workforce->expects(self::once())->method('members')->with('org')->willThrowException(new RuntimeException('Workforce directory unavailable.'));
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::never())->method('findByIds');
+
+    $result = $this->enrichment(sites: $sites, workforce: $workforce, users: $users)->enrich([$this->workItem('task', '/api/facilities/facility-1', 'member-1')], 'caller');
+
+    self::assertSame(['resource' => '/api/facilities/facility-1', 'kind' => 'facility', 'label' => 'Warehouse'], $result[0]->data['targetSummary']);
+    self::assertNull($result[0]->data['assigneeProfile']);
+    self::assertSame('/api/organizations/org/members/member-1', $result[0]->data['assignee']);
+  }
+
   private function workItem(string $id, ?string $target, ?string $memberId, string $organizationId = 'org'): InterventionWorkflowView
   {
     return new InterventionWorkflowView('work_item', $organizationId, ['id' => $id, 'status' => 'pending', 'target' => $target, 'assignee' => null === $memberId ? null : '/api/organizations/' . $organizationId . '/members/' . $memberId]);
   }
 
-  private function user(): UserView
+  private function user(string $firstName = 'Ada', string $lastName = 'Example', string $username = 'ada'): UserView
   {
-    return new UserView('user-1', 'ada', 'ada@example.com', 'Ada', 'Example', 'avatar.png', 'active', true, null, new DateTimeImmutable('2026-10-11T12:00:00+00:00'), null, true);
+    return new UserView('user-1', $username, 'ada@example.com', $firstName, $lastName, 'avatar.png', 'active', true, null, new DateTimeImmutable('2026-10-11T12:00:00+00:00'), null, true);
   }
 
   private function enrichment(

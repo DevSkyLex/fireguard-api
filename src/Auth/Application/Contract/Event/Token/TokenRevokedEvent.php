@@ -39,13 +39,15 @@ final readonly class TokenRevokedEvent
    * @param string $tokenId the token identifier
    * @param string $tokenType the token type (access_token, refresh_token)
    * @param string|null $reason the revocation reason
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $tokenId,
     public string $tokenType,
     public ?string $reason = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

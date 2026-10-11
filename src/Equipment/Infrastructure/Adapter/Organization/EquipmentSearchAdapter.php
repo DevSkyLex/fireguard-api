@@ -48,8 +48,6 @@ final readonly class EquipmentSearchAdapter implements EquipmentSearchPort
    */
   public function search(string $organizationId, string $term, int $limit): array
   {
-    $organizationId = $organizationId;
-
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('equipment')
       ->from(EquipmentRecord::class, 'equipment')

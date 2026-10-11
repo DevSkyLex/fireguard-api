@@ -62,10 +62,9 @@ final readonly class ChangeSelfServiceOrganizationPlanHandler implements Command
     if (!$plan->isDefault()) {
       throw new PaidOrganizationPlanRequiresBillingException();
     }
-    /** @var ChangeOrganizationPlanResult $result */
-    $result = $this->commands->dispatch(new ChangeOrganizationPlanCommand($command->organizationId, $command->planId, $command->acknowledgeOveruse));
 
-    return $result;
+    /** @var ChangeOrganizationPlanResult */
+    return $this->commands->dispatch(new ChangeOrganizationPlanCommand($command->organizationId, $command->planId, $command->acknowledgeOveruse));
   }
   // #endregion
 }

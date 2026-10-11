@@ -216,6 +216,8 @@ final class PresentationExceptionStatusTest extends TestCase
     'PlanKeyAlreadyExistsException' => 'ConflictHttpException',
     'PlanNotFoundException' => 'NotFoundHttpException',
     'PublicationNotFoundException' => 'NotFoundHttpException',
+    'RevisionMismatchException' => 'PreconditionFailedHttpException',
+    'RevisionMissingException' => 'PreconditionRequiredHttpException',
     'SelfApprovalNotAllowedException' => 'AccessDeniedHttpException',
     'TagNotFoundException' => 'NotFoundHttpException',
     'TeamMemberNotFoundException' => 'NotFoundHttpException',

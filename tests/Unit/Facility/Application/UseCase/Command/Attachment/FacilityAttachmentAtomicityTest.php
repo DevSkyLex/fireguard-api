@@ -6,15 +6,18 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Attachment;
 
 use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment\{AddFacilityAttachmentCommand, AddFacilityAttachmentHandler};
+use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityNotFoundException};
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Transaction\{CommitOutcomeUnknownException, TransactionAlreadyActiveException};
 use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, RootTransactionManagerPort, UuidGeneratorPort};
+use Throwable;
 
 /** Regression tests for upload ownership, replay and final-commit failure semantics. */
 final class FacilityAttachmentAtomicityTest extends TestCase
@@ -119,7 +122,42 @@ final class FacilityAttachmentAtomicityTest extends TestCase
     self::assertSame('winning.pdf', $result->fileName);
   }
 
-  private function handler(RootTransactionManagerPort $transactions, FileStoragePort $storage, FacilityAttachmentRepositoryPort $attachments, ?FileCleanupPort $cleanup = null): AddFacilityAttachmentHandler
+  /**
+   * Method authorizationPrecedesReplayAndStorage
+   *
+   * @param class-string<Throwable> $exceptionClass expected denial contract
+   */
+  #[Test]
+  #[DataProvider('authorizationDenials')]
+  public function authorizationPrecedesReplayAndStorage(OrganizationAccessDecision $decision, string $exceptionClass, string $message): void
+  {
+    $attachments = $this->createMock(FacilityAttachmentRepositoryPort::class);
+    $attachments->expects(self::once())->method('lock');
+    $attachments->expects(self::never())->method('findById');
+    $attachments->expects(self::never())->method('countByFacilityId');
+    $attachments->expects(self::never())->method('saveIfAbsent');
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('write');
+    $storage->expects(self::never())->method('delete');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('resolveAccess')->with('writer', self::ORGANIZATION, 'organization.facilities.write')->willReturn($decision);
+    $this->expectException($exceptionClass);
+    $this->expectExceptionMessage($message);
+    $this->handler($this->transactions(), $storage, $attachments, authorization: $authorization)(new AddFacilityAttachmentCommand(self::ORGANIZATION, self::FACILITY, 'new.pdf', '%PDF', 'application/pdf', 4, attachmentId: self::ATTACHMENT, userId: 'writer'));
+  }
+
+  /**
+   * Method authorizationDenials
+   *
+   * @return iterable<string, array{OrganizationAccessDecision, class-string<Throwable>, string}>
+   */
+  public static function authorizationDenials(): iterable
+  {
+    yield 'outside scope' => [OrganizationAccessDecision::OUTSIDE_SCOPE, FacilityNotFoundException::class, 'Facility not found.'];
+    yield 'missing permission' => [OrganizationAccessDecision::MISSING_PERMISSION, FacilityAccessDeniedException::class, 'Missing organization.facilities.write permission.'];
+  }
+
+  private function handler(RootTransactionManagerPort $transactions, FileStoragePort $storage, FacilityAttachmentRepositoryPort $attachments, ?FileCleanupPort $cleanup = null, ?OrganizationAuthorizationPort $authorization = null): AddFacilityAttachmentHandler
   {
     $facilities = $this->createStub(FacilityRepositoryPort::class);
     $facilities->method('findById')->willReturn(Facility::create(
@@ -131,7 +169,7 @@ final class FacilityAttachmentAtomicityTest extends TestCase
     $ids = $this->createStub(UuidGeneratorPort::class);
     $ids->method('generate')->willReturn(self::ATTEMPT);
 
-    return new AddFacilityAttachmentHandler($facilities, $attachments, $storage, $ids, $transactions, $cleanup ?? $this->createStub(FileCleanupPort::class), $this->createStub(OrganizationAuthorizationPort::class));
+    return new AddFacilityAttachmentHandler($facilities, $attachments, $storage, $ids, $transactions, $cleanup ?? $this->createStub(FileCleanupPort::class), $authorization ?? $this->createStub(OrganizationAuthorizationPort::class));
   }
 
   private function transactions(): RootTransactionManagerPort

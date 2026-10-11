@@ -47,6 +47,7 @@ final readonly class SafetyRegisterSnapshotCreatedEvent
    * @param string $generatedAt ISO 8601 datetime the archived register was generated at
    * @param string $contentHash the SHA-256 hash of the archived PDF bytes
    * @param int $sizeBytes the archived PDF size in bytes
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $snapshotId,
@@ -58,8 +59,9 @@ final readonly class SafetyRegisterSnapshotCreatedEvent
     public string $generatedAt,
     public string $contentHash,
     public int $sizeBytes,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }
