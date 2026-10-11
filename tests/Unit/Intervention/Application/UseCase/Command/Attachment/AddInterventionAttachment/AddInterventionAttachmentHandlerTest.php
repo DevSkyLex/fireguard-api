@@ -5,19 +5,20 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment;
 
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentHandler, AddInterventionAttachmentResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile, InterventionAttachmentOptions};
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, LoggerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -52,6 +53,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->expects(self::exactly(2))
       ->method('hasPermission')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.execute')
@@ -66,8 +68,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::once())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $resourceManager,
@@ -75,6 +77,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $result = $handler->__invoke(new AddInterventionAttachmentCommand(
@@ -105,8 +109,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: new InterventionResourceManager($resources),
@@ -114,6 +118,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InterventionNotFoundException::class);
@@ -156,8 +162,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: new InterventionResourceManager($resources),
@@ -165,6 +171,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InterventionNotFoundException::class);
@@ -186,6 +194,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(false);
 
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
@@ -195,8 +204,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $resourceManager,
@@ -204,6 +213,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InterventionAccessDeniedException::class);
@@ -226,6 +237,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->expects(self::exactly(2))
       ->method('hasPermission')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.plan')
@@ -235,8 +247,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $fileStorage = $this->createStub(FileStoragePort::class);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $resourceManager,
@@ -244,6 +256,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $handler->__invoke(new AddInterventionAttachmentCommand(
@@ -263,6 +277,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -277,8 +292,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $fileStorage->expects(self::once())->method('write');
     $fileStorage->expects(self::once())->method('delete');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $resourceManager,
@@ -286,6 +301,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(RuntimeException::class);
@@ -308,6 +325,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     $attachmentRepository = $this->createStub(InterventionAttachmentRepositoryPort::class);
@@ -322,8 +340,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
         self::anything(),
       );
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $resourceManager,
@@ -331,6 +349,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $handler->__invoke(new AddInterventionAttachmentCommand(
@@ -348,11 +368,18 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $attemptId = '550e8400-e29b-41d4-a716-446655440999';
+    $uuidFactory->expects(self::once())->method('generate')->willReturn($attemptId);
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())->method('write')->with(
+      'intervention/' . self::INTERVENTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_' . $attemptId . '_evidence.jpg',
+      'jpg-content',
+    );
 
     $repository = $this->createStub(InterventionAttachmentRepositoryPort::class);
     $repository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
@@ -361,8 +388,10 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       interventionResourceManager: $this->resourceManager('in_progress'),
       authorization: $authorization,
       attachmentRepository: $repository,
-      fileStorage: $this->createStub(FileStoragePort::class),
+      fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $result = $handler->__invoke($this->command(self::ATTACHMENT_ID));
@@ -375,6 +404,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handler = new AddInterventionAttachmentHandler(
@@ -382,7 +412,9 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       authorization: $authorization,
       attachmentRepository: $this->createStub(InterventionAttachmentRepositoryPort::class),
       fileStorage: $this->createStub(FileStoragePort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->uuidGenerator(),
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -395,6 +427,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -412,8 +445,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $this->resourceManager('in_progress'),
@@ -421,6 +454,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InvalidAttachmentException::class);
@@ -433,6 +468,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -443,8 +479,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT - 1);
     $attachmentRepository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $this->resourceManager('in_progress'),
@@ -452,6 +488,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $this->createStub(FileStoragePort::class),
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $result = $handler->__invoke($this->command(null));
@@ -464,6 +502,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     $existing = InterventionAttachment::create(
@@ -486,7 +525,9 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       authorization: $authorization,
       attachmentRepository: $attachmentRepository,
       fileStorage: $this->createStub(FileStoragePort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->uuidGenerator(),
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $result = $handler->__invoke($this->command(self::ATTACHMENT_ID));
@@ -501,6 +542,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -509,8 +551,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $resourceManager,
@@ -518,6 +560,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $this->createStub(FileStoragePort::class),
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $result = $handler->__invoke(new AddInterventionAttachmentCommand(
@@ -540,6 +584,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -556,7 +601,9 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       authorization: $authorization,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->uuidGenerator(),
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InterventionValidationException::class);
@@ -577,6 +624,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -593,7 +641,9 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       authorization: $authorization,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->uuidGenerator(),
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InterventionValidationException::class);
@@ -614,6 +664,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -632,7 +683,9 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       authorization: $authorization,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->uuidGenerator(),
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InterventionConflictException::class);
@@ -653,6 +706,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -669,7 +723,9 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       authorization: $authorization,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->uuidGenerator(),
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InterventionValidationException::class);
@@ -690,6 +746,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -700,8 +757,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $attachmentRepository->expects(self::never())->method('save');
     $attachmentRepository->expects(self::once())->method('saveReplacingSignature')->with(self::isInstanceOf(InterventionAttachment::class), null);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $this->resourceManager('changes_requested'),
@@ -709,6 +766,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $this->createStub(FileStoragePort::class),
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $result = $handler->__invoke(new AddInterventionAttachmentCommand(
@@ -729,6 +788,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     $previousSignatureId = new InterventionAttachmentId('550e8400-e29b-41d4-a716-446655446099');
@@ -760,10 +820,12 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $fileStorage->expects(self::once())->method('write');
     // Only the previous signature's FILE remains to clean up, now that its
     // database row has already been removed inside the same transaction.
-    $fileStorage->expects(self::once())->method('delete')->with($previousSignature->storagePath());
+    $fileStorage->expects(self::never())->method('delete');
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::once())->method('request')->with($previousSignature->storagePath());
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $this->resourceManager('in_progress'),
@@ -771,6 +833,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $cleanup,
     );
 
     $result = $handler->__invoke(new AddInterventionAttachmentCommand(
@@ -796,6 +860,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     // must still be cleaned up, and the conflict must propagate unchanged.
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -812,8 +877,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $fileStorage->expects(self::once())->method('write');
     $fileStorage->expects(self::once())->method('delete');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInterventionAttachmentHandler(
       interventionResourceManager: $this->resourceManager('in_progress'),
@@ -821,6 +886,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
     );
 
     $this->expectException(InterventionConflictException::class);
@@ -846,15 +913,97 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $resources->method('interventionMutationContext')->willReturnOnConsecutiveCalls($before, $after);
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $authorization->method('hasPermission')->willReturn(true);
     $repository = $this->createMock(InterventionAttachmentRepositoryPort::class);
     $repository->method('withUploadLock')->willReturnCallback(static fn (string $parentId, string $attachmentId, callable $operation): mixed => $operation());
     $repository->expects(self::never())->method('save');
     $storage = $this->createMock(FileStoragePort::class);
     $storage->expects(self::never())->method('write');
-    $handler = new AddInterventionAttachmentHandler(new InterventionResourceManager($resources), $authorization, $repository, $storage, $this->createStub(UuidFactory::class));
+    $handler = new AddInterventionAttachmentHandler(
+      new InterventionResourceManager($resources),
+      $authorization,
+      $repository,
+      $storage,
+      $this->createStub(UuidGeneratorPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
+    );
     $this->expectException(InterventionConflictException::class);
     $handler($this->command(self::ATTACHMENT_ID));
+  }
+
+  #[Test]
+  public function compensatesWhenTheOwningTransactionFailsAfterTheOperationReturns(): void
+  {
+    $failure = new RuntimeException('Late transaction failure.');
+    $repository = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $repository->method('withUploadLock')->willReturnCallback(static function (string $parent, string $id, callable $operation) use ($failure): never {
+      $operation();
+
+      throw $failure;
+    });
+    $storage = $this->createMock(FileStoragePort::class);
+    $path = null;
+    $storage->expects(self::once())->method('write')->willReturnCallback(static function (string $key) use (&$path): void { $path = $key; });
+    $storage->expects(self::once())->method('delete')->with(self::callback(static function (string $key) use (&$path): bool { return $key === $path; }));
+    $this->expectExceptionObject($failure);
+    $this->failureHandler($repository, $storage)($this->command(self::ATTACHMENT_ID));
+  }
+
+  #[Test]
+  public function retainsTheAttemptBlobWhenCommitOutcomeIsUnknown(): void
+  {
+    $failure = new \Shared\Application\Contract\Transaction\CommitOutcomeUnknownException(new RuntimeException('Connection lost during commit.'));
+    $repository = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $repository->method('withUploadLock')->willReturnCallback(static function (string $parent, string $id, callable $operation) use ($failure): never {
+      $operation();
+
+      throw $failure;
+    });
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::once())->method('write');
+    $storage->expects(self::never())->method('delete');
+    $this->expectExceptionObject($failure);
+    $this->failureHandler($repository, $storage)($this->command(self::ATTACHMENT_ID));
+  }
+
+  #[Test]
+  public function retainsTheOriginalPersistenceFailureWhenCompensationFails(): void
+  {
+    $failure = new RuntimeException('Initial SQL failure.');
+    $repository = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $repository->method('withUploadLock')->willReturnCallback(static fn (string $parent, string $id, callable $operation): mixed => $operation());
+    $repository->method('save')->willThrowException($failure);
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::once())->method('write');
+    $storage->expects(self::once())->method('delete')->willThrowException(new RuntimeException('Storage unavailable.'));
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning')->willThrowException(new RuntimeException('Logger unavailable.'));
+    $this->expectExceptionObject($failure);
+    $this->failureHandler($repository, $storage, $logger)($this->command(self::ATTACHMENT_ID));
+  }
+
+  #[Test]
+  public function outerTransactionRejectionOccursBeforeWritingBytes(): void
+  {
+    $repository = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $repository->method('withUploadLock')->willThrowException(new \Shared\Application\Contract\Transaction\TransactionAlreadyActiveException());
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('write');
+    $storage->expects(self::never())->method('delete');
+    $this->expectException(\Shared\Application\Contract\Transaction\TransactionAlreadyActiveException::class);
+    $this->failureHandler($repository, $storage)($this->command(self::ATTACHMENT_ID));
+  }
+
+  private function failureHandler(InterventionAttachmentRepositoryPort $repository, FileStoragePort $storage, ?LoggerPort $logger = null): AddInterventionAttachmentHandler
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+
+    return new AddInterventionAttachmentHandler($this->resourceManager('draft'), $authorization, $repository, $storage, $this->uuidGenerator(), $this->createStub(FileCleanupPort::class), $logger ?? $this->createStub(LoggerPort::class));
   }
 
   private function command(?string $attachmentId): AddInterventionAttachmentCommand
@@ -869,6 +1018,14 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       label: 'Execution evidence',
       attachmentId: $attachmentId,
     );
+  }
+
+  private function uuidGenerator(): UuidGeneratorPort
+  {
+    $generator = $this->createStub(UuidGeneratorPort::class);
+    $generator->method('generate')->willReturn(self::ATTACHMENT_ID);
+
+    return $generator;
   }
 
   private function resourceManager(string $status, ?bool $workItemBelongsToIntervention = null): InterventionResourceManager

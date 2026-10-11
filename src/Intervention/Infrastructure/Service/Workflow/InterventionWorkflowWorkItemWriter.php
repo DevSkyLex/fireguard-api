@@ -326,7 +326,7 @@ final readonly class InterventionWorkflowWorkItemWriter
     // assignee at this transition; never invent an earlier assignment date.
     if ([] === $history && null !== $previousMember) {
       $previous = new InterventionWorkItemAssignmentRecord();
-      $previous->id = $this->runtime->uuidFactory->generateRaw();
+      $previous->id = $this->runtime->uuidFactory->generate();
       $previous->workItem = $item;
       $previous->memberId = $previousMember;
       $previous->assignedAt = $now;
@@ -336,7 +336,7 @@ final readonly class InterventionWorkflowWorkItemWriter
     }
     if (null !== $item->assigneeId) {
       $assignment = new InterventionWorkItemAssignmentRecord();
-      $assignment->id = $this->runtime->uuidFactory->generateRaw();
+      $assignment->id = $this->runtime->uuidFactory->generate();
       $assignment->workItem = $item;
       $assignment->memberId = $item->assigneeId;
       $assignment->assignedAt = $now;
@@ -365,7 +365,7 @@ final readonly class InterventionWorkflowWorkItemWriter
    */
   private function createWorkItem(InterventionWorkflowMutation $mutation, array &$notifications): InterventionWorkflowView
   {
-    $id = $mutation->id ?? $this->runtime->uuidFactory->generateRaw();
+    $id = $mutation->id ?? $this->runtime->uuidFactory->generate();
     if ($mutation->createOnly && $this->runtime->entityManager->find(InterventionWorkItemRecord::class, $id) instanceof InterventionWorkItemRecord) {
       throw new InterventionPreconditionFailedException('The client UUID work item already exists.');
     }

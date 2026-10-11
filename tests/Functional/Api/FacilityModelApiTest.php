@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
@@ -13,6 +14,7 @@ use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\{KernelBrowser, Test\WebTestCase};
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Tests\Helper\GlbFixture;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function file_put_contents;
 use function json_decode;
@@ -32,8 +34,11 @@ use const JSON_THROW_ON_ERROR;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class FacilityModelApiTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string ORGANIZATION_ID = '990e8400-e29b-41d4-a716-446655470001';
 
   private const string ADMIN_USER_ID = '990e8400-e29b-41d4-a716-446655470002';
@@ -518,7 +523,7 @@ final class FacilityModelApiTest extends WebTestCase
       [new FacilityRecord(), self::ROOM_ID, self::ORGANIZATION_ID, 'zone', $building],
       [new FacilityRecord(), self::OUTSIDER_BUILDING_ID, self::OUTSIDER_ORGANIZATION_ID, 'building', $outsiderSite]] as [$record, $id, $org, $type, $parent]) {
       $record->id = $id;
-      $record->organization = $em->getReference(OrganizationRecord::class, $org);
+      $record->organizationId = $org;
       $record->parentFacility = $parent;
       $record->type = $type;
       $record->name = 'Model test ' . $type;

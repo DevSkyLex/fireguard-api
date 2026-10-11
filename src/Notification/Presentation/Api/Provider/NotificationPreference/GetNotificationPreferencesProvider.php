@@ -6,7 +6,7 @@ namespace Notification\Presentation\Api\Provider\NotificationPreference;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeInterface;
 use Notification\Application\UseCase\Query\Notification\GetNotificationPreferences\{
   GetNotificationPreferencesQuery,
@@ -63,7 +63,7 @@ final readonly class GetNotificationPreferencesProvider implements ProviderInter
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): NotificationPreferencesOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

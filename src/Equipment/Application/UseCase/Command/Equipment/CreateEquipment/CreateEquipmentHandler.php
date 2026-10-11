@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, EquipmentId, EquipmentIdentity, EquipmentOrganizationId, EquipmentTypeCode};
-use Intervention\Application\Port\Inbound\InterventionCreationPort;
+use Intervention\Application\Port\Inbound\{InterventionCreationPort, InterventionResourcesPort};
 use LogicException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Shared\Application\Factory\UuidFactory;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
@@ -46,21 +46,23 @@ final readonly class CreateEquipmentHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param EquipmentRepositoryPort $equipmentRepository the equipment repository value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param FacilityNamingPort $facilityNaming the facility display-name lookup port
    */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
     private FacilityNamingPort $facilityNaming,
     private ?OrganizationSetupPort $setup = null,
     private ?\Equipment\Application\Port\Outbound\FacilityValidationPort $facilityValidation = null,
     private ?InterventionCreationPort $creationContext = null,
-    private ?\Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort $typeCatalog = null,
+    private ?\Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort $typeCatalog = null,
+    private ?OrganizationAuthorizationPort $authorization = null,
+    private ?InterventionResourcesPort $interventions = null,
   ) {
   }
   // #endregion
@@ -92,7 +94,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
 
       /** @var EquipmentId $equipmentId */
       $equipmentId = null === $command->resourceId
-        ? $this->uuidFactory->create(EquipmentId::class)
+        ? new EquipmentId($this->uuidFactory->generate())
         : EquipmentId::fromString($command->resourceId);
 
       $equipment = Equipment::create(
@@ -143,6 +145,18 @@ final readonly class CreateEquipmentHandler implements CommandHandler
    */
   private function persist(CreateEquipmentCommand $command, Equipment $equipment): Equipment
   {
+    if (null !== $command->userId) {
+      $permission = null === $command->interventionId
+        ? 'organization.equipment.write'
+        : ($this->interventions ?? throw new LogicException('Intervention authorization is unavailable.'))->mutationPermission($command->interventionId, $command->userId, $command->organizationId, forUpdate: true);
+      $decision = ($this->authorization ?? throw new LogicException('Equipment authorization is unavailable.'))->resolveAccess($command->userId, $command->organizationId, $permission);
+      if ($decision->isOutsideScope()) {
+        throw new \Equipment\Domain\Exception\EquipmentMediaNotFoundException('Organization not found.');
+      }
+      if (!$decision->isGranted()) {
+        throw new \Equipment\Domain\Exception\EquipmentAccessDeniedException('Missing ' . $permission . ' permission.');
+      }
+    }
     $existing = $this->findSetupReplay($command);
     if (null !== $existing) {
       return $existing;

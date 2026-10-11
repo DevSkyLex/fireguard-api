@@ -18,7 +18,6 @@ use Inspection\Domain\ValueObject\{
 };
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Class InspectionMapper
@@ -46,13 +45,13 @@ final class InspectionMapper
    */
   public static function toDomain(InspectionRecord $record): Inspection
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Inspection record must reference an organization.');
     }
 
     return Inspection::reconstitute(
       id: InspectionId::fromString($record->id),
-      organizationId: InspectionOrganizationId::fromString($record->organization->id),
+      organizationId: InspectionOrganizationId::fromString($record->organizationId),
       references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString($record->equipmentId),
         inspector: Inspector::reconstitute(
@@ -93,6 +92,7 @@ final class InspectionMapper
   {
     $record = new InspectionRecord();
     $record->id = (string) $inspection->id();
+    $record->organizationId = (string) $inspection->organizationId();
     $record->equipmentId = (string) $inspection->equipmentId();
     $record->facilityId = $inspection->facilityId()?->__toString();
     $record->inspectorType = $inspection->inspector()->type->value;

@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Get;
-use Organization\Infrastructure\Image\OrganizationLogoResizer;
+use Organization\Application\UseCase\Query\Organization\GetOrganizationLogo\{GetOrganizationLogoQuery, GetOrganizationLogoResult};
 use Organization\Presentation\Api\Provider\Organization\GetOrganizationLogoProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Infrastructure\Exception\FileStorageException;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -40,12 +39,12 @@ final class GetOrganizationLogoProviderTest extends TestCase
   #[Test]
   public function testProvideStreamsTheStoredLogoWithHardenedHeaders(): void
   {
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
+    /** @var QueryBusPort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(QueryBusPort::class);
     $fileStorage->expects(self::once())
-      ->method('read')
-      ->with(OrganizationLogoResizer::pathFor(self::ORGANIZATION_ID))
-      ->willReturn('webp-bytes');
+      ->method('ask')
+      ->with(new GetOrganizationLogoQuery(self::ORGANIZATION_ID))
+      ->willReturn(new GetOrganizationLogoResult('webp-bytes'));
 
     $response = new GetOrganizationLogoProvider($fileStorage)
       ->provide($this->operation(), ['organizationId' => self::ORGANIZATION_ID]);
@@ -64,8 +63,8 @@ final class GetOrganizationLogoProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsNotFoundWhenNoLogoIsStored(): void
   {
-    $fileStorage = $this->createStub(FileStoragePort::class);
-    $fileStorage->method('read')->willThrowException(new FileStorageException('missing'));
+    $fileStorage = $this->createStub(QueryBusPort::class);
+    $fileStorage->method('ask')->willReturn(new GetOrganizationLogoResult(null));
 
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Organization logo not found.');
@@ -77,12 +76,12 @@ final class GetOrganizationLogoProviderTest extends TestCase
   #[Test]
   public function testANonStringOrganizationIdFallsBackToAnEmptyLookup(): void
   {
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
+    /** @var QueryBusPort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(QueryBusPort::class);
     $fileStorage->expects(self::once())
-      ->method('read')
-      ->with(OrganizationLogoResizer::pathFor(''))
-      ->willReturn('webp-bytes');
+      ->method('ask')
+      ->with(new GetOrganizationLogoQuery(''))
+      ->willReturn(new GetOrganizationLogoResult('webp-bytes'));
 
     new GetOrganizationLogoProvider($fileStorage)
       ->provide($this->operation(), ['organizationId' => 42]);
@@ -91,12 +90,12 @@ final class GetOrganizationLogoProviderTest extends TestCase
   #[Test]
   public function testAMissingOrganizationIdFallsBackToAnEmptyLookup(): void
   {
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
+    /** @var QueryBusPort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(QueryBusPort::class);
     $fileStorage->expects(self::once())
-      ->method('read')
-      ->with(OrganizationLogoResizer::pathFor(''))
-      ->willReturn('webp-bytes');
+      ->method('ask')
+      ->with(new GetOrganizationLogoQuery(''))
+      ->willReturn(new GetOrganizationLogoResult('webp-bytes'));
 
     new GetOrganizationLogoProvider($fileStorage)->provide($this->operation(), []);
   }

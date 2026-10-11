@@ -6,18 +6,16 @@ namespace Calendar\Presentation\Api\Processor\Event;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent\{UpdateCalendarEventCommand, UpdateCalendarEventResult};
 use Calendar\Presentation\Api\Dto\Input\Event\UpdateCalendarEventInput;
 use Calendar\Presentation\Api\Dto\Output\Event\CalendarEventOutput;
 use Calendar\Presentation\Api\Factory\CalendarEventOutputFactory;
-use Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait;
+use Calendar\Presentation\Api\Http\MergePatchFields;
 use DateTimeImmutable;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\MergePatchFields;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function array_key_exists;
 use function is_string;
@@ -34,8 +32,6 @@ use function is_string;
  */
 final readonly class UpdateCalendarEventProcessor implements ProcessorInterface
 {
-  use CalendarExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -70,7 +66,7 @@ final readonly class UpdateCalendarEventProcessor implements ProcessorInterface
   {
     /** @var UpdateCalendarEventInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -80,30 +76,26 @@ final readonly class UpdateCalendarEventProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId and eventId URI parameters are required.');
     }
 
-    try {
-      $fields = $this->mergePatchFields->all();
+    $fields = $this->mergePatchFields->all();
 
-      /** @var UpdateCalendarEventResult $result */
-      $result = $this->commandBus->dispatch(new UpdateCalendarEventCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        eventId: $eventId,
-        title: $data->title,
-        description: $data->description,
-        startsAt: null !== $data->startsAt ? new DateTimeImmutable($data->startsAt) : null,
-        endsAt: null !== $data->endsAt ? new DateTimeImmutable($data->endsAt) : null,
-        allDay: $data->allDay,
-        facilityId: $data->facilityId,
-        hasTitle: array_key_exists('title', $fields),
-        hasDescription: array_key_exists('description', $fields),
-        hasStartsAt: array_key_exists('startsAt', $fields),
-        hasEndsAt: array_key_exists('endsAt', $fields),
-        hasAllDay: array_key_exists('allDay', $fields),
-        hasFacilityId: array_key_exists('facilityId', $fields),
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapCalendarException($exception);
-    }
+    /** @var UpdateCalendarEventResult $result */
+    $result = $this->commandBus->dispatch(new UpdateCalendarEventCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      eventId: $eventId,
+      title: $data->title,
+      description: $data->description,
+      startsAt: null !== $data->startsAt ? new DateTimeImmutable($data->startsAt) : null,
+      endsAt: null !== $data->endsAt ? new DateTimeImmutable($data->endsAt) : null,
+      allDay: $data->allDay,
+      facilityId: $data->facilityId,
+      hasTitle: array_key_exists('title', $fields),
+      hasDescription: array_key_exists('description', $fields),
+      hasStartsAt: array_key_exists('startsAt', $fields),
+      hasEndsAt: array_key_exists('endsAt', $fields),
+      hasAllDay: array_key_exists('allDay', $fields),
+      hasFacilityId: array_key_exists('facilityId', $fields),
+    ));
 
     return $this->outputFactory->fromView($result);
   }

@@ -6,15 +6,15 @@ namespace Facility\Presentation\Api\Processor\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacilityCommand, ArchiveFacilityResult};
 use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -46,12 +46,12 @@ final readonly class ArchiveFacilityProcessor implements ProcessorInterface
    *
    * @param FacilityDetailOutputFactory $detail factory used to assemble the updated facility detail response
    * @param CommandBusPort $commandBus port used to dispatch the archive command
-   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
    * @param Security $security security context used to obtain the acting member
    *
    * @return void
    */
   public function __construct(
+    private QueryBusPort $detailQueries,
     private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -79,7 +79,7 @@ final readonly class ArchiveFacilityProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -127,7 +127,10 @@ final readonly class ArchiveFacilityProcessor implements ProcessorInterface
       throw $exception;
     }
 
-    return $this->detail->read($organizationId, $result->facilityId);
+    /** @var \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult $detailResult */
+    $detailResult = $this->detailQueries->ask(new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery($organizationId, $result->facilityId));
+
+    return $this->detail->create($detailResult);
   }
 
   /**

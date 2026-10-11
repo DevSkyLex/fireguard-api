@@ -6,7 +6,7 @@ namespace OAuth\Presentation\Api\Provider\Consent;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentQuery, CheckConsentResult};
 use OAuth\Presentation\Api\Dto\Output\Consent\CheckConsentOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -78,7 +78,7 @@ final readonly class CheckConsentProvider implements ProviderInterface
   {
     $user = $this->security->getUser();
 
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
         message: 'Authentication required',
@@ -93,8 +93,8 @@ final readonly class CheckConsentProvider implements ProviderInterface
       );
     }
 
-    $clientId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get(key: 'client_id', default: null);
-    $scope = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get(key: 'scope', default: null);
+    $clientId = \OAuth\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get(key: 'client_id', default: null);
+    $scope = \OAuth\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get(key: 'scope', default: null);
 
     if (!is_string($clientId) || empty($clientId)) {
       throw new BadRequestHttpException(

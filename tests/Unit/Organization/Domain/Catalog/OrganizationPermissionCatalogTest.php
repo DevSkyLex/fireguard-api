@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Domain\Catalog;
 
 use InvalidArgumentException;
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

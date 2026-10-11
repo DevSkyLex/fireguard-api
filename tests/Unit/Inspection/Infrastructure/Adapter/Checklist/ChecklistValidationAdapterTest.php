@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Infrastructure\Adapter\Checklist;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Domain\Model\Checklist\{Checklist, RestoredChecklistRevision};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, ChecklistStatus};
 use Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter;
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test ChecklistValidationAdapterTest.
@@ -44,8 +44,8 @@ final class ChecklistValidationAdapterTest extends TestCase
   {
     $adapter = new ChecklistValidationAdapter($this->repository(null));
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('not found');
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Checklist with ID "' . self::CHECKLIST_ID . '" not found.');
 
     $adapter->assertChecklistIsUsable(self::CHECKLIST_ID, self::ORGANIZATION_ID);
   }
@@ -55,8 +55,8 @@ final class ChecklistValidationAdapterTest extends TestCase
   {
     $adapter = new ChecklistValidationAdapter($this->repository($this->checklist(ChecklistStatus::ACTIVE)));
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('not found');
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Checklist with ID "' . self::CHECKLIST_ID . '" not found.');
 
     $adapter->assertChecklistIsUsable(self::CHECKLIST_ID, self::OTHER_ORGANIZATION_ID);
   }
@@ -66,8 +66,8 @@ final class ChecklistValidationAdapterTest extends TestCase
   {
     $adapter = new ChecklistValidationAdapter($this->repository($this->checklist(ChecklistStatus::ARCHIVED)));
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('archived');
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Checklist with ID "' . self::CHECKLIST_ID . '" is archived and cannot be used.');
 
     $adapter->assertChecklistIsUsable(self::CHECKLIST_ID, self::ORGANIZATION_ID);
   }

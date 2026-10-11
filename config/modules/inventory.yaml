@@ -12,7 +12,7 @@ services:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
 
-  Inventory\Application\Port\Outbound\InventoryStorePort:
+  Inventory\Application\Port\Outbound\Internal\InventoryStorePort:
     alias: Inventory\Infrastructure\Persistence\Doctrine\Repository\InventoryRepository
 
   inventory.main_transaction_manager:

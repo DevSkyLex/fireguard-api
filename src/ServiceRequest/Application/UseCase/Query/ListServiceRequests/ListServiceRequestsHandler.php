@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace ServiceRequest\Application\UseCase\Query\ListServiceRequests;
 
-use ServiceRequest\Application\Contract\ServiceRequestView;
-use ServiceRequest\Application\Port\Outbound\ServiceRequestRepositoryPort;
-use ServiceRequest\Application\Service\ServiceRequestAccessGuard;
+use ServiceRequest\Application\Port\Outbound\Internal\ServiceRequestRepositoryPort;
+use ServiceRequest\Application\Service\{ServiceRequestAccessGuard, ServiceRequestViewMapper};
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -43,6 +42,6 @@ final readonly class ListServiceRequestsHandler implements QueryHandler
     $search = trim($query->search);
     $items = $this->requests->list($query->organizationId, $query->status, $query->equipmentId, $query->siteId, $search, ($query->page - 1) * $query->itemsPerPage, $query->itemsPerPage);
 
-    return new ListServiceRequestsResult(array_map(ServiceRequestView::fromRequest(...), $items), $this->requests->count($query->organizationId, $query->status, $query->equipmentId, $query->siteId, $search), $query->page, $query->itemsPerPage);
+    return new ListServiceRequestsResult(array_map(ServiceRequestViewMapper::fromRequest(...), $items), $this->requests->count($query->organizationId, $query->status, $query->equipmentId, $query->siteId, $search), $query->page, $query->itemsPerPage);
   }
 }

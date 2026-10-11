@@ -4,54 +4,18 @@ declare(strict_types=1);
 
 namespace Facility\Presentation\Api\Factory;
 
-use Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\{GetCanonicalFacilityQuery, GetCanonicalFacilityResult};
-use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityQuery, GetFacilityResult};
+use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /** Factory FacilityDetailOutputFactory. One complete post-mutation snapshot across HTTP entry points. */
 final readonly class FacilityDetailOutputFactory
 {
-  // #region Constructor
-  /**
-   * Method __construct
-   *
-   * Initializes the FacilityDetailOutputFactory dependencies and state.
-   *
-   * @access public
-   *
-   * @param QueryBusPort $queries the queries
-   *
-   * @return void
-   */
-  public function __construct(private QueryBusPort $queries)
-  {
-  }
-
-  // #endregion
   // #region Methods
   /**
-   * Method read
-   *
-   * Builds the equipment detail output from the canonical equipment view.
-   *
-   * @access public
-   *
-   * @param string $organizationId the organization identifier
-   * @param string $id the identifier
-   *
-   * @return FacilityOutput
+   * Method create. Maps the complete application snapshot to HTTP scalars.
    */
-  public function read(string $organizationId, string $id): FacilityOutput
+  public function create(GetFacilityResult $result): FacilityOutput
   {
-    /** @var GetFacilityResult $result */
-    $result = $this->queries->ask(new GetFacilityQuery($organizationId, $id));
-    /** @var GetCanonicalFacilityResult $canonical */
-    $canonical = $this->queries->ask(new GetCanonicalFacilityQuery($id));
-    if (null === $canonical->view || $canonical->view->organizationId !== $organizationId) {
-      throw new NotFoundHttpException('Facility not found.');
-    }
     $output = new FacilityOutput();
     $output->id = $result->facilityId;
     $output->organizationId = $result->organizationId;
@@ -78,9 +42,9 @@ final readonly class FacilityDetailOutputFactory
     $output->path = $result->path;
 
 
-    $output->revision = $canonical->view->revision;
-    $output->recordStatus = $canonical->view->recordStatus;
-    $output->intervention = null === $canonical->view->interventionId ? null : '/api/interventions/' . $canonical->view->interventionId;
+    $output->revision = $result->revision;
+    $output->recordStatus = $result->recordStatus;
+    $output->intervention = null === $result->interventionId ? null : '/api/interventions/' . $result->interventionId;
 
     return $output;
   }

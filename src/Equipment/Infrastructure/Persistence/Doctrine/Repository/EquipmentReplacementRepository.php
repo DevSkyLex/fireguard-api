@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, Query};
 use Equipment\Application\Contract\Replacement\EquipmentReplacementReceipt;
-use Equipment\Application\Port\Outbound\EquipmentReplacementRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentReplacementRepositoryPort;
 use Equipment\Domain\Model\Replacement\{EquipmentReplacement, ReplacementEquipment};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentRecord, EquipmentReplacementReceiptRecord};
 use LogicException;
@@ -86,7 +86,7 @@ final readonly class EquipmentReplacementRepository implements EquipmentReplacem
     sort($equipmentIds);
     $query = $this->entityManager->createQueryBuilder()
       ->select('equipment')->from(EquipmentRecord::class, 'equipment')
-      ->where('IDENTITY(equipment.organization) = :organization')
+      ->where('equipment.organizationId = :organization')
       ->andWhere('equipment.id IN (:ids)')
       ->orderBy('equipment.id', 'ASC')
       ->setParameter('organization', $organizationId)

@@ -128,7 +128,7 @@ final class MaintenanceExportSiteIdentityAdapterTest extends KernelTestCase
   {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $this->main->getReference(OrganizationRecord::class, $organizationId);
+    $facility->organizationId = $organizationId;
     $facility->type = $type;
     $facility->name = 'Retained site';
     $facility->status = $status;

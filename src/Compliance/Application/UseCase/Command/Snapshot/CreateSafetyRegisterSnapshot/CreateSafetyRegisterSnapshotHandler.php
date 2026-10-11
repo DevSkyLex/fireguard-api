@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Compliance\Application\UseCase\Command\Snapshot\CreateSafetyRegisterSnapshot;
 
 use Compliance\Application\Contract\SafetyRegisterSnapshotView;
-use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort, SafetyRegisterSnapshotRepositoryPort};
+use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort};
+use Compliance\Application\Port\Outbound\Internal\SafetyRegisterSnapshotRepositoryPort;
 use Compliance\Application\Service\SafetyRegisterContextBuilder;
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
@@ -14,10 +15,10 @@ use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceExpo
 use Compliance\Domain\Model\Snapshot\{SafetyRegisterSnapshot, SafetyRegisterStoredFile};
 use Compliance\Domain\ValueObject\SafetyRegisterSnapshotId;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, FileStoragePort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
 
 use function hash;
@@ -70,7 +71,7 @@ final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandl
    * @param SafetyRegisterPdfRendererPort $renderer the PDF renderer port
    * @param FileStoragePort $fileStorage the file storage port holding the PDF bytes
    * @param SafetyRegisterSnapshotRepositoryPort $repository the snapshot repository port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
@@ -82,7 +83,7 @@ final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandl
     private SafetyRegisterPdfRendererPort $renderer,
     private FileStoragePort $fileStorage,
     private SafetyRegisterSnapshotRepositoryPort $repository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
     private TransactionManagerPort $transactionManager,
   ) {
@@ -131,7 +132,7 @@ final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandl
     $pdf = $this->renderer->render($context);
 
     /** @var SafetyRegisterSnapshotId $id */
-    $id = $this->uuidFactory->create(SafetyRegisterSnapshotId::class);
+    $id = new SafetyRegisterSnapshotId($this->uuidFactory->generate());
     $storagePath = sprintf('compliance/registers/%s/%s.pdf', $command->organizationId, (string) $id);
 
     $snapshot = SafetyRegisterSnapshot::create(

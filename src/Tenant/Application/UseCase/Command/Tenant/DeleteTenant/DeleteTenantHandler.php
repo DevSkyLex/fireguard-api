@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tenant\Application\UseCase\Command\Tenant\DeleteTenant;
 
 use Shared\Application\Message\CommandHandler;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Domain\Exception\TenantNotFoundException;
 use Tenant\Domain\ValueObject\TenantId;
 

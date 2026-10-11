@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Approval\Application\UseCase\Command\Decision\RejectApprovalRequest;
 
 use Approval\Application\Contract\Policy\ApprovalPolicy;
-use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort};
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Application\UseCase\Command\Decision\RejectApprovalRequest\{RejectApprovalRequestCommand, RejectApprovalRequestHandler};
 use Approval\Domain\Event\Request\ApprovalRejectedEvent;
 use Approval\Domain\Exception\{

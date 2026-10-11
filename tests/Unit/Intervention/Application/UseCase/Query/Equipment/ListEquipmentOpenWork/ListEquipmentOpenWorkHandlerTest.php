@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Query\Equipment\ListEquipmentOpenWork;
 
 use Intervention\Application\Contract\Resource\InterventionEquipmentWork;
-use Intervention\Application\Port\Outbound\{InterventionEquipmentWorkPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\InterventionEquipmentWorkPort;
 use Intervention\Application\UseCase\Query\Equipment\ListEquipmentOpenWork\{ListEquipmentOpenWorkHandler, ListEquipmentOpenWorkQuery};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;

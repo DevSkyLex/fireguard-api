@@ -78,10 +78,10 @@ final readonly class InterventionDraftReferenceGuardAdapter implements Intervent
       return;
     }
     $discarded = $this->entityManager->find(InterventionRecord::class, $interventionId);
-    if (!$discarded instanceof InterventionRecord || null === $discarded->organization) {
+    if (!$discarded instanceof InterventionRecord || !isset($discarded->organizationId)) {
       return;
     }
-    $organizationId = $discarded->organization->id;
+    $organizationId = $discarded->organizationId;
     if ($this->entityManager->getConnection()->isTransactionActive()) {
       $this->hierarchy?->lock($organizationId);
     }
@@ -114,7 +114,7 @@ final readonly class InterventionDraftReferenceGuardAdapter implements Intervent
     $references = [];
     /** @var list<InterventionRecord> $interventions */
     $interventions = $this->entityManager->createQueryBuilder()->select('intervention')->from(InterventionRecord::class, 'intervention')
-      ->where('intervention.siteId IN (:ids)')->andWhere('IDENTITY(intervention.organization) = :organization')
+      ->where('intervention.siteId IN (:ids)')->andWhere('intervention.organizationId = :organization')
       ->andWhere(':retained = true OR intervention.id <> :discarded')
       ->setParameter('ids', $ids)->setParameter('organization', $organizationId)
       ->setParameter('retained', $interventionRetained)->setParameter('discarded', $interventionId)->getQuery()->getResult();
@@ -144,7 +144,7 @@ final readonly class InterventionDraftReferenceGuardAdapter implements Intervent
     $references = [];
     /** @var list<InterventionWorkItemRecord> $items */
     $items = $this->entityManager->createQueryBuilder()->select('item')->from(InterventionWorkItemRecord::class, 'item')
-      ->innerJoin('item.intervention', 'owner')->where('IDENTITY(owner.organization) = :organization')
+      ->innerJoin('item.intervention', 'owner')->where('owner.organizationId = :organization')
       ->andWhere(':retained = true OR owner.id <> :discarded')->setParameter('organization', $organizationId)
       ->setParameter('retained', $interventionRetained)->setParameter('discarded', $interventionId)->getQuery()->getResult();
     foreach ($items as $item) {
@@ -178,7 +178,7 @@ final readonly class InterventionDraftReferenceGuardAdapter implements Intervent
     $references = [];
     /** @var list<InterventionChangeRecord> $changes */
     $changes = $this->entityManager->createQueryBuilder()->select('change')->from(InterventionChangeRecord::class, 'change')
-      ->innerJoin('change.intervention', 'owner')->where('IDENTITY(owner.organization) = :organization')
+      ->innerJoin('change.intervention', 'owner')->where('owner.organizationId = :organization')
       ->andWhere(':retained = true OR owner.id <> :discarded')->andWhere('change.status = :proposed')
       ->setParameter('organization', $organizationId)->setParameter('retained', $interventionRetained)
       ->setParameter('discarded', $interventionId)->setParameter('proposed', 'proposed')->getQuery()->getResult();

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\NonConformity\ListNonConformities;
 
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityInspectionId, NonConformitySeverity, NonConformityStatus};
 use Shared\Application\Contract\Pagination\PaginatedResult;

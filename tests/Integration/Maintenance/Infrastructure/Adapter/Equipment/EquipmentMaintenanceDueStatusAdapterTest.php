@@ -17,7 +17,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * Test EquipmentMaintenanceDueStatusAdapterTest.
  *
  * Exercises the real DQL query behind `dueStatusesForEquipment()` against a
- * real database — a mocked QueryBuilder never parses the `s.organization = `
+ * real database — a mocked QueryBuilder never parses the `s.organizationId = `
  * / `s.equipmentId IN (:equipmentIds)` predicate, and the cross-organization
  * scoping guard (a schedule belonging to another organization must never
  * leak) is exactly the kind of bug a mock would hide.
@@ -150,11 +150,11 @@ final class EquipmentMaintenanceDueStatusAdapterTest extends KernelTestCase
 
   private function createSchedule(string $id, string $organizationId, string $equipmentId, string $dueStatus): void
   {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     $schedule = new MaintenanceScheduleRecord();
     $schedule->id = $id;
-    $schedule->organization = $organization;
+    $schedule->organizationId = $organization;
     $schedule->equipmentId = $equipmentId;
     $schedule->equipmentType = 'fire_extinguisher';
     $schedule->dueStatus = $dueStatus;

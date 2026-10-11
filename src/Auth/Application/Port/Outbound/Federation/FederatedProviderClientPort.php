@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Application\Port\Outbound\Federation;
 
 use Auth\Application\Contract\Federation\{FederatedAuthorization, FederatedProfile};
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\FederatedProvider;
 
 /**
  * Interface FederatedProviderClientPort.

@@ -6,7 +6,7 @@ namespace Tests\Unit\Tenant\Application\UseCase\Query\Tenant\GetTenant;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Application\UseCase\Query\Tenant\GetTenant\{GetTenantHandler, GetTenantQuery, GetTenantResult};
 use Tenant\Domain\Exception\TenantNotFoundException;
 use Tenant\Domain\Model\Tenant\Tenant;

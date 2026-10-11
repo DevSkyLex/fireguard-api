@@ -17,7 +17,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use Tests\Helper\IdentityBoundaryFactories;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateUserResult};
 
 /**
@@ -30,6 +31,8 @@ use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateU
  */
 final class RegisterUserHandlerTest extends TestCase
 {
+  use IdentityBoundaryFactories;
+
   private const string USER_ID = '11111111-1111-4111-8111-111111111111';
 
   #[Test]
@@ -74,7 +77,7 @@ final class RegisterUserHandlerTest extends TestCase
         },
       );
 
-    $handler = new RegisterUserHandler($commandBus, $users, $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
 
     $result = $handler(new RegisterUserCommand(
       email: 'New.User@Example.com',
@@ -105,7 +108,7 @@ final class RegisterUserHandlerTest extends TestCase
     $otpChallenge = $this->createMock(OtpChallengePort::class);
     $otpChallenge->expects(self::never())->method('generate');
 
-    $handler = new RegisterUserHandler($commandBus, $users, $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
 
     $result = $handler(new RegisterUserCommand(
       email: 'Taken@Example.com',
@@ -151,7 +154,7 @@ final class RegisterUserHandlerTest extends TestCase
     $otpChallenge = $this->createMock(OtpChallengePort::class);
     $otpChallenge->expects(self::once())->method('generate')->willReturn($challenge);
 
-    $handler = new RegisterUserHandler($commandBus, $users, $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
 
     $result = $handler(new RegisterUserCommand(
       email: 'johndoe@example.com',
@@ -195,7 +198,7 @@ final class RegisterUserHandlerTest extends TestCase
     $otpChallenge = $this->createMock(OtpChallengePort::class);
     $otpChallenge->expects(self::once())->method('generate')->willReturn($challenge);
 
-    $handler = new RegisterUserHandler($commandBus, $users, $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
 
     $result = $handler(new RegisterUserCommand(
       email: 'jane@example.com',
@@ -237,7 +240,7 @@ final class RegisterUserHandlerTest extends TestCase
     $otpChallenge = $this->createMock(OtpChallengePort::class);
     $otpChallenge->expects(self::once())->method('generate')->willReturn($challenge);
 
-    $handler = new RegisterUserHandler($commandBus, $users, $otpChallenge);
+    $handler = new RegisterUserHandler($this->registrationBusCapability($users, $commandBus), $otpChallenge);
 
     $result = $handler(new RegisterUserCommand(
       email: 'ab@example.com',
@@ -254,8 +257,7 @@ final class RegisterUserHandlerTest extends TestCase
   public function itFallsBackToTheWholeStringWhenTheEmailHasNoDomainSeparator(): void
   {
     $handler = new RegisterUserHandler(
-      $this->createStub(CommandBusPort::class),
-      $this->createStub(UserRepositoryPort::class),
+      $this->registrationBusCapability($this->createStub(UserRepositoryPort::class), $this->createStub(CommandBusPort::class)),
       $this->createStub(OtpChallengePort::class),
     );
 

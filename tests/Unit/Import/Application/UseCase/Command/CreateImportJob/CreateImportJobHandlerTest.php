@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Import\Application\UseCase\Command\CreateImportJob;
 
-use Import\Application\Port\Outbound\{ImportJobQueuePort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\ImportJobQueuePort;
+use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
 use Import\Application\UseCase\Command\CreateImportJob\{CreateImportJobCommand, CreateImportJobHandler};
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -12,7 +13,6 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{FileStoragePort, UuidGeneratorPort};
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -241,12 +241,12 @@ final class CreateImportJobHandlerTest extends TestCase
     );
   }
 
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn(self::GENERATED_ID);
 
-    return new UuidFactory($generator);
+    return $generator;
   }
 
   private function stubbedHandler(): CreateImportJobHandler

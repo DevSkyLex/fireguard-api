@@ -8,7 +8,7 @@ use Calendar\Application\Contract\Feed\CalendarFeedItem;
 use Calendar\Application\Port\Outbound\Feed\InspectionCalendarFeedPort;
 use DateTimeImmutable;
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\InspectionOrganizationId;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};

@@ -6,13 +6,11 @@ namespace Webhook\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 use Webhook\Application\UseCase\Command\Subscription\DeleteWebhookSubscription\DeleteWebhookSubscriptionCommand;
-use Webhook\Presentation\Api\Trait\WebhookExceptionMapperTrait;
 
 use function is_string;
 
@@ -28,8 +26,6 @@ use function is_string;
  */
 final readonly class DeleteWebhookSubscriptionProcessor implements ProcessorInterface
 {
-  use WebhookExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -60,7 +56,7 @@ final readonly class DeleteWebhookSubscriptionProcessor implements ProcessorInte
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): mixed
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -70,15 +66,11 @@ final readonly class DeleteWebhookSubscriptionProcessor implements ProcessorInte
       throw new BadRequestHttpException('OrganizationId and webhookId URI parameters are required.');
     }
 
-    try {
-      $this->commandBus->dispatch(new DeleteWebhookSubscriptionCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        subscriptionId: $webhookId,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWebhookException($exception);
-    }
+    $this->commandBus->dispatch(new DeleteWebhookSubscriptionCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      subscriptionId: $webhookId,
+    ));
 
     return null;
   }

@@ -2,9 +2,15 @@
 
 **Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
 
-When facility creation participates in a main transaction (including CSV import),
-its event is appended to the main outbox in that transaction. Consumers only see
-committed creations; direct non-transactional callers retain synchronous dispatch.
+Facility creation, its optional intervention assignment, setup receipt and event
+commit in one main transaction, including CSV import. The event is appended to the
+main outbox inside that transaction; consumers observe committed creations only.
+
+POST creation with an already registered `clientId` returns 409 with the stable
+`/problems/client-resource-already-exists` problem type, title and detail on both
+organization and canonical routes. Central Facility error mapping unwraps the
+application failure without changing another module's errors. Create-only PUT
+retains its 412 refusal and leaves the original facility unchanged.
 
 ## Overview
 
@@ -271,12 +277,16 @@ aggregate, `FacilityAttachmentRepositoryPort`/`FacilityAttachmentRepository`,
 `FacilityMediaProcessor`/`FacilityMediaProvider` pair plus
 `SetPrimaryFacilityAttachmentProcessor` (`FacilityAttachmentResource`, no
 serialization-group-filtered JSON body on upload — `deserialize: false`).
-Storage key: `facility/{facilityId}/attachments/{attachmentId}_{fileName}`
+Storage key: `facility/{facilityId}/attachments/{attemptUuid}_{fileName}`
 via `Shared\Domain\Attachment\StoragePathScheme`. MIME/size validated by
 `Shared\Presentation\Api\Attachment\MultipartAttachmentGuard` before any
-bytes are read. Write-then-persist with storage rollback on DB failure
-(mirrors `AddAttachmentHandler`); delete removes the stored object then the
-row. No new permissions: reuses `organization.facilities.read` /
+bytes are read. Upload commands own their final main commit and reject an outer
+transaction before storage writes. A parent lock serializes metadata mutations and
+insert-if-absent identity preserves winning bytes on replay. Confirmed rollback
+compensates only the attempt key; uncertain commit retains bytes until persistence
+can establish the outcome. Cleanup failure preserves the original SQL failure.
+Attachment/model deletion and draft-facility deletion enqueue cleanup with their
+SQL mutation. The outbox consumer deletes after commit with idempotent receipts. No new permissions: reuses `organization.facilities.read` /
 `organization.facilities.write`. A facility may carry at most
 `Shared\Domain\Attachment\AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
 (**25**) attachments — `AddFacilityAttachmentHandler` reads the count through
@@ -304,7 +314,7 @@ frontend floor-plan viewer's use case) is unaffected by the attachment
 disposition and does not execute an SVG's embedded scripts — only navigating
 or framing the raw response directly would, and the disposition is exactly
 what prevents that. Authorization mirrors every other read surface in this
-section: `organization.facilities.read`, checked inline in the controller
+section: `organization.facilities.read`, checked in the owning download query
 (the same `resolveAccess()`/`isOutsideScope()`/`isGranted()` pattern as
 `FacilityMediaProvider`) — 404 for a caller outside the owning organization,
 403 for a member missing the permission.
@@ -725,6 +735,15 @@ WHERE is_primary_plan` — Migration: `migrations/main/Version20260816110904.php
 
 ## Architecture
 
+Presentation has no Doctrine dependency. Canonical collections use a bounded scalar
+read port; media queries own authorization and enrichment. Public model contracts
+contain only data and their owner-local mapper stays in Application service.
+
+
+Cross-module dashboard facility-type filters consume the Facility-owned pure
+filter enum under `Application/Contract/Dashboard/Filter`. Its values and ordering
+match the internal facility type, with compatibility tests guarding future changes.
+
 - Presentation: Api Platform resources, providers, processors, DTOs.
 - Application: Use cases (command/query), repository port.
 - Domain: Facility aggregate, value objects, domain exceptions.
@@ -897,17 +916,11 @@ subtreeHeight(moved) <= cap`, so the whole moved sub-tree — not just its
   and reconstructs confirmed nodes on resume without a creation/quota/write.
   See `src/Import/MODULE.md` for the row-report and resumption contracts.
 
-**Architecture debt — cross-module `Organization\Domain` imports (2).** The
-2026-08-18 quota-contract migration retyped `OrganizationQuotaPort`'s whole
-surface with `Organization\Application\Contract\Quota` types (the resource
-enum and the quota-exceeded exception — see `src/Organization/MODULE.md`), so
-the quota-related Domain imports this note used to document are gone and the
-`CrossModuleDomainBoundaryTest` baseline for `Facility => Organization`
-shrank 6 → 2. The two survivors —
-`Organization\Domain\ValueObject\OrganizationId` in `ArchiveFacilityHandler`
-and `CreateFacilityConsoleCommand` — are unrelated to quotas; the eventual
-fix is Organization publishing a contract identifier type. Do not add a
-third import; extend the contract surface instead.
+**Published boundaries.** Aggregate repositories remain under
+`Application/Port/Outbound/Internal`. Sibling modules use scalar provisioning,
+availability, lifecycle and naming capabilities. Organization owner/existence reads
+use `OrganizationOwnerReadPort`; intervention collaboration uses its public
+`InterventionResourcesPort` and contracts.
 
 **`Presentation` no longer reads `Organization\Infrastructure` — closed 2026-08-26.**
 It was 2. `CanonicalFacilityMutationProcessor`'s uses were `instanceof
@@ -923,11 +936,9 @@ found.'` for an unknown organization and `'Facility not found.'` for one the
 caller was not in; both now answer `'Facility not found.'`. Same status, and an
 identical body for the two cases instead of a distinguishable one.
 
-**The coupling underneath did not go away.** `FacilityRecord` still declares
-`#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`. That is
-schema-level; what closed here is Presentation reading another module's table,
-not the association itself. Do not plan a refactor expecting the latter to have
-disappeared.
+**Persistence boundaries.** Facility and metadata Records hold scalar organization
+identifiers. Physical main-database foreign keys retain names and delete actions
+through the shared schema listener, without navigating an Organization Record.
 
 ## Error Codes
 
@@ -1003,13 +1014,20 @@ canonical surfaces; a repeat DELETE is an idempotent no-op.
 One patch can produce three of them — a move, a status transition and a
 descriptive update are independent facts — and a rollback must produce none.
 
-**What deliberately stayed in the processor**: the authorization gate (the
-permission depends on the request, and a row loaded by GLOBAL id must answer
-404 rather than 403 outside the caller's organization), `MergePatchFields`
-plus the parent IRI parse, and the output (`CanonicalFacilityProvider` joins
-counts and ancestry the write path has no reason to carry).
+**HTTP translation.** Processors parse merge-patch presence, IRIs and revision
+headers. The canonical context query selects contextual permissions before header
+validation; mutation handlers recheck authorization under the organization lock.
+Collection count and page share filters and use batch child/ancestry reads. Private
+media metadata and bytes pass through authorized use cases. Output factories map
+complete immutable Results and perform no reads.
 
 ## Configuration
+
+Uploads use Shared's main `RootTransactionManagerPort`. Cleanup uses its strict
+transactional `FileCleanupPort` and `main_outbox` consumer. Presentation has no entity
+manager bindings; repository/read adapters explicitly name the main manager. Hierarchy
+depth is injected through YAML rather than Application framework attributes.
+
 
 Maintenance exports validate published root-site identities through the owner-hosted
 `MaintenanceExportSiteIdentityAdapter`, explicitly wired to main and tagged
@@ -1051,7 +1069,7 @@ references; drafts, buildings, nested sites and foreign identities return false.
 facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%`) and injected
   into the enforcement sites with `#[Autowire('%facility.hierarchy.max_depth%')]`.
 - `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository`
-  and `Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort`
+  and `Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort`
   are wired with `$entityManager: '@doctrine.orm.main_entity_manager'`, same
   as every other Facility repository.
 - `ExportFacilitiesHandler` is registered with the `messenger.message_handler`
@@ -1090,6 +1108,12 @@ facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%`) and injected
 <a id="seeded-floor-plans"></a>
 
 ## Testing
+
+`FacilityMediaAtomicityTest` uses independent PostgreSQL connections and native
+Doctrine transport for final-commit rollback, winning replay, enclosing-transaction
+rejection, deletion/outbox atomicity and idempotent cleanup delivery after commit.
+Unit cases cover compensation failure, uncertain commit and contextual scope denials.
+
 
 Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
 

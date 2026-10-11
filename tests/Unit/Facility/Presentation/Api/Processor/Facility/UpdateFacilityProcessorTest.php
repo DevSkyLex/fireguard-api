@@ -19,7 +19,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -60,7 +60,8 @@ final class UpdateFacilityProcessorTest extends TestCase
       ->method('dispatch');
 
     $processor = new UpdateFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility(null),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries(null),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -132,7 +133,8 @@ final class UpdateFacilityProcessorTest extends TestCase
       ));
 
     $processor = new UpdateFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries($detailResult),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -206,7 +208,8 @@ final class UpdateFacilityProcessorTest extends TestCase
       ));
 
     $processor = new UpdateFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries($detailResult),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -276,7 +279,8 @@ final class UpdateFacilityProcessorTest extends TestCase
       ));
 
     $processor = new UpdateFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries($detailResult),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -306,7 +310,8 @@ final class UpdateFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UpdateFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility(null),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries(null),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -525,7 +530,8 @@ final class UpdateFacilityProcessorTest extends TestCase
     }
 
     return new UpdateFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility(null),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries(null),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,

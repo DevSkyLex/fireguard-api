@@ -1,3 +1,6 @@
+imports:
+  - tests/Architecture/deptrac/layer-baseline.php
+
 deptrac:
   paths:
     - ./src
@@ -96,7 +99,7 @@ deptrac:
       - SharedDomain
       - SharedApplication
 
-    # Infrastructure: Implements Ports, can depend on all layers
+    # Infrastructure: Implements Ports; module ownership is checked by modules.php
     Infrastructure:
       - Domain
       - Application
@@ -110,9 +113,6 @@ deptrac:
       - Domain
       - SharedDomain
       - SharedApplication
-      - SharedInfrastructure
-      - SharedPresentation
-      - Infrastructure
 
     # ============================================
     # Shared Kernel Rules

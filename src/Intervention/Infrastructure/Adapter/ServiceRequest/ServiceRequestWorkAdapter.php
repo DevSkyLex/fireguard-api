@@ -260,7 +260,7 @@ final readonly class ServiceRequestWorkAdapter implements ServiceRequestWorkPort
   private function existingIntervention(ServiceRequestWorkRequest $request): InterventionRecord
   {
     $record = $this->entityManager->find(InterventionRecord::class, $request->existingInterventionId);
-    if (!$record instanceof InterventionRecord || $record->organization?->id !== $request->organizationId) {
+    if (!$record instanceof InterventionRecord || $record->organizationId !== $request->organizationId) {
       throw InterventionNotFoundException::withId($request->existingInterventionId ?? 'unknown');
     }
     $this->entityManager->refresh($record, LockMode::PESSIMISTIC_WRITE);

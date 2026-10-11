@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Customer\Infrastructure\Adapter\Facility;
 
-use Customer\Application\Port\Outbound\CustomerRepositoryPort;
+use Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Contract\FacilityCustomerUnavailable;
 use Facility\Application\Port\Outbound\FacilityCustomerValidationPort;

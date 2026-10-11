@@ -18,11 +18,10 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Exception\{AuthenticationException, CustomUserMessageAuthenticationException};
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\GetUserResult;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function dirname;
 
@@ -479,9 +478,9 @@ final class OAuth2AuthenticatorTest extends TestCase
 
   private function createUserProvider(): SecurityUserProvider
   {
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')
-      ->willReturn(new GetUserResult(user: $this->createUserView()));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')
+      ->willReturn($this->createUserView());
 
     $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')

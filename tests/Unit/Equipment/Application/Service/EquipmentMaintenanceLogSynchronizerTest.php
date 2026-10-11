@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\Service;
 
-use Equipment\Application\Port\Outbound\MaintenanceLogRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\MaintenanceLogRepositoryPort;
 use Equipment\Application\Service\EquipmentMaintenanceLogSynchronizer;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, MaintenanceLogId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 #[CoversClass(EquipmentMaintenanceLogSynchronizer::class)]
 final class EquipmentMaintenanceLogSynchronizerTest extends TestCase
@@ -25,12 +25,11 @@ final class EquipmentMaintenanceLogSynchronizerTest extends TestCase
   #[Test]
   public function testEnteringMaintenanceOpensAnOngoingLog(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(MaintenanceLogId::class)
-      ->willReturn(new MaintenanceLogId(self::LOG_ID));
+      ->method('generate')
+      ->willReturn(self::LOG_ID);
 
     /** @var MaintenanceLogRepositoryPort&MockObject $repository */
     $repository = $this->createMock(MaintenanceLogRepositoryPort::class);
@@ -107,11 +106,11 @@ final class EquipmentMaintenanceLogSynchronizerTest extends TestCase
 
   private function synchronizer(
     MaintenanceLogRepositoryPort $repository,
-    ?UuidFactory $uuidFactory = null,
+    ?UuidGeneratorPort $uuidFactory = null,
   ): EquipmentMaintenanceLogSynchronizer {
     return new EquipmentMaintenanceLogSynchronizer(
       $repository,
-      $uuidFactory ?? $this->createStub(UuidFactory::class),
+      $uuidFactory ?? $this->createStub(UuidGeneratorPort::class),
     );
   }
 }

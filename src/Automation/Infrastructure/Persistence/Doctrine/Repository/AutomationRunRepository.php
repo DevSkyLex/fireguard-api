@@ -9,7 +9,7 @@ use Automation\Application\Port\Outbound\{AutomationRunHistoryPort, AutomationRu
 use Automation\Domain\Exception\{AutomationRetryNotAllowedException, AutomationRunNotFoundException};
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function array_map;
 use function is_string;
@@ -36,11 +36,11 @@ final readonly class AutomationRunRepository implements AutomationRunPort, Autom
    * @access public
    *
    * @param EntityManagerInterface $entityManager main-database entity manager
-   * @param UuidFactory $uuidFactory generates run and retry attempt identifiers
+   * @param UuidGeneratorPort $uuidFactory generates run and retry attempt identifiers
    *
    * @return void
    */
-  public function __construct(private EntityManagerInterface $entityManager, private UuidFactory $uuidFactory)
+  public function __construct(private EntityManagerInterface $entityManager, private UuidGeneratorPort $uuidFactory)
   {
   }
 
@@ -68,7 +68,7 @@ final readonly class AutomationRunRepository implements AutomationRunPort, Autom
     if (null !== $attemptId) {
       return $this->claimPendingAttempt($ruleKey, $organizationId, $subjectId, $attemptId);
     }
-    $runId = $this->uuidFactory->generateRaw();
+    $runId = $this->uuidFactory->generate();
     $now = new DateTimeImmutable();
     $inserted = $db->executeStatement(
       'INSERT INTO automation_runs (id, rule_key, organization_id, subject_id, status, error, created_at, trigger_payload, current_attempt_id, attempt_count) VALUES (:id, :rule, :org, :subject, :status, :error, :created, :payload, :attempt, 1) ON CONFLICT DO NOTHING',
@@ -169,7 +169,7 @@ final readonly class AutomationRunRepository implements AutomationRunPort, Autom
     }
     /** @var array<string, mixed> $payload */
     $payload = json_decode($row['trigger_payload'], true, 512, JSON_THROW_ON_ERROR);
-    $id = $this->uuidFactory->generateRaw();
+    $id = $this->uuidFactory->generate();
     $now = new DateTimeImmutable();
     $db->executeStatement("UPDATE automation_runs SET status = 'pending', error = NULL, current_attempt_id = ?, attempt_count = attempt_count + 1 WHERE id = ?", [$id, $runId]);
     $db->executeStatement("INSERT INTO automation_attempts (id, run_id, attempt_number, status, requested_by, created_at) SELECT ?, id, attempt_count, 'pending', ?, ? FROM automation_runs WHERE id = ?", [$id, $actorUserId, $now, $runId], [2 => 'datetime_immutable']);

@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Application\Service;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingChannelParticipantSynchronizer;
 use Messaging\Domain\Model\Conversation\Conversation;
 use Messaging\Domain\ValueObject\{ChannelName, ConversationId};

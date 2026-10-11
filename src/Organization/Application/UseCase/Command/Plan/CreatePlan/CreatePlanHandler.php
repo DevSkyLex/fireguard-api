@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Plan\CreatePlan;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Domain\Exception\PlanKeyAlreadyExistsException;
 use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 
 /**
  * UseCase CreatePlanHandler.
@@ -31,12 +30,12 @@ final readonly class CreatePlanHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param PlanRepositoryPort $planRepository the plan repository port
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
    */
   public function __construct(
     private PlanRepositoryPort $planRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
   ) {
   }
@@ -63,7 +62,7 @@ final readonly class CreatePlanHandler implements CommandHandler
     }
 
     /** @var PlanId $planId */
-    $planId = $this->uuidFactory->create(PlanId::class);
+    $planId = new PlanId($this->uuidFactory->generate());
 
     $plan = Plan::create(
       id: $planId,

@@ -540,7 +540,7 @@ final class InterventionTeamAssignmentApiTest extends WebTestCase
 
       $intervention = new InterventionRecord();
       $intervention->id = $interventionId;
-      $intervention->organization = $entityManager->getReference(OrganizationRecord::class, $organizationId);
+      $intervention->organizationId = $organizationId;
       $intervention->type = 'site_setup';
       $intervention->name = 'Team Assignment Test Intervention ' . $number;
       $intervention->number = $number;

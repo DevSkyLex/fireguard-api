@@ -6,17 +6,16 @@ namespace OAuth\Presentation\Api\Processor\Consent;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedPrincipal;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
 use Nyholm\Psr7\{Response as Psr7Response, ServerRequest};
-use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AuthCodeRepositoryPort;
 use OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentCommand;
-use OAuth\Infrastructure\OAuth2\League\Entity\User as LeagueUser;
 use OAuth\Presentation\Api\Dto\Input\Consent\GrantConsentInput;
-use OAuth\Presentation\Api\Service\AuthorizationGrantCompletion;
+use OAuth\Presentation\Api\Service\{AuthorizationGrantCompletion, AuthorizationUser};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -114,7 +113,7 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     }
 
     $securityUser = $this->security->getUser();
-    if (!$securityUser instanceof SecurityUser) {
+    if (!$securityUser instanceof AuthenticatedPrincipal) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
         message: 'Authentication required',
@@ -131,7 +130,6 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
       return $authorizationRequest;
     }
 
-    $userEntity = new LeagueUser();
     $userId = $securityUser->getId();
     if ('' === $userId) {
       return new JsonResponse(
@@ -142,7 +140,7 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
         status: Response::HTTP_BAD_REQUEST,
       );
     }
-    $userEntity->setIdentifier($userId);
+    $userEntity = new AuthorizationUser($userId);
 
     $authorizationRequest->setUser($userEntity);
     $authorizationRequest->setAuthorizationApproved((bool) $approved);

@@ -6,7 +6,8 @@ namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\CreateEquip
 
 use DateTimeImmutable;
 use Equipment\Application\Contract\Equipment\EquipmentCreationState;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, FacilityValidationPort};
+use Equipment\Application\Port\Outbound\{FacilityNamingPort, FacilityValidationPort};
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -21,8 +22,7 @@ use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(CreateEquipmentHandler::class)]
@@ -35,12 +35,11 @@ final class CreateEquipmentHandlerTest extends TestCase
     $repository = $this->createMock(EquipmentRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(EquipmentId::class)
-      ->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440900'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655440900');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -61,12 +60,11 @@ final class CreateEquipmentHandlerTest extends TestCase
       ->method('save')
       ->willThrowException(EquipmentSerialNumberAlreadyExistsException::withSerialNumber('EXT-2026-001'));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(EquipmentId::class)
-      ->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440900'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655440900');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -87,12 +85,11 @@ final class CreateEquipmentHandlerTest extends TestCase
     $repository = $this->createMock(EquipmentRepositoryPort::class);
     $repository->expects(self::once())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(EquipmentId::class)
-      ->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440903'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655440903');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -118,11 +115,10 @@ final class CreateEquipmentHandlerTest extends TestCase
     $repository = $this->createMock(EquipmentRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(EquipmentId::class)
-      ->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440904'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655440904');
 
     /** @var OrganizationQuotaPort&MockObject $quota */
     $quota = $this->createMock(OrganizationQuotaPort::class);
@@ -152,8 +148,8 @@ final class CreateEquipmentHandlerTest extends TestCase
     $repository = $this->createMock(EquipmentRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440906'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655440906');
 
     /** @var OrganizationQuotaPort&MockObject $quota */
     $quota = $this->createMock(OrganizationQuotaPort::class);
@@ -184,8 +180,8 @@ final class CreateEquipmentHandlerTest extends TestCase
     $repository = $this->createMock(EquipmentRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440907'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655440907');
 
     /** @var OrganizationQuotaPort&MockObject $quota */
     $quota = $this->createMock(OrganizationQuotaPort::class);
@@ -214,9 +210,9 @@ final class CreateEquipmentHandlerTest extends TestCase
     $repository = $this->createMock(EquipmentRepositoryPort::class);
     $repository->expects(self::once())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -242,7 +238,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     $validation = $this->createMock(FacilityValidationPort::class);
     $validation->expects(self::once())->method('assertFacilityIsAssignable')->with($facilityId, $organizationId);
 
-    $result = ($this->handler($repository, $this->createStub(UuidFactory::class), facilityValidation: $validation))(new CreateEquipmentCommand(
+    $result = ($this->handler($repository, $this->createStub(UuidGeneratorPort::class), facilityValidation: $validation))(new CreateEquipmentCommand(
       organizationId: $organizationId,
       type: 'fire_extinguisher',
       resourceId: '550e8400-e29b-41d4-a716-446655440905',
@@ -261,7 +257,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     $validation->method('assertFacilityIsAssignable')->willThrowException(new InvalidArgumentException('Facility is archived.'));
     $this->expectException(InvalidArgumentException::class);
 
-    ($this->handler($repository, $this->createStub(UuidFactory::class), facilityValidation: $validation))(new CreateEquipmentCommand(
+    ($this->handler($repository, $this->createStub(UuidGeneratorPort::class), facilityValidation: $validation))(new CreateEquipmentCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440981',
       type: 'fire_extinguisher',
       resourceId: '550e8400-e29b-41d4-a716-446655440905',
@@ -340,8 +336,8 @@ final class CreateEquipmentHandlerTest extends TestCase
       },
     );
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new EquipmentId($equipmentId));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($equipmentId);
 
     $result = ($this->handler($repository, $uuidFactory, $quota, $validation, $setup, $transactionManager))(
       new CreateEquipmentCommand(
@@ -391,8 +387,8 @@ final class CreateEquipmentHandlerTest extends TestCase
     $quota = $this->createMock(OrganizationQuotaPort::class);
     $quota->expects(self::never())->method('assertCanAdd');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440906'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655440906');
 
     $result = ($this->handler($repository, $uuidFactory, $quota, setup: $setup))(
       new CreateEquipmentCommand($organizationId, 'fire_extinguisher', setupContext: $context),
@@ -428,7 +424,7 @@ final class CreateEquipmentHandlerTest extends TestCase
         return new InterventionResourceAssignment($intervention, 'draft', 2);
       },
     );
-    $result = ($this->handler($repository, $this->createStub(UuidFactory::class), transactionManager: $transactions, creationContext: $creation))(
+    $result = ($this->handler($repository, $this->createStub(UuidGeneratorPort::class), transactionManager: $transactions, creationContext: $creation))(
       new CreateEquipmentCommand($org, 'fire_extinguisher', resourceId: $id, interventionId: $intervention, clientId: $id),
     );
     self::assertSame(['begin', 'save', 'attach', 'commit'], $calls);
@@ -458,13 +454,44 @@ final class CreateEquipmentHandlerTest extends TestCase
     $creation->expects(self::never())->method('assertOfflineCreate');
     $quota = $this->createMock(OrganizationQuotaPort::class);
     $quota->expects(self::never())->method('assertCanAdd');
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(new EquipmentId($id));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn($id);
     $result = ($this->handler($repository, $uuid, $quota, $validation, $setup, creationContext: $creation))(
       new CreateEquipmentCommand($org, 'fire_extinguisher', setupContext: $context, facilityId: '550e8400-e29b-41d4-a716-446655440990'),
     );
     self::assertSame($id, $result->equipmentId);
     self::assertSame(7, $result->revision);
+  }
+
+  #[Test]
+  public function aParentMadeImmutableAfterPreflightIsRecheckedWithALockBeforeAnyWrite(): void
+  {
+    $insideTransaction = false;
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static function (callable $operation) use (&$insideTransaction): mixed {
+      $insideTransaction = true;
+
+      try {
+        return $operation();
+      } finally {
+        $insideTransaction = false;
+      }
+    });
+    $parent = '550e8400-e29b-41d4-a716-446655440995';
+    $actor = '550e8400-e29b-41d4-a716-446655440999';
+    $interventions = $this->createMock(\Intervention\Application\Port\Inbound\InterventionResourcesPort::class);
+    $interventions->expects(self::once())->method('mutationPermission')->with($parent, $actor, '550e8400-e29b-41d4-a716-446655440981', true)->willReturnCallback(static function () use (&$insideTransaction): never {
+      self::assertTrue($insideTransaction);
+
+      throw new \Intervention\Application\Contract\Resource\InterventionConflictException('Intervention became immutable after preflight.');
+    });
+    $authorization = $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+    $handler = $this->handler($repository, $this->createStub(UuidGeneratorPort::class), transactionManager: $transactions, authorization: $authorization, interventions: $interventions);
+    $this->expectException(\Intervention\Application\Contract\Resource\InterventionConflictException::class);
+    $this->expectExceptionMessage('Intervention became immutable after preflight.');
+    $handler(new CreateEquipmentCommand('550e8400-e29b-41d4-a716-446655440981', 'fire_extinguisher', resourceId: '550e8400-e29b-41d4-a716-446655440905', interventionId: $parent, userId: $actor));
   }
 
   /**
@@ -473,12 +500,14 @@ final class CreateEquipmentHandlerTest extends TestCase
    */
   private function handler(
     EquipmentRepositoryPort $repository,
-    UuidFactory $uuidFactory,
+    UuidGeneratorPort $uuidFactory,
     ?OrganizationQuotaPort $quota = null,
     ?FacilityValidationPort $facilityValidation = null,
     ?OrganizationSetupPort $setup = null,
     ?TransactionManagerPort $transactionManager = null,
     ?InterventionCreationPort $creationContext = null,
+    ?\Organization\Application\Port\Inbound\OrganizationAuthorizationPort $authorization = null,
+    ?\Intervention\Application\Port\Inbound\InterventionResourcesPort $interventions = null,
   ): CreateEquipmentHandler {
     if (null === $transactionManager) {
       $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -496,6 +525,8 @@ final class CreateEquipmentHandlerTest extends TestCase
       facilityValidation: $facilityValidation,
       setup: $setup,
       creationContext: $creationContext,
+      authorization: $authorization,
+      interventions: $interventions,
     );
   }
 }

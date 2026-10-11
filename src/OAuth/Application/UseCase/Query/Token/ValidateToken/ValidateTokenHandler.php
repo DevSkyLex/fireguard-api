@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Query\Token\ValidateToken;
 
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort};
+use OAuth\Application\Port\Outbound\Internal\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\JwtParserPort;
 use Shared\Application\Message\QueryHandler;
 use Throwable;
 

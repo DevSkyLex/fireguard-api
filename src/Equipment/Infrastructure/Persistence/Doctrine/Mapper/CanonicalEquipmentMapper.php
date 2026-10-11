@@ -9,7 +9,6 @@ use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, EquipmentIdentity};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentRecordStatus, EquipmentStatus};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper CanonicalEquipmentMapper.
@@ -38,13 +37,13 @@ final class CanonicalEquipmentMapper
    */
   public static function toDomain(EquipmentRecord $record): CanonicalEquipment
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Equipment record must reference an organization.');
     }
 
     return CanonicalEquipment::reconstitute(
       id: EquipmentId::fromString($record->id),
-      organizationId: EquipmentOrganizationId::fromString($record->organization->id),
+      organizationId: EquipmentOrganizationId::fromString($record->organizationId),
       metadata: new RestoredCanonicalEquipmentMetadata(
         facilityId: $record->facilityId,
         type: $record->type,

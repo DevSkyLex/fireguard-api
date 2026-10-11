@@ -8,18 +8,18 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Application\UseCase\Query\Facility\GetFacilityDescendants\{GetFacilityDescendantsQuery, GetFacilityDescendantsResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\Pagination;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -43,7 +43,6 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
    * @access public
    *
    * @param QueryBusPort $queryBus query dispatcher
-   * @param OrganizationAuthorizationPort $authorization organization permission resolver
    * @param Security $security current authenticated user accessor
    * @param RequestStack $requestStack current request access for query parameters
    *
@@ -80,7 +79,7 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array|TraversablePaginator
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -100,12 +99,12 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $includeArchived = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
-    $parameters = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request);
+    $includeArchived = \Facility\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
+    $parameters = \Facility\Presentation\Api\Http\OperationParameterReader::query($operation, $request);
     $paginated = $parameters->getBoolean('pagination', false);
     $page = max(1, $parameters->getInt('page', 1));
     $itemsPerPage = min(100, max(1, $parameters->getInt('itemsPerPage', 30)));
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Facility\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
 
     try {
       /** @var GetFacilityDescendantsResult $result */

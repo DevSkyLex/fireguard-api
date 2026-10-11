@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Team\AddTeamMember;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, TeamRepositoryPort};
-use Organization\Domain\Event\Team\TeamMemberAddedEvent;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, TeamNotFoundException};
+use Organization\Application\Contract\Event\Team\TeamMemberAddedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Domain\Exception\{OrganizationMemberNotFoundException, TeamNotFoundException};
 use Organization\Domain\Exception\TeamMembershipException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, TeamId};
 use Shared\Application\Message\CommandHandler;

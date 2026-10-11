@@ -240,7 +240,7 @@ final class FacilityHierarchyConsistencyApiTest extends WebTestCase
     foreach ([[self::SITE, 'site', null], [self::OTHER_SITE, 'site', null], [self::BUILDING, 'building', self::SITE], [self::FLOOR, 'floor', self::BUILDING]] as [$id, $type, $parent]) {
       $node = new FacilityRecord();
       $node->id = $id;
-      $node->organization = $org;
+      $node->organizationId = $org->id;
       $node->name = $type;
       $node->type = $type;
       $node->status = 'active';

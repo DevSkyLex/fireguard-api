@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Adapter\Federation;
 
 use Auth\Application\Contract\Federation\{FederatedAuthorization, FederatedProfile};
+use Auth\Application\Contract\Federation\FederatedProvider;
 use Auth\Application\Port\Outbound\Federation\FederatedProviderClientPort;
 use Auth\Domain\Exception\Federation\FederatedAuthException;
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
 use Auth\Infrastructure\Exception\FederatedProviderFailureException;
 use GuzzleHttp\Client;
 use League\OAuth2\Client\Provider\AbstractProvider;

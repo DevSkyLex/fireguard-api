@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Checklist\GetChecklist;
 
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Domain\Exception\ChecklistNotFoundException;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Shared\Application\Message\QueryHandler;

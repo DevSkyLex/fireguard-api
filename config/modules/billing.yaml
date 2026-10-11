@@ -17,7 +17,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Billing\Application\Port\Outbound\SubscriptionRepositoryPort:
+  Billing\Application\Port\Outbound\Internal\SubscriptionRepositoryPort:
     alias: Billing\Infrastructure\Persistence\Doctrine\Repository\SubscriptionRepository
 
   Billing\Infrastructure\Persistence\Doctrine\Lock\PostgresBillingReconciliationAdapter:
@@ -33,7 +33,7 @@ services:
       $secretKey: '%billing.stripe_secret_key%'
       $webhookSecret: '%billing.stripe_webhook_secret%'
 
-  Billing\Application\Port\Outbound\StripeGatewayPort:
+  Billing\Application\Port\Outbound\Internal\StripeGatewayPort:
     alias: Billing\Infrastructure\Adapter\Stripe\StripeGatewayAdapter
 
   # Price catalog
@@ -79,6 +79,9 @@ services:
     tags: ['messenger.message_handler']
 
   # Query handlers
+  Billing\Application\UseCase\Query\GetPricing\GetPricingHandler:
+    tags: ['messenger.message_handler']
+
   Billing\Application\UseCase\Query\GetOrganizationSubscription\GetOrganizationSubscriptionHandler:
     tags: ['messenger.message_handler']
 
@@ -97,5 +100,5 @@ when@test:
   services:
     Billing\Infrastructure\Adapter\Stripe\FakeStripeGatewayAdapter: ~
 
-    Billing\Application\Port\Outbound\StripeGatewayPort:
+    Billing\Application\Port\Outbound\Internal\StripeGatewayPort:
       alias: Billing\Infrastructure\Adapter\Stripe\FakeStripeGatewayAdapter

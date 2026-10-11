@@ -7,23 +7,23 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Creat
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Contract\Event\Organization\OrganizationCreatedEvent;
+use Organization\Application\Contract\Exception\OrganizationSlugAlreadyExistsException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\CreateOrganization\{CreateOrganizationCommand, CreateOrganizationHandler, CreateOrganizationResult};
-use Organization\Domain\Event\Organization\OrganizationCreatedEvent;
-use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
+use Organization\Domain\ValueObject\{OrganizationMemberId, OrganizationRoleId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Infrastructure\Exception\TransactionExecutionException;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 #[CoversClass(CreateOrganizationHandler::class)]
 final class CreateOrganizationHandlerTest extends TestCase
@@ -37,21 +37,21 @@ final class CreateOrganizationHandlerTest extends TestCase
     $memberRoleId = '550e8400-e29b-41d4-a716-446655440012';
     $ownerMemberId = '550e8400-e29b-41d4-a716-446655440013';
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($ownerUserId));
+      ->willReturn(UserTestFactory::createActiveView($ownerUserId));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::exactly(4))
-      ->method('create')
+      ->method('generate')
       ->willReturnOnConsecutiveCalls(
-        new OrganizationId($organizationId),
-        new OrganizationRoleId($ownerRoleId),
-        new OrganizationRoleId($memberRoleId),
-        new OrganizationMemberId($ownerMemberId),
+        $organizationId,
+        $ownerRoleId,
+        $memberRoleId,
+        $ownerMemberId,
       );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -165,8 +165,8 @@ final class CreateOrganizationHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenOwnerUserDoesNotExist(): void
   {
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
       ->willReturn(null);
@@ -197,7 +197,7 @@ final class CreateOrganizationHandlerTest extends TestCase
       memberRepository: $memberRepository,
       userRepository: $userRepository,
       planRepository: $this->createStub(PlanRepositoryPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
     );
@@ -216,18 +216,18 @@ final class CreateOrganizationHandlerTest extends TestCase
   {
     $ownerUserId = '550e8400-e29b-41d4-a716-446655440001';
 
-    $userRepository = $this->createStub(UserRepositoryPort::class);
-    $userRepository->method('findById')->willReturn(UserTestFactory::createActive($ownerUserId));
+    $userRepository = $this->createStub(UserDirectoryPort::class);
+    $userRepository->method('findById')->willReturn(UserTestFactory::createActiveView($ownerUserId));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::exactly(4))
-      ->method('create')
+      ->method('generate')
       ->willReturnOnConsecutiveCalls(
-        new OrganizationId('550e8400-e29b-41d4-a716-446655440010'),
-        new OrganizationRoleId('550e8400-e29b-41d4-a716-446655440011'),
-        new OrganizationRoleId('550e8400-e29b-41d4-a716-446655440012'),
-        new OrganizationMemberId('550e8400-e29b-41d4-a716-446655440013'),
+        '550e8400-e29b-41d4-a716-446655440010',
+        '550e8400-e29b-41d4-a716-446655440011',
+        '550e8400-e29b-41d4-a716-446655440012',
+        '550e8400-e29b-41d4-a716-446655440013',
       );
 
     $failure = new RuntimeException('the organization store is offline');
@@ -266,11 +266,11 @@ final class CreateOrganizationHandlerTest extends TestCase
   {
     $ownerUserId = '550e8400-e29b-41d4-a716-446655440001';
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($ownerUserId));
+      ->willReturn(UserTestFactory::createActiveView($ownerUserId));
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
@@ -285,15 +285,15 @@ final class CreateOrganizationHandlerTest extends TestCase
     $memberRepository->expects(self::never())->method('save');
     $memberRepository->expects(self::never())->method('assignRole');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::exactly(4))
-      ->method('create')
+      ->method('generate')
       ->willReturnOnConsecutiveCalls(
-        new OrganizationId('550e8400-e29b-41d4-a716-446655440010'),
-        new OrganizationRoleId('550e8400-e29b-41d4-a716-446655440011'),
-        new OrganizationRoleId('550e8400-e29b-41d4-a716-446655440012'),
-        new OrganizationMemberId('550e8400-e29b-41d4-a716-446655440013'),
+        '550e8400-e29b-41d4-a716-446655440010',
+        '550e8400-e29b-41d4-a716-446655440011',
+        '550e8400-e29b-41d4-a716-446655440012',
+        '550e8400-e29b-41d4-a716-446655440013',
       );
 
     $driverException = new class ('SQLSTATE[23505]: Unique violation: duplicate key value violates unique constraint "uniq_organization_slug"') extends RuntimeException implements DoctrineDriverException {
@@ -309,7 +309,7 @@ final class CreateOrganizationHandlerTest extends TestCase
     $transactionManager->expects(self::once())
       ->method('transactional')
       ->with(self::isCallable())
-      ->willThrowException(TransactionExecutionException::wrap($uniqueViolation));
+      ->willThrowException(TransactionExecutionException::wrap(new \Shared\Application\Contract\Persistence\UniqueConstraintViolationException($uniqueViolation)));
 
     $planRepository = $this->createStub(PlanRepositoryPort::class);
     $planRepository->method('findDefault')->willReturn(null);

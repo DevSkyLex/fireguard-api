@@ -21,7 +21,7 @@ final class ScopeRepositoryAdapterTest extends TestCase
   #[Test]
   public function testGetScopeEntityByIdentifierReturnsNullForInvalidValues(): void
   {
-    $adapter = new ScopeRepositoryAdapter($this->createStub(\OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort::class));
+    $adapter = new ScopeRepositoryAdapter($this->createStub(\OAuth\Application\Port\Outbound\Internal\Client\OAuthClientRepositoryPort::class));
 
     self::assertNull($adapter->getScopeEntityByIdentifier(123));
     self::assertNull($adapter->getScopeEntityByIdentifier(''));
@@ -31,7 +31,7 @@ final class ScopeRepositoryAdapterTest extends TestCase
   #[Test]
   public function testGetScopeEntityByIdentifierReturnsScope(): void
   {
-    $adapter = new ScopeRepositoryAdapter($this->createStub(\OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort::class));
+    $adapter = new ScopeRepositoryAdapter($this->createStub(\OAuth\Application\Port\Outbound\Internal\Client\OAuthClientRepositoryPort::class));
 
     $scope = $adapter->getScopeEntityByIdentifier('OPENID');
 
@@ -86,7 +86,7 @@ final class ScopeRepositoryAdapterTest extends TestCase
   #[Test]
   public function testMissingClientFailsClosedEvenWithNoScopes(): void
   {
-    $adapter = new ScopeRepositoryAdapter($this->createStub(\OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort::class));
+    $adapter = new ScopeRepositoryAdapter($this->createStub(\OAuth\Application\Port\Outbound\Internal\Client\OAuthClientRepositoryPort::class));
     $client = new \OAuth\Infrastructure\OAuth2\League\Entity\Client('missing-client', 'Missing', 'https://example.test/callback');
     $this->expectException(\League\OAuth2\Server\Exception\OAuthServerException::class);
     $adapter->finalizeScopes([], 'authorization_code', $client);
@@ -102,7 +102,7 @@ final class ScopeRepositoryAdapterTest extends TestCase
 
   private function registeredAdapter(bool $active = true): ScopeRepositoryAdapter
   {
-    $repository = $this->createStub(\OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort::class);
+    $repository = $this->createStub(\OAuth\Application\Port\Outbound\Internal\Client\OAuthClientRepositoryPort::class);
     $repository->method('find')->willReturn(new \OAuth\Domain\Model\Client\OAuthClient(
       identifier: new \OAuth\Domain\ValueObject\Client\OAuthClientIdentifier('client-123'),
       name: 'OIDC client',

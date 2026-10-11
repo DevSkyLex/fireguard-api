@@ -13,7 +13,7 @@ use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationR
 use Messaging\Infrastructure\Persistence\Doctrine\Repository\{MessagingLinkRepository, MessagingMessageRepository};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_column;
@@ -54,8 +54,8 @@ final class MessagingLinkRepositoryTest extends KernelTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
-    /** @var UuidFactory $uuidFactory */
-    $uuidFactory = static::getContainer()->get(UuidFactory::class);
+    /** @var UuidGeneratorPort $uuidFactory */
+    $uuidFactory = static::getContainer()->get(UuidGeneratorPort::class);
 
     $this->links = new MessagingLinkRepository($this->entityManager, $uuidFactory);
     $this->messages = new MessagingMessageRepository($this->entityManager);
@@ -222,7 +222,7 @@ final class MessagingLinkRepositoryTest extends KernelTestCase
 
     $record = new MessagingConversationRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->subjectType = 'facility';
     $record->subjectId = $subjectId;
     $record->visibility = 'subject';

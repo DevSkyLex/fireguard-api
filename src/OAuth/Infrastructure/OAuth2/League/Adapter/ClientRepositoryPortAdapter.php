@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\OAuth2\League\Adapter;
 
+use Auth\Application\Contract\Client\ClientRegistration;
 use Auth\Application\Port\Outbound\ClientRepositoryPort;
-use Auth\Domain\Model\Client\Client;
-use Auth\Domain\ValueObject\Client\ClientIdentifier;
-use Auth\Domain\ValueObject\Scope\Scope;
-use Auth\Domain\ValueObject\Security\GrantType;
 use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
-
-use function array_map;
 
 /**
  * Adapter ClientRepositoryPortAdapter.
@@ -51,15 +46,15 @@ final readonly class ClientRepositoryPortAdapter implements ClientRepositoryPort
    *
    * @since 1.0.0
    *
-   * @param ClientIdentifier $identifier the client identifier
+   * @param string $identifier the client identifier
    *
-   * @return Client|null the client or null if not found
+   * @return ClientRegistration|null the client or null if not found
    */
-  public function find(ClientIdentifier $identifier): ?Client
+  public function find(string $identifier): ?ClientRegistration
   {
     try {
       /** @var GetClientResult $result */
-      $result = $this->queryBus->ask(new GetClientQuery(clientId: $identifier->value));
+      $result = $this->queryBus->ask(new GetClientQuery(clientId: $identifier));
     } catch (Throwable $e) {
       return null;
     }
@@ -68,20 +63,12 @@ final readonly class ClientRepositoryPortAdapter implements ClientRepositoryPort
       return null;
     }
 
-    return new Client(
+    return new ClientRegistration(
       identifier: $identifier,
       name: $result->name,
       redirectUris: $result->redirectUris,
-      grantTypes: array_map(
-        fn (string $grantType) => GrantType::from($grantType),
-        $result->grantTypes,
-      ),
-      scopes: array_map(
-        fn (string $scope) => Scope::from($scope),
-        $result->scopes,
-      ),
-      secret: null,
-      isConfidential: true,
+      grantTypes: $result->grantTypes,
+      scopes: $result->scopes,
     );
   }
   // #endregion

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\OAuth2\League\Repository;
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
-use OAuth\Application\Port\Outbound\Client\{ClientValidationPort, OAuthClientRepositoryPort};
+use OAuth\Application\Port\Outbound\Client\ClientValidationPort;
+use OAuth\Application\Port\Outbound\Internal\Client\OAuthClientRepositoryPort;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Infrastructure\OAuth2\League\Entity\Client;
 use Throwable;

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Message\PostMessage;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingLinkRepositoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingLinkRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{
   MessagingClientMessageAlreadyExistsException,
@@ -15,9 +16,9 @@ use Messaging\Domain\Exception\{
 use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessageId, MessageReference, MessagingSubjectType};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -70,8 +71,9 @@ final readonly class PostMessageHandler implements CommandHandler
    * @param MessagingRealtimePublisherPort $realtime the realtime publisher port
    * @param MentionExtractor $mentionExtractor the mention extractor
    * @param UrlExtractor $urlExtractor the url extractor (B2)
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    * @param LoggerPort $logger the logger value
+   * @param RootTransactionManagerPort $transactions commits the message, counters and links together
    */
   public function __construct(
     private MessagingConversationRepositoryPort $conversations,
@@ -84,8 +86,9 @@ final readonly class PostMessageHandler implements CommandHandler
     private MessagingRealtimePublisherPort $realtime,
     private MentionExtractor $mentionExtractor,
     private UrlExtractor $urlExtractor,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private LoggerPort $logger,
+    private RootTransactionManagerPort $transactions,
   ) {
   }
 
@@ -141,11 +144,17 @@ final readonly class PostMessageHandler implements CommandHandler
       links: new MessageCreationLinks(references: $references),
     );
 
-    $view = $this->messages->append($message);
-    $this->conversations->touchOnNewMessage($command->conversationId, $view->createdAt);
+    [$view, $participantMemberIds] = $this->transactions->transactional(function () use ($message, $command, $isChannel) {
+      $view = $this->messages->append($message);
+      $this->conversations->touchOnNewMessage($command->conversationId, $view->createdAt);
+      $urls = $this->urlExtractor->extract($view->body);
+      $this->links->replaceForMessage($view->id, $command->conversationId, $urls, $view->createdAt);
 
-    $urls = $this->urlExtractor->extract($view->body);
-    $this->links->replaceForMessage($view->id, $command->conversationId, $urls, $view->createdAt);
+      // Capture recipients before commit so a failed lookup also rolls back the write.
+      $participantMemberIds = $isChannel ? $this->participants->listMemberIds($command->conversationId) : [];
+
+      return [$view, $participantMemberIds];
+    });
 
     try {
       $this->realtime->publishMessage($organizationId, $command->conversationId, [
@@ -157,14 +166,10 @@ final readonly class PostMessageHandler implements CommandHandler
         'createdAt' => $view->createdAt->format('c'),
       ]);
     } catch (Throwable $exception) {
-      $this->logger->warning('Messaging realtime publish failed.', [
-        'conversationId' => $command->conversationId,
-        'error' => $exception->getMessage(),
-      ]);
+      $this->logRealtimeFailure($command->conversationId, $exception);
     }
 
     if ($isChannel) {
-      $participantMemberIds = $this->participants->listMemberIds($command->conversationId);
       $this->notifications->channelMessagePosted($organizationId, $command->conversationId, $participantMemberIds, $authorMemberId);
     }
 
@@ -186,6 +191,26 @@ final readonly class PostMessageHandler implements CommandHandler
   }
 
   /**
+   * Method logRealtimeFailure.
+   *
+   * A diagnostic failure cannot invalidate a committed message or skip notifications.
+   *
+   * @param string $conversationId the conversation identifier
+   * @param Throwable $failure the publication failure
+   */
+  private function logRealtimeFailure(string $conversationId, Throwable $failure): void
+  {
+    try {
+      $this->logger->warning('Messaging realtime publish failed.', [
+        'conversationId' => $conversationId,
+        'error' => $failure->getMessage(),
+      ]);
+    } catch (Throwable) {
+      // Diagnostics are best-effort after the durable write.
+    }
+  }
+
+  /**
    * Method resolveMessageId.
    *
    * Uses the client-minted id when the caller supplied one, otherwise mints a
@@ -194,7 +219,7 @@ final readonly class PostMessageHandler implements CommandHandler
    * A client id makes the write idempotent, which is what an offline outbox
    * needs: a queued send whose response was lost is retried with the same id
    * and conflicts instead of creating a second message. The check is a plain
-   * read-then-write with no transaction — a genuine concurrent double-submit
+   * read-then-write guarded by the primary key — a concurrent double-submit
    * of the same id would still collide on the primary key, which is the
    * database enforcing the same rule.
    *
@@ -207,7 +232,7 @@ final readonly class PostMessageHandler implements CommandHandler
   private function resolveMessageId(?string $clientId): MessageId
   {
     if (null === $clientId || '' === $clientId) {
-      return $this->uuidFactory->create(MessageId::class);
+      return new MessageId($this->uuidFactory->generate());
     }
 
     try {

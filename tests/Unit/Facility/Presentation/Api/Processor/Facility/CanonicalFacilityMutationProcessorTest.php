@@ -7,31 +7,25 @@ namespace Tests\Unit\Facility\Presentation\Api\Processor\Facility;
 use ApiPlatform\Metadata\{Delete, Patch};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Contract\Facility\CanonicalFacilityView;
 use Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility\DeleteCanonicalFacilityCommand;
 use Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\PatchCanonicalFacilityCommand;
-use Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityResult;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\{GetCanonicalFacilityQuery, GetCanonicalFacilityResult};
+use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Facility\Presentation\Api\Processor\Facility\CanonicalFacilityMutationProcessor;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
-use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
-use Intervention\Application\Service\InterventionResourceManager;
-use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionNotFoundException};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Throwable;
 
 /**
  * Test CanonicalFacilityMutationProcessorTest.
@@ -56,8 +50,6 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440042';
 
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655440043';
-
-  private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440044';
 
   private const string PARENT_ID = '550e8400-e29b-41d4-a716-446655440045';
   // #endregion
@@ -122,13 +114,9 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   #[Test]
   public function testAForeignOrganizationIsNotFoundRatherThanForbidden(): void
   {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
-
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility not found.');
-
-    $this->processor($this->request('DELETE'), authorization: $authorization)
+    $this->processor($this->request('DELETE', ifMatch: null), queryFailure: new FacilityNotFoundException('Facility not found.'))
       ->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
   }
 
@@ -140,13 +128,9 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   #[Test]
   public function testAMissingPermissionIsForbidden(): void
   {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
-
-    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectException(FacilityAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.facilities.write permission.');
-
-    $this->processor($this->request('DELETE'), authorization: $authorization)
+    $this->processor($this->request('DELETE', ifMatch: null), queryFailure: new FacilityAccessDeniedException('Missing organization.facilities.write permission.'))
       ->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
   }
 
@@ -158,22 +142,10 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   #[Test]
   public function testAScratchpadRowAsksTheInterventionForThePermission(): void
   {
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
-    );
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
-
-    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectException(FacilityAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.interventions.plan permission.');
-
-    $this->processor(
-      $this->request('DELETE'),
-      view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
-      authorization: $authorization,
-      resources: $resources,
-    )->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
+    $this->processor($this->request('DELETE', ifMatch: null), queryFailure: new FacilityAccessDeniedException('Missing organization.interventions.plan permission.'))
+      ->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
   }
 
   /**
@@ -184,16 +156,10 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   #[Test]
   public function testAMissingParentInterventionIsNotFound(): void
   {
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(null);
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $this->processor(
-      $this->request('DELETE'),
-      view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
-      resources: $resources,
-    )->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage('Intervention not found.');
+    $this->processor($this->request('DELETE', ifMatch: null), queryFailure: new InterventionNotFoundException('Intervention not found.'))
+      ->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
   }
 
   /**
@@ -204,18 +170,10 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   #[Test]
   public function testAnImmutableParentInterventionIsAConflict(): void
   {
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'published'),
-    );
-
-    $this->expectException(ConflictHttpException::class);
-
-    $this->processor(
-      $this->request('DELETE'),
-      view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
-      resources: $resources,
-    )->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
+    $this->expectException(InterventionConflictException::class);
+    $this->expectExceptionMessage('Intervention is immutable.');
+    $this->processor($this->request('DELETE', ifMatch: null), queryFailure: new InterventionConflictException('Intervention is immutable.'))
+      ->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
   }
 
   /**
@@ -254,6 +212,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     self::assertInstanceOf(DeleteCanonicalFacilityCommand::class, $command);
     self::assertSame(self::FACILITY_ID, $command->facilityId);
     self::assertSame(3, $command->expectedRevision);
+    self::assertSame(self::USER_ID, $command->userId);
   }
 
   /**
@@ -443,6 +402,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     self::assertInstanceOf(PatchCanonicalFacilityCommand::class, $command);
     self::assertSame(self::FACILITY_ID, $command->facilityId);
     self::assertSame(3, $command->expectedRevision);
+    self::assertSame(self::USER_ID, $command->userId);
     self::assertTrue($command->hasName);
     self::assertSame('Renamed site', $command->name);
     self::assertTrue($command->hasStatus);
@@ -459,9 +419,8 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
    * @param RequestStack $requestStack the request stack
    * @param ?CanonicalFacilityView $view the row the query bus answers with
    * @param ?CommandBusPort $commandBus the command bus
-   * @param ?OrganizationAuthorizationPort $authorization the authorization port
    * @param ?Security $security the security helper
-   * @param ?InterventionResourceGatewayPort $resources the intervention gateway
+   * @param ?Throwable $queryFailure the application refusal returned before the revision gate
    * @param bool $found whether the query bus finds the row
    *
    * @return CanonicalFacilityMutationProcessor the processor under test
@@ -470,19 +429,19 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     RequestStack $requestStack,
     ?CanonicalFacilityView $view = null,
     ?CommandBusPort $commandBus = null,
-    ?OrganizationAuthorizationPort $authorization = null,
     ?Security $security = null,
-    ?InterventionResourceGatewayPort $resources = null,
+    ?Throwable $queryFailure = null,
     bool $found = true,
   ): CanonicalFacilityMutationProcessor {
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new GetCanonicalFacilityResult(
-      $found ? $view ?? $this->view() : null,
-    ));
-
-    if (null === $authorization) {
-      $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-      $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $expectedActor = null === $security ? self::USER_ID : null;
+    $queryExpectation = $queryBus->expects(self::once())->method('ask')->with(self::callback(static fn (object $query): bool => $query instanceof GetCanonicalFacilityQuery && $query->userId === $expectedActor && (self::FACILITY_ID === $query->facilityId || (!$found && '' === $query->facilityId))));
+    if (null !== $queryFailure) {
+      $queryExpectation->willThrowException($queryFailure);
+      $commandBus = $this->createMock(CommandBusPort::class);
+      $commandBus->expects(self::never())->method('dispatch');
+    } else {
+      $queryExpectation->willReturn(new GetCanonicalFacilityResult($found ? $view ?? $this->view() : null));
     }
 
     if (null === $security) {
@@ -492,61 +451,22 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       );
     }
 
-    $manager = new InterventionResourceManager(
-      $resources ?? $this->createStub(InterventionResourceGatewayPort::class),
-    );
-
     $provider = new CanonicalFacilityProvider(
-      $this->entityManager(),
-      $authorization,
       $security,
       $requestStack,
-      $manager,
-      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
-      queryBus: $this->detailQueries(),
+      new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
+      $this->detailQueries(),
     );
 
     return new CanonicalFacilityMutationProcessor(
       $commandBus ?? $this->createStub(CommandBusPort::class),
       $queryBus,
-      $authorization,
       $security,
       $requestStack,
       $provider,
-      $manager,
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
     );
-  }
-
-  /**
-   * Method entityManager.
-   *
-   * Only `CanonicalFacilityProvider` reaches it — the processor holds none.
-   *
-   * @return EntityManagerInterface a manager answering with one seeded record
-   */
-  private function entityManager(): EntityManagerInterface
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $record = new FacilityRecord();
-    $record->id = self::FACILITY_ID;
-    $record->organization = $organization;
-    $record->recordStatus = 'published';
-    $record->revision = 3;
-    $record->type = 'site';
-    $record->name = 'Seeded site';
-    $record->status = 'active';
-    $record->metadata = [];
-    $record->createdAt = new DateTimeImmutable();
-    $record->updatedAt = new DateTimeImmutable();
-    $record->children = new ArrayCollection();
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($record);
-
-    return $entityManager;
   }
 
   /**
@@ -631,7 +551,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
         createdAt: new DateTimeImmutable('2026-09-20'),
         updatedAt: new DateTimeImmutable('2026-09-20'),
       )
-      : new GetCanonicalFacilityResult(new CanonicalFacilityView(self::FACILITY_ID, self::ORGANIZATION_ID, 'published', null, 3)));
+      : new \Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\GetFacilityMediaContextResult(self::ORGANIZATION_ID, self::FACILITY_ID));
 
     return $queries;
   }

@@ -8,15 +8,21 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use ReflectionClass;
 use SplFileInfo;
 
+use function class_exists;
 use function dirname;
 use function file_get_contents;
 use function implode;
 use function in_array;
+use function preg_match;
 use function sprintf;
 use function str_contains;
 use function str_ends_with;
+use function str_replace;
+use function strpos;
+use function substr;
 
 use const DIRECTORY_SEPARATOR;
 
@@ -111,9 +117,12 @@ final class MaintenanceAuthorizationEnforcementTest extends TestCase
         continue;
       }
       $contents = file_get_contents($file->getPathname());
-      if (false === $contents || !str_contains($contents, self::AUTHORIZATION_PORT)) {
+      if (false !== $contents && !str_contains($contents, self::AUTHORIZATION_PORT)) {
+        $contents = self::delegatedAuthorizationSource($contents);
+      }
+      if (false === $contents || null === $contents || !str_contains($contents, self::AUTHORIZATION_PORT)) {
         $violations[] = sprintf(
-          '%s must depend on %s (or be added to EXEMPT_HANDLERS with a justification).',
+          '%s must enforce %s directly or through an invoked owner query with the same caller and organization.',
           $shortName,
           self::AUTHORIZATION_PORT,
         );
@@ -147,5 +156,59 @@ final class MaintenanceAuthorizationEnforcementTest extends TestCase
       message: 'Every user-facing Maintenance handler must enforce an organization permission.',
     );
   }
+
+  /**
+   * An injected query bus or query name cannot stand in for an executed scoped authorization query.
+   */
+  #[Test]
+  public function testDelegatedQueryMustExecuteWithTheOriginalActorAndOrganizationBeforePublishing(): void
+  {
+    $dependency = 'use Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\{ExportMaintenanceSchedulesQuery, ExportMaintenanceSchedulesResult}; QueryBusPort $queryBus;';
+    $call = '$this->queryBus->ask(new ExportMaintenanceSchedulesQuery(userId: $command->userId, organizationId: $command->organizationId));';
+    self::assertNull(self::delegatedAuthorizationSource($dependency));
+    self::assertNull(self::delegatedAuthorizationSource($dependency . '$query = new ExportMaintenanceSchedulesQuery(userId: $command->userId, organizationId: $command->organizationId);'));
+    self::assertNull(self::delegatedAuthorizationSource($dependency . str_replace('userId: $command->userId', "userId: 'another-user'", $call)));
+    self::assertNull(self::delegatedAuthorizationSource($dependency . str_replace('organizationId: $command->organizationId', "organizationId: 'another-org'", $call)));
+    self::assertNull(self::delegatedAuthorizationSource($dependency . '$this->events->dispatch($event);' . $call));
+    $source = self::delegatedAuthorizationSource($dependency . $call);
+    self::assertNotNull($source);
+    self::assertStringContainsString('OrganizationAuthorizationPort', $source);
+    self::assertStringContainsString('->resolveAccess(', $source);
+  }
+
+  /**
+   * Reads the actual handler of a same-module query that receives the unchanged actor and scope.
+   * The calling guard then verifies its authorization port and scope-aware check.
+   */
+  private static function delegatedAuthorizationSource(string $contents): ?string
+  {
+    if (!str_contains($contents, 'QueryBusPort')
+      || 1 !== preg_match('/->ask\(new ([A-Za-z][A-Za-z0-9_]*Query)\((.*?)\)\)/s', $contents, $call)) {
+      return null;
+    }
+    if (1 !== preg_match('/userId:\s*\$command->userId\b/', $call[2])
+      || 1 !== preg_match('/organizationId:\s*\$command->organizationId\b/', $call[2])) {
+      return null;
+    }
+    $publishedAt = strpos($contents, '->dispatch(');
+    $calledAt = strpos($contents, $call[0]);
+    if (false !== $publishedAt && false !== $calledAt && $publishedAt < $calledAt) {
+      return null;
+    }
+    $queryName = $call[1];
+    $normalized = str_replace('\\', '/', $contents);
+    if (1 !== preg_match('~use (Maintenance/Application/UseCase/Query/[A-Za-z0-9_/]+/)(?:' . $queryName . '|\{[^;]*\b' . $queryName . '\b[^;]*\});~', $normalized, $import)) {
+      return null;
+    }
+    $handler = str_replace('/', '\\', $import[1]) . substr($queryName, 0, -5) . 'Handler';
+    if (!class_exists($handler)) {
+      return null;
+    }
+    $file = new ReflectionClass($handler)->getFileName();
+    $source = false === $file ? false : file_get_contents($file);
+
+    return false !== $source && str_contains($source, self::AUTHORIZATION_PORT) ? $source : null;
+  }
+
   // #endregion
 }

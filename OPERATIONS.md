@@ -129,9 +129,9 @@ scheduler services. Maintain that isolation and the same complete receiver cover
 
 ```sh
 php -d memory_limit=1G bin/console messenger:consume \
-  main_outbox async webhook assistant \
+  main_outbox auth_outbox async webhook assistant \
   scheduler_maintenance scheduler_intervention scheduler_approval \
-  scheduler_inspection scheduler_organization \
+  scheduler_inspection scheduler_organization scheduler_webhook \
   --time-limit=3600
 ```
 

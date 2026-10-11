@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Infrastructure\OAuth2\League\Repository;
 
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AuthCodeRepositoryPort;
 use OAuth\Domain\Model\Token\AuthCode as DomainAuthCode;
 use OAuth\Infrastructure\OAuth2\League\Entity\{AuthCode as LeagueAuthCode, Client as LeagueClient, Scope as LeagueScope};
 use OAuth\Infrastructure\OAuth2\League\Repository\AuthCodeRepositoryAdapter;

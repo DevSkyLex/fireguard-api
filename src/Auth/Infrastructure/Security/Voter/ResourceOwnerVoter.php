@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Security\Voter;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\{Vote, Voter};
@@ -19,7 +19,7 @@ use function property_exists;
 /**
  * Class ResourceOwnerVoter
  *
- * Grants ownership attributes only when the current SecurityUser matches an owner identifier resolved from the subject.
+ * Grants ownership attributes only when the current AuthenticatedUser matches an owner identifier resolved from the subject.
  *
  * @category Voter
  * @version 1.0.0
@@ -91,7 +91,7 @@ final class ResourceOwnerVoter extends Voter
   /**
    * Method voteOnAttribute
    *
-   * Grants the vote only when the authenticated SecurityUser identifier matches an owner identifier on the subject.
+   * Grants the vote only when the authenticated AuthenticatedUser identifier matches an owner identifier on the subject.
    *
    * @access protected
    *
@@ -106,7 +106,7 @@ final class ResourceOwnerVoter extends Voter
   {
     $user = $token->getUser();
 
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       return false;
     }
 

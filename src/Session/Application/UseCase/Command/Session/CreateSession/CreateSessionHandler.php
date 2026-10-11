@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Session\Application\UseCase\Command\Session\CreateSession;
 
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\{SessionId, SessionMetadata};
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\GeoIpLookupPort;
+use Shared\Application\Port\Outbound\{GeoIpLookupPort, UuidGeneratorPort};
 use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 
 use function array_merge;
@@ -31,12 +30,12 @@ final readonly class CreateSessionHandler implements \Shared\Application\Message
    * @since 1.0.0
    *
    * @param SessionRepositoryPort $sessionRepository the session repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param GeoIpLookupPort $geoIp optional local location enrichment
    */
   public function __construct(
     private SessionRepositoryPort $sessionRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private GeoIpLookupPort $geoIp,
   ) {
   }
@@ -57,7 +56,7 @@ final readonly class CreateSessionHandler implements \Shared\Application\Message
   public function __invoke(CreateSessionCommand $command): CreateSessionResult
   {
     // Generate session ID
-    $sessionId = $this->uuidFactory->create(SessionId::class);
+    $sessionId = new SessionId($this->uuidFactory->generate());
 
     // Create session
     $ipAddress = trim($command->ipAddress);

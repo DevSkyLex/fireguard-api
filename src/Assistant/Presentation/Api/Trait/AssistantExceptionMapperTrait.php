@@ -6,7 +6,7 @@ namespace Assistant\Presentation\Api\Trait;
 
 use Assistant\Domain\Exception\{AssistantDisabledException, AssistantMessageIllegalStatusTransitionException, AssistantThreadNotFoundException, AssistantValidationException};
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
 

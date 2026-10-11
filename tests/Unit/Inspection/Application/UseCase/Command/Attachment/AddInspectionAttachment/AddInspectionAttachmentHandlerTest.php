@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Attachment\AddInspectionAttachment;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Command\Attachment\AddInspectionAttachment\{AddInspectionAttachmentCommand, AddInspectionAttachmentHandler, AddInspectionAttachmentResult};
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{
-  InspectionAttachmentId,
   InspectionEquipmentId,
   InspectionId,
   InspectionOrganizationId,
@@ -25,8 +24,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileStoragePort, LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -60,8 +59,8 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::once())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InspectionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
@@ -69,6 +68,9 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $result = $handler->__invoke(new AddInspectionAttachmentCommand(
@@ -106,8 +108,8 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::once())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InspectionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
@@ -115,6 +117,9 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $result = $handler->__invoke(new AddInspectionAttachmentCommand(
@@ -144,8 +149,8 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InspectionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
@@ -153,6 +158,9 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -191,8 +199,8 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InspectionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
@@ -200,6 +208,9 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(NonConformityNotFoundException::class);
@@ -236,8 +247,8 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     $fileStorage->expects(self::once())->method('write');
     $fileStorage->expects(self::once())->method('delete');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InspectionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
@@ -245,6 +256,9 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(RuntimeException::class);
@@ -268,7 +282,10 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
       attachmentRepository: $this->createStub(InspectionAttachmentRepositoryPort::class),
       fileStorage: $this->createStub(FileStoragePort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -338,8 +355,8 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InspectionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
@@ -347,6 +364,9 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(InvalidAttachmentException::class);
@@ -379,8 +399,8 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('countByNonConformityId')->willReturn(0);
     $attachmentRepository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InspectionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
@@ -388,6 +408,9 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $this->createStub(FileStoragePort::class),
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $result = $handler->__invoke(new AddInspectionAttachmentCommand(
@@ -423,8 +446,8 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new InspectionAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
@@ -432,6 +455,9 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
       uuidFactory: $uuidFactory,
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(InvalidAttachmentException::class);
@@ -447,6 +473,86 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function compensatesTheExactAttemptAfterALateTransactionFailure(): void
+  {
+    $failure = new RuntimeException('Late transaction failure.');
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static function (callable $operation) use ($failure): never {
+      $operation();
+
+      throw $failure;
+    });
+    $storage = $this->createMock(FileStoragePort::class);
+    $path = null;
+    $storage->expects(self::once())->method('write')->willReturnCallback(static function (string $key) use (&$path): void { $path = $key; });
+    $storage->expects(self::once())->method('delete')->with(self::callback(static function (string $key) use (&$path): bool { return $key === $path; }));
+    $this->expectExceptionObject($failure);
+    $this->failureHandler($transactions, $storage)($this->failureCommand());
+  }
+
+  #[Test]
+  public function preservesBytesWhenTheCommitCannotBeConfirmed(): void
+  {
+    $failure = new \Shared\Application\Contract\Transaction\CommitOutcomeUnknownException(new RuntimeException('Commit disconnected.'));
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static function (callable $operation) use ($failure): never {
+      $operation();
+
+      throw $failure;
+    });
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::once())->method('write');
+    $storage->expects(self::never())->method('delete');
+    $this->expectExceptionObject($failure);
+    $this->failureHandler($transactions, $storage)($this->failureCommand());
+  }
+
+  #[Test]
+  public function rejectsAnEnclosingTransactionBeforeStorageOrPersistence(): void
+  {
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('assertCanStart')->willThrowException(new \Shared\Application\Contract\Transaction\TransactionAlreadyActiveException());
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('write');
+    $this->expectException(\Shared\Application\Contract\Transaction\TransactionAlreadyActiveException::class);
+    $this->failureHandler($transactions, $storage)($this->failureCommand());
+  }
+
+  #[Test]
+  public function neitherCleanupNorLoggingCanMaskTheInitialPersistenceFailure(): void
+  {
+    $failure = new RuntimeException('Initial SQL failure.');
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static function (callable $operation) use ($failure): never {
+      $operation();
+
+      throw $failure;
+    });
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::once())->method('write');
+    $storage->expects(self::once())->method('delete')->willThrowException(new RuntimeException('Cleanup unavailable.'));
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning')->willThrowException(new RuntimeException('Logger unavailable.'));
+    $this->expectExceptionObject($failure);
+    $this->failureHandler($transactions, $storage, $logger)($this->failureCommand());
+  }
+
+  private function failureHandler(RootTransactionManagerPort $transactions, FileStoragePort $storage, ?LoggerPort $logger = null): AddInspectionAttachmentHandler
+  {
+    $repository = $this->createStub(InspectionRepositoryPort::class);
+    $repository->method('findById')->willReturn($this->inspection());
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn(self::ATTACHMENT_ID);
+
+    return new AddInspectionAttachmentHandler($repository, $this->createStub(NonConformityRepositoryPort::class), $this->createStub(InspectionAttachmentRepositoryPort::class), $storage, $uuid, $transactions, $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class), $logger ?? $this->createStub(LoggerPort::class));
+  }
+
+  private function failureCommand(): AddInspectionAttachmentCommand
+  {
+    return new AddInspectionAttachmentCommand(self::ORG_ID, self::INSPECTION_ID, 'proof.jpg', 'bytes', 'image/jpeg', 5, attachmentId: self::ATTACHMENT_ID);
+  }
+
   private function authorizedHandler(): AddInspectionAttachmentHandler
   {
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
@@ -457,7 +563,10 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
       attachmentRepository: $this->createStub(InspectionAttachmentRepositoryPort::class),
       fileStorage: $this->createStub(FileStoragePort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      transactions: $this->transactions(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
   }
 
@@ -481,5 +590,13 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       description: 'Fire extinguisher pressure too low',
       severity: NonConformitySeverity::HIGH,
     );
+  }
+
+  private function transactions(): RootTransactionManagerPort
+  {
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
   }
 }

@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\RecordAuditEventCommand;
-use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent, UserLoggedOutEvent};
-use Auth\Domain\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
+use Auth\Application\Contract\Event\Session\{LoginFailedEvent, UserLoggedInEvent, UserLoggedOutEvent};
+use Auth\Application\Contract\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
 use DateTimeImmutable;
-use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
-use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent, TokenRevokedEvent};
-use Otp\Domain\Event\Totp\{TotpEnrollmentConfirmedEvent, TotpEnrollmentDisabledEvent};
+use OAuth\Application\Contract\Event\Consent\ConsentGrantedEvent;
+use OAuth\Application\Contract\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent, TokenRevokedEvent};
+use Otp\Application\Contract\Event\Totp\{TotpEnrollmentConfirmedEvent, TotpEnrollmentDisabledEvent};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use User\Domain\Event\{UserEmailChangeCancelledEvent, UserEmailChangeConfirmedEvent, UserEmailChangeRequestedEvent};
+use User\Application\Contract\Event\{UserEmailChangeCancelledEvent, UserEmailChangeConfirmedEvent, UserEmailChangeRequestedEvent};
 
 /** Records the security event family. */
 final readonly class SecurityAuditEventSubscriber extends AbstractAuditEventSubscriber implements EventSubscriberInterface

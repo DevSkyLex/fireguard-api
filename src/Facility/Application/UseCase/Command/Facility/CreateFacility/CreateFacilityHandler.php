@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\CreateFacility;
 
-use Doctrine\DBAL\Exception\{
-  ForeignKeyConstraintViolationException,
-  UniqueConstraintViolationException
-};
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\FacilityCreatedEvent;
 use Facility\Domain\Exception\{
@@ -20,6 +16,7 @@ use Facility\Domain\Exception\{
   FacilityNotFoundException,
   FacilityOrganizationNotFoundException
 };
+use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityCreationPreconditionFailedException};
 use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
@@ -28,15 +25,21 @@ use Facility\Domain\ValueObject\{
   FacilityOrganizationId,
   FacilityType
 };
+use Intervention\Application\Contract\Resource\{ClientResourceAlreadyExistsException, InterventionResourceType};
+use Intervention\Application\Port\Inbound\InterventionResourcesPort;
+use LogicException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
-use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Shared\Application\Factory\UuidFactory;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
+use Shared\Application\Contract\Persistence\{
+  ForeignKeyConstraintViolationException,
+  UniqueConstraintViolationException
+};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 use ValueError;
 
@@ -73,7 +76,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param FacilityRepositoryPort $facilityRepository the facility repository value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
@@ -82,16 +85,17 @@ final readonly class CreateFacilityHandler implements CommandHandler
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
     private FacilityMetadataSchemaGuard $metadataSchemaGuard,
-    #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
     private ?OrganizationSetupPort $setup = null,
     private ?FacilityHierarchyPort $hierarchy = null,
     private ?\Facility\Application\Port\Outbound\FacilityCustomerValidationPort $customers = null,
+    private ?InterventionResourcesPort $interventions = null,
+    private ?OrganizationAuthorizationPort $authorization = null,
   ) {
   }
   // #endregion
@@ -111,6 +115,18 @@ final readonly class CreateFacilityHandler implements CommandHandler
   public function __invoke(CreateFacilityCommand $command): CreateFacilityResult
   {
     $this->assertSetupProtocol($command);
+    $this->assertMutationAccess($command, false);
+    if (null !== $command->clientId && '' !== $command->clientId) {
+      try {
+        $this->interventions?->assertOfflineCreate(InterventionResourceType::FACILITY, $command->clientId);
+      } catch (ClientResourceAlreadyExistsException $exception) {
+        if ($command->createOnly) {
+          throw new FacilityCreationPreconditionFailedException($exception->getMessage(), previous: $exception);
+        }
+
+        throw $exception;
+      }
+    }
 
     try {
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
@@ -121,7 +137,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
 
       /** @var FacilityId $facilityId */
       $facilityId = null === $command->resourceId
-        ? $this->uuidFactory->create(FacilityId::class)
+        ? new FacilityId($this->uuidFactory->generate())
         : FacilityId::fromString($command->resourceId);
 
       $facility = Facility::create(
@@ -174,23 +190,40 @@ final readonly class CreateFacilityHandler implements CommandHandler
     $replayed = false;
     $facility = $this->transactionManager->transactional(function () use ($command, $facility, &$replayed): Facility {
       $this->hierarchy?->lock($command->organizationId);
+      $this->assertMutationAccess($command, true);
 
-      return $this->persistFacility($command, $facility, $replayed);
+      $saved = $this->persistFacility($command, $facility, $replayed);
+      if (!$replayed) {
+        $this->interventions?->attach(InterventionResourceType::FACILITY, (string) $saved->id(), $command->organizationId, $command->interventionId, $command->clientId);
+        $this->eventDispatcher->dispatch(new FacilityCreatedEvent(
+          organizationId: (string) $saved->organizationId(),
+          facilityId: (string) $saved->id(),
+        ));
+      }
+
+      return $saved;
     });
 
-    if ($replayed) {
-      return $this->toResult($facility, true);
+    return $this->toResult($facility, $replayed);
+  }
+
+  /**
+   * Method assertMutationAccess.
+   *
+   * Resolves the preflight without a lock and rechecks under the transaction before writes.
+   */
+  private function assertMutationAccess(CreateFacilityCommand $command, bool $forUpdate): void
+  {
+    if (null !== $command->userId) {
+      $permission = null === $command->interventionId ? 'organization.facilities.write' : ($this->interventions ?? throw new LogicException('Intervention capability is unavailable.'))->mutationPermission($command->interventionId, $command->userId, $command->organizationId, $forUpdate);
+      $decision = ($this->authorization ?? throw new LogicException('Authorization capability is unavailable.'))->resolveAccess($command->userId, $command->organizationId, $permission);
+      if ($decision->isOutsideScope()) {
+        throw new FacilityNotFoundException('Organization not found.');
+      }
+      if (!$decision->isGranted()) {
+        throw new FacilityAccessDeniedException('Missing ' . $permission . ' permission.');
+      }
     }
-
-    // Emitted after the durable save so a failed persistence leaves no
-    // ledger row. Both the resource-scoped POST and the canonical PUT
-    // upsert route through this same handler, so both emit exactly once.
-    $this->eventDispatcher->dispatch(new FacilityCreatedEvent(
-      organizationId: (string) $facility->organizationId(),
-      facilityId: (string) $facility->id(),
-    ));
-
-    return $this->toResult($facility);
   }
 
   /**
@@ -368,7 +401,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
   private function toResult(Facility $facility, bool $replayed = false): CreateFacilityResult
   {
     $id = (string) $facility->id();
-    $context = $replayed ? ($this->facilityRepository->findProjectionContextsByFacilityIds($facility->organizationId(), [$id])[$id] ?? []) : [];
+    $context = $this->facilityRepository->findProjectionContextsByFacilityIds($facility->organizationId(), [$id])[$id] ?? [];
 
     return new CreateFacilityResult(
       facilityId: (string) $facility->id(),

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Messaging\Application\UseCase\Command\Conversation\FavoriteConversation;
 
 use DateTimeImmutable;
-use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\MessagingConversationFavoriteRepositoryPort;
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Otp\Application\UseCase\Command\Totp\DisableTotp;
 
 use Otp\Application\Exception\TotpEnrollmentNotEnabledException;
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\UseCase\Command\Totp\DisableTotp\{DisableTotpCommand, DisableTotpHandler};
 use Otp\Domain\Event\Totp\TotpEnrollmentDisabledEvent;
 use Otp\Domain\Model\Totp\TotpEnrollment;

@@ -19,7 +19,7 @@ final class ImportTemplateProviderTest extends TestCase
     $bus->expects(self::once())->method('ask')->with(self::callback(static fn (GetImportTemplateQuery $q): bool => 'actor' === $q->userId && 'org' === $q->organizationId && 'facility' === $q->kind))->willReturn(new GetImportTemplateResult('template.csv', "type,name\r\n"));
     $actor = $this->createStub(CurrentActorPort::class);
     $actor->method('userId')->willReturn('actor');
-    $result = new ImportTemplateProvider($bus, $actor)->provide(new Get(), ['organizationId' => 'org', 'kind' => 'facility']);
+    $result = \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => new ImportTemplateProvider($bus, $actor)->provide(new Get(), ['organizationId' => 'org', 'kind' => 'facility']));
     self::assertSame('template.csv', $result->filename);
     self::assertSame("type,name\r\n", $result->content);
   }

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Application\Service;
 
-use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Inbound\Internal\OrganizationCallerMembershipPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationCallerRoleResult;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};

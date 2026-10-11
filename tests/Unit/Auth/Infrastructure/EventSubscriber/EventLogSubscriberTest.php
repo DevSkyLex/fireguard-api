@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Infrastructure\EventSubscriber;
 
-use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
+use Auth\Application\Contract\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Infrastructure\EventSubscriber\EventLogSubscriber;
 use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

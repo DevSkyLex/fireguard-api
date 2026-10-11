@@ -7,7 +7,7 @@ namespace MaintenanceExport\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\DBAL\{Connection, Exception\UniqueConstraintViolationException, ParameterType};
 use LogicException;
 use MaintenanceExport\Application\Contract\{ExportDocumentSummary, ExportOperation};
-use MaintenanceExport\Application\Port\Outbound\MaintenanceExportRepositoryPort;
+use MaintenanceExport\Application\Port\Outbound\Internal\MaintenanceExportRepositoryPort;
 use MaintenanceExport\Domain\Exception\MaintenanceExportException;
 use MaintenanceExport\Domain\Model\{ExportDocument, ExternalReference};
 use MaintenanceExport\Infrastructure\Persistence\Doctrine\Mapper\MaintenanceExportMapper;

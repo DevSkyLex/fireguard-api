@@ -570,7 +570,7 @@ final class CanonicalEquipmentApiTest extends WebTestCase
   {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->type = 'site';
     $facility->name = 'Canonical Equipment Test Site ' . $id;
     $facility->status = 'active';
@@ -603,7 +603,7 @@ final class CanonicalEquipmentApiTest extends WebTestCase
   ): EquipmentRecord {
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->recordStatus = $recordStatus;
     $equipment->revision = 1;
     $equipment->facilityId = $facilityId;

@@ -69,7 +69,7 @@ final class CanonicalEquipmentRepositoryTest extends KernelTestCase
 
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->recordStatus = 'draft';
     $equipment->interventionId = self::INTERVENTION_ID;
     $equipment->clientId = self::CLIENT_ID;

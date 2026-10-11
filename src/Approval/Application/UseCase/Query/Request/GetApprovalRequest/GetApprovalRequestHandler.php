@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Approval\Application\UseCase\Query\Request\GetApprovalRequest;
 
-use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;

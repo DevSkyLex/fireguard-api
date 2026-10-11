@@ -7,19 +7,22 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Attachment\AddMessage
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingSubjectResolverPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment\{AddMessageAttachmentCommand, AddMessageAttachmentHandler, AddMessageAttachmentResult};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException, MessagingValidationException};
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
-use Messaging\Domain\ValueObject\{MessageId, MessagingAttachmentId, MessagingSubjectType};
+use Messaging\Domain\ValueObject\{MessageId, MessagingAttachmentId};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Contract\Transaction\{CommitOutcomeUnknownException, TransactionAlreadyActiveException};
+use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -62,6 +65,7 @@ final class AddMessageAttachmentHandlerTest extends TestCase
 
     /** @var MessagingAttachmentRepositoryPort&MockObject $attachments */
     $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $messageId, callable $operation) => $operation());
     $attachments->expects(self::once())->method('save');
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -69,8 +73,8 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     $fileStorage->expects(self::once())->method('write');
     $fileStorage->expects(self::never())->method('delete');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new MessagingAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddMessageAttachmentHandler(
       $messages,
@@ -80,6 +84,9 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       $attachments,
       $fileStorage,
       $uuidFactory,
+      $this->transactions(),
+      $this->createStub(FileCleanupPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $result = $handler->__invoke(new AddMessageAttachmentCommand(
@@ -105,6 +112,7 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     $messages->method('findAggregateById')->willReturn(null);
 
     $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $messageId, callable $operation) => $operation());
     $attachments->expects(self::never())->method('save');
 
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -117,7 +125,10 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $this->createStub(MessagingMemberDirectoryPort::class), $this->createStub(MessagingParticipantRepositoryPort::class)),
       $attachments,
       $fileStorage,
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
+      $this->transactions(),
+      $this->createStub(FileCleanupPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $this->expectException(MessagingNotFoundException::class);
@@ -139,6 +150,7 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     $messages->method('findAggregateById')->willReturn($this->deletedMessage());
 
     $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $messageId, callable $operation) => $operation());
     $attachments->expects(self::never())->method('save');
 
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -151,7 +163,10 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $this->createStub(MessagingMemberDirectoryPort::class), $this->createStub(MessagingParticipantRepositoryPort::class)),
       $attachments,
       $fileStorage,
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
+      $this->transactions(),
+      $this->createStub(FileCleanupPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $this->expectException(MessagingValidationException::class);
@@ -187,6 +202,7 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     $accessPolicy = new MessagingAccessPolicy($authorization, $members, $this->createStub(MessagingParticipantRepositoryPort::class));
 
     $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $messageId, callable $operation) => $operation());
     $attachments->expects(self::never())->method('save');
 
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -199,7 +215,10 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       $accessPolicy,
       $attachments,
       $fileStorage,
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
+      $this->transactions(),
+      $this->createStub(FileCleanupPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $this->expectException(MessagingAccessDeniedException::class);
@@ -233,6 +252,7 @@ final class AddMessageAttachmentHandlerTest extends TestCase
 
     /** @var MessagingAttachmentRepositoryPort&MockObject $attachments */
     $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $messageId, callable $operation) => $operation());
     $attachments->expects(self::once())->method('save')->willThrowException(new RuntimeException('Database error.'));
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -240,8 +260,8 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     $fileStorage->expects(self::once())->method('write');
     $fileStorage->expects(self::once())->method('delete');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new MessagingAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddMessageAttachmentHandler(
       $messages,
@@ -251,6 +271,9 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       $attachments,
       $fileStorage,
       $uuidFactory,
+      $this->transactions(),
+      $this->createStub(FileCleanupPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $this->expectException(RuntimeException::class);
@@ -284,9 +307,12 @@ final class AddMessageAttachmentHandlerTest extends TestCase
         $this->createStub(MessagingMemberDirectoryPort::class),
         $this->createStub(MessagingParticipantRepositoryPort::class),
       ),
-      $this->createStub(MessagingAttachmentRepositoryPort::class),
+      $this->attachmentRepository(),
       $this->createStub(FileStoragePort::class),
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
+      $this->transactions(),
+      $this->createStub(FileCleanupPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $this->expectException(MessagingNotFoundException::class);
@@ -313,17 +339,20 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       ->with(self::CONVERSATION_ID, self::AUTHOR_MEMBER_ID)
       ->willReturn(true);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new MessagingAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddMessageAttachmentHandler(
       $messages,
       $conversations,
       new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
-      $this->createStub(MessagingAttachmentRepositoryPort::class),
+      $this->attachmentRepository(),
       $this->createStub(FileStoragePort::class),
       $uuidFactory,
+      $this->transactions(),
+      $this->createStub(FileCleanupPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $result = $handler->__invoke($this->command());
@@ -375,6 +404,7 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     // The cap is per MESSAGE, not per conversation.
     /** @var MessagingAttachmentRepositoryPort&MockObject $attachments */
     $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $messageId, callable $operation) => $operation());
     $attachments->method('findById')->willReturn(null);
     $attachments->method('countByMessageId')
       ->with(self::MESSAGE_ID)
@@ -385,8 +415,8 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new MessagingAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddMessageAttachmentHandler(
       $messages,
@@ -396,6 +426,9 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       $attachments,
       $fileStorage,
       $uuidFactory,
+      $this->transactions(),
+      $this->createStub(FileCleanupPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $this->expectException(InvalidAttachmentException::class);
@@ -410,8 +443,107 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     ));
   }
 
-  private function authorizedHandler(): AddMessageAttachmentHandler
+  #[Test]
+  public function replayPreservesTheWinningFileAndMetadata(): void
   {
+    $existing = MessagingAttachment::create(
+      MessagingAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::MESSAGE_ID,
+      self::CONVERSATION_ID,
+      self::ORG_ID,
+      self::AUTHOR_MEMBER_ID,
+      new MessagingAttachmentFile('winner.pdf', 'winner/storage-key', 'application/pdf', 32),
+    );
+    $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $id, callable $operation) => $operation());
+    $attachments->method('findById')->willReturn($existing);
+    $attachments->expects(self::never())->method('save');
+    $attachments->expects(self::never())->method('countByMessageId');
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('write');
+    $storage->expects(self::never())->method('delete');
+
+    $result = $this->authorizedHandler(attachments: $attachments, storage: $storage)($this->command(self::ATTACHMENT_ID));
+
+    self::assertSame('winner.pdf', $result->fileName);
+    self::assertSame(32, $result->size);
+  }
+
+  #[Test]
+  public function compensationAndLoggingFailuresPreserveTheOriginalSqlFailure(): void
+  {
+    $original = new RuntimeException('Original SQL failure');
+    $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $id, callable $operation) => $operation());
+    $attachments->expects(self::once())->method('save')->willThrowException($original);
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::once())->method('write');
+    $storage->expects(self::once())->method('delete')->willThrowException(new RuntimeException('Storage cleanup failed'));
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::once())->method('request')->willThrowException(new RuntimeException('Cleanup enqueue failed'));
+    $logger = $this->createStub(LoggerPort::class);
+    $logger->method('warning')->willThrowException(new RuntimeException('Logger unavailable'));
+
+    try {
+      $this->authorizedHandler(attachments: $attachments, storage: $storage, cleanup: $cleanup, logger: $logger)($this->command(self::ATTACHMENT_ID));
+      self::fail('The original failure must propagate.');
+    } catch (RuntimeException $failure) {
+      self::assertSame($original, $failure);
+    }
+  }
+
+  #[Test]
+  public function uncertainCommitRetainsTheUploadedBytes(): void
+  {
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static function (callable $operation): never {
+      $operation();
+
+      throw new CommitOutcomeUnknownException(new RuntimeException('Connection lost during commit'));
+    });
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::once())->method('write');
+    $storage->expects(self::never())->method('delete');
+    $this->expectException(CommitOutcomeUnknownException::class);
+    $this->authorizedHandler(storage: $storage, transactions: $transactions)($this->command(self::ATTACHMENT_ID));
+  }
+
+  #[Test]
+  public function enclosingTransactionIsRejectedBeforeStorageWrites(): void
+  {
+    $transactions = $this->createMock(RootTransactionManagerPort::class);
+    $transactions->method('assertCanStart')->willThrowException(new TransactionAlreadyActiveException());
+    $transactions->expects(self::never())->method('transactional');
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('write');
+    $storage->expects(self::never())->method('delete');
+    $this->expectException(TransactionAlreadyActiveException::class);
+    $this->authorizedHandler(storage: $storage, transactions: $transactions)($this->command(self::ATTACHMENT_ID));
+  }
+
+  private function transactions(): RootTransactionManagerPort
+  {
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation) => $operation());
+
+    return $transactions;
+  }
+
+  private function attachmentRepository(): MessagingAttachmentRepositoryPort
+  {
+    $attachments = $this->createStub(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('withMessageLock')->willReturnCallback(static fn (string $messageId, callable $operation) => $operation());
+
+    return $attachments;
+  }
+
+  private function authorizedHandler(
+    ?MessagingAttachmentRepositoryPort $attachments = null,
+    ?FileStoragePort $storage = null,
+    ?RootTransactionManagerPort $transactions = null,
+    ?FileCleanupPort $cleanup = null,
+    ?LoggerPort $logger = null,
+  ): AddMessageAttachmentHandler {
     $messages = $this->createStub(MessagingMessageRepositoryPort::class);
     $messages->method('findAggregateById')->willReturn($this->message());
 
@@ -426,9 +558,12 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       $conversations,
       new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
-      $this->createStub(MessagingAttachmentRepositoryPort::class),
-      $this->createStub(FileStoragePort::class),
-      $this->createStub(UuidFactory::class),
+      $attachments ?? $this->attachmentRepository(),
+      $storage ?? $this->createStub(FileStoragePort::class),
+      $this->createStub(UuidGeneratorPort::class),
+      $transactions ?? $this->transactions(),
+      $cleanup ?? $this->createStub(FileCleanupPort::class),
+      $logger ?? $this->createStub(LoggerPort::class),
     );
   }
 
@@ -448,7 +583,7 @@ final class AddMessageAttachmentHandlerTest extends TestCase
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (MessagingSubjectType $type): bool => MessagingSubjectType::FACILITY === $type);
+    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type);
     $resolver->method('resolve')->willReturn(new MessagingSubjectResolution(true, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;

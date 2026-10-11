@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Adapter\Assistant;
 
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\ValueObject\{OrganizationAssistantSettings, OrganizationId};
 use Shared\Domain\Exception\InvalidValueException;
 

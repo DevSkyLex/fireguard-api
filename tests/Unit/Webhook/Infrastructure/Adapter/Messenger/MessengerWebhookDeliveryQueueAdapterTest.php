@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Webhook\Infrastructure\Adapter\Messenger;
 
+use Doctrine\DBAL\Connection;
+use LogicException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
@@ -28,16 +30,29 @@ final class MessengerWebhookDeliveryQueueAdapterTest extends TestCase
     $messageBus->expects(self::once())
       ->method('dispatch')
       ->willReturnCallback(static function (object $message) use (&$captured): Envelope {
-        $captured = $message;
+        $captured = $message instanceof Envelope ? $message->getMessage() : $message;
 
-        return new Envelope($message);
+        return $message instanceof Envelope ? $message : new Envelope($message);
       });
 
-    $adapter = new MessengerWebhookDeliveryQueueAdapter($messageBus);
+    $connection = $this->createStub(Connection::class);
+    $connection->method('isTransactionActive')->willReturn(true);
+    $adapter = new MessengerWebhookDeliveryQueueAdapter($messageBus, $connection);
 
     $adapter->dispatch('018f0b68-6758-7a12-8a1d-3f0d97f64a10');
 
     self::assertInstanceOf(DeliverWebhookCommand::class, $captured);
     self::assertSame('018f0b68-6758-7a12-8a1d-3f0d97f64a10', $captured->deliveryId);
+  }
+
+  #[Test]
+  public function refusesEnqueueWithoutTheMainTransaction(): void
+  {
+    $connection = $this->createStub(Connection::class);
+    $connection->method('isTransactionActive')->willReturn(false);
+    $bus = $this->createMock(MessageBusInterface::class);
+    $bus->expects(self::never())->method('dispatch');
+    $this->expectException(LogicException::class);
+    new MessengerWebhookDeliveryQueueAdapter($bus, $connection)->dispatch('delivery');
   }
 }

@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Equipment\Application\Port\Outbound\TagRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\TagRepositoryPort;
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, TagId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\TagMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentRecord, EquipmentTagRecord, TagRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 
@@ -65,13 +64,12 @@ final readonly class TagRepository implements TagRepositoryPort
   public function save(Tag $tag): void
   {
     $record = TagMapper::toRecord($tag);
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $tag->organizationId());
-    $record->organization = $organization;
+    $organizationId = (string) $tag->organizationId();
+    $record->organizationId = $organizationId;
     $existing = $this->tagEntityRepository->find($record->id);
 
     if ($existing instanceof TagRecord) {
-      $existing->organization = $organization;
+      $existing->organizationId = $organizationId;
       $existing->name = $record->name;
       $existing->createdAt = $record->createdAt;
     } else {
@@ -104,11 +102,10 @@ final readonly class TagRepository implements TagRepositoryPort
    */
   public function findByNameAndOrganizationId(string $name, EquipmentOrganizationId $organizationId): ?Tag
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organizationId = (string) $organizationId;
     $record = $this->tagEntityRepository->findOneBy([
       'name' => $name,
-      'organization' => $organization,
+      'organizationId' => $organizationId,
     ]);
 
     if (!$record instanceof TagRecord) {
@@ -261,15 +258,14 @@ final readonly class TagRepository implements TagRepositoryPort
   {
     $this->entityManager->wrapInTransaction(function () use ($tag, $equipmentId): void {
       $record = TagMapper::toRecord($tag);
-      /** @var OrganizationRecord $organization */
-      $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $tag->organizationId());
+      $organizationId = (string) $tag->organizationId();
       /** @var EquipmentRecord $equipment */
       $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $equipmentId);
-      $record->organization = $organization;
+      $record->organizationId = $organizationId;
 
       $existingRecord = $this->tagEntityRepository->find($record->id);
       if ($existingRecord instanceof TagRecord) {
-        $existingRecord->organization = $organization;
+        $existingRecord->organizationId = $organizationId;
         $existingRecord->name = $record->name;
         $existingRecord->createdAt = $record->createdAt;
       } else {
@@ -297,14 +293,13 @@ final readonly class TagRepository implements TagRepositoryPort
    */
   public function findByOrganizationId(EquipmentOrganizationId $organizationId, ?string $search = null): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organizationId = (string) $organizationId;
     $qb = $this->entityManager->createQueryBuilder();
     $qb
       ->select('t')
       ->from(TagRecord::class, 't')
-      ->where('t.organization = :organization')
-      ->setParameter('organization', $organization)
+      ->where('t.organizationId = :organization')
+      ->setParameter('organization', $organizationId)
       ->orderBy('t.name', 'ASC');
 
     if (null !== $search && '' !== $search) {
@@ -329,14 +324,13 @@ final readonly class TagRepository implements TagRepositoryPort
    */
   public function countByOrganizationId(EquipmentOrganizationId $organizationId, ?string $search = null): int
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organizationId = (string) $organizationId;
     $qb = $this->entityManager->createQueryBuilder();
     $qb
       ->select('COUNT(t.id)')
       ->from(TagRecord::class, 't')
-      ->where('t.organization = :organization')
-      ->setParameter('organization', $organization);
+      ->where('t.organizationId = :organization')
+      ->setParameter('organization', $organizationId);
 
     if (null !== $search && '' !== $search) {
       $qb

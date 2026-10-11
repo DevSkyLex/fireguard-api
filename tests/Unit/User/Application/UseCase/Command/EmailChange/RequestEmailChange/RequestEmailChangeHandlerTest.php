@@ -19,7 +19,7 @@ use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
-use User\Application\Port\Outbound\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
+use User\Application\Port\Outbound\Internal\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
 use User\Application\Service\{EmailChangeNotifier, EmailChangeTokenHasher};
 use User\Application\UseCase\Command\EmailChange\RequestEmailChange\{
   RequestEmailChangeCommand,

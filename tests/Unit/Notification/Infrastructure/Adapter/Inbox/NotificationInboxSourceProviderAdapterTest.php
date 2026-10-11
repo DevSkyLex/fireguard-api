@@ -6,7 +6,7 @@ namespace Tests\Unit\Notification\Infrastructure\Adapter\Inbox;
 
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\NotificationListCriteria;
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Notification\Domain\Model\Notification\{Notification, RestoredNotificationState};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Adapter\Inbox\NotificationInboxSourceProviderAdapter;

@@ -6,7 +6,7 @@ namespace Organization\Application\Service;
 
 use Organization\Application\Contract\Team\TeamMembershipSnapshot;
 use Organization\Application\Port\Inbound\TeamDirectoryPort;
-use Organization\Application\Port\Outbound\TeamRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\TeamRepositoryPort;
 use Organization\Domain\ValueObject\TeamId;
 use Shared\Domain\Exception\InvalidValueException;
 

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Post;
+use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeVerifierPort;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort};
-use Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort;
 use Auth\Application\UseCase\Command\Mfa\MfaVerify\{MfaVerifyHandler, MfaVerifyResult};
 use Auth\Presentation\Api\Dto\Input\Auth\MfaVerifyInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;

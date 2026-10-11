@@ -60,7 +60,7 @@ upload metadata without replacing its bytes. Every new attempt writes a unique
 blob path. `saveIfAbsent` serializes on the owning equipment, checks the 25-file
 cap under that lock, and inserts the id once. A concurrent loser removes only its
 own attempt blob; it cannot delete the winning upload. Reusing an id from another
-equipment answers 404. Storage/database failures still remove the attempt blob.
+equipment answers 404. A confirmed rollback removes only the attempt blob; an uncertain commit retains bytes until persistence can determine the outcome.
 
 | Method       | Path                                                                                              | Description                                                                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -209,8 +209,8 @@ FIRST and answer its own **409** (`InterventionConflictException`, "must
 belong to the same organization") on a mismatch, which told a caller outside
 the intervention's organization both that it exists and that it belongs to
 another organization. `assertWrite()` now calls
-`InterventionResourceManager::mutationPermission($interventionId, $userId,
-$equipment->organization->id)` FIRST — its own `$expectedOrganizationId` gate
+`InterventionResourcesPort::mutationPermission($interventionId, $userId,
+$organizationId, forUpdate: false)` FIRST during the upload query — its own `$expectedOrganizationId` gate
 (see `Intervention\MODULE.md`, 2026-09-01 entry, and the identical fix already
 applied to `Create{Facility,Equipment,Inspection}Processor` and
 `InspectionResponseProcessor::assertWrite()`) — so a cross-organization
@@ -642,6 +642,10 @@ here through `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAda
 
 ## Architecture
 
+Cross-module dashboard filters consume Equipment-owned pure filter enums under
+`Application/Contract/Dashboard/Filter`. Their wire values and ordering match the
+internal lifecycle enums, with compatibility tests guarding future changes.
+
 ### Procurement reserve batches and repair requests
 
 Procurement individualizes physical equipment receipts through
@@ -1068,3 +1072,15 @@ same complete detail projection as canonical GET. Creation retains the revision 
 by intervention assignment. Concurrent stale writes return 412 `resource_revision_conflict`.
 Plan writes expose 409 codes `equipment_facility_required`, `equipment_decommissioned`,
 `floor_plan_outside_ancestry` and `attachment_not_floor_plan` for contextual recovery.
+
+### Media transactions and module boundaries
+
+Media commands own the final main commit and reject an enclosing transaction before bytes are written. Upload identity is rechecked under the equipment lock; metadata, intervention revision and any losing-attempt cleanup request commit together. Cleanup failures and logging failures preserve the primary SQL or revision failure. An indeterminate commit retains the attempted file for recovery. Attachment deletion records a durable cleanup request in the same transaction and deletes bytes only after commit; retries are idempotent. The delete revision is reread under an attachment lock.
+
+The upload and delete preflight queries resolve Intervention write permission with `forUpdate: false`, before file validation or replay. The owning command repeats the same scope, state and permission checks with an Intervention lock inside its root transaction. Equipment multipart replay still requires the equipment and file fields and retains write authorization.
+
+Creation and canonical patch/delete follow the same rule: Presentation reads Intervention permission without a lock and passes the initiating user identifier to the command. The command rechecks permission and mutable Intervention state under its transaction before changing equipment. Offline creation identity is read in the preflight and locked only by the creation handler.
+
+Media providers and processors consume typed queries and commands without Doctrine. Canonical collection queries preserve organization/intervention/facility predicates before pagination, and maintenance deadlines resolve once per page. Equipment detail factories map a complete Application result without performing reads. CSV, report and QR-label export auditing belongs to Application; entitlement and PDF orchestration execute in owner handlers.
+
+Domain repository capabilities live under Application/Port/Outbound/Internal. Cross-module collaborators consume pure public availability, equipment summary, catalog and snapshot ports. Persistence stores organization identities as scalars while preserving the physical foreign keys.

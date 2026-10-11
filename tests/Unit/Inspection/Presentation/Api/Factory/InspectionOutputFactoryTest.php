@@ -10,20 +10,14 @@ use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionR
 use Inspection\Presentation\Api\Dto\Output\Inspection\{InspectionOutput, InspectorOutput};
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 
 /**
  * Test InspectionOutputFactoryTest.
  *
- * The inspector block is enriched from the User module through the query
- * bus, so the factory has to survive that lookup failing — an unreachable
- * User module must degrade the inspector name, never break the inspection
- * response.
+ * The factory maps the Application-owned inspector snapshot and keeps the
+ * stored inspector name when that optional profile is unavailable.
  *
  * @category Factory Tests
  *
@@ -41,12 +35,9 @@ final class InspectionOutputFactoryTest extends TestCase
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655440804';
 
   #[Test]
-  public function testItEnrichesTheInspectorFromTheUserModule(): void
+  public function testItMapsTheInspectorProfileFromTheApplicationSnapshot(): void
   {
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new GetUserResult($this->userView()));
-
-    $output = new InspectionOutputFactory($queryBus)->fromGetResult($this->getResult());
+    $output = new InspectionOutputFactory()->fromGetResult($this->getResult($this->userView()));
 
     $inspector = $this->inspector($output);
 
@@ -58,12 +49,9 @@ final class InspectionOutputFactoryTest extends TestCase
   }
 
   #[Test]
-  public function testItKeepsTheStoredNameWhenTheUserLookupFails(): void
+  public function testItKeepsTheStoredNameWhenTheOptionalProfileIsUnavailable(): void
   {
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willThrowException(new RuntimeException('User module unreachable.'));
-
-    $output = new InspectionOutputFactory($queryBus)->fromGetResult($this->getResult());
+    $output = new InspectionOutputFactory()->fromGetResult($this->getResult());
 
     $inspector = $this->inspector($output);
 
@@ -73,38 +61,28 @@ final class InspectionOutputFactoryTest extends TestCase
   }
 
   #[Test]
-  public function testItKeepsTheStoredNameWhenTheUserIsUnknown(): void
+  public function testItKeepsTheStoredNameWhenTheProfileNameIsBlank(): void
   {
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new GetUserResult(null));
-
-    $output = new InspectionOutputFactory($queryBus)->fromGetResult($this->getResult());
+    $output = new InspectionOutputFactory()->fromGetResult($this->getResult($this->userView('', '')));
 
     self::assertSame('Inspector', $this->inspector($output)->displayName);
   }
 
   #[Test]
-  public function testItAsksTheUserModuleOnlyOncePerInspector(): void
+  public function testItDoesNotReuseAnInspectorProfileFromAnEarlierProjection(): void
   {
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())->method('ask')->willReturn(new GetUserResult($this->userView()));
-
-    $factory = new InspectionOutputFactory($queryBus);
-    $factory->fromGetResult($this->getResult());
+    $factory = new InspectionOutputFactory();
+    $first = $factory->fromGetResult($this->getResult($this->userView()));
     $second = $factory->fromGetResult($this->getResult());
-
-    self::assertSame('Ada Lovelace', $this->inspector($second)->displayName);
+    self::assertSame('Ada Lovelace', $this->inspector($first)->displayName);
+    self::assertSame('Inspector', $this->inspector($second)->displayName);
+    self::assertNull($this->inspector($second)->avatarUrl);
   }
 
   #[Test]
-  public function testItSkipsTheLookupForAnExternalInspector(): void
+  public function testItPreservesTheExternalInspectorWithoutUsingAnAccountProfile(): void
   {
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
-
-    $output = new InspectionOutputFactory($queryBus)->fromCreateResult(new CreateInspectionResult(
+    $output = new InspectionOutputFactory()->fromCreateResult(new CreateInspectionResult(
       inspectionId: self::INSPECTION_ID,
       organizationId: self::ORG_ID,
       equipmentId: self::EQUIPMENT_ID,
@@ -121,6 +99,7 @@ final class InspectionOutputFactoryTest extends TestCase
       signature: null,
       createdAt: new DateTimeImmutable('2026-01-01T08:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
+      inspectorProfile: $this->userView(),
     ));
 
     $inspector = $this->inspector($output);
@@ -128,6 +107,8 @@ final class InspectionOutputFactoryTest extends TestCase
     self::assertSame('external', $inspector->type);
     self::assertSame('Bureau Veritas', $inspector->displayName);
     self::assertSame('Bureau Veritas SA', $inspector->organizationName);
+    self::assertNull($inspector->firstName);
+    self::assertNull($inspector->avatarUrl);
     self::assertSame(0, $output->nonConformitiesCount);
   }
 
@@ -139,7 +120,7 @@ final class InspectionOutputFactoryTest extends TestCase
     return $inspector;
   }
 
-  private function getResult(): GetInspectionResult
+  private function getResult(?UserView $profile = null): GetInspectionResult
   {
     return new GetInspectionResult(
       inspectionId: self::INSPECTION_ID,
@@ -159,17 +140,18 @@ final class InspectionOutputFactoryTest extends TestCase
       nonConformitiesCount: 2,
       createdAt: new DateTimeImmutable('2026-01-01T08:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
+      inspectorProfile: $profile,
     );
   }
 
-  private function userView(): UserView
+  private function userView(string $firstName = 'Ada', string $lastName = 'Lovelace'): UserView
   {
     return new UserView(
       id: self::USER_ID,
       username: 'ada',
       email: 'ada@example.com',
-      firstName: 'Ada',
-      lastName: 'Lovelace',
+      firstName: $firstName,
+      lastName: $lastName,
       avatarUrl: '/avatars/ada.png',
       status: 'active',
       emailVerified: true,

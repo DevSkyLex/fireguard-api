@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Inspection\CancelInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Application\UseCase\Command\Inspection\CancelInspection\{
   CancelInspectionCommand,
   CancelInspectionHandler,

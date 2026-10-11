@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Adapter\Billing;
 
 use Billing\Application\Port\Outbound\OrganizationPlanAssignmentPort;
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\ChangeOrganizationPlanCommand;
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Domain\ValueObject\PlanKey;

@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Adapter\Approval;
 
 use Approval\Application\Contract\Action\ApprovalActionTypes;
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
 use Approval\Application\Contract\Execution\DeferredActionContext;
 use Approval\Application\Port\Outbound\ApprovalActionExecutorPort;
-use Approval\Domain\Exception\DeferredActionNoLongerApplicableException;
 use Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\UpdateNonConformityStatusCommand;
 use Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\{GetNonConformityQuery, GetNonConformityResult};
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityAlreadyResolvedException, NonConformityNotFoundException};
 use Inspection\Domain\ValueObject\NonConformityStatus;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Throwable;
 

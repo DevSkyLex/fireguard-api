@@ -7,7 +7,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Channel\SetChannelPar
 use DateTimeImmutable;
 use Messaging\Application\Contract\Channel\ChannelView;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingChannelHierarchyGuard};
 use Messaging\Application\UseCase\Command\Channel\SetChannelParent\{SetChannelParentCommand, SetChannelParentHandler};
 use Messaging\Domain\Exception\{MessagingConflictException, MessagingNotFoundException};

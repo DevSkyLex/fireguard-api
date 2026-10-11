@@ -7,7 +7,7 @@ namespace Import\Presentation\Api\Trait;
 use Import\Application\Exception\ImportLeaseUnavailable;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
 

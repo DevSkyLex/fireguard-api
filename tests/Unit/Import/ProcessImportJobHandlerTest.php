@@ -11,7 +11,8 @@ use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome as FacilityProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
 use Generator;
-use Import\Application\Port\Outbound\{CsvRowStreamerPort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\CsvRowStreamerPort;
+use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
 use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory, MemberRowFactory};
 use Import\Application\Support\DryRunProjection;
 use Import\Application\UseCase\Command\ProcessImportJob\{ProcessImportJobCommand, ProcessImportJobHandler};
@@ -24,10 +25,10 @@ use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationReq
 use Organization\Application\Port\Inbound\MemberInvitationProvisioningPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Psr\Log\{LoggerInterface, NullLogger};
 use RuntimeException;
 use Shared\Application\Message\VoidResult;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, FileStoragePort};
+use Shared\Application\Port\Outbound\LoggerPort;
 
 use function array_slice;
 use function count;
@@ -285,7 +286,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
-    $logger = $this->createMock(LoggerInterface::class);
+    $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('error');
 
     $handler = $this->handler(
@@ -319,7 +320,7 @@ final class ProcessImportJobHandlerTest extends TestCase
         return true;
       }));
 
-    $logger = $this->createMock(LoggerInterface::class);
+    $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('error');
 
     $handler = $this->handler(
@@ -921,7 +922,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     FacilityProvisioningPort $facilityProvisioning,
     EventDispatcherPort $eventDispatcher,
     ?FileStoragePort $fileStorage = null,
-    ?LoggerInterface $logger = null,
+    ?LoggerPort $logger = null,
     ?MemberInvitationProvisioningPort $memberInvitationProvisioning = null,
     ?\Organization\Application\Port\Inbound\OrganizationAuthorizationPort $authorization = null,
   ): ProcessImportJobHandler {
@@ -951,8 +952,8 @@ final class ProcessImportJobHandlerTest extends TestCase
       memberInvitationProvisioning: $memberInvitationProvisioning ?? $this->neverCalledMemberPort(),
       eventDispatcher: $eventDispatcher,
       clock: $clock,
-      logger: $logger ?? new NullLogger(),
-      ids: $this->createStub(\Shared\Application\Factory\UuidFactory::class),
+      logger: $logger ?? $this->createStub(LoggerPort::class),
+      ids: $this->createStub(\Shared\Application\Port\Outbound\UuidGeneratorPort::class),
       repository: $repository,
       authorization: $authorization,
     );
@@ -972,7 +973,7 @@ final class ProcessImportJobHandlerTest extends TestCase
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class InMemoryImportExecutionFake implements \Import\Application\Port\Outbound\ImportExecutionPort
+final class InMemoryImportExecutionFake implements \Import\Application\Port\Outbound\Internal\ImportExecutionPort
 {
   public function __construct(private ImportJobRepositoryPort $repository)
   {

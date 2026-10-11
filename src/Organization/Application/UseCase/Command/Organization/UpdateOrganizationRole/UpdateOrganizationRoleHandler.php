@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole;
 
-use Organization\Application\Port\Inbound\{OrganizationJoinAccessPort, OrganizationLastAdminGuardPort};
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Application\Contract\Event\Role\OrganizationRoleUpdatedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\{OrganizationJoinAccessPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\{OrganizationRoleNameAlreadyExistsException, OrganizationSystemRoleImmutableException};
+use Organization\Domain\Exception\OrganizationRoleNotFoundException;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Message\CommandHandler;

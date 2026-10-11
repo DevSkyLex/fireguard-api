@@ -6,9 +6,8 @@ namespace Tests\Unit\Messaging\Presentation\Api\Provider\Subscription;
 
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use DateTimeImmutable;
-use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\UseCase\Query\Conversation\GetConversation\{GetConversationQuery, GetConversationResult};
+use Messaging\Application\Contract\Subscription\MessagingSubscription;
+use Messaging\Application\UseCase\Query\Subscription\GetMessagingSubscription\{GetMessagingSubscriptionQuery, GetMessagingSubscriptionResult};
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Presentation\Api\Provider\Subscription\GetMessagingSubscriptionProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -17,7 +16,6 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
-use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 
 /**
  * Test GetMessagingSubscriptionProviderTest.
@@ -44,7 +42,6 @@ final class GetMessagingSubscriptionProviderTest extends TestCase
     $provider = new GetMessagingSubscriptionProvider(
       queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
-      defaultFactory: $this->createStub(TokenFactoryInterface::class),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -58,7 +55,6 @@ final class GetMessagingSubscriptionProviderTest extends TestCase
     $provider = new GetMessagingSubscriptionProvider(
       queryBus: $this->createStub(QueryBusPort::class),
       security: $this->securityWithUser(),
-      defaultFactory: $this->createStub(TokenFactoryInterface::class),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -73,28 +69,15 @@ final class GetMessagingSubscriptionProviderTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
       ->method('ask')
-      ->with(self::callback(static fn (GetConversationQuery $query): bool => self::USER_ID === $query->userId
+      ->with(self::callback(static fn (GetMessagingSubscriptionQuery $query): bool => self::USER_ID === $query->userId
         && self::CONVERSATION_ID === $query->conversationId))
       ->willReturn($this->conversationResult());
 
     $expectedTopic = '/organizations/' . self::ORG_ID . '/conversations/' . self::CONVERSATION_ID;
 
-    /** @var TokenFactoryInterface&MockObject $tokenFactory */
-    $tokenFactory = $this->createMock(TokenFactoryInterface::class);
-    $tokenFactory->expects(self::once())
-      ->method('create')
-      ->with(
-        [$expectedTopic],
-        [],
-        self::callback(static fn (array $claims): bool => $claims['exp'] instanceof DateTimeImmutable),
-      )
-      ->willReturn('jwt-token');
-
     $provider = new GetMessagingSubscriptionProvider(
       queryBus: $queryBus,
       security: $this->securityWithUser(),
-      defaultFactory: $tokenFactory,
-      tokenTtl: 60,
     );
 
     $output = $provider->provide(new Get(), ['id' => self::CONVERSATION_ID]);
@@ -112,7 +95,6 @@ final class GetMessagingSubscriptionProviderTest extends TestCase
     $provider = new GetMessagingSubscriptionProvider(
       queryBus: $queryBus,
       security: $this->securityWithUser(),
-      defaultFactory: $this->createStub(TokenFactoryInterface::class),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -120,15 +102,9 @@ final class GetMessagingSubscriptionProviderTest extends TestCase
     $provider->provide(new Get(), ['id' => self::CONVERSATION_ID]);
   }
 
-  private function conversationResult(): GetConversationResult
+  private function conversationResult(): GetMessagingSubscriptionResult
   {
-    $now = new DateTimeImmutable('2026-01-01T09:00:00+00:00');
-
-    return new GetConversationResult(
-      conversation: new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'facility', 'facility-1', 'subject', null, 0, false, $now, $now),
-      subjectLabel: null,
-      unreadCount: 0,
-    );
+    return new GetMessagingSubscriptionResult(new MessagingSubscription('jwt-token', '/organizations/' . self::ORG_ID . '/conversations/' . self::CONVERSATION_ID));
   }
 
   private function securityWithUser(): Security

@@ -6,9 +6,10 @@ namespace Auth\Presentation\Api\Provider\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Application\Service\Federation\FederatedAuthenticationService;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Auth\Application\UseCase\Query\Federation\ListFederatedConnections\ListFederatedConnectionsQuery;
 use Auth\Presentation\Api\Dto\Output\Federation\FederatedConnectionsOutput;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -35,13 +36,13 @@ final readonly class FederatedConnectionsProvider implements ProviderInterface
    *
    * @access public
    *
-   * @param FederatedAuthenticationService $federation reads the user's provider connections
+   * @param QueryBusPort $federation reads the user's provider connections
    * @param Security $security resolves the authenticated security user
    *
    * @return void
    */
   public function __construct(
-    private FederatedAuthenticationService $federation,
+    private QueryBusPort $federation,
     private Security $security,
   ) {
   }
@@ -66,11 +67,14 @@ final readonly class FederatedConnectionsProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): FederatedConnectionsOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    return FederatedConnectionsOutput::fromContract($this->federation->connections($user->getId()));
+    /** @var \Auth\Application\UseCase\Query\Federation\ListFederatedConnections\ListFederatedConnectionsResult $result */
+    $result = $this->federation->ask(new ListFederatedConnectionsQuery($user->getId()));
+
+    return FederatedConnectionsOutput::fromContract($result->connections);
   }
   // #endregion
 }

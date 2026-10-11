@@ -7,10 +7,10 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, SecurityAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
-use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedOutEvent};
-use Auth\Domain\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
-use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
-use OAuth\Domain\Event\Token\{
+use Auth\Application\Contract\Event\Session\{LoginFailedEvent, UserLoggedOutEvent};
+use Auth\Application\Contract\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
+use OAuth\Application\Contract\Event\Consent\ConsentGrantedEvent;
+use OAuth\Application\Contract\Event\Token\{
   TokenIssueFailedEvent,
   TokenIssuedEvent,
   TokenRefreshFailedEvent,
@@ -265,6 +265,7 @@ final class AuthAuditWiringTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     foreach ($events as $event) {

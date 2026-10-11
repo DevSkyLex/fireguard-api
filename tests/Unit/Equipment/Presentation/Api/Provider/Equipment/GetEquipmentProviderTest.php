@@ -13,13 +13,14 @@ use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput}
 use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Provider\Equipment\GetEquipmentProvider;
 use InvalidArgumentException;
+use LogicException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -72,7 +73,7 @@ final class GetEquipmentProviderTest extends TestCase
     $provider = new GetEquipmentProvider(
       authorization: $authorization,
       security: $security,
-      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($queryBus, new EquipmentOutputFactory()),
+      detail: new \Equipment\Presentation\Api\Service\EquipmentDetailReader($this->detailBus($queryBus), new EquipmentOutputFactory()),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -132,7 +133,7 @@ final class GetEquipmentProviderTest extends TestCase
     $provider = new GetEquipmentProvider(
       authorization: $authorization,
       security: $security,
-      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($queryBus, new EquipmentOutputFactory()),
+      detail: new \Equipment\Presentation\Api\Service\EquipmentDetailReader($this->detailBus($queryBus), new EquipmentOutputFactory()),
     );
 
     $output = $provider->provide(
@@ -166,7 +167,7 @@ final class GetEquipmentProviderTest extends TestCase
     $provider = new GetEquipmentProvider(
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
-      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->createStub(QueryBusPort::class), new EquipmentOutputFactory()),
+      detail: new \Equipment\Presentation\Api\Service\EquipmentDetailReader($this->detailBus($this->createStub(QueryBusPort::class)), new EquipmentOutputFactory()),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -186,7 +187,7 @@ final class GetEquipmentProviderTest extends TestCase
     $provider = new GetEquipmentProvider(
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
-      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->createStub(QueryBusPort::class), new EquipmentOutputFactory()),
+      detail: new \Equipment\Presentation\Api\Service\EquipmentDetailReader($this->detailBus($this->createStub(QueryBusPort::class)), new EquipmentOutputFactory()),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -206,7 +207,7 @@ final class GetEquipmentProviderTest extends TestCase
     $provider = new GetEquipmentProvider(
       authorization: $authorization,
       security: $security,
-      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->createStub(QueryBusPort::class), new EquipmentOutputFactory()),
+      detail: new \Equipment\Presentation\Api\Service\EquipmentDetailReader($this->detailBus($this->createStub(QueryBusPort::class)), new EquipmentOutputFactory()),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -229,7 +230,7 @@ final class GetEquipmentProviderTest extends TestCase
     $provider = new GetEquipmentProvider(
       authorization: $authorization,
       security: $security,
-      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->createStub(QueryBusPort::class), new EquipmentOutputFactory()),
+      detail: new \Equipment\Presentation\Api\Service\EquipmentDetailReader($this->detailBus($this->createStub(QueryBusPort::class)), new EquipmentOutputFactory()),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -310,7 +311,7 @@ final class GetEquipmentProviderTest extends TestCase
     return new GetEquipmentProvider(
       authorization: $authorization,
       security: $security,
-      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($queryBus, new EquipmentOutputFactory()),
+      detail: new \Equipment\Presentation\Api\Service\EquipmentDetailReader($this->detailBus($queryBus), new EquipmentOutputFactory()),
     );
   }
 
@@ -324,5 +325,20 @@ final class GetEquipmentProviderTest extends TestCase
       scopes: [],
       isActive: true,
     );
+  }
+
+  private function detailBus(QueryBusPort $legacy): QueryBusPort
+  {
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static function (\Equipment\Application\UseCase\Query\Equipment\GetEquipmentDetail\GetEquipmentDetailQuery $query) use ($legacy): \Equipment\Application\UseCase\Query\Equipment\GetEquipmentDetail\GetEquipmentDetailResult {
+      /** @var GetEquipmentResult $equipment */
+      $equipment = $legacy->ask(new GetEquipmentQuery($query->organizationId ?? '550e8400-e29b-41d4-a716-446655441000', $query->equipmentId));
+      /** @var \Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentResult $canonical */
+      $canonical = $legacy->ask(new \Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentQuery($query->equipmentId));
+
+      return new \Equipment\Application\UseCase\Query\Equipment\GetEquipmentDetail\GetEquipmentDetailResult($equipment, $canonical->view ?? throw new LogicException('Expected canonical detail view'));
+    });
+
+    return $queries;
   }
 }

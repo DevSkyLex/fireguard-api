@@ -12,10 +12,8 @@ use Inspection\Application\Service\{NonConformitySlaNotifier, NonConformitySlaRe
 use Inspection\Application\UseCase\Command\Sweep\EscalateNonConformitySlaBreaches\{EscalateNonConformitySlaBreachesCommand, EscalateNonConformitySlaBreachesHandler, EscalateNonConformitySlaBreachesResult};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\ClockPort;
@@ -37,8 +35,6 @@ final class EscalateNonConformitySlaBreachesHandlerTest extends TestCase
   private const string INSPECTION_ID = '018f0b68-6758-7a12-8a1d-3f0d97f63e02';
 
   private const string NC_ID = '018f0b68-6758-7a12-8a1d-3f0d97f63e03';
-
-  private const string ADMIN_MEMBER_ID = '018f0b68-6758-7a12-8a1d-3f0d97f63e04';
 
   private const string NOW = '2026-01-10T09:00:00+00:00';
 
@@ -204,24 +200,13 @@ final class EscalateNonConformitySlaBreachesHandlerTest extends TestCase
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
     $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings());
 
-    $admin = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::ADMIN_MEMBER_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      'admin-user',
-      true,
-      new DateTimeImmutable(),
-    );
-
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $members->method('findByOrganizationId')->willReturn([$admin]);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('getUserPermissions')->willReturn(['organization.inspection.write']);
+    $members = $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class);
+    $members->method('administratorUserIds')->willReturn(['admin-user']);
 
     return new NonConformitySlaNotifier(
       $notifications,
       $policy,
-      new NonConformitySlaRecipientResolver($members, $authorization),
+      new NonConformitySlaRecipientResolver($members),
     );
   }
 

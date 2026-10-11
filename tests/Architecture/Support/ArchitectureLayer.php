@@ -40,5 +40,10 @@ enum ArchitectureLayer: string
    * architecture.
    */
   case INFRASTRUCTURE = 'Infrastructure';
+
+  /**
+   * HTTP and transport adapters.
+   */
+  case PRESENTATION = 'Presentation';
   // #endregion
 }

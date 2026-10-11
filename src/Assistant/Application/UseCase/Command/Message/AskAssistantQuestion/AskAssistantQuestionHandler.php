@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Assistant\Application\UseCase\Command\Message\AskAssistantQuestion;
 
-use Assistant\Application\Contract\Message\AssistantMessageView;
-use Assistant\Application\Port\Outbound\{AssistantGenerationDispatcherPort, AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
-use Assistant\Application\Service\AssistantAccessPolicy;
+use Assistant\Application\Port\Outbound\AssistantGenerationDispatcherPort;
+use Assistant\Application\Port\Outbound\Internal\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Service\{AssistantAccessPolicy, AssistantMessageViewMapper};
 use Assistant\Domain\Event\Message\AssistantQuestionAskedEvent;
 use Assistant\Domain\Exception\AssistantThreadNotFoundException;
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantThreadId};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * UseCase AskAssistantQuestionHandler.
@@ -48,7 +48,7 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
    * @param AssistantMessageRepositoryPort $messages the assistant message repository port
    * @param AssistantGenerationDispatcherPort $dispatcher the generation dispatcher port
    * @param AssistantAccessPolicy $accessPolicy the permission and organization-toggle gate
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param ClockPort $clock the clock port
    */
@@ -57,7 +57,7 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
     private AssistantMessageRepositoryPort $messages,
     private AssistantGenerationDispatcherPort $dispatcher,
     private AssistantAccessPolicy $accessPolicy,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
     private TransactionManagerPort $transaction,
@@ -89,7 +89,7 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
       $now = $this->clock->now();
 
       /** @var AssistantMessageId $userMessageId */
-      $userMessageId = $this->uuidFactory->create(AssistantMessageId::class);
+      $userMessageId = new AssistantMessageId($this->uuidFactory->generate());
 
       $userMessage = AssistantMessage::askUser(
         id: $userMessageId,
@@ -102,7 +102,7 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
       $this->messages->save($userMessage);
 
       /** @var AssistantMessageId $assistantMessageId */
-      $assistantMessageId = $this->uuidFactory->create(AssistantMessageId::class);
+      $assistantMessageId = new AssistantMessageId($this->uuidFactory->generate());
 
       $assistantMessage = AssistantMessage::pendingReply(
         id: $assistantMessageId,
@@ -138,8 +138,8 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
       return new AskAssistantQuestionResult(
         threadId: $command->threadId,
         organizationId: $command->organizationId,
-        userMessage: AssistantMessageView::fromDomain($userMessage),
-        assistantMessage: AssistantMessageView::fromDomain($assistantMessage),
+        userMessage: AssistantMessageViewMapper::fromDomain($userMessage),
+        assistantMessage: AssistantMessageViewMapper::fromDomain($assistantMessage),
       );
     });
   }

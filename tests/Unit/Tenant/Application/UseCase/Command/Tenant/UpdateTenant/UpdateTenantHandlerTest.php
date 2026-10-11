@@ -6,10 +6,8 @@ namespace Tests\Unit\Tenant\Application\UseCase\Command\Tenant\UpdateTenant;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Domain\ValueObject\Uuid;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Application\UseCase\Command\Tenant\UpdateTenant\{UpdateTenantCommand, UpdateTenantHandler, UpdateTenantResult};
 use Tenant\Domain\Event\TenantSettingsUpdatedEvent;
 use Tenant\Domain\Exception\TenantNotFoundException;
@@ -47,11 +45,10 @@ final class UpdateTenantHandlerTest extends TestCase
       ->method('save')
       ->with($tenant);
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(Uuid::class)
-      ->willReturn(new Uuid('00000000-0000-4000-a000-000000000001'));
+      ->method('generate')
+      ->willReturn('00000000-0000-4000-a000-000000000001');
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())
@@ -95,9 +92,9 @@ final class UpdateTenantHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::never())
-      ->method('create');
+      ->method('generate');
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())
@@ -130,7 +127,7 @@ final class UpdateTenantHandlerTest extends TestCase
 
     $handler = new UpdateTenantHandler(
       tenantRepository: $repository,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 

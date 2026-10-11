@@ -7,22 +7,22 @@ namespace Organization\Application\UseCase\Command\Organization\AddOrganizationM
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Event\Member\OrganizationMemberAddedEvent;
+use Organization\Application\Contract\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
-use Organization\Application\Port\Inbound\{OrganizationMemberGrantGuardPort, OrganizationQuotaPort};
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
-use Organization\Domain\Exception\OrganizationUserNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Exception\{OrganizationRoleNotFoundException, OrganizationUserNotFoundException};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId, OrganizationRoleName};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\UserId;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_diff;
 use function array_map;
@@ -60,8 +60,8 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
-   * @param UserRepositoryPort $userRepository the user repository port
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UserDirectoryPort $userRepository the user repository port
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
@@ -71,10 +71,10 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
-    private UserRepositoryPort $userRepository,
+    private UserDirectoryPort $userRepository,
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
     private OrganizationQuotaPort $quota,
     private EventDispatcherPort $eventDispatcher,
@@ -104,7 +104,7 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       throw OrganizationNotFoundException::withId($command->organizationId);
     }
 
-    $user = $this->userRepository->findById(new UserId($command->userId));
+    $user = $this->userRepository->findById($command->userId);
     if (null === $user) {
       throw OrganizationUserNotFoundException::create();
     }
@@ -128,11 +128,11 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       throw OrganizationRoleNotFoundException::withId('one-or-more-role-ids');
     }
 
-    $this->grantGuard->assertCanGrant($command->grant, $command->organizationId, (string) $user->email(), $roleIds);
+    $this->grantGuard->assertCanGrant($command->grant, $command->organizationId, (string) $user->email, $roleIds);
 
     /** @var array{result: AddOrganizationMemberResult, shouldNotifyMember: bool, previousRoleIds: list<string>} $change */
     $change = $this->transactionManager->transactional(
-      fn (): array => $this->persistMembership($organizationId, $command, $roles, (string) $user->email()),
+      fn (): array => $this->persistMembership($organizationId, $command, $roles, (string) $user->email),
     );
     $result = $change['result'];
     $shouldNotifyMember = $change['shouldNotifyMember'];
@@ -144,7 +144,7 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       return $result;
     }
 
-    $this->sendMemberNotification($command, $result, $organizationId, (string) $organization->name(), (string) $user->email());
+    $this->sendMemberNotification($command, $result, $organizationId, (string) $organization->name(), (string) $user->email);
 
     return $result;
   }
@@ -254,7 +254,7 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     $shouldNotifyMember = false;
     if (null === $member) {
       /** @var OrganizationMemberId $memberId */
-      $memberId = $this->uuidFactory->create(OrganizationMemberId::class);
+      $memberId = new OrganizationMemberId($this->uuidFactory->generate());
       $member = OrganizationMember::join(id: $memberId, organizationId: $organizationId, userId: $command->userId);
       $this->memberRepository->save($member);
       $shouldNotifyMember = true;

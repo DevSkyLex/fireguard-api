@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\User\UpdateUser;
 
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\ValueObject\{Locale, UserId, UserProfile};
 

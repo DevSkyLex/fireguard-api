@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Application\UseCase\Query\ExportAuditEvents;
 
 use Audit\Application\Contract\{AuditEventSearchCriteria, AuditEventView};
-use Audit\Application\Contract\AuditExportTooLargeException;
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Contract\{AuditExportAccessDeniedException, AuditExportTooLargeException};
+use Audit\Application\Contract\Event\AuditEventsExportedEvent;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Audit\Application\UseCase\Query\ExportAuditEvents\{ExportAuditEventsHandler, ExportAuditEventsQuery, ExportAuditEventsResult};
+use Authorization\Application\Port\Inbound\AuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function iterator_to_array;
 
@@ -29,7 +32,7 @@ final class ExportAuditEventsHandlerTest extends TestCase
   public function testInvokeReturnsStreamedResultUnderTheCap(): void
   {
     $criteria = new AuditEventSearchCriteria(action: 'auth.login_success');
-    $query = new ExportAuditEventsQuery(criteria: $criteria);
+    $query = new ExportAuditEventsQuery(criteria: $criteria, actorUserId: 'auditor-1');
 
     $view = new AuditEventView(
       id: '550e8400-e29b-41d4-a716-446655440000',
@@ -69,7 +72,7 @@ final class ExportAuditEventsHandlerTest extends TestCase
       ->with($criteria)
       ->willReturn($rows);
 
-    $handler = new ExportAuditEventsHandler(repository: $repository);
+    $handler = $this->handler($repository);
 
     $result = $handler->__invoke($query);
 
@@ -82,7 +85,7 @@ final class ExportAuditEventsHandlerTest extends TestCase
   public function testInvokeThrowsWhenMatchCountExceedsTheCap(): void
   {
     $criteria = new AuditEventSearchCriteria();
-    $query = new ExportAuditEventsQuery(criteria: $criteria);
+    $query = new ExportAuditEventsQuery(criteria: $criteria, actorUserId: 'auditor-1');
 
     /** @var AuditEventRepositoryPort&MockObject $repository */
     $repository = $this->createMock(AuditEventRepositoryPort::class);
@@ -93,7 +96,7 @@ final class ExportAuditEventsHandlerTest extends TestCase
     $repository->expects(self::never())
       ->method('stream');
 
-    $handler = new ExportAuditEventsHandler(repository: $repository);
+    $handler = $this->handler($repository);
 
     $this->expectException(AuditExportTooLargeException::class);
 
@@ -104,7 +107,7 @@ final class ExportAuditEventsHandlerTest extends TestCase
   public function testInvokeAllowsExactlyTheCap(): void
   {
     $criteria = new AuditEventSearchCriteria();
-    $query = new ExportAuditEventsQuery(criteria: $criteria);
+    $query = new ExportAuditEventsQuery(criteria: $criteria, actorUserId: 'auditor-1');
 
     /** @var AuditEventRepositoryPort&MockObject $repository */
     $repository = $this->createMock(AuditEventRepositoryPort::class);
@@ -117,11 +120,54 @@ final class ExportAuditEventsHandlerTest extends TestCase
       ->with($criteria)
       ->willReturn([]);
 
-    $handler = new ExportAuditEventsHandler(repository: $repository);
+    $handler = $this->handler($repository);
 
     $result = $handler->__invoke($query);
 
     self::assertSame(ExportAuditEventsHandler::MAX_EXPORT_ROWS, $result->total);
+  }
+
+  #[Test]
+  public function testItAuditsApprovedExportsWithFilterNamesOnly(): void
+  {
+    $criteria = new AuditEventSearchCriteria(actorId: 'private-filter-value', tenantId: 'tenant');
+    $repository = $this->createStub(AuditEventRepositoryPort::class);
+    $repository->method('countMatching')->willReturn(42);
+    $repository->method('stream')->willReturn([]);
+    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization->expects(self::once())->method('hasPermission')->with('auditor', 'audit.export')->willReturn(true);
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::once())->method('dispatch')->with(self::callback(static fn (AuditEventsExportedEvent $event): bool => 'auditor' === $event->actorUserId
+      && 'tenant' === $event->tenantId
+      && 'csv' === $event->format
+      && 42 === $event->rowCount
+      && ['actorId', 'tenantId'] === $event->filterKeys));
+
+    $result = new ExportAuditEventsHandler($repository, $authorization, $events)(new ExportAuditEventsQuery($criteria, 'auditor'));
+    self::assertSame(42, $result->total);
+  }
+
+  #[Test]
+  public function testItDeniesBeforeReadingOrAuditingTheLedger(): void
+  {
+    $repository = $this->createMock(AuditEventRepositoryPort::class);
+    $repository->expects(self::never())->method('countMatching');
+    $repository->expects(self::never())->method('stream');
+    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization->expects(self::once())->method('hasPermission')->with('ordinary-user', 'audit.export')->willReturn(false);
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $this->expectException(AuditExportAccessDeniedException::class);
+    $this->expectExceptionMessage('Insufficient permissions (requires audit.export).');
+    new ExportAuditEventsHandler($repository, $authorization, $events)(new ExportAuditEventsQuery(new AuditEventSearchCriteria(), 'ordinary-user'));
+  }
+
+  private function handler(AuditEventRepositoryPort $repository): ExportAuditEventsHandler
+  {
+    $authorization = $this->createStub(AuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    return new ExportAuditEventsHandler($repository, $authorization, $this->createStub(EventDispatcherPort::class));
   }
   // #endregion
 }

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Query\ExportEquipmentLabels;
 
 use Equipment\Application\Contract\Export\{EquipmentExportCandidate, EquipmentExportRow};
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentLabelExportTooLargeException, EquipmentNotFoundException};
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
 use InvalidArgumentException;

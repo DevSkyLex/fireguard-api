@@ -6,7 +6,7 @@ namespace Inspection\Presentation\Api\Processor\Checklist;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\UpdateChecklistCommand;
 use Inspection\Application\UseCase\Query\Checklist\GetChecklist\{GetChecklistQuery, GetChecklistResult};
 use Inspection\Domain\Exception\{ChecklistArchivedException, ChecklistInUseException, ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
@@ -15,7 +15,7 @@ use Inspection\Presentation\Api\Dto\Output\Checklist\{ChecklistItemOutput, Check
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -91,7 +91,7 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
   {
     /** @var UpdateChecklistInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

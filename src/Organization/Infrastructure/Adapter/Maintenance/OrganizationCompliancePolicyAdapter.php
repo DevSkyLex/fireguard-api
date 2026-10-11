@@ -7,7 +7,7 @@ namespace Organization\Infrastructure\Adapter\Maintenance;
 use Doctrine\DBAL\{ArrayParameterType, Connection};
 use Maintenance\Application\Contract\Compliance\MaintenanceCompliancePolicy;
 use Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationSettings};
 use Shared\Domain\Exception\InvalidValueException;

@@ -47,7 +47,7 @@ final readonly class InterventionWorkloadContributionsAdapter implements Interve
     /** @var list<array{taskId: string, interventionId: string, label: string, memberId: ?string, remainingMinutes: ?int, startsOn: ?string, endsOn: ?string, plannedStartAt: ?DateTimeImmutable, dueAt: ?DateTimeImmutable, status: string, revision: int}> $records */
     $records = $this->entityManager->createQueryBuilder()->select('w.id AS taskId', 'i.id AS interventionId', 'i.name AS label', 'w.assigneeId AS memberId', 'w.remainingMinutes AS remainingMinutes', 'w.workStartsOn AS startsOn', 'w.workEndsOn AS endsOn', 'i.plannedStartAt AS plannedStartAt', 'i.dueAt AS dueAt', 'i.status AS status', 'w.revision AS revision')
       ->from(InterventionWorkItemRecord::class, 'w')->join('w.intervention', 'i')
-      ->where('IDENTITY(i.organization) = :organization')->setParameter('organization', $organizationId)
+      ->where('i.organizationId = :organization')->setParameter('organization', $organizationId)
       ->andWhere('i.status IN (:statuses)')->setParameter('statuses', ['draft', 'planned', 'in_progress', 'changes_requested'])
       ->andWhere('w.status NOT IN (:finished)')->setParameter('finished', ['completed', 'skipped'])
       ->orderBy('w.id', 'ASC')->getQuery()->getArrayResult();

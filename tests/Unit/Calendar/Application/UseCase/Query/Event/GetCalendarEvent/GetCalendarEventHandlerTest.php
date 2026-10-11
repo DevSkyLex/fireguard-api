@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Application\UseCase\Query\Event\GetCalendarEvent;
 
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Application\UseCase\Query\Event\GetCalendarEvent\{GetCalendarEventHandler, GetCalendarEventQuery};
 use Calendar\Domain\Exception\CalendarEventNotFoundException;
 use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};

@@ -81,6 +81,7 @@ final readonly class PatchCanonicalEquipmentCommand implements CommandMessage
     public ?string $criticality = null,
     public bool $hasTechnicalProperties = false,
     public array $technicalProperties = [],
+    public ?string $userId = null,
   ) {
   }
   // #endregion

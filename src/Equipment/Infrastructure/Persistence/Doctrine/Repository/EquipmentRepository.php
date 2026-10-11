@@ -9,15 +9,14 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Contract\Export\EquipmentExportCandidate;
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
+use Equipment\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\{EquipmentMapper, EquipmentTimelineParametersMapper};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
@@ -53,7 +52,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    *
    * @access private
    */
-  private const string ORGANIZATION_PREDICATE = 'e.organization = :organization';
+  private const string ORGANIZATION_PREDICATE = 'e.organizationId = :organization';
 
   /**
    * Constant PUBLISHED_RECORD_PREDICATE.
@@ -98,13 +97,12 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   public function save(Equipment $equipment): void
   {
     $record = EquipmentMapper::toRecord($equipment);
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $equipment->organizationId());
-    $record->organization = $organization;
+    $organizationId = (string) $equipment->organizationId();
+    $record->organizationId = $organizationId;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof EquipmentRecord) {
-      $existing->organization = $organization;
+      $existing->organizationId = $organizationId;
       $existing->facilityId = $record->facilityId;
       $existing->type = $record->type;
       $existing->subType = $record->subType;
@@ -278,8 +276,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    */
   public function countOverviewByOrganizationId(EquipmentOrganizationId $organizationId, ?string $type = null, ?string $status = null): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organizationId = (string) $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select(
@@ -291,7 +288,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       )
       ->from(EquipmentRecord::class, 'e')
       ->where(self::ORGANIZATION_PREDICATE)
-      ->setParameter('organization', $organization)
+      ->setParameter('organization', $organizationId)
       ->setParameter('inStockStatus', 'in_stock')
       ->setParameter('operationalStatus', 'operational')
       ->setParameter('underMaintenanceStatus', 'under_maintenance')
@@ -476,15 +473,14 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    */
   public function countEquipments(EquipmentOrganizationId $organizationId): int
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organizationId = (string) $organizationId;
 
     return (int) $this->entityManager->createQueryBuilder()
       ->select(self::EQUIPMENT_COUNT_EXPRESSION)
       ->from(EquipmentRecord::class, 'e')
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
-      ->setParameter('organization', $organization)
+      ->setParameter('organization', $organizationId)
       ->setParameter('publishedRecordStatus', 'published')
       ->getQuery()
       ->getSingleScalarResult();
@@ -499,8 +495,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    */
   public function listEquipmentExportCandidates(EquipmentOrganizationId $organizationId): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organizationId = (string) $organizationId;
 
     /** @var list<EquipmentRecord> $records */
     $records = $this->entityManager->createQueryBuilder()
@@ -508,7 +503,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       ->from(EquipmentRecord::class, 'e')
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
-      ->setParameter('organization', $organization)
+      ->setParameter('organization', $organizationId)
       ->setParameter('publishedRecordStatus', 'published')
       ->orderBy('e.updatedAt', 'DESC')
       ->addOrderBy('e.id', 'ASC')
@@ -612,14 +607,13 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?array $equipmentIds,
     ?string $facilityId,
   ): QueryBuilder {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organizationId = (string) $organizationId;
 
     $builder = $this->entityManager->createQueryBuilder()
       ->from(EquipmentRecord::class, 'e')
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
-      ->setParameter('organization', $organization)
+      ->setParameter('organization', $organizationId)
       ->setParameter('publishedRecordStatus', 'published');
 
     if (null !== $equipmentIds) {
@@ -650,8 +644,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     EquipmentOrganizationId $organizationId,
     EquipmentListCriteria $criteria,
   ): QueryBuilder {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organizationId = (string) $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('e')
@@ -659,7 +652,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('publishedRecordStatus', 'published')
-      ->setParameter('organization', $organization);
+      ->setParameter('organization', $organizationId);
 
     if (null !== $criteria->facilityId) {
       $queryBuilder

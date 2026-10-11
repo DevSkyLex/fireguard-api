@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Integration\Assistant\Infrastructure\Persistence\Doctrine;
 
 use Assistant\Application\Contract\Generation\AssistantGenerationOutcome;
-use Assistant\Application\Port\Outbound\{AssistantGenerationDispatcherPort, AssistantRealtimePublisherPort};
+use Assistant\Application\Port\Outbound\AssistantGenerationDispatcherPort;
+use Assistant\Application\Port\Outbound\Internal\AssistantRealtimePublisherPort;
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\{AssistantAccessPolicy, AssistantAttemptWriter};
 use Assistant\Application\UseCase\Command\Message\ControlAssistantAttempt\{ControlAssistantAttemptCommand, ControlAssistantAttemptHandler};

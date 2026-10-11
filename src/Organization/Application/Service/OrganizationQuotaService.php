@@ -6,19 +6,10 @@ namespace Organization\Application\Service;
 
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Application\Port\Outbound\{
-  EquipmentStatisticsPort,
-  FacilityStatisticsPort,
-  InspectionStatisticsPort,
-  OrganizationInvitationRepositoryPort,
-  OrganizationMemberRepositoryPort,
-  OrganizationQuotaLockPort,
-  OrganizationRepositoryPort,
-  PlanRepositoryPort
-};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationQuotaResource as DomainQuotaResource};
-use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Class OrganizationQuotaService
@@ -42,7 +33,7 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInterface
+final class OrganizationQuotaService implements OrganizationQuotaPort
 {
   /**
    * Property planCache

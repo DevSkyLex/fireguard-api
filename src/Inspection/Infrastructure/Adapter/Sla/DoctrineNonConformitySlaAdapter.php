@@ -70,7 +70,7 @@ final readonly class DoctrineNonConformitySlaAdapter implements NonConformitySla
   {
     /** @var list<array{id: string, inspectionId: string, organizationId: string, severity: string, createdAt: DateTimeImmutable}> $rows */
     $rows = $this->entityManager->createQueryBuilder()
-      ->select('nc.id AS id', 'i.id AS inspectionId', 'IDENTITY(i.organization) AS organizationId', 'nc.severity AS severity', 'nc.createdAt AS createdAt')
+      ->select('nc.id AS id', 'i.id AS inspectionId', 'i.organizationId AS organizationId', 'nc.severity AS severity', 'nc.createdAt AS createdAt')
       ->from(NonConformityRecord::class, 'nc')
       ->join('nc.inspection', 'i')
       ->where('nc.status IN (:statuses)')

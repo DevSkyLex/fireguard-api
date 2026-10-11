@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Team\ListTeams;
 
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, TeamRepositoryPort};
 use Organization\Application\UseCase\Query\Team\GetTeam\GetTeamResult;
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;

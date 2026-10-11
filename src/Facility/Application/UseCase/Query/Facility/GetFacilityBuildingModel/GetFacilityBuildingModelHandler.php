@@ -6,7 +6,8 @@ namespace Facility\Application\UseCase\Query\Facility\GetFacilityBuildingModel;
 
 use Facility\Application\Contract\Spatial\FacilitySpatialContext;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\{FacilityEquipmentPlanPositionPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Domain\Exception\{FacilityNotBuildingException, FacilityNotFoundException};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityType};

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Inspection\Application\Contract\Response;
 
 use DateTimeImmutable;
-use Inspection\Domain\Model\Response\InspectionResponse;
 
 /**
  * Contract InspectionResponseView.
@@ -56,36 +55,4 @@ final readonly class InspectionResponseView
   }
   // #endregion
 
-  // #region Methods
-  /**
-   * Method fromModel.
-   *
-   * Flattens the aggregate. Kept on the view rather than repeated in the
-   * three handlers and the query that all return one — the mapping is
-   * field-for-field and drifting copies of it is how an endpoint starts
-   * answering a stale shape.
-   *
-   * @since 1.0.0
-   *
-   * @param InspectionResponse $response the response aggregate
-   *
-   * @return self the flattened view
-   */
-  public static function fromModel(InspectionResponse $response): self
-  {
-    return new self(
-      id: (string) $response->id(),
-      organizationId: (string) $response->organizationId(),
-      interventionId: $response->interventionId(),
-      inspectionId: (string) $response->inspectionId(),
-      clientId: $response->clientId(),
-      recordStatus: $response->status()->value,
-      revision: $response->revision(),
-      itemKey: $response->itemKey(),
-      value: $response->value(),
-      createdAt: $response->createdAt(),
-      updatedAt: $response->updatedAt(),
-    );
-  }
-  // #endregion
 }

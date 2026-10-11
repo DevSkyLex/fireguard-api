@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{DecommissionEquipmentCommand, DecommissionEquipmentHandler, DecommissionEquipmentResult};
 use Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent;
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};

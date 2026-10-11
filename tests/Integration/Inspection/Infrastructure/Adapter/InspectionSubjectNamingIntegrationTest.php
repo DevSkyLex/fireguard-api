@@ -112,7 +112,7 @@ final class InspectionSubjectNamingIntegrationTest extends KernelTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = null;
     $facility->type = 'site';
     $facility->name = 'Northgate Plant';
@@ -127,7 +127,7 @@ final class InspectionSubjectNamingIntegrationTest extends KernelTestCase
     foreach ([self::EQUIPMENT_WITH_SERIAL => 'SN-4711', self::EQUIPMENT_WITHOUT_SERIAL => null] as $id => $serial) {
       $equipment = new EquipmentRecord();
       $equipment->id = $id;
-      $equipment->organization = $organization;
+      $equipment->organizationId = $organization->id;
       $equipment->facilityId = self::FACILITY_ID;
       $equipment->recordStatus = 'published';
       $equipment->type = 'fire_extinguisher';
@@ -145,7 +145,7 @@ final class InspectionSubjectNamingIntegrationTest extends KernelTestCase
   private function removeOrganization(): void
   {
     foreach ([EquipmentRecord::class, FacilityRecord::class] as $recordClass) {
-      foreach ($this->entityManager->getRepository($recordClass)->findBy(['organization' => self::ORGANIZATION_ID]) as $record) {
+      foreach ($this->entityManager->getRepository($recordClass)->findBy(['organizationId' => self::ORGANIZATION_ID]) as $record) {
         $this->entityManager->remove($record);
       }
     }

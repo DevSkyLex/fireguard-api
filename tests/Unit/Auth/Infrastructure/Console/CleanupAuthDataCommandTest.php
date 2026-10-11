@@ -6,10 +6,14 @@ namespace Tests\Unit\Auth\Infrastructure\Console;
 
 use Auth\Infrastructure\Console\CleanupAuthDataCommand;
 use Doctrine\ORM\{EntityManagerInterface, Query, QueryBuilder};
+use OAuth\Infrastructure\Adapter\Lifecycle\OAuthDataLifecycleAdapter;
+use Otp\Infrastructure\Adapter\Lifecycle\OtpDataLifecycleAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Session\Infrastructure\Adapter\Lifecycle\SessionDataLifecycleAdapter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use TrustedDevice\Infrastructure\Adapter\Lifecycle\TrustedDeviceDataLifecycleAdapter;
 
 /**
  * Test CleanupAuthDataCommandTest.
@@ -31,6 +35,10 @@ final class CleanupAuthDataCommandTest extends TestCase
 
     $command = new CleanupAuthDataCommand(
       entityManager: $entityManager,
+      sessionLifecycle: new SessionDataLifecycleAdapter($entityManager),
+      otpLifecycle: new OtpDataLifecycleAdapter($entityManager),
+      trusteddeviceLifecycle: new TrustedDeviceDataLifecycleAdapter($entityManager),
+      oauthLifecycle: new OAuthDataLifecycleAdapter($entityManager),
       defaultRetentionDays: 30,
     );
 
@@ -48,6 +56,10 @@ final class CleanupAuthDataCommandTest extends TestCase
 
     $command = new CleanupAuthDataCommand(
       entityManager: $entityManager,
+      sessionLifecycle: new SessionDataLifecycleAdapter($entityManager),
+      otpLifecycle: new OtpDataLifecycleAdapter($entityManager),
+      trusteddeviceLifecycle: new TrustedDeviceDataLifecycleAdapter($entityManager),
+      oauthLifecycle: new OAuthDataLifecycleAdapter($entityManager),
       defaultRetentionDays: 30,
     );
 
@@ -66,6 +78,10 @@ final class CleanupAuthDataCommandTest extends TestCase
 
     $command = new CleanupAuthDataCommand(
       entityManager: $entityManager,
+      sessionLifecycle: new SessionDataLifecycleAdapter($entityManager),
+      otpLifecycle: new OtpDataLifecycleAdapter($entityManager),
+      trusteddeviceLifecycle: new TrustedDeviceDataLifecycleAdapter($entityManager),
+      oauthLifecycle: new OAuthDataLifecycleAdapter($entityManager),
       defaultRetentionDays: 30,
     );
 

@@ -45,12 +45,15 @@ final class ServiceRequestSiteTargetAdapterTest extends TestCase
         }
         if (['hierarchy'] === $events) {
           $calls[] = 'ancestry';
+          self::assertStringContainsString('organization_id = :organization', $sql);
+          self::assertStringContainsString('p.organization_id = :organization', $sql);
           self::assertSame(['target' => 'floor', 'organization' => 'organization'], $parameters);
 
           return self::ancestry();
         }
         $calls[] = 'rows';
         self::assertStringContainsString('ORDER BY id FOR SHARE', $sql);
+        self::assertStringContainsString('WHERE organization_id = :organization', $sql);
         self::assertSame(['organization' => 'organization', 'id0' => 'floor', 'id1' => 'site'], $parameters);
 
         return [['id' => 'floor', 'status' => 'active'], ['id' => 'site', 'status' => 'active']];

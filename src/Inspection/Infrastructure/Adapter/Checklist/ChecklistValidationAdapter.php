@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Adapter\Checklist;
 
-use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, ChecklistValidationPort};
+use Inspection\Application\Port\Outbound\ChecklistValidationPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Domain\ValueObject\ChecklistId;
-use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function sprintf;
 
@@ -50,11 +51,11 @@ final readonly class ChecklistValidationAdapter implements ChecklistValidationPo
     $checklist = $this->checklistRepository->findById(ChecklistId::fromString($checklistId));
 
     if (null === $checklist || (string) $checklist->organizationId() !== $organizationId) {
-      throw new InvalidArgumentException(sprintf('Checklist with ID "%s" not found.', $checklistId));
+      throw InvalidValueException::because(sprintf('Checklist with ID "%s" not found.', $checklistId));
     }
 
     if ($checklist->status()->isArchived()) {
-      throw new InvalidArgumentException(sprintf('Checklist with ID "%s" is archived and cannot be used.', $checklistId));
+      throw InvalidValueException::because(sprintf('Checklist with ID "%s" is archived and cannot be used.', $checklistId));
     }
   }
   // #endregion

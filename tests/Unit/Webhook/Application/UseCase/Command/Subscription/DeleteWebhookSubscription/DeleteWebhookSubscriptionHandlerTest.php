@@ -8,7 +8,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Webhook\Application\Port\Outbound\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
 use Webhook\Application\UseCase\Command\Subscription\DeleteWebhookSubscription\{DeleteWebhookSubscriptionCommand, DeleteWebhookSubscriptionHandler, DeleteWebhookSubscriptionResult};
 use Webhook\Domain\Event\Subscription\WebhookSubscriptionDeletedEvent;
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;

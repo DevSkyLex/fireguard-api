@@ -6,24 +6,21 @@ namespace Facility\Presentation\Api\Processor\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\Contract\Facility\CanonicalFacilityView;
 use Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility\DeleteCanonicalFacilityCommand;
 use Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\PatchCanonicalFacilityCommand;
 use Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\{GetCanonicalFacilityQuery, GetCanonicalFacilityResult};
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
-use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use LogicException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function array_key_exists;
 use function is_string;
@@ -44,14 +41,8 @@ use function is_string;
  * published one retires to `archived`, the only REVERSIBLE retirement state
  * of the three canonical surfaces; a repeat DELETE is an idempotent no-op.
  *
- * **Three things deliberately stay here.**
- *
- * The **authorization gate**, because which permission applies is a function
- * of the request — a published row needs `organization.facilities.write`, a
- * scratchpad inside an intervention needs whatever
- * `InterventionResourceManager::mutationPermission()` resolves — and because
- * a row loaded by GLOBAL id must answer 404, not 403, outside the caller's
- * organization.
+ * The context query checks access before revision-header validation, and
+ * the command handler rechecks access within the locked mutation transaction.
  *
  * **`MergePatchFields`**, because "the key was absent" versus "the key was
  * sent as null" is a fact about the HTTP body that a deserialized DTO has
@@ -93,22 +84,18 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    *
    * @param CommandBusPort $commandBus the command bus value
    * @param QueryBusPort $queryBus the query bus value
-   * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
    * @param CanonicalFacilityProvider $provider the provider value
-   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
-    private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
     private CanonicalFacilityProvider $provider,
-    private InterventionResourceManager $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MergePatchFields $mergePatchFields,
   ) {
@@ -135,13 +122,17 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     // the payload shape matter. Moving `assertMatches()` up would turn a 404
     // on an unknown id into a 428 for a caller that forgot the header.
     $view = $this->view($uriVariables);
-    $this->assertPermission($view);
+    $user = $this->security->getUser();
+    if (!$user instanceof AuthenticatedUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
     $this->revisionGuard->assertMatches($view->revision);
 
     if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
       $this->commandBus->dispatch(new DeleteCanonicalFacilityCommand(
         facilityId: $view->id,
         expectedRevision: $view->revision,
+        userId: $user->getId(),
       ));
 
       return null;
@@ -161,6 +152,7 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     $this->commandBus->dispatch(new PatchCanonicalFacilityCommand(
       facilityId: $view->id,
       expectedRevision: $view->revision,
+      userId: $user->getId(),
       hasType: $present['type'],
       type: $data->type,
       hasName: $present['name'],
@@ -216,8 +208,9 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
   {
     $id = $uriVariables['id'] ?? null;
 
+    $user = $this->security->getUser();
     /** @var GetCanonicalFacilityResult $result */
-    $result = $this->queryBus->ask(new GetCanonicalFacilityQuery(is_string($id) ? $id : ''));
+    $result = $this->queryBus->ask(new GetCanonicalFacilityQuery(is_string($id) ? $id : '', $user instanceof AuthenticatedUser ? $user->getId() : null));
 
     if (null === $result->view) {
       throw new NotFoundHttpException('Facility not found.');
@@ -226,39 +219,5 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     return $result->view;
   }
 
-  /**
-   * Method assertPermission.
-   *
-   * @since 1.0.0
-   *
-   * @param CanonicalFacilityView $view the targeted facility
-   */
-  private function assertPermission(CanonicalFacilityView $view): void
-  {
-    $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
-      throw new AccessDeniedHttpException('Authentication required.');
-    }
-
-    try {
-      $permission = 'draft' !== $view->recordStatus || null === $view->interventionId
-        ? 'organization.facilities.write'
-        : $this->interventionResourceManager->mutationPermission($view->interventionId, $user->getId());
-    } catch (InterventionNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InterventionConflictException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    }
-    // 404, not 403, for a caller outside the record's organization: the
-    // facility was loaded by GLOBAL id, so a 403 here would confirm that id
-    // exists in another tenant.
-    $decision = $this->authorization->resolveAccess($user->getId(), $view->organizationId, $permission);
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Facility not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
-    }
-  }
   // #endregion
 }

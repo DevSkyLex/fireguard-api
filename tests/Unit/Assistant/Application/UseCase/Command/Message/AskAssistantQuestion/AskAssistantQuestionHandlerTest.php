@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Application\UseCase\Command\Message\AskAssistantQuestion;
 
-use Assistant\Application\Port\Outbound\{AssistantGenerationDispatcherPort, AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Port\Outbound\AssistantGenerationDispatcherPort;
+use Assistant\Application\Port\Outbound\Internal\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Application\UseCase\Command\Message\AskAssistantQuestion\{AskAssistantQuestionCommand, AskAssistantQuestionHandler};
@@ -17,7 +18,6 @@ use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, UuidGeneratorPort};
 
 /**
@@ -164,7 +164,7 @@ final class AskAssistantQuestionHandlerTest extends TestCase
       messages: $messages,
       dispatcher: $dispatcher,
       accessPolicy: $accessPolicy,
-      uuidFactory: new UuidFactory($uuidGenerator),
+      uuidFactory: $uuidGenerator,
       eventDispatcher: $eventDispatcher,
       clock: $clock,
       transaction: new \App\Tests\Support\Shared\ImmediateTransactionManager(),

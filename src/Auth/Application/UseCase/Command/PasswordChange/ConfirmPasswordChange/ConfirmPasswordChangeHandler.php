@@ -6,13 +6,10 @@ namespace Auth\Application\UseCase\Command\PasswordChange\ConfirmPasswordChange;
 
 use Auth\Application\Port\Outbound\TokenRevocationPort;
 use Otp\Application\Contract\Challenge\OtpPurpose;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Domain\Exception\{OtpExpiredException, OtpMaxAttemptsException};
-use Otp\Domain\ValueObject\ChallengeToken;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePort};
+use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Application\Message\CommandHandler;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\{HashedPassword, UserId};
+use User\Application\Port\Inbound\UserCredentialsPort;
 
 /**
  * Class ConfirmPasswordChangeHandler
@@ -36,16 +33,17 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param OtpRepositoryPort $otpRepository the OTP repository port
-   * @param UserRepositoryPort $userRepository the user repository port
-   * @param SessionRepositoryPort $sessionRepository the session repository port
+   * @param ChallengeAccessPort $otpRepository the OTP repository port
+   * @param UserCredentialsPort $userRepository the user repository port
+   * @param SessionRevocationPort $sessionRepository the session repository port
    * @param TokenRevocationPort $tokenRevocation the token revocation port
    */
   public function __construct(
-    private readonly OtpRepositoryPort $otpRepository,
-    private readonly UserRepositoryPort $userRepository,
-    private readonly SessionRepositoryPort $sessionRepository,
+    private readonly ChallengeAccessPort $otpRepository,
+    private readonly UserCredentialsPort $userRepository,
+    private readonly SessionRevocationPort $sessionRepository,
     private readonly TokenRevocationPort $tokenRevocation,
+    private OtpChallengePort $otpChallenge,
   ) {
   }
   // #endregion
@@ -64,57 +62,38 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
    */
   public function __invoke(ConfirmPasswordChangeCommand $command): ConfirmPasswordChangeResult
   {
-    // Find the OTP challenge by token
-    $challengeToken = ChallengeToken::fromString($command->token);
-    $otp = $this->otpRepository->findByChallengeToken($challengeToken);
-
-    // The challenge must exist, target the authenticated user, and
-    // have been issued for a sensitive operation — otherwise treat it
-    // as an invalid token without leaking which check failed.
-    if (
-      null === $otp
-      || $otp->userId() !== $command->userId
-      || OtpPurpose::SENSITIVE_OPERATION->value !== $otp->purpose()->value
-    ) {
+    $otp = $this->otpRepository->find($command->token);
+    if (null === $otp || $otp->userId !== $command->userId || OtpPurpose::SENSITIVE_OPERATION !== $otp->purpose) {
       return ConfirmPasswordChangeResult::failed(
         message: 'Invalid or expired change token.',
         errorCode: ConfirmPasswordChangeResult::ERROR_INVALID_TOKEN,
       );
     }
-
-    // Verify the OTP code
-    $verificationFailure = null;
-
-    try {
-      $verified = $otp->verify($command->code);
-
-      // Persist updated state
-      $this->otpRepository->save($otp);
-
-      if (!$verified) {
-        $verificationFailure = ConfirmPasswordChangeResult::failed(
-          message: 'Invalid verification code. Please check and try again.',
-          errorCode: ConfirmPasswordChangeResult::ERROR_INVALID_CODE,
-          attemptsRemaining: $otp->attemptsRemaining(),
-        );
-      }
-    } catch (OtpExpiredException) {
-      $verificationFailure = ConfirmPasswordChangeResult::failed(
-        message: 'The verification code has expired. Please request a new one.',
-        errorCode: ConfirmPasswordChangeResult::ERROR_EXPIRED,
-      );
-    } catch (OtpMaxAttemptsException) {
-      $verificationFailure = ConfirmPasswordChangeResult::failed(
-        message: 'Maximum verification attempts exceeded. Please request a new code.',
-        errorCode: ConfirmPasswordChangeResult::ERROR_MAX_ATTEMPTS,
+    $verification = $this->otpChallenge->verifyFor(
+      challengeToken: $command->token,
+      code: $command->code,
+      userId: $otp->userId,
+      purpose: OtpPurpose::SENSITIVE_OPERATION,
+    );
+    if (!$verification->success) {
+      return ConfirmPasswordChangeResult::failed(
+        message: match ($verification->errorCode) {
+          'expired' => 'The verification code has expired. Please request a new one.',
+          'max_attempts_exceeded' => 'Maximum verification attempts exceeded. Please request a new code.',
+          'invalid_token' => 'Invalid or expired change token.',
+          default => 'Invalid verification code. Please check and try again.',
+        },
+        errorCode: match ($verification->errorCode) {
+          'expired' => ConfirmPasswordChangeResult::ERROR_EXPIRED,
+          'max_attempts_exceeded' => ConfirmPasswordChangeResult::ERROR_MAX_ATTEMPTS,
+          'invalid_token' => ConfirmPasswordChangeResult::ERROR_INVALID_TOKEN,
+          default => ConfirmPasswordChangeResult::ERROR_INVALID_CODE,
+        },
+        attemptsRemaining: $verification->attemptsRemaining,
       );
     }
 
-    if (null !== $verificationFailure) {
-      return $verificationFailure;
-    }
-
-    return $this->changePassword(new UserId($command->userId), $command->newPassword);
+    return $this->changePassword($otp->userId, $command->newPassword);
   }
 
   /**
@@ -124,25 +103,19 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
    *
    * @access private
    *
-   * @param UserId $userId the account identifier
+   * @param string $userId the account identifier
    * @param string $newPassword the new plain password to hash and store
    *
    * @return ConfirmPasswordChangeResult the password change outcome
    */
-  private function changePassword(UserId $userId, string $newPassword): ConfirmPasswordChangeResult
+  private function changePassword(string $userId, string $newPassword): ConfirmPasswordChangeResult
   {
-    $user = $this->userRepository->findById($userId);
-
-    if (null === $user) {
+    if (!$this->userRepository->changePassword($userId, $newPassword)) {
       return ConfirmPasswordChangeResult::failed(
         message: 'User not found.',
         errorCode: ConfirmPasswordChangeResult::ERROR_INVALID_TOKEN,
       );
     }
-
-    // Change the password
-    $user->changePassword(HashedPassword::fromPlain($newPassword));
-    $this->userRepository->save($user);
 
     // Revoke active sessions and request OAuth token revocation after the password changes.
     $this->sessionRepository->revokeAllForUser((string) $userId);

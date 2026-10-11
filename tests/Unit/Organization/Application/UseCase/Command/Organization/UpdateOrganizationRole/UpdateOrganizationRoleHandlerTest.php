@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Contract\Event\Role\OrganizationRoleUpdatedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleHandler, UpdateOrganizationRoleResult};
-use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationRoleNotFoundException};
 use Organization\Domain\Exception\{OrganizationRoleNameAlreadyExistsException, OrganizationSystemRoleImmutableException};
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;

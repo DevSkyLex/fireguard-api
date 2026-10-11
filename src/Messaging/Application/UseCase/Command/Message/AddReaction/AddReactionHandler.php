@@ -6,7 +6,8 @@ namespace Messaging\Application\UseCase\Command\Message\AddReaction;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort, MessagingReactionRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingReactionRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\Model\Message\Message;

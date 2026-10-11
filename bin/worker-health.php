@@ -18,6 +18,7 @@ if (in_array('--sweeps', $argv, true)) {
   $baselinePath = __DIR__ . '/../var/worker-sweeps/monitoring-start.timestamp';
   $baseline = is_readable($baselinePath) ? (int) file_get_contents($baselinePath) : 0;
   $limits = [
+    'RecoverWebhookDeliveriesCommand' => 300,
     'RecomputeMaintenanceSchedulesCommand' => 7200,
     'MaterializeDueRecurrencesCommand' => 7200,
     'ExpireStaleApprovalRequestsCommand' => 7200,

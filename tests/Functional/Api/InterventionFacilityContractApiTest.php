@@ -442,42 +442,61 @@ final class InterventionFacilityContractApiTest extends WebTestCase
   }
 
   #[Test]
+  #[\DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback]
   #[DataProvider('crossOrganizationInterventionStatusProvider')]
   public function testCreateEquipmentReturns404WhenOrganizationIsTheCallersOwnButInterventionBelongsToAnotherOrganization(string $interventionStatus): void
   {
-    $client = static::createClient();
-    $this->seedOrganization();
-    $interventionId = $this->seedInterventionWithStatus(
-      $interventionStatus,
-      self::ORGANIZATION_ID,
-      '9a0e8400-e29b-41d4-a716-446655480' . match ($interventionStatus) {
-        'draft' => '030',
-        'planned' => '031',
-        'in_progress' => '032',
-        'submitted' => '033',
-        'published' => '034',
-        default => '035',
-      },
-    );
+    $isolation = new class ('begin') extends \Symfony\Bundle\FrameworkBundle\Test\KernelTestCase {
+      use \Tests\Support\Database\RootCommitDatabaseIsolationTrait {
+        isolateRootCommitDatabases as public begin;
+        restoreRootCommitDatabases as public end;
+      }
+    };
+    $isolation->begin();
 
-    $this->loginAs($client, self::OUTSIDER_USER_ID, self::OUTSIDER_EMAIL);
-    $client->request(
-      method: 'POST',
-      uri: '/api/equipment',
-      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
-      content: (string) json_encode([
-        'organization' => '/api/organizations/' . self::OUTSIDER_ORGANIZATION_ID,
-        'intervention' => '/api/interventions/' . $interventionId,
-        'type' => 'fire_extinguisher',
-      ]),
-    );
+    try {
+      $client = static::createClient();
+      $this->seedOrganization();
+      $interventionId = $this->seedInterventionWithStatus(
+        $interventionStatus,
+        self::ORGANIZATION_ID,
+        '9a0e8400-e29b-41d4-a716-446655480' . match ($interventionStatus) {
+          'draft' => '030',
+          'planned' => '031',
+          'in_progress' => '032',
+          'submitted' => '033',
+          'published' => '034',
+          default => '035',
+        },
+      );
 
-    self::assertSame(
-      404,
-      $client->getResponse()->getStatusCode(),
-      'POST /api/equipment must answer 404, not 403 or 409, for an intervention id belonging to another '
-        . 'organization regardless of its workflow status ("' . $interventionStatus . '"). Response: ' . $client->getResponse()->getContent(),
-    );
+      $this->loginAs($client, self::OUTSIDER_USER_ID, self::OUTSIDER_EMAIL);
+      $connection = static::getContainer()->get('doctrine.dbal.main_connection');
+      self::assertInstanceOf(\Doctrine\DBAL\Connection::class, $connection);
+      self::assertFalse($connection->isTransactionActive());
+      $client->request(
+        method: 'POST',
+        uri: '/api/equipment',
+        server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+        content: (string) json_encode([
+          'organization' => '/api/organizations/' . self::OUTSIDER_ORGANIZATION_ID,
+          'intervention' => '/api/interventions/' . $interventionId,
+          'type' => 'fire_extinguisher',
+        ]),
+      );
+
+      self::assertSame(
+        404,
+        $client->getResponse()->getStatusCode(),
+        'POST /api/equipment must answer 404, not 403 or 409, for an intervention id belonging to another '
+          . 'organization regardless of its workflow status ("' . $interventionStatus . '"). Response: ' . $client->getResponse()->getContent(),
+      );
+      $connection = static::getContainer()->get('doctrine.dbal.main_connection');
+      self::assertInstanceOf(\Doctrine\DBAL\Connection::class, $connection);
+      self::assertFalse($connection->isTransactionActive());
+    } finally {
+      $isolation->end();
+    }
   }
 
   #[Test]
@@ -729,7 +748,7 @@ final class InterventionFacilityContractApiTest extends WebTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = $interventionId;
-    $intervention->organization = $organization;
+    $intervention->organizationId = $organizationId;
     $intervention->type = 'site_setup';
     $intervention->name = 'Immutable Contract Intervention (' . $status . ')';
     $intervention->number = $this->nextInterventionNumber();

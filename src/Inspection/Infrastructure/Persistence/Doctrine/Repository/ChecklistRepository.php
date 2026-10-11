@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Domain\Model\Checklist\Checklist;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\ChecklistMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException as PersistenceUniqueConstraintViolationException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 use function array_map;
@@ -88,9 +89,9 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
   public function save(Checklist $checklist): void
   {
     $record = ChecklistMapper::toRecord($checklist);
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $checklist->organizationId());
-    $record->organization = $organization;
+    /** @var string $organization */
+    $organization = (string) $checklist->organizationId();
+    $record->organizationId = $organization;
     if (null !== $checklist->previousChecklistId()) {
       $record->previousChecklist = $this->entityManager->getReference(ChecklistRecord::class, (string) $checklist->previousChecklistId());
     }
@@ -103,7 +104,11 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
       $this->insertRecord($record, $itemRecords);
     }
 
-    $this->entityManager->flush();
+    try {
+      $this->entityManager->flush();
+    } catch (UniqueConstraintViolationException $exception) {
+      throw new PersistenceUniqueConstraintViolationException($exception);
+    }
   }
 
   /**
@@ -261,8 +266,8 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
       return [];
     }
 
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    /** @var string $organization */
+    $organization = (string) $organizationId;
 
     /** @var list<array{checklistId: string|null, itemCount: int|string|null}> $rows */
     $rows = $this->itemRepository
@@ -270,10 +275,10 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
       ->select('IDENTITY(checklistItem.checklist) AS checklistId')
       ->addSelect('COUNT(checklistItem.id) AS itemCount')
       ->innerJoin('checklistItem.checklist', 'checklistRecord')
-      ->where('checklistRecord.organization = :organization')
+      ->where('checklistRecord.organizationId = :organizationId')
       ->andWhere('IDENTITY(checklistItem.checklist) IN (:checklistIds)')
       ->groupBy('checklistItem.checklist')
-      ->setParameter('organization', $organization)
+      ->setParameter('organizationId', $organization)
       ->setParameter('checklistIds', $checklistIds)
       ->getQuery()
       ->getScalarResult();
@@ -305,8 +310,8 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     // Draft inspections already contain evidence; publication status never relaxes immutability.
     /** @var list<string> */
     return $this->entityManager->getConnection()->fetchFirstColumn(
-      'SELECT DISTINCT checklist_id FROM inspections WHERE organization_id = :organization AND checklist_id IN (:ids)',
-      ['organization' => (string) $organizationId, 'ids' => $checklistIds],
+      'SELECT DISTINCT checklist_id FROM inspections WHERE organization_id = :organizationId AND checklist_id IN (:ids)',
+      ['organizationId' => (string) $organizationId, 'ids' => $checklistIds],
       ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING],
     );
   }
@@ -314,9 +319,9 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
   /**
    * @param list<ChecklistItemRecord> $itemRecords
    */
-  private function updateExistingRecord(ChecklistRecord $existing, ChecklistRecord $record, OrganizationRecord $organization, array $itemRecords): void
+  private function updateExistingRecord(ChecklistRecord $existing, ChecklistRecord $record, string $organization, array $itemRecords): void
   {
-    $existing->organization = $organization;
+    $existing->organizationId = $organization;
     $existing->name = $record->name;
     $existing->referenceCode = $record->referenceCode;
     $existing->version = $record->version;
@@ -382,14 +387,14 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     ?string $status,
     ?string $search,
   ): QueryBuilder {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    /** @var string $organization */
+    $organization = (string) $organizationId;
 
     $qb = $this->entityManager->createQueryBuilder()
       ->select('c')
       ->from(ChecklistRecord::class, 'c')
-      ->andWhere('c.organization = :organization')
-      ->setParameter('organization', $organization);
+      ->andWhere('c.organizationId = :organizationId')
+      ->setParameter('organizationId', $organization);
 
     if (null !== $status) {
       $qb->andWhere('c.status = :status')->setParameter('status', $status);

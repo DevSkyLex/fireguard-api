@@ -4,24 +4,24 @@ declare(strict_types=1);
 
 namespace Inspection\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
+use Inspection\Application\Contract\Event\Export\NonConformitiesReportExportedEvent;
 use Inspection\Application\Contract\Export\NonConformityExportRow;
-use Inspection\Application\Port\Outbound\{InspectionReportEntitlementPort, NonConformityReportPdfRendererPort};
+use Inspection\Application\Port\Outbound\NonConformityReportPdfRendererPort;
+use Inspection\Application\UseCase\Command\Export\RecordInspectionExport\RecordInspectionExportCommand;
 use Inspection\Application\UseCase\Query\ExportNonConformities\{ExportNonConformitiesQuery, ExportNonConformitiesResult};
-use Inspection\Domain\Event\Export\NonConformitiesReportExportedEvent;
-use Inspection\Domain\Exception\InspectionReportNotEntitledException;
+use Inspection\Application\UseCase\Query\Report\ResolveInspectionReportAccess\{ResolveInspectionReportAccessQuery, ResolveInspectionReportAccessResult};
 use Inspection\Presentation\Api\Service\NonConformityExportCriteriaFactory;
 use Inspection\Presentation\Api\Trait\InspectionExportExceptionMapperTrait;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
-use Shared\Application\Document\DocumentDateFormatter;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort;
+use Shared\Application\Contract\Document\DocumentDateFormatter;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
 use function array_keys;
@@ -59,13 +59,6 @@ final class ExportNonConformitiesReportController extends AbstractController
 
   // #region Constants
   /**
-   * Constant READ_PERMISSION
-   *
-   * Permission required to export an organization's non-conformities.
-   */
-  private const string READ_PERMISSION = 'organization.inspection.read';
-
-  /**
    * Constant SEVERITY_ORDER.
    *
    * Display order of the severity groups, most critical first.
@@ -84,22 +77,18 @@ final class ExportNonConformitiesReportController extends AbstractController
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param OrganizationDocumentBrandingPort $branding the organization document branding port
-   * @param InspectionReportEntitlementPort $entitlement the report entitlement port
    * @param NonConformityReportPdfRendererPort $renderer the PDF renderer port
    * @param NonConformityExportCriteriaFactory $criteriaFactory the filter parser (CSV-export reuse)
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param CommandBusPort $commandBus the domain event dispatcher
    * @param Security $security the security service
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
-    private readonly OrganizationAuthorizationPort $authorization,
     private readonly OrganizationDocumentBrandingPort $branding,
-    private readonly InspectionReportEntitlementPort $entitlement,
     private readonly NonConformityReportPdfRendererPort $renderer,
     private readonly NonConformityExportCriteriaFactory $criteriaFactory,
-    private readonly EventDispatcherPort $eventDispatcher,
+    private readonly CommandBusPort $commandBus,
     private readonly Security $security,
   ) {
   }
@@ -118,7 +107,7 @@ final class ExportNonConformitiesReportController extends AbstractController
   public function __invoke(Request $request): Response
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -127,18 +116,11 @@ final class ExportNonConformitiesReportController extends AbstractController
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, self::READ_PERMISSION);
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
-    }
-
-    if (!$this->entitlement->isExportEntitled($organizationId)) {
-      $notEntitled = InspectionReportNotEntitledException::planTooLow($organizationId);
-
-      throw new AccessDeniedHttpException($notEntitled->getMessage(), $notEntitled);
+    try {
+      /** @var ResolveInspectionReportAccessResult $access */
+      $access = $this->queryBus->ask(new ResolveInspectionReportAccessQuery($user->getId(), $organizationId));
+    } catch (Throwable $exception) {
+      throw $this->mapExportException($exception);
     }
 
     $filters = $this->criteriaFactory->fromRequest($request);
@@ -154,7 +136,7 @@ final class ExportNonConformitiesReportController extends AbstractController
       throw $this->mapExportException($exception);
     }
 
-    $planKey = $this->entitlement->resolvePlanKey($organizationId) ?? 'unknown';
+    $planKey = $access->planKey;
 
     /** @var list<string> $filterKeys */
     $filterKeys = array_keys($filters);
@@ -165,13 +147,13 @@ final class ExportNonConformitiesReportController extends AbstractController
 
     $pdf = $this->renderer->render($context);
 
-    $this->eventDispatcher->dispatch(new NonConformitiesReportExportedEvent(
+    $this->commandBus->dispatch(new RecordInspectionExportCommand(new NonConformitiesReportExportedEvent(
       organizationId: $organizationId,
       actorUserId: $user->getId(),
       rowCount: $result->total,
       filterKeys: $filterKeys,
       planKey: $planKey,
-    ));
+    )));
 
     $fileName = sprintf('non-conformities-report-%s.pdf', new DateTimeImmutable()->format('Ymd-His'));
 

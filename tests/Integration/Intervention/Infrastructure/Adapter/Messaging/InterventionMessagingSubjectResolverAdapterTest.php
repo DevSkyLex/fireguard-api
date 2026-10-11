@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -101,7 +101,7 @@ final class InterventionMessagingSubjectResolverAdapterTest extends KernelTestCa
 
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->name = $name;
     $record->number = $number;
     $record->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');

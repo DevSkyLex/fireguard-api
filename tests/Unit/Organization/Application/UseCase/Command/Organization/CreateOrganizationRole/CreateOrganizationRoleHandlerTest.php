@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\CreateOrganizationRole;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Contract\Event\Role\OrganizationRoleCreatedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\{CreateOrganizationRoleCommand, CreateOrganizationRoleHandler, CreateOrganizationRoleResult};
-use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNameAlreadyExistsException};
+use Organization\Domain\Exception\OrganizationRoleNameAlreadyExistsException;
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(CreateOrganizationRoleHandler::class)]
@@ -58,12 +58,11 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
         return true;
       }));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(OrganizationRoleId::class)
-      ->willReturn(new OrganizationRoleId($roleId));
+      ->method('generate')
+      ->willReturn($roleId);
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -119,7 +118,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
     $handler = new CreateOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -162,7 +161,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
     $handler = new CreateOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -222,7 +221,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
     $handler = new CreateOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 

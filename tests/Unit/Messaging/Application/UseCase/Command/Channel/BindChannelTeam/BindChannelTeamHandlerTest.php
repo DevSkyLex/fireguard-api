@@ -7,7 +7,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Channel\BindChannelTe
 use DateTimeImmutable;
 use Messaging\Application\Contract\Channel\ChannelView;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingChannelParticipantSynchronizer};
 use Messaging\Application\UseCase\Command\Channel\BindChannelTeam\{BindChannelTeamCommand, BindChannelTeamHandler};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};

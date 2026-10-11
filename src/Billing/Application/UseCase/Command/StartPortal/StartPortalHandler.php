@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Application\UseCase\Command\StartPortal;
 
-use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Domain\Exception\BillingCustomerNotFoundException;
 use Shared\Application\Message\CommandHandler;
 

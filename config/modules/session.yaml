@@ -53,7 +53,7 @@ services:
     Session\Infrastructure\Persistence\Doctrine\Mapper\SessionMapper: ~
 
     # Port Binding
-    Session\Application\Port\Outbound\SessionRepositoryPort:
+    Session\Application\Port\Outbound\Internal\SessionRepositoryPort:
         alias: Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository
 
     # Providers
@@ -64,3 +64,12 @@ services:
     Session\Presentation\Api\Processor\Session\RevokeSessionProcessor: ~
     Session\Presentation\Api\Processor\Session\RevokeAllSessionsProcessor: ~
     Session\Presentation\Api\Processor\Session\RevokeOtherSessionsProcessor: ~
+
+    Session\Application\Port\Inbound\SessionDataLifecyclePort:
+      alias: Session\Infrastructure\Adapter\Lifecycle\SessionDataLifecycleAdapter
+    Session\Infrastructure\Adapter\Lifecycle\SessionDataLifecycleAdapter:
+      arguments:
+        $entityManager: '@doctrine.orm.auth_entity_manager'
+
+    Session\Application\Port\Inbound\SessionRevocationPort:
+        alias: Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository

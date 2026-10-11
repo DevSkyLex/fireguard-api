@@ -600,7 +600,7 @@ final class MaintenanceExportApiTest extends WebTestCase
     }
     $work = new InterventionRecord();
     $work->id = self::WORK;
-    $work->organization = $organization;
+    $work->organizationId = $organization->id;
     $work->name = 'Live work';
     $work->number = 1;
     $work->type = 'corrective_maintenance';

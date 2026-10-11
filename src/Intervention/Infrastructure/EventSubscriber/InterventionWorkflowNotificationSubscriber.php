@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Intervention\Infrastructure\EventSubscriber;
 
+use Intervention\Application\Contract\Event\Recurrence\InterventionRecurrenceMaterializedEvent;
+use Intervention\Application\Contract\Event\Workflow\InterventionWorkflowNotificationRequestedEvent;
 use Intervention\Application\Service\{InterventionNotificationService, InterventionRecurrenceNotifier};
-use Intervention\Domain\Event\Recurrence\InterventionRecurrenceMaterializedEvent;
-use Intervention\Domain\Event\Workflow\InterventionWorkflowNotificationRequestedEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**

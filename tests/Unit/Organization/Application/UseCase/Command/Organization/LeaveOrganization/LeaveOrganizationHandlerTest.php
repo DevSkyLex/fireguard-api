@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\LeaveOrganization;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Contract\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\LeaveOrganization\{LeaveOrganizationCommand, LeaveOrganizationHandler, LeaveOrganizationResult};
-use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationOwnerCannotLeaveException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationOwnerCannotLeaveException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;

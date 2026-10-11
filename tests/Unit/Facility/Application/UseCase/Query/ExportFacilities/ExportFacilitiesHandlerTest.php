@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\ExportFacilities;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\ExportFacilities\{ExportFacilitiesHandler, ExportFacilitiesQuery, ExportFacilitiesResult};
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityExportTooLargeException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
@@ -46,7 +46,7 @@ final class ExportFacilitiesHandlerTest extends TestCase
     $repository->expects(self::never())->method('countByOrganizationId');
     $repository->expects(self::never())->method('findByOrganizationId');
 
-    $handler = new ExportFacilitiesHandler(facilityRepository: $repository, authorization: $authorization);
+    $handler = new ExportFacilitiesHandler(events: $this->createStub(\Shared\Application\Port\Outbound\EventDispatcherPort::class), facilityRepository: $repository, authorization: $authorization);
 
     $this->expectException(FacilityAccessDeniedException::class);
 
@@ -67,7 +67,7 @@ final class ExportFacilitiesHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('countByOrganizationId');
 
-    $handler = new ExportFacilitiesHandler(facilityRepository: $repository, authorization: $authorization);
+    $handler = new ExportFacilitiesHandler(events: $this->createStub(\Shared\Application\Port\Outbound\EventDispatcherPort::class), facilityRepository: $repository, authorization: $authorization);
 
     $this->expectException(FacilityNotFoundException::class);
 
@@ -87,7 +87,7 @@ final class ExportFacilitiesHandlerTest extends TestCase
       ->willReturn(ExportFacilitiesHandler::MAX_EXPORT_ROWS + 1);
     $repository->expects(self::never())->method('findByOrganizationId');
 
-    $handler = new ExportFacilitiesHandler(facilityRepository: $repository, authorization: $authorization);
+    $handler = new ExportFacilitiesHandler(events: $this->createStub(\Shared\Application\Port\Outbound\EventDispatcherPort::class), facilityRepository: $repository, authorization: $authorization);
 
     $this->expectException(FacilityExportTooLargeException::class);
 
@@ -138,7 +138,7 @@ final class ExportFacilitiesHandlerTest extends TestCase
       ->with($organizationId, [self::PARENT_ID, '550e8400-e29b-41d4-a716-446655449306'])
       ->willReturn([self::PARENT_ID => 'PARENT-CODE']);
 
-    $handler = new ExportFacilitiesHandler(facilityRepository: $repository, authorization: $authorization);
+    $handler = new ExportFacilitiesHandler(events: $this->createStub(\Shared\Application\Port\Outbound\EventDispatcherPort::class), facilityRepository: $repository, authorization: $authorization);
 
     $result = $handler->__invoke(new ExportFacilitiesQuery(self::USER_ID, self::ORG_ID, []));
 

@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment;
 
-use Messaging\Application\Port\Outbound\MessagingAttachmentRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingAttachmentRepositoryPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
-use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingAttachmentNotFoundException};
+use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingAttachmentNotFoundException, MessagingRevisionPreconditionException};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
+
+use function preg_match;
 
 /**
  * UseCase DeleteMessageAttachmentHandler.
@@ -38,14 +40,16 @@ final readonly class DeleteMessageAttachmentHandler implements CommandHandler
    *
    * @param MessagingAttachmentRepositoryPort $attachments repository used to find and remove attachment metadata
    * @param MessagingAccessPolicy $accessPolicy policy used to resolve active membership and manager permission
-   * @param FileStoragePort $fileStorage storage port used to delete the stored file bytes
+   * @param FileCleanupPort $cleanup schedules file deletion after the owning commit
+   * @param RootTransactionManagerPort $transactions commits removal and cleanup together
    *
    * @return void
    */
   public function __construct(
     private MessagingAttachmentRepositoryPort $attachments,
     private MessagingAccessPolicy $accessPolicy,
-    private FileStoragePort $fileStorage,
+    private FileCleanupPort $cleanup,
+    private RootTransactionManagerPort $transactions,
   ) {
   }
   // #endregion
@@ -58,6 +62,48 @@ final readonly class DeleteMessageAttachmentHandler implements CommandHandler
    */
   public function __invoke(DeleteMessageAttachmentCommand $command): DeleteMessageAttachmentResult
   {
+    return $this->transactions->transactional(fn () => $this->delete($command));
+  }
+
+  /**
+   * Method delete
+   *
+   * Commits metadata removal and its durable storage cleanup together.
+   *
+   * @access private
+   *
+   * @param DeleteMessageAttachmentCommand $command attachment deletion request
+   *
+   * @return DeleteMessageAttachmentResult deleted attachment identity
+   */
+  private function delete(DeleteMessageAttachmentCommand $command): DeleteMessageAttachmentResult
+  {
+    $view = $this->attachments->findViewById($command->attachmentId);
+    if (null === $view) {
+      throw MessagingAttachmentNotFoundException::withId($command->attachmentId);
+    }
+
+    return $this->attachments->withMessageLock($view->messageId, fn () => $this->deleteLocked($command));
+  }
+
+  /**
+   * Method deleteLocked
+   *
+   * Rechecks existence and revision while holding the same parent lock as uploads.
+   *
+   * @access private
+   *
+   * @param DeleteMessageAttachmentCommand $command attachment mutation request
+   *
+   * @return DeleteMessageAttachmentResult removed attachment identity
+   */
+  private function deleteLocked(DeleteMessageAttachmentCommand $command): DeleteMessageAttachmentResult
+  {
+    $view = $this->attachments->findViewById($command->attachmentId);
+    if (null === $view) {
+      throw MessagingAttachmentNotFoundException::withId($command->attachmentId);
+    }
+
     try {
       $attachmentId = MessagingAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
@@ -67,6 +113,14 @@ final readonly class DeleteMessageAttachmentHandler implements CommandHandler
     $attachment = $this->attachments->findById($attachmentId);
     if (null === $attachment) {
       throw MessagingAttachmentNotFoundException::withId($command->attachmentId);
+    }
+
+    if (null === $command->ifMatch || '' === $command->ifMatch) {
+      throw new MessagingRevisionPreconditionException(missing: true);
+    }
+    if (1 !== preg_match('/^"revision-(\d+)"$/', $command->ifMatch, $matches)
+      || $view->revision !== (int) $matches[1]) {
+      throw new MessagingRevisionPreconditionException(missing: false);
     }
 
     $organizationId = $attachment->organizationId();
@@ -80,7 +134,7 @@ final readonly class DeleteMessageAttachmentHandler implements CommandHandler
     }
 
     $this->attachments->delete($attachmentId);
-    $this->fileStorage->delete($attachment->storagePath());
+    $this->cleanup->request($attachment->storagePath());
 
     return new DeleteMessageAttachmentResult(
       attachmentId: (string) $attachmentId,

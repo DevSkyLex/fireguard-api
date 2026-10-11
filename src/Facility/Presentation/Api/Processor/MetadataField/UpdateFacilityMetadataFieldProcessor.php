@@ -6,14 +6,14 @@ namespace Facility\Presentation\Api\Processor\MetadataField;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\MetadataField\UpdateMetadataField\{UpdateMetadataFieldCommand, UpdateMetadataFieldResult};
 use Facility\Domain\Exception\FacilityMetadataFieldNotFoundException;
 use Facility\Presentation\Api\Dto\Input\MetadataField\UpdateFacilityMetadataFieldInput;
 use Facility\Presentation\Api\Dto\Output\MetadataField\FacilityMetadataFieldOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -45,7 +45,6 @@ final readonly class UpdateFacilityMetadataFieldProcessor implements ProcessorIn
    * @access public
    *
    * @param CommandBusPort $commandBus the command bus
-   * @param OrganizationAuthorizationPort $authorization the authorization
    * @param Security $security the security
    * @param RequestStack $requestStack the request stack
    *
@@ -80,7 +79,7 @@ final readonly class UpdateFacilityMetadataFieldProcessor implements ProcessorIn
   {
     /** @var UpdateFacilityMetadataFieldInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

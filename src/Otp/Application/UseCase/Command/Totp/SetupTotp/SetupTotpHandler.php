@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Otp\Application\UseCase\Command\Totp\SetupTotp;
 
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Domain\Exception\{TotpEnrollmentAlreadyActiveException, TotpEnrollmentUnavailableException};
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Shared\Application\Message\CommandHandler;

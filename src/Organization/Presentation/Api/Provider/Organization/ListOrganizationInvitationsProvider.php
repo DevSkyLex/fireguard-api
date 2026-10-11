@@ -8,24 +8,24 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\{GetOrganizationInvitationResult, ListOrganizationInvitationsQuery};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Pagination\PaginationExtractor;
+use Shared\Application\Contract\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Application\Contract\Sorting\{CollectionSorter, SortingExtractor};
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Pagination\PaginationExtractor;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Throwable;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_filter;
-use function array_key_exists;
 use function array_slice;
+use function array_unique;
 use function array_values;
 use function count;
 use function is_string;
@@ -60,6 +60,7 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private UserDirectoryPort $users,
   ) {
   }
   // #endregion
@@ -81,7 +82,7 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -104,6 +105,18 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
 
     /** @var array<string, ?string> $displayNameCache */
     $displayNameCache = [];
+    $userIds = [];
+    foreach ($result->items as $item) {
+      $userIds[] = $item->invitedByUserId;
+    }
+
+    try {
+      foreach ($this->users->findByIds(array_values(array_unique($userIds))) as $userId => $profile) {
+        $displayNameCache[$userId] = trim($profile->firstName . ' ' . $profile->lastName) ?: ($profile->username ?: null);
+      }
+    } catch (Throwable) {
+      $displayNameCache = [];
+    }
     $outputs = [];
     foreach ($result->items as $invitation) {
       $output = new OrganizationInvitationOutput();
@@ -127,7 +140,7 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       $outputs[] = $output;
     }
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Organization\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $statusFilter = $filters['status'] ?? null;
     if (is_string($statusFilter) && '' !== $statusFilter) {
@@ -169,25 +182,8 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
    */
   private function resolveDisplayName(string $userId, array &$cache): ?string
   {
-    if (array_key_exists($userId, $cache)) {
-      return $cache[$userId];
-    }
-
-    $name = null;
-
-    try {
-      $result = $this->queryBus->ask(new GetUserQuery($userId));
-      if ($result instanceof GetUserResult && null !== $result->user) {
-        $name = trim($result->user->firstName . ' ' . $result->user->lastName)
-          ?: ($result->user->username ?: null);
-      }
-    } catch (Throwable) {
-      $name = null;
-    }
-
-    $cache[$userId] = $name;
-
-    return $name;
+    return $cache[$userId] ?? null;
   }
+
   // #endregion
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Command\Client\ActivateClient;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Domain\Exception\Client\InvalidClientException;
 use OAuth\Domain\ValueObject\Client\ClientId;
 use Shared\Application\Message\CommandHandler;

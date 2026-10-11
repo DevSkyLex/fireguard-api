@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow;
 
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
+use Intervention\Application\Service\InterventionWorkItemEnrichment;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
@@ -32,6 +33,7 @@ final readonly class GetInterventionWorkflowHandler implements QueryHandler
   public function __construct(
     private InterventionWorkflowGatewayPort $gateway,
     private OrganizationAuthorizationPort $authorization,
+    private ?InterventionWorkItemEnrichment $enrichment = null,
   ) {
   }
 
@@ -60,6 +62,6 @@ final readonly class GetInterventionWorkflowHandler implements QueryHandler
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 
-    return new GetInterventionWorkflowResult($view);
+    return new GetInterventionWorkflowResult($this->enrichment?->enrich([$view], $query->userId)[0] ?? $view);
   }
 }

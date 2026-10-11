@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationRoles;
 
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
 

@@ -14,10 +14,10 @@ use Intervention\Application\Contract\Draft\{CreateInterventionDraftRequest, Cre
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 use RuntimeException;
 use Shared\Application\Message\VoidResult;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Shared\Application\Port\Outbound\LoggerPort;
 
 /**
  * Test ExecuteAutomationRuleHandlerTest.
@@ -190,7 +190,7 @@ final class ExecuteAutomationRuleHandlerTest extends TestCase
       $draftFactory,
       $eventDispatcher,
       $clock,
-      new NullLogger(),
+      $this->createStub(LoggerPort::class),
       transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
   }

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{InspectionResponseRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\InspectionResponseRepositoryPort;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse\{DeleteInspectionResponseCommand, DeleteInspectionResponseHandler};
 use Inspection\Domain\Exception\{InspectionResponseConflictException, InspectionResponseNotFoundException, InspectionRevisionMismatchException};
 use Inspection\Domain\Model\Response\{InspectionResponse, RestoredInspectionResponseState};

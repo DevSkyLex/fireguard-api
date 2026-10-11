@@ -6,15 +6,16 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
-use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException;
 use Organization\Presentation\Api\Processor\Organization\DeleteOrganizationProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};

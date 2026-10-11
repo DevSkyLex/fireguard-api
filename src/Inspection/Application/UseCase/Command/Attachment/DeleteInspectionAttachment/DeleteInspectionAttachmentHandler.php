@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAttachment;
 
-use Inspection\Application\Port\Outbound\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort};
+use Inspection\Application\Port\Outbound\InspectionMediaLookupPort;
+use Inspection\Application\Port\Outbound\Internal\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort};
+use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionRevisionMismatchException};
 use Inspection\Domain\Exception\{InspectionAttachmentNotFoundException, InspectionNotFoundException};
 use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, InspectionOrganizationId};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
 
 /**
  * UseCase DeleteInspectionAttachmentHandler.
@@ -30,14 +33,17 @@ final readonly class DeleteInspectionAttachmentHandler implements CommandHandler
    *
    * @param InspectionRepositoryPort $inspectionRepository port used to validate the inspection and organization scope
    * @param InspectionAttachmentRepositoryPort $attachmentRepository port used to load and remove attachment metadata
-   * @param FileStoragePort $fileStorage port used to delete the attachment bytes
+   * @param FileCleanupPort $fileCleanup durably removes bytes after commit
    *
    * @return void
    */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private InspectionAttachmentRepositoryPort $attachmentRepository,
-    private FileStoragePort $fileStorage,
+    private FileCleanupPort $fileCleanup,
+    private RootTransactionManagerPort $transactions,
+    private InspectionMediaLookupPort $media,
+    private OrganizationAuthorizationPort $authorization,
   ) {
   }
   // #endregion
@@ -50,29 +56,48 @@ final readonly class DeleteInspectionAttachmentHandler implements CommandHandler
    */
   public function __invoke(DeleteInspectionAttachmentCommand $command): DeleteInspectionAttachmentResult
   {
-    $inspectionId = InspectionId::fromString($command->inspectionId);
-    $organizationId = InspectionOrganizationId::fromString($command->organizationId);
-    $attachmentId = InspectionAttachmentId::fromString($command->attachmentId);
+    return $this->transactions->transactional(function () use ($command): DeleteInspectionAttachmentResult {
+      $inspectionId = InspectionId::fromString($command->inspectionId);
+      $organizationId = InspectionOrganizationId::fromString($command->organizationId);
+      $attachmentId = InspectionAttachmentId::fromString($command->attachmentId);
 
-    $inspection = $this->inspectionRepository->findById($inspectionId);
+      $inspection = $this->inspectionRepository->findById($inspectionId);
 
-    if (null === $inspection || (string) $inspection->organizationId() !== (string) $organizationId) {
-      throw InspectionNotFoundException::withId($command->inspectionId);
-    }
+      if (null === $inspection || (string) $inspection->organizationId() !== (string) $organizationId) {
+        throw InspectionNotFoundException::withId($command->inspectionId);
+      }
 
-    $attachment = $this->attachmentRepository->findById($attachmentId);
+      $attachment = $this->attachmentRepository->findById($attachmentId);
 
-    if (null === $attachment || (string) $attachment->inspectionId() !== (string) $inspectionId) {
-      throw InspectionAttachmentNotFoundException::withId($command->attachmentId);
-    }
+      if (null === $attachment || (string) $attachment->inspectionId() !== (string) $inspectionId) {
+        throw InspectionAttachmentNotFoundException::withId($command->attachmentId);
+      }
 
-    $this->attachmentRepository->delete($attachmentId);
-    $this->fileStorage->delete($attachment->storagePath());
+      $stored = $this->media->attachment($command->attachmentId, lock: true);
+      if (null === $stored) {
+        throw new InspectionAttachmentNotFoundException('Attachment not found.');
+      }
+      if (null !== $command->expectedRevision && $stored->revision !== $command->expectedRevision) {
+        throw InspectionRevisionMismatchException::stale();
+      }
 
-    return new DeleteInspectionAttachmentResult(
-      attachmentId: (string) $attachmentId,
-      inspectionId: (string) $inspectionId,
-    );
+      if (null !== $command->userId) {
+        $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.inspection.write');
+        if ($decision->isOutsideScope()) {
+          throw new InspectionNotFoundException('Non-conformity not found.');
+        }
+        if (!$decision->isGranted()) {
+          throw new InspectionAccessDeniedException('Missing organization.inspection.write permission.');
+        }
+      }
+      $this->attachmentRepository->delete($attachmentId);
+      $this->fileCleanup->request($attachment->storagePath());
+
+      return new DeleteInspectionAttachmentResult(
+        attachmentId: (string) $attachmentId,
+        inspectionId: (string) $inspectionId,
+      );
+    });
   }
   // #endregion
 }

@@ -6,7 +6,8 @@ namespace Tests\Unit\Intervention\Infrastructure\Adapter\Activity;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Activity\{InterventionActivityAppendRequest, InterventionActivityContent};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\InterventionPublicationResourcesIssuesPort;
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Intervention\Infrastructure\Adapter\Activity\DoctrineInterventionActivityAdapter;
@@ -14,7 +15,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapp
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Test DoctrineInterventionActivityAdapterTest.
@@ -50,7 +51,7 @@ final class DoctrineInterventionActivityAdapterTest extends TestCase
     $attachments = $this->createStub(InterventionAttachmentRepositoryPort::class);
     $adapter = new DoctrineInterventionActivityAdapter(
       $entityManager,
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
       new InterventionViewMapper($entityManager, $resources, new InterventionIssueFinder($resources, $attachments, $this->createStub(InterventionPublicationResourcesIssuesPort::class))),
     );
 

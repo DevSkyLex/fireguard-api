@@ -7,16 +7,16 @@ namespace Auth\Infrastructure\Console;
 use Auth\Infrastructure\Persistence\Doctrine\Record\FederatedAuthFlowRecord;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use OAuth\Infrastructure\Persistence\Doctrine\Record\{AccessTokenRecord, AuthCodeRecord, ConsentRecord, RefreshTokenRecord};
-use Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord;
-use Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord;
+use OAuth\Application\Port\Inbound\OAuthDataLifecyclePort;
+use Otp\Application\Port\Inbound\OtpDataLifecyclePort;
+use Session\Application\Port\Inbound\SessionDataLifecyclePort;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\{InputInterface, InputOption};
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord;
+use TrustedDevice\Application\Port\Inbound\TrustedDeviceDataLifecyclePort;
 
 use function is_numeric;
 use function sprintf;
@@ -65,6 +65,10 @@ final class CleanupAuthDataCommand extends Command
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private readonly SessionDataLifecyclePort $sessionLifecycle,
+    private readonly OtpDataLifecyclePort $otpLifecycle,
+    private readonly TrustedDeviceDataLifecyclePort $trusteddeviceLifecycle,
+    private readonly OAuthDataLifecyclePort $oauthLifecycle,
     #[Autowire('%env(int:DATA_RETENTION_DAYS)%')]
     int $defaultRetentionDays = 90,
   ) {
@@ -135,48 +139,6 @@ final class CleanupAuthDataCommand extends Command
         'where' => 'ff.expiresAt < :cutoff OR ff.consumedAt IS NOT NULL',
         'cutoff' => new DateTimeImmutable(),
       ],
-      [
-        'label' => 'sessions',
-        'entity' => SessionRecord::class,
-        'alias' => 's',
-        'where' => '(s.revokedAt IS NOT NULL AND s.revokedAt < :cutoff) OR s.lastActivityAt < :cutoff',
-      ],
-      [
-        'label' => 'consents',
-        'entity' => ConsentRecord::class,
-        'alias' => 'c',
-        'where' => 'c.revokedAt IS NOT NULL AND c.revokedAt < :cutoff',
-      ],
-      [
-        'label' => 'access_tokens',
-        'entity' => AccessTokenRecord::class,
-        'alias' => 'at',
-        'where' => 'at.expiry < :cutoff',
-      ],
-      [
-        'label' => 'refresh_tokens',
-        'entity' => RefreshTokenRecord::class,
-        'alias' => 'rt',
-        'where' => 'rt.expiry < :cutoff',
-      ],
-      [
-        'label' => 'auth_codes',
-        'entity' => AuthCodeRecord::class,
-        'alias' => 'ac',
-        'where' => 'ac.expiry < :cutoff',
-      ],
-      [
-        'label' => 'otps',
-        'entity' => OtpRecord::class,
-        'alias' => 'o',
-        'where' => 'o.expiresAt < :cutoff',
-      ],
-      [
-        'label' => 'trusted_devices',
-        'entity' => TrustedDeviceRecord::class,
-        'alias' => 'td',
-        'where' => 'td.expiresAt < :cutoff OR (td.revoked = true AND td.lastUsedAt < :cutoff)',
-      ],
     ];
 
     $io->title('Auth data cleanup');
@@ -196,6 +158,13 @@ final class CleanupAuthDataCommand extends Command
 
       $total += $count;
       $rows[] = [$rule['label'], (string) $count];
+    }
+
+    foreach ([$this->sessionLifecycle, $this->otpLifecycle, $this->trusteddeviceLifecycle, $this->oauthLifecycle] as $lifecycle) {
+      foreach ($lifecycle->retainUntil($cutoff, $dryRun) as $label => $count) {
+        $total += $count;
+        $rows[] = [$label, (string) $count];
+      }
     }
 
     $io->table(['Dataset', $dryRun ? 'Candidates' : 'Deleted'], $rows);

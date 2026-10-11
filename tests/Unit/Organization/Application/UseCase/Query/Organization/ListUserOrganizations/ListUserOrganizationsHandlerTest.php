@@ -6,8 +6,8 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListUse
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Port\Inbound\Internal\OrganizationCallerMembershipPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationCallerRoleResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsHandler, ListUserOrganizationsQuery};
 use Organization\Domain\Model\Organization\Organization;

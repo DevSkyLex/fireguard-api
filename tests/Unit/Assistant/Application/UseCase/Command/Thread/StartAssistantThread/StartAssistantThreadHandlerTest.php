@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Application\UseCase\Command\Thread\StartAssistantThread;
 
-use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
+use Assistant\Application\Port\Outbound\Internal\AssistantThreadRepositoryPort;
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Application\UseCase\Command\Thread\StartAssistantThread\{StartAssistantThreadCommand, StartAssistantThreadHandler};
@@ -13,11 +13,10 @@ use Assistant\Domain\Exception\AssistantValidationException;
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\Service\AssistantModelPolicy;
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, UuidGeneratorPort};
 
 /**
@@ -126,7 +125,7 @@ final class StartAssistantThreadHandlerTest extends TestCase
       threads: $threads,
       accessPolicy: $accessPolicy,
       modelPolicy: $modelPolicy,
-      uuidFactory: new UuidFactory($uuidGenerator),
+      uuidFactory: $uuidGenerator,
       eventDispatcher: $eventDispatcher,
       clock: $clock,
     );

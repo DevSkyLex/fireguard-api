@@ -26,9 +26,11 @@ final readonly class ExportAuditEventsQuery implements QueryMessage
    * @since 1.0.0
    *
    * @param AuditEventSearchCriteria $criteria the search criteria (same filters as the list query)
+   * @param string $actorUserId the authenticated user requesting the export
    */
   public function __construct(
     public AuditEventSearchCriteria $criteria,
+    public string $actorUserId,
   ) {
   }
 }

@@ -52,7 +52,7 @@ final readonly class MaintenanceScheduleService implements MaintenanceSchedulePo
     private ClockPort $clock,
     private MaintenanceScheduleLockPort $locks,
     private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort $inspectionHistory,
-    private ?\Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort $planAuthority = null,
+    private ?\Maintenance\Application\Port\Inbound\Internal\MaintenancePlanAuthorityPort $planAuthority = null,
   ) {
   }
 

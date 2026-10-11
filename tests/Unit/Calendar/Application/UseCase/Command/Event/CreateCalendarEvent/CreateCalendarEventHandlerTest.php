@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Application\UseCase\Command\Event\CreateCalendarEvent;
 
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort;
 use Calendar\Application\UseCase\Command\Event\CreateCalendarEvent\{CreateCalendarEventCommand, CreateCalendarEventHandler, CreateCalendarEventResult};
 use Calendar\Domain\Event\CalendarEventCreatedEvent;
 use Calendar\Domain\Exception\CalendarEventValidationException;
 use Calendar\Domain\Model\Event\CalendarEvent;
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 /**
@@ -182,13 +181,13 @@ final class CreateCalendarEventHandlerTest extends TestCase
   /**
    * Method uuidFactory.
    *
-   * @return UuidFactory a uuid factory generating deterministic-enough raw ids
+   * @return UuidGeneratorPort a uuid factory generating deterministic-enough raw ids
    */
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn('018f0b68-6758-7a12-8a1d-3f0d97f64aff');
 
-    return new UuidFactory($generator);
+    return $generator;
   }
 }

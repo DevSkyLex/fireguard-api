@@ -15,7 +15,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
-use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
+use User\Application\Contract\User\UserView;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function implode;
 use function is_string;
@@ -49,6 +50,7 @@ final class AssignRoleCommand extends Command
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private readonly UserDirectoryPort $users,
     private readonly ?AuthorizationCacheInvalidator $cacheInvalidator = null,
   ) {
     parent::__construct();
@@ -156,9 +158,7 @@ HELP
   private function executeAssignment(string $email, string $roleName, bool $remove, SymfonyStyle $io): int
   {
     // Find the user before the role so missing users cannot enumerate roles.
-    $userRepository = $this->entityManager->getRepository(UserRecord::class);
-    /** @var UserRecord|null $user */
-    $user = $userRepository->findOneBy(['email' => $email]);
+    $user = $this->users->findByEmail($email);
 
     if (null === $user) {
       $io->error(sprintf('User with email "%s" not found.', $email));
@@ -199,7 +199,7 @@ HELP
    *
    * @access private
    *
-   * @param UserRecord $user the user receiving the role change
+   * @param UserView $user the user receiving the role change
    * @param RoleRecord $role the role to assign or remove
    * @param bool $remove whether the assignment should be removed
    * @param string $email the account email shown in console output
@@ -208,7 +208,7 @@ HELP
    *
    * @return bool whether an assignment changed
    */
-  private function applyRoleAssignment(UserRecord $user, RoleRecord $role, bool $remove, string $email, string $roleName, SymfonyStyle $io): bool
+  private function applyRoleAssignment(UserView $user, RoleRecord $role, bool $remove, string $email, string $roleName, SymfonyStyle $io): bool
   {
     $assignmentRepository = $this->entityManager->getRepository(RoleAssignmentRecord::class);
     /** @var RoleAssignmentRecord|null $existingAssignment */
@@ -256,12 +256,12 @@ HELP
    *
    * @access private
    *
-   * @param UserRecord $user the user whose roles are displayed
+   * @param UserView $user the user whose roles are displayed
    * @param SymfonyStyle $io the console output helper
    *
    * @return void no return value
    */
-  private function showCurrentRoles(UserRecord $user, SymfonyStyle $io): void
+  private function showCurrentRoles(UserView $user, SymfonyStyle $io): void
   {
     $assignmentRepository = $this->entityManager->getRepository(RoleAssignmentRecord::class);
     /** @var list<RoleAssignmentRecord> $userAssignments */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Approval\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Post;
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
 use Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest\{
   ApproveApprovalRequestCommand,
   ApproveApprovalRequestResult
@@ -13,13 +14,7 @@ use Approval\Application\UseCase\Command\Decision\RejectApprovalRequest\{
   RejectApprovalRequestCommand,
   RejectApprovalRequestResult
 };
-use Approval\Domain\Exception\{
-  ApprovalRequestNotFoundException,
-  ApprovalRequestNotPendingException,
-  ApproverNotAuthorizedException,
-  DeferredActionNoLongerApplicableException,
-  SelfApprovalNotAllowedException
-};
+use Approval\Domain\Exception\{ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApproverNotAuthorizedException, SelfApprovalNotAllowedException};
 use Approval\Presentation\Api\Dto\Input\{ApproveApprovalRequestInput, RejectApprovalRequestInput};
 use Approval\Presentation\Api\Factory\ApprovalRequestOutputFactory;
 use Approval\Presentation\Api\Processor\{ApproveApprovalRequestProcessor, RejectApprovalRequestProcessor};
@@ -124,7 +119,7 @@ final class ApprovalDecisionProcessorsTest extends TestCase
     $input = new ApproveApprovalRequestInput();
     $input->decisionNote = 'Approved after site visit.';
 
-    $output = $this->approveProcessor($commandBus)->process($input, new Post(), $this->uriVariables());
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->approveProcessor($commandBus)->process($input, new Post(), $this->uriVariables()));
 
     self::assertSame(self::REQUEST_ID, $output->id);
     self::assertSame('approved', $output->status);
@@ -147,7 +142,7 @@ final class ApprovalDecisionProcessorsTest extends TestCase
     $input = new RejectApprovalRequestInput();
     $input->decisionNote = 'Not justified.';
 
-    $output = $this->rejectProcessor($commandBus)->process($input, new Post(), $this->uriVariables());
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->rejectProcessor($commandBus)->process($input, new Post(), $this->uriVariables()));
 
     self::assertSame(self::REQUEST_ID, $output->id);
     self::assertSame('rejected', $output->status);
@@ -164,8 +159,8 @@ final class ApprovalDecisionProcessorsTest extends TestCase
       ->with(self::callback(static fn (ApproveApprovalRequestCommand $command): bool => null === $command->decisionNote))
       ->willReturn($this->approveResult());
 
-    $this->approveProcessor($commandBus)
-      ->process(new ApproveApprovalRequestInput(), new Post(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->approveProcessor($commandBus)
+      ->process(new ApproveApprovalRequestInput(), new Post(), $this->uriVariables()));
   }
 
   #[Test]
@@ -186,7 +181,7 @@ final class ApprovalDecisionProcessorsTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $processor->process(new ApproveApprovalRequestInput(), new Post(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $processor->process(new ApproveApprovalRequestInput(), new Post(), $this->uriVariables()));
   }
 
   #[Test]
@@ -206,7 +201,7 @@ final class ApprovalDecisionProcessorsTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $processor->process(new RejectApprovalRequestInput(), new Post(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $processor->process(new RejectApprovalRequestInput(), new Post(), $this->uriVariables()));
   }
 
   /**
@@ -221,7 +216,7 @@ final class ApprovalDecisionProcessorsTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $this->approveProcessor($commandBus)->process(new ApproveApprovalRequestInput(), new Post(), $uriVariables);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->approveProcessor($commandBus)->process(new ApproveApprovalRequestInput(), new Post(), $uriVariables));
   }
 
   /**
@@ -236,7 +231,7 @@ final class ApprovalDecisionProcessorsTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $this->rejectProcessor($commandBus)->process(new RejectApprovalRequestInput(), new Post(), $uriVariables);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->rejectProcessor($commandBus)->process(new RejectApprovalRequestInput(), new Post(), $uriVariables));
   }
 
   /**
@@ -251,8 +246,8 @@ final class ApprovalDecisionProcessorsTest extends TestCase
 
     $this->expectException($expected);
 
-    $this->approveProcessor($commandBus)
-      ->process(new ApproveApprovalRequestInput(), new Post(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->approveProcessor($commandBus)
+      ->process(new ApproveApprovalRequestInput(), new Post(), $this->uriVariables()));
   }
 
   /**
@@ -267,8 +262,8 @@ final class ApprovalDecisionProcessorsTest extends TestCase
 
     $this->expectException($expected);
 
-    $this->rejectProcessor($commandBus)
-      ->process(new RejectApprovalRequestInput(), new Post(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->rejectProcessor($commandBus)
+      ->process(new RejectApprovalRequestInput(), new Post(), $this->uriVariables()));
   }
 
   #[Test]
@@ -280,8 +275,8 @@ final class ApprovalDecisionProcessorsTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('database is down');
 
-    $this->approveProcessor($commandBus)
-      ->process(new ApproveApprovalRequestInput(), new Post(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->approveProcessor($commandBus)
+      ->process(new ApproveApprovalRequestInput(), new Post(), $this->uriVariables()));
   }
 
   /**

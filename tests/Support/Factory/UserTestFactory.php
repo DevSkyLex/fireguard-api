@@ -6,6 +6,7 @@ namespace Tests\Support\Factory;
 
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
+use User\Application\Contract\User\UserView;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -85,6 +86,50 @@ final class UserTestFactory
     $user->verifyEmail(new TestEventIdProvider());
 
     return $user;
+  }
+
+  /**
+   * Creates the published read projection used by directory capability tests.
+   *
+   * @since 1.0.0
+   *
+   * @param User $user the test aggregate to project
+   *
+   * @return UserView the public scalar user view
+   */
+  public static function view(User $user): UserView
+  {
+    return new UserView(
+      id: (string) $user->id(),
+      username: (string) $user->username(),
+      email: (string) $user->email(),
+      firstName: $user->profile()->firstName,
+      lastName: $user->profile()->lastName,
+      avatarUrl: $user->profile()->avatarUrl,
+      status: $user->status()->value,
+      emailVerified: $user->isEmailVerified(),
+      tenantId: null === $user->tenantId() ? null : (string) $user->tenantId(),
+      createdAt: $user->createdAt(),
+      lastLoginAt: $user->lastLoginAt(),
+      canLogin: $user->canLogin(),
+      locale: $user->locale()->value,
+    );
+  }
+
+  /**
+   * Creates an active user read projection.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $id the user identifier
+   * @param ?string $email the email address
+   * @param ?string $username the username
+   *
+   * @return UserView the active user projection
+   */
+  public static function createActiveView(?string $id = null, ?string $email = null, ?string $username = null): UserView
+  {
+    return self::view(self::createActive($id, $email, $username));
   }
 
   // #endregion

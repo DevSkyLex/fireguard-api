@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Query\Equipment\ListEquipmentOpenWork;
 
-use Intervention\Application\Port\Outbound\{InterventionEquipmentWorkPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\InterventionEquipmentWorkPort;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;

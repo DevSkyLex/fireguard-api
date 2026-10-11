@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Session\Application\UseCase\Command\Session\RevokeSession;
 
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Domain\Exception\SessionNotFoundException;
 use Session\Domain\ValueObject\SessionId;
 

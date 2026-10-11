@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Persistence\Doctrine\Repository;
 
-use Authorization\Application\Port\Outbound\RoleAssignmentRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\RoleAssignmentRepositoryPort;
 use Authorization\Application\Service\AuthorizationCacheInvalidator;
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\Model\RoleAssignment\RoleAssignment;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Service;
 
-use Intervention\Application\Contract\Workflow\InterventionWorkflowContext;
+use Intervention\Application\Contract\Workflow\{InterventionAllowedActions, InterventionWorkflowContext};
 use Intervention\Domain\Exception\InterventionConflictException;
 use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Domain\ValueObject\InterventionStatus;
@@ -169,6 +169,34 @@ final readonly class InterventionActionPolicy
    */
   public function allowedActions(InterventionWorkflowContext $context, string $userId): InterventionAllowedActions
   {
+    return $this->allowedActionsForContexts([$context], $userId)[$context->interventionId];
+  }
+
+  /**
+   * Resolves the caller's membership once per organization for a complete page.
+   * All memoized identities live only for this call and cannot outlive a worker message.
+   *
+   * @param list<InterventionWorkflowContext> $contexts
+   *
+   * @return array<string, InterventionAllowedActions>
+   */
+  public function allowedActionsForContexts(array $contexts, string $userId): array
+  {
+    /** @var array<string, array{id: ?string}> $members */
+    $members = [];
+    $actions = [];
+    foreach ($contexts as $context) {
+      if (null !== InterventionStatus::tryFrom($context->status) && !isset($members[$context->organizationId])) {
+        $members[$context->organizationId] = ['id' => $this->memberPolicy->findMemberId($context->organizationId, $userId)];
+      }
+      $actions[$context->interventionId] = $this->actionsForMember($context, $userId, $members[$context->organizationId]['id'] ?? null);
+    }
+
+    return $actions;
+  }
+
+  private function actionsForMember(InterventionWorkflowContext $context, string $userId, ?string $callerMemberId): InterventionAllowedActions
+  {
     $status = InterventionStatus::tryFrom($context->status);
     if (!$status instanceof InterventionStatus) {
       return new InterventionAllowedActions(
@@ -187,7 +215,6 @@ final readonly class InterventionActionPolicy
       );
     }
 
-    $callerMemberId = $this->memberPolicy->findMemberId($context->organizationId, $userId);
     $isResponsible = null !== $callerMemberId && null !== $context->responsibleId && $callerMemberId === $context->responsibleId;
     $isParticipant = null !== $callerMemberId && in_array($callerMemberId, $context->participants, true);
     $isTeamMember = $isResponsible || $isParticipant;

@@ -7,7 +7,7 @@ namespace Otp\Application\UseCase\Command\Challenge\ResendChallenge;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
 use Otp\Application\Exception\{OtpNotFoundException, ResendNotAllowedException};
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
 use Otp\Application\Service\ChallengeResendPolicy;
 use Otp\Application\UseCase\Command\Challenge\GenerateOtp\{GenerateOtpCommand, GenerateOtpHandler};
 use Otp\Domain\ValueObject\ChallengeToken;

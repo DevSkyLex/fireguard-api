@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Query\ExportEquipments;
 
 use Equipment\Application\Contract\Export\EquipmentExportCandidate;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Application\UseCase\Query\ExportEquipments\{ExportEquipmentsHandler, ExportEquipmentsQuery, ExportEquipmentsResult};
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentExportTooLargeException, EquipmentNotFoundException};
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
@@ -46,7 +47,7 @@ final class ExportEquipmentsHandlerTest extends TestCase
     $repository->expects(self::never())->method('countEquipments');
     $repository->expects(self::never())->method('listEquipmentExportCandidates');
 
-    $handler = new ExportEquipmentsHandler(
+    $handler = $this->handler(
       repository: $repository,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
       authorization: $authorization,
@@ -71,7 +72,7 @@ final class ExportEquipmentsHandlerTest extends TestCase
     $repository = $this->createMock(EquipmentRepositoryPort::class);
     $repository->expects(self::never())->method('countEquipments');
 
-    $handler = new ExportEquipmentsHandler(
+    $handler = $this->handler(
       repository: $repository,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
       authorization: $authorization,
@@ -96,7 +97,7 @@ final class ExportEquipmentsHandlerTest extends TestCase
       ->willReturn(ExportEquipmentsHandler::MAX_EXPORT_ROWS + 1);
     $repository->expects(self::never())->method('listEquipmentExportCandidates');
 
-    $handler = new ExportEquipmentsHandler(
+    $handler = $this->handler(
       repository: $repository,
       facilityNaming: $this->createStub(FacilityNamingPort::class),
       authorization: $authorization,
@@ -162,7 +163,7 @@ final class ExportEquipmentsHandlerTest extends TestCase
       ->with([self::FACILITY_ID, 'unknown-facility'])
       ->willReturn([self::FACILITY_ID => 'WH-01']);
 
-    $handler = new ExportEquipmentsHandler(
+    $handler = $this->handler(
       repository: $repository,
       facilityNaming: $facilityNaming,
       authorization: $authorization,
@@ -179,5 +180,10 @@ final class ExportEquipmentsHandlerTest extends TestCase
     self::assertSame('unknown-facility', $result->rows[1]->facilityId);
     self::assertNull($result->rows[1]->facilityName, 'An unresolvable facility id must resolve to a null name, not an empty string.');
     self::assertNull($result->rows[1]->facilityCode, 'An unresolvable facility id must resolve to a null code, not an empty string.');
+  }
+
+  private function handler(EquipmentRepositoryPort $repository, FacilityNamingPort $facilityNaming, OrganizationAuthorizationPort $authorization): ExportEquipmentsHandler
+  {
+    return new ExportEquipmentsHandler($repository, $facilityNaming, $authorization, $this->createStub(\Shared\Application\Port\Outbound\EventDispatcherPort::class));
   }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Assistant\Application\Contract\Thread;
 
-use Assistant\Domain\Model\Thread\AssistantThread;
 use DateTimeImmutable;
 
 /**
@@ -49,30 +48,4 @@ final readonly class AssistantThreadView
   }
   // #endregion
 
-  // #region Methods
-  /**
-   * Method fromDomain.
-   *
-   * @static
-   *
-   * @since 1.0.0
-   *
-   * @param AssistantThread $thread the assistant thread aggregate
-   *
-   * @return self the view built from the aggregate
-   */
-  public static function fromDomain(AssistantThread $thread): self
-  {
-    return new self(
-      id: (string) $thread->id(),
-      organizationId: $thread->organizationId(),
-      memberId: $thread->memberId(),
-      title: $thread->title(),
-      model: $thread->model(),
-      createdAt: $thread->createdAt(),
-      updatedAt: $thread->updatedAt(),
-      lastMessageAt: $thread->lastMessageAt(),
-    );
-  }
-  // #endregion
 }

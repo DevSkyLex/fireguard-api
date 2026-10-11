@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Channel\BindChannelTeam;
 
-use Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingChannelParticipantSynchronizer};
 use Messaging\Domain\Event\Channel\MessagingChannelTeamBindingChangedEvent;
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};

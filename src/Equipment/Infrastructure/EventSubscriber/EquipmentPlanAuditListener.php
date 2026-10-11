@@ -98,11 +98,11 @@ final readonly class EquipmentPlanAuditListener
    */
   private function enqueue(EquipmentRecord $record, ?string $previousAttachmentId): void
   {
-    if ('published' !== $record->recordStatus || null === $record->organization) {
+    if ('published' !== $record->recordStatus || '' === $record->organizationId) {
       return;
     }
     $this->events->dispatch(new EquipmentPlanPositionChangedEvent(
-      $record->organization->id,
+      $record->organizationId,
       $record->id,
       $previousAttachmentId,
       $record->planPosition['attachmentId'] ?? null,

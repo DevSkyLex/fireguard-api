@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Plan\ListPlans;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanResult;
 use Organization\Domain\Model\Plan\Plan;
 use Shared\Application\Message\QueryHandler;

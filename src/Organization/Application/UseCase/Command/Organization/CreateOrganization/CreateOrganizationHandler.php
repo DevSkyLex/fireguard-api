@@ -4,24 +4,23 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\CreateOrganization;
 
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use InvalidArgumentException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Contract\Event\Organization\OrganizationCreatedEvent;
+use Organization\Application\Contract\Exception\OrganizationSlugAlreadyExistsException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
-use Organization\Domain\Event\Organization\OrganizationCreatedEvent;
-use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName, OrganizationSlug};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\UserId;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function is_string;
 use function str_contains;
@@ -60,9 +59,9 @@ final readonly class CreateOrganizationHandler implements CommandHandler
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
-   * @param UserRepositoryPort $userRepository the user repository port
+   * @param UserDirectoryPort $userRepository the user repository port
    * @param PlanRepositoryPort $planRepository the plan repository port
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    */
@@ -70,9 +69,9 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
-    private UserRepositoryPort $userRepository,
+    private UserDirectoryPort $userRepository,
     private PlanRepositoryPort $planRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
     private ?OrganizationSetupPort $setup = null,
@@ -98,7 +97,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE);
     }
     // Validate the owner account before creating organization data.
-    $ownerUserId = new UserId($command->ownerUserId);
+    $ownerUserId = $command->ownerUserId;
     $ownerUser = $this->userRepository->findById($ownerUserId);
 
     if (null === $ownerUser) {
@@ -118,13 +117,13 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     }
 
     /** @var OrganizationId $organizationId */
-    $organizationId = $this->uuidFactory->create(OrganizationId::class);
+    $organizationId = new OrganizationId($this->uuidFactory->generate());
     /** @var OrganizationRoleId $ownerRoleId */
-    $ownerRoleId = $this->uuidFactory->create(OrganizationRoleId::class);
+    $ownerRoleId = new OrganizationRoleId($this->uuidFactory->generate());
     /** @var OrganizationRoleId $memberRoleId */
-    $memberRoleId = $this->uuidFactory->create(OrganizationRoleId::class);
+    $memberRoleId = new OrganizationRoleId($this->uuidFactory->generate());
     /** @var OrganizationMemberId $ownerMemberId */
-    $ownerMemberId = $this->uuidFactory->create(OrganizationMemberId::class);
+    $ownerMemberId = new OrganizationMemberId($this->uuidFactory->generate());
 
     $normalizedSlug = $this->normalizeNullableString($command->slug);
 

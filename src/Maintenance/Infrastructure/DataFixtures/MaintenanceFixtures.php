@@ -7,17 +7,16 @@ namespace Maintenance\Infrastructure\DataFixtures;
 use DateInterval;
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
-use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Equipment\Application\Contract\Seed\SeedCatalog as EquipmentFixtures;
 use Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort;
 use Maintenance\Domain\Service\MaintenanceScheduleRecomputePolicy;
 use Maintenance\Domain\ValueObject\MaintenanceDueStatus;
 use Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord;
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
+use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
+use Shared\Application\Contract\Seed\SeedReference;
+use Shared\Application\Contract\Seed\{SeedTimeline, SeedUuid};
+use Shared\Application\Port\Inbound\{SeedReferenceConsumerPort, SeedReferenceRegistryPort};
 
 use function sprintf;
 
@@ -43,8 +42,10 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class MaintenanceFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+final class MaintenanceFixtures extends Fixture implements FixtureGroupInterface, SeedReferenceConsumerPort
 {
+  // #endregion
+
   // #region Constants
   /**
    * Persisted Equipment status used to omit decommissioned assets.
@@ -76,6 +77,12 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
    * @var int
    */
   private const int DUE_SOON_MODULUS = 13;
+
+  // #region Properties
+  /**
+   * Scalar fixture facts supplied by the composition root.
+   */
+  private SeedReferenceRegistryPort $seedReferences;
   // #endregion
 
   // #region Constructor
@@ -87,6 +94,16 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
   public function __construct(
     private readonly MaintenanceCompliancePolicyPort $compliancePolicies,
   ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * {@inheritdoc}
+   */
+  public function setSeedReferences(SeedReferenceRegistryPort $references): void
+  {
+    $this->seedReferences = $references;
   }
   // #endregion
 
@@ -116,10 +133,7 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
    */
   public function getDependencies(): array
   {
-    return [
-      OrganizationFixtures::class,
-      EquipmentFixtures::class,
-    ];
+    return [];
   }
 
   /**
@@ -135,8 +149,8 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
    */
   public function load(ObjectManager $manager): void
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
+    /** @var SeedReference $organization */
+    $organization = $this->seedReferences->get(OrganizationFixtures::ORGANIZATION_REFERENCE);
 
     $policy = new MaintenanceScheduleRecomputePolicy();
     $compliancePolicy = $this->compliancePolicies->compliancePolicy($organization->id);
@@ -145,8 +159,8 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
 
     $index = 0;
     foreach ($this->equipmentReferences() as $reference) {
-      /** @var EquipmentRecord $equipment */
-      $equipment = $this->getReference($reference, EquipmentRecord::class);
+      /** @var SeedReference $equipment */
+      $equipment = $this->seedReferences->get($reference);
 
       // The sweep drops schedules for decommissioned assets; seeding one
       // would immediately be cleaned up and would inflate the tracked count.
@@ -167,7 +181,7 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
 
       $schedule = new MaintenanceScheduleRecord();
       $schedule->id = SeedUuid::from(sprintf('maintenance-schedule:%s', $reference));
-      $schedule->organization = $organization;
+      $schedule->organizationId = $organization->id;
       $schedule->equipmentId = $equipment->id;
       $schedule->facilityId = $equipment->facilityId;
       $schedule->equipmentType = $equipment->type;

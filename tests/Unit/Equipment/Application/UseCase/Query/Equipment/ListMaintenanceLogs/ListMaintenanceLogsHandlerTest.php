@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort};
 use Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs\{ListMaintenanceLogsHandler, ListMaintenanceLogsQuery, ListMaintenanceLogsResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;

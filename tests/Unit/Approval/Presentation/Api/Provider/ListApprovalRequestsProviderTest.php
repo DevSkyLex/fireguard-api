@@ -15,7 +15,7 @@ use Approval\Presentation\Api\Provider\ListApprovalRequestsProvider;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -101,8 +101,8 @@ final class ListApprovalRequestsProviderTest extends TestCase
         && null === $query->actionType))
       ->willReturn(new ListApprovalRequestsResult(items: [$this->view()], page: 1, itemsPerPage: 30, total: 1));
 
-    $output = $this->createProvider($queryBus, [])
-      ->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus, [])
+      ->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
 
     self::assertInstanceOf(TraversablePaginator::class, $output);
     self::assertSame(1.0, $output->getTotalItems());
@@ -128,8 +128,8 @@ final class ListApprovalRequestsProviderTest extends TestCase
         && 'nc_waiver' === $query->actionType))
       ->willReturn(new ListApprovalRequestsResult(items: [], page: 1, itemsPerPage: 30, total: 0));
 
-    $this->createProvider($queryBus, ['status' => 'pending', 'actionType' => 'nc_waiver'])
-      ->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus, ['status' => 'pending', 'actionType' => 'nc_waiver'])
+      ->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -143,8 +143,8 @@ final class ListApprovalRequestsProviderTest extends TestCase
         && null === $query->actionType))
       ->willReturn(new ListApprovalRequestsResult(items: [], page: 1, itemsPerPage: 30, total: 0));
 
-    $this->createProvider($queryBus, ['status' => '', 'actionType' => ''])
-      ->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus, ['status' => '', 'actionType' => ''])
+      ->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   /**
@@ -162,8 +162,8 @@ final class ListApprovalRequestsProviderTest extends TestCase
         && $expectedItemsPerPage === $listQuery->itemsPerPage))
       ->willReturn(new ListApprovalRequestsResult(items: [], page: $expectedPage, itemsPerPage: $expectedItemsPerPage, total: 0));
 
-    $this->createProvider($queryBus, $query)
-      ->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus, $query)
+      ->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -185,7 +185,7 @@ final class ListApprovalRequestsProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   /**
@@ -200,7 +200,7 @@ final class ListApprovalRequestsProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $this->createProvider($queryBus, [])->provide(new GetCollection(), $uriVariables);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus, [])->provide(new GetCollection(), $uriVariables));
   }
 
   /**
@@ -215,7 +215,7 @@ final class ListApprovalRequestsProviderTest extends TestCase
 
     $this->expectException($expected);
 
-    $this->createProvider($queryBus, [])->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus, [])->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -227,7 +227,7 @@ final class ListApprovalRequestsProviderTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('database is down');
 
-    $this->createProvider($queryBus, [])->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus, [])->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   /**

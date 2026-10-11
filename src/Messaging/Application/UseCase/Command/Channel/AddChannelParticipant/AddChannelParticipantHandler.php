@@ -6,7 +6,8 @@ namespace Messaging\Application\UseCase\Command\Channel\AddChannelParticipant;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Channel\ParticipantView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Event\Channel\MessagingChannelParticipantAddedEvent;
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};

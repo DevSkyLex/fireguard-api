@@ -9,8 +9,8 @@ use Doctrine\Persistence\ObjectManager;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\ValueObject\{OrganizationInvitationStatus, OrganizationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord, TeamMemberRecord, TeamRecord};
-use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
-use User\Infrastructure\DataFixtures\UserFixtures;
+use Shared\Application\Contract\Seed\{SeedTimeline, SeedUuid};
+use User\Application\Contract\Seed\SeedCatalog as UserFixtures;
 
 use function explode;
 use function hash;

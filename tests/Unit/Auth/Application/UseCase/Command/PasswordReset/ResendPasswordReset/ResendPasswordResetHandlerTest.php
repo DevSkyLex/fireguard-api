@@ -12,8 +12,8 @@ use Auth\Application\UseCase\Command\PasswordReset\ResendPasswordReset\{
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpPurpose as ContractOtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Application\Service\ChallengeResendPolicy;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
+use Otp\Application\Service\{ChallengeAccessService, ChallengeResendPolicy};
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -62,7 +62,7 @@ final class ResendPasswordResetHandlerTest extends TestCase
       ));
 
     $handler = new ResendPasswordResetHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -89,7 +89,7 @@ final class ResendPasswordResetHandlerTest extends TestCase
     $otpChallenge->expects(self::never())->method('generate');
 
     $handler = new ResendPasswordResetHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -113,7 +113,7 @@ final class ResendPasswordResetHandlerTest extends TestCase
     $otpChallenge->expects(self::never())->method('generate');
 
     $handler = new ResendPasswordResetHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -137,7 +137,7 @@ final class ResendPasswordResetHandlerTest extends TestCase
     $otpChallenge->expects(self::never())->method('generate');
 
     $handler = new ResendPasswordResetHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -161,7 +161,7 @@ final class ResendPasswordResetHandlerTest extends TestCase
     $otpChallenge->expects(self::never())->method('generate');
 
     $handler = new ResendPasswordResetHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\CanonicalEquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\CanonicalEquipmentRepositoryPort;
 use Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\{GetCanonicalEquipmentHandler, GetCanonicalEquipmentQuery};
 use Equipment\Domain\Model\Equipment\{CanonicalEquipment, RestoredCanonicalEquipmentLifecycle, RestoredCanonicalEquipmentMetadata};
 use Equipment\Domain\ValueObject\EquipmentCatalogDetails;

@@ -6,18 +6,16 @@ namespace Tests\Unit\Onboarding\Presentation\Api\Provider\Onboarding;
 
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
+use Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Presentation\Api\Provider\Onboarding\OrganizationOnboardingProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort, UuidGeneratorPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 #[CoversClass(OrganizationOnboardingProvider::class)]
 final class OrganizationOnboardingProviderTest extends TestCase
@@ -93,9 +91,9 @@ final class OrganizationOnboardingProviderTest extends TestCase
 
     $commandBus = $this->createStub(CommandBusPort::class);
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('generateRaw')
+      ->method('generate')
       ->willReturn('550e8400-e29b-41d4-a716-446655441699');
 
     $transactions = $this->createStub(TransactionManagerPort::class);
@@ -103,11 +101,12 @@ final class OrganizationOnboardingProviderTest extends TestCase
 
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository,
-      queryBus: $queryBus,
-      commandBus: $commandBus,
+      organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($queryBus, $commandBus),
+      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus),
+      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus),
       uuidFactory: $uuidFactory,
       transactionManager: $transactions,
-      eventDispatcher: $this->createStub(EventDispatcherInterface::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
   }
 
@@ -115,11 +114,12 @@ final class OrganizationOnboardingProviderTest extends TestCase
   {
     return new OrganizationOnboardingFlowService(
       sessionRepository: $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $this->createStub(QueryBusPort::class),
-      commandBus: $this->createStub(CommandBusPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($this->createStub(QueryBusPort::class), $this->createStub(CommandBusPort::class)),
+      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($this->createStub(QueryBusPort::class)),
+      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($this->createStub(QueryBusPort::class)),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $this->createStub(TransactionManagerPort::class),
-      eventDispatcher: $this->createStub(EventDispatcherInterface::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
   }
 }

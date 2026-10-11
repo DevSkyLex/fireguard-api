@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Approval\Domain\Exception;
 
-use Approval\Domain\Exception\DeferredActionNoLongerApplicableException;
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

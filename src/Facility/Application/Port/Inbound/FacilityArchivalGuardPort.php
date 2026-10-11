@@ -30,8 +30,6 @@ interface FacilityArchivalGuardPort
    *
    * @param string $organizationId the organization identifier
    * @param string $facilityId the facility identifier
-   *
-   * @throws \Facility\Domain\Exception\FacilityHasActiveDependentsException when an active dependent exists
    */
   public function assertNoActiveDependents(string $organizationId, string $facilityId): void;
   // #endregion

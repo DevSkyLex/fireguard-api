@@ -575,7 +575,7 @@ final class CanonicalInspectionApiTest extends WebTestCase
   ): InspectionRecord {
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->recordStatus = $recordStatus;
     $inspection->revision = 1;
     $inspection->equipmentId = '880e8400-e29b-41d4-a716-446655492060';

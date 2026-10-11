@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
+use Audit\Application\Contract\Event\AuditEventsExportedEvent;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Domain\Event\AuditEventsExportedEvent;
 use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ExportAuditEventSubscriber, GovernanceAuditEventSubscriber, InterventionAuditEventSubscriber, OperationsAuditEventSubscriber, OrganizationAccessAuditEventSubscriber, OrganizationLifecycleAuditEventSubscriber, ResourceAuditEventSubscriber, SecurityAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
-use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
+use Auth\Application\Contract\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
+use Calendar\Application\Contract\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
 use DateTimeImmutable;
-use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
-use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
-use Organization\Domain\Event\Join\OrganizationJoinChangedEvent;
-use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
-use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
-use Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
-use Organization\Domain\Event\Team\{TeamCreatedEvent, TeamMemberAddedEvent};
-use Otp\Domain\Event\Totp\{TotpEnrollmentConfirmedEvent, TotpEnrollmentDisabledEvent};
+use Intervention\Application\Contract\Event\Workflow\InterventionStatusTransitionedEvent;
+use Organization\Application\Contract\Event\Invitation\OrganizationInvitationSentEvent;
+use Organization\Application\Contract\Event\Join\OrganizationJoinChangedEvent;
+use Organization\Application\Contract\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Contract\Event\Role\OrganizationRoleCreatedEvent;
+use Organization\Application\Contract\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
+use Organization\Application\Contract\Event\Team\{TeamCreatedEvent, TeamMemberAddedEvent};
+use Otp\Application\Contract\Event\Totp\{TotpEnrollmentConfirmedEvent, TotpEnrollmentDisabledEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -28,7 +28,7 @@ use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Webhook\Domain\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
+use Webhook\Application\Contract\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
 
 use function hash_hmac;
 use function ksort;
@@ -69,7 +69,7 @@ final class AuditEventSubscriberTest extends TestCase
       'user.user_email_change_requested_event' => 'onUserEmailChangeRequested',
       'user.user_email_change_confirmed_event' => 'onUserEmailChangeConfirmed',
       'user.user_email_change_cancelled_event' => 'onUserEmailChangeCancelled',
-      OrganizationJoinChangedEvent::class => 'onOrganizationJoinChanged',
+      'organization.organization_join_changed_event' => 'onOrganizationJoinChanged',
       'organization.organization_created_event' => 'onOrganizationCreated',
       'organization.organization_archived_event' => 'onOrganizationArchived',
       'organization.organization_restored_event' => 'onOrganizationRestored',

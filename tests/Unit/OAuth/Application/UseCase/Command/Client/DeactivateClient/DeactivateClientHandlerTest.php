@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Application\UseCase\Command\Client\DeactivateClient;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Application\UseCase\Command\Client\DeactivateClient\{
   DeactivateClientCommand,
   DeactivateClientHandler

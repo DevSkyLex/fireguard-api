@@ -6,15 +6,16 @@ namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\RecordInter
 
 use DateTimeImmutable;
 use Equipment\Application\Contract\Intervention\{InterventionServiceReport, ServicedEquipmentEntry};
-use Equipment\Application\Port\Outbound\{InterventionServiceReportPort, MaintenanceLogRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\MaintenanceLogRepositoryPort;
+use Equipment\Application\Port\Outbound\InterventionServiceReportPort;
 use Equipment\Application\UseCase\Command\Equipment\RecordInterventionServiceHistory\{RecordInterventionServiceHistoryCommand, RecordInterventionServiceHistoryHandler};
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
-use Equipment\Domain\ValueObject\{MaintenanceLogId, MaintenanceLogSource};
+use Equipment\Domain\ValueObject\MaintenanceLogSource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\VoidResult;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function hash;
 
@@ -161,11 +162,9 @@ final class RecordInterventionServiceHistoryHandlerTest extends TestCase
     InterventionServiceReportPort $serviceReport,
     MaintenanceLogRepositoryPort $maintenanceLogRepository,
   ): RecordInterventionServiceHistoryHandler {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->method('create')
-      ->with(MaintenanceLogId::class)
-      ->willReturnCallback(static fn (): MaintenanceLogId => MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655482099'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655482099');
 
     return new RecordInterventionServiceHistoryHandler($serviceReport, $maintenanceLogRepository, $uuidFactory);
   }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Import\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Import\Application\Port\Outbound\ImportJobRepositoryPort;
+use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError};
 use Import\Infrastructure\Persistence\Doctrine\Mapper\ImportJobMapper;

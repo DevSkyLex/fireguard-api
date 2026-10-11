@@ -9,7 +9,6 @@ use Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 use function max;
@@ -93,8 +92,8 @@ final readonly class InterventionCalendarFeedAdapter implements InterventionCale
    */
   public function findBetween(string $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     // DQL's `ORDER BY` grammar does not accept a bare `COALESCE(...)` call
     // (only path expressions, arithmetic expressions, and result variables
@@ -107,7 +106,7 @@ final readonly class InterventionCalendarFeedAdapter implements InterventionCale
       ->select('intervention')
       ->addSelect('COALESCE(intervention.plannedStartAt, intervention.dueAt) AS HIDDEN occurrenceInstant')
       ->from(InterventionRecord::class, 'intervention')
-      ->where('intervention.organization = :organization')
+      ->where('intervention.organizationId = :organization')
       ->andWhere(
         '(intervention.plannedStartAt IS NOT NULL AND intervention.plannedStartAt BETWEEN :from AND :to)'
         . ' OR (intervention.dueAt IS NOT NULL AND intervention.dueAt BETWEEN :from AND :to)',

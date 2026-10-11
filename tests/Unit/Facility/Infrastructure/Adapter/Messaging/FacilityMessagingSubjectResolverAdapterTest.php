@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -92,7 +92,7 @@ final class FacilityMessagingSubjectResolverAdapterTest extends TestCase
 
     $record = new FacilityRecord();
     $record->id = self::FACILITY_ID;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->recordStatus = $recordStatus;
     $record->type = 'site';
     $record->name = $name;

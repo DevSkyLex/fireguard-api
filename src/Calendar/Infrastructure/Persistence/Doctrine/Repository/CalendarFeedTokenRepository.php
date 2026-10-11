@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Calendar\Infrastructure\Persistence\Doctrine\Repository;
 
-use Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\FeedToken\CalendarFeedTokenRepositoryPort;
 use Calendar\Domain\Model\FeedToken\CalendarFeedToken;
 use Calendar\Infrastructure\Persistence\Doctrine\Mapper\CalendarFeedTokenMapper;
 use Calendar\Infrastructure\Persistence\Doctrine\Record\CalendarFeedTokenRecord;

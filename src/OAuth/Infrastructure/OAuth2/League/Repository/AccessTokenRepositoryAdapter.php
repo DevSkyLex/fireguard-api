@@ -11,7 +11,7 @@ use League\OAuth2\Server\Entities\{
   ScopeEntityInterface
 };
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AccessTokenRepositoryPort;
 use OAuth\Domain\Model\Token\AccessToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;

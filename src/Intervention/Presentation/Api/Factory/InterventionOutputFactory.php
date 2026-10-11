@@ -4,14 +4,9 @@ declare(strict_types=1);
 
 namespace Intervention\Presentation\Api\Factory;
 
-use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowView};
-use Intervention\Application\Service\{InterventionActionPolicy, InterventionAllowedActions};
-use Intervention\Domain\Service\InterventionTransitionPolicy;
-use Intervention\Domain\ValueObject\InterventionStatus;
+use Intervention\Application\Contract\Workflow\{InterventionAllowedActions, InterventionWorkflowView};
 use Intervention\Presentation\Api\Dto\Output\{InterventionAllowedActionsOutput, InterventionOutput};
 use Intervention\Presentation\Api\Mapper\InterventionWorkflowViewDataTrait;
-use LogicException;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 
 use function array_map;
 use function is_array;
@@ -24,29 +19,9 @@ use function is_array;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class InterventionOutputFactory
+final readonly class InterventionOutputFactory
 {
   use InterventionWorkflowViewDataTrait;
-
-  /**
-   * Constructor.
-   *
-   * Initializes a new instance of the InterventionOutputFactory class.
-   *
-   * @since 1.0.0
-   *
-   * @param InterventionTransitionPolicy $transitionPolicy the transition policy value
-   * @param ?InterventionActionPolicy $actionPolicy the shared action policy, required by
-   *                                                {@see self::fromViewForCaller()} only —
-   *                                                optional so a caller-agnostic write-path
-   *                                                response (only ever built via
-   *                                                {@see self::fromView()}) does not need one
-   */
-  public function __construct(
-    private readonly InterventionTransitionPolicy $transitionPolicy,
-    private readonly ?InterventionActionPolicy $actionPolicy = null,
-  ) {
-  }
 
   /**
    * Method fromView.
@@ -83,7 +58,7 @@ final class InterventionOutputFactory
     $output->revision = $this->integer($data, 'revision');
     // Absent from the list view's data by design — see InterventionOutput.
     $output->recurrence = $this->nullableString($data, 'recurrence');
-    $output->allowedTransitions = $this->allowedTransitionsFor($output->status);
+    $output->allowedTransitions = $this->stringList($data + ['allowedTransitions' => []], 'allowedTransitions');
     $output->facilitiesCount = $this->integer($data, 'facilitiesCount');
     $output->equipmentCount = $this->integer($data, 'equipmentCount');
     $output->inspectionsCount = $this->integer($data, 'inspectionsCount');
@@ -123,19 +98,11 @@ final class InterventionOutputFactory
    */
   public function fromViewForCaller(InterventionWorkflowView $view, string $userId): InterventionOutput
   {
-    if (!$this->actionPolicy instanceof InterventionActionPolicy) {
-      throw new LogicException('InterventionOutputFactory was not wired with an InterventionActionPolicy.');
-    }
-
     $output = $this->fromView($view);
-    $context = new InterventionWorkflowContext(
-      interventionId: $output->id,
-      organizationId: $view->organizationId,
-      status: $output->status,
-      responsibleId: null === $output->responsible ? null : ResourceIriParser::memberId($output->responsible),
-      participants: array_map(ResourceIriParser::memberId(...), $output->participants),
-    );
-    $output->allowedActions = $this->mapAllowedActions($this->actionPolicy->allowedActions($context, $userId));
+    $actions = $view->data['allowedActions'] ?? null;
+    if ($actions instanceof InterventionAllowedActions) {
+      $output->allowedActions = $this->mapAllowedActions($actions);
+    }
 
     return $output;
   }
@@ -169,32 +136,6 @@ final class InterventionOutputFactory
     $output->canPublish = $actions->canPublish;
 
     return $output;
-  }
-
-  /**
-   * Method allowedTransitionsFor.
-   *
-   * Resolves the workflow-legal next statuses for a raw status string, as the
-   * lower-cased backend enum values the client already speaks. Unknown statuses
-   * yield an empty list rather than throwing, keeping the read path resilient.
-   *
-   * @since 1.0.0
-   *
-   * @param string $status the current status value
-   *
-   * @return list<string> the allowed next status values
-   */
-  private function allowedTransitionsFor(string $status): array
-  {
-    $current = InterventionStatus::tryFrom($status);
-    if (!$current instanceof InterventionStatus) {
-      return [];
-    }
-
-    return array_map(
-      static fn (InterventionStatus $next): string => $next->value,
-      $this->transitionPolicy->allowedFrom($current),
-    );
   }
 
   /**

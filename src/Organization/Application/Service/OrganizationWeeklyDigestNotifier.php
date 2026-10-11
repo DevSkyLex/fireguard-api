@@ -9,12 +9,10 @@ use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Contract\Inspection\OpenNonConformitySummary;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Contract\Maintenance\MaintenanceDueSummary;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\LoggerPort;
-use Symfony\Contracts\Translation\TranslatorInterface;
+use Shared\Application\Port\Outbound\{LoggerPort, TranslationPort};
 use Throwable;
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_map;
 use function htmlspecialchars;
@@ -55,16 +53,16 @@ final readonly class OrganizationWeeklyDigestNotifier
    *
    * @param NotificationPort $notifications the notification inbound port
    * @param OrganizationWeeklyDigestRecipientResolver $recipients the digest recipient resolver
-   * @param QueryBusPort $queryBus the shared query bus, for recipient email/locale resolution
-   * @param TranslatorInterface $translator the translator, for the localized subject and body
+   * @param UserDirectoryPort $queryBus the shared query bus, for recipient email/locale resolution
+   * @param TranslationPort $translator the translator, for the localized subject and body
    * @param LoggerPort $logger the logger port
    * @param string $frontendUrl the public frontend base URL for the dashboard deep link
    */
   public function __construct(
     private NotificationPort $notifications,
     private OrganizationWeeklyDigestRecipientResolver $recipients,
-    private QueryBusPort $queryBus,
-    private TranslatorInterface $translator,
+    private UserDirectoryPort $queryBus,
+    private TranslationPort $translator,
     private LoggerPort $logger,
     private string $frontendUrl,
   ) {
@@ -90,9 +88,18 @@ final readonly class OrganizationWeeklyDigestNotifier
   {
     $sent = 0;
 
-    foreach ($this->recipients->organizationAdministrators($organizationId) as $userId) {
+    $recipientIds = $this->recipients->organizationAdministrators($organizationId);
+
+    try {
+      $users = $this->queryBus->findByIds($recipientIds);
+    } catch (Throwable $failure) {
+      $this->logger->warning('Weekly digest recipient resolution failed.', ['organizationId' => $organizationId, 'error' => $failure->getMessage()]);
+
+      return 0;
+    }
+    foreach ($recipientIds as $userId) {
       try {
-        $user = $this->resolveUser($userId);
+        $user = $users[$userId] ?? null;
         if (!$user instanceof UserView) {
           continue;
         }
@@ -136,14 +143,14 @@ final readonly class OrganizationWeeklyDigestNotifier
       default => 'M j, Y',
     };
 
-    $subject = $this->translator->trans('digest.emailSubject', ['%org%' => $organizationName], 'emails', $locale);
+    $subject = $this->translator->translate('digest.emailSubject', ['%org%' => $organizationName], 'emails', $locale);
 
     $this->notifications->send(new SendNotificationRequest(
       type: NotificationType::ORGANIZATION_WEEKLY_DIGEST,
       subject: $subject,
       body: sprintf(
         '<p>%s</p>',
-        $this->translator->trans(
+        $this->translator->translate(
           'digest.intro',
           ['%org%' => htmlspecialchars($organizationName)],
           'emails',
@@ -204,24 +211,5 @@ final readonly class OrganizationWeeklyDigestNotifier
     ));
   }
 
-  /**
-   * Method resolveUser.
-   *
-   * Resolves the recipient's email and locale through the User module's
-   * query bus — mirrors `OnboardingNotificationSubscriber`.
-   *
-   * @since 1.0.0
-   *
-   * @param string $userId the user identifier
-   *
-   * @return ?UserView the user view, or null when resolution fails
-   */
-  private function resolveUser(string $userId): ?UserView
-  {
-    /** @var GetUserResult $result */
-    $result = $this->queryBus->ask(new GetUserQuery(id: $userId));
-
-    return $result->user instanceof UserView ? $result->user : null;
-  }
   // #endregion
 }

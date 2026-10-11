@@ -7,7 +7,7 @@ namespace Tests\Unit\TrustedDevice\Application\UseCase\Command\TrustedDevice\Rev
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeAllDevices\{RevokeAllDevicesCommand, RevokeAllDevicesHandler, RevokeAllDevicesResult};
 
 /**

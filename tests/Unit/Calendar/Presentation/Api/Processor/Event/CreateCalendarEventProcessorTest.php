@@ -73,7 +73,7 @@ final class CreateCalendarEventProcessorTest extends TestCase
 
     $processor = new CreateCalendarEventProcessor($commandBus, $security, new CalendarEventOutputFactory());
 
-    $output = $processor->process($input, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process($input, new Post(), ['organizationId' => self::ORGANIZATION_ID]));
 
     self::assertInstanceOf(CreateCalendarEventCommand::class, $captured);
     self::assertSame(self::USER_ID, $captured->actorUserId);
@@ -100,7 +100,7 @@ final class CreateCalendarEventProcessorTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $processor->process(new CreateCalendarEventInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(new CreateCalendarEventInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -119,7 +119,7 @@ final class CreateCalendarEventProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(new CreateCalendarEventInput(), new Post(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(new CreateCalendarEventInput(), new Post(), []));
   }
 
   #[Test]
@@ -144,6 +144,6 @@ final class CreateCalendarEventProcessorTest extends TestCase
 
     $this->expectException(UnprocessableEntityHttpException::class);
 
-    $processor->process($input, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process($input, new Post(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Approval\Application\Contract\Event\ApprovalWithdrawnEvent;
-use Approval\Domain\Event\Request\{
+use Approval\Application\Contract\Event\Request\{
   ApprovalApprovedEvent,
   ApprovalExecutionFailedEvent,
   ApprovalExpiredEvent,
@@ -15,9 +15,9 @@ use Approval\Domain\Event\Request\{
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ExportAuditEventSubscriber, GovernanceAuditEventSubscriber, OperationsAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
-use Compliance\Domain\Event\SafetyRegisterExportedEvent;
+use Compliance\Application\Contract\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
-use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
+use Import\Application\Contract\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -240,6 +240,7 @@ final class GovernanceAuditWiringTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     foreach ($events as $event) {

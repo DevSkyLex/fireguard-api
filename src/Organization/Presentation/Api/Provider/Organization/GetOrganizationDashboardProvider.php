@@ -6,30 +6,26 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use DateTimeZone;
-use Equipment\Domain\ValueObject\{EquipmentStatus, EquipmentType};
+use Equipment\Application\Contract\Dashboard\Filter\{EquipmentStatusFilter, EquipmentTypeFilter};
 use Exception;
-use Facility\Domain\ValueObject\FacilityType;
-use Inspection\Domain\ValueObject\{InspectionResult, InspectionStatus, InspectorType, NonConformitySeverity, NonConformityStatus};
+use Facility\Application\Contract\Dashboard\Filter\FacilityTypeFilter;
+use Inspection\Application\Contract\Dashboard\Filter\{InspectionResultFilter, InspectionStatusFilter, InspectorTypeFilter, NonConformitySeverityFilter, NonConformityStatusFilter};
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Support\DashboardDateTimeParser;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\{GetOrganizationDashboardQuery, GetOrganizationDashboardResult};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationDashboardOutput;
 use Organization\Presentation\Api\Support\{OrganizationDashboardOutputNormalizer, UnwrapsOrganizationBusFailures};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
-use Throwable;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
-use function array_column;
-use function array_keys;
 use function filter_var;
 use function implode;
 use function in_array;
@@ -114,7 +110,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?OrganizationDashboardOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -125,19 +121,19 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
     $this->assertDashboardPermissions($user->getId(), $organizationId);
 
-    $filters = $this->normalizeFilters(\Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context));
+    $filters = $this->normalizeFilters(\Organization\Presentation\Api\Http\OperationParameterReader::filters($operation, $context));
 
     $periodFrom = $this->extractDateFilter($filters, 'from');
     $periodTo = $this->extractDateFilter($filters, 'to');
     $requestedTimeZone = $this->extractTimeZoneFilter($filters);
-    $facilityType = $this->extractOptionalEnumFilter($filters, 'facilityType', FacilityType::values());
-    $equipmentType = $this->extractOptionalEnumFilter($filters, 'equipmentType', EquipmentType::values());
-    $equipmentStatus = $this->extractOptionalEnumFilter($filters, 'equipmentStatus', array_column(EquipmentStatus::cases(), 'value'));
-    $inspectionStatus = $this->extractOptionalEnumFilter($filters, 'inspectionStatus', InspectionStatus::values());
-    $inspectionResult = $this->extractOptionalEnumFilter($filters, 'inspectionResult', InspectionResult::values());
-    $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorType::values());
-    $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatus::values());
-    $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverity::values());
+    $facilityType = $this->extractOptionalEnumFilter($filters, 'facilityType', FacilityTypeFilter::values());
+    $equipmentType = $this->extractOptionalEnumFilter($filters, 'equipmentType', EquipmentTypeFilter::values());
+    $equipmentStatus = $this->extractOptionalEnumFilter($filters, 'equipmentStatus', EquipmentStatusFilter::values());
+    $inspectionStatus = $this->extractOptionalEnumFilter($filters, 'inspectionStatus', InspectionStatusFilter::values());
+    $inspectionResult = $this->extractOptionalEnumFilter($filters, 'inspectionResult', InspectionResultFilter::values());
+    $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorTypeFilter::values());
+    $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatusFilter::values());
+    $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverityFilter::values());
     $overviewPrimaryMetricKeys = OrganizationDashboardOutputNormalizer::resolveOverviewPrimaryMetricKeys(
       equipmentStatus: $equipmentStatus,
       inspectionStatus: $inspectionStatus,
@@ -397,6 +393,8 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    *   siteName: ?string,
    *   responsibleId: ?string,
    *   responsibleUserId: ?string,
+   *   responsibleName?: ?string,
+   *   responsibleAvatarUrl?: ?string,
    *   dueAt: ?string,
    *   updatedAt: string,
    * }> $recentInterventions
@@ -422,23 +420,8 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
       return [];
     }
 
-    $userIds = [];
-    foreach ($recentInterventions as $row) {
-      if (null !== $row['responsibleUserId']) {
-        $userIds[$row['responsibleUserId']] = true;
-      }
-    }
-
-    $usersById = [];
-    foreach (array_keys($userIds) as $userId) {
-      $usersById[$userId] = $this->findUser($userId);
-    }
-
     $normalized = [];
     foreach ($recentInterventions as $row) {
-      $userResult = null !== $row['responsibleUserId'] ? ($usersById[$row['responsibleUserId']] ?? null) : null;
-      [$responsibleName, $responsibleAvatarUrl] = $this->responsibleProfile($userResult, $row['responsibleId']);
-
       $normalized[] = [
         'id' => $row['id'],
         'number' => $row['number'],
@@ -448,48 +431,14 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
         'siteId' => $row['siteId'],
         'siteName' => $row['siteName'],
         'responsibleId' => $row['responsibleId'],
-        'responsibleName' => $responsibleName,
-        'responsibleAvatarUrl' => $responsibleAvatarUrl,
+        'responsibleName' => $row['responsibleName'] ?? $row['responsibleId'],
+        'responsibleAvatarUrl' => $row['responsibleAvatarUrl'] ?? null,
         'dueAt' => $row['dueAt'],
         'updatedAt' => $row['updatedAt'],
       ];
     }
 
     return $normalized;
-  }
-
-  /**
-   * @return array{?string, ?string}
-   */
-  private function responsibleProfile(?GetUserResult $userResult, ?string $responsibleId): array
-  {
-    if ($userResult instanceof GetUserResult && null !== $userResult->user) {
-      $name = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
-        ?: $userResult->user->username
-        ?: $responsibleId;
-
-      return [$name, $userResult->user->avatarUrl];
-    }
-
-    return [$responsibleId, null];
-  }
-
-  /**
-   * Resolves a user profile without making the dashboard fail when the
-   * user record is unavailable.
-   */
-  private function findUser(string $userId): ?GetUserResult
-  {
-    try {
-      /**
-       * @var GetUserResult $result
-       */
-      $result = $this->queryBus->ask(new GetUserQuery($userId));
-    } catch (Throwable) {
-      return null;
-    }
-
-    return $result;
   }
 
   /**

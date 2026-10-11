@@ -6,6 +6,8 @@ namespace Tests\Functional\Console;
 
 use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
 use Calendar\Infrastructure\DataFixtures\CalendarFixtures;
+use Doctrine\Common\DataFixtures\FixtureInterface;
+use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
@@ -17,16 +19,14 @@ use Onboarding\Infrastructure\DataFixtures\OnboardingFixtures;
 use Organization\Infrastructure\DataFixtures\{OrganizationFixtures, PlanFixtures};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use ReflectionClass;
+use Shared\Application\Port\Inbound\SeedStepPort;
 use Shared\Infrastructure\Console\{AppendSeedFixturesCommand, LoadSeedFixturesCommand};
+use Shared\Infrastructure\DataFixtures\SeedFixtureAdapter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use User\Infrastructure\DataFixtures\UserFixtures;
 use Workload\Infrastructure\DataFixtures\WorkloadFixtures;
 
-use function array_map;
-use function get_debug_type;
 use function is_iterable;
-use function is_object;
-use function sort;
 
 #[CoversClass(LoadSeedFixturesCommand::class)]
 final class LoadSeedFixturesCommandTest extends KernelTestCase
@@ -69,36 +69,55 @@ final class LoadSeedFixturesCommandTest extends KernelTestCase
       self::fail('Main fixtures property should be iterable.');
     }
 
-    $authFixtures = [...$authFixturesValue];
-    $mainFixtures = [...$mainFixturesValue];
+    $authManager = self::getContainer()->get('doctrine.orm.auth_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $authManager);
+    $mainManager = self::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $mainManager);
 
-    $authFixtureTypes = array_map(static fn (mixed $fixture): string => is_object($fixture) ? $fixture::class : get_debug_type($fixture), $authFixtures);
-    $mainFixtureTypes = array_map(static fn (mixed $fixture): string => is_object($fixture) ? $fixture::class : get_debug_type($fixture), $mainFixtures);
-    sort($authFixtureTypes);
-    sort($mainFixtureTypes);
+    $this->assertSeedCapabilities($authFixturesValue, $authManager, [
+      'authorization' => [AuthorizationFixtures::class, []],
+      'user' => [UserFixtures::class, ['authorization']],
+      'oauth' => [ClientFixtures::class, []],
+    ]);
+    $this->assertSeedCapabilities($mainFixturesValue, $mainManager, [
+      'plans' => [PlanFixtures::class, []],
+      'organization' => [OrganizationFixtures::class, ['plans']],
+      'onboarding' => [OnboardingFixtures::class, ['organization']],
+      'facility' => [FacilityFixtures::class, ['organization']],
+      'equipment' => [EquipmentFixtures::class, ['organization', 'facility']],
+      'inspection' => [InspectionFixtures::class, ['organization', 'facility', 'equipment']],
+      'maintenance' => [MaintenanceFixtures::class, ['organization', 'equipment']],
+      'intervention' => [InterventionFixtures::class, ['organization', 'facility', 'equipment']],
+      'calendar' => [CalendarFixtures::class, ['organization', 'facility']],
+      'messaging' => [MessagingFixtures::class, ['organization']],
+    ]);
+  }
 
-    self::assertSame([
-      AuthorizationFixtures::class,
-      ClientFixtures::class,
-      UserFixtures::class,
-    ], $authFixtureTypes, 'Auth seed fixtures should come from the auth tag set.');
-
-    self::assertSame([
-      CalendarFixtures::class,
-      EquipmentFixtures::class,
-      FacilityFixtures::class,
-      InspectionFixtures::class,
-      InterventionFixtures::class,
-      MaintenanceFixtures::class,
-      MessagingFixtures::class,
-      OnboardingFixtures::class,
-      OrganizationFixtures::class,
-      PlanFixtures::class,
-    ], $mainFixtureTypes, 'Main seed fixtures should come from the main tag set.');
-
-    foreach ([...$authFixtures, ...$mainFixtures] as $fixture) {
-      self::assertIsObject($fixture);
-      self::assertStringContainsString('Fixtures', get_debug_type($fixture));
+  /**
+   * Verifies capability identities, owner delegates, database selection and dependency order.
+   *
+   * @param iterable<mixed> $fixtures tagged capabilities injected by the container
+   * @param EntityManagerInterface $manager explicitly owning database
+   * @param array<string, array{class-string<FixtureInterface>, list<string>}> $expected ordered capability identities, local owners and prerequisites
+   */
+  private function assertSeedCapabilities(iterable $fixtures, EntityManagerInterface $manager, array $expected): void
+  {
+    $actual = [];
+    $reflection = new ReflectionClass(SeedFixtureAdapter::class);
+    foreach ($fixtures as $fixture) {
+      self::assertInstanceOf(SeedStepPort::class, $fixture);
+      self::assertInstanceOf(SeedFixtureAdapter::class, $fixture);
+      $key = $fixture->key();
+      self::assertArrayNotHasKey($key, $actual, 'Each capability must appear exactly once in its owning group.');
+      $owner = $reflection->getProperty('fixture')->getValue($fixture);
+      self::assertInstanceOf(FixtureInterface::class, $owner);
+      self::assertSame($manager, $reflection->getProperty('manager')->getValue($fixture), 'Seed capabilities must retain their explicitly selected owning database.');
+      foreach ($fixture->dependencies() as $prerequisite) {
+        self::assertArrayHasKey($prerequisite, $actual, 'The configured group must register prerequisites before their consumers.');
+      }
+      $actual[$key] = [$owner::class, $fixture->dependencies()];
     }
+
+    self::assertSame($expected, $actual, 'Each tagged group must preserve all owner capabilities, their registration order and prerequisites.');
   }
 }

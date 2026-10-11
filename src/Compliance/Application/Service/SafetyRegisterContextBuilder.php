@@ -9,7 +9,7 @@ use Compliance\Application\UseCase\Query\GetComplianceOverview\GetComplianceOver
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\GetFacilityComplianceResult;
 use DateTimeImmutable;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
-use Shared\Application\Document\DocumentDateFormatter;
+use Shared\Application\Contract\Document\DocumentDateFormatter;
 
 use function array_map;
 use function is_array;

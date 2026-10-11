@@ -160,7 +160,7 @@ final class InterventionInspectionResultAdapterTest extends KernelTestCase
     self::assertInstanceOf(OrganizationRecord::class, $organization);
     $inspection = new InspectionRecord();
     $inspection->id = self::INSPECTION;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organizationId;
     $inspection->interventionId = $interventionId;
     $inspection->equipmentId = self::EQUIPMENT;
     $inspection->inspectorType = 'user';

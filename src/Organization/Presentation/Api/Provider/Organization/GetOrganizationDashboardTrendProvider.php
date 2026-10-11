@@ -6,28 +6,27 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use DateTimeZone;
-use Equipment\Domain\ValueObject\{EquipmentStatus, EquipmentType};
+use Equipment\Application\Contract\Dashboard\Filter\{EquipmentStatusFilter, EquipmentTypeFilter};
 use Exception;
-use Facility\Domain\ValueObject\FacilityType;
-use Inspection\Domain\ValueObject\{InspectionResult, InspectionStatus, InspectorType, NonConformitySeverity, NonConformityStatus};
+use Facility\Application\Contract\Dashboard\Filter\FacilityTypeFilter;
+use Inspection\Application\Contract\Dashboard\Filter\{InspectionResultFilter, InspectionStatusFilter, InspectorTypeFilter, NonConformitySeverityFilter, NonConformityStatusFilter};
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Support\DashboardDateTimeParser;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\{GetOrganizationDashboardTrendHandler, GetOrganizationDashboardTrendQuery, GetOrganizationDashboardTrendResult};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationDashboardTrendOutput;
 use Organization\Presentation\Api\Operation\OrganizationOperations;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
-use function array_column;
 use function explode;
 use function filter_var;
 use function implode;
@@ -132,7 +131,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?OrganizationDashboardTrendOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -144,19 +143,19 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $metric = $this->resolveMetric($operation);
     $this->assertMetricsPermissions($user->getId(), $organizationId, [$metric]);
 
-    $filters = $this->normalizeFilters(\Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context));
+    $filters = $this->normalizeFilters(\Organization\Presentation\Api\Http\OperationParameterReader::filters($operation, $context));
 
     $periodFrom = $this->extractDateFilter($filters, 'from');
     $periodTo = $this->extractDateFilter($filters, 'to');
     $requestedTimeZone = $this->extractTimeZoneFilter($filters);
-    $facilityType = $this->extractOptionalEnumFilter($filters, 'facilityType', FacilityType::values());
-    $equipmentType = $this->extractOptionalEnumFilter($filters, 'equipmentType', EquipmentType::values());
-    $equipmentStatus = $this->extractOptionalEnumFilter($filters, 'equipmentStatus', array_column(EquipmentStatus::cases(), 'value'));
-    $inspectionStatus = $this->extractOptionalEnumFilter($filters, 'inspectionStatus', InspectionStatus::values());
-    $inspectionResult = $this->extractOptionalEnumFilter($filters, 'inspectionResult', InspectionResult::values());
-    $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorType::values());
-    $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatus::values());
-    $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverity::values());
+    $facilityType = $this->extractOptionalEnumFilter($filters, 'facilityType', FacilityTypeFilter::values());
+    $equipmentType = $this->extractOptionalEnumFilter($filters, 'equipmentType', EquipmentTypeFilter::values());
+    $equipmentStatus = $this->extractOptionalEnumFilter($filters, 'equipmentStatus', EquipmentStatusFilter::values());
+    $inspectionStatus = $this->extractOptionalEnumFilter($filters, 'inspectionStatus', InspectionStatusFilter::values());
+    $inspectionResult = $this->extractOptionalEnumFilter($filters, 'inspectionResult', InspectionResultFilter::values());
+    $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorTypeFilter::values());
+    $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatusFilter::values());
+    $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverityFilter::values());
     $additionalMetrics = $this->extractMetricsFilter($filters, $metric);
     if ([] !== $additionalMetrics) {
       $this->assertMetricsPermissions($user->getId(), $organizationId, $additionalMetrics);

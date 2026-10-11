@@ -9,11 +9,11 @@ use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter;
-use Intervention\Domain\Exception\InterventionConflictException;
+use Intervention\Application\Contract\Resource\InterventionConflictException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -43,7 +43,7 @@ final class InterventionResourcePatchValidationTest extends TestCase
         $this->createStub(FacilityArchivalGuardPort::class),
         $this->createStub(FacilityRepositoryPort::class),
         new FacilityMetadataSchemaGuard($this->createStub(FacilityMetadataFieldRepositoryPort::class)),
-        attachments: $this->createStub(\Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort::class),
+        attachments: $this->createStub(\Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort::class),
         planAncestry: new \Facility\Application\Service\FacilityAttachmentAncestryGuard($this->createStub(FacilityRepositoryPort::class)),
       ),
       '/api/facilities/018f0b68-6758-7a12-8a1d-3f0d97f63c12',

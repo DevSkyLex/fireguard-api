@@ -16,9 +16,9 @@ return static function (DeptracConfig $config): void {
   $private = [];
   foreach (glob($projectRoot . '/src/*/MODULE.md') ?: [] as $document) {
     $module = basename(dirname($document));
-    $surface = 'Application\\(?:Port|Contract)\\';
+    $surface = 'Application\\(?:Port\\(?!(?:Inbound|Outbound)\\Internal\\)|Contract\\)';
     if ('Shared' === $module) {
-      $surface = '(?:Application\\(?:Port|Contract|Message)\\|Domain\\)';
+      $surface = '(?:Application\\(?:Port\\(?!(?:Inbound|Outbound)\\Internal\\)|Contract\\|Message\\)|Domain\\)';
     }
     $prefix = '^' . preg_quote($module, '/') . '\\';
     if ('Intervention' === $module) {

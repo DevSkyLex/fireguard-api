@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\SetFacilityPlanGeometry;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityAttachmentAncestryGuard;
 use Facility\Application\UseCase\Command\Facility\SetFacilityPlanGeometry\{
   SetFacilityPlanGeometryCommand,

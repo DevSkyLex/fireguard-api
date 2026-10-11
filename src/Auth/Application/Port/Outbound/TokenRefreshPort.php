@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound;
 
-use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult;
+use Auth\Application\Contract\Token\RefreshedTokens;
 
 /**
  * Interface TokenRefreshPort.
@@ -28,7 +28,7 @@ interface TokenRefreshPort
    * @param string $refreshToken the refresh token
    * @param string|null $ipAddress the client IP address
    *
-   * @return RefreshTokenResult the refresh token result
+   * @return RefreshedTokens the refresh token result
    */
-  public function refresh(string $refreshToken, ?string $ipAddress = null): RefreshTokenResult;
+  public function refresh(string $refreshToken, ?string $ipAddress = null): RefreshedTokens;
 }

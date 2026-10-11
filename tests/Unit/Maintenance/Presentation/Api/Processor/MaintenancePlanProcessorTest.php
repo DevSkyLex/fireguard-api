@@ -76,7 +76,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ManageMaintenancePlanCommand $command): bool => 'create' === $command->action && self::ORGANIZATION === $command->organizationId && self::ACTOR === $command->actorUserId && null === $command->planId && self::EQUIPMENT === $command->equipmentId && 'Monthly control' === $command->name && 'control' === $command->operationKind && 'P1M' === $command->interval && '2026-01-31T08:00:00+02:00' === $command->anchorAt?->format('c') && '2026-02-28T08:00:00+02:00' === $command->nextDueAt?->format('c') && false === $command->active && false === $command->retry))->willReturn(new ManageMaintenancePlanResult(details: $this->details()));
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
 
-    $output = $processor->process($input, new Post(name: MaintenancePlanOperations::CREATE), ['organizationId' => self::ORGANIZATION]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Post(name: MaintenancePlanOperations::CREATE), ['organizationId' => self::ORGANIZATION]));
 
     self::assertInstanceOf(MaintenancePlanOutput::class, $output);
     self::assertSame(self::PLAN, $output->id);
@@ -104,7 +104,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ManageMaintenancePlanCommand $command): bool => 'update' === $command->action && self::PLAN === $command->planId && null === $command->equipmentId && null === $command->operationKind && 'Updated service' === $command->name && 'P2M' === $command->interval && '2026-01-31T08:00:00+00:00' === $command->anchorAt?->format('c') && '2026-03-31T08:00:00+00:00' === $command->nextDueAt?->format('c') && true === $command->active))->willReturn(new ManageMaintenancePlanResult(details: $this->details()));
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
 
-    $output = $processor->process($input, new Patch(name: MaintenancePlanOperations::UPDATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Patch(name: MaintenancePlanOperations::UPDATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
 
     self::assertInstanceOf(MaintenancePlanOutput::class, $output);
     self::assertSame(self::PLAN, $output->id);
@@ -127,7 +127,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ManageMaintenancePlanCommand $command): bool => 'generate' === $command->action && self::ORGANIZATION === $command->organizationId && self::ACTOR === $command->actorUserId && self::PLAN === $command->planId && true === $command->retry && 'Repair attempt' === $command->name && null === $command->equipmentId && null === $command->anchorAt))->willReturn(new ManageMaintenancePlanResult(occurrenceId: 'occurrence-1', interventionId: 'intervention-1', number: 42, workItemsCount: 1, replayed: true));
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
 
-    $output = $processor->process($input, new Post(name: MaintenancePlanOperations::GENERATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Post(name: MaintenancePlanOperations::GENERATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
 
     self::assertInstanceOf(GenerateMaintenancePlanOutput::class, $output);
     self::assertSame('occurrence-1', $output->occurrenceId);
@@ -151,7 +151,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ManageMaintenancePlanCommand $command): bool => 'generate' === $command->action && false === $command->retry && null === $command->name))->willReturn(new ManageMaintenancePlanResult(occurrenceId: 'occurrence-1', interventionId: 'intervention-1', number: 7, workItemsCount: 1));
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
 
-    $output = $processor->process(new GenerateMaintenancePlanInput(), new Post(name: MaintenancePlanOperations::GENERATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new GenerateMaintenancePlanInput(), new Post(name: MaintenancePlanOperations::GENERATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
 
     self::assertInstanceOf(GenerateMaintenancePlanOutput::class, $output);
     self::assertFalse($output->replayed);
@@ -176,7 +176,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ManageMaintenancePlanCommand $command): bool => $action === $command->action && self::ORGANIZATION === $command->organizationId && self::ACTOR === $command->actorUserId && null === $command->planId))->willReturn(new ManageMaintenancePlanResult(mode: $mode, preparedCount: 18));
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
 
-    $output = $processor->process(null, new Post(name: $operation), ['organizationId' => self::ORGANIZATION]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(null, new Post(name: $operation), ['organizationId' => self::ORGANIZATION]));
 
     self::assertInstanceOf(MaintenancePlanEngineOutput::class, $output);
     self::assertSame($mode, $output->mode);
@@ -210,7 +210,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ManageMaintenancePlanCommand $command): bool => 'archive' === $command->action && self::PLAN === $command->planId && self::ORGANIZATION === $command->organizationId && self::ACTOR === $command->actorUserId))->willReturn(new ManageMaintenancePlanResult());
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
 
-    self::assertNull($processor->process(null, new Delete(name: MaintenancePlanOperations::ARCHIVE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
+    self::assertNull(\Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(null, new Delete(name: MaintenancePlanOperations::ARCHIVE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN])));
   }
 
   /**
@@ -238,7 +238,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('immutable');
 
-    $processor->process($input, new Patch(name: MaintenancePlanOperations::UPDATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Patch(name: MaintenancePlanOperations::UPDATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
   }
 
   /**
@@ -279,7 +279,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process($input, new Patch(name: MaintenancePlanOperations::UPDATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Patch(name: MaintenancePlanOperations::UPDATE), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
   }
 
   /**
@@ -319,7 +319,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(new stdClass(), new Post(name: $operation), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new stdClass(), new Post(name: $operation), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
   }
 
   /**
@@ -350,7 +350,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(null, new Post(name: 'unsupported'), ['organizationId' => self::ORGANIZATION]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(null, new Post(name: 'unsupported'), ['organizationId' => self::ORGANIZATION]));
   }
 
   /**
@@ -368,7 +368,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $processor = new MaintenancePlanProcessor($bus, $this->actor(null), new MaintenancePlanOutputFactory());
     $this->expectException(AccessDeniedHttpException::class);
 
-    $processor->process(new ChangeMaintenancePlanInput(), new Post(name: MaintenancePlanOperations::CREATE), ['organizationId' => self::ORGANIZATION]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new ChangeMaintenancePlanInput(), new Post(name: MaintenancePlanOperations::CREATE), ['organizationId' => self::ORGANIZATION]));
   }
 
   /**
@@ -389,7 +389,7 @@ final class MaintenancePlanProcessorTest extends TestCase
     $processor = new MaintenancePlanProcessor($bus, $this->actor(), new MaintenancePlanOutputFactory());
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(new ChangeMaintenancePlanInput(), new Post(name: MaintenancePlanOperations::CREATE), $variables);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new ChangeMaintenancePlanInput(), new Post(name: MaintenancePlanOperations::CREATE), $variables));
   }
 
   /**

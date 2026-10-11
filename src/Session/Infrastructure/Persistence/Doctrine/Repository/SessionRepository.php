@@ -6,7 +6,8 @@ namespace Session\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Inbound\SessionRevocationPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
 use Session\Infrastructure\Persistence\Doctrine\Mapper\SessionMapper;
@@ -25,7 +26,7 @@ use function is_int;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class SessionRepository implements SessionRepositoryPort
+final class SessionRepository implements SessionRepositoryPort, SessionRevocationPort
 {
   // #region Properties
   /**

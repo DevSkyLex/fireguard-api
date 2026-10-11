@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Import\Application\UseCase\Command\ConfirmImportSimulation;
 
 use DateTimeImmutable;
-use Import\Application\Port\Outbound\{ImportConfirmationLockPort, ImportJobQueuePort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\{ImportConfirmationLockPort, ImportJobQueuePort};
+use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
 use Import\Application\UseCase\Command\ConfirmImportSimulation\{ConfirmImportSimulationCommand, ConfirmImportSimulationHandler};
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportConfirmationNotAllowedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;

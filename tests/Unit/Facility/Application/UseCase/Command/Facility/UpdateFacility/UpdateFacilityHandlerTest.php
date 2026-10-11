@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\UpdateFacility;
 
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
-use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\UpdateFacility\{UpdateFacilityCommand, UpdateFacilityHandler, UpdateFacilityResult};
 use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
@@ -18,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Persistence\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
@@ -416,7 +416,6 @@ final class UpdateFacilityHandlerTest extends TestCase
   {
     $repository = $this->repositoryFailingWith(new UniqueConstraintViolationException(
       $this->driverException('SQLSTATE[23505]: duplicate key value violates unique constraint "uniq_facility_organization_code"'),
-      null,
     ));
 
     $this->expectException(FacilityCodeAlreadyExistsException::class);
@@ -429,7 +428,6 @@ final class UpdateFacilityHandlerTest extends TestCase
   {
     $repository = $this->repositoryFailingWith(new ForeignKeyConstraintViolationException(
       $this->driverException('SQLSTATE[23503]: update on table "sites" violates foreign key constraint "fk_facility_organization"'),
-      null,
     ));
 
     $this->expectException(InvalidArgumentException::class);

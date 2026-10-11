@@ -7,7 +7,7 @@ namespace Equipment\Application\Contract\Export;
 /**
  * Domain EquipmentExportCandidate.
  *
- * A single equipment row as read from {@see \Equipment\Application\Port\Outbound\EquipmentRepositoryPort::listEquipmentExportCandidates()},
+ * A single scoped equipment row prepared for export,
  * carrying only the raw `facilityId` identifier — no display name is resolved
  * yet. Mirrors `Intervention\Application\Contract\Export\InterventionExportCandidate`.
  * {@see \Equipment\Application\UseCase\Query\ExportEquipments\ExportEquipmentsHandler}

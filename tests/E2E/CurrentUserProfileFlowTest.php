@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\{File\UploadedFile, Response};
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
+use User\Application\Port\Outbound\AvatarPersistencePort;
 use User\Infrastructure\Image\AvatarResizer;
 
 use function assert;
@@ -20,8 +23,11 @@ use function unlink;
 
 use const UPLOAD_ERR_OK;
 
+#[SkipDatabaseRollback]
 final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   #[Test]
   public function testCurrentUserCanUpdateProfileAndAvatar(): void
   {
@@ -93,7 +99,12 @@ final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
       self::assertIsString($avatarUrl);
       self::assertStringContainsString('/api/users/' . $userId . '/avatar', $avatarUrl);
     } finally {
-      $avatarResizer->delete($userId);
+      $avatars = static::getContainer()->get(AvatarPersistencePort::class);
+      self::assertInstanceOf(AvatarPersistencePort::class, $avatars);
+      $generation = $avatars->generation($userId);
+      if (null !== $generation) {
+        $avatarResizer->delete($userId, $generation);
+      }
       if (file_exists($tempFile)) {
         unlink($tempFile);
       }

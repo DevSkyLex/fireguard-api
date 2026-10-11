@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Channel\SetChannelParent;
 
-use Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingChannelHierarchyGuard};
 use Messaging\Domain\Event\Channel\MessagingChannelParentChangedEvent;
 use Messaging\Domain\Exception\MessagingNotFoundException;

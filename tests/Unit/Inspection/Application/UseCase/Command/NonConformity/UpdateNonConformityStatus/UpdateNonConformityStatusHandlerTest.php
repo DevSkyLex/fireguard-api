@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\{
   UpdateNonConformityStatusCommand,
   UpdateNonConformityStatusHandler,

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Onboarding\Application\Service;
 
-use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
-use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
+use Equipment\Application\Port\Inbound\EquipmentAvailabilityPort;
+use Facility\Application\Port\Inbound\FacilityAvailabilityPort;
 use InvalidArgumentException;
 use LogicException;
 use Onboarding\Application\Contract\Organization\OnboardingOrganizationCandidate;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
-use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
-use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
+use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
+use Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
 use Onboarding\Domain\Exception\{OnboardingStepNotExecutableException, UnsupportedOnboardingStepException};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\{ComputedOnboardingState, OrganizationOnboardingSession};
@@ -20,16 +20,11 @@ use Onboarding\Domain\ValueObject\{
   OrganizationOnboardingState,
   OrganizationOnboardingStep
 };
-use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
-use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
-use Organization\Domain\Exception\OrganizationNotFoundException;
-use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Application\Port\Outbound\TransactionManagerPort;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Contract\Onboarding\OnboardingOrganization;
+use Organization\Application\Port\Inbound\OrganizationOnboardingDirectoryPort;
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort, UuidGeneratorPort};
 
 use function array_map;
 use function in_array;
@@ -73,22 +68,24 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    * @access public
    *
    * @param OrganizationOnboardingSessionRepositoryPort $sessionRepository session lookup and persistence
-   * @param QueryBusPort $queryBus queries authoritative organization and setup state
-   * @param CommandBusPort $commandBus dispatches organization commands during rollback
-   * @param UuidFactory $uuidFactory creates onboarding session identifiers
+   * @param OrganizationOnboardingDirectoryPort $organizationDirectory scoped organization facts and canonical archive
+   * @param FacilityAvailabilityPort $facilities facility existence
+   * @param EquipmentAvailabilityPort $equipment equipment existence
+   * @param UuidGeneratorPort $uuidFactory creates onboarding session identifiers
    * @param TransactionManagerPort $transactionManager transaction boundary for session changes
-   * @param EventDispatcherInterface $eventDispatcher publishes completed-flow events
+   * @param EventDispatcherPort $eventDispatcher publishes completed-flow events
    * @param \Onboarding\Application\Port\Outbound\OrganizationSetupRepositoryPort|null $setupRepository optional setup journal access
    *
    * @return void
    */
   public function __construct(
     private OrganizationOnboardingSessionRepositoryPort $sessionRepository,
-    private QueryBusPort $queryBus,
-    private CommandBusPort $commandBus,
-    private UuidFactory $uuidFactory,
+    private OrganizationOnboardingDirectoryPort $organizationDirectory,
+    private FacilityAvailabilityPort $facilities,
+    private EquipmentAvailabilityPort $equipment,
+    private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
-    private EventDispatcherInterface $eventDispatcher,
+    private EventDispatcherPort $eventDispatcher,
     private ?\Onboarding\Application\Port\Outbound\OrganizationSetupRepositoryPort $setupRepository = null,
   ) {
   }
@@ -457,7 +454,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     }
 
     return OrganizationOnboardingSession::start(
-      id: $this->uuidFactory->generateRaw(),
+      id: $this->uuidFactory->generate(),
       userId: $userId,
     );
   }
@@ -479,12 +476,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     OrganizationOnboardingSession $session,
     string $userId,
   ): ComputedOnboardingState {
-    /**
-     * @var PaginatedResult<GetOrganizationResult> $organizationsResult
-     */
-    $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
+    $organizationsResult = $this->organizationDirectory->organizationsForUser($userId);
     $organizations = array_map(
-      static fn (GetOrganizationResult $organization): OnboardingOrganizationCandidate => new OnboardingOrganizationCandidate(
+      static fn (OnboardingOrganization $organization): OnboardingOrganizationCandidate => new OnboardingOrganizationCandidate(
         id: $organization->id,
         name: $organization->name,
         ownerUserId: $organization->ownerUserId,
@@ -492,7 +486,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
         isActive: $organization->isActive,
         createdAt: $organization->createdAt,
       ),
-      $organizationsResult->items,
+      $organizationsResult,
     );
     $targetOrganization = OnboardingTargetResolver::resolveTargetOrganization($session, $organizations, $this->setupRepository);
 
@@ -683,15 +677,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function hasFacility(string $organizationId): bool
   {
-    /**
-     * @var PaginatedResult<mixed> $result
-     */
-    $result = $this->queryBus->ask(new ListFacilitiesQuery(
-      organizationId: $organizationId,
-      pagination: new Pagination(offset: 0, limit: 1),
-    ));
-
-    return $result->total > 0;
+    return $this->facilities->hasFacility($organizationId);
   }
 
   /**
@@ -705,15 +691,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function hasEquipment(string $organizationId): bool
   {
-    /**
-     * @var PaginatedResult<mixed> $result
-     */
-    $result = $this->queryBus->ask(new ListEquipmentsQuery(
-      organizationId: $organizationId,
-      pagination: new Pagination(offset: 0, limit: 1),
-    ));
-
-    return $result->total > 0;
+    return $this->equipment->hasEquipment($organizationId);
   }
 
   /**
@@ -731,12 +709,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function buildState(OrganizationOnboardingSession $session, ComputedOnboardingState $computed): OrganizationOnboardingSessionState
   {
-    /**
-     * @var PaginatedResult<GetOrganizationResult> $memberships
-     */
-    $memberships = $this->queryBus->ask(new ListUserOrganizationsQuery($session->userId()));
+    $memberships = $this->organizationDirectory->organizationsForUser($session->userId());
     $accessibleOrganizationId = null;
-    foreach ($memberships->items as $organization) {
+    foreach ($memberships as $organization) {
       if ($organization->isActive && ($organization->id !== $session->targetOrganizationId() || OrganizationOnboardingState::COMPLETED === $session->state())) {
         $accessibleOrganizationId = $organization->id;
 
@@ -802,13 +777,10 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function rollbackDeleteOrganization(string $userId, string $organizationId): void
   {
-    /**
-     * @var PaginatedResult<GetOrganizationResult> $memberships
-     */
-    $memberships = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
+    $memberships = $this->organizationDirectory->organizationsForUser($userId);
     $session = $this->sessionRepository->findByUserId($userId);
     $owned = false;
-    foreach ($memberships->items as $organization) {
+    foreach ($memberships as $organization) {
       if ($organization->id === $organizationId && $organization->createdByUserId === $userId && $organization->ownerUserId === $userId && null !== $session && $organization->createdAt >= $session->createdAt()) {
         $owned = true;
 
@@ -819,14 +791,11 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       throw new LogicException('Only an organization created by this onboarding can be rolled back.');
     }
 
-    /**
-     * @var PaginatedResult<GetOrganizationResult> $organizationsResult
-     */
-    $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
+    $organizationsResult = $this->organizationDirectory->organizationsForUser($userId);
 
     $isUserMember = false;
     $slug = null;
-    foreach ($organizationsResult->items as $organization) {
+    foreach ($organizationsResult as $organization) {
       if ($organization->id === $organizationId) {
         $isUserMember = true;
         $slug = $organization->slug;
@@ -847,10 +816,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       // the slug it just read, rather than the guard being weakened for
       // everyone. Passing it here keeps a single enforcement point in
       // `DeleteOrganizationHandler` and makes this deliberate bypass greppable.
-      $this->commandBus->dispatch(new DeleteOrganizationCommand(
-        organizationId: $organizationId,
-        slugConfirmation: $slug,
-      ));
+      $this->organizationDirectory->archive($organizationId, $slug ?? '');
     } catch (OrganizationNotFoundException) {
       // Organization already absent, rollback is effectively done.
     } catch (MessengerRuntimeException $exception) {

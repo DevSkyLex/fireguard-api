@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Query\Message\ListSavedMessag
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\{MessagePage, MessageView};
-use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\Message\ListSavedMessages\{ListSavedMessagesHandler, ListSavedMessagesQuery};
 use Messaging\Domain\Exception\MessagingNotFoundException;

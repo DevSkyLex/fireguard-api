@@ -6,12 +6,13 @@ namespace Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -39,13 +40,13 @@ final readonly class GetFacilityProvider implements ProviderInterface
    *
    * @access public
    *
-   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
    * @param Security $security security context used to obtain the requesting member
    * @param \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail factory used to assemble the facility detail response
    *
    * @return void
    */
   public function __construct(
+    private QueryBusPort $detailQueries,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail,
@@ -66,7 +67,7 @@ final readonly class GetFacilityProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -86,7 +87,10 @@ final readonly class GetFacilityProvider implements ProviderInterface
     }
 
     try {
-      return $this->detail->read($organizationId, $facilityId);
+      /** @var \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult $detailResult */
+      $detailResult = $this->detailQueries->ask(new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery($organizationId, $facilityId));
+
+      return $this->detail->create($detailResult);
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {

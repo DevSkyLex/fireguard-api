@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Authorization\Application\UseCase\Command\Role\CreateRole;
 
-use Authorization\Application\Port\Outbound\{PermissionRepositoryPort, RoleRepositoryPort};
+use Authorization\Application\Port\Outbound\Internal\{PermissionRepositoryPort, RoleRepositoryPort};
 use Authorization\Application\UseCase\Query\Permission\GetPermission\GetPermissionResult;
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\ValueObject\{PermissionId, RoleId, RoleName};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function array_map;
 use function array_values;
@@ -33,12 +33,12 @@ final readonly class CreateRoleHandler implements CommandHandler
    *
    * @param RoleRepositoryPort $roleRepository the role repository
    * @param PermissionRepositoryPort $permissionRepository the permission repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    */
   public function __construct(
     private RoleRepositoryPort $roleRepository,
     private PermissionRepositoryPort $permissionRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -68,7 +68,7 @@ final readonly class CreateRoleHandler implements CommandHandler
     }
 
     $role = Role::create(
-      id: $this->uuidFactory->create(RoleId::class),
+      id: new RoleId($this->uuidFactory->generate()),
       name: new RoleName(value: $command->name),
       description: $command->description ?? '',
       isSystem: $command->isSystem,

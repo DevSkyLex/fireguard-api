@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscription;
 
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
-use Webhook\Application\Port\Outbound\{WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\WebhookSecretCipherPort;
 use Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscription\{CreateWebhookSubscriptionCommand, CreateWebhookSubscriptionHandler, CreateWebhookSubscriptionResult};
 use Webhook\Domain\Event\Subscription\WebhookSubscriptionCreatedEvent;
 use Webhook\Domain\Exception\WebhookValidationException;
@@ -224,13 +224,13 @@ final class CreateWebhookSubscriptionHandlerTest extends TestCase
   /**
    * Method uuidFactory.
    *
-   * @return UuidFactory a uuid factory generating deterministic-enough raw ids
+   * @return UuidGeneratorPort a uuid factory generating deterministic-enough raw ids
    */
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn('018f0b68-6758-7a12-8a1d-3f0d97f64aff');
 
-    return new UuidFactory($generator);
+    return $generator;
   }
 }

@@ -11,6 +11,7 @@ use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\ClientRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Domain\Service\EventIdProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -51,7 +52,9 @@ final class ClientFixturesIntegrationTest extends KernelTestCase
   #[Test]
   public function testLoadPersistsClientsAndReferences(): void
   {
-    $fixtures = new ClientFixtures(new ClientMapper());
+    $eventIds = static::getContainer()->get(EventIdProvider::class);
+    self::assertInstanceOf(EventIdProvider::class, $eventIds);
+    $fixtures = new ClientFixtures(new ClientMapper(), $eventIds);
 
     // Purge before loading: the test databases carry the seeded baseline, so
     // loading on top of it would collide on primary keys and make the count

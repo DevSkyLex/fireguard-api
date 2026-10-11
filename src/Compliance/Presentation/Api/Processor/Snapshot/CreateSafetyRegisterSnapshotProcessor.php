@@ -6,7 +6,7 @@ namespace Compliance\Presentation\Api\Processor\Snapshot;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Compliance\Application\UseCase\Command\Snapshot\CreateSafetyRegisterSnapshot\{CreateSafetyRegisterSnapshotCommand, CreateSafetyRegisterSnapshotResult};
 use Compliance\Presentation\Api\Dto\Input\Snapshot\CreateSafetyRegisterSnapshotInput;
 use Compliance\Presentation\Api\Dto\Output\Snapshot\SafetyRegisterSnapshotOutput;
@@ -70,7 +70,7 @@ final readonly class CreateSafetyRegisterSnapshotProcessor implements ProcessorI
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): SafetyRegisterSnapshotOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

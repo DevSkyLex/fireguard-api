@@ -6,13 +6,11 @@ namespace Calendar\Infrastructure\DataFixtures;
 
 use Calendar\Infrastructure\Persistence\Doctrine\Record\CalendarEventRecord;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
-use Facility\Infrastructure\DataFixtures\FacilityFixtures;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationMemberRecord;
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
+use Facility\Application\Contract\Seed\SeedCatalog as FacilityFixtures;
+use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
+use Shared\Application\Contract\Seed\{SeedReference, SeedTimeline};
+use Shared\Application\Port\Inbound\{SeedReferenceConsumerPort, SeedReferenceRegistryPort};
 
 use function sprintf;
 
@@ -33,8 +31,10 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class CalendarFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+final class CalendarFixtures extends Fixture implements FixtureGroupInterface, SeedReferenceConsumerPort
 {
+  // #endregion
+
   // #region Constants
   /**
    * Constant EVENT_SEEDS.
@@ -66,6 +66,22 @@ final class CalendarFixtures extends Fixture implements DependentFixtureInterfac
     ['title' => 'Bordeaux training day', 'description' => 'Annual refresher for the regional safety officers.', 'dayOffset' => 18, 'startHour' => 9, 'durationHours' => 8, 'allDay' => true, 'facilityReference' => FacilityFixtures::BORDEAUX_SITE_REFERENCE],
     ['title' => 'Lille distribution centre walkthrough', 'description' => 'Pre-inspection walkthrough with the site manager.', 'dayOffset' => 22, 'startHour' => 10, 'durationHours' => 3, 'allDay' => false, 'facilityReference' => FacilityFixtures::LILLE_SITE_REFERENCE],
   ];
+
+  // #region Properties
+  /**
+   * Scalar fixture facts supplied by the composition root.
+   */
+  private SeedReferenceRegistryPort $seedReferences;
+  // #endregion
+
+  // #region Methods
+  /**
+   * {@inheritdoc}
+   */
+  public function setSeedReferences(SeedReferenceRegistryPort $references): void
+  {
+    $this->seedReferences = $references;
+  }
   // #endregion
 
   // #region Methods
@@ -96,10 +112,7 @@ final class CalendarFixtures extends Fixture implements DependentFixtureInterfac
    */
   public function getDependencies(): array
   {
-    return [
-      OrganizationFixtures::class,
-      FacilityFixtures::class,
-    ];
+    return [];
   }
 
   /**
@@ -115,8 +128,8 @@ final class CalendarFixtures extends Fixture implements DependentFixtureInterfac
    */
   public function load(ObjectManager $manager): void
   {
-    /** @var OrganizationMemberRecord $ownerMember */
-    $ownerMember = $this->getReference(OrganizationFixtures::OWNER_MEMBER_REFERENCE, OrganizationMemberRecord::class);
+    /** @var SeedReference $ownerMember */
+    $ownerMember = $this->seedReferences->get(OrganizationFixtures::OWNER_MEMBER_REFERENCE);
 
     foreach (self::EVENT_SEEDS as $index => $seed) {
       $startsAt = SeedTimeline::fromNow($seed['dayOffset'], $seed['startHour']);
@@ -131,7 +144,7 @@ final class CalendarFixtures extends Fixture implements DependentFixtureInterfac
       $event->allDay = $seed['allDay'];
       $event->facilityId = null === $seed['facilityReference']
         ? null
-        : $this->getReference($seed['facilityReference'], FacilityRecord::class)->id;
+        : $this->seedReferences->get($seed['facilityReference'])->id;
       $event->createdByMemberId = $ownerMember->id;
       $event->createdAt = $startsAt->modify('-21 days');
       $event->updatedAt = $startsAt->modify('-21 days');

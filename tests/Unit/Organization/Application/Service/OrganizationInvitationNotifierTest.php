@@ -11,7 +11,7 @@ use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Symfony\Contracts\Translation\TranslatorInterface;
+use Shared\Application\Port\Outbound\TranslationPort;
 
 use function hash;
 
@@ -207,10 +207,10 @@ final class OrganizationInvitationNotifierTest extends TestCase
    * Stubs a translator that echoes each translation id back, so the composed
    * subject and body stay assertable without a real catalogue.
    */
-  private function translator(): TranslatorInterface
+  private function translator(): TranslationPort
   {
-    $translator = $this->createStub(TranslatorInterface::class);
-    $translator->method('trans')->willReturnCallback(static fn (string $id): string => $id);
+    $translator = $this->createStub(TranslationPort::class);
+    $translator->method('translate')->willReturnCallback(static fn (string $id): string => $id);
 
     return $translator;
   }

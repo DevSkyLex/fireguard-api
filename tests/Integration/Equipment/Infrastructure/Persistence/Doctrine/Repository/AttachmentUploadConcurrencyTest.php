@@ -54,7 +54,7 @@ final class AttachmentUploadConcurrencyTest extends KernelTestCase
     $org->updatedAt = $org->createdAt;
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT;
-    $equipment->organization = $org;
+    $equipment->organizationId = $org->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = 'operational';
     $equipment->createdAt = $org->createdAt;

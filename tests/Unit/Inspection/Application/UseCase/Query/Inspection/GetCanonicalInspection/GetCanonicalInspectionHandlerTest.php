@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\CanonicalInspectionRepositoryPort;
 use Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\{GetCanonicalInspectionHandler, GetCanonicalInspectionQuery};
 use Inspection\Domain\Model\Inspection\{CanonicalInspection, RestoredCanonicalInspectionState};
 use Inspection\Domain\ValueObject\{

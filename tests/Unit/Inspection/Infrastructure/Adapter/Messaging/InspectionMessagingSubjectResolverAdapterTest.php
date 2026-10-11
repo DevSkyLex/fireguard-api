@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Adapter\Messaging\InspectionMessagingSubjectResolverAdapter;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -71,7 +71,7 @@ final class InspectionMessagingSubjectResolverAdapterTest extends TestCase
 
     $inspection = new InspectionRecord();
     $inspection->id = 'inspection-1';
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
 
     $record = new NonConformityRecord();
     $record->id = self::NON_CONFORMITY_ID;

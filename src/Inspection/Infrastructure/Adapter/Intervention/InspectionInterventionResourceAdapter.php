@@ -7,10 +7,9 @@ namespace Inspection\Infrastructure\Adapter\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, InspectionResponseRecord};
-use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionResourceNotFoundException};
+use Intervention\Application\Contract\Resource\{InterventionResourceAssignment, InterventionResourceType};
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort};
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
-use Intervention\Domain\ValueObject\InterventionResourceType;
 
 use function array_diff;
 use function array_key_exists;
@@ -169,7 +168,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   {
     $record = $this->entityManager->find(InspectionRecord::class, $resourceId);
 
-    return $record instanceof InspectionRecord && $record->organization?->id === $organizationId;
+    return $record instanceof InspectionRecord && $record->organizationId === $organizationId;
   }
 
   /**
@@ -301,7 +300,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   {
     $this->assertPatchFields($patch);
     $record = $this->entityManager->find(InspectionRecord::class, $this->id($resource));
-    if (!$record instanceof InspectionRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
+    if (!$record instanceof InspectionRecord || $record->organizationId !== $organizationId || 'published' !== $record->recordStatus) {
       throw new InterventionConflictException('Proposed inspection change target is invalid.');
     }
     if ('closed' === $record->status || 'cancelled' === $record->status) {

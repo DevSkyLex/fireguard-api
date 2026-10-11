@@ -6,36 +6,20 @@ namespace Intervention\Presentation\Api\Provider\Attachment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Intervention\Application\Contract\Attachment\InterventionAttachmentView;
 use Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\{ListInterventionAttachmentsQuery, ListInterventionAttachmentsResult};
-use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionAttachmentRecord;
+use Intervention\Application\UseCase\Query\Attachment\ResolveInterventionMedia\{ResolveInterventionMediaQuery, ResolveInterventionMediaResult};
 use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
-use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
-use Throwable;
 
 use function is_string;
 
-/**
- * Provider InterventionMediaProvider.
- *
- * Serves `GET /interventions/{interventionId}/attachments` (collection) and
- * `GET /intervention-attachments/{id}` (single item).
- *
- * The collection route makes NO authorization decision of its own: the flat
- * `organization.interventions.read` permission is enforced authoritatively
- * inside `ListInterventionAttachmentsHandler` (see
- * `tests/Architecture/Unit/InterventionAuthorizationEnforcementTest`). The
- * single-item route has no backing handler (a direct Doctrine read, mirroring
- * `Equipment\...\MediaProvider`), so it remains the sole enforcement point for
- * that path and keeps its own permission check.
- *
+/** InterventionMediaProvider translates HTTP media requests through use cases.
  * @category Provider
  * @version 1.0.0
  *
@@ -45,189 +29,69 @@ use function is_string;
  */
 final readonly class InterventionMediaProvider implements ProviderInterface
 {
-  use InterventionWorkflowExceptionMapperTrait;
-
-  // #region Constants
-  /**
-   * Constant ATTACHMENT_NOT_FOUND_MESSAGE.
-   *
-   * Stable public message returned when an intervention attachment is unavailable.
-   *
-   * @access private
-   */
-  private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
-  // #endregion
-
-  // #region Constructor
-  /**
-   * Method __construct
-   *
-   * Provides query-bus reads and scoped persistence and authorization services for attachments.
-   *
-   * @access public
-   *
-   * @param EntityManagerInterface $entityManager the main entity manager
-   * @param QueryBusPort $queryBus dispatches attachment queries
-   * @param OrganizationAuthorizationPort $authorization enforces organization access
-   * @param Security $security resolves the authenticated user
-   * @param RequestStack $requestStack provides the current request
-   *
-   * @return void
-   */
-  public function __construct(
-    private EntityManagerInterface $entityManager,
-    private QueryBusPort $queryBus,
-    private OrganizationAuthorizationPort $authorization,
-    private Security $security,
-    private RequestStack $requestStack,
-  ) {
+  public function __construct(private QueryBusPort $queryBus, private Security $security, private RequestStack $requestStack)
+  {
   }
-  // #endregion
 
-  // #region Methods
-  /**
-   * Method provide.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
+  /** @param array<string, mixed> $uriVariables
    * @param array<string, mixed> $context
    *
    * @return InterventionAttachmentOutput|list<InterventionAttachmentOutput>
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): InterventionAttachmentOutput|array
   {
+    $user = $this->security->getUser();
+    if (!$user instanceof AuthenticatedUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+    $id = $uriVariables['interventionId'] ?? null;
     if (isset($uriVariables['interventionId'])) {
-      return $this->list($uriVariables);
+      if (!is_string($id) || '' === $id) {
+        throw new BadRequestHttpException('The interventionId URI parameter is required.');
+      }
+      $workItem = $this->requestStack->getCurrentRequest()?->query->get('workItem');
+      $workItemId = is_string($workItem) && '' !== $workItem ? ResourceIriParser::id($workItem, 'intervention-work-items') : null;
+      /** @var ListInterventionAttachmentsResult $result */
+      $result = $this->queryBus->ask(new ListInterventionAttachmentsQuery($user->getId(), $id, $workItemId));
+      $outputs = [];
+      foreach ($result->attachments as $attachment) {
+        $output = new InterventionAttachmentOutput();
+        $output->interventionId = $id;
+        foreach (['id', 'fileName', 'mimeType', 'size', 'label', 'uploadedAt', 'workItemId', 'kind'] as $field) {
+          $output->{$field} = $attachment[$field];
+        }
+        $outputs[] = $output;
+      }
+
+      return $outputs;
+    }
+    $id = $uriVariables['id'] ?? null;
+    if (!is_string($id)) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    /** @var ResolveInterventionMediaResult $result */
+    $result = $this->queryBus->ask(new ResolveInterventionMediaQuery(userId: $user->getId(), attachmentId: $id));
+    if (null === $result->attachment) {
+      throw new NotFoundHttpException('Attachment not found.');
     }
 
-    return $this->getOne($uriVariables);
+    return self::output($result->attachment);
   }
 
-  /**
-   * Method output.
-   *
-   * @static
-   *
-   * @since 1.0.0
-   */
-  public static function output(InterventionAttachmentRecord $record): InterventionAttachmentOutput
+  public static function output(InterventionAttachmentView $view): InterventionAttachmentOutput
   {
-    if (null === $record->intervention) {
-      throw new NotFoundHttpException('Attachment intervention not found.');
-    }
-
     $output = new InterventionAttachmentOutput();
-    $output->id = $record->id;
-    $output->interventionId = $record->intervention->id;
-    $output->fileName = $record->fileName;
-    $output->mimeType = $record->mimeType;
-    $output->size = $record->size;
-    $output->label = $record->label;
-    $output->kind = $record->kind;
-    $output->revision = $record->revision;
-    $output->uploadedAt = $record->uploadedAt->format('c');
-    $output->workItemId = $record->workItem?->id;
+    $output->id = $view->id;
+    $output->interventionId = $view->interventionId;
+    $output->fileName = $view->fileName;
+    $output->mimeType = $view->mimeType;
+    $output->size = $view->size;
+    $output->label = $view->label;
+    $output->revision = $view->revision;
+    $output->uploadedAt = $view->uploadedAt;
+    $output->workItemId = $view->workItemId;
+    $output->kind = $view->kind;
 
     return $output;
   }
-
-  /**
-   * Method list.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   *
-   * @return list<InterventionAttachmentOutput>
-   */
-  private function list(array $uriVariables): array
-  {
-    $interventionId = $uriVariables['interventionId'] ?? null;
-    if (!is_string($interventionId) || '' === $interventionId) {
-      throw new BadRequestHttpException('The interventionId URI parameter is required.');
-    }
-
-    $user = $this->user();
-
-    $workItem = $this->requestStack->getCurrentRequest()?->query->get('workItem');
-    $workItemId = is_string($workItem) && '' !== $workItem
-      ? ResourceIriParser::id($workItem, 'intervention-work-items')
-      : null;
-
-    try {
-      /** @var ListInterventionAttachmentsResult $result */
-      $result = $this->queryBus->ask(new ListInterventionAttachmentsQuery(
-        userId: $user->getId(),
-        interventionId: $interventionId,
-        workItemId: $workItemId,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWorkflowException($exception);
-    }
-
-    $outputs = [];
-    foreach ($result->attachments as $attachment) {
-      $output = new InterventionAttachmentOutput();
-      $output->id = $attachment['id'];
-      $output->interventionId = $interventionId;
-      $output->fileName = $attachment['fileName'];
-      $output->mimeType = $attachment['mimeType'];
-      $output->size = $attachment['size'];
-      $output->label = $attachment['label'];
-      $output->kind = $attachment['kind'];
-      $output->uploadedAt = $attachment['uploadedAt'];
-      $output->workItemId = $attachment['workItemId'];
-      $outputs[] = $output;
-    }
-
-    return $outputs;
-  }
-
-  /**
-   * Method getOne.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   */
-  private function getOne(array $uriVariables): InterventionAttachmentOutput
-  {
-    $id = $uriVariables['id'] ?? null;
-    if (!is_string($id)) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-
-    $record = $this->entityManager->find(InterventionAttachmentRecord::class, $id);
-    if (!$record instanceof InterventionAttachmentRecord || null === $record->intervention?->organization) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $record->intervention->organization->id, 'organization.interventions.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.interventions.read permission.');
-    }
-
-    return self::output($record);
-  }
-
-  /**
-   * Method user.
-   *
-   * @since 1.0.0
-   */
-  private function user(): SecurityUser
-  {
-    $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
-      throw new AccessDeniedHttpException('Authentication required.');
-    }
-
-    return $user;
-  }
-  // #endregion
 }

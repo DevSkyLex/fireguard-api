@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Tenant\Application\UseCase\Command\Tenant\CreateTenant;
 
 use DateTimeImmutable;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 use Shared\Domain\ValueObject\Uuid;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Domain\Event\TenantCreatedEvent;
 use Tenant\Domain\Model\Tenant\Tenant;
 use Tenant\Domain\ValueObject\{TenantId, TenantName, TenantSettings};
@@ -34,11 +33,11 @@ final readonly class CreateTenantHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param TenantRepositoryPort $tenantRepository the tenant repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    */
   public function __construct(
     private readonly TenantRepositoryPort $tenantRepository,
-    private readonly UuidFactory $uuidFactory,
+    private readonly UuidGeneratorPort $uuidFactory,
     private readonly EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -58,7 +57,7 @@ final readonly class CreateTenantHandler implements CommandHandler
    */
   public function __invoke(CreateTenantCommand $command): CreateTenantResult
   {
-    $tenantId = $this->uuidFactory->create(TenantId::class);
+    $tenantId = new TenantId($this->uuidFactory->generate());
 
     $tenant = Tenant::create(
       id: $tenantId,
@@ -69,7 +68,7 @@ final readonly class CreateTenantHandler implements CommandHandler
     $this->tenantRepository->save(tenant: $tenant);
 
     $this->eventDispatcher->dispatch(new TenantCreatedEvent(
-      eventId: $this->uuidFactory->create(Uuid::class),
+      eventId: new Uuid($this->uuidFactory->generate()),
       tenantId: (string) $tenantId,
       tenantName: (string) $tenant->name(),
       occurredAt: new DateTimeImmutable(),

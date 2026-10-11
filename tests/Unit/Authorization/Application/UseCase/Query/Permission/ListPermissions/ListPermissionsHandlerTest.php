@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Query\Permission\ListPermissions;
 
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\PermissionRepositoryPort;
 use Authorization\Application\UseCase\Query\Permission\ListPermissions\{ListPermissionsHandler, ListPermissionsQuery, ListPermissionsResult};
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\ValueObject\{PermissionId, PermissionName};

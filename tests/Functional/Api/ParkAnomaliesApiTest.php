@@ -16,7 +16,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Tests\Support\Auth\InteractiveTokenFactory;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
 use function json_decode;
@@ -262,7 +262,7 @@ final class ParkAnomaliesApiTest extends WebTestCase
     foreach ([20, 21, 22, 920] as $number) {
       $facility = new FacilityRecord();
       $facility->id = self::id($number);
-      $facility->organization = $orgs[920 === $number ? 900 : 1];
+      $facility->organizationId = $orgs[920 === $number ? 900 : 1]->id;
       $facility->type = 21 === $number ? 'building' : 'site';
       $facility->name = 'Place ' . $number;
       $facility->status = 'active';
@@ -275,7 +275,7 @@ final class ParkAnomaliesApiTest extends WebTestCase
     foreach ([30 => 20, 31 => 21, 32 => 21, 33 => 22, 34 => 20] as $number => $facilityNumber) {
       $equipment = new EquipmentRecord();
       $equipment->id = self::id($number);
-      $equipment->organization = $orgs[1];
+      $equipment->organizationId = $orgs[1]->id;
       $equipment->facilityId = self::id($facilityNumber);
       $equipment->type = 32 === $number ? 'camera' : 'fire_extinguisher';
       $equipment->serialNumber = 'PARC-' . $number;
@@ -288,7 +288,7 @@ final class ParkAnomaliesApiTest extends WebTestCase
     foreach ([100 => [30, 20], 101 => [31, 21], 102 => [32, 21], 103 => [33, 22], 104 => [34, 20], 105 => [31, 21], 106 => [31, 21]] as $number => [$equipmentNumber, $facilityNumber]) {
       $inspection = new InspectionRecord();
       $inspection->id = self::id($number);
-      $inspection->organization = $orgs[106 === $number ? 900 : 1];
+      $inspection->organizationId = $orgs[106 === $number ? 900 : 1]->id;
       $inspection->equipmentId = self::id($equipmentNumber);
       $inspection->facilityId = self::id($facilityNumber);
       $inspection->inspectorType = 'user';

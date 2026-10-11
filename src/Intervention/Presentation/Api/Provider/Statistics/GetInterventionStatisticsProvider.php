@@ -6,13 +6,13 @@ namespace Intervention\Presentation\Api\Provider\Statistics;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\Contract\Statistics\{InterventionStatisticsResponsibleEntry, InterventionStatisticsSiteEntry};
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionStatistics\{GetInterventionStatisticsQuery, GetInterventionStatisticsResult};
 use Intervention\Presentation\Api\Dto\Output\Statistics\{InterventionResponsibleStatisticOutput, InterventionSiteStatisticOutput, InterventionStatisticsOutput};
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -72,11 +72,11 @@ final readonly class GetInterventionStatisticsProvider implements ProviderInterf
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): InterventionStatisticsOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $organization = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization');
+    $organization = \Intervention\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
     }

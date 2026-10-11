@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\UpdateFacility;
 
-use Doctrine\DBAL\Exception\{
-  ForeignKeyConstraintViolationException,
-  UniqueConstraintViolationException
-};
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Domain\Exception\{
@@ -25,6 +21,10 @@ use Facility\Domain\ValueObject\{
   FacilityName,
   FacilityOrganizationId,
   FacilityType
+};
+use Shared\Application\Contract\Persistence\{
+  ForeignKeyConstraintViolationException,
+  UniqueConstraintViolationException
 };
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};

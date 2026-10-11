@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\UseCase\Command\Organization\CreateOrganization\{CreateOrganizationCommand, CreateOrganizationResult};
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationInput;
@@ -64,7 +64,7 @@ final readonly class CreateOrganizationProcessor implements ProcessorInterface
   {
     /** @var CreateOrganizationInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

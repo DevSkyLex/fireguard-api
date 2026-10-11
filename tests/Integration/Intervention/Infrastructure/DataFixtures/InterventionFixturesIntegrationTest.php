@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Integration\Intervention\Infrastructure\DataFixtures;
 
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
@@ -16,6 +15,7 @@ use Intervention\Infrastructure\DataFixtures\InterventionFixtures;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionAttachmentRecord, InterventionChangeRecord, InterventionLabelRecord, InterventionNumberCounterRecord, InterventionRecord, InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateItemRecord, InterventionTemplateRecord, InterventionWorkItemRecord, PublicationRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Infrastructure\DataFixtures\{SeedFixtureAdapter, SeedReferenceRegistryAdapter};
 use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -236,17 +236,19 @@ final class InterventionFixturesIntegrationTest extends KernelTestCase
     /** @var InterventionFixtures $interventionFixtures */
     $interventionFixtures = static::getContainer()->get(InterventionFixtures::class);
 
-    $loader = new Loader();
-    $loader->addFixture($organizationFixtures);
-    $loader->addFixture($facilityFixtures);
-    $loader->addFixture($equipmentFixtures);
-    $loader->addFixture($interventionFixtures);
+    $registry = new SeedReferenceRegistryAdapter();
+    $fixtures = [
+      new SeedFixtureAdapter($organizationFixtures, $this->entityManager, $registry, 'organization', []),
+      new SeedFixtureAdapter($facilityFixtures, $this->entityManager, $registry, 'facility', ['organization']),
+      new SeedFixtureAdapter($equipmentFixtures, $this->entityManager, $registry, 'equipment', ['organization', 'facility']),
+      new SeedFixtureAdapter($interventionFixtures, $this->entityManager, $registry, 'intervention', ['organization', 'facility', 'equipment']),
+    ];
 
     $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
     // Purge before loading: the test databases carry the seeded baseline, so
     // appending on top of it collides on primary keys and makes the counts
     // above meaningless. DAMA rolls the purge back with the rest of the test.
-    $executor->execute($loader->getFixtures(), false);
+    $executor->execute($fixtures, false);
   }
   // #endregion
 }

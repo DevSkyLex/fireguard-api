@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Inspection\GetInspection;
 
-use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort};
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
+use Inspection\Application\Port\Outbound\Internal\{ChecklistRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityInspectionId};
 use Shared\Application\Message\QueryHandler;
+use Throwable;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * UseCase GetInspectionHandler.
@@ -42,6 +44,7 @@ final readonly class GetInspectionHandler implements QueryHandler
     private EquipmentNamingPort $equipmentNaming,
     private FacilityNamingPort $facilityNaming,
     private ChecklistRepositoryPort $checklistRepository,
+    private ?UserDirectoryPort $users = null,
   ) {
   }
   // #endregion
@@ -88,6 +91,7 @@ final readonly class GetInspectionHandler implements QueryHandler
       equipmentSerialNumber: $this->equipmentNaming->findSerialNumbersByIds(
         [(string) $inspection->equipmentId()],
       )[(string) $inspection->equipmentId()] ?? null,
+      inspectorProfile: $this->profile($inspection->inspector()->userId),
       checklistName: null !== $inspection->checklistId()
         ? ($this->checklistRepository->findNamesByIds(
           [(string) $inspection->checklistId()],
@@ -99,6 +103,15 @@ final readonly class GetInspectionHandler implements QueryHandler
         )[(string) $inspection->facilityId()] ?? null)
         : null,
     );
+  }
+
+  private function profile(?string $userId): ?\User\Application\Contract\User\UserView
+  {
+    try {
+      return null === $userId ? null : $this->users?->findById($userId);
+    } catch (Throwable) {
+      return null;
+    }
   }
   // #endregion
 }

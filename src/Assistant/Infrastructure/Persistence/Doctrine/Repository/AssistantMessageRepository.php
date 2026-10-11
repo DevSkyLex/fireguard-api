@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Assistant\Infrastructure\Persistence\Doctrine\Repository;
 
-use Assistant\Application\Port\Outbound\AssistantMessageRepositoryPort;
+use Assistant\Application\Port\Outbound\Internal\AssistantMessageRepositoryPort;
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
 use Assistant\Infrastructure\Persistence\Doctrine\Mapper\AssistantMessageMapper;

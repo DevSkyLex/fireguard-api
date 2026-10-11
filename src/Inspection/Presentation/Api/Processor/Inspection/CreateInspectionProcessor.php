@@ -6,143 +6,56 @@ namespace Inspection\Presentation\Api\Processor\Inspection;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Command\Inspection\CreateInspection\{CreateInspectionCommand, CreateInspectionResult};
-use Inspection\Domain\ValueObject\InspectorType;
 use Inspection\Presentation\Api\Dto\Input\Inspection\CreateInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
-use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
-use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
-use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{
-  ClientResourceAlreadyExistsException,
-  InterventionConflictException,
-  InterventionNotFoundException,
-  InterventionResourceNotFoundException
-};
-use Intervention\Domain\ValueObject\InterventionResourceType;
-use InvalidArgumentException;
-use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Inspection\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
+use Intervention\Application\Contract\Resource\ClientResourceAlreadyExistsException;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\{
-  AccessDeniedHttpException,
-  BadRequestHttpException,
-  ConflictHttpException,
-  NotFoundHttpException
-};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
 use function is_string;
 
-/** @implements ProcessorInterface<CreateInspectionInput, InspectionOutput> */
+/** Translates inspection creation and offline preconditions into one owning transaction.
+ * @category Processor
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ *
+ * @implements ProcessorInterface<CreateInspectionInput, InspectionOutput>
+ */
 final readonly class CreateInspectionProcessor implements ProcessorInterface
 {
-  use InspectionExceptionUnwrapperTrait;
-
-  /**
-   * Constructor.
-   *
-   * Initializes a new instance of the CreateInspectionProcessor class.
-   *
-   * @since 1.0.0
-   *
-   * @param CommandBusPort $commandBus the command bus value
-   * @param InspectionOutputFactory $outputMapper the output mapper value
-   * @param OrganizationAuthorizationPort $authorization the authorization value
-   * @param Security $security the security value
-   * @param ?InterventionResourceManager $interventionResourceManager the intervention resource manager value
-   * @param ?CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
-   * @param ?EntityManagerInterface $entityManager the entity manager value
-   */
-  public function __construct(
-    private CommandBusPort $commandBus,
-    private InspectionOutputFactory $outputMapper,
-    private OrganizationAuthorizationPort $authorization,
-    private Security $security,
-    private ?InterventionResourceManager $interventionResourceManager = null,
-    private ?CreationPreconditionGuard $creationPreconditionGuard = null,
-    private ?EntityManagerInterface $entityManager = null,
-  ) {
+  public function __construct(private CommandBusPort $commandBus, private InspectionOutputFactory $outputMapper, private Security $security, private CreationPreconditionGuard $creationPreconditionGuard)
+  {
   }
 
-  /**
-   * Method process.
-   *
-   * Executes the process operation.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $data the data value
-   * @param Operation $operation the operation value
-   * @param array<string, mixed> $uriVariables the uri variables value
-   * @param array<string, mixed> $context the context value
-   *
-   * @return InspectionOutput the process result
+  /** @param array<string, mixed> $uriVariables
+   * @param array<string, mixed> $context
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): InspectionOutput
   {
     /** @var CreateInspectionInput $data */
-    if (null !== $data->intervention && null !== $this->entityManager) {
-      return $this->entityManager->wrapInTransaction(
-        fn (): InspectionOutput => $this->processCreation($data, $uriVariables),
-      );
-    }
-
-    return $this->processCreation($data, $uriVariables);
-  }
-
-  /**
-   * Method processCreation.
-   *
-   * Executes one inspection creation and optional intervention assignment.
-   *
-   * @since 1.0.0
-   *
-   * @param CreateInspectionInput $data the input data
-   * @param array<string, mixed> $uriVariables the uri variables value
-   */
-  private function processCreation(CreateInspectionInput $data, array $uriVariables): InspectionOutput
-  {
     $resourceId = $uriVariables['id'] ?? null;
     if (is_string($resourceId)) {
-      $this->creationPreconditionGuard?->assertCreateOnly();
+      $this->creationPreconditionGuard->assertCreateOnly();
       $data->clientId = $resourceId;
     } else {
       $resourceId = null;
     }
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
-
     $organizationId = $uriVariables['organizationId'] ?? (null !== $data->organization ? ResourceIriParser::id($data->organization, 'organizations') : null);
     if (!is_string($organizationId) || '' === $organizationId) {
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
-    }
-
-    $permission = $this->interventionPermission($data->intervention, $user->getId(), $organizationId) ?? 'organization.inspection.write';
-    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
-    }
-    $this->assertOfflineCreate($data->clientId, null !== $resourceId);
-
-    // A USER inspection requires the acting user when the client does not name a
-    // specific technician (e.g. the self-service onboarding "first inspection").
-    $inspectorUserId = $data->inspectorUserId;
-    if (InspectorType::USER->value === $data->inspectorType && (null === $inspectorUserId || '' === $inspectorUserId)) {
-      $inspectorUserId = $user->getId();
     }
 
     try {
@@ -156,146 +69,29 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
         inspectorName: $data->inspectorName,
         facilityId: $data->facilityId,
         checklistId: $data->checklistId,
-        inspectorUserId: $inspectorUserId,
+        inspectorUserId: $data->inspectorUserId,
         inspectorOrganizationName: $data->inspectorOrganizationName,
         notes: $data->notes,
         signature: $data->signature,
         resourceId: $resourceId,
         interventionId: null !== $data->intervention ? ResourceIriParser::id($data->intervention, 'interventions') : null,
+        clientId: $data->clientId,
+        actorUserId: $user->getId(),
       ));
-    } catch (InvalidArgumentException $exception) {
-      throw new BadRequestHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      throw $this->mapMessengerException($exception);
-    }
+    } catch (Throwable $exception) {
+      for ($current = $exception; null !== $current; $current = $current->getPrevious()) {
+        if ($current instanceof ClientResourceAlreadyExistsException) {
+          throw new ClientResourceAlreadyExistsHttpException(null !== $resourceId ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT, $current);
+        }
+      }
 
+      throw $exception;
+    }
     $output = $this->outputMapper->fromCreateResult($result);
-    $assignment = $this->attachToIntervention($result->inspectionId, $organizationId, $data->intervention, $data->clientId);
-    $output->intervention = null === $assignment->interventionId ? null : '/api/interventions/' . $assignment->interventionId;
-    $output->recordStatus = $assignment->recordStatus;
-    $output->revision = $assignment->revision;
+    $output->intervention = null === $result->interventionId ? null : '/api/interventions/' . $result->interventionId;
+    $output->recordStatus = $result->recordStatus;
+    $output->revision = $result->revision;
 
     return $output;
-  }
-
-  /**
-   * Method mapMessengerException.
-   *
-   * Maps a wrapped command failure to its HTTP equivalent.
-   *
-   * @since 1.0.0
-   *
-   * @param MessengerRuntimeException $exception the wrapped command failure
-   *
-   * @return Throwable the mapped or original exception
-   */
-  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
-  {
-    $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
-    if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
-      return new ConflictHttpException($quotaExceeded->getMessage(), $exception);
-    }
-
-    $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    return $exception;
-  }
-
-  /**
-   * Method assertOfflineCreate.
-   *
-   * Executes the assert offline create operation.
-   *
-   * @since 1.0.0
-   *
-   * @param ?string $clientId the client id value
-   * @param bool $createOnly the create only value
-   */
-  private function assertOfflineCreate(?string $clientId, bool $createOnly): void
-  {
-    if (null === $clientId || '' === $clientId || null === $this->interventionResourceManager) {
-      return;
-    }
-
-    try {
-      $this->interventionResourceManager->assertOfflineCreate(InterventionResourceType::INSPECTION, $clientId);
-    } catch (ClientResourceAlreadyExistsException $exception) {
-      throw new ClientResourceAlreadyExistsHttpException(
-        $createOnly ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
-        $exception,
-      );
-    }
-  }
-
-  /**
-   * Method interventionPermission.
-   *
-   * Executes the intervention permission operation.
-   *
-   * @since 1.0.0
-   *
-   * @param ?string $intervention the intervention value
-   * @param string $userId the current user id value
-   * @param string $organizationId the organization id the caller claims the inspection
-   *                               belongs to — required to belong to the same organization as the intervention,
-   *                               checked inside mutationPermission() before any status-derived branch
-   *
-   * @return ?string the intervention permission result
-   */
-  private function interventionPermission(?string $intervention, string $userId, string $organizationId): ?string
-  {
-    if (null === $intervention || null === $this->interventionResourceManager) {
-      return null;
-    }
-
-    try {
-      return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId, $organizationId);
-    } catch (InterventionNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InterventionConflictException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    }
-  }
-
-  /**
-   * Method attachToIntervention.
-   *
-   * Executes the attach to intervention operation.
-   *
-   * @since 1.0.0
-   *
-   * @param string $inspectionId the inspection id value
-   * @param string $organizationId the organization id value
-   * @param ?string $intervention the intervention value
-   * @param ?string $clientId the client id value
-   *
-   * @return InterventionResourceAssignment the attach to intervention result
-   */
-  private function attachToIntervention(
-    string $inspectionId,
-    string $organizationId,
-    ?string $intervention,
-    ?string $clientId,
-  ): InterventionResourceAssignment {
-    if (null === $this->interventionResourceManager) {
-      return new InterventionResourceAssignment(null, 'published', 1);
-    }
-
-    try {
-      return $this->interventionResourceManager->attach(
-        InterventionResourceType::INSPECTION,
-        $inspectionId,
-        $organizationId,
-        null === $intervention ? null : ResourceIriParser::id($intervention, 'interventions'),
-        $clientId,
-      );
-    } catch (InterventionNotFoundException|InterventionResourceNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InterventionConflictException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    }
   }
 }

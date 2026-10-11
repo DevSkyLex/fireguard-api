@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\ListFacilities;
 
 use Facility\Application\Contract\Facility\FacilityListCriteria;
-use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\FacilityEquipmentDependencyPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};

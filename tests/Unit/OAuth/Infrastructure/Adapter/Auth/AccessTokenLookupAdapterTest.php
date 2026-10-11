@@ -6,7 +6,7 @@ namespace Tests\Unit\OAuth\Infrastructure\Adapter\Auth;
 
 use Auth\Application\Contract\Token\AccessTokenStatus;
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AccessTokenRepositoryPort;
 use OAuth\Domain\Model\Token\AccessToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;

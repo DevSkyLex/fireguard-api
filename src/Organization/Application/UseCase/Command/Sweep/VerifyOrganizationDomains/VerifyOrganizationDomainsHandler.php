@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Sweep\VerifyOrganizationDomains;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationDomainProofPort, OrganizationJoinRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\OrganizationJoinRepositoryPort;
+use Organization\Application\Port\Outbound\OrganizationDomainProofPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
 use Throwable;

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\MetadataField\UpdateMetadataField;
 
 use DateTimeImmutable;
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Application\UseCase\Command\MetadataField\UpdateMetadataField\{UpdateMetadataFieldCommand, UpdateMetadataFieldHandler, UpdateMetadataFieldResult};
 use Facility\Domain\Exception\FacilityMetadataFieldNotFoundException;
 use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};

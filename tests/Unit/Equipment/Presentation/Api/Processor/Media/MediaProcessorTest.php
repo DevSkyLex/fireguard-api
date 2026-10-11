@@ -11,24 +11,24 @@ use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\UseCase\Command\Equipment\AddAttachment\AddAttachmentResult;
 use Equipment\Application\UseCase\Command\Equipment\DeleteAttachment\DeleteAttachmentCommand;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
+use Equipment\Presentation\Api\Attachment\MultipartAttachmentGuard;
+use Equipment\Presentation\Api\Http\RevisionGuard;
 use Equipment\Presentation\Api\Processor\Media\MediaProcessor;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\{InterventionMemberPolicy, InterventionResourceManager};
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationMemberDirectoryPort};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Attachment\AttachmentConstraints;
-use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
-use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
+use Throwable;
 
 use function base64_decode;
 use function file_put_contents;
@@ -39,6 +39,8 @@ use function unlink;
 #[CoversClass(MediaProcessor::class)]
 final class MediaProcessorTest extends TestCase
 {
+  use \Tests\Unit\Equipment\Support\EquipmentHttpFailures;
+
   private const string EQUIPMENT_ID = '550e8400-e29b-41d4-a716-446655440001';
 
   private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440002';
@@ -72,11 +74,17 @@ final class MediaProcessorTest extends TestCase
     $organization = new OrganizationRecord();
     $organization->id = self::ORGANIZATION_ID;
     $equipment = new EquipmentRecord();
+    $equipment->type = 'fire_extinguisher';
+    $equipment->updatedAt = new DateTimeImmutable();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->interventionId = self::INTERVENTION_ID;
     $equipment->recordStatus = 'published';
     $attachment = new EquipmentAttachmentRecord();
+    $attachment->fileName = 'photo.jpg';
+    $attachment->mimeType = 'image/jpeg';
+    $attachment->size = 5;
+    $attachment->uploadedAt = new DateTimeImmutable();
     $attachment->id = 'attachment-id';
     $attachment->equipment = $equipment;
     $entityManager = $this->createMock(EntityManagerInterface::class);
@@ -112,7 +120,7 @@ final class MediaProcessorTest extends TestCase
           && 'attachment-id' === $command->attachmentId,
       ));
 
-    $result = new MediaProcessor(
+    $result = $this->buildProcessor(
       $entityManager,
       $commandBus,
       $authorization,
@@ -137,9 +145,15 @@ final class MediaProcessorTest extends TestCase
       $organization = new OrganizationRecord();
       $organization->id = self::ORGANIZATION_ID;
       $equipment = new EquipmentRecord();
+      $equipment->type = 'fire_extinguisher';
+      $equipment->updatedAt = new DateTimeImmutable();
       $equipment->id = self::EQUIPMENT_ID;
-      $equipment->organization = $organization;
+      $equipment->organizationId = $organization->id;
       $attachment = new EquipmentAttachmentRecord();
+      $attachment->fileName = 'photo.jpg';
+      $attachment->mimeType = 'image/jpeg';
+      $attachment->size = 5;
+      $attachment->uploadedAt = new DateTimeImmutable();
       $attachment->id = 'attachment-id';
       $attachment->equipment = $equipment;
       $attachment->fileName = 'photo.jpg';
@@ -166,7 +180,7 @@ final class MediaProcessorTest extends TestCase
       $resources->method('interventionAssignmentContext')->willReturn($context);
       $resources->method('interventionMutationContext')->willReturn($context);
       $resources->method('resourceInInterventionScope')->willReturn(true);
-      $resources->expects(self::once())->method('touchDraftIntervention')->with(self::INTERVENTION_ID);
+      $resources->expects(self::never())->method('touchDraftIntervention');
       $authorization = $this->createStub(OrganizationAuthorizationPort::class);
       $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
       $security = $this->createStub(Security::class);
@@ -195,7 +209,7 @@ final class MediaProcessorTest extends TestCase
         ['file' => new UploadedFile($path, 'photo.jpg', 'image/jpeg', null, true)],
       ));
 
-      $result = new MediaProcessor(
+      $result = $this->buildProcessor(
         $entityManager,
         $commandBus,
         $authorization,
@@ -375,7 +389,7 @@ final class MediaProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testUploadReportsAVanishedStoredMediaAsNotFound(): void
+  public function testUploadReturnsTheCommittedProjectionWithoutAnotherPersistenceRead(): void
   {
     $equipment = $this->equipment();
 
@@ -390,14 +404,14 @@ final class MediaProcessorTest extends TestCase
       new DateTimeImmutable(),
     ));
 
-    $this->expectException(NotFoundHttpException::class);
-    $this->expectExceptionMessage('Uploaded media not found.');
-
-    $this->processor(
+    $output = $this->processor(
       entityManager: $this->entityManager([EquipmentRecord::class => $equipment]),
       requestStack: $this->uploadRequest(),
       commandBus: $commandBus,
     )->process(null, new Post());
+    self::assertInstanceOf(\Equipment\Presentation\Api\Dto\Output\Equipment\AttachmentOutput::class, $output);
+    self::assertSame('attachment-id', $output->id);
+    self::assertSame('photo.jpg', $output->fileName);
   }
 
   #[Test]
@@ -423,7 +437,7 @@ final class MediaProcessorTest extends TestCase
     $context = new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft');
     $resources->method('interventionAssignmentContext')->willReturn($context);
     $resources->method('interventionMutationContext')->willReturn($context);
-    $resources->expects(self::once())->method('touchDraftIntervention')->with(self::INTERVENTION_ID);
+    $resources->expects(self::never())->method('touchDraftIntervention');
 
     $result = $this->processor(
       entityManager: $this->entityManager([
@@ -462,7 +476,7 @@ final class MediaProcessorTest extends TestCase
   public function testDeleteReportsAnOrphanedEquipmentAsNotFound(): void
   {
     $equipment = $this->equipment();
-    $equipment->organization = null;
+    $equipment->organizationId = '';
     $attachment = $this->attachment($equipment);
 
     $this->expectException(NotFoundHttpException::class);
@@ -485,7 +499,7 @@ final class MediaProcessorTest extends TestCase
     $context = new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft');
     $resources->method('interventionAssignmentContext')->willReturn($context);
     $resources->method('interventionMutationContext')->willReturn($context);
-    $resources->expects(self::once())->method('touchDraftIntervention')->with(self::INTERVENTION_ID);
+    $resources->expects(self::never())->method('touchDraftIntervention');
 
     $result = $this->processor(
       entityManager: $this->entityManager([EquipmentAttachmentRecord::class => $attachment]),
@@ -573,12 +587,9 @@ final class MediaProcessorTest extends TestCase
   {
     $equipment = $this->equipment();
 
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionAssignmentContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
-    );
-    $resources->method('resourceInInterventionScope')->willReturn(true);
-    $resources->method('interventionMutationContext')->willReturn(null);
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::once())->method('interventionAssignmentContext')->willReturn(null);
+    $resources->expects(self::never())->method('interventionMutationContext');
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -600,7 +611,7 @@ final class MediaProcessorTest extends TestCase
     $resources->method('resourceInInterventionScope')->willReturn(true);
     $resources->method('interventionMutationContext')->willReturn($context);
 
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findByOrganizationAndUser')->willReturn(null);
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -648,6 +659,31 @@ final class MediaProcessorTest extends TestCase
     }
   }
 
+  private function buildProcessor(EntityManagerInterface $entityManager, CommandBusPort $commands, OrganizationAuthorizationPort $authorization, Security $security, RequestStack $requests, InterventionResourceManager $manager, RevisionGuard $revisions, MultipartAttachmentGuard $guard): MediaProcessor
+  {
+    $interventions = new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter($manager);
+    $access = new \Equipment\Application\Service\EquipmentMediaAccess($authorization, $interventions);
+    $media = new \Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentMediaReadRepository($entityManager);
+    $canonical = $this->createStub(\Equipment\Application\Port\Outbound\Internal\CanonicalEquipmentRepositoryPort::class);
+    $canonical->method('findById')->willReturnCallback(static function (\Equipment\Domain\ValueObject\EquipmentId $id) use ($entityManager): ?\Equipment\Domain\Model\Equipment\CanonicalEquipment {
+      $record = $entityManager->find(EquipmentRecord::class, (string) $id);
+
+      return $record instanceof EquipmentRecord ? \Equipment\Infrastructure\Persistence\Doctrine\Mapper\CanonicalEquipmentMapper::toDomain($record) : null;
+    });
+    $prepare = new \Equipment\Application\UseCase\Query\Media\PrepareEquipmentMediaUpload\PrepareEquipmentMediaUploadHandler($canonical, $media, $access);
+    $read = new \Equipment\Application\UseCase\Query\Media\GetEquipmentMedia\GetEquipmentMediaHandler($media, $access);
+    $queries = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(function (\Equipment\Application\UseCase\Query\Media\PrepareEquipmentMediaUpload\PrepareEquipmentMediaUploadQuery|\Equipment\Application\UseCase\Query\Media\GetEquipmentMedia\GetEquipmentMediaQuery $query) use ($prepare, $read): object {
+      try {
+        return $query instanceof \Equipment\Application\UseCase\Query\Media\PrepareEquipmentMediaUpload\PrepareEquipmentMediaUploadQuery ? $prepare($query) : $read($query);
+      } catch (Throwable $failure) {
+        throw $this->httpFailure($failure);
+      }
+    });
+
+    return new MediaProcessor($commands, $queries, $security, $requests, $revisions, $guard);
+  }
+
   private function processor(
     ?EntityManagerInterface $entityManager = null,
     ?RequestStack $requestStack = null,
@@ -670,7 +706,7 @@ final class MediaProcessorTest extends TestCase
       $authenticated ? new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true) : null,
     );
 
-    return new MediaProcessor(
+    return $this->buildProcessor(
       $entityManager,
       $commandBus,
       $authorization,
@@ -743,8 +779,10 @@ final class MediaProcessorTest extends TestCase
     $organization = new OrganizationRecord();
     $organization->id = self::ORGANIZATION_ID;
     $equipment = new EquipmentRecord();
+    $equipment->type = 'fire_extinguisher';
+    $equipment->updatedAt = new DateTimeImmutable();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->recordStatus = 'published';
 
     return $equipment;
@@ -753,6 +791,10 @@ final class MediaProcessorTest extends TestCase
   private function attachment(EquipmentRecord $equipment): EquipmentAttachmentRecord
   {
     $attachment = new EquipmentAttachmentRecord();
+    $attachment->fileName = 'photo.jpg';
+    $attachment->mimeType = 'image/jpeg';
+    $attachment->size = 5;
+    $attachment->uploadedAt = new DateTimeImmutable();
     $attachment->id = self::CLIENT_ID;
     $attachment->equipment = $equipment;
     $attachment->fileName = 'photo.jpg';

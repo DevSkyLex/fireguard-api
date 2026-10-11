@@ -7,6 +7,7 @@ namespace Intervention\Application\UseCase\Command\Workflow\MutateInterventionWo
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowMutation};
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
+use Intervention\Application\Service\InterventionWorkItemEnrichment;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
@@ -41,6 +42,7 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
     private OrganizationAuthorizationPort $authorization,
     private InterventionMemberPolicy $memberPolicy,
     private InterventionActionPolicy $actionPolicy,
+    private ?InterventionWorkItemEnrichment $enrichment = null,
   ) {
   }
 
@@ -77,7 +79,7 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
       );
     }
 
-    return new MutateInterventionWorkflowResult($this->gateway->mutate(new InterventionWorkflowMutation(
+    $view = $this->gateway->mutate(new InterventionWorkflowMutation(
       resource: $command->resource,
       action: $command->action,
       userId: $command->userId,
@@ -85,7 +87,9 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
       payload: $command->payload,
       expectedRevision: $command->expectedRevision,
       createOnly: $command->createOnly,
-    )));
+    ));
+
+    return new MutateInterventionWorkflowResult(null === $view ? null : ($this->enrichment?->enrich([$view], $command->userId)[0] ?? $view));
   }
 
   /**

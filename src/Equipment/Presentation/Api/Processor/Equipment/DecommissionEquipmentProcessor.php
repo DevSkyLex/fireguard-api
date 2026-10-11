@@ -9,15 +9,15 @@ use ApiPlatform\State\ProcessorInterface;
 use Approval\Application\Contract\Action\ApprovalActionTypes;
 use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateRequest};
 use Approval\Application\Port\Inbound\ApprovalGatePort;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{DecommissionEquipmentCommand, DecommissionEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory;
+use Equipment\Presentation\Api\Service\EquipmentDetailReader;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response as HttpResponse};
@@ -52,7 +52,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
    * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
    * @param ApprovalGatePort $approvalGate port used to defer decommissioning when approval policy requires it
    * @param Security $security security context used to obtain the acting member
-   * @param EquipmentDetailOutputFactory $outputFactory factory used to assemble the updated equipment response
+   * @param EquipmentDetailReader $outputFactory factory used to assemble the updated equipment response
    *
    * @return void
    */
@@ -61,7 +61,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
     private OrganizationAuthorizationPort $authorization,
     private ApprovalGatePort $approvalGate,
     private Security $security,
-    private EquipmentDetailOutputFactory $outputFactory,
+    private EquipmentDetailReader $outputFactory,
   ) {
   }
   // #endregion
@@ -75,7 +75,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): EquipmentOutput|HttpResponse
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

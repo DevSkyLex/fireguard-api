@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Message\UnpinMessage;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\UnpinMessage\{UnpinMessageCommand, UnpinMessageHandler};
 use Messaging\Domain\Event\Message\MessagingMessageUnpinModeratedEvent;

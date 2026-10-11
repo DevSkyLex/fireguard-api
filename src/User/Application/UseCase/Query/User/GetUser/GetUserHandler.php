@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Query\User\GetUser;
 
-use User\Application\Contract\User\UserView;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\Model\User\User;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Service\UserViewFactory;
 use User\Domain\ValueObject\UserId;
 
 /**
@@ -57,35 +56,8 @@ final readonly class GetUserHandler implements \Shared\Application\Message\Query
       return new GetUserResult(user: null);
     }
 
-    return new GetUserResult(user: $this->mapUser($user));
+    return new GetUserResult(user: UserViewFactory::fromUser($user));
   }
 
-  /**
-   * Method mapUser.
-   *
-   * Maps a User domain model to UserView.
-   *
-   * @param User $user the domain user
-   *
-   * @return UserView the user view
-   */
-  private function mapUser(User $user): UserView
-  {
-    return new UserView(
-      id: $user->id()->value,
-      username: $user->username()->value,
-      email: $user->email()->value,
-      firstName: $user->profile()->firstName,
-      lastName: $user->profile()->lastName,
-      avatarUrl: $user->profile()->avatarUrl,
-      status: $user->status()->value,
-      emailVerified: $user->isEmailVerified(),
-      tenantId: $user->tenantId()?->__toString(),
-      createdAt: $user->createdAt(),
-      lastLoginAt: $user->lastLoginAt(),
-      canLogin: $user->canLogin(),
-      locale: $user->locale()->value,
-    );
-  }
   // #endregion
 }

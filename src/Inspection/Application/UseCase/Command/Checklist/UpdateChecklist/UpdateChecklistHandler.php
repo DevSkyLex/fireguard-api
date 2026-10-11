@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Checklist\UpdateChecklist;
 
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Inspection\Application\Port\Outbound\{ChecklistLockPort, ChecklistRepositoryPort};
+use Inspection\Application\Port\Outbound\ChecklistLockPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Domain\Exception\{ChecklistInUseException, ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
 use Inspection\Domain\Model\Checklist\ChecklistItem;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -48,14 +49,14 @@ final readonly class UpdateChecklistHandler implements CommandHandler
    *
    * @param ChecklistLockPort $locks the locks
    * @param ChecklistRepositoryPort $checklistRepository the checklist repository
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    *
    * @return void
    */
   public function __construct(
     private ChecklistLockPort $locks,
     private ChecklistRepositoryPort $checklistRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
 
@@ -105,7 +106,7 @@ final readonly class UpdateChecklistHandler implements CommandHandler
     if ($command->hasItems) {
       foreach ($command->items ?? [] as $index => $itemData) {
         $items[] = ChecklistItem::create(
-          id: $this->uuidFactory->generateRaw(),
+          id: $this->uuidFactory->generate(),
           label: $itemData['label'],
           position: $itemData['position'] ?? $index,
           required: $itemData['required'] ?? true,

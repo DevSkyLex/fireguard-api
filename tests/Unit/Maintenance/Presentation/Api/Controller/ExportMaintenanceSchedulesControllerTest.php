@@ -6,6 +6,7 @@ namespace Tests\Unit\Maintenance\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Maintenance\Application\Contract\Export\MaintenanceScheduleExportRow;
+use Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\PrepareMaintenanceScheduleExportHandler;
 use Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\ExportMaintenanceSchedulesResult;
 use Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent;
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceExportTooLargeException, MaintenanceNotFoundException};
@@ -15,7 +16,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
@@ -37,6 +38,7 @@ use function ob_start;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(ExportMaintenanceSchedulesController::class)]
+#[CoversClass(PrepareMaintenanceScheduleExportHandler::class)]
 final class ExportMaintenanceSchedulesControllerTest extends TestCase
 {
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655507101';
@@ -66,7 +68,7 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new ExportMaintenanceSchedulesResult(rows: [$row], total: 1));
 
-    $response = $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke($request);
+    $response = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke($request));
 
     self::assertSame('text/csv; charset=utf-8', $response->headers->get('Content-Type'));
     self::assertSame('no', $response->headers->get('X-Accel-Buffering'));
@@ -93,7 +95,7 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('The organization filter is required.');
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke(new Request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke(new Request()));
   }
 
   #[Test]
@@ -117,7 +119,7 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
         $dispatched = $event;
       });
 
-    $this->createController($queryBus, $eventDispatcher)->__invoke($request);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $this->createController($queryBus, $eventDispatcher)->__invoke($request));
 
     self::assertInstanceOf(MaintenanceSchedulesExportedEvent::class, $dispatched);
     self::assertSame(self::USER_ID, $dispatched->actorUserId);
@@ -137,8 +139,7 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
     $queryBus->expects(self::never())->method('ask');
 
     $controller = new ExportMaintenanceSchedulesController(
-      queryBus: $queryBus,
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      commandBus: $this->exportBus(new PrepareMaintenanceScheduleExportHandler($queryBus, $this->createStub(EventDispatcherPort::class))),
       security: $security,
       criteriaFactory: new MaintenanceScheduleExportCriteriaFactory(),
       csvWriter: new MaintenanceScheduleCsvWriter(),
@@ -147,7 +148,7 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $controller->__invoke(new Request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $controller->__invoke(new Request()));
   }
 
   #[Test]
@@ -158,8 +159,8 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))
-      ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))
+      ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID])));
   }
 
   #[Test]
@@ -170,8 +171,8 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))
-      ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))
+      ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID])));
   }
 
   #[Test]
@@ -197,8 +198,8 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
 
     $this->expectException(UnprocessableEntityHttpException::class);
 
-    $this->createController($queryBus, $eventDispatcher)
-      ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $this->createController($queryBus, $eventDispatcher)
+      ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID])));
   }
 
   private function createController(QueryBusPort $queryBus, EventDispatcherPort $eventDispatcher): ExportMaintenanceSchedulesController
@@ -214,11 +215,18 @@ final class ExportMaintenanceSchedulesControllerTest extends TestCase
     ));
 
     return new ExportMaintenanceSchedulesController(
-      queryBus: $queryBus,
-      eventDispatcher: $eventDispatcher,
+      commandBus: $this->exportBus(new PrepareMaintenanceScheduleExportHandler($queryBus, $eventDispatcher)),
       security: $security,
       criteriaFactory: new MaintenanceScheduleExportCriteriaFactory(),
       csvWriter: new MaintenanceScheduleCsvWriter(),
     );
+  }
+
+  private function exportBus(PrepareMaintenanceScheduleExportHandler $handler): CommandBusPort
+  {
+    $bus = $this->createStub(CommandBusPort::class);
+    $bus->method('dispatch')->willReturnCallback($handler(...));
+
+    return $bus;
   }
 }

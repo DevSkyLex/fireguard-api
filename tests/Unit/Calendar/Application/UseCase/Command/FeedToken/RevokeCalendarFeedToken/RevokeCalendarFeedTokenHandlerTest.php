@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Application\UseCase\Command\FeedToken\RevokeCalendarFeedToken;
 
-use Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\FeedToken\CalendarFeedTokenRepositoryPort;
 use Calendar\Application\UseCase\Command\FeedToken\RevokeCalendarFeedToken\{RevokeCalendarFeedTokenCommand, RevokeCalendarFeedTokenHandler};
 use Calendar\Domain\Event\CalendarFeedTokenRevokedEvent;
 use Calendar\Domain\Exception\CalendarFeedTokenNotFoundException;

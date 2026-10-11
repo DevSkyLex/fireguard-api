@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment\{AddFacilityAttachmentCommand, AddFacilityAttachmentHandler, AddFacilityAttachmentResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort, UuidGeneratorPort};
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 use Shared\Domain\Exception\InvalidValueException;
@@ -44,16 +45,19 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
 
     /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
-    $attachmentRepository->expects(self::once())->method('save');
+    $attachmentRepository->expects(self::once())->method('saveIfAbsent')->willReturn(true);
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::once())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -83,16 +87,19 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
 
     /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
-    $attachmentRepository->expects(self::never())->method('save');
+    $attachmentRepository->expects(self::never())->method('saveIfAbsent');
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -126,7 +133,7 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
 
     /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
-    $attachmentRepository->expects(self::never())->method('save');
+    $attachmentRepository->expects(self::never())->method('saveIfAbsent');
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -134,10 +141,13 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       ->method('write')
       ->willThrowException(new RuntimeException('Storage unavailable.'));
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -173,7 +183,7 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
     /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
     $attachmentRepository->expects(self::once())
-      ->method('save')
+      ->method('saveIfAbsent')
       ->willThrowException(new RuntimeException('Database error.'));
 
     /** @var FileStoragePort&MockObject $fileStorage */
@@ -181,10 +191,13 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
     $fileStorage->expects(self::once())->method('write');
     $fileStorage->expects(self::once())->method('delete');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -217,7 +230,7 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
     $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
     $facilityRepository->method('findById')->willReturn($facility);
 
-    $attachmentRepository = $this->createStub(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository = $this->attachments();
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -228,10 +241,13 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
         self::anything(),
       );
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -252,10 +268,13 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
   public function testInvokeRejectsAnInvalidFacilityId(): void
   {
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $this->createStub(FacilityRepositoryPort::class),
-      attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+      attachmentRepository: $this->attachments(),
       fileStorage: $this->createStub(FileStoragePort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -276,13 +295,16 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
     $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
     $facilityRepository->method('findById')->willReturn($this->facility());
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::once())->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
-      attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+      attachmentRepository: $this->attachments(),
       fileStorage: $this->createStub(FileStoragePort::class),
       uuidFactory: $uuidFactory,
     );
@@ -308,10 +330,13 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
     $facilityRepository->method('findById')->willReturn($this->facility());
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
-      attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+      attachmentRepository: $this->attachments(),
       fileStorage: $this->createStub(FileStoragePort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -338,17 +363,20 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->method('countByFacilityId')
       ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT);
-    $attachmentRepository->expects(self::never())->method('save');
+    $attachmentRepository->expects(self::never())->method('saveIfAbsent');
 
     // The cap must be refused BEFORE any byte reaches storage.
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -375,16 +403,19 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
 
     /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
-    $attachmentRepository->expects(self::once())->method('save');
+    $attachmentRepository->expects(self::once())->method('saveIfAbsent')->willReturn(true);
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::once())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -419,12 +450,15 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
     $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
     $facilityRepository->method('findById')->willReturn($this->facility());
 
-    $attachmentRepository = $this->createStub(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository = $this->attachments();
     $fileStorage = $this->createStub(FileStoragePort::class);
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -453,16 +487,19 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
 
     /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
     $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
-    $attachmentRepository->expects(self::never())->method('save');
+    $attachmentRepository->expects(self::never())->method('saveIfAbsent');
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::ATTACHMENT_ID);
 
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       fileStorage: $fileStorage,
@@ -486,10 +523,13 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
   public function testInvokeRejectsAnUnknownKind(): void
   {
     $handler = new AddFacilityAttachmentHandler(
+      transactionManager: $this->transactionManager(),
+      cleanup: $this->createStub(FileCleanupPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       facilityRepository: $this->createStub(FacilityRepositoryPort::class),
-      attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+      attachmentRepository: $this->attachments(),
       fileStorage: $this->createStub(FileStoragePort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -503,6 +543,22 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       size: 7,
       kind: 'not-a-kind',
     ));
+  }
+
+  private function attachments(): FacilityAttachmentRepositoryPort
+  {
+    $port = $this->createStub(FacilityAttachmentRepositoryPort::class);
+    $port->method('saveIfAbsent')->willReturn(true);
+
+    return $port;
+  }
+
+  private function transactionManager(): RootTransactionManagerPort
+  {
+    $port = $this->createStub(RootTransactionManagerPort::class);
+    $port->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $port;
   }
 
   private function facility(): Facility

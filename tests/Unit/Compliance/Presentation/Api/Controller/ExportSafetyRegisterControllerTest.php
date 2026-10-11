@@ -5,22 +5,22 @@ declare(strict_types=1);
 namespace Tests\Unit\Compliance\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Compliance\Application\Contract\FacilityComplianceView;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityComplianceView};
 use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort};
 use Compliance\Application\Service\SafetyRegisterContextBuilder;
+use Compliance\Application\UseCase\Command\Export\ExportSafetyRegister\ExportSafetyRegisterHandler;
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
-use Compliance\Domain\ValueObject\ComplianceStatus;
 use Compliance\Presentation\Api\Controller\ExportSafetyRegisterController;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
@@ -39,6 +39,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(ExportSafetyRegisterController::class)]
+#[CoversClass(ExportSafetyRegisterHandler::class)]
 final class ExportSafetyRegisterControllerTest extends TestCase
 {
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655507001';
@@ -53,7 +54,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn($this->overviewResult());
 
-    $response = $this->createController($queryBus)->__invoke($this->request());
+    $response = \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($queryBus)->__invoke($this->request()));
 
     self::assertInstanceOf(Response::class, $response);
     self::assertSame(Response::HTTP_OK, $response->getStatusCode());
@@ -86,7 +87,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
         return '%PDF-fake';
       });
 
-    $this->createController($queryBus, renderer: $renderer)->__invoke($this->request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($queryBus, renderer: $renderer)->__invoke($this->request()));
 
     self::assertIsArray($context);
     self::assertSame('organization', $context['scope']);
@@ -132,8 +133,8 @@ final class ExportSafetyRegisterControllerTest extends TestCase
         return '%PDF-fake';
       });
 
-    $response = $this->createController($queryBus, renderer: $renderer)
-      ->__invoke($this->request(self::FACILITY_ID));
+    $response = \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($queryBus, renderer: $renderer)
+      ->__invoke($this->request(self::FACILITY_ID)));
 
     self::assertIsArray($context);
     self::assertSame('facility', $context['scope']);
@@ -157,7 +158,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
         $dispatched = $event;
       });
 
-    $this->createController($queryBus, eventDispatcher: $eventDispatcher)->__invoke($this->request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($queryBus, eventDispatcher: $eventDispatcher)->__invoke($this->request()));
 
     self::assertInstanceOf(SafetyRegisterExportedEvent::class, $dispatched);
     self::assertSame(self::ORGANIZATION_ID, $dispatched->organizationId);
@@ -188,8 +189,8 @@ final class ExportSafetyRegisterControllerTest extends TestCase
         $dispatched = $event;
       });
 
-    $this->createController($queryBus, entitlement: $entitlement, eventDispatcher: $eventDispatcher)
-      ->__invoke($this->request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($queryBus, entitlement: $entitlement, eventDispatcher: $eventDispatcher)
+      ->__invoke($this->request()));
 
     self::assertInstanceOf(SafetyRegisterExportedEvent::class, $dispatched);
     self::assertSame('unknown', $dispatched->planKey);
@@ -205,20 +206,22 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     $renderer->expects(self::never())->method('render');
 
     $controller = new ExportSafetyRegisterController(
-      queryBus: $this->createStub(QueryBusPort::class),
-      authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      branding: $this->brandingPort(),
-      entitlement: $this->createStub(ComplianceExportEntitlementPort::class),
-      renderer: $renderer,
-      contextBuilder: new SafetyRegisterContextBuilder(),
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      commandBus: $this->exportBus(new ExportSafetyRegisterHandler(
+        queryBus: $this->createStub(QueryBusPort::class),
+        authorization: $this->createStub(OrganizationAuthorizationPort::class),
+        branding: $this->brandingPort(),
+        entitlement: $this->createStub(ComplianceExportEntitlementPort::class),
+        renderer: $renderer,
+        contextBuilder: new SafetyRegisterContextBuilder(),
+        eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      )),
       security: $security,
     );
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $controller->__invoke($this->request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $controller->__invoke($this->request()));
   }
 
   #[Test]
@@ -229,7 +232,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->createController($this->createStub(QueryBusPort::class), renderer: $renderer)->__invoke(new Request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($this->createStub(QueryBusPort::class), renderer: $renderer)->__invoke(new Request()));
   }
 
   #[Test]
@@ -248,8 +251,8 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.compliance.export permission.');
 
-    $this->createController($this->createStub(QueryBusPort::class), authorization: $authorization, renderer: $renderer)
-      ->__invoke($this->request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($this->createStub(QueryBusPort::class), authorization: $authorization, renderer: $renderer)
+      ->__invoke($this->request()));
   }
 
   #[Test]
@@ -263,8 +266,8 @@ final class ExportSafetyRegisterControllerTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->createController($this->createStub(QueryBusPort::class), entitlement: $entitlement, renderer: $renderer)
-      ->__invoke($this->request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($this->createStub(QueryBusPort::class), entitlement: $entitlement, renderer: $renderer)
+      ->__invoke($this->request()));
   }
 
   #[Test]
@@ -276,7 +279,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('database is down');
 
-    $this->createController($queryBus)->__invoke($this->request());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($queryBus)->__invoke($this->request()));
   }
 
   #[Test]
@@ -291,7 +294,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('facility read model unavailable');
 
-    $this->createController($queryBus, renderer: $renderer)->__invoke($this->request(self::FACILITY_ID));
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createController($queryBus, renderer: $renderer)->__invoke($this->request(self::FACILITY_ID)));
   }
 
   private function request(?string $facilityId = null): Request
@@ -334,13 +337,15 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     }
 
     return new ExportSafetyRegisterController(
-      queryBus: $queryBus,
-      authorization: $authorization ?? $this->createStub(OrganizationAuthorizationPort::class),
-      branding: $this->brandingPort(),
-      entitlement: $entitlement,
-      renderer: $renderer,
-      contextBuilder: new SafetyRegisterContextBuilder(),
-      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      commandBus: $this->exportBus(new ExportSafetyRegisterHandler(
+        queryBus: $queryBus,
+        authorization: $authorization ?? $this->createStub(OrganizationAuthorizationPort::class),
+        branding: $this->brandingPort(),
+        entitlement: $entitlement,
+        renderer: $renderer,
+        contextBuilder: new SafetyRegisterContextBuilder(),
+        eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      )),
       security: $security,
     );
   }
@@ -415,5 +420,13 @@ final class ExportSafetyRegisterControllerTest extends TestCase
       openCriticalNonConformityCount: 0,
       lastInspectionAt: '2026-05-20T10:00:00+00:00',
     );
+  }
+
+  private function exportBus(ExportSafetyRegisterHandler $handler): CommandBusPort
+  {
+    $bus = $this->createStub(CommandBusPort::class);
+    $bus->method('dispatch')->willReturnCallback($handler(...));
+
+    return $bus;
   }
 }

@@ -13,7 +13,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, ProvisionOutcome};
 use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
 use Import\Application\Exception\ImportLeaseUnavailable;
-use Import\Application\Port\Outbound\{ImportExecutionPort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError};
 use Import\Infrastructure\Persistence\Doctrine\Execution\PostgresImportExecutionAdapter;

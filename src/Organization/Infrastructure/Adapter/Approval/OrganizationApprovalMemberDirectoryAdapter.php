@@ -6,7 +6,7 @@ namespace Organization\Infrastructure\Adapter\Approval;
 
 use Approval\Application\Port\Outbound\ApprovalMemberDirectoryPort;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inventory\Application\UseCase\Command\ManageInventoryReference;
 
 use InvalidArgumentException;
-use Inventory\Application\Port\Outbound\InventoryStorePort;
+use Inventory\Application\Port\Outbound\Internal\InventoryStorePort;
 use Inventory\Domain\Exception\InventoryNotFoundException;
 use Inventory\Domain\Model\Stock\InventoryReference;
 use Shared\Application\Message\CommandHandler;

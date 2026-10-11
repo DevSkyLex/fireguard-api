@@ -6,7 +6,7 @@ namespace Tests\Unit\Session\Application\Service;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\Service\SessionStatusService;
 use Session\Application\UseCase\Query\Session\GetSessionByAccessToken\GetSessionByAccessTokenHandler;
 use Session\Domain\Model\Session\Session;

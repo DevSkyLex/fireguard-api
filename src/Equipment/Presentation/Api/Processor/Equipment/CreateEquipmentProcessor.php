@@ -6,30 +6,29 @@ namespace Equipment\Presentation\Api\Processor\Equipment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
+use Equipment\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
-use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{
+use Intervention\Application\Contract\Resource\{
   ClientResourceAlreadyExistsException,
   InterventionConflictException,
   InterventionNotFoundException,
   InterventionResourceNotFoundException
 };
-use Intervention\Domain\ValueObject\InterventionResourceType;
+use Intervention\Application\Contract\Resource\InterventionResourceType;
+use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use InvalidArgumentException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\{
@@ -68,18 +67,16 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param EquipmentOutputFactory $outputFactory the shared Result -> EquipmentOutput mapper
-   * @param ?InterventionResourceManager $interventionResourceManager the intervention resource manager value
+   * @param ?InterventionResourcesPort $interventionResourceManager the intervention resource manager value
    * @param ?CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
-   * @param ?EntityManagerInterface $entityManager the entity manager value
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private EquipmentOutputFactory $outputFactory,
-    private ?InterventionResourceManager $interventionResourceManager = null,
+    private ?InterventionResourcesPort $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
-    private ?EntityManagerInterface $entityManager = null,
   ) {
   }
   // #endregion
@@ -98,12 +95,6 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): EquipmentOutput
   {
     /** @var CreateEquipmentInput $data */
-    if (null !== $data->intervention && null !== $this->entityManager) {
-      return $this->entityManager->wrapInTransaction(
-        fn (): EquipmentOutput => $this->processCreation($data, $uriVariables),
-      );
-    }
-
     return $this->processCreation($data, $uriVariables);
   }
 
@@ -127,7 +118,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
       $resourceId = null;
     }
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -193,6 +184,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
         criticality: $data->criticality,
         technicalProperties: $data->technicalProperties,
         resourceId: $resourceId,
+        userId: $userId,
       ));
     } catch (EquipmentSerialNumberAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
@@ -279,7 +271,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     }
 
     try {
-      $this->interventionResourceManager->assertOfflineCreate(InterventionResourceType::EQUIPMENT, $clientId);
+      $this->interventionResourceManager->assertOfflineCreate(InterventionResourceType::EQUIPMENT, $clientId, forUpdate: false);
     } catch (ClientResourceAlreadyExistsException $exception) {
       throw new ClientResourceAlreadyExistsHttpException(
         $createOnly ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
@@ -310,7 +302,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     }
 
     try {
-      return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId, $organizationId);
+      return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId, $organizationId, forUpdate: false);
     } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InterventionConflictException $exception) {

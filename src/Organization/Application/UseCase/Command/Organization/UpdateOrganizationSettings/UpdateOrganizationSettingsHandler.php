@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings;
 
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\Event\Organization\{
+use InvalidArgumentException;
+use Organization\Application\Contract\Event\Organization\{
   OrganizationRestoredEvent,
   OrganizationSuspendedEvent
 };
-use Organization\Domain\Exception\{
-  OrganizationArchivedException,
-  OrganizationNotFoundException,
-  OrganizationSlugAlreadyExistsException
-};
+use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
+use Organization\Application\Contract\Exception\{OrganizationNotFoundException, OrganizationSlugAlreadyExistsException};
+use Organization\Application\Port\Outbound\EquipmentTypeCatalogPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
+use Organization\Domain\Exception\OrganizationArchivedException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{
   OrganizationAutomationSettings,
@@ -31,10 +29,16 @@ use Organization\Domain\ValueObject\{
   OrganizationStatus,
   OrganizationVatNumber
 };
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Throwable;
 
+use function array_keys;
+use function implode;
+use function in_array;
+use function is_array;
+use function sprintf;
 use function str_contains;
 use function strtolower;
 
@@ -64,6 +68,7 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
     private OrganizationRepositoryPort $organizationRepository,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
+    private EquipmentTypeCatalogPort $equipmentTypeCatalog,
   ) {
   }
   // #endregion
@@ -82,6 +87,7 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
    */
   public function __invoke(UpdateOrganizationSettingsCommand $command): UpdateOrganizationSettingsResult
   {
+    $this->validateCompliance($command->compliance);
     $organization = $this->organizationRepository->findById(OrganizationId::fromString($command->organizationId));
 
     if (null === $organization) {
@@ -122,6 +128,30 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
     return new UpdateOrganizationSettingsResult(
       organizationId: (string) $organization->id(),
     );
+  }
+
+  /**
+   * Validates partial periodicity defaults against the owner's equipment catalog capability.
+   *
+   * @since 1.0.0
+   *
+   * @param ?array<string, mixed> $compliance the requested settings section
+   */
+  private function validateCompliance(?array $compliance): void
+  {
+    $periodicities = $compliance['inspection_periodicity_defaults'] ?? null;
+    if (null === $periodicities) {
+      return;
+    }
+    if (!is_array($periodicities)) {
+      throw new InvalidArgumentException('Inspection periodicity defaults must be an object.');
+    }
+    $knownTypes = $this->equipmentTypeCatalog->values();
+    foreach (array_keys($periodicities) as $equipmentType) {
+      if (!in_array((string) $equipmentType, $knownTypes, true)) {
+        throw new InvalidArgumentException(sprintf('Unknown equipment type "%s". Supported types: %s.', (string) $equipmentType, implode(', ', $knownTypes)));
+      }
+    }
   }
 
   /**

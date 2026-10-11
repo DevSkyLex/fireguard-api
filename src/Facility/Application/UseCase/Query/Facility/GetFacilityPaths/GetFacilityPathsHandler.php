@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Query\Facility\GetFacilityPaths;
 
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\ValueObject\FacilityOrganizationId;
 use Shared\Application\Message\QueryHandler;
 

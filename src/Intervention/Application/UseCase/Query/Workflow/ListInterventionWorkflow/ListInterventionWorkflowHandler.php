@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow;
 
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
+use Intervention\Application\Service\InterventionWorkItemEnrichment;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Intervention\Domain\ValueObject\InterventionStatus;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -46,6 +47,7 @@ final readonly class ListInterventionWorkflowHandler implements QueryHandler
     private InterventionWorkflowGatewayPort $gateway,
     private OrganizationAuthorizationPort $authorization,
     private ClockPort $clock,
+    private ?InterventionWorkItemEnrichment $enrichment = null,
   ) {
   }
 
@@ -86,13 +88,23 @@ final readonly class ListInterventionWorkflowHandler implements QueryHandler
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 
-    return new ListInterventionWorkflowResult($this->gateway->list(
+    $page = $this->gateway->list(
       $query->resource,
       $query->scopeId,
       $this->resolveFilters($query->filters),
       $query->page,
       $query->itemsPerPage,
       $query->sorting,
+    );
+    if (null === $this->enrichment) {
+      return new ListInterventionWorkflowResult($page);
+    }
+
+    return new ListInterventionWorkflowResult(new \Intervention\Application\Contract\Workflow\InterventionWorkflowPage(
+      $this->enrichment->enrich($page->items, $query->userId),
+      $page->page,
+      $page->itemsPerPage,
+      $page->total,
     ));
   }
 

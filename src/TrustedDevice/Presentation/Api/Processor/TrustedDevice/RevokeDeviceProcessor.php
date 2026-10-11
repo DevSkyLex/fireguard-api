@@ -6,7 +6,7 @@ namespace TrustedDevice\Presentation\Api\Processor\TrustedDevice;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -65,7 +65,7 @@ final readonly class RevokeDeviceProcessor implements ProcessorInterface
       throw new BadRequestHttpException('User must be authenticated.');
     }
 
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new BadRequestHttpException('Authenticated user type is not supported.');
     }
 

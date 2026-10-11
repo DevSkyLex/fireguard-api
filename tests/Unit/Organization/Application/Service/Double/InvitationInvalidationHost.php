@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\Service\Double;
 
-use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationInvitationRepositoryPort;
 use Organization\Application\Service\InvitationInvalidationTrait;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\OrganizationInvitationId;

@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace Auth\Application\UseCase\Command\Mfa\MfaResend;
 
 use Auth\Application\Contract\Mfa\ResentMfaChallenge;
+use Auth\Application\Contract\Token\SignInGrantType;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
-use Auth\Domain\ValueObject\Security\SignInGrantType;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
-use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Application\Service\ChallengeResendPolicy;
-use Otp\Domain\ValueObject\ChallengeToken;
+use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePort};
 use Shared\Application\Message\CommandHandler;
 
 use function array_filter;
@@ -43,12 +40,12 @@ final readonly class MfaResendHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param JwtTokenServicePort $jwtService the JWT service
-   * @param OtpRepositoryPort $otpRepository the OTP repository port
+   * @param ChallengeAccessPort $otpRepository the OTP repository port
    * @param OtpChallengePort $otpChallenge the OTP challenge port
    */
   public function __construct(
     private readonly JwtTokenServicePort $jwtService,
-    private readonly OtpRepositoryPort $otpRepository,
+    private readonly ChallengeAccessPort $otpRepository,
     private readonly OtpChallengePort $otpChallenge,
   ) {
   }
@@ -102,18 +99,16 @@ final readonly class MfaResendHandler implements CommandHandler
     $grantType = is_string($grantClaim) ? SignInGrantType::tryFrom($grantClaim) : null;
     $grantType ??= SignInGrantType::PASSWORD;
 
-    $otp = $this->otpRepository->findByChallengeToken(
-      token: ChallengeToken::fromString($challengeToken),
-    );
+    $otp = $this->otpRepository->find($challengeToken);
 
-    if (null === $otp || OtpPurpose::LOGIN->value !== $otp->purpose()->value || 'pending' !== $otp->status()) {
+    if (null === $otp || $otp->userId !== $userId || OtpPurpose::LOGIN->value !== $otp->purpose->value || 'pending' !== $otp->status) {
       return MfaResendResult::failed(
         message: 'Invalid or expired MFA challenge.',
         errorCode: MfaResendResult::ERROR_INVALID_CHALLENGE,
       );
     }
 
-    if (OtpChannel::TOTP->value === $otp->channel()->value) {
+    if (OtpChannel::TOTP->value === $otp->channel->value) {
       return MfaResendResult::failed(
         message: 'TOTP codes cannot be resent. Enter the current code from your authenticator app.',
         errorCode: MfaResendResult::ERROR_TOTP_NOT_RESENDABLE,
@@ -121,8 +116,8 @@ final readonly class MfaResendHandler implements CommandHandler
     }
 
     $now = new DateTimeImmutable();
-    $canResendIn = ChallengeResendPolicy::canResendIn(
-      createdAt: $otp->createdAt(),
+    $canResendIn = $this->otpRepository->canResendIn(
+      createdAt: $otp->createdAt,
       now: $now,
     );
 
@@ -133,12 +128,12 @@ final readonly class MfaResendHandler implements CommandHandler
         retryAfter: $canResendIn,
       );
     } else {
-      $channel = OtpChannel::from($otp->channel()->value);
+      $channel = OtpChannel::from($otp->channel->value);
       $challenge = $this->otpChallenge->generate(
         userId: $userId,
         purpose: OtpPurpose::LOGIN,
         channel: $channel,
-        recipient: $otp->recipient(),
+        recipient: $otp->recipient,
       );
 
       $newPreAuthToken = $this->jwtService->generatePreAuthToken(
@@ -158,7 +153,7 @@ final readonly class MfaResendHandler implements CommandHandler
           mfaDestination: $challenge->maskedRecipient,
           expiresAt: $challenge->expiresAt,
           maxAttempts: $challenge->maxAttempts,
-          canResendIn: ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS,
+          canResendIn: ChallengeAccessPort::RESEND_COOLDOWN_SECONDS,
         ),
         message: 'A new MFA code has been sent.',
       );

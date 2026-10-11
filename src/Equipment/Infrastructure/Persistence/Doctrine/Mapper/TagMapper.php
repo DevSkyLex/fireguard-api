@@ -8,7 +8,6 @@ use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentOrganizationId, TagId};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\TagRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper TagMapper.
@@ -28,13 +27,13 @@ final class TagMapper
    */
   public static function toDomain(TagRecord $record): Tag
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Tag record must reference an organization.');
     }
 
     return Tag::reconstitute(
       id: TagId::fromString($record->id),
-      organizationId: EquipmentOrganizationId::fromString($record->organization->id),
+      organizationId: EquipmentOrganizationId::fromString($record->organizationId),
       name: $record->name,
       createdAt: $record->createdAt,
     );
@@ -49,6 +48,7 @@ final class TagMapper
   {
     $record = new TagRecord();
     $record->id = (string) $tag->id();
+    $record->organizationId = (string) $tag->organizationId();
     $record->name = $tag->name();
     $record->createdAt = $tag->createdAt();
 

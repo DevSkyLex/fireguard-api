@@ -7,244 +7,107 @@ namespace Tests\Unit\Facility\Presentation\Api\Provider\Facility;
 use ApiPlatform\Metadata\{Get, GetCollection};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Application\Contract\Facility\{CanonicalFacilityCollectionItem, CanonicalFacilityPage};
+use Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\{GetFacilityMediaContextQuery, GetFacilityMediaContextResult};
+use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityQuery, GetFacilityResult};
+use Facility\Application\UseCase\Query\Facility\ListCanonicalFacilities\{ListCanonicalFacilitiesQuery, ListCanonicalFacilitiesResult};
+use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityNotFoundException};
+use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
-use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
-use Intervention\Application\Service\InterventionResourceManager;
-use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-/**
- * Test CanonicalFacilityProviderTest.
- *
- * Covers the item route and the filter-resolution guards. The collection
- * query itself needs a live Doctrine QueryBuilder and is exercised by the
- * integration suite.
- *
- * @category Provider Tests
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
+use function iterator_to_array;
+
+/** Tests typed reads and preserves application refusals for centralized HTTP mapping. */
 #[CoversClass(CanonicalFacilityProvider::class)]
 final class CanonicalFacilityProviderTest extends TestCase
 {
-  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655442200';
-
-  private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655442201';
-
   #[Test]
-  public function testProvideThrowsNotFoundWhenTheFacilityRecordIsMissing(): void
+  public function itemResolvesAuthorizedOwnerBeforeReadingTheCompleteSnapshot(): void
   {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn(null);
+    $queries = $this->createMock(QueryBusPort::class);
+    $calls = 0;
+    $queries->expects(self::exactly(2))->method('ask')->willReturnCallback(function (object $query) use (&$calls): object {
+      if (0 === $calls++) {
+        self::assertInstanceOf(GetFacilityMediaContextQuery::class, $query);
+        self::assertSame('user-id', $query->userId);
+        self::assertSame('facility-id', $query->facilityId);
+        self::assertFalse($query->write);
 
-    $this->expectException(NotFoundHttpException::class);
-    $this->expectExceptionMessage('Facility not found.');
+        return new GetFacilityMediaContextResult('organization-id', 'facility-id');
+      }
+      self::assertInstanceOf(GetFacilityQuery::class, $query);
+      self::assertSame('organization-id', $query->organizationId);
+      self::assertSame('facility-id', $query->facilityId);
+      $now = new DateTimeImmutable('2026-09-20');
 
-    $this->provider($entityManager, new RequestStack(), null)
-      ->provide(new Get(), ['id' => 'facility-id']);
+      return new GetFacilityResult('facility-id', 'organization-id', null, 'building', 'Building B', null, 'active', null, [], $now, $now, path: [['id' => 'root', 'name' => 'Root', 'type' => 'site']], revision: 7);
+    });
+    $output = $this->provider($queries)->provide(new Get(), ['id' => 'facility-id']);
+    self::assertInstanceOf(\Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput::class, $output);
+    self::assertSame('facility-id', $output->id);
+    self::assertSame(7, $output->revision);
+    self::assertSame([['id' => 'root', 'name' => 'Root', 'type' => 'site']], $output->path);
   }
 
   #[Test]
-  public function testProvideRequiresAnOrganizationOrInterventionFilter(): void
+  public function collectionDispatchesOneTypedQueryAndMapsThePaginatedSnapshot(): void
   {
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create('/api/facilities'));
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('The organization or intervention filter is required.');
-
-    $this->provider($this->createStub(EntityManagerInterface::class), $requestStack, null)
-      ->provide(new GetCollection(), []);
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (object $query): bool => $query instanceof ListCanonicalFacilitiesQuery && 'user-id' === $query->userId && 'organization-id' === $query->organizationId && 'intervention-id' === $query->interventionId && 'draft' === $query->recordStatus && 1 === $query->page && 100 === $query->itemsPerPage && $query->includePath))->willReturn(new ListCanonicalFacilitiesResult(new CanonicalFacilityPage([new CanonicalFacilityCollectionItem('facility-id', 'organization-id', 'intervention-id', 'draft', 4, null, true, 'building', 'Building', null, 'active', null, 48.8, 2.3, ['key' => 'value'], 2, 6.0, 3.0, 'customer-id', 'created', 'updated')], 15), 1, 100, ['facility-id' => [['id' => 'root', 'name' => 'Root', 'type' => 'site']]], ['facility-id' => ['parent_archived']]));
+    $stack = new RequestStack();
+    $stack->push(Request::create('/api/facilities', parameters: ['organization' => '/api/organizations/organization-id', 'intervention' => '/api/interventions/intervention-id', 'recordStatus' => 'draft', 'includePath' => 'true']));
+    $page = $this->provider($queries, $stack)->provide(new GetCollection(), context: ['filters' => ['page' => -5, 'itemsPerPage' => 500]]);
+    self::assertInstanceOf(\ApiPlatform\State\Pagination\TraversablePaginator::class, $page);
+    $items = iterator_to_array($page);
+    self::assertSame(15.0, $page->getTotalItems());
+    self::assertCount(1, $items);
+    self::assertInstanceOf(\Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput::class, $items[0]);
+    self::assertSame(4, $items[0]->revision);
+    self::assertSame('/api/interventions/intervention-id', $items[0]->intervention);
+    self::assertSame(2, $items[0]->levelIndex);
+    self::assertSame(['parent_archived'], $items[0]->hierarchyIssues);
   }
 
   #[Test]
-  public function testProvideRejectsAnInterventionFilterWithoutAResolvableContext(): void
+  public function unauthenticatedCallerDoesNotReachTheApplication(): void
   {
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create('/api/facilities?intervention=/api/interventions/' . self::INTERVENTION_ID));
-
-    $this->expectException(BadRequestHttpException::class);
-
-    $this->provider($this->createStub(EntityManagerInterface::class), $requestStack, null)
-      ->provide(new GetCollection(), []);
-  }
-
-  #[Test]
-  public function testProvideThrowsNotFoundWhenTheResolvedOrganizationIsMissing(): void
-  {
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create('/api/facilities?intervention=/api/interventions/' . self::INTERVENTION_ID));
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn(null);
-
-    $this->expectException(NotFoundHttpException::class);
-    // 'Facility not found.', not 'Organization not found.': the message now
-    // comes from `assertRead()`'s OUTSIDE_SCOPE branch rather than from the
-    // removed existence lookup. Same status, and a better one to send — an
-    // unknown organization and one the caller is not in now produce an
-    // identical body, where before the two differed.
-    $this->expectExceptionMessage('Facility not found.');
-
-    $this->provider($entityManager, $requestStack, $this->context(), OrganizationAccessDecision::OUTSIDE_SCOPE)
-      ->provide(new GetCollection(), []);
-  }
-
-  #[Test]
-  public function testProvideRejectsAUserWithoutTheReadPermission(): void
-  {
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create('/api/facilities?organization=/api/organizations/' . self::ORGANIZATION_ID));
-
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($organization);
-
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::never())->method('ask');
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
     $this->expectException(AccessDeniedHttpException::class);
-
-    $this->provider($entityManager, $requestStack, null, OrganizationAccessDecision::MISSING_PERMISSION)
-      ->provide(new GetCollection(), []);
+    new CanonicalFacilityProvider($security, new RequestStack(), new FacilityDetailOutputFactory(), $queries)->provide(new GetCollection());
   }
 
   #[Test]
-  public function testProvideThrowsNotFoundWhenTheOrganizationIsOutsideCallerScope(): void
+  public function missingOwnerRefusalIsPreservedForTheCentralSubscriber(): void
   {
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create('/api/facilities?organization=/api/organizations/' . self::ORGANIZATION_ID));
-
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($organization);
-
-    $this->expectException(NotFoundHttpException::class);
-    $this->expectExceptionMessage('Facility not found.');
-
-    $this->provider($entityManager, $requestStack, null, OrganizationAccessDecision::OUTSIDE_SCOPE)
-      ->provide(new GetCollection(), []);
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->with(self::isInstanceOf(GetFacilityMediaContextQuery::class))->willThrowException(new FacilityNotFoundException('Facility not found.'));
+    $this->expectException(FacilityNotFoundException::class);
+    $this->provider($queries)->provide(new Get(), ['id' => 'missing']);
   }
 
   #[Test]
-  public function testProvideMapsAncestorPathOnTheItemRoute(): void
+  public function deniedCollectionRefusalIsPreservedForTheCentralSubscriber(): void
   {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->with(self::isInstanceOf(ListCanonicalFacilitiesQuery::class))->willThrowException(new FacilityAccessDeniedException('Missing organization.facilities.read permission.'));
+    $this->expectException(FacilityAccessDeniedException::class);
+    $this->provider($queries)->provide(new GetCollection());
+  }
 
-    $record = new FacilityRecord();
-    $record->id = 'facility-id';
-    $record->organization = $organization;
-    $record->type = 'building';
-    $record->name = 'Building B';
-    $record->status = 'active';
-    $record->metadata = [];
-    $record->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
-    $record->updatedAt = $record->createdAt;
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($record);
-
-    /** @var FacilityRepositoryPort&MockObject $facilityRepository */
-    $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
-    $facilityRepository->method('findAncestors')
-      ->with('facility-id')
-      ->willReturn([
-        ['id' => 'root-id', 'name' => 'Root', 'type' => 'site'],
-      ]);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
-
+  private function provider(QueryBusPort $queries, ?RequestStack $stack = null): CanonicalFacilityProvider
+  {
     $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
+    $security->method('getUser')->willReturn(new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true));
 
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-
-    $provider = new CanonicalFacilityProvider(
-      $entityManager,
-      $authorization,
-      $security,
-      new RequestStack(),
-      new InterventionResourceManager($resources),
-      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
-      queryBus: $this->detailQueries(),
-    );
-
-    $output = $provider->provide(new Get(), ['id' => 'facility-id']);
-
-    self::assertInstanceOf(FacilityOutput::class, $output);
-    self::assertSame([['id' => 'root-id', 'name' => 'Root', 'type' => 'site']], $output->path);
-  }
-
-  private function context(): InterventionAssignmentContext
-  {
-    return new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft');
-  }
-
-  private function provider(
-    EntityManagerInterface $entityManager,
-    RequestStack $requestStack,
-    ?InterventionAssignmentContext $context,
-    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
-  ): CanonicalFacilityProvider {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn($decision);
-
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
-
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionAssignmentContext')->willReturn($context);
-
-    return new CanonicalFacilityProvider(
-      $entityManager,
-      $authorization,
-      $security,
-      $requestStack,
-      new InterventionResourceManager($resources),
-      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
-      queryBus: $this->detailQueries(),
-    );
-  }
-
-  private function detailQueries(): \Shared\Application\Port\Inbound\QueryBusPort
-  {
-    $queries = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
-    $queries->method('ask')->willReturnCallback(static fn (\Shared\Application\Message\QueryMessage $query): \Shared\Application\Message\ResultMessage => $query instanceof \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery
-      ? new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult(
-        facilityId: 'facility-id',
-        organizationId: self::ORGANIZATION_ID,
-        parentFacilityId: null,
-        type: 'building',
-        name: 'Building B',
-        code: null,
-        status: 'active',
-        address: null,
-        metadata: [],
-        path: [['id' => 'root-id', 'name' => 'Root', 'type' => 'site']],
-        createdAt: new DateTimeImmutable('2026-09-20'),
-        updatedAt: new DateTimeImmutable('2026-09-20'),
-      )
-      : new \Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityResult(new \Facility\Application\Contract\Facility\CanonicalFacilityView('facility-id', self::ORGANIZATION_ID, 'published', null, 3)));
-
-    return $queries;
+    return new CanonicalFacilityProvider($security, $stack ?? new RequestStack(), new FacilityDetailOutputFactory(), $queries);
   }
 }

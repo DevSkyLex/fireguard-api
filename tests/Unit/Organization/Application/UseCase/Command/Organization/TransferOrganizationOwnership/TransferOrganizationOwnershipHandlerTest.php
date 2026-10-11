@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\TransferOrganizationOwnership;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Event\Organization\OrganizationOwnershipTransferredEvent;
+use Organization\Application\Contract\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\TransferOrganizationOwnership\{TransferOrganizationOwnershipCommand, TransferOrganizationOwnershipHandler, TransferOrganizationOwnershipResult};
-use Organization\Domain\Event\Organization\OrganizationOwnershipTransferredEvent;
-use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationArchivedException, OrganizationDeletionConfirmationMismatchException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationOwnershipUnchangedException};
+use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationDeletionConfirmationMismatchException, OrganizationMemberNotFoundException, OrganizationOwnershipUnchangedException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;

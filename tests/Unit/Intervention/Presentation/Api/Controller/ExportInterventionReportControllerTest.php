@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Intervention\Application\Contract\Event\InterventionReportExportedEvent;
 use Intervention\Application\Contract\Resource\InterventionIssue;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowPage, InterventionWorkflowView};
 use Intervention\Application\Port\Outbound\{InterventionMemberNamingPort, InterventionReportPdfRendererPort, InterventionSiteNamingPort};
+use Intervention\Application\UseCase\Command\Export\RecordInterventionExport\RecordInterventionExportCommand;
 use Intervention\Application\UseCase\Query\Activity\ListInterventionActivities\{ListInterventionActivitiesQuery, ListInterventionActivitiesResult};
 use Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\{ListInterventionAttachmentsQuery, ListInterventionAttachmentsResult};
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionIssues\{ListInterventionIssuesQuery, ListInterventionIssuesResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
-use Intervention\Domain\Event\InterventionReportExportedEvent;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Intervention\Presentation\Api\Controller\ExportInterventionReportController;
 use LogicException;
@@ -23,8 +24,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Message\VoidResult;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
@@ -169,15 +170,17 @@ final class ExportInterventionReportControllerTest extends TestCase
   {
     $dispatched = null;
 
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
-        $dispatched = $event;
+      ->willReturnCallback(static function (RecordInterventionExportCommand $command) use (&$dispatched): VoidResult {
+        $dispatched = $command->event;
+
+        return new VoidResult();
       });
 
-    $this->createController($this->queryBus(), eventDispatcher: $eventDispatcher)->__invoke($this->request());
+    $this->createController($this->queryBus(), commandBus: $commandBus)->__invoke($this->request());
 
     self::assertInstanceOf(InterventionReportExportedEvent::class, $dispatched);
     self::assertSame(self::INTERVENTION_ID, $dispatched->interventionId);
@@ -194,13 +197,13 @@ final class ExportInterventionReportControllerTest extends TestCase
     $renderer = $this->createMock(InterventionReportPdfRendererPort::class);
     $renderer->expects(self::never())->method('render');
 
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::never())->method('dispatch');
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
 
     $this->expectException(NotFoundHttpException::class);
 
-    $this->createController($queryBus, renderer: $renderer, eventDispatcher: $eventDispatcher)
+    $this->createController($queryBus, renderer: $renderer, commandBus: $commandBus)
       ->__invoke($this->request());
   }
 
@@ -219,7 +222,7 @@ final class ExportInterventionReportControllerTest extends TestCase
       branding: $this->brandingPort(),
       memberNaming: $this->memberNamingPort(),
       siteNaming: $this->siteNamingPort(),
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 
@@ -296,7 +299,7 @@ final class ExportInterventionReportControllerTest extends TestCase
     QueryBusPort $queryBus,
     ?OrganizationDocumentBrandingPort $branding = null,
     ?InterventionReportPdfRendererPort $renderer = null,
-    ?EventDispatcherPort $eventDispatcher = null,
+    ?CommandBusPort $commandBus = null,
   ): ExportInterventionReportController {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(new SecurityUser(
@@ -319,7 +322,7 @@ final class ExportInterventionReportControllerTest extends TestCase
       branding: $branding ?? $this->brandingPort(),
       memberNaming: $this->memberNamingPort(),
       siteNaming: $this->siteNamingPort(),
-      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
       security: $security,
     );
   }

@@ -6,7 +6,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Organization\Application\Port\Outbound\OrganizationJoinRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationJoinRepositoryPort;
 use Organization\Domain\Model\OrganizationJoin\{OrganizationAccessPolicy, OrganizationDomain, OrganizationJoinRequest};
 use Organization\Domain\ValueObject\OrganizationJoinMode;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationAccessPolicyRecord, OrganizationDomainRecord, OrganizationJoinRequestRecord};

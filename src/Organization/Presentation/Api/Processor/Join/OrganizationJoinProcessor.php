@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Processor\Join;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use LogicException;
 use Organization\Application\UseCase\Command\Join\ManageOrganizationJoin\{ManageOrganizationJoinCommand, ManageOrganizationJoinResult};
 use Organization\Presentation\Api\Dto\Input\Join\{ApproveOrganizationJoinRequestInput, OrganizationAccessPolicyInput, OrganizationDomainInput};
@@ -57,7 +57,7 @@ final readonly class OrganizationJoinProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $actor = $this->security->getUser();
-    if (!$actor instanceof SecurityUser) {
+    if (!$actor instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException();
     }
     $action = $operation->getExtraProperties()['join_action'] ?? null;

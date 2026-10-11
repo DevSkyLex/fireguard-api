@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Application\Service;
 
+use Billing\Application\Contract\Pricing\PlanPricing;
 use Billing\Domain\ValueObject\BillingInterval;
 
 use function is_array;

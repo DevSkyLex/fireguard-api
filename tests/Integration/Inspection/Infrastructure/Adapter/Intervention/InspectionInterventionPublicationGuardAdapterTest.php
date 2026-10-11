@@ -297,7 +297,7 @@ final class InspectionInterventionPublicationGuardAdapterTest extends KernelTest
   {
     $record = new InspectionRecord();
     $record->id = $id;
-    $record->organization = $this->organization;
+    $record->organizationId = $this->organization->id;
     $record->interventionId = $interventionId;
     $record->recordStatus = $recordStatus;
     $record->facilityId = self::FACILITY_ID;
@@ -331,7 +331,7 @@ final class InspectionInterventionPublicationGuardAdapterTest extends KernelTest
   {
     $record = new InspectionResponseRecord();
     $record->id = $id;
-    $record->organization = $this->organization;
+    $record->organizationId = $this->organization->id;
     $record->interventionId = $interventionId;
     $record->recordStatus = $recordStatus;
     $record->inspectionId = self::INSPECTION_ID;

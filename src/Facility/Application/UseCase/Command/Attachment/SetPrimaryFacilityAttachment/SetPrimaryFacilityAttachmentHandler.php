@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Domain\Exception\FacilityAccessDeniedException;
 use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotFoundException};
+use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityOrganizationId};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
 
@@ -47,6 +50,7 @@ final readonly class SetPrimaryFacilityAttachmentHandler implements CommandHandl
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,
     private TransactionManagerPort $transactionManager,
+    private OrganizationAuthorizationPort $authorization,
   ) {
   }
   // #endregion
@@ -63,26 +67,30 @@ final readonly class SetPrimaryFacilityAttachmentHandler implements CommandHandl
     $organizationId = FacilityOrganizationId::fromString($command->organizationId);
     $attachmentId = FacilityAttachmentId::fromString($command->attachmentId);
 
-    $facility = $this->facilityRepository->findById($facilityId);
-
-    if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
-      throw FacilityNotFoundException::withId($command->facilityId);
-    }
-
-    $attachment = $this->attachmentRepository->findById($attachmentId);
-
-    if (null === $attachment || (string) $attachment->facilityId() !== (string) $facilityId) {
-      throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
-    }
-
-    // Validated BEFORE the transaction opens: a document attachment must
-    // refuse (FacilityAttachmentNotFloorPlanException, mapped to 409) without
-    // ever touching the previous primary's flag.
-    $attachment->markAsPrimary();
-
-    $this->transactionManager->transactional(function () use ($facilityId, $attachmentId, $attachment): void {
+    $attachment = $this->transactionManager->transactional(function () use ($command, $facilityId, $organizationId, $attachmentId): FacilityAttachment {
+      $this->attachmentRepository->lock($facilityId);
+      $facility = $this->facilityRepository->findById($facilityId);
+      if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
+        throw FacilityNotFoundException::withId($command->facilityId);
+      }
+      $attachment = $this->attachmentRepository->findById($attachmentId);
+      if (null === $attachment || (string) $attachment->facilityId() !== (string) $facilityId) {
+        throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
+      }
+      if (null !== $command->userId) {
+        $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.facilities.write');
+        if ($decision->isOutsideScope()) {
+          throw new FacilityAttachmentNotFoundException('Attachment not found.');
+        }
+        if (!$decision->isGranted()) {
+          throw new FacilityAccessDeniedException('Missing organization.facilities.write permission.');
+        }
+      }
+      $attachment->markAsPrimary();
       $this->attachmentRepository->clearPrimaryPlan($facilityId, $attachmentId);
       $this->attachmentRepository->save($attachment);
+
+      return $attachment;
     });
 
     return new SetPrimaryFacilityAttachmentResult(

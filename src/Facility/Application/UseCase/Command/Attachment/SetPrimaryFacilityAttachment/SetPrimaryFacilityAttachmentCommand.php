@@ -34,6 +34,7 @@ final readonly class SetPrimaryFacilityAttachmentCommand implements CommandMessa
     public string $organizationId,
     public string $facilityId,
     public string $attachmentId,
+    public ?string $userId = null,
   ) {
   }
   // #endregion

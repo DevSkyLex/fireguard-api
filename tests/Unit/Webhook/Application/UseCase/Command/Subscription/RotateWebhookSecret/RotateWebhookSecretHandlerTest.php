@@ -7,7 +7,8 @@ namespace Tests\Unit\Webhook\Application\UseCase\Command\Subscription\RotateWebh
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Application\Port\Outbound\{WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\WebhookSecretCipherPort;
 use Webhook\Application\UseCase\Command\Subscription\RotateWebhookSecret\{RotateWebhookSecretCommand, RotateWebhookSecretHandler, RotateWebhookSecretResult};
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Domain\Model\Subscription\WebhookSubscription;

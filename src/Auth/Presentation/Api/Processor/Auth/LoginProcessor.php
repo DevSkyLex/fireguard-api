@@ -9,14 +9,13 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\UseCase\Command\Session\Login\{LoginCommand, LoginResult};
 use Auth\Presentation\Api\Dto\Input\Auth\LoginInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
-use Auth\Presentation\Api\Service\RefreshTokenCookieService;
+use Auth\Presentation\Api\Service\{RefreshTokenCookieService, TrustedDeviceCookieService};
 use InvalidArgumentException;
-use Otp\Application\Service\ChallengeResendPolicy;
+use Otp\Application\Port\Inbound\Challenge\ChallengeAccessPort;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
 use Symfony\Contracts\Translation\TranslatorInterface;
-use TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService;
 
 use function implode;
 
@@ -70,7 +69,7 @@ final readonly class LoginProcessor implements ProcessorInterface
     $request = $this->requestStack->getCurrentRequest();
     $ipAddress = null !== $request ? ($request->getClientIp() ?? '127.0.0.1') : '127.0.0.1';
 
-    $userAgent = \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent');
+    $userAgent = \Auth\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent');
 
     // Get trusted device token from cookie (if present)
     $trustedDeviceToken = null;
@@ -134,7 +133,7 @@ final readonly class LoginProcessor implements ProcessorInterface
     $output->challengeToken = $result->challengeToken;
     $output->mfaMethod = $result->mfaMethod;
     $output->mfaDestination = $result->mfaDestination;
-    $output->mfaResendIn = ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS;
+    $output->mfaResendIn = ChallengeAccessPort::RESEND_COOLDOWN_SECONDS;
 
     return $output;
   }

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound\Federation;
 
-use Auth\Application\Contract\Federation\FederatedFlow;
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\{FederatedFlow, FederatedProvider};
 
 /**
  * Interface FederatedFlowRepositoryPort.

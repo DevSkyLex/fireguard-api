@@ -12,7 +12,7 @@ use Import\Domain\Exception\ImportJobNotFoundException;
 use Import\Presentation\Api\Factory\ImportJobOutputFactory;
 use Import\Presentation\Api\Provider\ImportJobProvider;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -80,7 +80,7 @@ final class ImportJobProviderTest extends TestCase
         && self::JOB_ID === $query->importJobId))
       ->willReturn($this->jobResult());
 
-    $output = $this->createProvider($queryBus)->provide(new Get(), ['id' => self::JOB_ID]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus)->provide(new Get(), ['id' => self::JOB_ID]));
 
     self::assertSame(self::JOB_ID, $output->id);
     self::assertSame('/api/organizations/' . self::ORGANIZATION_ID, $output->organization);
@@ -117,9 +117,9 @@ final class ImportJobProviderTest extends TestCase
         && 25 === $query->reportItemsPerPage,
     ))->willReturn($this->jobResult());
 
-    $output = $this->createProvider($queryBus)->provide($operation, ['id' => self::JOB_ID], [
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus)->provide($operation, ['id' => self::JOB_ID], [
       'filters' => ['reportPage' => 'invalid fallback', 'reportItemsPerPage' => '25'],
-    ]);
+    ]));
 
     self::assertSame(self::JOB_ID, $output->id);
   }
@@ -142,7 +142,7 @@ final class ImportJobProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $provider->provide(new Get(), ['id' => self::JOB_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $provider->provide(new Get(), ['id' => self::JOB_ID]));
   }
 
   #[Test]
@@ -153,7 +153,7 @@ final class ImportJobProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $this->createProvider($queryBus)->provide(new Get(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus)->provide(new Get(), []));
   }
 
   #[Test]
@@ -161,7 +161,7 @@ final class ImportJobProviderTest extends TestCase
   {
     $this->expectException(BadRequestHttpException::class);
 
-    $this->createProvider($this->createStub(QueryBusPort::class))->provide(new Get(), ['id' => '']);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($this->createStub(QueryBusPort::class))->provide(new Get(), ['id' => '']));
   }
 
   /**
@@ -176,7 +176,7 @@ final class ImportJobProviderTest extends TestCase
 
     $this->expectException($expected);
 
-    $this->createProvider($queryBus)->provide(new Get(), ['id' => self::JOB_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus)->provide(new Get(), ['id' => self::JOB_ID]));
   }
 
   #[Test]
@@ -187,7 +187,7 @@ final class ImportJobProviderTest extends TestCase
 
     $this->expectException(RuntimeException::class);
 
-    $this->createProvider($queryBus)->provide(new Get(), ['id' => self::JOB_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus)->provide(new Get(), ['id' => self::JOB_ID]));
   }
 
   private function createProvider(QueryBusPort $queryBus): ImportJobProvider

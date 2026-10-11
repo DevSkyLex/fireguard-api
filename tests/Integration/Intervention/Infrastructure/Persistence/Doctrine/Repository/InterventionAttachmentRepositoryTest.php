@@ -14,9 +14,11 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachm
 use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
+use function iterator_to_array;
 use function str_contains;
 
 /**
@@ -62,7 +64,7 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
 
     $this->cleanup();
 
-    $this->repository = new InterventionAttachmentRepository($this->entityManager);
+    $this->repository = new InterventionAttachmentRepository($this->entityManager, new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($this->entityManager->getConnection(), $this->entityManager));
 
     $this->createOrganization();
     $this->createIntervention(self::INTERVENTION_ID, 1);
@@ -495,7 +497,7 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     $organization->updatedAt = $organization->createdAt;
     $parent = new InterventionRecord();
     $parent->id = $interventionId;
-    $parent->organization = $organization;
+    $parent->organizationId = $organization->id;
     $parent->type = 'inventory';
     $parent->name = 'Concurrent upload';
     $parent->number = 1;
@@ -505,18 +507,19 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     $firstManager->persist($organization);
     $firstManager->persist($parent);
     $firstManager->flush();
-    $firstRepository = new InterventionAttachmentRepository($firstManager);
+    $firstRepository = new InterventionAttachmentRepository($firstManager, new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($firstManager->getConnection(), $firstManager));
     $connection->executeStatement("SET lock_timeout = '150ms'");
     $secondManager = new \Doctrine\ORM\EntityManager($connection, $this->entityManager->getConfiguration());
-    $secondRepository = new InterventionAttachmentRepository($secondManager);
-    $resources = $this->createStub(\Intervention\Application\Port\Outbound\InterventionResourceGatewayPort::class);
+    $secondRepository = new InterventionAttachmentRepository($secondManager, new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($secondManager->getConnection(), $secondManager));
+    $resources = $this->createStub(\Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort::class);
     $resources->method('interventionAssignmentContext')->willReturn(new \Intervention\Application\Contract\Resource\InterventionAssignmentContext($interventionId, $organizationId, 'in_progress', null));
     $resources->method('interventionMutationContext')->willReturn(new \Intervention\Application\Contract\Resource\InterventionAssignmentContext($interventionId, $organizationId, 'in_progress', null));
     $authorization = $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
     $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
-    $ids = $this->createStub(\Shared\Application\Factory\UuidFactory::class);
-    $ids->method('generateRaw')->willReturnOnConsecutiveCalls('attempt-a', 'attempt-blocked', 'attempt-b');
+    $authorization->method('resolveAccess')->willReturn(\Organization\Application\Contract\Authorization\OrganizationAccessDecision::GRANTED);
+    $ids = $this->createStub(\Shared\Application\Port\Outbound\UuidGeneratorPort::class);
+    $ids->method('generate')->willReturnOnConsecutiveCalls('attempt-a', 'attempt-blocked', 'attempt-b');
     $files = [];
     $second = null;
     $command = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentCommand(
@@ -545,8 +548,8 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     });
     $storage->method('delete')->willReturnCallback(static function (string $path) use (&$files): void { unset($files[$path]); });
     $manager = new \Intervention\Application\Service\InterventionResourceManager($resources);
-    $first = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler($manager, $authorization, $firstRepository, $storage, $ids);
-    $second = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler($manager, $authorization, $secondRepository, $storage, $ids);
+    $first = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler($manager, $authorization, $firstRepository, $storage, $ids, $this->createStub(\Shared\Application\Port\Outbound\FileCleanupPort::class), $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class));
+    $second = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler($manager, $authorization, $secondRepository, $storage, $ids, $this->createStub(\Shared\Application\Port\Outbound\FileCleanupPort::class), $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class));
 
     try {
       $first($command);
@@ -566,6 +569,115 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
       $firstConnection->close();
       $secondManager->close();
       $connection->close();
+    }
+  }
+
+  #[Test]
+  public function signatureReplacementAndCleanupCommitTogetherAndLateRevisionFailureRollsBackBoth(): void
+  {
+    $url = $_ENV['MAIN_DATABASE_URL'] ?? $_SERVER['MAIN_DATABASE_URL'] ?? null;
+    self::assertIsString($url);
+    $writer = \Doctrine\DBAL\DriverManager::getConnection(['url' => $url]);
+    $reader = \Doctrine\DBAL\DriverManager::getConnection(['url' => $url]);
+    $manager = new \Doctrine\ORM\EntityManager($writer, $this->entityManager->getConfiguration());
+    $orgId = 'b7100000-0000-4000-8000-000000000001';
+    $parentId = 'b7100000-0000-4000-8000-000000000002';
+    $queue = 'intervention_media_atomicity';
+    $organization = new OrganizationRecord();
+    $organization->id = $orgId;
+    $organization->name = 'Media commit proof';
+    $organization->slug = 'media-commit-proof';
+    $organization->ownerUserId = $organization->createdByUserId = $orgId;
+    $organization->createdAt = $organization->updatedAt = new DateTimeImmutable();
+    $parent = new InterventionRecord();
+    $parent->id = $parentId;
+    $parent->organizationId = $orgId;
+    $parent->type = 'inventory';
+    $parent->name = 'Signature commit proof';
+    $parent->number = 1;
+    $parent->status = 'in_progress';
+    $parent->createdAt = $parent->updatedAt = new DateTimeImmutable();
+    $manager->persist($organization);
+    $manager->persist($parent);
+    $manager->flush();
+    $repository = new InterventionAttachmentRepository($manager, new \Shared\Infrastructure\Messaging\Outbox\RootTransactionManagerAdapter($writer, $manager));
+    $old = InterventionAttachment::create(new InterventionAttachmentId(self::OLDER_ATTACHMENT_ID), $parentId, new InterventionAttachmentFile('old.png', 'old-signature-proof.png', 'image/png', 3), new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE));
+    $repository->save($old);
+    $transport = function (\Doctrine\DBAL\Connection $connection) use ($queue): \Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransport {
+      $registry = $this->createStub(\Doctrine\Persistence\ConnectionRegistry::class);
+      $registry->method('getConnection')->willReturn($connection);
+      $result = new \Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransportFactory($registry)->createTransport('doctrine://main?queue_name=' . $queue . '&auto_setup=false', ['use_notify' => false], new \Symfony\Component\Messenger\Transport\Serialization\PhpSerializer());
+      self::assertInstanceOf(\Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransport::class, $result);
+
+      return $result;
+    };
+    $sender = $transport($writer);
+    $receiver = $transport($reader);
+    $sender->setup();
+    $writer->executeStatement('DELETE FROM messenger_messages WHERE queue_name = ?', [$queue]);
+    $eventIds = $this->createStub(\Shared\Application\Port\Outbound\UuidGeneratorPort::class);
+    $eventIds->method('generate')->willReturn('b7100000-0000-4000-8000-000000000003');
+    $cleanup = new \Shared\Infrastructure\Messaging\Outbox\TransactionalFileCleanupAdapter(new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($writer, $sender, $eventIds, $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class)));
+    $failureState = new class () {
+      public bool $enabled = true;
+    };
+    $gateway = $this->createStub(\Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort::class);
+    $context = new \Intervention\Application\Contract\Resource\InterventionAssignmentContext($parentId, $orgId, 'in_progress');
+    $gateway->method('interventionAssignmentContext')->willReturn($context);
+    $gateway->method('interventionMutationContext')->willReturn($context);
+    $gateway->method('touchDraftIntervention')->willReturnCallback(static function () use ($writer, $reader, $parentId, $receiver, $failureState): void {
+      $writer->executeStatement('UPDATE interventions SET revision = revision + 1 WHERE id = ?', [$parentId]);
+      self::assertSame(0, $receiver->getMessageCount());
+      self::assertSame(1, $reader->fetchOne('SELECT revision FROM interventions WHERE id = ?', [$parentId]));
+      if ($failureState->enabled) {
+        throw new RuntimeException('Late revision persistence failed.');
+      }
+    });
+    $authorization = $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(\Organization\Application\Contract\Authorization\OrganizationAccessDecision::GRANTED);
+    $ids = $this->createStub(\Shared\Application\Port\Outbound\UuidGeneratorPort::class);
+    $ids->method('generate')->willReturnOnConsecutiveCalls('failed-attempt', 'committed-attempt');
+    $files = [$old->storagePath() => 'old'];
+    $storage = $this->createStub(\Shared\Application\Port\Outbound\FileStoragePort::class);
+    $storage->method('write')->willReturnCallback(static function (string $path, string $bytes) use (&$files): void { $files[$path] = $bytes; });
+    $storage->method('delete')->willReturnCallback(static function (string $path) use (&$files): void { unset($files[$path]); });
+    $handler = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler(new \Intervention\Application\Service\InterventionResourceManager($gateway), $authorization, $repository, $storage, $ids, $cleanup, $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class));
+    $command = new \Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentCommand($orgId, $parentId, 'new.png', 'new', 'image/png', 3, attachmentId: self::ATTACHMENT_ID, kind: 'signature');
+
+    try {
+      try {
+        $handler($command);
+        self::fail('The late persistence failure must propagate.');
+      } catch (RuntimeException $failure) {
+        self::assertSame('Late revision persistence failed.', $failure->getMessage());
+      }
+      self::assertSame([$old->storagePath() => 'old'], $files);
+      self::assertSame(self::OLDER_ATTACHMENT_ID, $reader->fetchOne('SELECT id FROM intervention_attachments WHERE intervention_id = ?', [$parentId]));
+      self::assertSame(0, $receiver->getMessageCount());
+      $failureState->enabled = false;
+      $handler($command);
+      self::assertSame(self::ATTACHMENT_ID, $reader->fetchOne('SELECT id FROM intervention_attachments WHERE intervention_id = ?', [$parentId]));
+      self::assertSame(2, $reader->fetchOne('SELECT revision FROM interventions WHERE id = ?', [$parentId]));
+      self::assertCount(2, $files);
+      self::assertSame(1, $receiver->getMessageCount());
+      $envelopes = iterator_to_array($receiver->get());
+      self::assertCount(1, $envelopes);
+      $message = $envelopes[0]->getMessage();
+      self::assertInstanceOf(\Shared\Infrastructure\Messaging\Outbox\OutboxEvent::class, $message);
+      self::assertInstanceOf(\Shared\Application\Contract\Storage\FileCleanupRequested::class, $message->event);
+      self::assertSame($old->storagePath(), $message->event->storagePath);
+    } finally {
+      while ($writer->isTransactionActive()) {
+        $writer->rollBack();
+      }
+      $writer->executeStatement('DELETE FROM messenger_messages WHERE queue_name = ?', [$queue]);
+      $writer->executeStatement('DELETE FROM interventions WHERE id = ?', [$parentId]);
+      $writer->executeStatement('DELETE FROM organizations WHERE id = ?', [$orgId]);
+      $manager->close();
+      $writer->close();
+      $reader->close();
     }
   }
 
@@ -606,7 +718,7 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
 
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->type = 'site_setup';
     $record->name = 'Intervention ' . $number;
     $record->number = $number;

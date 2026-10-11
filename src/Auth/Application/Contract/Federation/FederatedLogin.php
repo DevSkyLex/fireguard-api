@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Contract\Federation;
 
-use Auth\Application\UseCase\Command\Session\Login\LoginResult;
+use Auth\Application\Contract\Token\AuthenticationSession;
 
 /**
  * Contract FederatedLogin.
@@ -26,14 +26,14 @@ final readonly class FederatedLogin
    *
    * @access public
    *
-   * @param LoginResult $login authentication result produced for the federated identity
+   * @param AuthenticationSession $login authentication result produced for the federated identity
    * @param string $returnUrl validated application URL to use after login
    * @param bool $newAccount whether this login created a Fireguard account
    *
    * @return void
    */
   public function __construct(
-    public LoginResult $login,
+    public AuthenticationSession $login,
     public string $returnUrl,
     public bool $newAccount,
   ) {

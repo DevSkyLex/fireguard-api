@@ -8,7 +8,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Contract\Geocoding\AddressSuggestion;
-use Facility\Application\Port\Outbound\AddressSuggestionsPort;
+use Facility\Application\Port\Outbound\Internal\AddressSuggestionsPort;
 use Facility\Domain\Exception\FacilityAddressSuggestionsUnavailableException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;

@@ -14,10 +14,10 @@ use Intervention\Domain\Exception\{InterventionAccessDeniedException, Interventi
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Port\Inbound\OrganizationMemberDirectoryPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -156,7 +156,7 @@ final class AddInterventionCommentHandlerTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn(null);
 
     $this->expectException(InterventionConflictException::class);
@@ -213,29 +213,20 @@ final class AddInterventionCommentHandlerTest extends TestCase
    */
   private function notificationService(?NotificationPort $port = null): InterventionNotificationService
   {
-    $mentioned = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::MENTIONED_MEMBER_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      self::MENTIONED_USER_ID,
-      true,
-      new DateTimeImmutable(),
-    );
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $mentioned = new OrganizationMemberView(self::MENTIONED_MEMBER_ID, self::ORGANIZATION_ID, self::MENTIONED_USER_ID, true);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($mentioned);
 
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
     $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings());
 
-    $reviewerMembers = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $reviewerMembers->method('findByOrganizationId')->willReturn([]);
+    $reviewerMembers = $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class);
     $reviewers = new InterventionReviewerRecipientResolver(
       $reviewerMembers,
-      $this->createStub(OrganizationAuthorizationPort::class),
     );
 
     $admins = new InterventionRecurrenceRecipientResolver(
       $reviewerMembers,
-      $this->createStub(OrganizationAuthorizationPort::class),
     );
 
     return new InterventionNotificationService(
@@ -251,14 +242,8 @@ final class AddInterventionCommentHandlerTest extends TestCase
 
   private function memberPolicy(): InterventionMemberPolicy
   {
-    $member = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::MEMBER_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      self::USER_ID,
-      true,
-      new DateTimeImmutable(),
-    );
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $member = new OrganizationMemberView(self::MEMBER_ID, self::ORGANIZATION_ID, self::USER_ID, true);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($member);
     $repository->method('findById')->willReturn($member);
 

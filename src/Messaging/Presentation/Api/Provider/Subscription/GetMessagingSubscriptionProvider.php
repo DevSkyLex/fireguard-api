@@ -6,32 +6,23 @@ namespace Messaging\Presentation\Api\Provider\Subscription;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use DateTimeImmutable;
-use Messaging\Application\UseCase\Query\Conversation\GetConversation\{GetConversationQuery, GetConversationResult};
-use Messaging\Infrastructure\Adapter\Realtime\MercureMessagingRealtimePublisherAdapter;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Messaging\Application\UseCase\Query\Subscription\GetMessagingSubscription\{GetMessagingSubscriptionQuery, GetMessagingSubscriptionResult};
 use Messaging\Presentation\Api\Dto\Output\MessagingSubscriptionOutput;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 use Throwable;
 
 use function is_string;
-use function sprintf;
 
 /**
  * Provider GetMessagingSubscriptionProvider.
  *
- * Generates a Mercure subscriber JWT restricted to ONE conversation's
- * private topic (clone of Notification's `GetMercureSubscriptionProvider`).
- * Reuses `GetConversationHandler` (through the query bus) to enforce the
- * exact same access rule a `GET /api/conversations/{id}` call would (subject
- * read permission + `organization.messaging.read`) instead of duplicating
- * it here — this provider stays a thin topic/token builder, matching the
- * Notification precedent.
+ * Dispatches the authorized subscription query and translates its opaque token
+ * and topic. Application owns conversation access and Infrastructure owns JWT
+ * claims, expiration and the exact private topic vocabulary.
  *
  * @category Provider
  * @version 1.0.0
@@ -51,15 +42,10 @@ final readonly class GetMessagingSubscriptionProvider implements ProviderInterfa
    *
    * @param QueryBusPort $queryBus the query bus value
    * @param Security $security the security service
-   * @param TokenFactoryInterface $defaultFactory the Mercure JWT token factory
-   * @param int $tokenTtl the subscriber token lifetime in seconds
    */
   public function __construct(
     private QueryBusPort $queryBus,
     private Security $security,
-    private TokenFactoryInterface $defaultFactory,
-    #[Autowire(value: '%env(default:mercure_subscriber_token_ttl:int:MERCURE_SUBSCRIBER_TOKEN_TTL)%')]
-    private int $tokenTtl = 900,
   ) {
   }
 
@@ -77,7 +63,7 @@ final readonly class GetMessagingSubscriptionProvider implements ProviderInterfa
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): MessagingSubscriptionOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -87,22 +73,15 @@ final readonly class GetMessagingSubscriptionProvider implements ProviderInterfa
     }
 
     try {
-      /** @var GetConversationResult $result */
-      $result = $this->queryBus->ask(new GetConversationQuery($user->getId(), $conversationId));
+      /** @var GetMessagingSubscriptionResult $result */
+      $result = $this->queryBus->ask(new GetMessagingSubscriptionQuery($user->getId(), $conversationId));
     } catch (Throwable $exception) {
       throw $this->mapMessagingException($exception);
     }
 
-    $topic = MercureMessagingRealtimePublisherAdapter::topic($result->conversation->organizationId, $conversationId);
-    $token = $this->defaultFactory->create(
-      subscribe: [$topic],
-      publish: [],
-      additionalClaims: ['exp' => new DateTimeImmutable(sprintf('+%d seconds', $this->tokenTtl))],
-    );
-
     $output = new MessagingSubscriptionOutput();
-    $output->token = $token;
-    $output->topic = $topic;
+    $output->token = $result->subscription->token;
+    $output->topic = $result->subscription->topic;
 
     return $output;
   }

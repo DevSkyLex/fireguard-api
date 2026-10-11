@@ -7,11 +7,11 @@ namespace Tests\Unit\User\Application\UseCase\Command\User;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\UseCase\Command\User\ActivateUser\{ActivateUserCommand, ActivateUserHandler};
 use User\Application\UseCase\Command\User\DeactivateUser\{DeactivateUserCommand, DeactivateUserHandler};
 use User\Application\UseCase\Command\User\VerifyUserEmail\{VerifyUserEmailCommand, VerifyUserEmailHandler};
@@ -80,7 +80,7 @@ final class UserStatusHandlerTest extends TestCase
 
     $handler = new DeactivateUserHandler(
       userRepository: $repository,
-      sessionRepository: $this->createStub(SessionRepositoryPort::class),
+      sessionRepository: $this->createStub(SessionRevocationPort::class),
       eventBus: $this->createStub(EventBusPort::class),
       eventIdProvider: new TestEventIdProvider(),
     );
@@ -105,8 +105,8 @@ final class UserStatusHandlerTest extends TestCase
       ->method('save')
       ->with($user);
 
-    /** @var SessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(SessionRepositoryPort::class);
+    /** @var SessionRevocationPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(SessionRevocationPort::class);
     $sessionRepository->expects(self::once())
       ->method('revokeAllForUser')
       ->with($user->id()->value)
@@ -146,8 +146,8 @@ final class UserStatusHandlerTest extends TestCase
       ->method('save')
       ->with($user);
 
-    /** @var SessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(SessionRepositoryPort::class);
+    /** @var SessionRevocationPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(SessionRevocationPort::class);
     $sessionRepository->expects(self::once())
       ->method('revokeAllForUser')
       ->with($user->id()->value)

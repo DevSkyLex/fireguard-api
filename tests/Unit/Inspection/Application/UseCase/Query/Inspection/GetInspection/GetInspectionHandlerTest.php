@@ -5,13 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Inspection\GetInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{
-  ChecklistRepositoryPort,
-  EquipmentNamingPort,
-  FacilityNamingPort,
-  InspectionRepositoryPort,
-  NonConformityRepositoryPort
-};
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
+use Inspection\Application\Port\Outbound\Internal\{ChecklistRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\{
   GetInspectionHandler,
   GetInspectionQuery
@@ -29,9 +24,12 @@ use Inspection\Domain\ValueObject\{
   Inspector,
   InspectorType
 };
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Domain\Exception\InvalidValueException;
+use User\Application\Contract\User\UserView;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * Test GetInspectionHandlerTest.
@@ -97,12 +95,17 @@ final class GetInspectionHandlerTest extends TestCase
     $checklistRepository = $this->createStub(ChecklistRepositoryPort::class);
     $checklistRepository->method('findNamesByIds')->willReturn([self::CHECKLIST_ID => 'Monthly Checklist']);
 
+    $profile = new UserView('user-123', 'inspector', 'inspector@example.com', 'Jane', 'Doe', 'avatar.png', 'active', true, null, $createdAt, null, true);
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::once())->method('findById')->with('user-123')->willReturn($profile);
+
     $handler = new GetInspectionHandler(
       $inspectionRepository,
       $nonConformityRepository,
       $equipmentNaming,
       $facilityNaming,
       $checklistRepository,
+      users: $users,
     );
 
     $result = $handler(new GetInspectionQuery(self::ORGANIZATION_ID, self::INSPECTION_ID));
@@ -127,6 +130,7 @@ final class GetInspectionHandlerTest extends TestCase
     self::assertSame('SN-001', $result->equipmentSerialNumber);
     self::assertSame('Main Warehouse', $result->facilityName);
     self::assertSame('Monthly Checklist', $result->checklistName);
+    self::assertSame($profile, $result->inspectorProfile);
   }
 
   #[Test]
@@ -168,12 +172,17 @@ final class GetInspectionHandlerTest extends TestCase
     $checklistRepository = $this->createMock(ChecklistRepositoryPort::class);
     $checklistRepository->expects(self::never())->method('findNamesByIds');
 
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::never())->method('findById');
+    $users->expects(self::never())->method('findByIds');
+
     $handler = new GetInspectionHandler(
       $inspectionRepository,
       $nonConformityRepository,
       $equipmentNaming,
       $facilityNaming,
       $checklistRepository,
+      users: $users,
     );
 
     $result = $handler(new GetInspectionQuery(self::ORGANIZATION_ID, self::INSPECTION_ID));
@@ -190,6 +199,46 @@ final class GetInspectionHandlerTest extends TestCase
     self::assertNull($result->equipmentSerialNumber);
     self::assertNull($result->facilityName);
     self::assertNull($result->checklistName);
+    self::assertNull($result->inspectorProfile);
+  }
+
+  #[Test]
+  #[DataProvider('unavailableProfileProvider')]
+  public function itPreservesTheStoredInspectorWhenTheAccountIsMissingOrUnavailable(bool $directoryFails): void
+  {
+    $inspection = Inspection::create(
+      id: InspectionId::fromString(self::INSPECTION_ID),
+      organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
+      equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
+      inspector: Inspector::forUser('user-123', 'Retained inspector'),
+      result: InspectionResult::PASS,
+      performedAt: new DateTimeImmutable('2026-01-15T10:00:00+00:00'),
+    );
+    $inspections = $this->createStub(InspectionRepositoryPort::class);
+    $inspections->method('findById')->willReturn($inspection);
+    $users = $this->createMock(UserDirectoryPort::class);
+    $lookup = $users->expects(self::once())->method('findById')->with('user-123');
+    if ($directoryFails) {
+      $lookup->willThrowException(new RuntimeException('Account directory unavailable.'));
+    } else {
+      $lookup->willReturn(null);
+    }
+
+    $handler = new GetInspectionHandler($inspections, $this->createStub(NonConformityRepositoryPort::class), $this->createStub(EquipmentNamingPort::class), $this->createStub(FacilityNamingPort::class), $this->createStub(ChecklistRepositoryPort::class), users: $users);
+    $result = $handler->__invoke(new GetInspectionQuery(self::ORGANIZATION_ID, self::INSPECTION_ID));
+
+    self::assertSame(self::INSPECTION_ID, $result->inspectionId);
+    self::assertSame('user-123', $result->inspectorUserId);
+    self::assertSame('Retained inspector', $result->inspectorName);
+    self::assertNull($result->inspectorProfile);
+  }
+
+  /**
+   * @return array<string, array{bool}>
+   */
+  public static function unavailableProfileProvider(): array
+  {
+    return ['missing account' => [false], 'directory failure' => [true]];
   }
 
   #[Test]

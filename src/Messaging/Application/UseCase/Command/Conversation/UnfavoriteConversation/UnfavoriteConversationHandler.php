@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Conversation\UnfavoriteConversation;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\MessagingConversationFavoriteRepositoryPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Shared\Application\Message\CommandHandler;

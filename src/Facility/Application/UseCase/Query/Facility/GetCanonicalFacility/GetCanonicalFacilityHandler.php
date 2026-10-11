@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Query\Facility\GetCanonicalFacility;
 
 use Facility\Application\Contract\Facility\CanonicalFacilityView;
-use Facility\Application\Port\Outbound\CanonicalFacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\CanonicalFacilityRepositoryPort;
 use Facility\Domain\ValueObject\FacilityId;
+use LogicException;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -30,6 +31,7 @@ final readonly class GetCanonicalFacilityHandler implements QueryHandler
    */
   public function __construct(
     private CanonicalFacilityRepositoryPort $facilities,
+    private ?\Facility\Application\Port\Inbound\FacilityMutationAuthorizationPort $authorization = null,
   ) {
   }
   // #endregion
@@ -62,13 +64,18 @@ final readonly class GetCanonicalFacilityHandler implements QueryHandler
       return new GetCanonicalFacilityResult();
     }
 
-    return new GetCanonicalFacilityResult(new CanonicalFacilityView(
+    $view = new CanonicalFacilityView(
       id: (string) $facility->id(),
       organizationId: (string) $facility->organizationId(),
       recordStatus: $facility->recordStatus()->value,
       interventionId: $facility->interventionId(),
       revision: $facility->revision(),
-    ));
+    );
+    if (null !== $query->userId) {
+      ($this->authorization ?? throw new LogicException('Facility mutation authorization is unavailable.'))->assertCanMutate($query->userId, $view, false);
+    }
+
+    return new GetCanonicalFacilityResult($view);
   }
   // #endregion
 }

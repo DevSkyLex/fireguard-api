@@ -8,13 +8,16 @@ use ApiPlatform\Metadata\Get;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\ValueObject\Email;
 use Shared\Infrastructure\Exception\FileStorageException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\AvatarPersistencePort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\UseCase\Query\Avatar\GetUserAvatar\{GetUserAvatarHandler, GetUserAvatarQuery};
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 use User\Presentation\Api\Provider\User\GetUserAvatarProvider;
@@ -40,10 +43,7 @@ final class GetUserAvatarProviderTest extends TestCase
     $repo = $this->createStub(UserRepositoryPort::class);
     $repo->method('findById')->willReturn(null);
 
-    $provider = new GetUserAvatarProvider(
-      fileStorage: $this->createStub(FileStoragePort::class),
-      userRepository: $repo,
-    );
+    $provider = $this->avatarProvider($this->createStub(FileStoragePort::class), $repo);
 
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('User not found.');
@@ -62,10 +62,7 @@ final class GetUserAvatarProviderTest extends TestCase
       FileStorageException::readFailed(sprintf('avatars/%s/256.webp', self::USER_ID)),
     );
 
-    $provider = new GetUserAvatarProvider(
-      fileStorage: $storage,
-      userRepository: $repo,
-    );
+    $provider = $this->avatarProvider($storage, $repo);
 
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Avatar not found.');
@@ -88,10 +85,7 @@ final class GetUserAvatarProviderTest extends TestCase
       ->with(sprintf('avatars/%s/256.webp', self::USER_ID))
       ->willReturn($fakeWebp);
 
-    $provider = new GetUserAvatarProvider(
-      fileStorage: $storage,
-      userRepository: $repo,
-    );
+    $provider = $this->avatarProvider($storage, $repo);
 
     $response = $provider->provide(new Get(), ['id' => self::USER_ID]);
 
@@ -117,10 +111,7 @@ final class GetUserAvatarProviderTest extends TestCase
       ->with(sprintf('avatars/%s/%d.webp', self::USER_ID, $expectedSize))
       ->willReturn('data');
 
-    $provider = new GetUserAvatarProvider(
-      fileStorage: $storage,
-      userRepository: $repo,
-    );
+    $provider = $this->avatarProvider($storage, $repo);
 
     $provider->provide(new Get(), ['id' => self::USER_ID, 'size' => (string) $requested]);
   }
@@ -139,10 +130,7 @@ final class GetUserAvatarProviderTest extends TestCase
       ->with(sprintf('avatars/%s/%d.webp', self::USER_ID, $expectedSize))
       ->willReturn('data');
 
-    $provider = new GetUserAvatarProvider(
-      fileStorage: $storage,
-      userRepository: $repo,
-    );
+    $provider = $this->avatarProvider($storage, $repo);
 
     $request = new Request(['size' => (string) $requested]);
     $provider->provide(new Get(), ['id' => self::USER_ID], ['request' => $request]);
@@ -178,5 +166,14 @@ final class GetUserAvatarProviderTest extends TestCase
       eventIdProvider: new TestEventIdProvider(),
     );
   }
+
   // #endregion
+  private function avatarProvider(FileStoragePort $storage, UserRepositoryPort $users): GetUserAvatarProvider
+  {
+    $bus = $this->createStub(QueryBusPort::class);
+    $avatars = $this->createStub(AvatarPersistencePort::class);
+    $bus->method('ask')->willReturnCallback(static fn (GetUserAvatarQuery $query) => new GetUserAvatarHandler($users, $storage, $avatars)($query));
+
+    return new GetUserAvatarProvider($bus);
+  }
 }

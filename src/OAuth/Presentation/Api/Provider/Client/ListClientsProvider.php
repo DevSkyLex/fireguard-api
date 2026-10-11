@@ -12,10 +12,10 @@ use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
 use OAuth\Application\UseCase\Query\Client\ListClients\ListClientsQuery;
 use OAuth\Presentation\Api\Dto\Output\Client\ClientOutput;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Application\Contract\Sorting\{CollectionSorter, SortingExtractor};
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 
 use function array_map;
 use function is_numeric;
@@ -67,7 +67,7 @@ final readonly class ListClientsProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \OAuth\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

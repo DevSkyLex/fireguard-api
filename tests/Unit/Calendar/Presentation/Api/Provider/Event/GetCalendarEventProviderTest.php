@@ -78,10 +78,10 @@ final class GetCalendarEventProviderTest extends TestCase
       new CalendarEventOutputFactory(),
     );
 
-    $output = $provider->provide(new Get(), [
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
 
     self::assertInstanceOf(GetCalendarEventQuery::class, $captured);
     self::assertSame(self::USER_ID, $captured->userId);
@@ -110,10 +110,10 @@ final class GetCalendarEventProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $provider->provide(new Get(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
   }
 
   #[Test]
@@ -127,10 +127,10 @@ final class GetCalendarEventProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $provider->provide(new Get(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => '',
-    ]);
+    ]));
   }
 
   #[Test]
@@ -147,10 +147,10 @@ final class GetCalendarEventProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $provider->provide(new Get(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
   }
   // #endregion
 

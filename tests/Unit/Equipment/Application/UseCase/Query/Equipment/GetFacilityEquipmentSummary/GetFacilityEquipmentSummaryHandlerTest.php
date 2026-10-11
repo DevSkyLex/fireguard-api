@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\GetFacilityEquipmentSummary;
 
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilitySubtreeScopePort};
+use Equipment\Application\Port\Outbound\FacilitySubtreeScopePort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Application\UseCase\Query\Equipment\GetFacilityEquipmentSummary\{GetFacilityEquipmentSummaryHandler, GetFacilityEquipmentSummaryQuery};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;

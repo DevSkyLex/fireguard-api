@@ -379,7 +379,7 @@ final class OrganizationSearchApiTest extends WebTestCase
 
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->brand = 'Zephyr';
     $equipment->model = 'X200';
@@ -392,7 +392,7 @@ final class OrganizationSearchApiTest extends WebTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->type = 'site';
     $facility->name = 'Zephyr Plant';
     $facility->code = 'ZPH';
@@ -404,7 +404,7 @@ final class OrganizationSearchApiTest extends WebTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
+    $intervention->organizationId = $organization->id;
     $intervention->type = 'site_setup';
     $intervention->name = 'Zephyr overhaul';
     $intervention->number = 4242;
@@ -416,7 +416,7 @@ final class OrganizationSearchApiTest extends WebTestCase
 
     $checklist = new ChecklistRecord();
     $checklist->id = self::CHECKLIST_ID;
-    $checklist->organization = $organization;
+    $checklist->organizationId = $organization->id;
     $checklist->referenceCode = 'ZEPHYR-CHK-01';
     $checklist->name = 'Zephyr checklist';
     $checklist->version = '1.0';
@@ -427,7 +427,7 @@ final class OrganizationSearchApiTest extends WebTestCase
 
     $inspection = new InspectionRecord();
     $inspection->id = self::INSPECTION_ID;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = self::EQUIPMENT_ID;
     $inspection->facilityId = self::FACILITY_ID;
     $inspection->inspectorType = 'user';

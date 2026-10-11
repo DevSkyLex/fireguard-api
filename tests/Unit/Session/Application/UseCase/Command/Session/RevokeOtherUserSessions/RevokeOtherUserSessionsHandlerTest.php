@@ -7,7 +7,7 @@ namespace Tests\Unit\Session\Application\UseCase\Command\Session\RevokeOtherUser
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\UseCase\Command\Session\RevokeOtherUserSessions\{RevokeOtherUserSessionsCommand, RevokeOtherUserSessionsHandler, RevokeOtherUserSessionsResult};
 
 /**

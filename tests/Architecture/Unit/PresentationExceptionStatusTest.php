@@ -20,6 +20,7 @@ use function implode;
 use function ksort;
 use function min;
 use function preg_match;
+use function preg_match_all;
 use function sprintf;
 use function str_contains;
 use function str_ends_with;
@@ -29,6 +30,7 @@ use function substr;
 
 use const DIRECTORY_SEPARATOR;
 use const FILE_IGNORE_NEW_LINES;
+use const PREG_SET_ORDER;
 
 /**
  * Test PresentationExceptionStatusTest.
@@ -345,6 +347,28 @@ final class PresentationExceptionStatusTest extends TestCase
       );
     }
   }
+
+  /**
+   * A centralized subscriber's guarded default preserves its base exception's HTTP contract.
+   */
+  #[Test]
+  public function testGuardedSubscriberDefaultIsDiscoveredWithoutTreatingUnrelatedDefaultsAsMappings(): void
+  {
+    $source = 'if ($exception instanceof ExampleException) { $mapped = match (true) { $exception instanceof ConflictException => new ConflictHttpException($exception->getMessage()), default => new BadRequestHttpException($exception->getMessage(), $exception), }; $event->setThrowable($mapped); }';
+    $mappings = [];
+    self::collectFromGuardedMatchDefaults([$source], $mappings);
+    self::assertSame(['ExampleException' => ['BadRequestHttpException' => 1]], $mappings);
+    foreach ([
+      'default => new BadRequestHttpException($exception->getMessage()),',
+      str_replace('$event->setThrowable($mapped);', '', $source),
+      str_replace('default => new BadRequestHttpException($exception->getMessage()', 'default => new BadRequestHttpException($other->getMessage()', $source),
+      str_replace('ExampleException', 'Throwable', $source),
+    ] as $unmapped) {
+      $mappings = [];
+      self::collectFromGuardedMatchDefaults([$unmapped], $mappings);
+      self::assertSame([], $mappings);
+    }
+  }
   // #endregion
 
   // #region Helpers
@@ -387,6 +411,7 @@ final class PresentationExceptionStatusTest extends TestCase
 
       self::collectFromLines($lines, $mappings);
       self::collectFromMatchArms($lines, $mappings);
+      self::collectFromGuardedMatchDefaults($lines, $mappings);
       self::collectFromFinderMethods($lines, $mappings);
       self::collectFromGenericFinders($lines, $mappings);
     }
@@ -523,6 +548,24 @@ final class PresentationExceptionStatusTest extends TestCase
       }
 
       $pending = [];
+    }
+  }
+
+  /**
+   * Discovers an exception subscriber's match default under a typed instanceof guard.
+   * The guarded exception must supply the HTTP error and the mapped throwable must be applied.
+   *
+   * @param list<string> $lines
+   * @param array<string, array<string, int>> $mappings
+   */
+  private static function collectFromGuardedMatchDefaults(array $lines, array &$mappings): void
+  {
+    preg_match_all('/if\s*\(\$(\w+) instanceof ([A-Za-z][A-Za-z0-9_]*Exception)\)\s*\{\s*\$(\w+) = match\s*\(true\)\s*\{(.*?)\};\s*\$\w+->setThrowable\(\$\3\);/s', implode("\n", $lines), $guards, PREG_SET_ORDER);
+    foreach ($guards as $guard) {
+      if (!self::isWrapper($guard[2])
+        && 1 === preg_match('/default\s*=>\s*new (\w*HttpException)\(\$' . $guard[1] . '(?:->|[,])/', $guard[4], $mapped)) {
+        $mappings[$guard[2]][$mapped[1]] = ($mappings[$guard[2]][$mapped[1]] ?? 0) + 1;
+      }
     }
   }
 

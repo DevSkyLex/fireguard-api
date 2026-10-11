@@ -8,7 +8,6 @@ use Inspection\Domain\Model\Response\{InspectionResponse, RestoredInspectionResp
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId, InspectionResponseStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionResponseRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper InspectionResponseMapper.
@@ -36,13 +35,13 @@ final class InspectionResponseMapper
    */
   public static function toDomain(InspectionResponseRecord $record): InspectionResponse
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Inspection response record must reference an organization.');
     }
 
     return InspectionResponse::reconstitute(
       id: InspectionResponseId::fromString($record->id),
-      organizationId: InspectionOrganizationId::fromString($record->organization->id),
+      organizationId: InspectionOrganizationId::fromString($record->organizationId),
       inspectionId: InspectionId::fromString($record->inspectionId),
       state: new RestoredInspectionResponseState(
         interventionId: $record->interventionId,
@@ -72,6 +71,7 @@ final class InspectionResponseMapper
   public static function applyTo(InspectionResponse $response, InspectionResponseRecord $record): void
   {
     $record->id = (string) $response->id();
+    $record->organizationId = (string) $response->organizationId();
     $record->interventionId = $response->interventionId();
     $record->inspectionId = (string) $response->inspectionId();
     $record->clientId = $response->clientId();

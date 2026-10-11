@@ -484,7 +484,7 @@ final class MaintenanceApiTest extends WebTestCase
 
     $schedule = new MaintenanceScheduleRecord();
     $schedule->id = self::SCHEDULE_ID;
-    $schedule->organization = $organization;
+    $schedule->organizationId = $organization->id;
     $schedule->equipmentId = '770e8400-e29b-41d4-a716-446655440032';
     $schedule->facilityId = null;
     $schedule->equipmentType = 'fire_extinguisher';
@@ -498,7 +498,7 @@ final class MaintenanceApiTest extends WebTestCase
 
     $outsiderSchedule = new MaintenanceScheduleRecord();
     $outsiderSchedule->id = self::OUTSIDER_SCHEDULE_ID;
-    $outsiderSchedule->organization = $outsiderOrganization;
+    $outsiderSchedule->organizationId = $outsiderOrganization->id;
     $outsiderSchedule->equipmentId = '770e8400-e29b-41d4-a716-446655440033';
     $outsiderSchedule->facilityId = null;
     $outsiderSchedule->equipmentType = 'fire_extinguisher';

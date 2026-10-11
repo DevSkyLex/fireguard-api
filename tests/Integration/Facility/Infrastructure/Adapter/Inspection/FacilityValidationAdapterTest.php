@@ -9,9 +9,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Adapter\Inspection\FacilityValidationAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
-use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -79,7 +79,7 @@ final class FacilityValidationAdapterTest extends KernelTestCase
     $this->entityManager->flush();
     $this->entityManager->clear();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $this->adapter->assertFacilityIsUsable(self::UNKNOWN_ID, self::ORGANIZATION_ID);
   }
@@ -94,7 +94,7 @@ final class FacilityValidationAdapterTest extends KernelTestCase
     $this->entityManager->flush();
     $this->entityManager->clear();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     // Tenant isolation: a facility from another organization is not usable.
     $this->adapter->assertFacilityIsUsable(self::ACTIVE_FACILITY_ID, self::OTHER_ORGANIZATION_ID);
@@ -109,7 +109,7 @@ final class FacilityValidationAdapterTest extends KernelTestCase
     $this->entityManager->flush();
     $this->entityManager->clear();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $this->adapter->assertFacilityIsUsable(self::ARCHIVED_FACILITY_ID, self::ORGANIZATION_ID);
   }
@@ -135,7 +135,7 @@ final class FacilityValidationAdapterTest extends KernelTestCase
   {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = null;
     $facility->type = 'site';
     $facility->name = 'Facility ' . $id;
@@ -150,7 +150,7 @@ final class FacilityValidationAdapterTest extends KernelTestCase
 
   private function removeOrganization(string $id): void
   {
-    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organization' => $id]) as $record) {
+    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organizationId' => $id]) as $record) {
       $this->entityManager->remove($record);
     }
     $organization = $this->entityManager->find(OrganizationRecord::class, $id);

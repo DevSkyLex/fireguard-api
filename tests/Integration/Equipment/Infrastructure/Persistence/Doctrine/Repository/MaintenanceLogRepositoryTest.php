@@ -151,10 +151,11 @@ final class MaintenanceLogRepositoryTest extends KernelTestCase
   private function createEquipment(): void
   {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
 
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = 'operational';
     $equipment->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');

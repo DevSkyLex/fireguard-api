@@ -7,25 +7,18 @@ namespace Tests\Unit\Notification\Application\UseCase\Command\Notification\SendN
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\NotificationChannel;
-use Notification\Application\Port\Outbound\{
-  EmailNotificationChannelPort,
-  MercureNotificationChannelPort,
-  NotificationPreferenceRepositoryPort,
-  NotificationRepositoryPort,
-  RecipientDirectoryPort
-};
+use Notification\Application\Port\Outbound\Internal\{EmailNotificationChannelPort, MercureNotificationChannelPort, NotificationPreferenceRepositoryPort, NotificationRepositoryPort};
+use Notification\Application\Port\Outbound\RecipientDirectoryPort;
 use Notification\Application\UseCase\Command\Notification\SendNotification\{SendNotificationCommand, SendNotificationHandler, SendNotificationResult};
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\Model\NotificationPreference\NotificationPreference;
-use Notification\Domain\ValueObject\NotificationId;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\GeoIp\IpLocation;
 use Shared\Application\Contract\Notification\EmailRequestDetails;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 
 use function array_values;
 
@@ -57,8 +50,8 @@ final class SendNotificationHandlerTest extends TestCase
       self::callback(static fn (array $context): bool => RuntimeException::class === $context['error']
         && RuntimeException::class === $context['cause']),
     );
-    $factory = $this->createStub(UuidFactory::class);
-    $factory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442019'));
+    $factory = $this->createStub(UuidGeneratorPort::class);
+    $factory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442019');
     $handler = new SendNotificationHandler(
       $repository,
       $this->createStub(NotificationPreferenceRepositoryPort::class),
@@ -118,8 +111,8 @@ final class SendNotificationHandlerTest extends TestCase
       'error' => $expectedError,
       'cause' => $expectedCause,
     ]);
-    $factory = $this->createStub(UuidFactory::class);
-    $factory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442018'));
+    $factory = $this->createStub(UuidGeneratorPort::class);
+    $factory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442018');
     $handler = new SendNotificationHandler(
       $repository,
       $this->createStub(NotificationPreferenceRepositoryPort::class),
@@ -213,12 +206,11 @@ final class SendNotificationHandlerTest extends TestCase
     $mercureChannel = $this->createMock(MercureNotificationChannelPort::class);
     $mercureChannel->expects(self::never())->method('publish');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(NotificationId::class)
-      ->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442000'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655442000');
 
     /** @var LoggerPort&MockObject $logger */
     $logger = $this->createMock(LoggerPort::class);
@@ -276,12 +268,11 @@ final class SendNotificationHandlerTest extends TestCase
     $mercureChannel = $this->createMock(MercureNotificationChannelPort::class);
     $mercureChannel->expects(self::never())->method('publish');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(NotificationId::class)
-      ->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442010'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655442010');
 
     /** @var LoggerPort&MockObject $logger */
     $logger = $this->createMock(LoggerPort::class);
@@ -335,9 +326,9 @@ final class SendNotificationHandlerTest extends TestCase
       ->with('550e8400-e29b-41d4-a716-446655440001')
       ->willReturn('resolved@example.com');
 
-    /** @var UuidFactory&Stub $uuidFactory */
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442020'));
+    /** @var UuidGeneratorPort&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442020');
 
     /** @var LoggerPort&MockObject $logger */
     $logger = $this->createMock(LoggerPort::class);
@@ -388,9 +379,9 @@ final class SendNotificationHandlerTest extends TestCase
     $directory = $this->createStub(RecipientDirectoryPort::class);
     $directory->method('emailForUserId')->willReturn(null);
 
-    /** @var UuidFactory&Stub $uuidFactory */
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442030'));
+    /** @var UuidGeneratorPort&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442030');
 
     /** @var LoggerPort&MockObject $logger */
     $logger = $this->createMock(LoggerPort::class);
@@ -432,7 +423,7 @@ final class SendNotificationHandlerTest extends TestCase
       preferenceRepository: $this->createStub(NotificationPreferenceRepositoryPort::class),
       recipientDirectory: $directory,
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -464,9 +455,9 @@ final class SendNotificationHandlerTest extends TestCase
     $mercureChannel = $this->createMock(MercureNotificationChannelPort::class);
     $mercureChannel->expects(self::never())->method('publish');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     /** @var LoggerPort&MockObject $logger */
     $logger = $this->createMock(LoggerPort::class);
@@ -518,9 +509,9 @@ final class SendNotificationHandlerTest extends TestCase
       ->with('550e8400-e29b-41d4-a716-446655442900', 'organization')
       ->willReturn(null);
 
-    /** @var UuidFactory&Stub $uuidFactory */
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442901'));
+    /** @var UuidGeneratorPort&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442901');
 
     $handler = new SendNotificationHandler(
       notificationRepository: $repository,
@@ -568,9 +559,9 @@ final class SendNotificationHandlerTest extends TestCase
       ->with('550e8400-e29b-41d4-a716-446655442910', 'brandNewFeature')
       ->willReturn(null);
 
-    /** @var UuidFactory&Stub $uuidFactory */
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442911'));
+    /** @var UuidGeneratorPort&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442911');
 
     $handler = new SendNotificationHandler(
       notificationRepository: $repository,
@@ -629,9 +620,9 @@ final class SendNotificationHandlerTest extends TestCase
     $logger->expects(self::once())->method('info');
     $logger->expects(self::never())->method('warning');
 
-    /** @var UuidFactory&Stub $uuidFactory */
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442922'));
+    /** @var UuidGeneratorPort&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442922');
 
     $handler = new SendNotificationHandler(
       notificationRepository: $repository,
@@ -683,9 +674,9 @@ final class SendNotificationHandlerTest extends TestCase
     $preferenceRepository = $this->createStub(NotificationPreferenceRepositoryPort::class);
     $preferenceRepository->method('findByUserIdAndCategory')->willReturn($preference);
 
-    /** @var UuidFactory&Stub $uuidFactory */
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442931'));
+    /** @var UuidGeneratorPort&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442931');
 
     $handler = new SendNotificationHandler(
       notificationRepository: $repository,
@@ -770,9 +761,9 @@ final class SendNotificationHandlerTest extends TestCase
         $channelPayload = $received;
       });
 
-    /** @var UuidFactory&Stub $uuidFactory */
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442940'));
+    /** @var UuidGeneratorPort&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442940');
 
     $handler = new SendNotificationHandler(
       notificationRepository: $this->createStub(NotificationRepositoryPort::class),
@@ -826,9 +817,9 @@ final class SendNotificationHandlerTest extends TestCase
    */
   private function stubbedHandler(): SendNotificationHandler
   {
-    /** @var UuidFactory&Stub $uuidFactory */
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442950'));
+    /** @var UuidGeneratorPort&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655442950');
 
     return new SendNotificationHandler(
       notificationRepository: $this->createStub(NotificationRepositoryPort::class),

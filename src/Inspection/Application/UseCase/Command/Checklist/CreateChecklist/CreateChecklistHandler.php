@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Checklist\CreateChecklist;
 
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Domain\Exception\{ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
 use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -38,13 +38,13 @@ final readonly class CreateChecklistHandler implements CommandHandler
    * @access public
    *
    * @param ChecklistRepositoryPort $checklistRepository port used to persist checklist data
-   * @param UuidFactory $uuidFactory factory used to create the checklist identifier
+   * @param UuidGeneratorPort $uuidFactory factory used to create the checklist identifier
    *
    * @return void
    */
   public function __construct(
     private ChecklistRepositoryPort $checklistRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -72,12 +72,12 @@ final readonly class CreateChecklistHandler implements CommandHandler
     }
 
     /** @var ChecklistId $checklistId */
-    $checklistId = $this->uuidFactory->create(ChecklistId::class);
+    $checklistId = new ChecklistId($this->uuidFactory->generate());
 
     $items = [];
     foreach ($command->items as $index => $itemData) {
       $items[] = ChecklistItem::create(
-        id: $this->uuidFactory->generateRaw(),
+        id: $this->uuidFactory->generate(),
         label: $itemData['label'],
         position: $itemData['position'] ?? $index,
         required: $itemData['required'] ?? true,

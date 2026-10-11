@@ -168,7 +168,7 @@ final class FacilityArchivalDependencyIntegrationTest extends KernelTestCase
   {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = null;
     $facility->type = 'site';
     $facility->name = 'Facility ' . $id;
@@ -187,7 +187,7 @@ final class FacilityArchivalDependencyIntegrationTest extends KernelTestCase
   {
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = $facilityId;
     $equipment->recordStatus = 'published';
     $equipment->type = 'fire_extinguisher';
@@ -201,7 +201,7 @@ final class FacilityArchivalDependencyIntegrationTest extends KernelTestCase
   {
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->facilityId = $facilityId;
     $inspection->equipmentId = '550e8400-e29b-41d4-a716-446655444040';
     $inspection->recordStatus = 'published';
@@ -218,7 +218,7 @@ final class FacilityArchivalDependencyIntegrationTest extends KernelTestCase
   private function removeOrganization(string $id): void
   {
     foreach ([EquipmentRecord::class, InspectionRecord::class, FacilityRecord::class] as $recordClass) {
-      foreach ($this->entityManager->getRepository($recordClass)->findBy(['organization' => $id]) as $record) {
+      foreach ($this->entityManager->getRepository($recordClass)->findBy(['organizationId' => $id]) as $record) {
         $this->entityManager->remove($record);
       }
     }

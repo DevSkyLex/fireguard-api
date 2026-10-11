@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Command\Role\DeleteRole;
 
-use Authorization\Application\Port\Outbound\RoleRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\RoleRepositoryPort;
 use Authorization\Application\UseCase\Command\Role\DeleteRole\{DeleteRoleCommand, DeleteRoleHandler, DeleteRoleResult};
 use Authorization\Domain\Exception\{RoleNotFoundException, SystemRoleDeletionException};
 use Authorization\Domain\Model\Role\Role;

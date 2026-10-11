@@ -66,10 +66,10 @@ final class AskAssistantQuestionProcessorTest extends TestCase
       new AssistantMessageOutputFactory(),
     );
 
-    $output = $processor->process($input, new Post(), [
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process($input, new Post(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
 
     self::assertInstanceOf(AskAssistantQuestionCommand::class, $captured);
     self::assertSame(self::ORGANIZATION_ID, $captured->organizationId);
@@ -100,10 +100,10 @@ final class AskAssistantQuestionProcessorTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $processor->process(new AskAssistantQuestionInput(), new Post(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process(new AskAssistantQuestionInput(), new Post(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
   }
 
   #[Test]
@@ -117,9 +117,9 @@ final class AskAssistantQuestionProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(new AskAssistantQuestionInput(), new Post(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process(new AskAssistantQuestionInput(), new Post(), [
       'organizationId' => self::ORGANIZATION_ID,
-    ]);
+    ]));
   }
 
   #[Test]
@@ -133,10 +133,10 @@ final class AskAssistantQuestionProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(new AskAssistantQuestionInput(), new Post(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process(new AskAssistantQuestionInput(), new Post(), [
       'organizationId' => '',
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
   }
 
   #[Test]
@@ -155,10 +155,10 @@ final class AskAssistantQuestionProcessorTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $processor->process(new AskAssistantQuestionInput(), new Post(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process(new AskAssistantQuestionInput(), new Post(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
   }
   // #endregion
 

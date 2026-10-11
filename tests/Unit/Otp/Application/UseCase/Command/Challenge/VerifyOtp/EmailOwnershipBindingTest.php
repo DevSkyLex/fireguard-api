@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Otp\Application\UseCase\Command\Challenge\VerifyOtp;
 
 use Otp\Application\Exception\OtpNotFoundException;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\UseCase\Command\Challenge\VerifyOtp\{VerifyOtpCommand, VerifyOtpHandler};
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{OtpChannel, OtpId, OtpPurpose};

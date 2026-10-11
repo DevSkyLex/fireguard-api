@@ -6,7 +6,7 @@ namespace TrustedDevice\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
 use TrustedDevice\Domain\ValueObject\TrustedDeviceId;
 use TrustedDevice\Infrastructure\Persistence\Doctrine\Mapper\TrustedDeviceMapper;

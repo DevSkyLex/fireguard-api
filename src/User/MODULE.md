@@ -293,6 +293,39 @@ used.` — for both "taken" and "identical to the current address", so the
   `user_email_change_notice.html.twig` (old address, pending/effective),
   localized en/fr/es (`emailChange.*` keys in `translations/emails.*.yaml`).
 
+### Published and private capabilities
+
+External consumers use UserDirectoryPort (including grouped identifier reads), UserAuthenticationPort, UserCredentialsPort and UserRegistrationPort. Immutable account and collection projections share a deterministic factory.
+
+Deletion executes owner purge capabilities under the existing auth user lock and transaction before deleting the user row. Authorization owns scalar user_roles links and preserves their NO ACTION foreign keys. User directly purges only its own presence records.
+
+Public avatar reads enter a typed query without an actor. Application selects the variant and storage content; HTTP preserves WebP, nosniff and public, max-age=86400.
+
+Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
+
+## Avatar commits and cleanup
+
+Uploads own the final `auth` commit through `shared.auth_root_transaction`. An enclosing
+transaction is rejected before any storage write. Every attempt writes four immutable WebP
+variants under `avatars/<user>/<generation>/<size>.webp`. The account is checked again under
+the same user mutex used by deletion, with a fresh locked Record, before the profile and
+`users.avatar_storage_key` pointer commit together. Public paths, `?v=` and cache headers are
+unchanged; readers use the committed pointer and read legacy canonical variants when it is null.
+
+Confirmed rollback compensates only that attempt, including partial storage writes. Cleanup or
+logging failures preserve the original error. An unknown commit outcome preserves potentially
+committed files. Replacement and account deletion record obsolete keys on `auth_outbox` inside
+the owning SQL transaction, then delete after commit with separately owned auth consumer receipts.
+Failed cleanup retries, and acknowledged keys do not replay. No main/auth distributed transaction
+is used. Ordinary account updates leave the immutable avatar pointer unchanged.
+
+Deploy the additive nullable pointer migration first, then **all compatible readers**, then enable
+new upload producers and the auth cleanup consumer. The first replacement can remove historical
+canonical variants after commit. Once the first generation pointer commits or legacy cleanup starts, never roll back to a reader
+that ignores avatar generations. Keep `auth_outbox` and its historical auth failure transport available for replay;
+restore a compatible application release if recovery is needed. The migration down path refuses
+active pointers. Orphan cleanup for historical unreferenced files remains outside this change.
+
 ## Configuration
 
 Email-change notifications use the Shared translation and GeoIP ports. GeoIP is optional and

@@ -6,7 +6,7 @@ namespace Inspection\Application\UseCase\Command\NonConformity\AddNonConformity;
 
 use DateTimeImmutable;
 use Exception;
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent;
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionNotFoundException};
 use Inspection\Domain\Model\NonConformity\NonConformity;
@@ -18,9 +18,9 @@ use Inspection\Domain\ValueObject\{
   NonConformitySeverity
 };
 use InvalidArgumentException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
@@ -44,7 +44,7 @@ final readonly class AddNonConformityHandler implements CommandHandler
    *
    * @param InspectionRepositoryPort $inspectionRepository port used to load and validate the inspection scope
    * @param NonConformityRepositoryPort $nonConformityRepository port used to persist the new finding
-   * @param UuidFactory $uuidFactory factory used to assign the non-conformity identifier
+   * @param UuidGeneratorPort $uuidFactory factory used to assign the non-conformity identifier
    * @param EventDispatcherPort $eventDispatcher port used to publish the committed finding event
    * @param TransactionManagerPort $transactions port used to commit the finding and its outbox event atomically
    *
@@ -53,7 +53,7 @@ final readonly class AddNonConformityHandler implements CommandHandler
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
     private TransactionManagerPort $transactions,
   ) {
@@ -86,7 +86,7 @@ final readonly class AddNonConformityHandler implements CommandHandler
       $dueAt = null !== $command->dueAt ? new DateTimeImmutable($command->dueAt) : null;
 
       /** @var NonConformityId $nonConformityId */
-      $nonConformityId = $this->uuidFactory->create(NonConformityId::class);
+      $nonConformityId = new NonConformityId($this->uuidFactory->generate());
 
       $nonConformity = NonConformity::create(
         id: $nonConformityId,

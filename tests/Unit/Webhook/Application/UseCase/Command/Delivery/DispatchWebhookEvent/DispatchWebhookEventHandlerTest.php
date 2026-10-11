@@ -7,9 +7,9 @@ namespace Tests\Unit\Webhook\Application\UseCase\Command\Delivery\DispatchWebhoo
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\UuidGeneratorPort;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryQueuePort, WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\WebhookDeliverySchedulePort;
 use Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\{DispatchWebhookEventCommand, DispatchWebhookEventHandler};
 use Webhook\Domain\Model\Subscription\{RestoredWebhookSubscriptionMetadata, WebhookSubscription};
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
@@ -43,10 +43,10 @@ final class DispatchWebhookEventHandlerTest extends TestCase
       ->method('reserve')
       ->willReturn(true);
 
-    $queue = $this->createMock(WebhookDeliveryQueuePort::class);
-    $queue->expects(self::exactly(2))->method('dispatch');
+    $queue = $this->createMock(WebhookDeliverySchedulePort::class);
+    $queue->expects(self::exactly(2))->method('enqueue');
 
-    $handler = new DispatchWebhookEventHandler($subscriptionRepository, $deliveryRepository, $queue, $this->uuidFactory());
+    $handler = new DispatchWebhookEventHandler($subscriptionRepository, $deliveryRepository, $queue, $this->uuidFactory(), $this->transactions());
 
     $handler->__invoke(new DispatchWebhookEventCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -68,10 +68,10 @@ final class DispatchWebhookEventHandlerTest extends TestCase
     $deliveryRepository = $this->createStub(WebhookDeliveryRepositoryPort::class);
     $deliveryRepository->method('reserve')->willReturn(false);
 
-    $queue = $this->createMock(WebhookDeliveryQueuePort::class);
-    $queue->expects(self::never())->method('dispatch');
+    $queue = $this->createMock(WebhookDeliverySchedulePort::class);
+    $queue->expects(self::never())->method('enqueue');
 
-    $handler = new DispatchWebhookEventHandler($subscriptionRepository, $deliveryRepository, $queue, $this->uuidFactory());
+    $handler = new DispatchWebhookEventHandler($subscriptionRepository, $deliveryRepository, $queue, $this->uuidFactory(), $this->transactions());
 
     $handler->__invoke(new DispatchWebhookEventCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -91,10 +91,10 @@ final class DispatchWebhookEventHandlerTest extends TestCase
     $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
     $deliveryRepository->expects(self::never())->method('reserve');
 
-    $queue = $this->createMock(WebhookDeliveryQueuePort::class);
-    $queue->expects(self::never())->method('dispatch');
+    $queue = $this->createMock(WebhookDeliverySchedulePort::class);
+    $queue->expects(self::never())->method('enqueue');
 
-    $handler = new DispatchWebhookEventHandler($subscriptionRepository, $deliveryRepository, $queue, $this->uuidFactory());
+    $handler = new DispatchWebhookEventHandler($subscriptionRepository, $deliveryRepository, $queue, $this->uuidFactory(), $this->transactions());
 
     $handler->__invoke(new DispatchWebhookEventCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -128,13 +128,24 @@ final class DispatchWebhookEventHandlerTest extends TestCase
   /**
    * Method uuidFactory.
    *
-   * @return UuidFactory a uuid factory generating deterministic-enough raw ids
+   * @return UuidGeneratorPort a uuid factory generating deterministic-enough raw ids
    */
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn('018f0b68-6758-7a12-8a1d-3f0d97f64aff');
 
-    return new UuidFactory($generator);
+    return $generator;
+  }
+
+  /**
+   * Executes the owning transaction callback without a database in handler unit tests.
+   */
+  private function transactions(): TransactionManagerPort
+  {
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
   }
 }

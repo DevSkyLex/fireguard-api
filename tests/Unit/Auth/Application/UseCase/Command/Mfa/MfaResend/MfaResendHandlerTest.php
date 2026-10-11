@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Application\UseCase\Command\Mfa\MfaResend;
 
+use Auth\Application\Contract\Token\SignInGrantType;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Application\UseCase\Command\Mfa\MfaResend\{MfaResendCommand, MfaResendHandler, MfaResendResult};
-use Auth\Domain\ValueObject\Security\SignInGrantType;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\ChallengeInfo;
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
+use Otp\Application\Service\ChallengeAccessService;
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -60,7 +61,7 @@ final class MfaResendHandlerTest extends TestCase
 
     $handler = new MfaResendHandler(
       jwtService: $jwtService,
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -134,7 +135,7 @@ final class MfaResendHandlerTest extends TestCase
 
     $handler = new MfaResendHandler(
       jwtService: $jwtService,
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -177,7 +178,7 @@ final class MfaResendHandlerTest extends TestCase
 
     $handler = new MfaResendHandler(
       jwtService: $jwtService,
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 

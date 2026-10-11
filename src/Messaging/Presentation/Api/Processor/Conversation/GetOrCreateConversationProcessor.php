@@ -6,14 +6,14 @@ namespace Messaging\Presentation\Api\Processor\Conversation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Messaging\Application\UseCase\Command\Conversation\GetOrCreateConversation\{GetOrCreateConversationCommand, GetOrCreateConversationResult};
 use Messaging\Presentation\Api\Dto\Input\GetOrCreateConversationInput;
 use Messaging\Presentation\Api\Dto\Output\ConversationOutput;
 use Messaging\Presentation\Api\Factory\ConversationOutputFactory;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
@@ -94,12 +94,12 @@ final readonly class GetOrCreateConversationProcessor implements ProcessorInterf
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

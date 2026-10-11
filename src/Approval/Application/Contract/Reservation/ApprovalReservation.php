@@ -7,7 +7,7 @@ namespace Approval\Application\Contract\Reservation;
 /**
  * Contract ApprovalReservation.
  *
- * The outcome of {@see \Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort::reservePending()}:
+ * The outcome of {@see \Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort::reservePending()}:
  * the pending request's identifier plus whether it was newly created by this
  * call (`isNew: false` means a concurrent/prior call already reserved the
  * pending row for this `(organization, action type, subject)` tuple — the

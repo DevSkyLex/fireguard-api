@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\MoveFacility;
 
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\MoveFacility\{MoveFacilityCommand, MoveFacilityHandler, MoveFacilityResult};
 use Facility\Domain\Event\Facility\FacilityMovedEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityHierarchyException, FacilityNotFoundException};
@@ -17,6 +16,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Persistence\ForeignKeyConstraintViolationException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -799,7 +799,7 @@ final class MoveFacilityHandlerTest extends TestCase
       ->willReturn($facility);
     $repository->expects(self::once())
       ->method('save')
-      ->willThrowException(new ForeignKeyConstraintViolationException($driverException, null));
+      ->willThrowException(new ForeignKeyConstraintViolationException($driverException));
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
@@ -943,7 +943,7 @@ final class MoveFacilityHandlerTest extends TestCase
       ->willReturn($parent);
     $repository->expects(self::once())
       ->method('save')
-      ->willThrowException(new ForeignKeyConstraintViolationException($driverException, null));
+      ->willThrowException(new ForeignKeyConstraintViolationException($driverException));
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Application\Service;
 
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationNotificationSettings};
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
+use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -60,7 +61,7 @@ final readonly class OrganizationNotificationPolicyService implements Organizati
       return new OrganizationNotificationSettings();
     }
 
-    return $organization?->settings()->notifications ?? new OrganizationNotificationSettings();
+    return OrganizationNotificationSettings::fromArray($organization?->settings()->notifications->toArray() ?? []);
   }
   // #endregion
 }

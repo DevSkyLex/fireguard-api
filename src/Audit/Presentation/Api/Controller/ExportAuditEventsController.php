@@ -5,13 +5,10 @@ declare(strict_types=1);
 namespace Audit\Presentation\Api\Controller;
 
 use Audit\Application\UseCase\Query\ExportAuditEvents\{ExportAuditEventsQuery, ExportAuditEventsResult};
-use Audit\Domain\Event\AuditEventsExportedEvent;
 use Audit\Presentation\Api\Service\{AuditEventCsvWriter, AuditEventExportCriteriaFactory};
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
-use Shared\Application\Exception\MessengerExceptionUnwrapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
@@ -47,8 +44,6 @@ use function sprintf;
  */
 final class ExportAuditEventsController extends AbstractController
 {
-  use MessengerExceptionUnwrapperTrait;
-
   // #region Constants
   /**
    * Constant EXPORT_PERMISSION.
@@ -70,14 +65,12 @@ final class ExportAuditEventsController extends AbstractController
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param Security $security the security service
    * @param AuditEventExportCriteriaFactory $criteriaFactory the request-to-criteria factory
    * @param AuditEventCsvWriter $csvWriter the CSV row writer
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
-    private readonly EventDispatcherPort $eventDispatcher,
     private readonly Security $security,
     private readonly AuditEventExportCriteriaFactory $criteriaFactory,
     private readonly AuditEventCsvWriter $csvWriter,
@@ -98,7 +91,7 @@ final class ExportAuditEventsController extends AbstractController
   public function __invoke(Request $request): StreamedResponse
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -112,15 +105,7 @@ final class ExportAuditEventsController extends AbstractController
     // catch here: BusFailureUnwrappingSubscriber opens the envelope the comment
     // this replaces described, and `exception_to_status` carries the status.
     /** @var ExportAuditEventsResult $result */
-    $result = $this->queryBus->ask(new ExportAuditEventsQuery(criteria: $criteria));
-
-    $this->eventDispatcher->dispatch(new AuditEventsExportedEvent(
-      actorUserId: $user->getId(),
-      tenantId: $criteria->tenantId,
-      format: 'csv',
-      rowCount: $result->total,
-      filterKeys: $this->criteriaFactory->appliedFilterKeys($criteria),
-    ));
+    $result = $this->queryBus->ask(new ExportAuditEventsQuery(criteria: $criteria, actorUserId: $user->getId()));
 
     $fileName = sprintf('audit-events-export-%s.csv', new DateTimeImmutable()->format('Ymd-His'));
 

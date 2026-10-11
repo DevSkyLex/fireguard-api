@@ -101,7 +101,7 @@ final class InspectionResponseProviderTest extends KernelTestCase
     $draft->recordStatus = 'draft';
     $draft->interventionId = self::INTERVENTION_ID;
     $foreign = $this->createResponse(self::FOREIGN_ID, 'item-foreign');
-    $foreign->organization = $this->entityManager->getReference(OrganizationRecord::class, self::OTHER_ORGANIZATION_ID);
+    $foreign->organizationId = self::OTHER_ORGANIZATION_ID;
     $this->entityManager->flush();
     $this->entityManager->clear();
 
@@ -297,7 +297,7 @@ final class InspectionResponseProviderTest extends KernelTestCase
 
     $record = new InspectionResponseRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->inspectionId = self::INSPECTION_ID;
     $record->itemKey = $itemKey;
     $record->value = 'ok';
@@ -315,7 +315,7 @@ final class InspectionResponseProviderTest extends KernelTestCase
 
     $record = new InspectionRecord();
     $record->id = self::INSPECTION_ID;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->equipmentId = '992e8400-e29b-41d4-a716-446655493001';
     $record->inspectorType = 'external';
     $record->inspectorName = 'Inspector';

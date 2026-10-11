@@ -12,7 +12,7 @@ use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\Email;
 use Throwable;
-use User\Application\Port\Outbound\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
+use User\Application\Port\Outbound\Internal\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
 use User\Application\Service\{EmailChangeNotifier, EmailChangeTokenHasher};
 use User\Domain\Event\UserEmailChangeRequestedEvent;
 use User\Domain\Exception\{EmailChangeNotAllowedException, InvalidPasswordException, InvalidUserException};

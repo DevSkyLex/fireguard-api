@@ -6,7 +6,7 @@ namespace Billing\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Billing\Application\Port\Outbound\OrganizationAccessPort;
 use Billing\Application\UseCase\Query\GetOrganizationSubscription\{
   GetOrganizationSubscriptionQuery,
@@ -67,7 +67,7 @@ final readonly class GetSubscriptionProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?SubscriptionOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

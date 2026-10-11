@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Integration\Equipment\Infrastructure\DataFixtures;
 
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
@@ -13,6 +12,7 @@ use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRec
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Infrastructure\DataFixtures\{SeedFixtureAdapter, SeedReferenceRegistryAdapter};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function count;
@@ -46,16 +46,18 @@ final class EquipmentFixturesIntegrationTest extends KernelTestCase
     /** @var EquipmentFixtures $equipmentFixtures */
     $equipmentFixtures = static::getContainer()->get(EquipmentFixtures::class);
 
-    $loader = new Loader();
-    $loader->addFixture($organizationFixtures);
-    $loader->addFixture($facilityFixtures);
-    $loader->addFixture($equipmentFixtures);
+    $registry = new SeedReferenceRegistryAdapter();
+    $fixtures = [
+      new SeedFixtureAdapter($organizationFixtures, $this->entityManager, $registry, 'organization', []),
+      new SeedFixtureAdapter($facilityFixtures, $this->entityManager, $registry, 'facility', ['organization']),
+      new SeedFixtureAdapter($equipmentFixtures, $this->entityManager, $registry, 'equipment', ['organization', 'facility']),
+    ];
 
     $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
     // Purge before loading: the test databases carry the seeded baseline, so
     // appending on top of it collides on primary keys and makes the counts
     // below meaningless. DAMA rolls the purge back with the rest of the test.
-    $executor->execute($loader->getFixtures(), false);
+    $executor->execute($fixtures, false);
 
     // 10 hand-written assets plus the bulk/regional inventory and the extra
     // regional pool that pads the facility pagination.
@@ -78,6 +80,6 @@ final class EquipmentFixturesIntegrationTest extends KernelTestCase
     self::assertNotNull($extinguisher->facilityId);
     self::assertNull($hydrant->facilityId);
     self::assertNotNull($heatDetector->facilityId);
-    self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $extinguisher->organization?->id);
+    self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $extinguisher->organizationId);
   }
 }

@@ -93,6 +93,13 @@ learning from a toggle whether the organization exists.
 
 ## Architecture
 
+Generation handlers receive model and timeout values through module YAML wiring.
+Thread subscriptions enter their owning query: the canonical scoped read finishes
+before the token port mints a subscription to the published private thread topic.
+Vendor JWT signing and expiry representation stay in Infrastructure.
+AssistantExceptionSubscriber translates HTTP failures centrally; stable attempt codes
+retain their existing priority.
+
 - **Domain** (`src/Assistant/Domain`):
   - `Model/Thread/AssistantThread` — `start()` now accepts an optional
     tenant-selected `?string $model` (added as the LAST parameter so every
@@ -446,7 +453,7 @@ assistant.context_provider` (L2.2) — the three provider adapters
 
 | Exception / error code                                                                                          | HTTP / meaning                                                                     |
 | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `Organization\Domain\Exception\OrganizationAccessDeniedException`                                               | 403 Forbidden                                                                      |
+| `Organization\Application\Contract\Exception\OrganizationAccessDeniedException`                                               | 403 Forbidden                                                                      |
 | `AssistantThreadNotFoundException` (also another organization's/member's thread)                                | 404 Not Found                                                                      |
 | `AssistantMessageIllegalStatusTransitionException`                                                              | 409 Conflict                                                                       |
 | `AssistantValidationException` (blank question body, or a model outside `OLLAMA_ALLOWED_MODELS`)                | 422 Unprocessable Entity                                                           |

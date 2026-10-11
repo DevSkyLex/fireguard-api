@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Application\Service;
 
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Contract\Member\OrganizationMemberGrant;
-use Organization\Application\Port\Inbound\{OrganizationJoinAccessPort, OrganizationMemberGrantGuardPort, OrganizationPermissionGrantGuardPort};
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationInvitationNotFoundException, OrganizationJoinException};
+use Organization\Application\Port\Inbound\Internal\{OrganizationJoinAccessPort, OrganizationMemberGrantGuardPort};
+use Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort};
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationJoinException};
 use Organization\Domain\ValueObject\{OrganizationInvitationId, OrganizationJoinMode};
 
 use function array_diff;

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound;
 
-use Auth\Domain\Model\Client\Client;
-use Auth\Domain\ValueObject\Client\ClientIdentifier;
+use Auth\Application\Contract\Client\ClientRegistration;
 
 /**
  * Interface ClientRepositoryPort.
@@ -27,10 +26,10 @@ interface ClientRepositoryPort
    *
    * @since 1.0.0
    *
-   * @param ClientIdentifier $identifier the client identifier
+   * @param string $identifier the client identifier
    *
-   * @return Client|null the client or null if not found
+   * @return ClientRegistration|null the client or null if not found
    */
-  public function find(ClientIdentifier $identifier): ?Client;
+  public function find(string $identifier): ?ClientRegistration;
   // #endregion
 }

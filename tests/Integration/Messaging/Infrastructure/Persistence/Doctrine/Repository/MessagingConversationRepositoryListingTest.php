@@ -431,12 +431,11 @@ final class MessagingConversationRepositoryListingTest extends KernelTestCase
     ?DateTimeImmutable $lastMessageAt = null,
     ?string $teamId = null,
   ): void {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORG_ID);
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     $record = new MessagingConversationRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORG_ID;
     $record->subjectType = $subjectType;
     $record->subjectId = $subjectId;
     $record->visibility = $visibility;

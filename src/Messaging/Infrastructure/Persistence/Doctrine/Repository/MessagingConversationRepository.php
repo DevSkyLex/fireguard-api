@@ -9,13 +9,12 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Channel\{ChannelPage, ChannelView};
 use Messaging\Application\Contract\Conversation\{ConversationPage, ConversationView};
-use Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity, RestoredConversationChannel};
 use Messaging\Domain\ValueObject\{ChannelName, ConversationId, ConversationVisibility, MessagingSubjectType};
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingParticipantRecord, MessagingReadMarkerRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function array_map;
 use function max;
@@ -41,7 +40,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
    *
    * @var string
    */
-  private const string ORGANIZATION_PREDICATE = 'c.organization = :organization';
+  private const string ORGANIZATION_PREDICATE = 'c.organizationId = :organization';
 
   /**
    * Constant ARCHIVED_PREDICATE
@@ -82,11 +81,11 @@ final readonly class MessagingConversationRepository implements MessagingConvers
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -115,7 +114,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       return $existing;
     }
 
-    $id = $this->uuidFactory->generateRaw();
+    $id = $this->uuidFactory->generate();
     $now = new DateTimeImmutable();
 
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
@@ -219,8 +218,6 @@ final readonly class MessagingConversationRepository implements MessagingConvers
   ): ConversationPage {
     $page = max(1, $page);
     $itemsPerPage = max(1, min(100, $itemsPerPage));
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
-
     $qb = $this->entityManager->createQueryBuilder()
       ->select('c')
       ->from(MessagingConversationRecord::class, 'c')
@@ -231,7 +228,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       // excluded here — /api/conversations stays byte-for-byte the v1
       // subject-thread contract.
       ->andWhere('c.subjectType NOT IN (:excludedTypes)')
-      ->setParameter('organization', $organization)
+      ->setParameter('organization', $organizationId)
       ->setParameter('excludedTypes', [MessagingSubjectType::CHANNEL->value, MessagingSubjectType::DIRECT->value]);
 
     if (null !== $subjectType) {
@@ -341,11 +338,9 @@ final readonly class MessagingConversationRepository implements MessagingConvers
    */
   public function createChannel(Conversation $channel): ConversationView
   {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $channel->organizationId());
-
     $record = new MessagingConversationRecord();
     $record->id = (string) $channel->id();
-    $record->organization = $organization;
+    $record->organizationId = $channel->organizationId();
     $record->subjectType = $channel->subjectType()->value;
     $record->subjectId = $channel->subjectId();
     $record->visibility = $channel->visibility()->value;
@@ -406,15 +401,13 @@ final readonly class MessagingConversationRepository implements MessagingConvers
   {
     $page = max(1, $page);
     $itemsPerPage = max(1, min(100, $itemsPerPage));
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
-
     $qb = $this->entityManager->createQueryBuilder()
       ->select('c')
       ->from(MessagingConversationRecord::class, 'c')
       ->innerJoin(MessagingParticipantRecord::class, 'p', 'WITH', 'p.conversation = c AND p.memberId = :memberId')
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('c.subjectType = :channelType')
-      ->setParameter('organization', $organization)
+      ->setParameter('organization', $organizationId)
       ->setParameter('memberId', $memberId)
       ->setParameter('channelType', MessagingSubjectType::CHANNEL->value);
 
@@ -470,15 +463,13 @@ final readonly class MessagingConversationRepository implements MessagingConvers
   {
     $page = max(1, $page);
     $itemsPerPage = max(1, min(100, $itemsPerPage));
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
-
     $qb = $this->entityManager->createQueryBuilder()
       ->select('c')
       ->from(MessagingConversationRecord::class, 'c')
       ->innerJoin(MessagingParticipantRecord::class, 'p', 'WITH', 'p.conversation = c AND p.memberId = :memberId')
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('c.subjectType = :directType')
-      ->setParameter('organization', $organization)
+      ->setParameter('organization', $organizationId)
       ->setParameter('memberId', $memberId)
       ->setParameter('directType', MessagingSubjectType::DIRECT->value);
 
@@ -566,11 +557,9 @@ final readonly class MessagingConversationRepository implements MessagingConvers
    */
   private function findByTriple(string $organizationId, string $subjectType, ?string $subjectId): ?ConversationView
   {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
-
     /** @var ?MessagingConversationRecord $record */
     $record = $this->entityManager->getRepository(MessagingConversationRecord::class)->findOneBy([
-      'organization' => $organization,
+      'organizationId' => $organizationId,
       'subjectType' => $subjectType,
       'subjectId' => $subjectId,
     ]);
@@ -734,11 +723,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
    */
   private function organizationId(MessagingConversationRecord $record): string
   {
-    if (!$record->organization instanceof OrganizationRecord) {
-      throw MessagingNotFoundException::conversation($record->id);
-    }
-
-    return $record->organization->id;
+    return $record->organizationId;
   }
   // #endregion
 }

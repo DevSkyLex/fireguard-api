@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
-use Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionResponseRepositoryPort;
 use Inspection\Domain\Model\Response\InspectionResponse;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, InspectionResponseId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionResponseMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionResponseRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 
@@ -59,9 +58,9 @@ final readonly class InspectionResponseRepository implements InspectionResponseR
     $record = $isNew ? new InspectionResponseRecord() : $record;
 
     InspectionResponseMapper::applyTo($response, $record);
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $response->organizationId());
-    $record->organization = $organization;
+    /** @var string $organization */
+    $organization = (string) $response->organizationId();
+    $record->organizationId = $organization;
 
     if ($isNew) {
       $this->entityManager->persist($record);
@@ -185,7 +184,7 @@ final readonly class InspectionResponseRepository implements InspectionResponseR
   ): QueryBuilder {
     $query = $this->entityManager->createQueryBuilder()
       ->from(InspectionResponseRecord::class, 'r')
-      ->where('r.organization = :organization')
+      ->where('r.organizationId = :organization')
       ->setParameter('organization', (string) $organizationId)
       ->andWhere('r.recordStatus = :status')
       ->setParameter('status', $recordStatus);

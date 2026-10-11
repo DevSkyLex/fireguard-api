@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead;
 
 use Notification\Application\Exception\NotificationNotFoundException;
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\ValueObject\NotificationId;
 use Shared\Application\Message\CommandHandler;

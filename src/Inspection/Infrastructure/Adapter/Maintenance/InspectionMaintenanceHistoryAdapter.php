@@ -47,8 +47,8 @@ final readonly class InspectionMaintenanceHistoryAdapter implements MaintenanceI
   public function latestClosedAt(string $organizationId, string $equipmentId): ?DateTimeImmutable
   {
     $value = $this->connection->fetchOne(
-      "SELECT MAX(updated_at) FROM inspections WHERE organization_id = :organization AND equipment_id = :equipment AND record_status = 'published' AND status = 'closed'",
-      ['organization' => $organizationId, 'equipment' => $equipmentId],
+      "SELECT MAX(updated_at) FROM inspections WHERE organization_id = :organizationId AND equipment_id = :equipment AND record_status = 'published' AND status = 'closed'",
+      ['organizationId' => $organizationId, 'equipment' => $equipmentId],
     );
 
     return is_string($value) ? new DateTimeImmutable($value, new DateTimeZone('UTC')) : null;
@@ -66,9 +66,9 @@ final readonly class InspectionMaintenanceHistoryAdapter implements MaintenanceI
     }
     /** @var list<array{equipment_id: string, closed_at: string}> $rows */
     $rows = $this->connection->fetchAllAssociative(
-      "SELECT equipment_id, MAX(updated_at) AS closed_at FROM inspections WHERE organization_id = :organization
+      "SELECT equipment_id, MAX(updated_at) AS closed_at FROM inspections WHERE organization_id = :organizationId
        AND equipment_id IN (:equipment) AND record_status = 'published' AND status = 'closed' GROUP BY equipment_id",
-      ['organization' => $organizationId, 'equipment' => $equipmentIds],
+      ['organizationId' => $organizationId, 'equipment' => $equipmentIds],
       ['equipment' => ArrayParameterType::STRING],
     );
     $dates = [];

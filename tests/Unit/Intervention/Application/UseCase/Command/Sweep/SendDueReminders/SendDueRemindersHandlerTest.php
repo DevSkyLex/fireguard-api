@@ -11,10 +11,9 @@ use Intervention\Application\Service\{InterventionNotificationService, Intervent
 use Intervention\Application\UseCase\Command\Sweep\SendDueReminders\{SendDueRemindersCommand, SendDueRemindersHandler, SendDueRemindersResult};
 use Notification\Application\Contract\Notification\SendNotificationRequest;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\{OrganizationMemberDirectoryPort, OrganizationNotificationPolicyPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\ClockPort;
@@ -196,35 +195,22 @@ final class SendDueRemindersHandlerTest extends TestCase
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
     $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings());
 
-    $responsible = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::RESPONSIBLE_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      'responsible-user',
-      true,
-      new DateTimeImmutable(),
-    );
-    $participant = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::PARTICIPANT_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      'participant-user',
-      true,
-      new DateTimeImmutable(),
-    );
+    $responsible = new OrganizationMemberView(self::RESPONSIBLE_ID, self::ORGANIZATION_ID, 'responsible-user', true);
+    $participant = new OrganizationMemberView(self::PARTICIPANT_ID, self::ORGANIZATION_ID, 'participant-user', true);
 
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturnCallback(
-      static fn (OrganizationMemberId $id): ?OrganizationMember => match ($id->value) {
+      static fn (string $id): ?OrganizationMemberView => match ($id) {
         self::RESPONSIBLE_ID => $responsible,
         self::PARTICIPANT_ID => $participant,
         default => null,
       },
     );
 
-    $reviewers = new InterventionReviewerRecipientResolver($members, $this->createStub(OrganizationAuthorizationPort::class));
+    $reviewers = new InterventionReviewerRecipientResolver($this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class));
 
-    $adminMembers = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $adminMembers->method('findByOrganizationId')->willReturn([]);
-    $admins = new InterventionRecurrenceRecipientResolver($adminMembers, $this->createStub(OrganizationAuthorizationPort::class));
+    $adminMembers = $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class);
+    $admins = new InterventionRecurrenceRecipientResolver($adminMembers);
 
     return new InterventionNotificationService(
       $notifications,

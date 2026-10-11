@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Tests\Unit\Otp\Application\UseCase\Command\Challenge\GenerateOtp;
 
 use Otp\Application\Contract\Challenge\{OtpChannel as ContractOtpChannel, OtpPurpose as ContractOtpPurpose};
-use Otp\Application\Port\Outbound\Challenge\{OtpNotifierPort, OtpRepositoryPort};
+use Otp\Application\Port\Outbound\Internal\Challenge\{OtpNotifierPort, OtpRepositoryPort};
 use Otp\Application\UseCase\Command\Challenge\GenerateOtp\{GenerateOtpCommand, GenerateOtpHandler, GenerateOtpResult};
 use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\{OtpId, OtpPurpose};
+use Otp\Domain\ValueObject\OtpPurpose;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Http\RequestOrigin;
 use Shared\Application\Contract\Notification\EmailRequestDetails;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Test GenerateOtpHandlerTest.
@@ -50,8 +50,8 @@ final class GenerateOtpHandlerTest extends TestCase
   #[Test]
   public function testDeliveryFailureIsStillObservable(): void
   {
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(new OtpId('123e4567-e89b-12d3-a456-426614174001'));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn('123e4567-e89b-12d3-a456-426614174001');
     $repository = $this->createMock(OtpRepositoryPort::class);
     $repository->expects(self::once())->method('revokeAllForUser');
     $repository->expects(self::once())->method('save');
@@ -67,8 +67,8 @@ final class GenerateOtpHandlerTest extends TestCase
   public function testEmailUsesCurrentRequestOnEveryGenerationEvenWithoutRecognizedBrowser(): void
   {
     $repository = $this->createStub(OtpRepositoryPort::class);
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(new OtpId('123e4567-e89b-12d3-a456-426614174001'));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn('123e4567-e89b-12d3-a456-426614174001');
     $origin = $this->createMock(RequestOriginPort::class);
     $origin->expects(self::exactly(2))->method('current')->willReturnOnConsecutiveCalls(
       new RequestOrigin('8.8.8.8'),
@@ -98,8 +98,8 @@ final class GenerateOtpHandlerTest extends TestCase
   #[Test]
   public function testSmsAndNonHttpEmailDoNotPerformLookups(): void
   {
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(new OtpId('123e4567-e89b-12d3-a456-426614174001'));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn('123e4567-e89b-12d3-a456-426614174001');
     $origin = $this->createStub(RequestOriginPort::class);
     $origin->method('current')->willReturn(null);
     $geo = $this->createMock(GeoIpLookupPort::class);
@@ -129,11 +129,10 @@ final class GenerateOtpHandlerTest extends TestCase
       ->method('send')
       ->with(self::isInstanceOf(Otp::class));
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(OtpId::class)
-      ->willReturn(new OtpId($otpId));
+      ->method('generate')
+      ->willReturn($otpId);
 
     $handler = new GenerateOtpHandler(
       otpRepository: $repository,
@@ -165,10 +164,10 @@ final class GenerateOtpHandlerTest extends TestCase
     $notifier = $this->createMock(OtpNotifierPort::class);
     $notifier->expects(self::never())->method('send');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->willReturn(new OtpId($otpId));
+      ->method('generate')
+      ->willReturn($otpId);
 
     $handler = new GenerateOtpHandler(
       otpRepository: $repository,
@@ -190,8 +189,8 @@ final class GenerateOtpHandlerTest extends TestCase
 
   private function assertDeliveryAfterEnrichment(RequestOriginPort $origin, GeoIpLookupPort $geo, EmailRequestDetails $expected): void
   {
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(new OtpId('123e4567-e89b-12d3-a456-426614174001'));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn('123e4567-e89b-12d3-a456-426614174001');
     $repository = $this->createMock(OtpRepositoryPort::class);
     $repository->expects(self::once())->method('revokeAllForUser');
     $saved = false;

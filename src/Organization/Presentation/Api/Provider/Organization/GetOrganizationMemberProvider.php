@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationMember\{GetOrganizationMemberQuery, GetOrganizationMemberResult};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
@@ -67,7 +67,7 @@ final readonly class GetOrganizationMemberProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): OrganizationMemberOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

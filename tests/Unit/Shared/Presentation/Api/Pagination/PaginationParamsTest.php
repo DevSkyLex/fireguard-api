@@ -6,7 +6,7 @@ namespace Tests\Unit\Shared\Presentation\Api\Pagination;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Presentation\Api\Pagination\PaginationParams;
+use Shared\Application\Contract\Pagination\PaginationParams;
 
 /**
  * Test PaginationParamsTest.

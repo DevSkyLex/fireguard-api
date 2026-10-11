@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Customer\Application\UseCase\Command\CreateCustomer;
 
-use Customer\Application\Contract\CustomerView;
-use Customer\Application\Port\Outbound\CustomerRepositoryPort;
-use Customer\Application\Service\CustomerAccessGuard;
+use Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort;
+use Customer\Application\Service\{CustomerAccessGuard, CustomerViewMapper};
 use Customer\Domain\Event\CustomerChangedEvent;
 use Customer\Domain\Model\Customer\Customer;
 use Customer\Domain\ValueObject\CustomerDetails;
@@ -29,7 +28,7 @@ final readonly class CreateCustomerHandler implements CommandHandler
       $this->customers->save($customer);
       $this->events->dispatch(new CustomerChangedEvent($customer->organizationId, $customer->id, 'created', $customer->revision, $customer->updatedAt));
 
-      return new CreateCustomerResult(CustomerView::fromCustomer($customer));
+      return new CreateCustomerResult(CustomerViewMapper::fromCustomer($customer));
     });
   }
 }

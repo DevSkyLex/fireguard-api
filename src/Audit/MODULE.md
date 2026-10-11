@@ -56,13 +56,12 @@ is currently looking at.
   with a custom `controller:` never enters — the expression is
   documentation-only. `ExportAuditEventsController` therefore checks
   `ExportAuditEventsController::EXPORT_PERMISSION` itself before touching the
-  query bus. Any future export endpoint built on the same
+  query bus. The Application handler rechecks the current permission for every bus caller. Any future export endpoint built on the same
   `controller:` + `read: false` pattern must do the same, or every
   authenticated caller streams the whole ledger.
-- **The row cap surfaces as 422 only because the controller unwraps the bus
-  exception chain.** `MessengerQueryBusAdapter` wraps every handler failure
-  (`MessengerRuntimeException` → `HandlerFailedException` → domain), so a
-  direct `catch (AuditExportTooLargeException)` is dead code.
+- **The row cap surfaces as 422 through centralized bus-error unwrapping.**
+  `BusFailureUnwrappingSubscriber` restores the underlying application exception
+  and the API exception mapping preserves the documented 422 response.
 
 - **Format — CSV, not PDF.** The ledger is an append-only, tabular event log
   that auditors filter/pivot in a spreadsheet — CSV is the natural fit and
@@ -96,7 +95,7 @@ is currently looking at.
   same governed data. `actorEmailHash`/`ipHash` (irreversible hashes) are
   always present regardless of the PII flag, same as today.
 - **Self-auditing.** Every export dispatches `AuditEventsExportedEvent`,
-  recorded by `ExportAuditEventSubscriber::onAuditEventsExported()` as ledger action
+  emitted by the export Application handler and recorded by `ExportAuditEventSubscriber::onAuditEventsExported()` as ledger action
   `audit.export_performed` (subject type `audit_export`) — the ledger
   auditing its own export, the same convention every other module's
   significant action follows. Its metadata carries `format`, `row_count`, and
@@ -114,7 +113,7 @@ is currently looking at.
 
 ## Recorded actions
 
-The Audit subscribers listen to domain events from other modules
+The Audit subscribers consume owner-published `Application/Contract/Event` snapshots from other modules
 (dispatched through `EventDispatcherPort`, event name = `<module>.<snake_case_class>`)
 and append one ledger entry per action. Security, organization lifecycle/access,
 resources, intervention, operations, governance and exports have separate subscribers;
@@ -267,7 +266,7 @@ they share actor resolution, request context, PII policy and durable ledger disp
   values, since a filter such as `actorId`/`subjectId` can itself be
   person-identifying); actor is the exporting user (falls back to `system`
   if resolved outside an authenticated request context). Emitted by
-  `ExportAuditEventsController` after the bounded stream is built, before
+  `ExportAuditEventsHandler` after permission and row-cap checks, before
   the response is returned.
 
 Organization actions resolve their actor from the domain event when it
@@ -323,7 +322,7 @@ reads it:
   regardless of `SECURITY_LOG_INCLUDE_PII`, which governs platform auditors,
   a different and higher-trust audience.
 
-A consumer must **not** be given `Application\Port\Outbound\AuditEventRepositoryPort`
+A consumer must **not** be given `Application\Port\Outbound\Internal\AuditEventRepositoryPort`
 instead: that is this module's own dependency on its persistence adapter, it
 hands over the unfiltered ledger, and it makes the reduction a rule someone
 has to remember. Note that `deptrac.yaml` defines hexagonal layers with no
@@ -353,6 +352,10 @@ everywhere — the reader already scoped the request to one organization.
 
 `OrganizationAuditMetadataProjectionTest` holds a standing guard over the
 whole map, so a future entry cannot quietly admit a prose or credential key.
+
+Historical Domain event classes remain deserializable. Each owning module converts its legacy snapshot before subscriber dispatch, preserving the original occurrence time, envelope identity and actor. Event names remain `<module>.<snake_case_class>`, so public-contract migration does not rename audit actions or consumer receipts. Audit continues to commit its ledger entry, hash chain and consumer receipt on `auth`; delivery failures remain retryable without a transaction spanning `main` and `auth`.
+
+CSV export orchestration belongs to `ExportAuditEventsHandler`: its query carries the authenticated actor, the handler verifies `audit.export` before reading, enforces the row cap and emits `AuditEventsExportedEvent` with filter names only. The HTTP controller retains the coarse authentication/permission gate to preserve refusal order before parsing filters, then translates the typed result into a stream.
 
 ## Configuration
 

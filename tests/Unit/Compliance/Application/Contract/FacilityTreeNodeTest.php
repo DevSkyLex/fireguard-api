@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Compliance\Application\Contract;
 
-use Compliance\Application\Contract\FacilityTreeNode;
-use Compliance\Domain\ValueObject\ComplianceStatus;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityTreeNode};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

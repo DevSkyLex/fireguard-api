@@ -8,15 +8,12 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Messaging\Application\Contract\Attachment\MessagingAttachmentPage;
+use Messaging\Application\Contract\Attachment\{MessagingAttachmentPage, MessagingAttachmentView};
 use Messaging\Application\UseCase\Query\Attachment\ListConversationAttachments\{
   ListConversationAttachmentsQuery,
   ListConversationAttachmentsResult
 };
 use Messaging\Domain\Exception\MessagingNotFoundException;
-use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
-use Messaging\Domain\ValueObject\MessagingAttachmentId;
-use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingAttachmentRecord, MessagingMessageRecord};
 use Messaging\Presentation\Api\Dto\Output\MessageAttachmentOutput;
 use Messaging\Presentation\Api\Factory\MessageAttachmentOutputFactory;
 use Messaging\Presentation\Api\Provider\Attachment\MessagingMediaProvider;
@@ -158,37 +155,9 @@ final class MessagingMediaProviderTest extends TestCase
     self::assertSame('2026-01-01T08:30:00+00:00', $output->uploadedAt);
   }
 
-  #[Test]
-  public function testOutputThrowsWhenTheAttachmentHasNoMessage(): void
+  private function record(): MessagingAttachmentView
   {
-    $record = $this->record();
-    $record->message = null;
-
-    $this->expectException(NotFoundHttpException::class);
-
-    MessagingMediaProvider::output($record);
-  }
-
-  private function record(): MessagingAttachmentRecord
-  {
-    $message = new MessagingMessageRecord();
-    $message->id = self::MESSAGE_ID;
-
-    $record = new MessagingAttachmentRecord();
-    $record->id = self::ATTACHMENT_ID;
-    $record->message = $message;
-    $record->conversationId = self::CONVERSATION_ID;
-    $record->organizationId = 'org-1';
-    $record->uploadedByMemberId = 'member-1';
-    $record->fileName = 'file.pdf';
-    $record->storagePath = 'org-1/conv-1/file.pdf';
-    $record->mimeType = 'application/pdf';
-    $record->size = 100;
-    $record->label = 'Plan';
-    $record->revision = 3;
-    $record->uploadedAt = new DateTimeImmutable('2026-01-01T08:30:00+00:00');
-
-    return $record;
+    return new MessagingAttachmentView(self::ATTACHMENT_ID, self::MESSAGE_ID, self::CONVERSATION_ID, 'org-1', 'member-1', 'file.pdf', 'application/pdf', 100, 'Plan', new DateTimeImmutable('2026-01-01T08:30:00+00:00'), 3);
   }
 
   /**
@@ -232,20 +201,19 @@ final class MessagingMediaProviderTest extends TestCase
     return $security;
   }
 
-  private function attachment(): MessagingAttachment
+  private function attachment(): MessagingAttachmentView
   {
-    return MessagingAttachment::create(
-      id: MessagingAttachmentId::fromString(self::ATTACHMENT_ID),
+    return new MessagingAttachmentView(
+      id: self::ATTACHMENT_ID,
       messageId: 'msg-1',
       conversationId: self::CONVERSATION_ID,
       organizationId: 'org-1',
       uploadedByMemberId: 'member-1',
-      file: new MessagingAttachmentFile(
-        fileName: 'file.pdf',
-        storagePath: 'org-1/conv-1/file.pdf',
-        mimeType: 'application/pdf',
-        size: 100,
-      ),
+      fileName: 'file.pdf',
+      mimeType: 'application/pdf',
+      size: 100,
+      label: null,
+      uploadedAt: new DateTimeImmutable(),
     );
   }
   // #endregion

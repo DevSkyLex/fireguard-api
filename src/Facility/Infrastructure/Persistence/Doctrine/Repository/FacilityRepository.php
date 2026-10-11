@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\ArrayParameterType;
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
+use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
 use Doctrine\ORM\QueryBuilder;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus};
+use Facility\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\{FacilityMapper, FacilityPersistenceExceptionMapper};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException as ApplicationUniqueConstraintViolationException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function array_map;
 use function strtoupper;
@@ -43,16 +43,15 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
   public function save(Facility $facility): void
   {
     $record = FacilityMapper::toRecord($facility);
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $facility->organizationId());
-    $record->organization = $organization;
+    $organization = (string) $facility->organizationId();
+    $record->organizationId = $organization;
     $record->parentFacility = null !== $facility->parentFacilityId()
       ? $this->entityManager->getReference(FacilityRecord::class, (string) $facility->parentFacilityId())
       : null;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof FacilityRecord) {
-      $existing->organization = $organization;
+      $existing->organizationId = $organization;
       $existing->parentFacility = $record->parentFacility;
       $existing->type = $record->type;
       $existing->name = $record->name;
@@ -74,6 +73,8 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
 
     try {
       $this->entityManager->flush();
+    } catch (UniqueConstraintViolationException $exception) {
+      throw new ApplicationUniqueConstraintViolationException($exception);
     } catch (ForeignKeyConstraintViolationException $exception) {
       throw FacilityPersistenceExceptionMapper::organizationConstraint($exception);
     }
@@ -239,8 +240,7 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
       $parentIdValues[] = (string) $parentId;
     }
 
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organization = (string) $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('IDENTITY(f.parentFacility) AS parentId', 'COUNT(f.id) AS childCount')
@@ -573,12 +573,11 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
    *
    * @param FacilityOrganizationId $organizationId identifier of the organization
    *
-   * @return OrganizationRecord organization reference used by facility queries
+   * @return string the retained organization identifier
    */
-  protected function organizationReference(FacilityOrganizationId $organizationId): OrganizationRecord
+  protected function organizationReference(FacilityOrganizationId $organizationId): string
   {
-    /** @var OrganizationRecord */
-    return $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    return (string) $organizationId;
   }
 
   // #endregion

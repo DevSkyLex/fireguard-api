@@ -7,7 +7,7 @@ namespace Tests\Unit\Intervention\Infrastructure\Adapter\Messaging;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -66,7 +66,7 @@ final class InterventionMessagingSubjectResolverAdapterTest extends TestCase
 
     $record = new InterventionRecord();
     $record->id = self::INTERVENTION_ID;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->name = $name;
 
     return $record;

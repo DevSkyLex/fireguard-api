@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Application\UseCase\Command\Session\Login;
 
 use Auth\Application\Contract\User\UserAuthenticationResult;
+use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeGeneratorPort;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, TrustedDeviceCheckPort, UserAuthenticationPort};
-use Auth\Application\Port\Outbound\Mfa\{ChallengeGeneratorPort, TotpEnrollmentCheckPort};
+use Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort;
 use Auth\Application\Service\Federation\SessionIssuer;
 use Auth\Application\UseCase\Command\Mfa\MfaChallenge\{MfaChallengeCommand, MfaChallengeResult};
 use Auth\Application\UseCase\Command\Session\Login\{LoginCommand, LoginHandler, LoginResult};
@@ -16,9 +17,9 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, RateLimiterPort};
+use Shared\Application\Port\Outbound\LoggerPort;
 use Shared\Domain\ValueObject\RateLimitResult;
 use User\Application\Port\Inbound\FederatedUserPort;
 
@@ -348,8 +349,8 @@ final class LoginHandlerTest extends TestCase
       ->method('authenticate')
       ->willThrowException(new RuntimeException('boom'));
 
-    /** @var LoggerInterface&MockObject $logger */
-    $logger = $this->createMock(LoggerInterface::class);
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::once())
       ->method('critical')
       ->with('Password authentication failed unexpectedly.', [
@@ -597,7 +598,7 @@ final class LoginHandlerTest extends TestCase
     TrustedDeviceCheckPort $trustedDeviceCheck,
     TotpEnrollmentCheckPort $totpEnrollmentCheck,
     bool $mfaEnabled,
-    ?LoggerInterface $logger = null,
+    ?LoggerPort $logger = null,
     ?FederatedUserPort $users = null,
   ): LoginHandler {
     return new LoginHandler(
@@ -614,7 +615,7 @@ final class LoginHandlerTest extends TestCase
         users: $users ?? $this->createStub(FederatedUserPort::class),
         mfaEnabled: $mfaEnabled,
       ),
-      logger: $logger ?? $this->createStub(LoggerInterface::class),
+      logger: $logger ?? $this->createStub(LoggerPort::class),
     );
   }
   // #endregion

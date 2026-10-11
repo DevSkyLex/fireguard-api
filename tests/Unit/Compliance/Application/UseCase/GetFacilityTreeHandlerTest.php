@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Compliance\Application\UseCase;
 
+use Compliance\Application\Contract\ComplianceStatus;
 use Compliance\Application\Port\Outbound\{ComplianceFacilityDirectoryPort, EquipmentComplianceStatisticsPort, InspectionComplianceStatisticsPort, MaintenanceComplianceStatisticsPort};
 use Compliance\Application\Service\ComplianceRegisterAggregator;
 use Compliance\Application\UseCase\Query\GetFacilityTree\{GetFacilityTreeHandler, GetFacilityTreeQuery, GetFacilityTreeResult};
 use Compliance\Domain\Exception\ComplianceAccessDeniedException;
-use Compliance\Domain\ValueObject\ComplianceStatus;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

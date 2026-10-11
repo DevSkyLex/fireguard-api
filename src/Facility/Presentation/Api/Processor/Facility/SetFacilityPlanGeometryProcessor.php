@@ -6,7 +6,7 @@ namespace Facility\Presentation\Api\Processor\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\Facility\SetFacilityPlanGeometry\SetFacilityPlanGeometryCommand;
 use Facility\Domain\Exception\{
   FacilityAttachmentNotAncestorException,
@@ -18,8 +18,8 @@ use Facility\Presentation\Api\Dto\Input\Facility\SetFacilityPlanGeometryInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
@@ -51,13 +51,13 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
    * @access public
    *
    * @param CommandBusPort $commandBus the command bus
-   * @param OrganizationAuthorizationPort $authorization the authorization
    * @param Security $security the security
    * @param \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail the facility detail reader
    *
    * @return void
    */
   public function __construct(
+    private QueryBusPort $detailQueries,
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
@@ -86,7 +86,7 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
   {
     /** @var SetFacilityPlanGeometryInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -122,7 +122,10 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
       throw $this->mapMessengerException($exception);
     }
 
-    return $this->detail->read($organizationId, $facilityId);
+    /** @var \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult $detailResult */
+    $detailResult = $this->detailQueries->ask(new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery($organizationId, $facilityId));
+
+    return $this->detail->create($detailResult);
   }
 
   /**

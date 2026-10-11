@@ -6,8 +6,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\CreateFacilit
 
 use DateTimeImmutable;
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
-use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityHandler, CreateFacilityResult};
 use Facility\Domain\Event\Facility\FacilityCreatedEvent;
@@ -21,8 +20,9 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Persistence\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -39,9 +39,9 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository->expects(self::never())->method('findById');
     $repository->expects(self::never())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -72,13 +72,12 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $repository->expects(self::once())
       ->method('save')
-      ->willThrowException(new UniqueConstraintViolationException($driverException, null));
+      ->willThrowException(new UniqueConstraintViolationException($driverException));
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655440900'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655440900');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -105,9 +104,9 @@ final class CreateFacilityHandlerTest extends TestCase
       ->willReturn(null);
     $repository->expects(self::never())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -143,9 +142,9 @@ final class CreateFacilityHandlerTest extends TestCase
       ->willReturn($parentFacility);
     $repository->expects(self::never())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -171,12 +170,11 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository->expects(self::never())->method('findById');
     $repository->expects(self::once())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn($generatedId);
+      ->method('generate')
+      ->willReturn((string) $generatedId);
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -211,8 +209,8 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn($generatedId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn((string) $generatedId);
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -236,8 +234,8 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn($generatedId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn((string) $generatedId);
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -257,11 +255,10 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419f5'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-4466554419f5');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -283,8 +280,8 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419a5'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-4466554419a5');
 
     $metadataRepository = $this->createStub(FacilityMetadataFieldRepositoryPort::class);
     $metadataRepository->method('findByOrganizationId')->willReturn([
@@ -333,11 +330,10 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441950'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655441950');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -359,11 +355,10 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441960'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655441960');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -388,12 +383,11 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn($generatedId);
+      ->method('generate')
+      ->willReturn((string) $generatedId);
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -419,12 +413,11 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn($generatedId);
+      ->method('generate')
+      ->willReturn((string) $generatedId);
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -445,11 +438,10 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441990'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655441990');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -486,9 +478,9 @@ final class CreateFacilityHandlerTest extends TestCase
       ->willReturn($parentFacility);
     $repository->expects(self::never())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $handler = $this->handler($repository, $uuidFactory);
 
@@ -510,11 +502,10 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419a0'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-4466554419a0');
 
     /** @var OrganizationQuotaPort&MockObject $quota */
     $quota = $this->createMock(OrganizationQuotaPort::class);
@@ -546,8 +537,8 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn($generatedId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn((string) $generatedId);
 
     /** @var OrganizationQuotaPort&MockObject $quota */
     $quota = $this->createMock(OrganizationQuotaPort::class);
@@ -579,8 +570,8 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419a5'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-4466554419a5');
 
     /** @var OrganizationQuotaPort&MockObject $quota */
     $quota = $this->createMock(OrganizationQuotaPort::class);
@@ -610,9 +601,9 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $result = $this->handler($repository, $uuidFactory)->__invoke(new CreateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-4466554419b1',
@@ -645,7 +636,6 @@ final class CreateFacilityHandlerTest extends TestCase
   {
     $handler = $this->handlerFailingWith(new ForeignKeyConstraintViolationException(
       $this->driverException('SQLSTATE[23503]: insert on table "sites" violates foreign key constraint "fk_facility_organization"'),
-      null,
     ));
 
     $this->expectException(InvalidArgumentException::class);
@@ -674,7 +664,6 @@ final class CreateFacilityHandlerTest extends TestCase
     $handler = $this->handlerFailingWith(
       new ForeignKeyConstraintViolationException(
         $this->driverException('SQLSTATE[23503]: insert on table "sites" violates foreign key constraint "fk_facility_parent"'),
-        null,
       ),
       $parent,
     );
@@ -708,11 +697,10 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository->expects(self::once())->method('depthOf')->with($parentId)->willReturn(7);
     $repository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655442a03'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655442a03');
 
     $handler = $this->handler($repository, $uuidFactory, maxDepth: 8);
 
@@ -744,9 +732,9 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository->expects(self::once())->method('depthOf')->with($parentId)->willReturn(8);
     $repository->expects(self::never())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $handler = $this->handler($repository, $uuidFactory, maxDepth: 8);
 
@@ -771,8 +759,8 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn($generatedId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn((string) $generatedId);
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -819,8 +807,8 @@ final class CreateFacilityHandlerTest extends TestCase
     $repository->method('depthOf')->willReturn(0);
     $repository->expects(self::once())->method('save')->willThrowException($failure);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419f0'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-4466554419f0');
 
     return $this->handler($repository, $uuidFactory, eventDispatcher: $eventDispatcher);
   }
@@ -841,7 +829,7 @@ final class CreateFacilityHandlerTest extends TestCase
    */
   private function handler(
     FacilityRepositoryPort $repository,
-    UuidFactory $uuidFactory,
+    UuidGeneratorPort $uuidFactory,
     ?OrganizationQuotaPort $quota = null,
     int $maxDepth = 8,
     ?EventDispatcherPort $eventDispatcher = null,

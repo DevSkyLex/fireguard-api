@@ -52,7 +52,7 @@ final readonly class InterventionEquipmentWorkAdapter implements InterventionEqu
     $rows = $this->entityManager->createQueryBuilder()
       ->select('i.id AS interventionId, i.number, i.name, i.status, w.id AS workItemId, w.action, w.status AS workItemStatus, w.target')
       ->from(InterventionWorkItemRecord::class, 'w')->join('w.intervention', 'i')
-      ->where('IDENTITY(i.organization) = :organization AND i.status NOT IN (:closed) AND w.status <> :skipped')
+      ->where('i.organizationId = :organization AND i.status NOT IN (:closed) AND w.status <> :skipped')
       ->andWhere('w.target = :target OR w.target LIKE :legacy')
       ->setParameter('organization', $organizationId)->setParameter('closed', ['published', 'abandoned'])->setParameter('skipped', 'skipped')
       ->setParameter('target', '/api/equipment/' . $equipmentId)->setParameter('legacy', '%' . $equipmentId . '%')

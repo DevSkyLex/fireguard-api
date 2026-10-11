@@ -14,8 +14,8 @@ use function is_string;
 /**
  * Service NonConformityExportCriteriaFactory.
  *
- * Builds the `array<string, mixed>` filter shape {@see \Inspection\Application\Port\Outbound\NonConformityRepositoryPort::countExportCandidates()}/
- * {@see \Inspection\Application\Port\Outbound\NonConformityRepositoryPort::listExportCandidates()}
+ * Builds the `array<string, mixed>` filter shape {@see \Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort::countExportCandidates()}/
+ * {@see \Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort::listExportCandidates()}
  * expect, from the export controller's raw `Request` query string — the
  * same `severity`/`status` filter subset
  * {@see \Inspection\Presentation\Api\Provider\NonConformity\ListOrganizationNonConformitiesProvider}

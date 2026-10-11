@@ -38,7 +38,7 @@ final class AvatarResizerTest extends TestCase
     $storage = $this->createMock(FileStoragePort::class);
 
     $expectedPaths = array_map(
-      fn (int $size) => sprintf('avatars/user-1/%d.webp', $size),
+      fn (int $size) => sprintf('avatars/user-1/attempt-1/%d.webp', $size),
       AvatarResizer::SIZES,
     );
 
@@ -58,7 +58,7 @@ final class AvatarResizerTest extends TestCase
     );
     self::assertIsString($png, 'Failed to decode base64 PNG fixture.');
 
-    $resizer->resize('user-1', $png);
+    $resizer->resize('user-1', $png, 'attempt-1');
   }
 
   #[Test]
@@ -75,7 +75,7 @@ final class AvatarResizerTest extends TestCase
       ->method('delete');
 
     $resizer = new AvatarResizer($storage, new ImageInputValidationAdapter());
-    $resizer->delete('user-1');
+    $resizer->delete('user-1', 'attempt-1');
   }
 
   #[Test]
@@ -89,7 +89,7 @@ final class AvatarResizerTest extends TestCase
     $storage->expects(self::never())->method('delete');
 
     $resizer = new AvatarResizer($storage, new ImageInputValidationAdapter());
-    $resizer->delete('user-1');
+    $resizer->delete('user-1', 'attempt-1');
   }
 
   #[Test]
@@ -105,7 +105,7 @@ final class AvatarResizerTest extends TestCase
     $storage->expects(self::exactly(2))->method('delete');
 
     $resizer = new AvatarResizer($storage, new ImageInputValidationAdapter());
-    $resizer->delete('user-1');
+    $resizer->delete('user-1', 'attempt-1');
   }
 
   #[Test]
@@ -128,7 +128,7 @@ final class AvatarResizerTest extends TestCase
     $this->expectException(InvalidImageInputException::class);
     $this->expectExceptionMessage('Image exceeds the 4194304 pixel limit.');
 
-    new AvatarResizer($storage, new ImageInputValidationAdapter())->resize('user-1', ImageFixtures::pngHeader(2048, 2049));
+    new AvatarResizer($storage, new ImageInputValidationAdapter())->resize('user-1', ImageFixtures::pngHeader(2048, 2049), 'attempt-1');
   }
 
   #[Test]
@@ -142,7 +142,7 @@ final class AvatarResizerTest extends TestCase
     $this->expectException(InvalidImageInputException::class);
     $this->expectExceptionMessage('Unable to decode the uploaded image.');
 
-    new AvatarResizer($storage, new ImageInputValidationAdapter())->resize('user-1', $contents);
+    new AvatarResizer($storage, new ImageInputValidationAdapter())->resize('user-1', $contents, 'attempt-1');
   }
 
   #[Test]
@@ -158,12 +158,12 @@ final class AvatarResizerTest extends TestCase
         self::assertSame('image/webp', $dimensions['mime']);
         self::assertSame($dimensions[0], $dimensions[1]);
         self::assertContains($dimensions[0], AvatarResizer::SIZES);
-        self::assertSame(sprintf('avatars/user-1/%d.webp', $dimensions[0]), $path);
+        self::assertSame(sprintf('avatars/user-1/attempt-1/%d.webp', $dimensions[0]), $path);
         self::assertStringNotContainsString('ANIM', $contents);
         self::assertStringNotContainsString('ANMF', $contents);
       });
 
-    new AvatarResizer($storage, new ImageInputValidationAdapter())->resize('user-1', $contents);
+    new AvatarResizer($storage, new ImageInputValidationAdapter())->resize('user-1', $contents, 'attempt-1');
   }
 
   /**

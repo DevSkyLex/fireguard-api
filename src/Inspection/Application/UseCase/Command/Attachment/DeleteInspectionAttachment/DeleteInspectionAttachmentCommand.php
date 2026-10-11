@@ -34,6 +34,8 @@ final readonly class DeleteInspectionAttachmentCommand implements CommandMessage
     public string $organizationId,
     public string $inspectionId,
     public string $attachmentId,
+    public ?int $expectedRevision = null,
+    public ?string $userId = null,
   ) {
   }
   // #endregion

@@ -6,15 +6,13 @@ namespace Webhook\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 use Webhook\Application\UseCase\Query\Subscription\GetWebhookSubscription\{GetWebhookSubscriptionQuery, GetWebhookSubscriptionResult};
 use Webhook\Presentation\Api\Dto\Output\WebhookSubscriptionOutput;
 use Webhook\Presentation\Api\Factory\WebhookSubscriptionOutputFactory;
-use Webhook\Presentation\Api\Trait\WebhookExceptionMapperTrait;
 
 use function is_string;
 
@@ -30,8 +28,6 @@ use function is_string;
  */
 final readonly class GetWebhookSubscriptionProvider implements ProviderInterface
 {
-  use WebhookExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -63,7 +59,7 @@ final readonly class GetWebhookSubscriptionProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): WebhookSubscriptionOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -73,16 +69,12 @@ final readonly class GetWebhookSubscriptionProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId and webhookId URI parameters are required.');
     }
 
-    try {
-      /** @var GetWebhookSubscriptionResult $result */
-      $result = $this->queryBus->ask(new GetWebhookSubscriptionQuery(
-        userId: $user->getId(),
-        organizationId: $organizationId,
-        subscriptionId: $webhookId,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWebhookException($exception);
-    }
+    /** @var GetWebhookSubscriptionResult $result */
+    $result = $this->queryBus->ask(new GetWebhookSubscriptionQuery(
+      userId: $user->getId(),
+      organizationId: $organizationId,
+      subscriptionId: $webhookId,
+    ));
 
     return $this->outputFactory->fromView($result);
   }

@@ -7,12 +7,11 @@ namespace Tests\Integration\Facility\Infrastructure\Adapter\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Intervention\Domain\Exception\InterventionResourceNotFoundException;
-use Intervention\Domain\ValueObject\InterventionResourceType;
+use Intervention\Application\Contract\Resource\{InterventionResourceNotFoundException, InterventionResourceType};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -275,7 +274,7 @@ final class FacilityInterventionResourceAdapterTest extends KernelTestCase
   {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = null;
     $facility->type = 'site';
     $facility->name = 'Facility ' . $id;
@@ -300,7 +299,7 @@ final class FacilityInterventionResourceAdapterTest extends KernelTestCase
 
   private function removeOrganization(string $id): void
   {
-    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organization' => $id]) as $record) {
+    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organizationId' => $id]) as $record) {
       $this->entityManager->remove($record);
     }
     $organization = $this->entityManager->find(OrganizationRecord::class, $id);

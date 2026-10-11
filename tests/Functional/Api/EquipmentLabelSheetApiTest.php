@@ -380,7 +380,7 @@ final class EquipmentLabelSheetApiTest extends WebTestCase
 
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = null;
     $equipment->type = 'fire_extinguisher';
     $equipment->subType = 'CO2';
@@ -396,7 +396,7 @@ final class EquipmentLabelSheetApiTest extends WebTestCase
 
     $assignedEquipment = new EquipmentRecord();
     $assignedEquipment->id = self::SECOND_EQUIPMENT_ID;
-    $assignedEquipment->organization = $organization;
+    $assignedEquipment->organizationId = $organization->id;
     $assignedEquipment->facilityId = self::FACILITY_ID;
     $assignedEquipment->type = 'smoke_detector';
     $assignedEquipment->subType = null;

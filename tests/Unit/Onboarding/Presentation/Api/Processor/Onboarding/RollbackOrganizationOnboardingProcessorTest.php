@@ -8,8 +8,8 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use LogicException;
-use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
-use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
+use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
+use Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\{RestoredOnboardingHistory, RestoredOnboardingIdentity, RestoredOnboardingStatus, RestoredOnboardingTimestamps};
@@ -21,14 +21,12 @@ use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrgan
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort, UuidGeneratorPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException};
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 #[CoversClass(RollbackOrganizationOnboardingProcessor::class)]
 final class RollbackOrganizationOnboardingProcessorTest extends TestCase
@@ -233,9 +231,9 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
     ?OrganizationOnboardingSessionRepositoryPort $sessionRepository = null,
     ?QueryBusPort $queryBus = null,
     ?CommandBusPort $commandBus = null,
-    ?UuidFactory $uuidFactory = null,
+    ?UuidGeneratorPort $uuidFactory = null,
     ?TransactionManagerPort $transactionManager = null,
-    ?EventDispatcherInterface $eventDispatcher = null,
+    ?EventDispatcherPort $eventDispatcher = null,
   ): OrganizationOnboardingFlowService {
     if (null === $transactionManager) {
       $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -244,11 +242,12 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
 
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
-      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
-      uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
+      organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($queryBus ?? $this->createStub(QueryBusPort::class), $commandBus ?? $this->createStub(CommandBusPort::class)),
+      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      uuidFactory: $uuidFactory ?? $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
-      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
     );
   }
 

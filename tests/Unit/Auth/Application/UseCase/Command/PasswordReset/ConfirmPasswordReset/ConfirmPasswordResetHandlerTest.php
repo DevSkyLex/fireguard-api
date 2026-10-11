@@ -11,16 +11,17 @@ use Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset\{
   ConfirmPasswordResetResult
 };
 use DateTimeImmutable;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
+use Otp\Application\Service\ChallengeAccessService;
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Domain\ValueObject\Email;
-use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use Tests\Helper\{IdentityBoundaryFactories, TestEventIdProvider};
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -35,6 +36,8 @@ use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 #[CoversClass(ConfirmPasswordResetHandler::class)]
 final class ConfirmPasswordResetHandlerTest extends TestCase
 {
+  use IdentityBoundaryFactories;
+
   private const string USER_ID = '00000000-0000-4000-a000-000000000001';
 
   private const string OTP_ID = '123e4567-e89b-12d3-a456-426614174000';
@@ -150,8 +153,8 @@ final class ConfirmPasswordResetHandlerTest extends TestCase
     $userRepo->method('findById')->willReturn($user);
     $userRepo->expects(self::once())->method('save')->with($user);
 
-    /** @var SessionRepositoryPort&MockObject $sessionRepo */
-    $sessionRepo = $this->createMock(SessionRepositoryPort::class);
+    /** @var SessionRevocationPort&MockObject $sessionRepo */
+    $sessionRepo = $this->createMock(SessionRevocationPort::class);
     $sessionRepo->expects(self::once())->method('revokeAllForUser')->with(self::USER_ID);
 
     /** @var TokenRevocationPort&MockObject $tokenRevocation */
@@ -177,13 +180,17 @@ final class ConfirmPasswordResetHandlerTest extends TestCase
   private function makeHandler(
     ?OtpRepositoryPort $otpRepository = null,
     ?UserRepositoryPort $userRepository = null,
-    ?SessionRepositoryPort $sessionRepository = null,
+    ?SessionRevocationPort $sessionRepository = null,
     ?TokenRevocationPort $tokenRevocation = null,
   ): ConfirmPasswordResetHandler {
+    $otpRepository ??= $this->createStub(OtpRepositoryPort::class);
+    $userRepository ??= $this->createStub(UserRepositoryPort::class);
+
     return new ConfirmPasswordResetHandler(
-      otpRepository: $otpRepository ?? $this->createStub(OtpRepositoryPort::class),
-      userRepository: $userRepository ?? $this->createStub(UserRepositoryPort::class),
-      sessionRepository: $sessionRepository ?? $this->createStub(SessionRepositoryPort::class),
+      otpRepository: new ChallengeAccessService($otpRepository),
+      otpChallenge: $this->challengeCapability($otpRepository),
+      userRepository: $this->credentialCapability($userRepository),
+      sessionRepository: $sessionRepository ?? $this->createStub(SessionRevocationPort::class),
       tokenRevocation: $tokenRevocation ?? $this->createStub(TokenRevocationPort::class),
     );
   }

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Customer\Application\UseCase\Query\ListCustomers;
 
-use Customer\Application\Contract\CustomerView;
-use Customer\Application\Port\Outbound\CustomerRepositoryPort;
-use Customer\Application\Service\CustomerAccessGuard;
+use Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort;
+use Customer\Application\Service\{CustomerAccessGuard, CustomerViewMapper};
 use Customer\Domain\Exception\CustomerException;
 use Shared\Application\Message\QueryHandler;
 
@@ -30,6 +29,6 @@ final readonly class ListCustomersHandler implements QueryHandler
     $search = trim($query->search);
     $items = $this->customers->list($query->organizationId, $search, $query->archived, ($query->page - 1) * $query->itemsPerPage, $query->itemsPerPage);
 
-    return new ListCustomersResult(array_map(CustomerView::fromCustomer(...), $items), $this->customers->count($query->organizationId, $search, $query->archived), $query->page, $query->itemsPerPage);
+    return new ListCustomersResult(array_map(CustomerViewMapper::fromCustomer(...), $items), $this->customers->count($query->organizationId, $search, $query->archived), $query->page, $query->itemsPerPage);
   }
 }

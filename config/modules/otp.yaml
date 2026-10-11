@@ -11,16 +11,19 @@ services:
     autoconfigure: true
 
   # OTP Module - Ports
-  Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort:
+  Otp\Application\Port\Inbound\Challenge\ChallengeAccessPort:
+    alias: Otp\Application\Service\ChallengeAccessService
+  Otp\Application\Service\ChallengeAccessService: ~
+  Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort:
     alias: Otp\Infrastructure\Persistence\Doctrine\Repository\OtpRepository
 
-  Otp\Application\Port\Outbound\Challenge\OtpNotifierPort:
+  Otp\Application\Port\Outbound\Internal\Challenge\OtpNotifierPort:
     alias: Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter
 
-  Otp\Application\Port\Outbound\Totp\TotpServicePort:
+  Otp\Application\Port\Outbound\Internal\Totp\TotpServicePort:
     alias: Otp\Infrastructure\Adapter\Notifier\TotpAdapter
 
-  Otp\Application\Port\Outbound\Totp\TotpEnrollmentRepositoryPort:
+  Otp\Application\Port\Outbound\Internal\Totp\TotpEnrollmentRepositoryPort:
     alias: Otp\Infrastructure\Persistence\Doctrine\Repository\TotpEnrollmentRepository
 
   Otp\Application\Port\Inbound\Challenge\OtpChallengePort:
@@ -76,6 +79,8 @@ services:
 
   # Command Handlers
   Otp\Application\UseCase\Command\Challenge\GenerateOtp\GenerateOtpHandler:
+    arguments:
+      $otpCodeLength: '%env(int:OTP_CODE_LENGTH)%'
     tags: ['messenger.message_handler']
   Otp\Application\UseCase\Command\Challenge\VerifyOtp\VerifyOtpHandler:
     tags: ['messenger.message_handler']
@@ -116,5 +121,11 @@ services:
       $transaction: '@otp.email_ownership_transaction'
   otp.email_ownership_transaction:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  Otp\Application\Port\Inbound\OtpDataLifecyclePort:
+    alias: Otp\Infrastructure\Adapter\Lifecycle\OtpDataLifecycleAdapter
+  Otp\Infrastructure\Adapter\Lifecycle\OtpDataLifecycleAdapter:
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'

@@ -6,10 +6,11 @@ namespace Organization\Application\UseCase\Query\Organization\ExportOrganization
 
 use Audit\Application\Contract\OrganizationAuditEntry;
 use Audit\Application\Port\Inbound\OrganizationAuditFeedPort;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationAuditEntryProjector;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
 

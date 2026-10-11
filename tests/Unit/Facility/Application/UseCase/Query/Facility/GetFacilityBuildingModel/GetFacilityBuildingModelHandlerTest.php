@@ -6,8 +6,8 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacilityBuil
 
 use Facility\Application\Contract\Spatial\FacilitySpatialContext;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\{FacilityEquipmentPlanPositionPort, FacilityRepositoryPort};
-use Facility\Application\Port\Outbound\FacilitySpatialReadPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentPlanPositionPort, FacilitySpatialReadPort};
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Application\UseCase\Query\Facility\GetFacilityBuildingModel\{
   GetFacilityBuildingModelHandler,

@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Application\UseCase\Command\Consent\GrantConsent;
 
-use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Consent\ConsentRepositoryPort;
 use OAuth\Application\UseCase\Command\Consent\GrantConsent\{GrantConsentCommand, GrantConsentHandler, GrantConsentResult};
 use OAuth\Domain\Model\Consent\Consent;
 use OAuth\Domain\ValueObject\Consent\ConsentId;
 use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 /**
  * Test GrantConsentHandlerTest.
@@ -35,11 +34,10 @@ final class GrantConsentHandlerTest extends TestCase
   {
     $consentId = '123e4567-e89b-12d3-a456-426614174000';
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(ConsentId::class)
-      ->willReturn(new ConsentId($consentId));
+      ->method('generate')
+      ->willReturn($consentId);
 
     $repository = $this->createMock(ConsentRepositoryPort::class);
     $repository->expects(self::once())
@@ -89,8 +87,8 @@ final class GrantConsentHandlerTest extends TestCase
       scopes: new Scopes(Scope::OPENID),
     );
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $repository = $this->createMock(ConsentRepositoryPort::class);
     $repository->expects(self::once())

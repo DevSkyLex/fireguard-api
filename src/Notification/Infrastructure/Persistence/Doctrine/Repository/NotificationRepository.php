@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Notification\Application\Contract\Inbox\InboxCursor;
 use Notification\Application\Contract\Notification\NotificationListCriteria;
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Mapper\NotificationMapper;

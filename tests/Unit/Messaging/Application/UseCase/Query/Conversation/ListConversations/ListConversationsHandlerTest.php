@@ -6,13 +6,14 @@ namespace Tests\Unit\Messaging\Application\UseCase\Query\Conversation\ListConver
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\{ConversationPage, ConversationView};
-use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\Conversation\ListConversations\{ListConversationsHandler, ListConversationsQuery};
 use Messaging\Domain\Exception\MessagingValidationException;
 use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

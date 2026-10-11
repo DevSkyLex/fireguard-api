@@ -6,15 +6,16 @@ namespace Approval\Application\Service;
 
 use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateRequest};
 use Approval\Application\Port\Inbound\ApprovalGatePort;
-use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort};
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Domain\Event\Request\ApprovalRequestedEvent;
 use Approval\Domain\Model\ApprovalRequest\{ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use DateInterval;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function is_string;
 use function max;
@@ -60,7 +61,7 @@ final readonly class ApprovalGate implements ApprovalGatePort
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param ClockPort $clock the clock port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    */
   public function __construct(
     private ApprovalPolicyPort $policy,
@@ -69,7 +70,7 @@ final readonly class ApprovalGate implements ApprovalGatePort
     private OrganizationAuthorizationPort $authorization,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -113,7 +114,7 @@ final readonly class ApprovalGate implements ApprovalGatePort
     $expiresAt = $now->add(new DateInterval('P' . max(1, $policy->approvalTtlDays) . 'D'));
 
     /** @var ApprovalRequestId $id */
-    $id = $this->uuidFactory->create(ApprovalRequestId::class);
+    $id = new ApprovalRequestId($this->uuidFactory->generate());
 
     $reservation = $this->requests->reservePending(new ApprovalRequestCreation(
       id: $id,

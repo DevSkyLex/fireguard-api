@@ -9,7 +9,7 @@ services:
   Procurement\Application\Service\:
     resource: '../../src/Procurement/Application/Service'
 
-  Procurement\Application\Port\Outbound\Persistence\ProcurementRepositoryPort:
+  Procurement\Application\Port\Outbound\Internal\Persistence\ProcurementRepositoryPort:
     alias: Procurement\Infrastructure\Persistence\Doctrine\Repository\ProcurementRepository
 
   Procurement\Infrastructure\Persistence\Doctrine\Repository\ProcurementRepository:

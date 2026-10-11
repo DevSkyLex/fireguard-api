@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Application\UseCase\Command\Organization\TransferOrganizationOwnership\{
   TransferOrganizationOwnershipCommand,
   TransferOrganizationOwnershipResult
@@ -90,7 +90,7 @@ final readonly class TransferOrganizationOwnershipProcessor implements Processor
   {
     /** @var TransferOrganizationOwnershipInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

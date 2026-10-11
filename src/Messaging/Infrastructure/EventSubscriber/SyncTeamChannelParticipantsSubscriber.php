@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Messaging\Infrastructure\EventSubscriber;
 
 use Messaging\Application\Service\MessagingChannelParticipantSynchronizer;
-use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
-use Organization\Domain\Event\Team\{TeamDeletedEvent, TeamMemberAddedEvent, TeamMemberRemovedEvent};
+use Organization\Application\Contract\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Contract\Event\Team\{TeamDeletedEvent, TeamMemberAddedEvent, TeamMemberRemovedEvent};
 use Shared\Application\Port\Outbound\LoggerPort;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Throwable;

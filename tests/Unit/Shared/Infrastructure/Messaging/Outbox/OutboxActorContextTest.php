@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Messaging\Outbox;
 
 use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
+use Organization\Infrastructure\Adapter\Event\IntegrationEventConverterAdapter;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use ReflectionClass;
 use RuntimeException;
+use Shared\Infrastructure\EventDispatcher\{CompositeIntegrationEventDecoder, ReflectionIntegrationEventSnapshotAdapter};
 use Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter;
 use Shared\Infrastructure\Messaging\Outbox\{DeliverOutboxEventHandler, DurableEventContext, OutboxEvent};
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -54,7 +56,7 @@ final class OutboxActorContextTest extends TestCase
       self::assertSame('legacy', $context->eventId());
       self::assertNull($context->actorUserId());
     });
-    $handler = new DeliverOutboxEventHandler($context, new SymfonyEventDispatcherAdapter($dispatcher, new NullLogger()));
+    $handler = new DeliverOutboxEventHandler($context, new SymfonyEventDispatcherAdapter($dispatcher, new NullLogger(), new CompositeIntegrationEventDecoder([])));
     $handler($message);
     self::assertSame(1, $calls);
     self::assertNull($context->eventId());
@@ -67,6 +69,8 @@ final class OutboxActorContextTest extends TestCase
     $legacyName = 'Organization\\Domain\\Event\\Organization\\OrganizationSettingsUpdatedEvent';
     $serialized = str_replace('O:' . strlen($publicName) . ':"' . $publicName . '"', 'O:' . strlen($legacyName) . ':"' . $legacyName . '"', $serialized);
     $event = unserialize($serialized);
+    self::assertInstanceOf(\Organization\Domain\Event\Organization\OrganizationSettingsUpdatedEvent::class, $event);
+    $event = new CompositeIntegrationEventDecoder([new IntegrationEventConverterAdapter(new ReflectionIntegrationEventSnapshotAdapter())])->decode($event);
     self::assertInstanceOf(OrganizationSettingsUpdatedEvent::class, $event);
     self::assertSame('org', $event->organizationId);
     self::assertSame(['compliance'], $event->changedFields);

@@ -6,7 +6,8 @@ namespace Tests\Unit\Inspection\Application\UseCase\Query\ExportNonConformities;
 
 use DateTimeImmutable;
 use Inspection\Application\Contract\Export\NonConformityExportCandidate;
-use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
+use Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort;
 use Inspection\Application\UseCase\Query\ExportNonConformities\{ExportNonConformitiesHandler, ExportNonConformitiesQuery, ExportNonConformitiesResult};
 use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException};
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;

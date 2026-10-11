@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\Service;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Event\Security\OrganizationPermissionGrantDeniedEvent;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRoleRepositoryPort;
 use Organization\Application\Service\OrganizationPermissionGrantGuardService;
-use Organization\Domain\Event\Security\OrganizationPermissionGrantDeniedEvent;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

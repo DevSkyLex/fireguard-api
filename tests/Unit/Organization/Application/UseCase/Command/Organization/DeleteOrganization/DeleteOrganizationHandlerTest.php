@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\DeleteOrganization;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Contract\Event\Organization\OrganizationArchivedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\{DeleteOrganizationCommand, DeleteOrganizationHandler, DeleteOrganizationResult};
-use Organization\Domain\Event\Organization\OrganizationArchivedEvent;
-use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException;
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

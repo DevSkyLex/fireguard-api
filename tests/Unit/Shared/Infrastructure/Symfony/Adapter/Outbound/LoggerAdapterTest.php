@@ -8,7 +8,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
-use Shared\Application\Log\LogLevel;
+use Shared\Application\Contract\Log\LogLevel;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\LoggerAdapter;
 
 #[CoversClass(className: LoggerAdapter::class)]

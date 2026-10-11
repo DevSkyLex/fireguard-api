@@ -8,7 +8,7 @@ use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter;
-use Import\Application\Port\Outbound\{ImportExecutionPort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError};
 use Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort;

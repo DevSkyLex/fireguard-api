@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Query\Channel\GetChannel;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Channel\ChannelView;
-use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\Channel\GetChannel\{GetChannelHandler, GetChannelQuery};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};

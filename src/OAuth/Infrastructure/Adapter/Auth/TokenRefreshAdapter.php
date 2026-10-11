@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\Adapter\Auth;
 
+use Auth\Application\Contract\Token\RefreshedTokens as AuthRefreshTokenResult;
 use Auth\Application\Port\Outbound\TokenRefreshPort;
-use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult as AuthRefreshTokenResult;
 use OAuth\Application\UseCase\Query\Token\RefreshToken\{RefreshTokenQuery, RefreshTokenResult as OAuthRefreshTokenResult};
 use Shared\Application\Port\Inbound\QueryBusPort;
 

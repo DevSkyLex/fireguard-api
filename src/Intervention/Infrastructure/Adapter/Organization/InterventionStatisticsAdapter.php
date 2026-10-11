@@ -10,7 +10,6 @@ use Intervention\Domain\ValueObject\InterventionStatus;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Port\Outbound\InterventionStatisticsPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 use function max;
@@ -41,7 +40,7 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
    *
    * @access private
    */
-  private const string ORGANIZATION_PREDICATE = 'intervention.organization = :organization';
+  private const string ORGANIZATION_PREDICATE = 'intervention.organizationId = :organization';
 
   /**
    * Constant OPEN_STATUS_PREDICATE
@@ -88,8 +87,8 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
    */
   public function findRecentInterventions(string $organizationId, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     /** @var list<InterventionRecord> $records */
     $records = $this->entityManager->createQueryBuilder()
@@ -123,8 +122,8 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
    */
   public function findOverdueInterventions(string $organizationId, DateTimeImmutable $now, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     /** @var list<InterventionRecord> $records */
     $records = $this->entityManager->createQueryBuilder()
@@ -163,8 +162,8 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
    */
   public function countOverview(string $organizationId, DateTimeImmutable $now): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     $base = $this->entityManager->createQueryBuilder()
       ->select('COUNT(intervention.id)')
@@ -197,8 +196,8 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
    */
   public function countSubmitted(string $organizationId): int
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     return (int) $this->entityManager->createQueryBuilder()
       ->select('COUNT(intervention.id)')

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Mfa\MfaVerify;
 
+use Auth\Application\Contract\Token\SignInGrantType;
+use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeVerifierPort;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort};
-use Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort;
 use Auth\Domain\Event\Session\UserLoggedInEvent;
 use Auth\Domain\Event\Token\TokenIssuedEvent;
 use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
-use Auth\Domain\ValueObject\Security\SignInGrantType;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use UnexpectedValueException;

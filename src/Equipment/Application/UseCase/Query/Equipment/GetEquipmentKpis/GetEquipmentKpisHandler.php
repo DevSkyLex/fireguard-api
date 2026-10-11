@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Query\Equipment\GetEquipmentKpis;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, NonConformityStatisticsPort};
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\{MaintenanceDueStatusPort, NonConformityStatisticsPort};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
 use Shared\Application\Message\QueryHandler;

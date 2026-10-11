@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord, InterventionWorkItemRecord};
@@ -14,6 +15,7 @@ use Shared\Application\Port\Outbound\FileStoragePort;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function array_filter;
 use function array_values;
@@ -37,7 +39,7 @@ use function tempnam;
  * and split the two denials the way the module now does everywhere:
  *
  * - a member of the OWNING organization who lacks
- *   `organization.interventions.read` gets **403** — they may know the
+ *   `organization.interventions.read` gets **403** â€” they may know the
  *   record exists, they simply may not read it;
  * - a caller with no active membership in the owning organization gets
  *   **404**, byte-identical to the response for an attachment id that does
@@ -51,8 +53,11 @@ use function tempnam;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class InterventionAttachmentApiTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655480001';
@@ -306,7 +311,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $client = static::createClient();
     $this->seedOrganization();
     // Uploaded while `draft` (upload/delete are phase-restricted), then
-    // flipped to `published` directly — proving the DOWNLOAD route carries
+    // flipped to `published` directly â€” proving the DOWNLOAD route carries
     // NO phase restriction of its own: a published intervention's evidence
     // must stay downloadable even though it is otherwise fully immutable.
     $this->seedIntervention('draft');
@@ -323,7 +328,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $this->updateInterventionStatus('published');
 
     // The token set by loginUser() does not reliably survive a second
-    // request on a reused client — a freshly authenticated client per
+    // request on a reused client â€” a freshly authenticated client per
     // request, mirroring `OrganizationApiTest`'s documented convention.
     static::ensureKernelShutdown();
     $downloadClient = static::createClient();
@@ -354,7 +359,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
     $attachmentId = $this->uploadAttachment($client, 'evidence.jpg', $this->minimalJpegBytes());
 
-    // A freshly authenticated client per request — see the round-trip test
+    // A freshly authenticated client per request â€” see the round-trip test
     // above for why a reused client's second loginUser() is not reliable.
     static::ensureKernelShutdown();
     $memberClient = static::createClient();
@@ -385,7 +390,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
 
     // No active membership in the owning organization: the attachment must be
     // invisible, not merely forbidden. 403 here would confirm to an outsider
-    // that this attachment id is real — the existence oracle this route's
+    // that this attachment id is real â€” the existence oracle this route's
     // security review raised. `resolveAccess()` reports OUTSIDE_SCOPE and the
     // handler throws the same InterventionAttachmentNotFoundException an
     // unknown id produces.
@@ -502,7 +507,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     self::assertIsArray($decoded);
     self::assertSame(self::WORK_ITEM_ID, $decoded['workItemId'] ?? null);
 
-    // A freshly authenticated client per request — the token set by
+    // A freshly authenticated client per request â€” the token set by
     // loginUser() does not reliably survive a second request on a reused
     // client, per this file's established convention (see the download
     // round-trip test above).
@@ -553,7 +558,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $this->seedIntervention('draft');
     $this->seedWorkItem(self::WORK_ITEM_ID, self::INTERVENTION_ID);
 
-    // A second intervention with its own work item — the cross-scope case.
+    // A second intervention with its own work item â€” the cross-scope case.
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $existingOther = $entityManager->find(InterventionRecord::class, self::OTHER_INTERVENTION_ID);
@@ -565,7 +570,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
     $otherIntervention = new InterventionRecord();
     $otherIntervention->id = self::OTHER_INTERVENTION_ID;
-    $otherIntervention->organization = $organization;
+    $otherIntervention->organizationId = self::ORGANIZATION_ID;
     $otherIntervention->type = 'site_setup';
     $otherIntervention->name = 'Attachment Download Test Other Intervention';
     $otherIntervention->number = 901;
@@ -848,7 +853,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
   /**
    * Method minimalJpegBytes.
    *
-   * A tiny (1x1) but genuinely valid JPEG payload — `MultipartAttachmentGuard`
+   * A tiny (1x1) but genuinely valid JPEG payload â€” `MultipartAttachmentGuard`
    * derives the MIME type from the actual file content (via `finfo`), not
    * from the client-declared `Content-Type`, so an arbitrary string body
    * would be rejected with 422 before this endpoint is ever reached.
@@ -931,7 +936,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
    * Seeds (idempotently) an organization with an admin member (permissions
    * `['*']`) and a plain member (`organization.read` only, no
    * `organization.interventions.read`), plus a second, unrelated
-   * organization with its own member — the "outside scope" caller.
+   * organization with its own member â€” the "outside scope" caller.
    */
   private function seedOrganization(): void
   {
@@ -1052,7 +1057,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
    *
    * Seeds (idempotently) a single intervention owned by
    * {@see self::ORGANIZATION_ID} in the given status, with the admin member
-   * ({@see self::ADMIN_MEMBER_ID}) as responsible — a non-`draft` status
+   * ({@see self::ADMIN_MEMBER_ID}) as responsible â€” a non-`draft` status
    * routes through `InterventionMemberPolicy::assertCanExecuteIntervention()`,
    * which requires the caller to be the responsible member or a participant.
    */
@@ -1074,7 +1079,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
+    $intervention->organizationId = self::ORGANIZATION_ID;
     $intervention->type = 'site_setup';
     $intervention->name = 'Attachment Download Test Intervention';
     $intervention->number = 900;
@@ -1089,7 +1094,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
   /**
    * Method updateInterventionStatus.
    *
-   * Flips {@see self::INTERVENTION_ID}'s status in place — unlike
+   * Flips {@see self::INTERVENTION_ID}'s status in place â€” unlike
    * {@see self::seedIntervention()}, this never deletes/recreates the row,
    * which would cascade-delete any attachment already uploaded against it.
    */

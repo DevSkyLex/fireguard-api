@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Intervention\Application\Contract\Event\Export\InterventionsExportedEvent;
 use Intervention\Application\Contract\Export\InterventionExportRow;
+use Intervention\Application\UseCase\Command\Export\RecordInterventionExport\RecordInterventionExportCommand;
 use Intervention\Application\UseCase\Query\ExportInterventions\ExportInterventionsResult;
-use Intervention\Domain\Event\Export\InterventionsExportedEvent;
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionExportTooLargeException, InterventionNotFoundException};
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Intervention\Domain\Exception\InterventionExportTooLargeException;
 use Intervention\Presentation\Api\Controller\ExportInterventionsController;
 use Intervention\Presentation\Api\Service\{InterventionCsvWriter, InterventionExportCriteriaFactory};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Message\VoidResult;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Infrastructure\Csv\SpreadsheetSafeTextAdapter;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
@@ -67,7 +69,7 @@ final class ExportInterventionsControllerTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new ExportInterventionsResult(rows: [$row], total: 1));
 
-    $response = $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke($request);
+    $response = $this->createController($queryBus, $this->createStub(CommandBusPort::class))->__invoke($request);
 
     self::assertSame('text/csv; charset=utf-8', $response->headers->get('Content-Type'));
     self::assertSame('no', $response->headers->get('X-Accel-Buffering'));
@@ -95,7 +97,7 @@ final class ExportInterventionsControllerTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('The organization filter is required.');
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke(new Request());
+    $this->createController($queryBus, $this->createStub(CommandBusPort::class))->__invoke(new Request());
   }
 
   #[Test]
@@ -112,15 +114,17 @@ final class ExportInterventionsControllerTest extends TestCase
 
     $dispatched = null;
 
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
-        $dispatched = $event;
+      ->willReturnCallback(static function (RecordInterventionExportCommand $command) use (&$dispatched): VoidResult {
+        $dispatched = $command->event;
+
+        return new VoidResult();
       });
 
-    $this->createController($queryBus, $eventDispatcher)->__invoke($request);
+    $this->createController($queryBus, $commandBus)->__invoke($request);
 
     self::assertInstanceOf(InterventionsExportedEvent::class, $dispatched);
     self::assertSame(self::USER_ID, $dispatched->actorUserId);
@@ -141,7 +145,7 @@ final class ExportInterventionsControllerTest extends TestCase
 
     $controller = new ExportInterventionsController(
       queryBus: $queryBus,
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       criteriaFactory: new InterventionExportCriteriaFactory(),
       csvWriter: new InterventionCsvWriter(new SpreadsheetSafeTextAdapter()),
@@ -161,7 +165,7 @@ final class ExportInterventionsControllerTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))
+    $this->createController($queryBus, $this->createStub(CommandBusPort::class))
       ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
   }
 
@@ -173,7 +177,7 @@ final class ExportInterventionsControllerTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))
+    $this->createController($queryBus, $this->createStub(CommandBusPort::class))
       ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
   }
 
@@ -194,17 +198,17 @@ final class ExportInterventionsControllerTest extends TestCase
       ),
     ));
 
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::never())->method('dispatch');
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
 
     $this->expectException(UnprocessableEntityHttpException::class);
 
-    $this->createController($queryBus, $eventDispatcher)
+    $this->createController($queryBus, $commandBus)
       ->__invoke(new Request(['organization' => '/api/organizations/' . self::ORGANIZATION_ID]));
   }
 
-  private function createController(QueryBusPort $queryBus, EventDispatcherPort $eventDispatcher): ExportInterventionsController
+  private function createController(QueryBusPort $queryBus, CommandBusPort $commandBus): ExportInterventionsController
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(new SecurityUser(
@@ -218,7 +222,7 @@ final class ExportInterventionsControllerTest extends TestCase
 
     return new ExportInterventionsController(
       queryBus: $queryBus,
-      eventDispatcher: $eventDispatcher,
+      commandBus: $commandBus,
       security: $security,
       criteriaFactory: new InterventionExportCriteriaFactory(),
       csvWriter: new InterventionCsvWriter(new SpreadsheetSafeTextAdapter()),

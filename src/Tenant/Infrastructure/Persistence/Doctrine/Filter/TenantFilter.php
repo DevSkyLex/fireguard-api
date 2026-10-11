@@ -8,7 +8,7 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\Filter\SQLFilter;
 use InvalidArgumentException;
 use ReflectionClass;
-use Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt;
+use Shared\Application\Contract\Tenancy\TenantFilterExempt;
 
 use function sprintf;
 use function trim;

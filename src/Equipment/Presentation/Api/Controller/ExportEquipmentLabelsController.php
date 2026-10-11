@@ -4,25 +4,19 @@ declare(strict_types=1);
 
 namespace Equipment\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
-use Equipment\Application\Contract\Export\EquipmentExportRow;
-use Equipment\Application\Port\Outbound\EquipmentLabelSheetPdfRendererPort;
-use Equipment\Application\UseCase\Query\ExportEquipmentLabels\{ExportEquipmentLabelsQuery, ExportEquipmentLabelsResult};
-use Equipment\Domain\Event\Export\EquipmentLabelsExportedEvent;
+use Equipment\Application\UseCase\Query\RenderEquipmentLabels\{RenderEquipmentLabelsQuery, RenderEquipmentLabelsResult};
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentLabelExportTooLargeException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
 
-use function array_map;
 use function is_string;
 use function sprintf;
 
@@ -66,16 +60,10 @@ final class ExportEquipmentLabelsController extends AbstractController
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
-   * @param OrganizationDocumentBrandingPort $branding the organization document branding port
-   * @param EquipmentLabelSheetPdfRendererPort $renderer the label sheet PDF renderer port
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param Security $security the security service
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
-    private readonly OrganizationDocumentBrandingPort $branding,
-    private readonly EquipmentLabelSheetPdfRendererPort $renderer,
-    private readonly EventDispatcherPort $eventDispatcher,
     private readonly Security $security,
   ) {
   }
@@ -94,7 +82,7 @@ final class ExportEquipmentLabelsController extends AbstractController
   public function __invoke(Request $request): Response
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -112,8 +100,8 @@ final class ExportEquipmentLabelsController extends AbstractController
     }
 
     try {
-      /** @var ExportEquipmentLabelsResult $result */
-      $result = $this->queryBus->ask(new ExportEquipmentLabelsQuery(
+      /** @var RenderEquipmentLabelsResult $result */
+      $result = $this->queryBus->ask(new RenderEquipmentLabelsQuery(
         userId: $user->getId(),
         organizationId: $organizationId,
         equipmentIds: $equipmentIds,
@@ -125,33 +113,9 @@ final class ExportEquipmentLabelsController extends AbstractController
       throw $this->mapLabelException($exception);
     }
 
-    $context = [
-      'lang' => $this->branding->getDocumentBranding($organizationId)->language(),
-      'labels' => array_map(
-        static fn (EquipmentExportRow $row): array => [
-          'qrValue' => sprintf('/api/equipment/%s', $row->id),
-          'type' => $row->type,
-          'subType' => $row->subType,
-          'serialNumber' => $row->serialNumber,
-          'facilityName' => $row->facilityName,
-          'locationLabel' => $row->locationLabel,
-        ],
-        $result->rows,
-      ),
-    ];
-
-    $pdf = $this->renderer->render($context);
-
-    $this->eventDispatcher->dispatch(new EquipmentLabelsExportedEvent(
-      organizationId: $organizationId,
-      actorUserId: $user->getId(),
-      selection: $result->selection,
-      labelCount: $result->total,
-    ));
-
     $fileName = sprintf('equipment-labels-%s.pdf', new DateTimeImmutable()->format('Ymd-His'));
 
-    return new Response($pdf, Response::HTTP_OK, [
+    return new Response($result->contents, Response::HTTP_OK, [
       'Content-Type' => 'application/pdf',
       'Content-Disposition' => sprintf('attachment; filename="%s"', $fileName),
     ]);

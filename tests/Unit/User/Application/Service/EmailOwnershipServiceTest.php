@@ -8,7 +8,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Tests\Helper\TestEventIdProvider;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\{EmailOwnershipRepositoryPort, UserRepositoryPort};
+use User\Application\Port\Outbound\EmailOwnershipRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\Service\EmailOwnershipService;
 use User\Domain\Exception\EmailOwnershipUnavailableException;
 

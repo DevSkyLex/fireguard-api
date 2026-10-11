@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Calendar\Application\UseCase\Command\Event\DeleteCalendarEvent;
 
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Domain\Event\CalendarEventDeletedEvent;
 use Calendar\Domain\Exception\CalendarEventNotFoundException;
 use Calendar\Domain\ValueObject\CalendarEventId;

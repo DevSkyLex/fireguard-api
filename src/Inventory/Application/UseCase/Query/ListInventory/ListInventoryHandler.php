@@ -6,7 +6,7 @@ namespace Inventory\Application\UseCase\Query\ListInventory;
 
 use Intervention\Application\Port\Inbound\InterventionInventoryContextPort;
 use InvalidArgumentException;
-use Inventory\Application\Port\Outbound\InventoryStorePort;
+use Inventory\Application\Port\Outbound\Internal\InventoryStorePort;
 use Inventory\Domain\Exception\InventoryNotFoundException;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\ValueObject\Uuid;

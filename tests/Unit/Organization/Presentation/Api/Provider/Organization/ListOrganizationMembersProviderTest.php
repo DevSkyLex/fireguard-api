@@ -9,6 +9,7 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use LogicException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{GetOrganizationMemberResult, ListOrganizationMembersQuery};
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{
@@ -16,15 +17,14 @@ use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{
   ListOrganizationRolesQuery,
   ListOrganizationRolesResult
 };
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationMembersProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -52,6 +52,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), []);
@@ -79,6 +80,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($this->createStub(QueryBusPort::class)),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -154,6 +156,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441710']);
@@ -189,6 +192,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($this->createStub(QueryBusPort::class)),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -242,6 +246,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
@@ -282,6 +287,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -314,6 +320,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $this->expectException(UnprocessableEntityHttpException::class);
@@ -371,6 +378,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $provider->provide(new GetCollection(), ['organizationId' => $organizationId], [
@@ -454,6 +462,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
@@ -512,6 +521,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);

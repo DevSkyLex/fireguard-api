@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Facility\Application\Service;
 
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort, FacilityInterventionDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort, FacilityInterventionDependencyPort};
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 

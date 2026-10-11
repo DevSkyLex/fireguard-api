@@ -44,6 +44,8 @@ final readonly class AddAttachmentCommand implements CommandMessage
     public int $size,
     public ?string $label = null,
     public ?string $attachmentId = null,
+    public ?string $userId = null,
+    public ?string $interventionId = null,
   ) {
   }
   // #endregion

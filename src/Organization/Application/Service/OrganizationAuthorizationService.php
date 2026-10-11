@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Organization\Application\Service;
 
-use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
+use Organization\Application\Contract\Authorization\{OrganizationAccessDecision, OrganizationPermissionCatalog};
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
-use Symfony\Contracts\Service\ResetInterface;
 
 use function array_key_exists;
 use function count;
@@ -24,7 +22,7 @@ use function explode;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class OrganizationAuthorizationService implements OrganizationAuthorizationPort, ResetInterface
+final class OrganizationAuthorizationService implements OrganizationAuthorizationPort
 {
   // #region Properties
   /**

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\LeaveOrganization;
 
-use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationOwnerCannotLeaveException};
+use Organization\Application\Contract\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationOwnerCannotLeaveException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};

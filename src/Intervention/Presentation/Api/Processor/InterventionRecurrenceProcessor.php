@@ -6,7 +6,7 @@ namespace Intervention\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use Intervention\Application\UseCase\Command\Recurrence\CreateInterventionRecurrence\{CreateInterventionRecurrenceCommand, CreateInterventionRecurrenceResult};
 use Intervention\Application\UseCase\Command\Recurrence\DeleteInterventionRecurrence\DeleteInterventionRecurrenceCommand;
@@ -14,9 +14,10 @@ use Intervention\Application\UseCase\Command\Recurrence\UpdateInterventionRecurr
 use Intervention\Presentation\Api\Dto\Input\{CreateInterventionRecurrenceInput, UpdateInterventionRecurrenceInput};
 use Intervention\Presentation\Api\Dto\Output\InterventionRecurrenceOutput;
 use Intervention\Presentation\Api\Factory\InterventionRecurrenceOutputFactory;
+use Intervention\Presentation\Api\Http\MergePatchFields;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{MergePatchFields, ResourceIriParser};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
@@ -101,11 +102,11 @@ final readonly class InterventionRecurrenceProcessor implements ProcessorInterfa
    * @access private
    *
    * @param CreateInterventionRecurrenceInput $data the recurrence details supplied by the client
-   * @param SecurityUser $user the authenticated user creating the recurrence
+   * @param AuthenticatedUser $user the authenticated user creating the recurrence
    *
    * @return InterventionRecurrenceOutput the created recurrence output
    */
-  private function create(CreateInterventionRecurrenceInput $data, SecurityUser $user): InterventionRecurrenceOutput
+  private function create(CreateInterventionRecurrenceInput $data, AuthenticatedUser $user): InterventionRecurrenceOutput
   {
     /** @var CreateInterventionRecurrenceResult $result */
     $result = $this->commandBus->dispatch(new CreateInterventionRecurrenceCommand(
@@ -134,14 +135,14 @@ final readonly class InterventionRecurrenceProcessor implements ProcessorInterfa
    * @access private
    *
    * @param UpdateInterventionRecurrenceInput $data the recurrence fields supplied by the client
-   * @param SecurityUser $user the authenticated user updating the recurrence
+   * @param AuthenticatedUser $user the authenticated user updating the recurrence
    * @param string|null $id the recurrence identifier from the route
    *
    * @return InterventionRecurrenceOutput the updated recurrence output
    *
    * @throws BadRequestHttpException when the recurrence identifier is missing
    */
-  private function update(UpdateInterventionRecurrenceInput $data, SecurityUser $user, ?string $id): InterventionRecurrenceOutput
+  private function update(UpdateInterventionRecurrenceInput $data, AuthenticatedUser $user, ?string $id): InterventionRecurrenceOutput
   {
     if (null === $id) {
       throw new BadRequestHttpException('The id URI parameter is required.');
@@ -181,12 +182,12 @@ final readonly class InterventionRecurrenceProcessor implements ProcessorInterfa
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

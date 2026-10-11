@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\UpdateEquipment;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\UpdateEquipment\{UpdateEquipmentCommand, UpdateEquipmentHandler, UpdateEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentSerialNumberAlreadyExistsException};
 use Equipment\Domain\Model\Equipment\Equipment;

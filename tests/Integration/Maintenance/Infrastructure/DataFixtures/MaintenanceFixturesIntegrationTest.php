@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Integration\Maintenance\Infrastructure\DataFixtures;
 
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
@@ -16,7 +15,8 @@ use Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures;
 use Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
+use Shared\Application\Contract\Seed\{SeedReference, SeedTimeline};
+use Shared\Infrastructure\DataFixtures\{SeedFixtureAdapter, SeedReferenceRegistryAdapter};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_count_values;
@@ -29,12 +29,15 @@ final class MaintenanceFixturesIntegrationTest extends KernelTestCase
 {
   private EntityManagerInterface $entityManager;
 
+  private SeedReferenceRegistryAdapter $seedReferences;
+
   protected function setUp(): void
   {
     self::bootKernel();
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
+    $this->seedReferences = new SeedReferenceRegistryAdapter();
   }
 
   protected function tearDown(): void
@@ -56,22 +59,20 @@ final class MaintenanceFixturesIntegrationTest extends KernelTestCase
     $maintenanceFixtures = static::getContainer()->get(MaintenanceFixtures::class);
 
     self::assertSame(['maintenance', 'main-seed'], MaintenanceFixtures::getGroups());
-    self::assertSame(
-      [OrganizationFixtures::class, EquipmentFixtures::class],
-      $maintenanceFixtures->getDependencies(),
-    );
+    self::assertSame([], $maintenanceFixtures->getDependencies());
 
-    $loader = new Loader();
-    $loader->addFixture($organizationFixtures);
-    $loader->addFixture($facilityFixtures);
-    $loader->addFixture($equipmentFixtures);
-    $loader->addFixture($maintenanceFixtures);
+    $fixtures = [
+      $this->seed($organizationFixtures, 'organization'),
+      $this->seed($facilityFixtures, 'facility', ['organization']),
+      $this->seed($equipmentFixtures, 'equipment', ['organization', 'facility']),
+      $this->seed($maintenanceFixtures, 'maintenance', ['organization', 'equipment']),
+    ];
 
     $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
     // Purge before loading: the test databases carry the seeded baseline, so
     // appending on top of it collides on primary keys and makes the counts
     // below meaningless. DAMA rolls the purge back with the rest of the test.
-    $executor->execute($loader->getFixtures(), false);
+    $executor->execute($fixtures, false);
 
     /** @var list<EquipmentRecord> $equipment */
     $equipment = $this->entityManager->getRepository(EquipmentRecord::class)->findAll();
@@ -92,7 +93,7 @@ final class MaintenanceFixturesIntegrationTest extends KernelTestCase
     $now = SeedTimeline::now();
     foreach ($schedules as $schedule) {
       self::assertArrayHasKey($schedule->equipmentId, $trackedEquipmentIds);
-      self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $schedule->organization?->id);
+      self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $schedule->organizationId);
       self::assertNull($schedule->intervalOverride);
       self::assertNotNull($schedule->nextDueAt);
 
@@ -142,22 +143,30 @@ final class MaintenanceFixturesIntegrationTest extends KernelTestCase
     /** @var MaintenanceFixtures $maintenanceFixtures */
     $maintenanceFixtures = static::getContainer()->get(MaintenanceFixtures::class);
 
-    $loader = new Loader();
-    $loader->addFixture($organizationFixtures);
-    $loader->addFixture($facilityFixtures);
-    $loader->addFixture($equipmentFixtures);
+    $fixtures = [
+      $this->seed($organizationFixtures, 'organization'),
+      $this->seed($facilityFixtures, 'facility', ['organization']),
+      $this->seed($equipmentFixtures, 'equipment', ['organization', 'facility']),
+    ];
 
     $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
-    $executor->execute($loader->getFixtures(), false);
+    $executor->execute($fixtures, false);
 
     // Maintenance is loaded by hand, after the equipment it depends on has
     // been mutated: an equipment type absent from the organization compliance
     // catalog has no periodicity, so no due date can be derived for it.
     $maintenanceFixtures->setReferenceRepository($executor->getReferenceRepository());
+    $maintenanceFixtures->setSeedReferences($this->seedReferences);
 
     /** @var EquipmentRecord $untracked */
     $untracked = $equipmentFixtures->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
     $untracked->type = 'untracked_seed_type';
+    $this->seedReferences->publish([EquipmentFixtures::EXTINGUISHER_REFERENCE => new SeedReference(
+      id: $untracked->id,
+      type: $untracked->type,
+      status: $untracked->status,
+      facilityId: $untracked->facilityId,
+    )]);
     $this->entityManager->flush();
 
     $maintenanceFixtures->load($this->entityManager);
@@ -171,5 +180,13 @@ final class MaintenanceFixturesIntegrationTest extends KernelTestCase
     self::assertNull($unscheduled[0]->lastInspectionClosedAt);
     self::assertNull($unscheduled[0]->nextDueAt);
     self::assertSame(MaintenanceDueStatus::UNSCHEDULED->value, $unscheduled[0]->dueStatus);
+  }
+
+  /**
+   * @param list<string> $dependencies prerequisite seed group identities
+   */
+  private function seed(\Doctrine\Common\DataFixtures\FixtureInterface $fixture, string $key, array $dependencies = []): SeedFixtureAdapter
+  {
+    return new SeedFixtureAdapter($fixture, $this->entityManager, $this->seedReferences, $key, $dependencies);
   }
 }

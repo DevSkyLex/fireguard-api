@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Tests\Integration\Facility\Infrastructure\DataFixtures;
 
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Infrastructure\DataFixtures\{SeedFixtureAdapter, SeedReferenceRegistryAdapter};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function count;
@@ -43,15 +43,17 @@ final class FacilityFixturesIntegrationTest extends KernelTestCase
     /** @var FacilityFixtures $facilityFixtures */
     $facilityFixtures = static::getContainer()->get(FacilityFixtures::class);
 
-    $loader = new Loader();
-    $loader->addFixture($organizationFixtures);
-    $loader->addFixture($facilityFixtures);
+    $registry = new SeedReferenceRegistryAdapter();
+    $fixtures = [
+      new SeedFixtureAdapter($organizationFixtures, $this->entityManager, $registry, 'organization', []),
+      new SeedFixtureAdapter($facilityFixtures, $this->entityManager, $registry, 'facility', ['organization']),
+    ];
 
     $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
     // Purge before loading: the test databases carry the seeded baseline, so
     // appending on top of it collides on primary keys and makes the counts
     // below meaningless. DAMA rolls the purge back with the rest of the test.
-    $executor->execute($loader->getFixtures(), false);
+    $executor->execute($fixtures, false);
 
     // 8 Paris nodes + the archived annex + 4 regional sites + their sub-hierarchy.
     self::assertSame(
@@ -110,6 +112,6 @@ final class FacilityFixturesIntegrationTest extends KernelTestCase
     self::assertNotNull($floorTwo->planGeometry);
     self::assertSame(FacilityFixtures::FLOOR_TWO_PLAN_ID, $floorTwo->planGeometry['attachmentId']);
     self::assertNotNull($storageRoom->parentFacility);
-    self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $zone->organization?->id);
+    self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $zone->organizationId);
   }
 }

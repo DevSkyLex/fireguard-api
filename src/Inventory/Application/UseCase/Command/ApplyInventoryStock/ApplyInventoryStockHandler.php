@@ -9,7 +9,7 @@ use Intervention\Application\Contract\Inventory\InventoryInterventionContext;
 use Intervention\Application\Port\Inbound\InterventionInventoryContextPort;
 use InvalidArgumentException;
 use Inventory\Application\Contract\Stock\{InventoryOperationReceipt,InventoryReceiptResult};
-use Inventory\Application\Port\Outbound\InventoryStorePort;
+use Inventory\Application\Port\Outbound\Internal\InventoryStorePort;
 use Inventory\Domain\Exception\{InventoryConflictException,InventoryNotFoundException};
 use Inventory\Domain\Model\Stock\{ConsumptionDeclaration, InventoryReference, StockBalance, StockMovement, StockReturnValuation, StockValuation};
 use Inventory\Domain\ValueObject\StockQuantity;

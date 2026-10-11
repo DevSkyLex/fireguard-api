@@ -15,8 +15,8 @@ use Maintenance\Application\UseCase\Command\Campaign\GenerateInspectionCampaign\
   GenerateInspectionCampaignResult
 };
 use Maintenance\Domain\Exception\{MaintenanceNotFoundException, MaintenanceValidationException};
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

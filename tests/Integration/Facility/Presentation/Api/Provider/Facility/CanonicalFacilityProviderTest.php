@@ -14,8 +14,7 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
-use Intervention\Application\Service\InterventionResourceManager;
+use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -150,7 +149,7 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
 
     $root = new FacilityRecord();
     $root->id = 'bb0e8400-e29b-41d4-a716-4466554d0020';
-    $root->organization = $organization;
+    $root->organizationId = $organization->id;
     $root->recordStatus = 'published';
     $root->type = 'site';
     $root->name = 'Root Site';
@@ -162,7 +161,7 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
 
     $child = new FacilityRecord();
     $child->id = 'bb0e8400-e29b-41d4-a716-4466554d0021';
-    $child->organization = $organization;
+    $child->organizationId = $organization->id;
     $child->parentFacility = $root;
     $child->recordStatus = 'published';
     $child->type = 'building';
@@ -218,25 +217,34 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
       new SecurityUser('bb0e8400-e29b-41d4-a716-4466554d9000', 'user@example.com', 'password', ['ROLE_USER'], [], true),
     );
 
-    $resources = self::createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionAssignmentContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
-    );
+    $resources = self::createStub(InterventionResourcesPort::class);
+    $resources->method('interventionContext')->willReturn(new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'));
 
     $detail = static::getContainer()->get(\Facility\Presentation\Api\Factory\FacilityDetailOutputFactory::class);
     self::assertInstanceOf(\Facility\Presentation\Api\Factory\FacilityDetailOutputFactory::class, $detail);
     $queryBus = static::getContainer()->get(\Shared\Application\Port\Inbound\QueryBusPort::class);
     self::assertInstanceOf(\Shared\Application\Port\Inbound\QueryBusPort::class, $queryBus);
 
-    return new CanonicalFacilityProvider(
-      $this->entityManager,
-      $authorization,
-      $security,
-      $requestStack,
-      new InterventionResourceManager($resources),
-      detail: $detail,
-      queryBus: $queryBus,
-    );
+    $collectionPort = static::getContainer()->get(\Facility\Application\Port\Outbound\CanonicalFacilityCollectionPort::class);
+    self::assertInstanceOf(\Facility\Application\Port\Outbound\CanonicalFacilityCollectionPort::class, $collectionPort);
+    $facilities = static::getContainer()->get(\Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort::class);
+    self::assertInstanceOf(\Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort::class, $facilities);
+    $hierarchy = static::getContainer()->get(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class);
+    self::assertInstanceOf(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class, $hierarchy);
+    $attachments = static::getContainer()->get(\Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort::class);
+    self::assertInstanceOf(\Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort::class, $attachments);
+    $spatial = static::getContainer()->get(\Facility\Application\Service\FacilitySpatialValidityResolver::class);
+    self::assertInstanceOf(\Facility\Application\Service\FacilitySpatialValidityResolver::class, $spatial);
+    $collection = new \Facility\Application\UseCase\Query\Facility\ListCanonicalFacilities\ListCanonicalFacilitiesHandler($collectionPort, $facilities, $hierarchy, $authorization, $resources);
+    $media = new \Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\GetFacilityMediaContextHandler($facilities, $attachments, $authorization, $spatial);
+    $queries = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static fn (\Shared\Application\Message\QueryMessage $query): \Shared\Application\Message\ResultMessage => match (true) {
+      $query instanceof \Facility\Application\UseCase\Query\Facility\ListCanonicalFacilities\ListCanonicalFacilitiesQuery => $collection($query),
+      $query instanceof \Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\GetFacilityMediaContextQuery => $media($query),
+      default => $queryBus->ask($query),
+    });
+
+    return new CanonicalFacilityProvider($security, $requestStack, $detail, $queries);
   }
 
   private function persistFacility(
@@ -248,7 +256,7 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
   ): void {
     $record = new FacilityRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->interventionId = $interventionId;
     $record->recordStatus = 'draft';
     $record->type = 'site';

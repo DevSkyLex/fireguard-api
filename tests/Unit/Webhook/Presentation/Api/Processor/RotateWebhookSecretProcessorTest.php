@@ -7,7 +7,7 @@ namespace Tests\Unit\Webhook\Presentation\Api\Processor;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -125,7 +125,7 @@ final class RotateWebhookSecretProcessorTest extends TestCase
       new WebhookSubscriptionOutputFactory(),
     );
 
-    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectException(OrganizationAccessDeniedException::class);
 
     $processor->process(null, new Post(), [
       'organizationId' => self::ORGANIZATION_ID,

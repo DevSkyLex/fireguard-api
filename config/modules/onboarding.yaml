@@ -15,14 +15,14 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort:
+  Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort:
     alias: Onboarding\Infrastructure\Persistence\Doctrine\Repository\OrganizationOnboardingSessionRepository
 
   Onboarding\Application\Service\OrganizationOnboardingFlowService:
     arguments:
       $transactionManager: '@onboarding.main_transaction_manager'
 
-  Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort:
+  Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort:
     alias: Onboarding\Application\Service\OrganizationOnboardingFlowService
 
   Onboarding\Infrastructure\EventSubscriber\OnboardingNotificationSubscriber: ~

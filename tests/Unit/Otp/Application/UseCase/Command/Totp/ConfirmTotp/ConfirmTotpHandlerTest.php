@@ -6,7 +6,7 @@ namespace Tests\Unit\Otp\Application\UseCase\Command\Totp\ConfirmTotp;
 
 use DateTimeImmutable;
 use Otp\Application\Exception\TotpPendingEnrollmentNotFoundException;
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\UseCase\Command\Totp\ConfirmTotp\{ConfirmTotpCommand, ConfirmTotpHandler};
 use Otp\Domain\Event\Totp\TotpEnrollmentConfirmedEvent;
 use Otp\Domain\Model\Totp\TotpEnrollment;

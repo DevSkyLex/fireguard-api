@@ -6,8 +6,8 @@ namespace Tests\Unit\Otp\Application\Service;
 
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose, VerificationInfo};
-use Otp\Application\Port\Outbound\Challenge\{OtpNotifierPort, OtpRepositoryPort};
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Challenge\{OtpNotifierPort, OtpRepositoryPort};
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\Service\OtpChallengeService;
 use Otp\Application\UseCase\Command\Challenge\GenerateOtp\GenerateOtpHandler;
 use Otp\Application\UseCase\Command\Challenge\VerifyOtp\VerifyOtpHandler;
@@ -16,7 +16,7 @@ use Otp\Domain\ValueObject\{ChallengeToken, OtpId, OtpPurpose as DomainOtpPurpos
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Test OtpChallengeServiceTest.
@@ -50,12 +50,11 @@ final class OtpChallengeServiceTest extends TestCase
       ->method('send')
       ->with(self::isInstanceOf(Otp::class));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(OtpId::class)
-      ->willReturn($otpId);
+      ->method('generate')
+      ->willReturn((string) $otpId);
 
     $generateHandler = new GenerateOtpHandler(
       otpRepository: $repository,
@@ -105,7 +104,7 @@ final class OtpChallengeServiceTest extends TestCase
     $generateHandler = new GenerateOtpHandler(
       otpRepository: $this->createStub(OtpRepositoryPort::class),
       otpNotifier: $this->createStub(OtpNotifierPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
     );
 
     $service = new OtpChallengeService(
@@ -154,7 +153,7 @@ final class OtpChallengeServiceTest extends TestCase
     $generateHandler = new GenerateOtpHandler(
       otpRepository: $this->createStub(OtpRepositoryPort::class),
       otpNotifier: $this->createStub(OtpNotifierPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
     );
 
     $service = new OtpChallengeService(
@@ -188,7 +187,7 @@ final class OtpChallengeServiceTest extends TestCase
       generateHandler: new GenerateOtpHandler(
         otpRepository: $this->createStub(OtpRepositoryPort::class),
         otpNotifier: $this->createStub(OtpNotifierPort::class),
-        uuidFactory: $this->createStub(UuidFactory::class),
+        uuidFactory: $this->createStub(UuidGeneratorPort::class),
       ),
       verifyHandler: new VerifyOtpHandler(
         otpRepository: $repository,

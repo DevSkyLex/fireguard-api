@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\EventSubscriber;
 
 use Equipment\Application\UseCase\Command\Equipment\RecordInterventionServiceHistory\RecordInterventionServiceHistoryCommand;
-use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
+use Intervention\Application\Contract\Event\Publication\InterventionPublishedEvent;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Application\Port\Outbound\DurableEventContextPort;

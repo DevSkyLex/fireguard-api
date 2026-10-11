@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree;
 
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\Event\Facility\FacilitySubtreeDuplicatedEvent;
 use Facility\Domain\Exception\{
   FacilityArchivedException,
@@ -21,9 +20,10 @@ use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId};
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Persistence\ForeignKeyConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
 
 use function count;
@@ -64,7 +64,7 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
    * @access public
    *
    * @param FacilityRepositoryPort $facilityRepository the facility repository
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    * @param OrganizationQuotaPort $quota the quota
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
@@ -73,7 +73,7 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
@@ -144,7 +144,7 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
       ? new FacilityName($command->name)
       : new FacilityName(((string) $source->name()) . ' (copy)');
 
-    $newRoot = $this->cloneNode($source, $this->uuidFactory->create(FacilityId::class), $targetParentId, $rootName);
+    $newRoot = $this->cloneNode($source, new FacilityId($this->uuidFactory->generate()), $targetParentId, $rootName);
 
     /** @var list<Facility> $clones */
     $clones = [$newRoot];
@@ -302,7 +302,7 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
         continue;
       }
 
-      $childClone = $this->cloneNode($child, $this->uuidFactory->create(FacilityId::class), $nearestClonedAncestor->id(), $child->name());
+      $childClone = $this->cloneNode($child, new FacilityId($this->uuidFactory->generate()), $nearestClonedAncestor->id(), $child->name());
       $clones[] = $childClone;
       $this->appendClonedDescendants($child->id(), $childClone, $childrenByParent, $clones);
     }

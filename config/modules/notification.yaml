@@ -16,17 +16,17 @@ services:
   Notification\Application\Port\Outbound\RecipientDirectoryPort:
     alias: User\Infrastructure\Adapter\Notification\UserRecipientDirectoryAdapter
 
-  Notification\Application\Port\Outbound\NotificationRepositoryPort:
+  Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort:
     alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository
 
-  Notification\Application\Port\Outbound\NotificationDeliveryReceiptPort:
+  Notification\Application\Port\Outbound\Internal\NotificationDeliveryReceiptPort:
     alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationDeliveryReceiptRepository
 
   Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationDeliveryReceiptRepository:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
 
-  Notification\Application\Port\Outbound\NotificationPreferenceRepositoryPort:
+  Notification\Application\Port\Outbound\Internal\NotificationPreferenceRepositoryPort:
     alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationPreferenceRepository
 
   # Unified inbox seam (L1.8a): tagged-iterator aggregator, mirroring
@@ -41,10 +41,10 @@ services:
   Notification\Infrastructure\Adapter\Inbox\NotificationInboxSourceProviderAdapter:
     tags: ['inbox.source_provider']
 
-  Notification\Application\Port\Outbound\EmailNotificationChannelPort:
+  Notification\Application\Port\Outbound\Internal\EmailNotificationChannelPort:
     alias: Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter
 
-  Notification\Application\Port\Outbound\MercureNotificationChannelPort:
+  Notification\Application\Port\Outbound\Internal\MercureNotificationChannelPort:
     alias: Notification\Infrastructure\Adapter\Channel\MercureNotificationChannelAdapter
 
   Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository:
@@ -63,9 +63,14 @@ services:
 
   Notification\Application\Service\NotificationService: ~
 
+  Notification\Infrastructure\EventSubscriber\DeliverRequestedNotificationSubscriber: ~
+
+  Notification\Application\UseCase\Command\Notification\DeliverRequestedNotification\DeliverRequestedNotificationHandler:
+    tags: ['messenger.message_handler']
+
   Notification\Application\UseCase\Command\Notification\SendNotification\SendNotificationHandler:
     arguments:
-      $deliveryReceipts: '@Notification\Application\Port\Outbound\NotificationDeliveryReceiptPort'
+      $deliveryReceipts: '@Notification\Application\Port\Outbound\Internal\NotificationDeliveryReceiptPort'
     tags: ['messenger.message_handler']
 
   Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead\MarkNotificationAsReadHandler:

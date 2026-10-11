@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\TransferOrganizationOwnership;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Event\Organization\OrganizationOwnershipTransferredEvent;
+use Organization\Application\Contract\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
-use Organization\Domain\Event\Organization\OrganizationOwnershipTransferredEvent;
-use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationDeletionConfirmationMismatchException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationMemberNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleName};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};

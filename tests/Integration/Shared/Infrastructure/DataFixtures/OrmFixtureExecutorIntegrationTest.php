@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Shared\Infrastructure\DataFixtures;
 
+use Doctrine\Common\DataFixtures\FixtureInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Infrastructure\DataFixtures\PlanFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\PlanRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Infrastructure\DataFixtures\OrmFixtureExecutor;
+use Shared\Infrastructure\DataFixtures\{OrmFixtureExecutor, SeedFixtureAdapter, SeedReferenceRegistryAdapter};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 #[CoversClass(className: OrmFixtureExecutor::class)]
@@ -60,6 +61,32 @@ final class OrmFixtureExecutorIntegrationTest extends KernelTestCase
     // Append mode must not purge: unrelated seeded tables are left untouched.
     self::assertSame($organizationsBefore, $this->organizationCount());
     self::assertSame(3, $this->entityManager->getRepository(PlanRecord::class)->count([]));
+  }
+
+  #[Test]
+  public function testNamedCapabilitiesRunTheirPrerequisitesFirstRegardlessOfRegistrationOrder(): void
+  {
+    $order = [];
+    $first = $this->createMock(FixtureInterface::class);
+    $first->expects(self::once())->method('load')->willReturnCallback(static function () use (&$order): void {
+      $order[] = 'organization';
+    });
+    $second = $this->createMock(FixtureInterface::class);
+    $second->expects(self::once())->method('load')->willReturnCallback(static function () use (&$order): void {
+      $order[] = 'equipment';
+    });
+    $references = new SeedReferenceRegistryAdapter();
+    $fixtures = [
+      new SeedFixtureAdapter($second, $this->entityManager, $references, 'equipment', ['organization']),
+      new SeedFixtureAdapter($first, $this->entityManager, $references, 'organization'),
+    ];
+    $organizationsBefore = $this->organizationCount();
+
+    new OrmFixtureExecutor($references)->execute($this->entityManager, $fixtures, true);
+
+    self::assertSame(['organization', 'equipment'], $order);
+    self::assertSame($organizationsBefore, $this->organizationCount());
+    self::assertSame(0, $this->entityManager->getUnitOfWork()->size());
   }
 
   private function organizationCount(): int

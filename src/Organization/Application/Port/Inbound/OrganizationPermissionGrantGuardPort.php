@@ -10,7 +10,7 @@ namespace Organization\Application\Port\Inbound;
  * Enforces the no-privilege-escalation invariant: an actor may only grant
  * permissions (directly on a role, or by assigning an existing role) that the
  * actor already holds. Each method throws
- * {@see \Organization\Domain\Exception\OrganizationAccessDeniedException} on the
+ * {@see \Organization\Application\Contract\Exception\OrganizationAccessDeniedException} on the
  * first permission the actor does not hold. Membership and invitation use
  * cases invoke this after resolving their effective roles, so non-HTTP callers
  * and implicit default roles obey the same grant ceiling. HTTP processors also
@@ -35,7 +35,7 @@ interface OrganizationPermissionGrantGuardPort
    * @param string $organizationId the organization identifier
    * @param list<string> $permissions the permissions being granted
    *
-   * @throws \Organization\Domain\Exception\OrganizationAccessDeniedException when the actor lacks a granted permission
+   * @throws \Organization\Application\Contract\Exception\OrganizationAccessDeniedException when the actor lacks a granted permission
    */
   public function assertCanGrantPermissions(string $actorUserId, string $organizationId, array $permissions): void;
 
@@ -52,7 +52,7 @@ interface OrganizationPermissionGrantGuardPort
    * @param string $organizationId the organization identifier
    * @param list<string> $roleIds the role identifiers being assigned
    *
-   * @throws \Organization\Domain\Exception\OrganizationAccessDeniedException when a role carries a permission the actor lacks
+   * @throws \Organization\Application\Contract\Exception\OrganizationAccessDeniedException when a role carries a permission the actor lacks
    */
   public function assertCanAssignRoles(string $actorUserId, string $organizationId, array $roleIds): void;
   // #endregion

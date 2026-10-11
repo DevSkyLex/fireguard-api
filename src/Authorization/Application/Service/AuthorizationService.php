@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Authorization\Application\Service;
 
 use Authorization\Application\Port\Inbound\AuthorizationPort;
-use Authorization\Application\Port\Outbound\RoleAssignmentRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\RoleAssignmentRepositoryPort;
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\ValueObject\{

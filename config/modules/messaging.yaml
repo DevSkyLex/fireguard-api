@@ -29,16 +29,11 @@ services:
     arguments:
       $messageSanitizer: '@html_sanitizer.sanitizer.messaging.message'
 
-  # L1.2: message attachments + conversation Files tab (multipart)
-  Messaging\Presentation\Api\Processor\Attachment\MessagingMediaProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
   # Outbound ports
-  Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort:
+  Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort:
     alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationRepository
 
-  Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort:
+  Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort:
     alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingMessageRepository
 
   Messaging\Application\Port\Outbound\MessagingReadMarkerRepositoryPort:
@@ -47,7 +42,7 @@ services:
   Messaging\Application\Port\Outbound\MessagingParticipantRepositoryPort:
     alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingParticipantRepository
 
-  Messaging\Application\Port\Outbound\MessagingAttachmentRepositoryPort:
+  Messaging\Application\Port\Outbound\Internal\MessagingAttachmentRepositoryPort:
     alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingAttachmentRepository
 
   # L1.4: emoji reactions
@@ -127,7 +122,7 @@ services:
     tags: ['inbox.source_provider']
 
   # Team-bound channel participant reconciliation — reacts to Organization
-  # domain events BY NAME (Symfony core event dispatcher), like
+  # integration events BY NAME (Symfony core event dispatcher), like
   # `RemoveTeamMembershipsOnMemberRemovedHandler`; autoconfigured as an
   # EventSubscriberInterface, no explicit tag needed.
   Messaging\Infrastructure\EventSubscriber\SyncTeamChannelParticipantsSubscriber: ~
@@ -221,6 +216,9 @@ services:
     tags: ['messenger.message_handler']
 
   # Query handlers
+  Messaging\Application\UseCase\Query\Message\EnrichMessages\EnrichMessagesHandler:
+    tags: ['messenger.message_handler']
+
   Messaging\Application\UseCase\Query\Conversation\ListConversations\ListConversationsHandler:
     tags: ['messenger.message_handler']
 
@@ -288,3 +286,13 @@ services:
   Messaging\Application\UseCase\Command\Presence\PublishPresencePreferenceChange\PublishPresencePreferenceChangeHandler:
     tags: ['messenger.message_handler']
   Messaging\Presentation\Api\Provider\Presence\GetPresenceSubscriptionProvider: ~
+
+  Messaging\Application\Port\Outbound\MessagingSubscriptionTokenPort:
+    alias: Messaging\Infrastructure\Adapter\Realtime\MercureMessagingSubscriptionTokenAdapter
+
+  Messaging\Infrastructure\Adapter\Realtime\MercureMessagingSubscriptionTokenAdapter:
+    arguments:
+      $tokenTtl: '%env(default:mercure_subscriber_token_ttl:int:MERCURE_SUBSCRIBER_TOKEN_TTL)%'
+
+  Messaging\Application\UseCase\Query\Subscription\GetMessagingSubscription\GetMessagingSubscriptionHandler:
+    tags: ['messenger.message_handler']

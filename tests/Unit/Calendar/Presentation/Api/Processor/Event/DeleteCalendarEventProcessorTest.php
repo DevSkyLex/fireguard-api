@@ -50,10 +50,10 @@ final class DeleteCalendarEventProcessorTest extends TestCase
 
     $processor = new DeleteCalendarEventProcessor($commandBus, $this->authenticatedSecurity());
 
-    $result = $processor->process(null, new Delete(), [
+    $result = \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(null, new Delete(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
 
     self::assertNull($result);
     self::assertInstanceOf(DeleteCalendarEventCommand::class, $captured);
@@ -72,10 +72,10 @@ final class DeleteCalendarEventProcessorTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $processor->process(null, new Delete(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(null, new Delete(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
   }
 
   #[Test]
@@ -88,7 +88,7 @@ final class DeleteCalendarEventProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(null, new Delete(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(null, new Delete(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -101,10 +101,10 @@ final class DeleteCalendarEventProcessorTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $processor->process(null, new Delete(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(null, new Delete(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
   }
   // #endregion
 

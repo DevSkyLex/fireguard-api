@@ -508,7 +508,7 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
       throw new RuntimeException('Interrupted after the complete draft, before occurrence confirmation.');
     });
     $sender = $this->atomicSender();
-    $events = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($this->entityManager->getConnection(), $sender, $this->service(\Shared\Application\Factory\UuidFactory::class), $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
+    $events = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($this->entityManager->getConnection(), $sender, $this->service(\Shared\Application\Port\Outbound\UuidGeneratorPort::class), $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
 
     try {
       $this->materializer($interruptedFactory, $events, $now)(new \Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand());
@@ -558,7 +558,7 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
     $runId = $this->adapter->reserveRun($recurrenceId, $now);
     self::assertIsString($runId);
     $sender = $this->atomicSender();
-    $events = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($this->entityManager->getConnection(), $sender, $this->service(\Shared\Application\Factory\UuidFactory::class), $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
+    $events = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($this->entityManager->getConnection(), $sender, $this->service(\Shared\Application\Port\Outbound\UuidGeneratorPort::class), $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
     $clock = $this->createStub(\Shared\Application\Port\Outbound\ClockPort::class);
     $clock->method('now')->willReturn($now);
     $handler = new \Intervention\Application\UseCase\Command\Recurrence\RecoverReservedRecurrence\RecoverReservedRecurrenceHandler($this->adapter, $this->service(\Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort::class), $this->service(\Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter::class), $events, $clock);
@@ -633,7 +633,7 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
 
     $template = new InterventionTemplateRecord();
     $template->id = self::TEMPLATE_ID;
-    $template->organization = $organization;
+    $template->organizationId = self::ORGANIZATION_ID;
     $template->name = 'Fire safety audit';
     $template->type = 'inspection_campaign';
     $template->priority = 'normal';
@@ -657,7 +657,7 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
 
     $record = new InterventionRecurrenceRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->template = $template;
     $record->name = $name;
     $record->siteId = $siteId;

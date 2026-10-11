@@ -71,7 +71,7 @@ final class ListAssistantThreadsProviderTest extends TestCase
 
     $provider = new ListAssistantThreadsProvider($queryBus, $security, $requestStack, new AssistantThreadOutputFactory());
 
-    $result = $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    $result = \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
 
     self::assertInstanceOf(ListAssistantThreadsQuery::class, $captured);
     self::assertSame(self::USER_ID, $captured->actorUserId);
@@ -96,7 +96,7 @@ final class ListAssistantThreadsProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -117,7 +117,7 @@ final class ListAssistantThreadsProviderTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('OrganizationId URI parameter is required.');
 
-    $provider->provide(new GetCollection(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new GetCollection(), []));
   }
 
   #[Test]
@@ -142,6 +142,6 @@ final class ListAssistantThreadsProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 }

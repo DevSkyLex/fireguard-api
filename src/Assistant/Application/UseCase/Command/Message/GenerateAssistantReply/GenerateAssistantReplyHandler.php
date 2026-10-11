@@ -6,7 +6,8 @@ namespace Assistant\Application\UseCase\Command\Message\GenerateAssistantReply;
 
 use Assistant\Application\Contract\Context\AssistantContextScope;
 use Assistant\Application\Contract\Generation\AssistantGenerationOutcome;
-use Assistant\Application\Port\Outbound\{AssistantGenerationClientPort, AssistantMessageRepositoryPort, AssistantRealtimePublisherPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Port\Outbound\AssistantGenerationClientPort;
+use Assistant\Application\Port\Outbound\Internal\{AssistantMessageRepositoryPort, AssistantRealtimePublisherPort, AssistantThreadRepositoryPort};
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\{AssistantAttemptWriter, AssistantPromptBuilder};
 use Assistant\Domain\Exception\{AssistantGenerationStoppedException, AssistantQuestionUnavailableException};
@@ -14,7 +15,6 @@ use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageRole, AssistantMessageStatus, AssistantThreadId};
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, LoggerPort};
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 use function array_filter;
@@ -83,9 +83,7 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
     private LoggerPort $logger,
     private AssistantOrganizationSettingsPort $organizationSettings,
     private AssistantAttemptWriter $attempts,
-    #[Autowire('%env(OLLAMA_DEFAULT_MODEL)%')]
     private string $defaultModel = '',
-    #[Autowire('%env(int:OLLAMA_HTTP_TIMEOUT)%')]
     private int $timeoutSeconds = 120,
   ) {
   }

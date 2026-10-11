@@ -13,7 +13,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  ServiceRequest\Application\Port\Outbound\ServiceRequestRepositoryPort:
+  ServiceRequest\Application\Port\Outbound\Internal\ServiceRequestRepositoryPort:
     alias: ServiceRequest\Infrastructure\Persistence\Doctrine\Repository\ServiceRequestRepository
 
   ServiceRequest\Application\Port\Outbound\ServiceRequestEquipmentTargetPort:

@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Conversation\Unfavori
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Conversation\UnfavoriteConversation\{UnfavoriteConversationCommand, UnfavoriteConversationHandler};
 use Messaging\Domain\Exception\MessagingNotFoundException;

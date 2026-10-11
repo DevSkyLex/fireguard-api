@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Application\Contract\GeoIp\IpLocation;
 use Shared\Application\Contract\Http\RequestOrigin;
 use Shared\Application\Contract\Notification\EmailRequestDetails;
@@ -23,7 +23,7 @@ use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
-use User\Application\Port\Outbound\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
+use User\Application\Port\Outbound\Internal\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
 use User\Application\Service\{EmailChangeNotifier, EmailChangeTokenHasher};
 use User\Application\UseCase\Command\EmailChange\ConfirmEmailChange\{
   ConfirmEmailChangeCommand,
@@ -142,8 +142,8 @@ final class ConfirmEmailChangeHandlerTest extends TestCase
     $requests->method('findActiveByTokenHash')->willReturn(null);
     $requests->expects(self::never())->method('save');
 
-    /** @var SessionRepositoryPort&MockObject $sessions */
-    $sessions = $this->createMock(SessionRepositoryPort::class);
+    /** @var SessionRevocationPort&MockObject $sessions */
+    $sessions = $this->createMock(SessionRevocationPort::class);
     $sessions->expects(self::never())->method('revokeAllForUser');
 
     $result = ($this->makeHandler(requests: $requests, sessions: $sessions))(
@@ -270,8 +270,8 @@ final class ConfirmEmailChangeHandlerTest extends TestCase
     $userRepo->method('existsByEmail')->willReturn(false);
     $userRepo->expects(self::once())->method('save')->with($user);
 
-    /** @var SessionRepositoryPort&MockObject $sessions */
-    $sessions = $this->createMock(SessionRepositoryPort::class);
+    /** @var SessionRevocationPort&MockObject $sessions */
+    $sessions = $this->createMock(SessionRevocationPort::class);
     $sessions->expects(self::once())->method('revokeAllForUser')->with(self::USER_ID);
 
     /** @var TokenRevocationPort&MockObject $tokens */
@@ -360,10 +360,10 @@ final class ConfirmEmailChangeHandlerTest extends TestCase
     $userRepo->method('findById')->willReturn($user);
     $userRepo->method('existsByEmail')->willReturn(false);
     $userRepo->expects(self::once())->method('save')
-      ->willThrowException(new UniqueConstraintViolationException($driverException, null));
+      ->willThrowException(new \Shared\Application\Contract\Persistence\UniqueConstraintViolationException(new UniqueConstraintViolationException($driverException, null)));
 
-    /** @var SessionRepositoryPort&MockObject $sessions */
-    $sessions = $this->createMock(SessionRepositoryPort::class);
+    /** @var SessionRevocationPort&MockObject $sessions */
+    $sessions = $this->createMock(SessionRevocationPort::class);
     $sessions->expects(self::never())->method('revokeAllForUser');
 
     /** @var TokenRevocationPort&MockObject $tokens */
@@ -434,8 +434,8 @@ final class ConfirmEmailChangeHandlerTest extends TestCase
     $userRepo->method('findById')->willReturn($user);
     $userRepo->method('existsByEmail')->willReturn(false);
 
-    /** @var SessionRepositoryPort&MockObject $sessions */
-    $sessions = $this->createMock(SessionRepositoryPort::class);
+    /** @var SessionRevocationPort&MockObject $sessions */
+    $sessions = $this->createMock(SessionRevocationPort::class);
     $sessions->expects(self::never())->method('revokeAllForUser');
 
     /** @var TokenRevocationPort&MockObject $tokens */
@@ -479,8 +479,8 @@ final class ConfirmEmailChangeHandlerTest extends TestCase
     $userRepo->method('findById')->willReturn($user);
     $userRepo->method('existsByEmail')->willReturn(false);
 
-    /** @var SessionRepositoryPort&MockObject $sessions */
-    $sessions = $this->createMock(SessionRepositoryPort::class);
+    /** @var SessionRevocationPort&MockObject $sessions */
+    $sessions = $this->createMock(SessionRevocationPort::class);
     $sessions->expects(self::once())->method('revokeAllForUser')
       ->willThrowException(new RuntimeException('session backend down'));
 
@@ -533,7 +533,7 @@ final class ConfirmEmailChangeHandlerTest extends TestCase
   private function makeHandler(
     EmailChangeRequestRepositoryPort $requests,
     ?UserRepositoryPort $userRepo = null,
-    ?SessionRepositoryPort $sessions = null,
+    ?SessionRevocationPort $sessions = null,
     ?TokenRevocationPort $tokens = null,
     ?NotificationPort $notifications = null,
     ?DateTimeImmutable $now = null,
@@ -568,7 +568,7 @@ final class ConfirmEmailChangeHandlerTest extends TestCase
       emailChangeRequests: $requests,
       userRepository: $userRepo ?? $this->createStub(UserRepositoryPort::class),
       tokenHasher: new EmailChangeTokenHasher(),
-      sessionRepository: $sessions ?? $this->createStub(SessionRepositoryPort::class),
+      sessionRepository: $sessions ?? $this->createStub(SessionRevocationPort::class),
       tokenRevocation: $tokens ?? $this->createStub(TokenRevocationPort::class),
       notifier: new EmailChangeNotifier(
         notificationPort: $notifications,

@@ -422,16 +422,20 @@ scopes the inspection-level-only listing.
 - `AddInspectionAttachment` similarly accepts an optional `nonConformityId`;
   when set, the handler verifies the non-conformity belongs to the target
   inspection (`NonConformityNotFoundException` otherwise) before persisting.
-- `InspectionMediaProcessor` resolves the parent (inspection directly, or via
-  the non-conformity's own `inspection` relation for the NC endpoint),
-  enforces `organization.inspection.write`, validates the multipart upload
-  through `Shared\Presentation\Api\Attachment\MultipartAttachmentGuard`, and
-  dispatches through the command bus (write-then-persist with storage
-  rollback on DB failure, mirroring `AddAttachmentHandler`). Delete removes
-  the stored object then the row.
-- Storage key: `inspection/{inspectionId}/attachments/{attachmentId}_{fileName}`
-  for BOTH kinds (non-conformity photos reuse the inspection prefix — they
-  belong to an inspection).
+- `ResolveInspectionMedia` owns parent/scope queries. `InspectionMediaProcessor` validates
+  headers and multipart metadata, then dispatches actor-aware commands. Queries return
+  typed snapshots; no Presentation class loads Records or orchestrates Doctrine.
+- Uploads own the final main commit, reject enclosing transactions before storage I/O,
+  and lock attachment identity and inspection parent. Stored identities replay only in
+  the same inspection/non-conformity scope, preserving the committed blob and metadata.
+  Inspection keeps its write-permission and multipart requirements on replay.
+- Attempt key: `inspection/{inspectionId}/attachments/{attachmentId}_{attemptId}_{fileName}`
+  for both document and photo buckets. Confirmed rollback compensates only the losing
+  attempt after any late persistence failure; uncertain commit retains the bytes.
+  Cleanup and logger failures preserve the initial exception.
+- Deletion rechecks the supplied revision under its owning root transaction and records
+  obsolete blob cleanup in the same SQL commit. A durable idempotent outbox consumer
+  performs physical deletion after commit and retries failures; rollback retains the blob.
 - No new permissions: reuses `organization.inspection.read` /
   `organization.inspection.write` for both inspection-level documents and
   non-conformity photos.
@@ -712,6 +716,10 @@ Status transitions:
 
 ## Architecture
 
+Cross-module dashboard filters consume Inspection-owned pure filter enums under
+`Application/Contract/Dashboard/Filter`. Their status, result, inspector and
+non-conformity values preserve the internal lifecycle values and validation order.
+
 - Presentation: Api Platform resources, providers, processors, DTOs.
 - Application: Use cases (command/query), repository ports.
 - Domain: Inspection, Checklist, NonConformity aggregates, value objects, domain exceptions.
@@ -792,7 +800,7 @@ Cross-module contracts and lifecycle invariants:
   L2.2 launch providers with genuinely new DQL** — see Testing below for the
   dedicated integration test that executes it for real (never mocks the
   QueryBuilder).
-- Regulated actions emit domain events (`src/Inspection/Domain/Event/`)
+- Regulated actions publish integration events (`src/Inspection/Application/Contract/Event/`)
   recorded in the audit ledger by Audit's `AuditEventSubscriber`:
   `inspection.submitted` / `closed` / `cancelled` and
   `inspection.non_conformity_recorded` / `non_conformity_status_changed`
@@ -802,9 +810,8 @@ Cross-module contracts and lifecycle invariants:
   scratchpads and never emit; the intervention `apply()` path is deferred to
   the `intervention.published` audit action because it runs inside the
   publication transaction while the ledger commits on the auth database).
-  The canonical processor COLLECTS its events during the mutation and
-  dispatches them only after `wrapInTransaction` commits, so a rollback can
-  never leave a phantom row in the append-only ledger. The lifecycle
+  The owning mutation records its events in the main transactional outbox, so rollback
+  cannot leave an audit or notification consequence. Delivery runs after commit. The lifecycle
   commands (submit/close/cancel) load through
   `InspectionRepositoryPort::findPublishedById`, so draft scratchpads are
   not reachable (nor auditable) through the classic endpoints. A `result`
@@ -812,33 +819,34 @@ Cross-module contracts and lifecycle invariants:
   audit action: the `submitted` and `closed` events both carry the result,
   bracketing any interim change.
 
-**Architecture debt — cross-module `Organization\Domain` imports (3).** The
-`CrossModuleDomainBoundaryTest` ratchet baseline for `Inspection =>
-Organization` was raised 2 → 3 on 2026-08-18, for
-`UpdateNonConformityStatusProcessor` catching
-`Organization\Domain\Exception\OrganizationAccessDeniedException`. It has to:
-`ApprovalGatePort::evaluate()` signals the missing
-`organization.approvals.request` entitlement by throwing that class, and
-without the catch it escaped the gated waiver path as a **500** instead of a
-**403**. Approval's own `ApprovalExceptionMapperTrait` maps the identical
-class for the identical reason (`Approval => Organization`, baseline 4), so
-this is the established treatment at a Presentation boundary rather than a
-new deviation. Deliberate, documented debt: the eventual fix is the approval
-gate reporting refusal through its own `Application/Contract/` type instead
-of a foreign domain exception — then this baseline shrinks back. The other
-two imports are `OrganizationQuotaResource` / `OrganizationQuotaExceededException`
-on the inspection-creation quota path.
+### Published boundaries and persistence
 
-Refreshed 2026-08-27: after the quota-contract migration shrank the baseline
-to 1, it was raised 1 -> 2 for
-`Application/Service/NonConformitySlaRecipientResolver` importing
-`Organization\Domain\ValueObject\OrganizationId` — forced by
-`OrganizationMemberRepositoryPort::findByOrganizationId()`, whose signature is
-typed with that value object. The identical import for the identical reason
-already exists in `MaintenanceReminderRecipientResolver`,
-`InterventionReviewerRecipientResolver` and
-`InterventionRecurrenceRecipientResolver`; it shrinks back the day the member
-port is retyped with an `Application/Contract` identifier.
+Public `Application/Contract` snapshots and ports are pure; private repository signatures
+live under `Application/Port/Outbound/Internal`. Inspection consumes owner capabilities
+for User profiles, Organization authorization/directories and Intervention resources.
+All organization links in Records are scalar `organizationId`; the schema subscriber
+retains their SQL foreign keys, nullability and deletion actions. Equipment statistics
+combine one grouped findings query with one owner equipment-summary projection.
+
+Inspection creation owns scope, default inspector attribution, quota, checklist locking,
+SQL save and intervention assignment inside one main transaction. HTTP processors only
+translate request data, creation/revision headers and results. `InspectionOutputFactory`
+is deterministic: Application supplies inspector snapshots, with one grouped lookup for
+a list and retained name fallback on absent/unreachable profiles. Worker instances hold
+no actor or display lookup cache.
+
+On organization POST, canonical POST and canonical PUT, a user inspector whose identifier
+is omitted, null or the empty string defaults to the authenticated actor; an explicit
+identifier is retained. Expected equipment, facility and checklist validation failures
+use `InvalidValueException`, mapped centrally to 400 with their existing messages.
+Missing permission (403) and hidden organization scope (404) are checked before these
+references; general `InvalidArgumentException` failures remain programming errors.
+
+`ResolveInspectionReportAccessHandler` checks organization scope and read permission
+before PDF entitlement, preserving refusal messages. `RecordInspectionExportHandler`
+records public events in the main outbox after rendering. Domain event envelopes remain
+readable; owner conversion publishes `Application/Contract/Event` events. Audit owns its
+separate auth receipt, so external delivery cannot invalidate a committed HTTP response.
 
 ### A foreign organization answers 404, never 403
 
@@ -1164,6 +1172,9 @@ Detailed cases and regression rationale are retained in the [Inspection testing 
 
 ## Error Codes
 
+- `InvalidValueException` → 400 (invalid inspection creation values or unknown, foreign,
+  decommissioned equipment, inconsistent equipment/facility assignment, unusable facility
+  or checklist; permission and organization scope refusals take precedence)
 - `InspectionNotFoundException` → 404
 - `InspectionAlreadySubmittedException` → 409
 - `InspectionAlreadyClosedException` → 409

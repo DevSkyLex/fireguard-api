@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Query\Plan\GetPlan;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Application\UseCase\Query\Plan\GetPlan\{GetPlanHandler, GetPlanQuery};
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Domain\Model\Plan\Plan;

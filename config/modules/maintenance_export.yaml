@@ -23,7 +23,7 @@ services:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
 
-  MaintenanceExport\Application\Port\Outbound\MaintenanceExportRepositoryPort:
+  MaintenanceExport\Application\Port\Outbound\Internal\MaintenanceExportRepositoryPort:
     alias: MaintenanceExport\Infrastructure\Persistence\Doctrine\Repository\MaintenanceExportRepository
 
   MaintenanceExport\Application\UseCase\Command\ManageMaintenanceExport\ManageMaintenanceExportHandler:

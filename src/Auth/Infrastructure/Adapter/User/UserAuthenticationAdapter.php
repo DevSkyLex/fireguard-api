@@ -7,9 +7,8 @@ namespace Auth\Infrastructure\Adapter\User;
 use Auth\Application\Contract\User\UserAuthenticationResult;
 use Auth\Application\Port\Outbound\UserAuthenticationPort;
 use Psr\Log\LoggerInterface;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
-use User\Application\UseCase\Query\User\AuthenticateUser\{AuthenticateUserQuery, AuthenticateUserResult};
+use User\Application\Port\Inbound\UserAuthenticationPort as AccountAuthenticationPort;
 
 /**
  * Adapter UserAuthenticationAdapter.
@@ -29,11 +28,11 @@ final readonly class UserAuthenticationAdapter implements UserAuthenticationPort
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
+   * @param AccountAuthenticationPort $queryBus the query bus
    * @param LoggerInterface $logger the structured application logger
    */
   public function __construct(
-    private QueryBusPort $queryBus,
+    private AccountAuthenticationPort $queryBus,
     private LoggerInterface $logger,
   ) {
   }
@@ -55,11 +54,7 @@ final readonly class UserAuthenticationAdapter implements UserAuthenticationPort
   public function authenticate(string $email, string $password): UserAuthenticationResult
   {
     try {
-      /** @var AuthenticateUserResult $result */
-      $result = $this->queryBus->ask(new AuthenticateUserQuery(
-        username: $email,
-        password: $password,
-      ));
+      $result = $this->queryBus->authenticate($email, $password);
 
       if (!$result->authenticated || null === $result->userId) {
         return UserAuthenticationResult::failed();

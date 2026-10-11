@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function base64_decode;
 use function file_put_contents;
@@ -34,8 +36,11 @@ use const JSON_THROW_ON_ERROR;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class FacilityPlanGeometryApiTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string DUMMY_UUID = '660e8400-e29b-41d4-a716-446655470000';
 
   private const string ORGANIZATION_ID = '660e8400-e29b-41d4-a716-446655470001';
@@ -383,7 +388,7 @@ final class FacilityPlanGeometryApiTest extends WebTestCase
     $organization = $entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
     $equipment = new EquipmentRecord();
     $equipment->id = $equipmentId;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = self::ROOT_FACILITY_ID;
     $equipment->type = 'fire_extinguisher';
     $equipment->serialNumber = 'SN-OVERLAY-1';
@@ -751,7 +756,7 @@ final class FacilityPlanGeometryApiTest extends WebTestCase
 
     $root = new FacilityRecord();
     $root->id = self::ROOT_FACILITY_ID;
-    $root->organization = $organization;
+    $root->organizationId = $organization->id;
     $root->type = 'site';
     $root->name = 'Plan Geometry Root Site';
     $root->status = 'active';
@@ -762,7 +767,7 @@ final class FacilityPlanGeometryApiTest extends WebTestCase
 
     $child = new FacilityRecord();
     $child->id = self::CHILD_ZONE_ID;
-    $child->organization = $organization;
+    $child->organizationId = $organization->id;
     $child->parentFacility = $root;
     $child->type = 'zone';
     $child->name = 'Plan Geometry Child Zone';
@@ -774,7 +779,7 @@ final class FacilityPlanGeometryApiTest extends WebTestCase
 
     $unrelated = new FacilityRecord();
     $unrelated->id = self::UNRELATED_ZONE_ID;
-    $unrelated->organization = $organization;
+    $unrelated->organizationId = $organization->id;
     $unrelated->type = 'zone';
     $unrelated->name = 'Plan Geometry Unrelated Zone';
     $unrelated->status = 'active';
@@ -785,7 +790,7 @@ final class FacilityPlanGeometryApiTest extends WebTestCase
 
     $outsiderFacility = new FacilityRecord();
     $outsiderFacility->id = self::OUTSIDER_FACILITY_ID;
-    $outsiderFacility->organization = $outsiderOrganization;
+    $outsiderFacility->organizationId = $outsiderOrganization->id;
     $outsiderFacility->type = 'site';
     $outsiderFacility->name = 'Outsider Site';
     $outsiderFacility->status = 'active';

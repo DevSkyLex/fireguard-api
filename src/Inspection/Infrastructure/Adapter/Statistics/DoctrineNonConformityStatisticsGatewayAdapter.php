@@ -6,14 +6,18 @@ namespace Inspection\Infrastructure\Adapter\Statistics;
 
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Inspection\Application\Contract\Statistics\{NonConformityEquipmentTypeCount, NonConformityFacilityCount, NonConformitySeverityBucket, NonConformityStatisticsAggregate};
 use Inspection\Application\Port\Outbound\NonConformityStatisticsGatewayPort;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Intervention\Application\Port\Outbound\InterventionEquipmentSummaryPort;
 
+use function array_column;
+use function array_keys;
+use function array_slice;
 use function in_array;
 use function is_numeric;
+use function strcmp;
+use function usort;
 
 /**
  * Adapter DoctrineNonConformityStatisticsGatewayAdapter.
@@ -68,6 +72,7 @@ final readonly class DoctrineNonConformityStatisticsGatewayAdapter implements No
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
+    private InterventionEquipmentSummaryPort $equipmentSummaries,
   ) {
   }
   // #endregion
@@ -78,14 +83,14 @@ final readonly class DoctrineNonConformityStatisticsGatewayAdapter implements No
    */
   public function aggregate(string $organizationId, ?DateTimeImmutable $from, ?DateTimeImmutable $to): NonConformityStatisticsAggregate
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     $base = $this->entityManager->createQueryBuilder()
       ->from(NonConformityRecord::class, 'nonConformity')
       ->join('nonConformity.inspection', 'inspection')
-      ->where('inspection.organization = :organization')
-      ->setParameter('organization', $organization);
+      ->where('inspection.organizationId = :organizationId')
+      ->setParameter('organizationId', $organization);
     $this->applyWindow($base, $from, $to);
 
     /** @var list<array{severity: string, status: string, count: int|string}> $severityRows */
@@ -139,25 +144,26 @@ final readonly class DoctrineNonConformityStatisticsGatewayAdapter implements No
       );
     }
 
-    /** @var list<array{type: string, open: int|string}> $equipmentTypeRows */
-    $equipmentTypeRows = (clone $base)
-      ->select('equipment.type AS type', 'COUNT(nonConformity.id) AS open')
-      ->join(EquipmentRecord::class, 'equipment', 'WITH', 'equipment.id = inspection.equipmentId')
+    /** @var list<array{equipmentId: string, open: int|string}> $equipmentRows */
+    $equipmentRows = (clone $base)
+      ->select('inspection.equipmentId AS equipmentId', 'COUNT(nonConformity.id) AS open')
       ->andWhere(self::OPEN_STATUSES_PREDICATE)
       ->setParameter('openStatuses', self::OPEN_STATUSES)
-      ->groupBy('equipment.type')
-      ->orderBy('open', 'DESC')
-      ->addOrderBy('type', 'ASC')
-      ->setMaxResults(self::TOP_N)
-      ->getQuery()
-      ->getArrayResult();
-
+      ->groupBy('inspection.equipmentId')
+      ->getQuery()->getArrayResult();
+    $summaries = $this->equipmentSummaries->summaries($organizationId, array_column($equipmentRows, 'equipmentId'));
+    $counts = [];
+    foreach ($equipmentRows as $row) {
+      $type = $summaries[$row['equipmentId']]['type'] ?? null;
+      if (null !== $type) {
+        $counts[$type] = ($counts[$type] ?? 0) + (int) $row['open'];
+      }
+    }
+    $types = array_keys($counts);
+    usort($types, static fn (string $left, string $right): int => ($counts[$right] <=> $counts[$left]) ?: strcmp($left, $right));
     $topEquipmentTypes = [];
-    foreach ($equipmentTypeRows as $row) {
-      $topEquipmentTypes[] = new NonConformityEquipmentTypeCount(
-        type: $row['type'],
-        open: (int) $row['open'],
-      );
+    foreach (array_slice($types, 0, self::TOP_N) as $type) {
+      $topEquipmentTypes[] = new NonConformityEquipmentTypeCount(type: $type, open: $counts[$type]);
     }
 
     $slaBreachedOpen = (int) (clone $base)

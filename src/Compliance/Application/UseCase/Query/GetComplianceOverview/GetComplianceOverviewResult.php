@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Compliance\Application\UseCase\Query\GetComplianceOverview;
 
-use Compliance\Application\Contract\FacilityComplianceView;
-use Compliance\Domain\ValueObject\ComplianceStatus;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityComplianceView};
 use Shared\Application\Message\ResultMessage;
 
 /**

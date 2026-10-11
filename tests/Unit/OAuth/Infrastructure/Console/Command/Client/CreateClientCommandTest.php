@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Infrastructure\Console\Command\Client;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Domain\Model\Client\Client;
 use OAuth\Infrastructure\Console\Command\Client\CreateClientCommand;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -157,7 +156,7 @@ final class CreateClientCommandTest extends TestCase
     self::assertStringContainsString('Failed to create client', $tester->getDisplay());
   }
 
-  private function createUuidFactory(string $uuid): UuidFactory
+  private function createUuidFactory(string $uuid): UuidGeneratorPort
   {
     $generator = new class ($uuid) implements UuidGeneratorPort {
       public function __construct(private string $uuid)
@@ -170,7 +169,7 @@ final class CreateClientCommandTest extends TestCase
       }
     };
 
-    return new UuidFactory(generator: $generator);
+    return $generator;
   }
   // #endregion
 }

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Application\Service\Federation;
 
 use Auth\Application\Contract\Federation\{FederatedAuthorization, FederatedFlow};
+use Auth\Application\Contract\Federation\FederatedProvider;
 use Auth\Application\Port\Outbound\Federation\{FederatedFlowRepositoryPort, FederatedIdentityRepositoryPort, FederatedProviderClientPort};
 use Auth\Application\Service\Federation\{FederatedAuthenticationService, SessionIssuer};
 use Auth\Domain\Exception\Federation\FederatedAuthException;
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;

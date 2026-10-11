@@ -35,7 +35,7 @@ use Messaging\Domain\ValueObject\{ChannelName, ConversationId, ConversationVisib
  * `touchLastMessage()`/`incrementMessagesCount()` exist for domain
  * completeness and unit testing, but the hot path of posting a message
  * updates `messages_count`/`last_message_at` through a single atomic SQL
- * statement ({@see \Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort::touchOnNewMessage()})
+ * statement ({@see \Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort::touchOnNewMessage()})
  * rather than a load-modify-save cycle, to stay correct under concurrent
  * posts.
  *

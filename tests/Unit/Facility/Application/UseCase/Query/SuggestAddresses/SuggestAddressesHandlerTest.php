@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Query\SuggestAddresses;
 
 use Facility\Application\Contract\Geocoding\AddressSuggestion;
-use Facility\Application\Port\Outbound\AddressSuggestionsPort;
+use Facility\Application\Port\Outbound\Internal\AddressSuggestionsPort;
 use Facility\Application\UseCase\Query\SuggestAddresses\{SuggestAddressesHandler, SuggestAddressesQuery};
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityAddressSuggestionsUnavailableException, FacilityNotFoundException};
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;

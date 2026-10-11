@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Inspection\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
+use Inspection\Application\Contract\Event\Export\NonConformitiesExportedEvent;
+use Inspection\Application\UseCase\Command\Export\RecordInspectionExport\RecordInspectionExportCommand;
 use Inspection\Application\UseCase\Query\ExportNonConformities\{ExportNonConformitiesQuery, ExportNonConformitiesResult};
-use Inspection\Domain\Event\Export\NonConformitiesExportedEvent;
 use Inspection\Presentation\Api\Service\{NonConformityCsvWriter, NonConformityExportCriteriaFactory};
 use Inspection\Presentation\Api\Trait\InspectionExportExceptionMapperTrait;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
@@ -50,14 +50,14 @@ final class ExportNonConformitiesController extends AbstractController
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param CommandBusPort $commandBus the domain event dispatcher
    * @param Security $security the security service
    * @param NonConformityExportCriteriaFactory $criteriaFactory the request-to-filters factory
    * @param NonConformityCsvWriter $csvWriter the CSV row writer
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
-    private readonly EventDispatcherPort $eventDispatcher,
+    private readonly CommandBusPort $commandBus,
     private readonly Security $security,
     private readonly NonConformityExportCriteriaFactory $criteriaFactory,
     private readonly NonConformityCsvWriter $csvWriter,
@@ -78,7 +78,7 @@ final class ExportNonConformitiesController extends AbstractController
   public function __invoke(Request $request): StreamedResponse
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -102,13 +102,13 @@ final class ExportNonConformitiesController extends AbstractController
       throw $this->mapExportException($exception);
     }
 
-    $this->eventDispatcher->dispatch(new NonConformitiesExportedEvent(
+    $this->commandBus->dispatch(new RecordInspectionExportCommand(new NonConformitiesExportedEvent(
       organizationId: $organizationId,
       actorUserId: $user->getId(),
       format: 'csv',
       rowCount: $result->total,
       filterKeys: $this->criteriaFactory->appliedFilterKeys($filters),
-    ));
+    )));
 
     $fileName = sprintf('non-conformities-export-%s.csv', new DateTimeImmutable()->format('Ymd-His'));
 

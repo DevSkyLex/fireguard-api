@@ -69,10 +69,6 @@ abstract class BaseHexagonalArchitectureTest
     foreach ($this->modulesHavingLayer($layer) as $module) {
       $namespace = $module->layerNamespace(layer: $layer);
 
-      if ('' === $namespace) {
-        continue;
-      }
-
       $selectors[] = Selector::inNamespace(namespace: $namespace);
     }
 
@@ -93,10 +89,6 @@ abstract class BaseHexagonalArchitectureTest
     foreach ($layers as $layer) {
       foreach ($this->modulesHavingLayer($layer) as $module) {
         $namespace = $module->layerNamespace(layer: $layer);
-
-        if ('' === $namespace) {
-          continue;
-        }
 
         $namespaces[$namespace] = true;
       }
@@ -128,10 +120,6 @@ abstract class BaseHexagonalArchitectureTest
     }
 
     $namespace = $module->layerNamespace(layer: $layer);
-
-    if ('' === $namespace) {
-      return [];
-    }
 
     return [
       Selector::inNamespace(namespace: $namespace),

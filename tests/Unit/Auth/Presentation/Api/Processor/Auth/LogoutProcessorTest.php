@@ -74,14 +74,13 @@ final class LogoutProcessorTest extends TestCase
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())
+    $eventDispatcher->expects(self::never())
       ->method('dispatch');
 
     $processor = new LogoutProcessor(
       requestStack: $requestStack,
       cookieService: $cookieService,
       commandBus: $commandBus,
-      eventDispatcher: $eventDispatcher,
       logger: $logger,
       sanitizer: new SecurityLogSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
     );

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\MetadataField\CreateMetadataField;
 
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Exception\{FacilityMetadataFieldKeyAlreadyExistsException, FacilityMetadataFieldLimitExceededException};
 use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
@@ -16,8 +15,9 @@ use Facility\Domain\ValueObject\{
   FacilityOrganizationId,
   FacilityType
 };
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 use ValueError;
@@ -50,13 +50,13 @@ final readonly class CreateMetadataFieldHandler implements CommandHandler
    * @access public
    *
    * @param FacilityMetadataFieldRepositoryPort $repository port used to validate limits and persist field definitions
-   * @param UuidFactory $uuidFactory factory used to assign the new metadata-field identifier
+   * @param UuidGeneratorPort $uuidFactory factory used to assign the new metadata-field identifier
    *
    * @return void
    */
   public function __construct(
     private FacilityMetadataFieldRepositoryPort $repository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -81,7 +81,7 @@ final readonly class CreateMetadataFieldHandler implements CommandHandler
       $facilityType = null === $command->facilityType ? null : FacilityType::from($command->facilityType);
 
       /** @var FacilityMetadataFieldId $fieldId */
-      $fieldId = $this->uuidFactory->create(FacilityMetadataFieldId::class);
+      $fieldId = new FacilityMetadataFieldId($this->uuidFactory->generate());
 
       $field = FacilityMetadataField::create(
         id: $fieldId,

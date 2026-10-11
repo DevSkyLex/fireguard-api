@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Infrastructure\EventSubscriber;
 
-use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent};
+use OAuth\Application\Contract\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent};
 use OAuth\Infrastructure\EventSubscriber\EventLogSubscriber;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;

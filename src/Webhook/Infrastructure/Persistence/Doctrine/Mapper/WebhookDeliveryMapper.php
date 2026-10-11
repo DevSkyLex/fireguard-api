@@ -51,6 +51,9 @@ final class WebhookDeliveryMapper
         lastError: $record->lastError,
         nextRetryAt: $record->nextRetryAt,
         deliveredAt: $record->deliveredAt,
+        generation: $record->generation,
+        leaseUntil: $record->leaseUntil,
+        quarantined: $record->quarantined,
       ),
     );
   }
@@ -78,6 +81,9 @@ final class WebhookDeliveryMapper
     $record->payload = $delivery->payload();
     $record->status = $delivery->status()->value;
     $record->attempts = $delivery->attempts();
+    $record->generation = $delivery->generation();
+    $record->leaseUntil = $delivery->leaseUntil();
+    $record->quarantined = $delivery->quarantined();
     $record->httpStatus = $delivery->httpStatus();
     $record->lastError = $delivery->lastError();
     $record->nextRetryAt = $delivery->nextRetryAt();

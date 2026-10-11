@@ -6,7 +6,7 @@ namespace Onboarding\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
+use Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
 use Onboarding\Infrastructure\Persistence\Doctrine\Mapper\OrganizationOnboardingSessionMapper;
 use Onboarding\Infrastructure\Persistence\Doctrine\Record\OrganizationOnboardingSessionRecord;

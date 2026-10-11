@@ -346,7 +346,7 @@ final class ServiceRequestWorkAdapterTest extends KernelTestCase
     self::assertInstanceOf(OrganizationRecord::class, $organization);
     $order = new InterventionRecord();
     $order->id = self::ORDER;
-    $order->organization = $organization;
+    $order->organizationId = OrganizationFixtures::ORGANIZATION_ID;
     $order->type = 'corrective_maintenance';
     $order->name = 'Existing corrective draft';
     $order->number = 90001;

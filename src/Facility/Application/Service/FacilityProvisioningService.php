@@ -8,7 +8,7 @@ use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
 use Facility\Domain\Exception\{
   FacilityArchivedException,
@@ -19,7 +19,7 @@ use Facility\Domain\Exception\{
 use Facility\Domain\ValueObject\FacilityOrganizationId;
 use InvalidArgumentException;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Throwable;
 

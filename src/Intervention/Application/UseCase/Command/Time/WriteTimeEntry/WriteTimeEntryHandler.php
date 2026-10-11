@@ -6,7 +6,7 @@ namespace Intervention\Application\UseCase\Command\Time\WriteTimeEntry;
 
 use DateTimeZone;
 use Intervention\Application\Contract\Time\{TimeEntryTaskContext, TimeEntryView};
-use Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionTimeEntryRepositoryPort;
 use Intervention\Application\Service\InterventionTimeAccessPolicy;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException, InterventionPreconditionRequiredException, InterventionValidationException};
 use Intervention\Domain\Model\TimeEntry\TimeEntry;

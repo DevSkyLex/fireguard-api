@@ -18,7 +18,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -65,7 +65,8 @@ final class GetFacilityProviderTest extends TestCase
     $provider = new GetFacilityProvider(
       authorization: $authorization,
       security: $security,
-      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($queryBus),
+      detailQueries: $queryBus,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -100,7 +101,7 @@ final class GetFacilityProviderTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::exactly(2))
+    $queryBus->expects(self::once())
       ->method('ask')
       ->willReturn(new GetFacilityResult(
         facilityId: $facilityId,
@@ -115,6 +116,7 @@ final class GetFacilityProviderTest extends TestCase
         createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
         updatedAt: new DateTimeImmutable('2026-02-12T10:10:00+00:00'),
         hasChildren: true,
+        revision: 7,
         latitude: 48.8566,
         longitude: 2.3522,
         path: [['id' => '550e8400-e29b-41d4-a716-446655441299', 'name' => 'Root', 'type' => 'site']],
@@ -123,7 +125,8 @@ final class GetFacilityProviderTest extends TestCase
     $provider = new GetFacilityProvider(
       authorization: $authorization,
       security: $security,
-      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($queryBus),
+      detailQueries: $queryBus,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
     );
 
     $output = $provider->provide(
@@ -159,7 +162,8 @@ final class GetFacilityProviderTest extends TestCase
     $provider = new GetFacilityProvider(
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
-      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($queryBus),
+      detailQueries: $queryBus,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -297,7 +301,8 @@ final class GetFacilityProviderTest extends TestCase
     return new GetFacilityProvider(
       authorization: $authorization,
       security: $security,
-      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($queryBus),
+      detailQueries: $queryBus,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
     );
   }
 

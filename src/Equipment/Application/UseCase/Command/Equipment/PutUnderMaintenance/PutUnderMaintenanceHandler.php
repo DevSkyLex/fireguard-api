@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -13,11 +14,10 @@ use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, Equipmen
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\ValueObject\OrganizationId;
-use Shared\Application\Factory\UuidFactory;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
 
 use function array_map;
@@ -45,10 +45,10 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
    * @param TagRepositoryPort $tagRepository port used by equipment status handling
    * @param MaintenanceLogRepositoryPort $maintenanceLogRepository port used to record the maintenance lifecycle change
    * @param FacilityNamingPort $facilityNaming port used to resolve the facility label for the change
-   * @param OrganizationRepositoryPort $organizationRepository port used to load organization notification context
+   * @param OrganizationOwnerReadPort $organizationRepository port used to load organization notification context
    * @param NotificationPort $notificationPort port used to notify relevant users about the transition
    * @param LoggerPort $logger port used to record operational failures
-   * @param UuidFactory $uuidFactory factory used to identify generated maintenance records
+   * @param UuidGeneratorPort $uuidFactory factory used to identify generated maintenance records
    * @param EventDispatcherPort $eventDispatcher port used to publish the committed equipment event
    *
    * @return void
@@ -58,10 +58,10 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
     private TagRepositoryPort $tagRepository,
     private MaintenanceLogRepositoryPort $maintenanceLogRepository,
     private FacilityNamingPort $facilityNaming,
-    private OrganizationRepositoryPort $organizationRepository,
+    private OrganizationOwnerReadPort $organizationRepository,
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -104,7 +104,7 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
       ));
 
       /** @var MaintenanceLogId $logId */
-      $logId = $this->uuidFactory->create(MaintenanceLogId::class);
+      $logId = new MaintenanceLogId($this->uuidFactory->generate());
       $log = EquipmentMaintenanceLog::open($logId, $equipmentId, $organizationId);
       $this->maintenanceLogRepository->save($log);
     }
@@ -112,7 +112,7 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
     $tags = $this->tagRepository->findByEquipmentId($equipmentId);
 
     if (!$wasAlreadyUnderMaintenance) {
-      $organization = $this->organizationRepository->findById(new OrganizationId((string) $organizationId));
+      $organization = $this->organizationRepository->ownerUserId((string) $organizationId);
     } else {
       $organization = null;
     }
@@ -135,14 +135,14 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
             'status' => $equipment->status()->value,
             'updatedAt' => $equipment->updatedAt()->format('c'),
           ],
-          recipientUserId: $organization->ownerUserId(),
+          recipientUserId: $organization,
           organizationId: (string) $organizationId,
         ));
       } catch (Throwable $exception) {
         $this->logger->warning('Equipment under maintenance notification dispatch failed.', [
           'organizationId' => (string) $organizationId,
           'equipmentId' => (string) $equipment->id(),
-          'recipientUserId' => $organization->ownerUserId(),
+          'recipientUserId' => $organization,
           'error' => $exception->getMessage(),
         ]);
       }

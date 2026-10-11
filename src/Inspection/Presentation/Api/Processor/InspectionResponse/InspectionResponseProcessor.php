@@ -6,7 +6,7 @@ namespace Inspection\Presentation\Api\Processor\InspectionResponse;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\Contract\Response\InspectionResponseView;
 use Inspection\Application\UseCase\Command\Response\CreateInspectionResponse\{CreateInspectionResponseCommand, CreateInspectionResponseResult};
 use Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse\DeleteInspectionResponseCommand;
@@ -15,12 +15,12 @@ use Inspection\Application\UseCase\Query\Response\GetInspectionResponse\{GetInsp
 use Inspection\Domain\Exception\InspectionResponseClientIdAlreadyExistsException;
 use Inspection\Presentation\Api\Dto\Input\InspectionResponse\{CreateInspectionResponseInput, PatchInspectionResponseInput};
 use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponseOutput;
-use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException};
+use Inspection\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard, RevisionGuard};
+use Intervention\Application\Contract\Resource\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException};
+use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard, RevisionGuard};
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{RequestStack, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};
@@ -43,7 +43,7 @@ use function is_string;
  *
  * The **authorization gate** does, because the permission it needs is a
  * function of the request (`organization.inspection.write`, or whatever
- * `InterventionResourceManager::mutationPermission()` resolves for an
+ * `InterventionResourcesPort::mutationPermission()` resolves for an
  * intervention-scoped row) and because `OUTSIDE_SCOPE` must answer 404 while
  * `MISSING_PERMISSION` answers 403 — the enumeration oracle closed on
  * 2026-08-26. Every sibling processor in this module gates the same way.
@@ -76,7 +76,7 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
-   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
+   * @param InterventionResourcesPort $interventionResourceManager the intervention resource manager value
    * @param CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
    * @param RevisionGuard $revisionGuard the revision guard value
    */
@@ -86,7 +86,7 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
-    private InterventionResourceManager $interventionResourceManager,
+    private InterventionResourcesPort $interventionResourceManager,
     private CreationPreconditionGuard $creationPreconditionGuard,
     private RevisionGuard $revisionGuard,
   ) {
@@ -238,7 +238,7 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
   private function assertWrite(string $organizationId, ?string $interventionId): void
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

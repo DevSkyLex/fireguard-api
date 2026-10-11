@@ -10,7 +10,7 @@ use Equipment\Application\Contract\FloorPlan\{
   FloorPlanAttachmentNotFoundException
 };
 use Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort;
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityAttachmentAncestryGuard;
 use Facility\Domain\Exception\FacilityAttachmentNotAncestorException as DomainFacilityAttachmentNotAncestorException;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};

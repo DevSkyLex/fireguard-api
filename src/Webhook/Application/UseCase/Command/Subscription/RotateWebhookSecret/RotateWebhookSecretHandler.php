@@ -6,7 +6,8 @@ namespace Webhook\Application\UseCase\Command\Subscription\RotateWebhookSecret;
 
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
-use Webhook\Application\Port\Outbound\{WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\WebhookSecretCipherPort;
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
 

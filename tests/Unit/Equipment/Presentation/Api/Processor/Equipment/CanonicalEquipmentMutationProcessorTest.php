@@ -7,28 +7,25 @@ namespace Tests\Unit\Equipment\Presentation\Api\Processor\Equipment;
 use ApiPlatform\Metadata\{Delete, Patch};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Contract\Equipment\CanonicalEquipmentView;
 use Equipment\Application\UseCase\Command\Equipment\DeleteCanonicalEquipment\DeleteCanonicalEquipmentCommand;
 use Equipment\Application\UseCase\Command\Equipment\PatchCanonicalEquipment\PatchCanonicalEquipmentCommand;
 use Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentResult;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Dto\Input\Equipment\PatchCanonicalEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Equipment\Presentation\Api\Processor\Equipment\CanonicalEquipmentMutationProcessor;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use LogicException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -159,7 +156,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
   public function testAScratchpadRowAsksTheInterventionForThePermission(): void
   {
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
+    $resources->method('interventionAssignmentContext')->willReturn(
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
     );
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
@@ -185,7 +182,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
   public function testAMissingParentInterventionIsNotFound(): void
   {
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(null);
+    $resources->method('interventionAssignmentContext')->willReturn(null);
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -205,7 +202,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
   public function testAnImmutableParentInterventionIsAConflict(): void
   {
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
+    $resources->method('interventionAssignmentContext')->willReturn(
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'published'),
     );
 
@@ -400,9 +397,9 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
       );
     }
 
-    $manager = new InterventionResourceManager(
+    $manager = new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager(
       $resources ?? $this->createStub(InterventionResourceGatewayPort::class),
-    );
+    ));
 
     return new CanonicalEquipmentMutationProcessor(
       $commandBus ?? $this->createStub(CommandBusPort::class),
@@ -411,46 +408,15 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
       $security,
       $requestStack,
       new CanonicalEquipmentProvider(
-        $this->entityManager(),
-        $authorization,
+        $this->detailBus($this->detailQueries()),
         $security,
         $requestStack,
-        $manager,
-        detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->detailQueries(), new \Equipment\Presentation\Api\Factory\EquipmentOutputFactory()),
+        detail: new \Equipment\Presentation\Api\Service\EquipmentDetailReader($this->detailBus($this->detailQueries()), new \Equipment\Presentation\Api\Factory\EquipmentOutputFactory()),
       ),
       $manager,
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
     );
-  }
-
-  /**
-   * Method entityManager.
-   *
-   * Only `CanonicalEquipmentProvider` reaches it — the processor holds none.
-   *
-   * @return EntityManagerInterface a manager answering with one seeded record
-   */
-  private function entityManager(): EntityManagerInterface
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $record = new EquipmentRecord();
-    $record->id = self::EQUIPMENT_ID;
-    $record->organization = $organization;
-    $record->recordStatus = 'published';
-    $record->revision = 3;
-    $record->type = 'fire_extinguisher';
-    $record->status = 'in_stock';
-    $record->createdAt = new DateTimeImmutable();
-    $record->updatedAt = new DateTimeImmutable();
-    $record->attachments = new ArrayCollection();
-    $record->tagLinks = new ArrayCollection();
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($record);
-
-    return $entityManager;
   }
 
   /**
@@ -539,6 +505,21 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
         updatedAt: new DateTimeImmutable('2026-09-20'),
       )
       : new GetCanonicalEquipmentResult(new CanonicalEquipmentView(self::EQUIPMENT_ID, self::ORGANIZATION_ID, 'published', null, 3)));
+
+    return $queries;
+  }
+
+  private function detailBus(QueryBusPort $legacy): QueryBusPort
+  {
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static function (\Equipment\Application\UseCase\Query\Equipment\GetEquipmentDetail\GetEquipmentDetailQuery $query) use ($legacy): \Equipment\Application\UseCase\Query\Equipment\GetEquipmentDetail\GetEquipmentDetailResult {
+      /** @var \Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult $equipment */
+      $equipment = $legacy->ask(new \Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentQuery($query->organizationId ?? '550e8400-e29b-41d4-a716-446655441000', $query->equipmentId));
+      /** @var GetCanonicalEquipmentResult $canonical */
+      $canonical = $legacy->ask(new \Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentQuery($query->equipmentId));
+
+      return new \Equipment\Application\UseCase\Query\Equipment\GetEquipmentDetail\GetEquipmentDetailResult($equipment, $canonical->view ?? throw new LogicException('Expected canonical detail view'));
+    });
 
     return $queries;
   }

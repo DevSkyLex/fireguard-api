@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
@@ -17,11 +17,11 @@ use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -78,7 +78,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -97,17 +97,17 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
 
     $request = $this->requestStack->getCurrentRequest();
     $uriFacilityId = $uriVariables['facilityId'] ?? null;
-    $queryFacilityId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('facilityId');
+    $queryFacilityId = \Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('facilityId');
     $facilityId = self::optionalFilter($uriFacilityId) ?? self::optionalFilter($queryFacilityId);
-    $type = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('type');
-    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
-    $brand = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('brand');
-    $model = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('model');
-    $subType = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('subType');
-    $maintenanceDueStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('maintenanceDueStatus');
-    $includeDescendants = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeDescendants', false);
+    $type = \Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('type');
+    $status = \Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
+    $brand = \Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('brand');
+    $model = \Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('model');
+    $subType = \Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('subType');
+    $maintenanceDueStatus = \Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('maintenanceDueStatus');
+    $includeDescendants = \Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeDescendants', false);
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Equipment\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
@@ -135,8 +135,8 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
         sorting: SortingExtractor::fromContext(['filters' => $filters], ['type', 'status', 'brand', 'model', 'createdAt', 'updatedAt'], 'createdAt'),
         maintenanceDueStatus: self::optionalFilter($maintenanceDueStatus),
         includeDescendants: $includeDescendants,
-        family: self::optionalFilter(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('family')),
-        customerId: self::optionalFilter(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('customerId')),
+        family: self::optionalFilter(\Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('family')),
+        customerId: self::optionalFilter(\Equipment\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('customerId')),
       ));
     } catch (EquipmentNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);

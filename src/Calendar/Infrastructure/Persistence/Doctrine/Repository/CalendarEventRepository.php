@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Calendar\Infrastructure\Persistence\Doctrine\Repository;
 
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Domain\Model\Event\CalendarEvent;
 use Calendar\Domain\ValueObject\CalendarEventId;
 use Calendar\Infrastructure\Persistence\Doctrine\Mapper\CalendarEventMapper;

@@ -7,18 +7,17 @@ namespace Tests\Unit\Onboarding\Infrastructure\EventSubscriber;
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
+use Onboarding\Application\Contract\Event\OrganizationOnboardingSessionCompletedEvent;
 use Onboarding\Infrastructure\EventSubscriber\OnboardingNotificationSubscriber;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
-use Organization\Domain\ValueObject\OrganizationNotificationSettings;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\GetUserResult;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function in_array;
 
@@ -30,8 +29,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
   {
     $events = OnboardingNotificationSubscriber::getSubscribedEvents();
 
-    self::assertArrayHasKey(OrganizationOnboardingSessionCompletedEvent::class, $events);
-    self::assertSame('onOrganizationOnboardingSessionCompleted', $events[OrganizationOnboardingSessionCompletedEvent::class]);
+    self::assertArrayHasKey('onboarding.organization_onboarding_session_completed_event', $events);
+    self::assertSame('onOrganizationOnboardingSessionCompleted', $events['onboarding.organization_onboarding_session_completed_event']);
   }
 
   #[Test]
@@ -53,13 +52,13 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       }))
       ->willReturn($this->makeSentNotification());
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')
-      ->willReturn(new GetUserResult($this->buildUserView('user@example.com')));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')
+      ->willReturn($this->buildUserView('user@example.com'));
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
-      queryBus: $queryBus,
+      users: $queryBus,
       logger: $this->createStub(LoggerInterface::class),
       policyPort: $this->policyPort(),
     );
@@ -80,13 +79,13 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       }))
       ->willReturn($this->makeSentNotification());
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')
-      ->willReturn(new GetUserResult($this->buildUserView('user@example.com')));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')
+      ->willReturn($this->buildUserView('user@example.com'));
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
-      queryBus: $queryBus,
+      users: $queryBus,
       logger: $this->createStub(LoggerInterface::class),
       policyPort: $this->policyPort(emailEnabled: false),
     );
@@ -100,13 +99,13 @@ final class OnboardingNotificationSubscriberTest extends TestCase
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::never())->method('send');
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')
-      ->willReturn(new GetUserResult($this->buildUserView('user@example.com')));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')
+      ->willReturn($this->buildUserView('user@example.com'));
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
-      queryBus: $queryBus,
+      users: $queryBus,
       logger: $this->createStub(LoggerInterface::class),
       policyPort: $this->policyPort(emailEnabled: false, inAppEnabled: false),
     );
@@ -131,13 +130,13 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       ->willReturn($this->makeSentNotification());
 
     // GetUserResult with user = null → email cannot be resolved
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')
-      ->willReturn(new GetUserResult(null));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')
+      ->willReturn(null);
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
-      queryBus: $queryBus,
+      users: $queryBus,
       logger: $this->createStub(LoggerInterface::class),
       policyPort: $this->policyPort(),
     );
@@ -159,8 +158,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       }))
       ->willReturn($this->makeSentNotification());
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')
       ->willThrowException(new RuntimeException('User not found'));
 
     /**
@@ -170,7 +169,7 @@ final class OnboardingNotificationSubscriberTest extends TestCase
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
-      queryBus: $queryBus,
+      users: $queryBus,
       logger: $logger,
       policyPort: $this->policyPort(),
     );
@@ -185,9 +184,9 @@ final class OnboardingNotificationSubscriberTest extends TestCase
     $notificationPort->method('send')
       ->willThrowException(new RuntimeException('Notification delivery failed'));
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')
-      ->willReturn(new GetUserResult($this->buildUserView()));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')
+      ->willReturn($this->buildUserView());
 
     /**
      * @var LoggerInterface&MockObject $logger */
@@ -198,7 +197,7 @@ final class OnboardingNotificationSubscriberTest extends TestCase
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
-      queryBus: $queryBus,
+      users: $queryBus,
       logger: $logger,
       policyPort: $this->policyPort(),
     );
@@ -223,13 +222,13 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       }))
       ->willReturn($this->makeSentNotification());
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')
-      ->willReturn(new GetUserResult($this->buildUserView()));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')
+      ->willReturn($this->buildUserView());
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
-      queryBus: $queryBus,
+      users: $queryBus,
       logger: $this->createStub(LoggerInterface::class),
       policyPort: $this->policyPort(),
     );

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember;
 
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Application\Contract\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Shared\Application\Message\CommandHandler;

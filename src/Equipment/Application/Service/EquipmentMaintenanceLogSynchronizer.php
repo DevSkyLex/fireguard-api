@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Equipment\Application\Service;
 
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
-use Equipment\Application\Port\Outbound\MaintenanceLogRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\MaintenanceLogRepositoryPort;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, MaintenanceLogId};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Service EquipmentMaintenanceLogSynchronizer.
@@ -42,11 +42,11 @@ final readonly class EquipmentMaintenanceLogSynchronizer implements EquipmentMai
    * @since 1.0.0
    *
    * @param MaintenanceLogRepositoryPort $maintenanceLogRepository the maintenance log repository port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    */
   public function __construct(
     private MaintenanceLogRepositoryPort $maintenanceLogRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -77,7 +77,7 @@ final readonly class EquipmentMaintenanceLogSynchronizer implements EquipmentMai
 
     if (self::UNDER_MAINTENANCE === $newStatus) {
       /** @var MaintenanceLogId $logId */
-      $logId = $this->uuidFactory->create(MaintenanceLogId::class);
+      $logId = new MaintenanceLogId($this->uuidFactory->generate());
       $this->maintenanceLogRepository->save(EquipmentMaintenanceLog::open(
         $logId,
         EquipmentId::fromString($equipmentId),

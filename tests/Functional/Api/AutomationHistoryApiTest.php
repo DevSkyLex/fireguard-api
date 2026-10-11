@@ -6,14 +6,14 @@ namespace Tests\Functional\Api;
 
 use Automation\Application\Contract\Policy\AutomationPolicy;
 use Automation\Application\Port\Outbound\{AutomationPolicyPort, AutomationRunPort};
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Contracts\Service\ResetInterface;
 use Tests\Support\Auth\InteractiveTokenFactory;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
 use function in_array;

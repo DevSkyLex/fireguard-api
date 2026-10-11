@@ -7,7 +7,7 @@ namespace User\Infrastructure\Persistence\Doctrine\Repository;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Domain\ValueObject\Email;
-use User\Application\Port\Outbound\EmailChangeRequestRepositoryPort;
+use User\Application\Port\Outbound\Internal\EmailChangeRequestRepositoryPort;
 use User\Domain\Model\EmailChange\{EmailChangeRequest, RestoredEmailChangeTimeline};
 use User\Domain\ValueObject\UserId;
 use User\Infrastructure\Persistence\Doctrine\Record\UserEmailChangeRequestRecord;

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Messaging\Application\UseCase\Command\Message\UnsaveMessage;
 
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Application\Port\Outbound\{MessagingMessageRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\MessagingSavedMessageRepositoryPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Message\Message;

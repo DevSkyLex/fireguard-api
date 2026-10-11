@@ -7,7 +7,7 @@ namespace Tests\Unit\Session\Application\UseCase\Query\Session\ListUserSessions;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\UseCase\Query\Session\ListUserSessions\{ListUserSessionsHandler, ListUserSessionsQuery};
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;

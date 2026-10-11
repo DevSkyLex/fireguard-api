@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Compliance\Application\UseCase\Query\Snapshot\ListSafetyRegisterSnapshots;
 
-use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterSnapshotRepositoryPort};
+use Compliance\Application\Port\Outbound\ComplianceExportEntitlementPort;
+use Compliance\Application\Port\Outbound\Internal\SafetyRegisterSnapshotRepositoryPort;
 use Compliance\Application\UseCase\Query\Snapshot\ListSafetyRegisterSnapshots\{ListSafetyRegisterSnapshotsHandler, ListSafetyRegisterSnapshotsQuery};
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceExportNotEntitledException, ComplianceNotFoundException};
 use Compliance\Domain\Model\Snapshot\{SafetyRegisterSnapshot, SafetyRegisterStoredFile};

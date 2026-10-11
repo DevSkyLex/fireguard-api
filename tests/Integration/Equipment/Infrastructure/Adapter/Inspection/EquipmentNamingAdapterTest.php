@@ -95,10 +95,11 @@ final class EquipmentNamingAdapterTest extends KernelTestCase
   private function createEquipment(string $id, ?string $serialNumber): void
   {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
 
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->serialNumber = $serialNumber;
     $equipment->status = 'operational';

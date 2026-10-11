@@ -162,7 +162,7 @@ final class ParkAnomalyRepositoryTest extends KernelTestCase
   {
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = $equipmentId;
     $inspection->recordStatus = $publicationState;
     $inspection->inspectorType = 'user';

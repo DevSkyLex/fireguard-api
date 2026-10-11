@@ -11,8 +11,8 @@ use Intervention\Application\Contract\Label\{InterventionLabelPage, Intervention
 use Intervention\Application\Port\Outbound\InterventionLabelPort;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionLabelRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Application\Factory\UuidFactory;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
 
 use function array_map;
@@ -39,11 +39,12 @@ final readonly class DoctrineInterventionLabelAdapter implements InterventionLab
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
+    private OrganizationOwnerReadPort $organizations,
   ) {
   }
 
@@ -60,15 +61,15 @@ final readonly class DoctrineInterventionLabelAdapter implements InterventionLab
    */
   public function create(string $organizationId, string $name, string $color): InterventionLabelView
   {
-    $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
-    if (!$organization instanceof OrganizationRecord) {
+    $organization = $organizationId;
+    if (null === $this->organizations->ownerUserId($organization)) {
       throw InterventionNotFoundException::withId($organizationId);
     }
 
     $now = new DateTimeImmutable();
     $record = new InterventionLabelRecord();
-    $record->id = $this->uuidFactory->generateRaw();
-    $record->organization = $organization;
+    $record->id = $this->uuidFactory->generate();
+    $record->organizationId = $organization;
     $record->name = $name;
     $record->color = $color;
     $record->createdAt = $now;
@@ -158,11 +159,11 @@ final readonly class DoctrineInterventionLabelAdapter implements InterventionLab
   {
     $page = max(1, $page);
     $itemsPerPage = max(1, min(100, $itemsPerPage));
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
     $qb = $this->entityManager->createQueryBuilder()
       ->select('l')
       ->from(InterventionLabelRecord::class, 'l')
-      ->where('l.organization = :organization')
+      ->where('l.organizationId = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('l.name', 'ASC');
     $total = (int) (clone $qb)
@@ -264,10 +265,10 @@ final readonly class DoctrineInterventionLabelAdapter implements InterventionLab
    */
   private function organizationId(InterventionLabelRecord $record): string
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new InterventionConflictException('Intervention label organization is missing.');
     }
 
-    return $record->organization->id;
+    return $record->organizationId;
   }
 }

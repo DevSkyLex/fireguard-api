@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Otp\Application\Service;
 
-use Otp\Application\Port\Outbound\Totp\TotpEnrollmentRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Totp\TotpEnrollmentRepositoryPort;
 use Otp\Application\Service\TotpStatusService;
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Otp\Domain\ValueObject\TotpSecret;

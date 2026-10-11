@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Infrastructure\Adapter\Inspection;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{
   EquipmentFacilityId,
@@ -19,6 +19,7 @@ use Equipment\Infrastructure\Adapter\Inspection\EquipmentValidationAdapter;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(EquipmentValidationAdapter::class)]
 final class EquipmentValidationAdapterTest extends TestCase
@@ -101,8 +102,8 @@ final class EquipmentValidationAdapterTest extends TestCase
   {
     $adapter = new EquipmentValidationAdapter($this->repositoryReturning(null));
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('not found');
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Equipment with ID "' . self::EQUIP_ID . '" not found.');
 
     $adapter->assertEquipmentIsInspectable(self::EQUIP_ID, self::ORG_ID, null);
   }
@@ -114,8 +115,8 @@ final class EquipmentValidationAdapterTest extends TestCase
       $this->equipment(EquipmentStatus::OPERATIONAL, self::FACILITY_ID),
     ));
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('not found');
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Equipment with ID "' . self::EQUIP_ID . '" not found.');
 
     $adapter->assertEquipmentIsInspectable(self::EQUIP_ID, '550e8400-e29b-41d4-a716-446655440099', null);
   }
@@ -127,8 +128,8 @@ final class EquipmentValidationAdapterTest extends TestCase
       $this->equipment(EquipmentStatus::DECOMMISSIONED, self::FACILITY_ID),
     ));
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('decommissioned');
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Equipment with ID "' . self::EQUIP_ID . '" is decommissioned and cannot be inspected.');
 
     $adapter->assertEquipmentIsInspectable(self::EQUIP_ID, self::ORG_ID, self::FACILITY_ID);
   }
@@ -140,8 +141,8 @@ final class EquipmentValidationAdapterTest extends TestCase
       $this->equipment(EquipmentStatus::IN_STOCK, null),
     ));
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('not assigned to facility');
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Equipment with ID "' . self::EQUIP_ID . '" is not assigned to facility "' . self::FACILITY_ID . '" and cannot be inspected there.');
 
     $adapter->assertEquipmentIsInspectable(self::EQUIP_ID, self::ORG_ID, self::FACILITY_ID);
   }
@@ -153,8 +154,8 @@ final class EquipmentValidationAdapterTest extends TestCase
       $this->equipment(EquipmentStatus::OPERATIONAL, self::OTHER_FACILITY_ID),
     ));
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('not assigned to facility');
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Equipment with ID "' . self::EQUIP_ID . '" is not assigned to facility "' . self::FACILITY_ID . '" and cannot be inspected there.');
 
     $adapter->assertEquipmentIsInspectable(self::EQUIP_ID, self::ORG_ID, self::FACILITY_ID);
   }

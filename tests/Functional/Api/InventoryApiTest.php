@@ -342,9 +342,9 @@ final class InventoryApiTest extends WebTestCase
   {
     $client = self::createClient();
     $client->disableReboot();
-    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users = $this->createStub(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class);
     $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
-    self::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    self::getContainer()->set(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class, $users);
     $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(self::getContainer(), self::USER, 'inventory@corp.example'));
     $em = $this->manager();
     $now = new DateTimeImmutable();
@@ -380,7 +380,7 @@ final class InventoryApiTest extends WebTestCase
     $em->persist($assignment);
     $intervention = new InterventionRecord();
     $intervention->id = self::INTERVENTION;
-    $intervention->organization = $org;
+    $intervention->organizationId = $org->id;
     $intervention->name = 'Stock intervention';
     $intervention->type = 'maintenance';
     $intervention->status = 'in_progress';

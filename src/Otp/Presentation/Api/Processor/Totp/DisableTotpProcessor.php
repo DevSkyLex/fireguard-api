@@ -11,7 +11,7 @@ use Otp\Application\UseCase\Command\Totp\DisableTotp\{DisableTotpCommand, Disabl
 use Otp\Domain\Exception\TotpDisableTemporarilyLockedException;
 use Otp\Presentation\Api\Dto\Input\Totp\DisableTotpInput;
 use Otp\Presentation\Api\Dto\Output\Totp\DisableTotpOutput;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;

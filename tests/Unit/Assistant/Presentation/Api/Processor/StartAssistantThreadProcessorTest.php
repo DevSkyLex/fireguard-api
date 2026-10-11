@@ -66,7 +66,7 @@ final class StartAssistantThreadProcessorTest extends TestCase
 
     $processor = new StartAssistantThreadProcessor($commandBus, $security, new AssistantThreadOutputFactory());
 
-    $output = $processor->process($input, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process($input, new Post(), ['organizationId' => self::ORGANIZATION_ID]));
 
     self::assertInstanceOf(StartAssistantThreadCommand::class, $captured);
     self::assertSame(self::USER_ID, $captured->actorUserId);
@@ -92,7 +92,7 @@ final class StartAssistantThreadProcessorTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $processor->process(new StartAssistantThreadInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process(new StartAssistantThreadInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -111,7 +111,7 @@ final class StartAssistantThreadProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(new StartAssistantThreadInput(), new Post(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process(new StartAssistantThreadInput(), new Post(), []));
   }
 
   #[Test]
@@ -132,6 +132,6 @@ final class StartAssistantThreadProcessorTest extends TestCase
     $this->expectException(UnprocessableEntityHttpException::class);
     $this->expectExceptionMessage('The model "gpt-4" is not permitted by the configured allowlist.');
 
-    $processor->process(new StartAssistantThreadInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $processor->process(new StartAssistantThreadInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 }

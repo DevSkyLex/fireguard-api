@@ -4,14 +4,31 @@ services:
     autoconfigure: true
 
   # User Module
+  User\Application\Port\Inbound\UserDirectoryPort:
+    alias: User\Application\Service\UserDirectoryService
+  User\Application\Service\UserDirectoryService: ~
+  User\Application\Port\Inbound\UserCredentialsPort:
+    alias: User\Application\Service\UserCredentialsService
+  User\Application\Service\UserCredentialsService: ~
+  User\Application\Port\Inbound\UserRegistrationPort:
+    alias: User\Application\Service\UserRegistrationService
+  User\Application\Service\UserRegistrationService: ~
+  User\Application\Port\Inbound\UserAuthenticationPort:
+    alias: User\Application\Service\UserAuthenticationService
+  User\Application\Service\UserAuthenticationService: ~
   User\Application\Port\Inbound\AccountStatusPort:
     alias: User\Infrastructure\Adapter\User\AccountStatusAdapter
   User\Infrastructure\Adapter\User\AccountStatusAdapter:
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
 
-  User\Application\Port\Outbound\UserRepositoryPort:
+  User\Application\Port\Outbound\Internal\UserRepositoryPort:
     class: User\Infrastructure\Persistence\Doctrine\Repository\UserRepository
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  User\Application\Port\Outbound\AvatarPersistencePort:
+    class: User\Infrastructure\Adapter\User\AvatarPersistenceAdapter
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
 
@@ -19,6 +36,7 @@ services:
     class: User\Infrastructure\Adapter\User\UserDataPurgeAdapter
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
+      $avatarCleanup: '@shared.auth_file_cleanup'
 
   User\Application\Port\Inbound\FederatedUserPort:
     alias: User\Application\Service\FederatedUserService
@@ -27,7 +45,7 @@ services:
 
   # Email change requests live on the auth database; the entity manager is
   # named explicitly so autowiring can never pick the wrong one.
-  User\Application\Port\Outbound\EmailChangeRequestRepositoryPort:
+  User\Application\Port\Outbound\Internal\EmailChangeRequestRepositoryPort:
     class: User\Infrastructure\Persistence\Doctrine\Repository\UserEmailChangeRequestRepository
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
@@ -144,3 +162,14 @@ services:
   User\Presentation\Api\Provider\Presence\GetPresencePreferenceProvider: ~
   User\Presentation\Api\Provider\Presence\GetPresencePreferenceSubscriptionProvider: ~
   User\Presentation\Api\Processor\Presence\UpdatePresencePreferenceProcessor: ~
+
+  User\Application\UseCase\Query\Avatar\GetUserAvatar\GetUserAvatarHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\Port\Outbound\AvatarStoragePort:
+    alias: User\Infrastructure\Image\AvatarResizer
+  User\Application\UseCase\Command\Avatar\UploadUserAvatar\UploadUserAvatarHandler:
+    arguments:
+      $transactions: '@shared.auth_root_transaction'
+      $cleanup: '@shared.auth_file_cleanup'
+    tags: ['messenger.message_handler']

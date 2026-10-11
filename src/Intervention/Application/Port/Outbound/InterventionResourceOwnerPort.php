@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Port\Outbound;
 
-use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
-use Intervention\Domain\ValueObject\InterventionResourceType;
+use Intervention\Application\Contract\Resource\{InterventionResourceAssignment, InterventionResourceType};
 
 /**
  * Interface InterventionResourceOwnerPort.

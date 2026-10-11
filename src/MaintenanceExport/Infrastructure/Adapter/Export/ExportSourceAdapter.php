@@ -9,7 +9,8 @@ use Intervention\Application\Port\Inbound\{InterventionCostSourceFactsPort, Inte
 use MaintenanceCost\Application\Contract\Cost\{MaintenanceCostItem, MaintenanceCostTotals};
 use MaintenanceCost\Application\Port\Inbound\MaintenanceCostReadPort;
 use MaintenanceExport\Application\Contract\ExportSourceState;
-use MaintenanceExport\Application\Port\Outbound\{MaintenanceExportRepositoryPort, MaintenanceExportSourcePort};
+use MaintenanceExport\Application\Port\Outbound\Internal\MaintenanceExportRepositoryPort;
+use MaintenanceExport\Application\Port\Outbound\MaintenanceExportSourcePort;
 use MaintenanceExport\Domain\Exception\MaintenanceExportException;
 use MaintenanceExport\Domain\ValueObject\ExportArtifact;
 

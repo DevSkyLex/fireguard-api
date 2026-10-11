@@ -7,7 +7,7 @@ namespace OAuth\Infrastructure\OAuth2\League\Repository;
 use League\OAuth2\Server\Entities\{ClientEntityInterface, ScopeEntityInterface};
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
-use OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\OAuthClientRepositoryPort;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scope;
 use OAuth\Domain\ValueObject\Security\GrantType;

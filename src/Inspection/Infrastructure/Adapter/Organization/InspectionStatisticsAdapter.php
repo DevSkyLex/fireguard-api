@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Adapter\Organization;
 
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria};
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, InspectionResult, InspectionStatus, InspectorType};
 use Organization\Application\Port\Outbound\InspectionStatisticsPort;
 

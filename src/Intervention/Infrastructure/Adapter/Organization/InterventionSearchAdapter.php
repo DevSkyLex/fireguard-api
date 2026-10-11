@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Intervention\Infrastructure\Adapter\Organization;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Application\Contract\Search\OrganizationSearchHit;
 use Organization\Application\Port\Outbound\InterventionSearchPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function ctype_digit;
 use function max;
@@ -51,13 +50,13 @@ final readonly class InterventionSearchAdapter implements InterventionSearchPort
    */
   public function search(string $organizationId, string $term, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('intervention')
       ->from(InterventionRecord::class, 'intervention')
-      ->where('intervention.organization = :organization')
+      ->where('intervention.organizationId = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('intervention.updatedAt', 'DESC')
       ->setMaxResults(max(1, $limit));

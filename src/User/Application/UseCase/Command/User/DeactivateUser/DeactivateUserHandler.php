@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\User\DeactivateUser;
 
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\Service\EventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\ValueObject\UserId;
 
@@ -38,13 +38,13 @@ final readonly class DeactivateUserHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param UserRepositoryPort $userRepository the user repository
-   * @param SessionRepositoryPort $sessionRepository the session repository port (Session module)
+   * @param SessionRevocationPort $sessionRepository the session repository port (Session module)
    * @param EventBusPort $eventBus the event bus
    * @param EventIdProvider $eventIdProvider the event ID provider
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository,
-    private readonly SessionRepositoryPort $sessionRepository,
+    private readonly SessionRevocationPort $sessionRepository,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
   ) {

@@ -6,7 +6,7 @@ namespace Webhook\Application\UseCase\Query\Delivery\ListWebhookDeliveries;
 
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
 

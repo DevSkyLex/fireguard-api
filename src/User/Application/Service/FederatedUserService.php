@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace User\Application\Service;
 
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\Email;
 use User\Application\Contract\Federation\FederatedUser;
 use User\Application\Port\Inbound\FederatedUserPort;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -59,7 +59,7 @@ final readonly class FederatedUserService implements FederatedUserPort
    * @access public
    *
    * @param UserRepositoryPort $users port owning local user persistence
-   * @param UuidFactory $uuidFactory factory for newly provisioned user identifiers
+   * @param UuidGeneratorPort $uuidFactory factory for newly provisioned user identifiers
    * @param HashingPort $hashing hashes the initial local password
    * @param EventBusPort $eventBus publishes domain events after provisioning is persisted
    * @param EventIdProvider $eventIdProvider supplies identities for events produced by the new aggregate
@@ -68,7 +68,7 @@ final readonly class FederatedUserService implements FederatedUserPort
    */
   public function __construct(
     private UserRepositoryPort $users,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private HashingPort $hashing,
     private EventBusPort $eventBus,
     private EventIdProvider $eventIdProvider,
@@ -119,7 +119,7 @@ final readonly class FederatedUserService implements FederatedUserPort
     }
 
     $user = User::registerFederated(
-      id: $this->uuidFactory->create(UserId::class),
+      id: new UserId($this->uuidFactory->generate()),
       username: $this->deriveUniqueUsername($normalizedEmail->value),
       email: $normalizedEmail,
       profile: new UserProfile(

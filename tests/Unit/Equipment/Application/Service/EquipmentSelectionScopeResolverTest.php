@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\Service;
 
 use Customer\Application\Port\Inbound\CustomerLookupPort;
-use Equipment\Application\Port\Outbound\{EquipmentTypeCatalogPort, FacilityCustomerScopePort};
+use Equipment\Application\Port\Outbound\FacilityCustomerScopePort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort;
 use Equipment\Application\Service\EquipmentSelectionScopeResolver;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\EquipmentTypeCatalog\EquipmentTypeDefinition;

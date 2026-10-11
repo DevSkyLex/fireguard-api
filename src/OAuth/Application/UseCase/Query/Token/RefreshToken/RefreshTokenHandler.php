@@ -8,11 +8,10 @@ use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use OAuth\Application\Port\Outbound\SessionRotationPort;
 use OAuth\Domain\Event\Token\{TokenRefreshFailedEvent, TokenRefreshedEvent};
 use Shared\Application\Message\QueryHandler;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
 use UnexpectedValueException;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_key_exists;
 use function is_bool;
@@ -33,12 +32,12 @@ final readonly class RefreshTokenHandler implements QueryHandler
    * Constructor.
    *
    * @param JwtTokenServicePort $tokenService the JWT token service
-   * @param QueryBusPort $queryBus the query bus
+   * @param UserDirectoryPort $queryBus the query bus
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
    */
   public function __construct(
     private JwtTokenServicePort $tokenService,
-    private QueryBusPort $queryBus,
+    private UserDirectoryPort $queryBus,
     private EventDispatcherPort $eventDispatcher,
     private SessionRotationPort $sessions,
   ) {
@@ -141,10 +140,9 @@ final readonly class RefreshTokenHandler implements QueryHandler
   private function verifyUserActive(string $userId, ?string $ipAddress): ?RefreshTokenResult
   {
     try {
-      /** @var GetUserResult $userResult */
-      $userResult = $this->queryBus->ask(new GetUserQuery(id: $userId));
+      $userResult = $this->queryBus->findById($userId);
 
-      if (null === $userResult->user) {
+      if (null === $userResult) {
         $this->eventDispatcher->dispatch(new TokenRefreshFailedEvent(
           userId: $userId,
           ipAddress: $ipAddress,
@@ -154,7 +152,7 @@ final readonly class RefreshTokenHandler implements QueryHandler
         return RefreshTokenResult::failed('User not found');
       }
 
-      if (!$userResult->user->canLogin) {
+      if (!$userResult->canLogin) {
         $this->eventDispatcher->dispatch(new TokenRefreshFailedEvent(
           userId: $userId,
           ipAddress: $ipAddress,

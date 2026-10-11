@@ -6,7 +6,8 @@ namespace Tests\Unit\Assistant\Application\UseCase\Command\Message\GenerateAssis
 
 use Assistant\Application\Contract\Context\{AssistantContextBudget, AssistantContextFragment, AssistantContextScope};
 use Assistant\Application\Contract\Generation\AssistantGenerationOutcome;
-use Assistant\Application\Port\Outbound\{AssistantContextProviderPort, AssistantGenerationClientPort, AssistantMessageRepositoryPort, AssistantRealtimePublisherPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Port\Outbound\{AssistantContextProviderPort, AssistantGenerationClientPort};
+use Assistant\Application\Port\Outbound\Internal\{AssistantMessageRepositoryPort, AssistantRealtimePublisherPort, AssistantThreadRepositoryPort};
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\{AssistantContextAssembler, AssistantPromptBuilder};
 use Assistant\Application\UseCase\Command\Message\GenerateAssistantReply\{GenerateAssistantReplyCommand, GenerateAssistantReplyHandler};

@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Webhook\Application\UseCase\Query\Subscription\GetWebhookSubscription\GetWebhookSubscriptionResult;
 use Webhook\Application\UseCase\Query\Subscription\ListWebhookSubscriptions\{ListWebhookSubscriptionsQuery, ListWebhookSubscriptionsResult};
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
@@ -165,7 +165,7 @@ final class ListWebhookSubscriptionsProviderTest extends TestCase
       new WebhookSubscriptionOutputFactory(),
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(WebhookSubscriptionNotFoundException::class);
 
     $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
   }

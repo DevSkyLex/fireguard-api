@@ -403,8 +403,8 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     self::assertInstanceOf(\Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransport::class, $sender);
     $sender->setup();
     $connection->executeStatement('DELETE FROM messenger_messages WHERE queue_name = ?', ['intervention_workflow_regression']);
-    $ids = static::getContainer()->get(\Shared\Application\Factory\UuidFactory::class);
-    self::assertInstanceOf(\Shared\Application\Factory\UuidFactory::class, $ids);
+    $ids = static::getContainer()->get(\Shared\Application\Port\Outbound\UuidGeneratorPort::class);
+    self::assertInstanceOf(\Shared\Application\Port\Outbound\UuidGeneratorPort::class, $ids);
     $this->eventDispatcher->delegate = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($connection, $sender, $ids, $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
     $mutation = new InterventionWorkflowMutation(resource: 'intervention', action: 'update', userId: self::ACTOR_USER_ID, id: self::TRANSITION_ID, payload: ['status' => 'in_progress'], expectedRevision: 1);
     $transactions = static::getContainer()->get(\Intervention\Infrastructure\Adapter\Workflow\InterventionTransactionManagerAdapter::class);
@@ -461,7 +461,7 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
 
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->type = 'site_setup';
     $record->name = $name;
     $record->number = $number;
@@ -482,7 +482,7 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     $now = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->type = 'site_setup';
     $record->name = $name;
     $record->number = $number;
@@ -505,7 +505,7 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
 
     $label = new InterventionLabelRecord();
     $label->id = self::LABEL_ID;
-    $label->organization = $organization;
+    $label->organizationId = self::ORGANIZATION_ID;
     $label->name = 'Recall';
     $label->color = '#ff0000';
     $label->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');

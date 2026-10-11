@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Checklist\CreateChecklist;
 
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException as DbalUniqueConstraintViolationException;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Application\UseCase\Command\Checklist\CreateChecklist\{
   CreateChecklistCommand,
   CreateChecklistHandler,
@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -98,7 +98,7 @@ final class CreateChecklistHandlerTest extends TestCase
         return '23505';
       }
     };
-    $uniqueViolation = new UniqueConstraintViolationException($driverException, null);
+    $uniqueViolation = new UniqueConstraintViolationException(new DbalUniqueConstraintViolationException($driverException, null));
 
     /** @var ChecklistRepositoryPort&MockObject $repository */
     $repository = $this->createMock(ChecklistRepositoryPort::class);
@@ -150,7 +150,7 @@ final class CreateChecklistHandlerTest extends TestCase
         return '23505';
       }
     };
-    $uniqueViolation = new UniqueConstraintViolationException($driverException, null);
+    $uniqueViolation = new UniqueConstraintViolationException(new DbalUniqueConstraintViolationException($driverException, null));
 
     /** @var ChecklistRepositoryPort&MockObject $repository */
     $repository = $this->createMock(ChecklistRepositoryPort::class);
@@ -171,11 +171,11 @@ final class CreateChecklistHandlerTest extends TestCase
     ));
   }
 
-  private function makeUuidFactory(): UuidFactory
+  private function makeUuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn(self::GENERATED_UUID);
 
-    return new UuidFactory($generator);
+    return $generator;
   }
 }

@@ -7,14 +7,15 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Channel\UpdateChannel
 use DateTimeImmutable;
 use Messaging\Application\Contract\Channel\ChannelView;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Channel\UpdateChannel\{UpdateChannelCommand, UpdateChannelHandler};
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Conversation\Conversation;
 use Messaging\Domain\ValueObject\{ChannelName, ConversationId, MessagingSubjectType};
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree\{
   DuplicateFacilitySubtreeCommand,
   DuplicateFacilitySubtreeHandler,
@@ -19,8 +19,8 @@ use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function array_fill;
 
@@ -103,11 +103,10 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
         $saved[] = $facility;
       });
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::exactly(3))
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturnOnConsecutiveCalls($rootCloneId, $child1CloneId, $grandchildCloneId);
+      ->method('generate')
+      ->willReturnOnConsecutiveCalls((string) $rootCloneId, (string) $child1CloneId, (string) $grandchildCloneId);
 
     /** @var OrganizationQuotaPort&MockObject $quota */
     $quota = $this->createMock(OrganizationQuotaPort::class);
@@ -182,8 +181,8 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
     $repository->expects(self::never())->method('findDescendants');
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $quota = $this->createMock(OrganizationQuotaPort::class);
     $quota->expects(self::never())->method('assertCanAddMultiple');
@@ -217,11 +216,10 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
     $repository->expects(self::once())->method('findDescendants')->willReturn([]);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(FacilityId::class)
-      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655442020'));
+      ->method('generate')
+      ->willReturn('550e8400-e29b-41d4-a716-446655442020');
 
     /** @var OrganizationQuotaPort&MockObject $quota */
     $quota = $this->createMock(OrganizationQuotaPort::class);
@@ -273,8 +271,8 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
     $repository->expects(self::once())->method('findDescendants')->willReturn(array_fill(0, 500, $filler));
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $quota = $this->createMock(OrganizationQuotaPort::class);
     $quota->expects(self::never())->method('assertCanAddMultiple');
@@ -308,8 +306,8 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
     $repository->expects(self::never())->method('findDescendants');
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $quota = $this->createMock(OrganizationQuotaPort::class);
     $quota->expects(self::never())->method('assertCanAddMultiple');
@@ -326,7 +324,7 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
 
   private function handler(
     FacilityRepositoryPort $repository,
-    UuidFactory $uuidFactory,
+    UuidGeneratorPort $uuidFactory,
     ?OrganizationQuotaPort $quota = null,
     ?EventDispatcherPort $eventDispatcher = null,
   ): DuplicateFacilitySubtreeHandler {

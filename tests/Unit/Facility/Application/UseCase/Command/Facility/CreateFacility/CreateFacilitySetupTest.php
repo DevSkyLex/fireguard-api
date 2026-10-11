@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\CreateFacility;
 
-use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityHandler};
 use Facility\Domain\Model\Facility\Facility;
@@ -14,8 +14,8 @@ use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Durable organization setup recovery.
@@ -43,8 +43,8 @@ final class CreateFacilitySetupTest extends TestCase
     $setup = $this->createMock(OrganizationSetupPort::class);
     $setup->method('begin')->willReturn(new OrganizationSetupOperation('create_first_facility', 'site', ['name' => 'Saved site', 'type' => 'site'], $id));
     $setup->expects(self::never())->method('complete');
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(FacilityId::fromString('cc11c711-0000-4000-8000-000000000199'));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn('cc11c711-0000-4000-8000-000000000199');
     $transactions = $this->createStub(TransactionManagerPort::class);
     $transactions->method('transactional')->willReturnCallback(static fn (callable $work): mixed => $work());
     $metadata = $this->createStub(FacilityMetadataFieldRepositoryPort::class);

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Query\Facility\GetFacility;
 
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\FacilityEquipmentDependencyPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
@@ -41,6 +42,7 @@ final readonly class GetFacilityHandler implements QueryHandler
     private FacilityEquipmentDependencyPort $equipmentDependency,
     private FacilitySpatialValidityResolver $spatial,
     private FacilityHierarchyPort $hierarchy,
+    private \Facility\Application\Port\Outbound\Internal\CanonicalFacilityRepositoryPort $canonical,
   ) {
   }
   // #endregion
@@ -68,11 +70,15 @@ final readonly class GetFacilityHandler implements QueryHandler
       throw FacilityNotFoundException::withId($query->facilityId);
     }
 
+    $canonical = $this->canonical->findById($facilityId);
     $geometry = $facility->planGeometryData();
     $attachmentId = $geometry['attachmentId'] ?? null;
     $context = $this->spatial->context((string) $organizationId, [(string) $facilityId], is_string($attachmentId) ? [$attachmentId] : []);
 
     return new GetFacilityResult(
+      recordStatus: $canonical?->recordStatus()->value ?? 'published',
+      interventionId: $canonical?->interventionId(),
+      revision: $canonical?->revision() ?? 1,
       facilityId: (string) $facility->id(),
       organizationId: (string) $facility->organizationId(),
       parentFacilityId: $facility->parentFacilityId()?->__toString(),

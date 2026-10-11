@@ -10,12 +10,10 @@ use Approval\Application\UseCase\Command\Decision\RejectApprovalRequest\{RejectA
 use Approval\Presentation\Api\Dto\Input\RejectApprovalRequestInput;
 use Approval\Presentation\Api\Dto\Output\ApprovalRequestOutput;
 use Approval\Presentation\Api\Factory\ApprovalRequestOutputFactory;
-use Approval\Presentation\Api\Trait\ApprovalExceptionMapperTrait;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -34,8 +32,6 @@ use function is_string;
  */
 final readonly class RejectApprovalRequestProcessor implements ProcessorInterface
 {
-  use ApprovalExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -69,7 +65,7 @@ final readonly class RejectApprovalRequestProcessor implements ProcessorInterfac
   {
     /** @var RejectApprovalRequestInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -80,17 +76,13 @@ final readonly class RejectApprovalRequestProcessor implements ProcessorInterfac
       throw new BadRequestHttpException('OrganizationId and requestId URI parameters are required.');
     }
 
-    try {
-      /** @var RejectApprovalRequestResult $result */
-      $result = $this->commandBus->dispatch(new RejectApprovalRequestCommand(
-        organizationId: $organizationId,
-        requestId: $requestId,
-        actorUserId: $user->getId(),
-        decisionNote: $data->decisionNote,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapApprovalException($exception);
-    }
+    /** @var RejectApprovalRequestResult $result */
+    $result = $this->commandBus->dispatch(new RejectApprovalRequestCommand(
+      organizationId: $organizationId,
+      requestId: $requestId,
+      actorUserId: $user->getId(),
+      decisionNote: $data->decisionNote,
+    ));
 
     return $this->outputFactory->fromView($result);
   }

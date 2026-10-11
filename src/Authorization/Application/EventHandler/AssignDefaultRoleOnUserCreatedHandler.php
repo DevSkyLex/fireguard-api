@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Authorization\Application\EventHandler;
 
-use Authorization\Application\Port\Outbound\{RoleAssignmentRepositoryPort, RoleRepositoryPort};
+use Authorization\Application\Port\Outbound\Internal\{RoleAssignmentRepositoryPort, RoleRepositoryPort};
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\Model\RoleAssignment\RoleAssignment;
 use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleName, SubjectType};
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 use Throwable;
-use User\Domain\Event\UserCreatedEvent;
+use User\Application\Contract\Event\UserCreatedEvent;
 
 /**
  * Handler AssignDefaultRoleOnUserCreatedHandler.
@@ -52,13 +51,13 @@ final readonly class AssignDefaultRoleOnUserCreatedHandler
    *
    * @param RoleRepositoryPort $roleRepository the role repository
    * @param RoleAssignmentRepositoryPort $roleAssignmentRepository the role assignment repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param LoggerPort $logger the logger
    */
   public function __construct(
     private RoleRepositoryPort $roleRepository,
     private RoleAssignmentRepositoryPort $roleAssignmentRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private LoggerPort $logger,
   ) {
   }
@@ -100,7 +99,7 @@ final readonly class AssignDefaultRoleOnUserCreatedHandler
 
     try {
       /** @var RoleAssignmentId $assignmentId */
-      $assignmentId = $this->uuidFactory->create(RoleAssignmentId::class);
+      $assignmentId = new RoleAssignmentId($this->uuidFactory->generate());
 
       $this->roleAssignmentRepository->save(
         RoleAssignment::assignToUser(

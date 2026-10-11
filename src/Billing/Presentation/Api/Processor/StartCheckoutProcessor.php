@@ -6,14 +6,14 @@ namespace Billing\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Billing\Application\Port\Outbound\OrganizationAccessPort;
 use Billing\Application\UseCase\Command\StartCheckout\{StartCheckoutCommand, StartCheckoutResult};
 use Billing\Presentation\Api\Dto\Input\StartCheckoutInput;
 use Billing\Presentation\Api\Dto\Output\CheckoutSessionOutput;
 use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
 use InvalidArgumentException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -72,7 +72,7 @@ final readonly class StartCheckoutProcessor implements ProcessorInterface
   {
     /** @var StartCheckoutInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

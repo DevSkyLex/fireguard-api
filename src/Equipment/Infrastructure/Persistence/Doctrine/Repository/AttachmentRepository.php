@@ -6,7 +6,7 @@ namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Equipment\Application\Port\Outbound\AttachmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\AttachmentRepositoryPort;
 use Equipment\Domain\Exception\AttachmentNotFoundException;
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, RestoredEquipmentAttachmentFile};

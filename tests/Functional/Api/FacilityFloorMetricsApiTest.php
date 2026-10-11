@@ -267,14 +267,14 @@ final class FacilityFloorMetricsApiTest extends WebTestCase
     }
     $site = new FacilityRecord();
     $site->id = self::SITE_ID;
-    $site->organization = $organization;
+    $site->organizationId = $organization->id;
     $site->type = 'site';
     $site->name = 'Metric campus';
     $site->createdAt = $site->updatedAt = $now;
     $manager->persist($site);
     $building = new FacilityRecord();
     $building->id = self::BUILDING_ID;
-    $building->organization = $organization;
+    $building->organizationId = $organization->id;
     $building->parentFacility = $site;
     $building->type = 'building';
     $building->name = 'Building';
@@ -283,7 +283,7 @@ final class FacilityFloorMetricsApiTest extends WebTestCase
     $manager->persist($building);
     $floor = new FacilityRecord();
     $floor->id = self::FLOOR_ID;
-    $floor->organization = $organization;
+    $floor->organizationId = $organization->id;
     $floor->parentFacility = $building;
     $floor->type = 'floor';
     $floor->name = 'Basement';

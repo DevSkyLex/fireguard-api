@@ -9,7 +9,6 @@ use Calendar\Application\Port\Outbound\Feed\MaintenanceCalendarFeedPort;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 use function max;
@@ -101,14 +100,13 @@ final readonly class MaintenanceCalendarFeedAdapter implements MaintenanceCalend
    */
   public function findBetween(string $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     /** @var list<MaintenanceScheduleRecord> $records */
     $records = $this->entityManager->createQueryBuilder()
       ->select('schedule')
       ->from(MaintenanceScheduleRecord::class, 'schedule')
-      ->where('schedule.organization = :organization')
+      ->where('schedule.organizationId = :organization')
       ->andWhere('schedule.nextDueAt IS NOT NULL')
       ->andWhere('schedule.nextDueAt BETWEEN :from AND :to')
       ->setParameter('organization', $organization)

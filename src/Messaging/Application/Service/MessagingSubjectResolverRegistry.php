@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\Service;
 
-use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
+use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType as SubjectContract};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
 use Messaging\Domain\Exception\MessagingSubjectNotFoundException;
 use Messaging\Domain\ValueObject\MessagingSubjectType;
@@ -69,7 +69,7 @@ final readonly class MessagingSubjectResolverRegistry
   public function resolve(MessagingSubjectType $subjectType, string $organizationId, string $subjectId): MessagingSubjectResolution
   {
     foreach ($this->resolvers as $resolver) {
-      if ($resolver->supports($subjectType)) {
+      if ($resolver->supports(SubjectContract::from($subjectType->value))) {
         $resolution = $resolver->resolve($organizationId, $subjectId);
         if (!$resolution->exists) {
           throw MessagingSubjectNotFoundException::withId($subjectType->value, $subjectId);

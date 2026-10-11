@@ -45,6 +45,7 @@ final readonly class AddInspectionAttachmentResult implements ResultMessage
     public ?string $nonConformityId,
     public ?string $label,
     public DateTimeImmutable $uploadedAt,
+    public int $revision = 1,
   ) {
   }
   // #endregion

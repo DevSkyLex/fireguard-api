@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility;
 
 use Facility\Application\Port\Inbound\{FacilityArchivalGuardPort, FacilityHierarchyPort};
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacilityCommand, ArchiveFacilityHandler};
 use Facility\Application\UseCase\Command\Facility\RestoreFacility\{RestoreFacilityCommand, RestoreFacilityHandler};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
@@ -49,7 +49,7 @@ final class FacilityLifecycleLockTest extends TestCase
     $archival->expects(self::once())->method('assertNoActiveDependents')->with(self::ORG, self::ID)->willReturnCallback(static function () use (&$order): void { $order[] = 'dependents'; });
     $handler = new ArchiveFacilityHandler(
       $repository,
-      $this->createStub(OrganizationRepositoryPort::class),
+      $this->createStub(OrganizationOwnerReadPort::class),
       $this->createStub(NotificationPort::class),
       $this->createStub(LoggerPort::class),
       $archival,

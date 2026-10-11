@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Import\Application\UseCase\Command\ResumeImportJob;
 
-use Import\Application\Port\Outbound\{ImportExecutionPort, ImportJobQueuePort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\ImportJobQueuePort;
+use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort};
 use Import\Application\Service\ImportPermissions;
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};

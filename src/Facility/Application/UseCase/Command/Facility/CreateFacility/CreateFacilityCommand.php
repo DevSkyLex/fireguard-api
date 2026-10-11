@@ -61,6 +61,9 @@ final readonly class CreateFacilityCommand implements CommandMessage
     public ?string $interventionId = null,
     public array $projectedHierarchy = [],
     public ?string $customerId = null,
+    public ?string $userId = null,
+    public ?string $clientId = null,
+    public bool $createOnly = false,
   ) {
   }
   // #endregion

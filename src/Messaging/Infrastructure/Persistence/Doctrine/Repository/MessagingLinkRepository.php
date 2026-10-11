@@ -9,7 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Link\{MessagingLinkPage, MessagingLinkView};
 use Messaging\Application\Port\Outbound\MessagingLinkRepositoryPort;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingMessageLinkRecord, MessagingMessageRecord};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function array_map;
 use function max;
@@ -32,11 +32,11 @@ final readonly class MessagingLinkRepository implements MessagingLinkRepositoryP
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
 
@@ -77,7 +77,7 @@ final readonly class MessagingLinkRepository implements MessagingLinkRepositoryP
 
     foreach ($urls as $url) {
       $record = new MessagingMessageLinkRecord();
-      $record->id = $this->uuidFactory->generateRaw();
+      $record->id = $this->uuidFactory->generate();
       $record->message = $message;
       $record->conversationId = $conversationId;
       $record->url = $url;

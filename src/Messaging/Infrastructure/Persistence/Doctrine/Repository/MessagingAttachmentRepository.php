@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Messaging\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Messaging\Application\Contract\Attachment\MessagingAttachmentPage;
-use Messaging\Application\Port\Outbound\MessagingAttachmentRepositoryPort;
+use LogicException;
+use Messaging\Application\Contract\Attachment\{MessagingAttachmentPage, MessagingAttachmentView};
+use Messaging\Application\Port\Outbound\Internal\MessagingAttachmentRepositoryPort;
 use Messaging\Domain\Model\Attachment\MessagingAttachment;
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Messaging\Infrastructure\Persistence\Doctrine\Mapper\MessagingAttachmentMapper;
@@ -53,6 +54,49 @@ final readonly class MessagingAttachmentRepository implements MessagingAttachmen
   // #endregion
 
   // #region Methods
+  /**
+   * Method withMessageLock
+   *
+   * Serializes attachment count and replay checks under the owning message row lock.
+   *
+   * @access public
+   *
+   * @template T
+   *
+   * @param string $messageId owning message identifier
+   * @param callable():T $operation operation sharing the active main transaction
+   *
+   * @return T operation result
+   */
+  public function withMessageLock(string $messageId, callable $operation): mixed
+  {
+    $connection = $this->entityManager->getConnection();
+    if (!$connection->isTransactionActive()) {
+      throw new LogicException('Attachment locking requires an active transaction.');
+    }
+    $connection->executeQuery('SELECT id FROM messaging_messages WHERE id = ? FOR UPDATE', [$messageId])->fetchOne();
+
+    return $operation();
+  }
+
+  /**
+   * Method findViewById
+   *
+   * Reads transport-neutral metadata and the persisted revision.
+   *
+   * @access public
+   *
+   * @param string $id attachment identifier
+   *
+   * @return ?MessagingAttachmentView attachment metadata, or null
+   */
+  public function findViewById(string $id): ?MessagingAttachmentView
+  {
+    $record = $this->repository->find($id);
+
+    return $record instanceof MessagingAttachmentRecord ? $this->view($record) : null;
+  }
+
   /**
    * Method save.
    *
@@ -123,7 +167,7 @@ final readonly class MessagingAttachmentRepository implements MessagingAttachmen
       ->getResult();
 
     return array_map(
-      static fn (MessagingAttachmentRecord $record): MessagingAttachment => MessagingAttachmentMapper::toDomain($record),
+      $this->view(...),
       $records,
     );
   }
@@ -178,7 +222,7 @@ final readonly class MessagingAttachmentRepository implements MessagingAttachmen
 
     return new MessagingAttachmentPage(
       array_map(
-        static fn (MessagingAttachmentRecord $record): MessagingAttachment => MessagingAttachmentMapper::toDomain($record),
+        $this->view(...),
         $records,
       ),
       $page,
@@ -202,6 +246,34 @@ final readonly class MessagingAttachmentRepository implements MessagingAttachmen
 
     $this->entityManager->remove($record);
     $this->entityManager->flush();
+  }
+
+  /**
+   * Method view
+   *
+   * Copies persisted fields without leaking a managed Record.
+   *
+   * @access private
+   *
+   * @param MessagingAttachmentRecord $record persisted attachment
+   *
+   * @return MessagingAttachmentView immutable metadata
+   */
+  private function view(MessagingAttachmentRecord $record): MessagingAttachmentView
+  {
+    return new MessagingAttachmentView(
+      $record->id,
+      $record->message->id ?? '',
+      $record->conversationId,
+      $record->organizationId,
+      $record->uploadedByMemberId,
+      $record->fileName,
+      $record->mimeType,
+      $record->size,
+      $record->label,
+      $record->uploadedAt,
+      $record->revision,
+    );
   }
   // #endregion
 }

@@ -13,7 +13,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Test DoctrineInterventionLabelAdapterTest.
@@ -84,8 +84,8 @@ final class DoctrineInterventionLabelAdapterTest extends TestCase
   #[Test]
   public function testUpdateRejectsARecordDetachedFromItsOrganization(): void
   {
-    $record = $this->record();
-    $record->organization = null;
+    $record = new InterventionLabelRecord();
+    $record->id = self::LABEL_ID;
 
     $entityManager = $this->createStub(EntityManagerInterface::class);
     $entityManager->method('find')->willReturn($record);
@@ -118,7 +118,7 @@ final class DoctrineInterventionLabelAdapterTest extends TestCase
 
     $record = new InterventionLabelRecord();
     $record->id = self::LABEL_ID;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->name = 'Urgent';
     $record->color = '#ff0000';
     $record->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
@@ -129,9 +129,9 @@ final class DoctrineInterventionLabelAdapterTest extends TestCase
 
   private function adapter(EntityManagerInterface $entityManager): DoctrineInterventionLabelAdapter
   {
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn(self::LABEL_ID);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::LABEL_ID);
 
-    return new DoctrineInterventionLabelAdapter($entityManager, $uuidFactory);
+    return new DoctrineInterventionLabelAdapter($entityManager, $uuidFactory, $this->createStub(\Organization\Application\Port\Inbound\OrganizationOwnerReadPort::class));
   }
 }

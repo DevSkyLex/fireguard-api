@@ -39,9 +39,9 @@ final class ImportJobApiTest extends WebTestCase
   {
     $client = static::createClient();
     $client->disableReboot();
-    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users = $this->createStub(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class);
     $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
-    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    static::getContainer()->set(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class, $users);
     $org = '550e8400-e29b-41d4-a716-446655480360';
     $actor = '550e8400-e29b-41d4-a716-446655480361';
     $id = '550e8400-e29b-41d4-a716-446655480362';
@@ -49,8 +49,8 @@ final class ImportJobApiTest extends WebTestCase
     self::assertInstanceOf(EntityManagerInterface::class, $em);
     $this->seedFullAccessOrganization($em, $org, $actor, new DateTimeImmutable());
     $em->flush();
-    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class);
-    self::assertInstanceOf(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class, $jobs);
+    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class);
+    self::assertInstanceOf(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class, $jobs);
     $job = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::EQUIPMENT, 'unused.csv', 'equipment.csv', $actor);
     $job->markProcessing(new DateTimeImmutable());
     for ($row = 1; $row <= 123; ++$row) {
@@ -89,9 +89,9 @@ final class ImportJobApiTest extends WebTestCase
     $org = '550e8400-e29b-41d4-a716-446655480310';
     $actor = '550e8400-e29b-41d4-a716-446655480311';
     $id = '550e8400-e29b-41d4-a716-446655480312';
-    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users = $this->createStub(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class);
     $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
-    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    static::getContainer()->set(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class, $users);
     $files = $this->createStub(\Shared\Application\Port\Outbound\FileStoragePort::class);
     $files->method('exists')->willReturn(true);
     // The parent resolved during simulation has since disappeared; the real run must validate it again.
@@ -106,8 +106,8 @@ final class ImportJobApiTest extends WebTestCase
     $source->setTotalRows(1);
     $source->recordRowSuccess();
     $source->complete(new DateTimeImmutable());
-    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class);
-    self::assertInstanceOf(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class, $jobs);
+    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class);
+    self::assertInstanceOf(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class, $jobs);
     $jobs->save($source);
     $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), $actor, $actor . '@corp.example'));
     $client->request('GET', '/api/imports/' . $id);
@@ -161,8 +161,8 @@ final class ImportJobApiTest extends WebTestCase
     }
     $em->flush();
     $job = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::FACILITY, 'retained.csv', 'facilities.csv', $actor, true);
-    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class);
-    self::assertInstanceOf(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class, $jobs);
+    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class);
+    self::assertInstanceOf(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class, $jobs);
     $jobs->save($job);
     $client->loginUser($this->securityUser('owner' === $access ? $actor : $other), 'api');
     $client->request('POST', '/api/imports/' . $id . '/confirm');
@@ -222,9 +222,9 @@ final class ImportJobApiTest extends WebTestCase
   {
     $client = static::createClient();
     $client->disableReboot();
-    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users = $this->createStub(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class);
     $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
-    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    static::getContainer()->set(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class, $users);
     $org = '550e8400-e29b-41d4-a716-446655480290';
     $actor = '550e8400-e29b-41d4-a716-446655480291';
     $id = '550e8400-e29b-41d4-a716-446655480292';
@@ -244,8 +244,8 @@ final class ImportJobApiTest extends WebTestCase
     $job->setTotalRows(2);
     $job->recordRowSuccess();
     $job->fail('Storage unavailable', new DateTimeImmutable());
-    $repository = static::getContainer()->get(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class);
-    self::assertInstanceOf(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class, $repository);
+    $repository = static::getContainer()->get(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class);
+    self::assertInstanceOf(\Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort::class, $repository);
     $repository->save($job);
     $tokens = static::getContainer()->get(\Auth\Application\Port\Outbound\JwtTokenServicePort::class);
     self::assertInstanceOf(\Auth\Application\Port\Outbound\JwtTokenServicePort::class, $tokens);
@@ -465,7 +465,7 @@ final class ImportJobApiTest extends WebTestCase
     $facilityCount = $mainEntityManager->createQueryBuilder()
       ->select('COUNT(f.id)')
       ->from(FacilityRecord::class, 'f')
-      ->where('f.organization = :organizationId')
+      ->where('f.organizationId = :organizationId')
       ->setParameter('organizationId', $organizationId)
       ->getQuery()
       ->getSingleScalarResult();
@@ -530,7 +530,7 @@ final class ImportJobApiTest extends WebTestCase
     $facilityCount = $mainEntityManager->createQueryBuilder()
       ->select('COUNT(f.id)')
       ->from(FacilityRecord::class, 'f')
-      ->where('f.organization = :organizationId')
+      ->where('f.organizationId = :organizationId')
       ->setParameter('organizationId', $organizationId)
       ->getQuery()
       ->getSingleScalarResult();

@@ -7,7 +7,7 @@ namespace User\Application\UseCase\Command\EmailChange\CancelEmailChange;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
 use Shared\Domain\Service\EventIdProvider;
-use User\Application\Port\Outbound\EmailChangeRequestRepositoryPort;
+use User\Application\Port\Outbound\Internal\EmailChangeRequestRepositoryPort;
 use User\Domain\Event\UserEmailChangeCancelledEvent;
 use User\Domain\ValueObject\UserId;
 

@@ -6,22 +6,19 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Updat
 
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Organization\Application\Contract\Event\Organization\{
+  OrganizationRestoredEvent,
+  OrganizationSuspendedEvent
+};
 use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Contract\Exception\{OrganizationNotFoundException, OrganizationSlugAlreadyExistsException};
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{
   UpdateOrganizationSettingsCommand,
   UpdateOrganizationSettingsHandler,
   UpdateOrganizationSettingsResult
 };
-use Organization\Domain\Event\Organization\{
-  OrganizationRestoredEvent,
-  OrganizationSuspendedEvent
-};
-use Organization\Domain\Exception\{
-  OrganizationArchivedException,
-  OrganizationNotFoundException,
-  OrganizationSlugAlreadyExistsException
-};
+use Organization\Domain\Exception\OrganizationArchivedException;
 use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationSlug};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -86,6 +83,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -159,6 +157,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -220,6 +219,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -256,6 +256,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -298,7 +299,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
     $transactionManager->expects(self::once())
       ->method('transactional')
       ->with(self::isCallable())
-      ->willThrowException(TransactionExecutionException::wrap($uniqueViolation));
+      ->willThrowException(TransactionExecutionException::wrap(new \Shared\Application\Contract\Persistence\UniqueConstraintViolationException($uniqueViolation)));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -308,6 +309,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $this->expectException(OrganizationSlugAlreadyExistsException::class);
@@ -361,6 +363,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -406,6 +409,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -448,6 +452,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $this->expectException(OrganizationArchivedException::class);
@@ -500,6 +505,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -544,6 +550,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $this->expectException(RuntimeException::class);
@@ -602,6 +609,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -656,6 +664,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -709,6 +718,7 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
+      equipmentTypeCatalog: $this->equipmentTypes(),
     );
 
     $handler->__invoke(new UpdateOrganizationSettingsCommand(
@@ -719,5 +729,13 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
     self::assertNull($organization->country());
     self::assertNull($organization->legalType());
     self::assertNull($organization->legalName());
+  }
+
+  private function equipmentTypes(): \Organization\Application\Port\Outbound\EquipmentTypeCatalogPort
+  {
+    $catalog = $this->createStub(\Organization\Application\Port\Outbound\EquipmentTypeCatalogPort::class);
+    $catalog->method('values')->willReturn(['fire_extinguisher', 'camera']);
+
+    return $catalog;
   }
 }

@@ -17,7 +17,7 @@ use Facility\Domain\Exception\CanonicalFacilityValidationException;
  * things here. An absent `code` leaves the stored code alone; `"code": null`
  * erases it. An absent `status` is a no-op; `"status": null` is a rejection.
  * The flags come from the raw request body, read by
- * `Shared\Presentation\Api\Http\MergePatchFields`.
+ * `Facility\Presentation\Api\Http\MergePatchFields`.
  *
  * `parentFacilityId` is an identifier, not the IRI the client sent: the
  * processor parses it, and the handler resolves and validates it before the

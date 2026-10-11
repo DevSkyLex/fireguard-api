@@ -10,12 +10,12 @@ use Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent\{UpdateCalend
 use Calendar\Domain\Exception\CalendarEventValidationException;
 use Calendar\Presentation\Api\Dto\Input\Event\UpdateCalendarEventInput;
 use Calendar\Presentation\Api\Factory\CalendarEventOutputFactory;
+use Calendar\Presentation\Api\Http\MergePatchFields;
 use Calendar\Presentation\Api\Processor\Event\UpdateCalendarEventProcessor;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\MergePatchFields;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
@@ -65,10 +65,10 @@ final class UpdateCalendarEventProcessorTest extends TestCase
       $this->mergePatchFields(['title' => 'Rescheduled drill', 'startsAt' => '2026-05-01T09:00:00+00:00']),
     );
 
-    $output = $processor->process($input, new Patch(), [
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process($input, new Patch(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
 
     self::assertInstanceOf(UpdateCalendarEventCommand::class, $captured);
     self::assertSame(self::ORGANIZATION_ID, $captured->organizationId);
@@ -112,10 +112,10 @@ final class UpdateCalendarEventProcessorTest extends TestCase
       $this->mergePatchFields(['description' => null, 'facilityId' => null]),
     );
 
-    $processor->process($input, new Patch(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process($input, new Patch(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
 
     self::assertInstanceOf(UpdateCalendarEventCommand::class, $captured);
     self::assertTrue($captured->hasDescription);
@@ -140,10 +140,10 @@ final class UpdateCalendarEventProcessorTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $processor->process(new UpdateCalendarEventInput(), new Patch(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(new UpdateCalendarEventInput(), new Patch(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
   }
 
   #[Test]
@@ -158,7 +158,7 @@ final class UpdateCalendarEventProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(new UpdateCalendarEventInput(), new Patch(), ['eventId' => self::EVENT_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(new UpdateCalendarEventInput(), new Patch(), ['eventId' => self::EVENT_ID]));
   }
 
   #[Test]
@@ -176,10 +176,10 @@ final class UpdateCalendarEventProcessorTest extends TestCase
 
     $this->expectException(UnprocessableEntityHttpException::class);
 
-    $processor->process(new UpdateCalendarEventInput(), new Patch(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $processor->process(new UpdateCalendarEventInput(), new Patch(), [
       'organizationId' => self::ORGANIZATION_ID,
       'eventId' => self::EVENT_ID,
-    ]);
+    ]));
   }
   // #endregion
 

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse;
 
-use Inspection\Application\Port\Outbound\{InspectionResponseRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\InspectionResponseRepositoryPort;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Domain\Exception\InspectionResponseNotFoundException;
 use Inspection\Domain\Model\Response\InspectionResponse;
 use Inspection\Domain\ValueObject\InspectionResponseId;

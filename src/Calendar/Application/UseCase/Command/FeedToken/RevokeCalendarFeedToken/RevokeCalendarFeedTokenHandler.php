@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Calendar\Application\UseCase\Command\FeedToken\RevokeCalendarFeedToken;
 
-use Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\FeedToken\CalendarFeedTokenRepositoryPort;
 use Calendar\Domain\Event\CalendarFeedTokenRevokedEvent;
 use Calendar\Domain\Exception\CalendarFeedTokenNotFoundException;
 use DateTimeImmutable;

@@ -6,16 +6,17 @@ namespace Intervention\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Command\Template\CreateInterventionTemplate\{CreateInterventionTemplateCommand, CreateInterventionTemplateResult};
 use Intervention\Application\UseCase\Command\Template\DeleteInterventionTemplate\DeleteInterventionTemplateCommand;
 use Intervention\Application\UseCase\Command\Template\UpdateInterventionTemplate\{UpdateInterventionTemplateCommand, UpdateInterventionTemplateResult};
 use Intervention\Presentation\Api\Dto\Input\{CreateInterventionTemplateInput, InterventionTemplateItemInput, UpdateInterventionTemplateInput};
 use Intervention\Presentation\Api\Dto\Output\InterventionTemplateOutput;
 use Intervention\Presentation\Api\Factory\InterventionTemplateOutputFactory;
+use Intervention\Presentation\Api\Http\MergePatchFields;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{MergePatchFields, ResourceIriParser};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
@@ -109,11 +110,11 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
    * @access private
    *
    * @param CreateInterventionTemplateInput $data the data
-   * @param SecurityUser $user the user
+   * @param AuthenticatedUser $user the user
    *
    * @return InterventionTemplateOutput
    */
-  private function create(CreateInterventionTemplateInput $data, SecurityUser $user): InterventionTemplateOutput
+  private function create(CreateInterventionTemplateInput $data, AuthenticatedUser $user): InterventionTemplateOutput
   {
     /** @var CreateInterventionTemplateResult $result */
     $result = $this->commandBus->dispatch(new CreateInterventionTemplateCommand(
@@ -141,12 +142,12 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
    * @access private
    *
    * @param UpdateInterventionTemplateInput $data the data
-   * @param SecurityUser $user the user
+   * @param AuthenticatedUser $user the user
    * @param ?string $id the identifier
    *
    * @return InterventionTemplateOutput
    */
-  private function update(UpdateInterventionTemplateInput $data, SecurityUser $user, ?string $id): InterventionTemplateOutput
+  private function update(UpdateInterventionTemplateInput $data, AuthenticatedUser $user, ?string $id): InterventionTemplateOutput
   {
     if (null === $id) {
       throw new BadRequestHttpException('The id URI parameter is required.');
@@ -208,12 +209,12 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
    * @access private
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

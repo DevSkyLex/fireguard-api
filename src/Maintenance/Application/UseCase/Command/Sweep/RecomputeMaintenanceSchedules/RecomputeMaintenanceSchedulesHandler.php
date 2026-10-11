@@ -75,7 +75,7 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
     private \Maintenance\Application\Service\MaintenanceScheduleService $synchronizer,
     private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort $locks,
     private EventDispatcherPort $reminders,
-    private ?\Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort $planAuthority = null,
+    private ?\Maintenance\Application\Port\Inbound\Internal\MaintenancePlanAuthorityPort $planAuthority = null,
   ) {
   }
   // #endregion

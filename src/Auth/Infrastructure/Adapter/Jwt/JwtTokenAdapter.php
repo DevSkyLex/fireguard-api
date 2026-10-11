@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Adapter\Jwt;
 
+use Auth\Application\Contract\Token\SignInGrantType;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
-use Auth\Domain\ValueObject\Security\SignInGrantType;
-use Authorization\Application\Service\AuthorizationService;
+use Authorization\Application\Port\Inbound\AuthorizationPort;
 use DateInterval;
 use DateTimeImmutable;
 use InvalidArgumentException;
@@ -119,7 +119,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
    * @param non-empty-string $issuer
    * @param int $accessTokenTtl access token TTL in seconds
    * @param int $refreshTokenTtl refresh token long TTL in seconds
-   * @param AuthorizationService|null $authorizationService authorization service for roles/permissions
+   * @param AuthorizationPort|null $authorizationService authorization service for roles/permissions
    * @param int|null $refreshTokenTtlShort refresh token short TTL in seconds
    */
   public function __construct(
@@ -135,7 +135,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     private readonly int $accessTokenTtl = 3600,
     #[Autowire('%env(int:REFRESH_TOKEN_LIFETIME_LONG)%')]
     private readonly int $refreshTokenTtl = 86400,
-    private readonly ?AuthorizationService $authorizationService = null,
+    private readonly ?AuthorizationPort $authorizationService = null,
     #[Autowire('%env(int:REFRESH_TOKEN_LIFETIME_SHORT)%')]
     ?int $refreshTokenTtlShort = null,
     #[Autowire('%env(bool:ACCESS_TOKEN_INCLUDE_EMAIL)%')]

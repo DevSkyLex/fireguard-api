@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Presentation\Api\Processor\Session;
 
 use ApiPlatform\Metadata\Operation;
-use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use OAuth\Application\Port\Outbound\Token\JwtParserPort;
 use OAuth\Application\UseCase\Command\Token\RevokeToken\{RevokeTokenCommand, RevokeTokenResult};
 use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
 use OAuth\Presentation\Api\Processor\Session\EndSessionProcessor;
+use OAuth\Presentation\Api\Service\RefreshTokenCookieService;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

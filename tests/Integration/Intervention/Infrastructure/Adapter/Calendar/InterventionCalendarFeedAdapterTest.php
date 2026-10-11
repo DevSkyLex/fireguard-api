@@ -155,7 +155,7 @@ final class InterventionCalendarFeedAdapterTest extends KernelTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = $id;
-    $intervention->organization = $organization;
+    $intervention->organizationId = $organizationId;
     $intervention->type = 'site_setup';
     $intervention->name = $name;
     $intervention->number = $number;

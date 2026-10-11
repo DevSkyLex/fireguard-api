@@ -6,17 +6,15 @@ namespace Facility\Presentation\Api\Processor\Attachment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment\SetPrimaryFacilityAttachmentCommand;
+use Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\{GetFacilityMediaContextQuery, GetFacilityMediaContextResult};
 use Facility\Domain\Exception\{FacilityAttachmentNotFloorPlanException, FacilityAttachmentNotFoundException, FacilityNotFoundException};
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityAttachmentRecord;
 use Facility\Presentation\Api\Dto\Output\Attachment\FacilityAttachmentOutput;
 use Facility\Presentation\Api\Provider\Attachment\FacilityMediaProvider;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
@@ -58,18 +56,15 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
    *
    * @access public
    *
-   * @param EntityManagerInterface $entityManager the main entity manager
    * @param CommandBusPort $commandBus dispatches primary attachment commands
-   * @param OrganizationAuthorizationPort $authorization enforces organization access
    * @param Security $security resolves the authenticated user
    *
    * @return void
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,
-    private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private QueryBusPort $queryBus,
   ) {
   }
   // #endregion
@@ -97,26 +92,15 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
       throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
-    $record = $this->entityManager->find(FacilityAttachmentRecord::class, $id);
-    if (!$record instanceof FacilityAttachmentRecord || null === $record->facility?->organization) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-
-    $organization = $record->facility->organization;
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.facilities.write');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
-    }
+    /** @var GetFacilityMediaContextResult $media */
+    $media = $this->queryBus->ask(new GetFacilityMediaContextQuery($this->user()->getId(), attachmentId: $id, write: true));
 
     try {
       $this->commandBus->dispatch(new SetPrimaryFacilityAttachmentCommand(
-        organizationId: $organization->id,
-        facilityId: $record->facility->id,
-        attachmentId: $record->id,
+        organizationId: $media->organizationId,
+        facilityId: $media->facilityId,
+        attachmentId: $id,
+        userId: $this->user()->getId(),
       ));
     } catch (FacilityNotFoundException|FacilityAttachmentNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -128,12 +112,13 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
       throw $this->mapMessengerException($exception);
     }
 
-    // Re-read: the command mutated the row (this attachment's flag, and
-    // possibly the previous primary's) outside this EntityManager's identity
-    // map's knowledge — a plain find() here would return the stale instance.
-    $this->entityManager->refresh($record);
+    /** @var GetFacilityMediaContextResult $updated */
+    $updated = $this->queryBus->ask(new GetFacilityMediaContextQuery($this->user()->getId(), attachmentId: $id, write: true));
+    if (null === $updated->attachment) {
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
+    }
 
-    return FacilityMediaProvider::output($record);
+    return FacilityMediaProvider::output($updated->attachment);
   }
 
   /**
@@ -168,10 +153,10 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
    *
    * @since 1.0.0
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

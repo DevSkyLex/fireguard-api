@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Application\Service;
 
 use DateTimeImmutable;
 use Organization\Application\Contract\Team\TeamMembershipSnapshot;
-use Organization\Application\Port\Outbound\TeamRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\TeamRepositoryPort;
 use Organization\Application\Service\TeamDirectoryService;
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, TeamId, TeamName};

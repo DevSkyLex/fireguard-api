@@ -7,21 +7,14 @@ namespace Notification\Application\UseCase\Command\Notification\SendNotification
 use InvalidArgumentException;
 use LogicException;
 use Notification\Application\Contract\Notification\{NotificationChannel, NotificationType};
-use Notification\Application\Port\Outbound\{
-  EmailNotificationChannelPort,
-  MercureNotificationChannelPort,
-  NotificationDeliveryReceiptPort,
-  NotificationPreferenceRepositoryPort,
-  NotificationRepositoryPort,
-  RecipientDirectoryPort
-};
-use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
+use Notification\Application\Port\Outbound\Internal\{EmailNotificationChannelPort, MercureNotificationChannelPort, NotificationDeliveryReceiptPort, NotificationPreferenceRepositoryPort, NotificationRepositoryPort};
+use Notification\Application\Port\Outbound\RecipientDirectoryPort;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget, RestoredNotificationState};
 use Notification\Domain\Model\NotificationPreference\NotificationPreference;
 use Notification\Domain\ValueObject\NotificationId;
 use Shared\Application\Contract\Notification\EmailRequestDetails;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Throwable;
@@ -59,7 +52,7 @@ final readonly class SendNotificationHandler implements CommandHandler
    * @param MercureNotificationChannelPort $mercureChannel the mercure channel port
    * @param RecipientDirectoryPort $recipientDirectory the recipient directory port
    * @param LoggerPort $logger the logger port
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    */
   public function __construct(
     private NotificationRepositoryPort $notificationRepository,
@@ -68,7 +61,7 @@ final readonly class SendNotificationHandler implements CommandHandler
     private MercureNotificationChannelPort $mercureChannel,
     private RecipientDirectoryPort $recipientDirectory,
     private LoggerPort $logger,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private ?NotificationDeliveryReceiptPort $deliveryReceipts = null,
   ) {
   }
@@ -134,7 +127,7 @@ final readonly class SendNotificationHandler implements CommandHandler
     $key = null === $command->idempotencyKey ? null : $this->deliveryKey($command);
     $stored = null === $key ? null : $this->deliveryReceipts?->find($key);
     /** @var NotificationId $notificationId */
-    $notificationId = $stored?->id() ?? $this->uuidFactory->create(NotificationId::class);
+    $notificationId = $stored?->id() ?? new NotificationId($this->uuidFactory->generate());
     $channelValues = array_map(
       static fn (NotificationChannel $channel): string => $channel->value,
       $channels,
@@ -169,7 +162,27 @@ final readonly class SendNotificationHandler implements CommandHandler
       ? $this->preferenceRepository->findByUserIdAndCategory($recipientUserId, NotificationType::category($type))
       : null;
 
-    $channelStatus = $this->deliverChannels($notification, $channels, $preference, $command->deliveryPayload, $key);
+    // The inbox identity and original channel set remain immutable on replay.
+    // Delivery resolves the current address without rewriting that snapshot.
+    $deliveryNotification = null === $stored ? $notification : Notification::reconstitute(
+      id: $notification->id(),
+      type: $notification->type(),
+      subject: $notification->subject(),
+      body: $notification->body(),
+      channels: $notification->channels(),
+      payload: $notification->payload(),
+      restoredState: new RestoredNotificationState(
+        createdAt: $notification->createdAt(),
+        updatedAt: $notification->updatedAt(),
+        recipientUserId: $notification->recipientUserId(),
+        recipientEmail: $email,
+        isRead: $notification->isRead(),
+        readAt: $notification->readAt(),
+        organizationId: $notification->organizationId(),
+      ),
+    );
+    $persistedChannels = array_map(static fn (string $channel): NotificationChannel => NotificationChannel::from($channel), $notification->channels());
+    $channelStatus = $this->deliverChannels($deliveryNotification, $persistedChannels, $channels, $preference, $command->deliveryPayload, $key);
     $channelDelivery = array_map(static fn (string $status): bool => 'delivered' === $status, $channelStatus);
 
     return new SendNotificationResult(
@@ -242,13 +255,14 @@ final readonly class SendNotificationHandler implements CommandHandler
    *
    * @param Notification $notification the persisted notification
    * @param list<NotificationChannel> $channels the normalized requested channels
+   * @param list<NotificationChannel> $availableChannels the channels supported by the current recipient lookup
    * @param NotificationPreference|null $preference the recipient's optional category preference
    * @param array<string, mixed> $deliveryPayload the ephemeral per-channel delivery payload
    * @param string|null $key the durable delivery identity, or null for a synchronous notification without receipts
    *
    * @return array<string, string> explicit outcome for each requested channel
    */
-  private function deliverChannels(Notification $notification, array $channels, ?NotificationPreference $preference, array $deliveryPayload, ?string $key): array
+  private function deliverChannels(Notification $notification, array $channels, array $availableChannels, ?NotificationPreference $preference, array $deliveryPayload, ?string $key): array
   {
     $channelDelivery = [];
     $acknowledged = null === $key ? [] : ($this->deliveryReceipts?->statuses($key) ?? []);
@@ -258,12 +272,13 @@ final readonly class SendNotificationHandler implements CommandHandler
 
         continue;
       }
-      if ($this->isChannelSuppressedByPreference($channel, $preference)) {
+      $unavailable = !in_array($channel, $availableChannels, true);
+      if ($unavailable || $this->isChannelSuppressedByPreference($channel, $preference)) {
         $channelDelivery[$channel->value] = 'suppressed';
         if (null !== $key) {
           $this->deliveryReceipts?->record($key, $channel->value, 'suppressed');
         }
-        $this->logger->info('Notification channel delivery skipped: disabled by user preference.', [
+        $this->logger->info($unavailable ? 'Notification channel delivery skipped: recipient unavailable.' : 'Notification channel delivery skipped: disabled by user preference.', [
           'notificationId' => (string) $notification->id(),
           'channel' => $channel->value,
           'category' => NotificationType::category($notification->type()),

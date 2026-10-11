@@ -10,7 +10,6 @@ use Intervention\Application\Contract\Reminder\{InterventionReminderCandidate, I
 use Intervention\Application\Port\Outbound\InterventionReminderPort;
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 use function max;
@@ -218,11 +217,11 @@ final readonly class DoctrineInterventionReminderAdapter implements Intervention
    */
   private function organizationId(InterventionRecord $record): string
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new InterventionNotFoundException('Intervention reminder candidate organization is missing.');
     }
 
-    return $record->organization->id;
+    return $record->organizationId;
   }
 
   /**

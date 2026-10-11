@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Audit\Application\UseCase\Command\RecordAuditEvent;
 
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{
   RecordAuditEventCommand,
   RecordAuditEventHandler,
@@ -15,7 +15,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\ValueObject\Uuid;
 
 /**
@@ -53,12 +53,11 @@ final class RecordAuditEventHandlerTest extends TestCase
       occurredAt: $occurredAt,
     );
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(Uuid::class)
-      ->willReturn($eventId);
+      ->method('generate')
+      ->willReturn($eventId->value);
 
     $storedEvent = new AuditEvent(
       id: $eventId,
@@ -85,7 +84,7 @@ final class RecordAuditEventHandlerTest extends TestCase
       ->method('append')
       ->with(self::callback(
         function (AuditEvent $event) use ($eventId, $occurredAt): bool {
-          return $event->id === $eventId
+          return $event->id->value === $eventId->value
             && 'auth.login_success' === $event->action
             && 'user' === $event->actorType
             && 'user-123' === $event->actorId
@@ -133,8 +132,8 @@ final class RecordAuditEventHandlerTest extends TestCase
       metadata: ['organization_id' => 'org-stale'],
     );
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn($eventId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($eventId->value);
 
     /** @var AuditEventRepositoryPort&MockObject $repository */
     $repository = $this->createMock(AuditEventRepositoryPort::class);

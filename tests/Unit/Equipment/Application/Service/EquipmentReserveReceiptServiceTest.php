@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\Service;
 
 use Equipment\Application\Contract\Procurement\EquipmentReserveReceiptRequest;
-use Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort;
 use Equipment\Application\Service\EquipmentReserveReceiptService;
 use Equipment\Domain\Model\EquipmentTypeCatalog\EquipmentTypeDefinition;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;

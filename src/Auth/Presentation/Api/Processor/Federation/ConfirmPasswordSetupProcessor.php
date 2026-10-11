@@ -6,11 +6,11 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\Service\Federation\InitialPasswordService;
-use Auth\Domain\Exception\Federation\FederatedAuthException;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Auth\Application\UseCase\Command\PasswordSetup\ConfirmPasswordSetup\ConfirmPasswordSetupCommand;
 use Auth\Presentation\Api\Dto\Input\PasswordChange\ConfirmPasswordChangeInput;
 use Auth\Presentation\Api\Dto\Output\PasswordChange\ConfirmPasswordChangeOutput;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, TooManyRequestsHttpException};
@@ -42,14 +42,14 @@ final readonly class ConfirmPasswordSetupProcessor implements ProcessorInterface
    *
    * @access public
    *
-   * @param InitialPasswordService $passwordSetup the password setup
+   * @param CommandBusPort $passwordSetup the password setup
    * @param Security $security the security
    * @param RateLimiterFactory $rateLimiter the rate limiter
    *
    * @return void
    */
   public function __construct(
-    private InitialPasswordService $passwordSetup,
+    private CommandBusPort $passwordSetup,
     private Security $security,
     #[Autowire(service: 'limiter.password_setup_confirm')]
     private RateLimiterFactory $rateLimiter,
@@ -75,7 +75,7 @@ final readonly class ConfirmPasswordSetupProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConfirmPasswordChangeOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
     $limit = $this->rateLimiter->create($user->getId())->consume();
@@ -83,20 +83,15 @@ final readonly class ConfirmPasswordSetupProcessor implements ProcessorInterface
       throw new TooManyRequestsHttpException(max(0, $limit->getRetryAfter()->getTimestamp() - time()));
     }
 
-    try {
-      $result = $this->passwordSetup->confirm(
-        $user->getId(),
-        $data->token ?? '',
-        $data->code ?? '',
-        $data->newPassword ?? '',
-      );
+    /** @var \Auth\Application\UseCase\Command\PasswordSetup\ConfirmPasswordSetup\ConfirmPasswordSetupResult $result */
+    $result = $this->passwordSetup->dispatch(new ConfirmPasswordSetupCommand(
+      $user->getId(),
+      $data->token ?? '',
+      $data->code ?? '',
+      $data->newPassword ?? '',
+    ));
 
-      return new ConfirmPasswordChangeOutput(true, 'Password configured.', attemptsRemaining: $result['attemptsRemaining']);
-    } catch (FederatedAuthException $exception) {
-      $attempts = 'invalid_code' === $exception->errorCode ? (int) $exception->getMessage() : 0;
-
-      return new ConfirmPasswordChangeOutput(false, 'Password could not be configured.', $exception->errorCode, $attempts);
-    }
+    return new ConfirmPasswordChangeOutput($result->success, $result->success ? 'Password configured.' : 'Password could not be configured.', $result->errorCode, $result->attemptsRemaining);
   }
   // #endregion
 }

@@ -15,7 +15,6 @@ use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Intervention\Application\Service\InterventionDraftFactory;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
 
 use function count;
@@ -36,7 +35,7 @@ final class InterventionDraftFactoryTest extends TestCase
     $mutations = [];
     $gateway = $this->gatewayCapturing($mutations);
 
-    $factory = new InterventionDraftFactory($gateway, new NullLogger(), $this->transactions());
+    $factory = new InterventionDraftFactory($gateway, $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class), $this->transactions());
 
     $created = $factory->create(new CreateInterventionDraftRequest(
       organizationId: self::ORGANIZATION_ID,
@@ -92,7 +91,7 @@ final class InterventionDraftFactoryTest extends TestCase
     $mutations = [];
     $gateway = $this->gatewayCapturing($mutations);
 
-    $factory = new InterventionDraftFactory($gateway, new NullLogger(), $this->transactions());
+    $factory = new InterventionDraftFactory($gateway, $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class), $this->transactions());
 
     $factory->create(new CreateInterventionDraftRequest(
       organizationId: self::ORGANIZATION_ID,
@@ -110,7 +109,7 @@ final class InterventionDraftFactoryTest extends TestCase
     $gateway = $this->createStub(InterventionWorkflowGatewayPort::class);
     $gateway->method('mutate')->willReturn(null);
 
-    $factory = new InterventionDraftFactory($gateway, new NullLogger(), $this->transactions());
+    $factory = new InterventionDraftFactory($gateway, $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class), $this->transactions());
 
     $this->expectException(InterventionDraftCreationException::class);
 

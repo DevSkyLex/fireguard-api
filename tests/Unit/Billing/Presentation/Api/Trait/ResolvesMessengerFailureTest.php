@@ -9,7 +9,7 @@ use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
 use PHPUnit\Framework\Attributes\{CoversTrait, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use stdClass;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;

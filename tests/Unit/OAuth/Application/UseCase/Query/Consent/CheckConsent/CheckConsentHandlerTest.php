@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Application\UseCase\Query\Consent\CheckConsent;
 
-use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Consent\ConsentRepositoryPort;
 use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentHandler, CheckConsentQuery, CheckConsentResult};
 use OAuth\Domain\Model\Consent\Consent;
 use OAuth\Domain\ValueObject\Consent\ConsentId;

@@ -10,7 +10,7 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
-use ServiceRequest\Application\Port\Outbound\ServiceRequestRepositoryPort;
+use ServiceRequest\Application\Port\Outbound\Internal\ServiceRequestRepositoryPort;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
 use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestConversionReceipt, ServiceRequestLifecycle, ServiceRequestTarget, ServiceRequestTimeline};

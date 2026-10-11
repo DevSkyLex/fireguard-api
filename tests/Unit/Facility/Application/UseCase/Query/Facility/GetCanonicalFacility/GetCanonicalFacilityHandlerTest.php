@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetCanonicalFacility;
 
 use DateTimeImmutable;
-use Facility\Application\Port\Outbound\CanonicalFacilityRepositoryPort;
+use Facility\Application\Contract\Facility\CanonicalFacilityView;
+use Facility\Application\Port\Inbound\FacilityMutationAuthorizationPort;
+use Facility\Application\Port\Outbound\Internal\CanonicalFacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\{GetCanonicalFacilityHandler, GetCanonicalFacilityQuery};
 use Facility\Domain\Model\Facility\{CanonicalFacility, CanonicalFacilityContent, CanonicalFacilityReference, CanonicalFacilityVersion};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityRecordStatus, FacilityStatus, FacilityType};
@@ -52,6 +54,23 @@ final class GetCanonicalFacilityHandlerTest extends TestCase
     self::assertSame('draft', $result->view->recordStatus);
     self::assertSame(self::INTERVENTION_ID, $result->view->interventionId);
     self::assertSame(3, $result->view->revision);
+  }
+
+  #[Test]
+  public function actorPreflightUsesReadAccessWithoutAWriteLock(): void
+  {
+    $facilities = $this->createStub(CanonicalFacilityRepositoryPort::class);
+    $facilities->method('findById')->willReturn($this->facility());
+    $authorization = $this->createMock(FacilityMutationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('assertCanMutate')->with(
+      'actor',
+      self::callback(static fn (CanonicalFacilityView $view): bool => self::FACILITY_ID === $view->id && self::INTERVENTION_ID === $view->interventionId),
+      false,
+    );
+
+    $result = new GetCanonicalFacilityHandler($facilities, $authorization)->__invoke(new GetCanonicalFacilityQuery(self::FACILITY_ID, 'actor'));
+
+    self::assertNotNull($result->view);
   }
 
   /**

@@ -6,7 +6,8 @@ namespace Facility\Infrastructure\Adapter\Intervention;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
-use Facility\Application\Port\Inbound\{FacilityArchivalGuardPort, FacilityDraftReferencesPort, FacilityHierarchyPort};
+use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Application\Port\Inbound\{FacilityDraftReferencesPort, FacilityHierarchyPort};
 use Facility\Application\Service\FacilityHierarchyPublicationContext;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionDraftDependencyConflict;
@@ -66,7 +67,7 @@ final readonly class FacilityPublicationGuardAdapter implements InterventionPubl
     $nodes = [];
     foreach ($this->context->ids() as $id) {
       $record = $this->entityManager->find(FacilityRecord::class, $id);
-      if ($record instanceof FacilityRecord && $record->organization?->id === $organizationId) {
+      if ($record instanceof FacilityRecord && $record->organizationId === $organizationId) {
         $nodes[] = $this->node($record);
       }
     }
@@ -141,7 +142,7 @@ final readonly class FacilityPublicationGuardAdapter implements InterventionPubl
     /** @var list<FacilityRecord> $records */
     $records = $this->entityManager->getRepository(FacilityRecord::class)->findBy(['interventionId' => $interventionId, 'recordStatus' => 'draft']);
     foreach ($records as $record) {
-      if ($record->organization?->id !== $organizationId) {
+      if ($record->organizationId !== $organizationId) {
         throw new InvalidArgumentException('Publication facility organization is invalid.');
       }
       $nodes[$record->id] = $this->node($record);
@@ -176,7 +177,7 @@ final readonly class FacilityPublicationGuardAdapter implements InterventionPubl
         continue;
       }
       $record = $this->entityManager->find(FacilityRecord::class, $match[1]);
-      if (!$record instanceof FacilityRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
+      if (!$record instanceof FacilityRecord || $record->organizationId !== $organizationId || 'published' !== $record->recordStatus) {
         throw new InvalidArgumentException('Publication facility target is invalid.');
       }
       $originalNodes[$record->id] ??= $this->node($record);

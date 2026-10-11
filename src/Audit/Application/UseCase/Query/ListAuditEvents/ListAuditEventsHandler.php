@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Audit\Application\UseCase\Query\ListAuditEvents;
 
 use Audit\Application\Contract\AuditEventView;
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\UseCase\Command\Message\RemoveReaction;
 
 use DateTimeImmutable;
-use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingReactionRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReactionRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\RemoveReaction\{RemoveReactionCommand, RemoveReactionHandler};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};

@@ -16,6 +16,14 @@ Main goals:
 - Expose user-facing read APIs (`list`, `get`, `mark as read`,
   `preferences`).
 
+Committed outbox requests use a stable event/type/recipient delivery key. The
+main consumer receipt is committed only when every persisted channel is delivered
+or intentionally suppressed. Inbox identity and channel acknowledgements commit
+independently, so a later failed channel retries without repeating an acknowledged
+one. Replays resolve the current email and preferences: an unavailable email in a
+multi-channel request becomes a durable suppression, while Mercure remains usable.
+An address change affects delivery without rewriting the historical inbox snapshot.
+
 ## API Endpoints
 
 | Method | Path                              | Description                                                                                                                                                    | Handler                                  |
@@ -181,6 +189,19 @@ Returned contract: `SentNotification` includes `channelDelivery` (`array<string,
 to indicate success/failure per channel.
 
 ## Delivery Semantics
+
+Producers can record `NotificationDeliveryRequestedEvent` in their owning main
+transaction. The event contains an immutable `SendNotificationRequest` snapshot
+and is delivered only through a durable outbox identity. The delivery use case
+binds that identity to notification type and recipient, commits a main consumer
+receipt only when all effective channels are delivered or intentionally suppressed,
+and retries any `failed` status. The independent channel receipts below retain
+already acknowledged deliveries across an outer consumer rollback. A request
+dispatched synchronously without a durable identity is rejected.
+
+Domain-based persistence and channel interfaces remain owner-private under
+`Application/Port/Outbound/Internal`; inter-module callers consume the public
+notification request, result, event and inbound capability.
 
 - Validation is strict before persistence:
   - at least one target (`recipientUserId` or `recipientEmail`),

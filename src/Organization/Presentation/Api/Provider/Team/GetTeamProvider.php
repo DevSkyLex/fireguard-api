@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Provider\Team;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Team\GetTeam\{GetTeamQuery, GetTeamResult};
 use Organization\Presentation\Api\Dto\Output\Team\TeamOutput;
@@ -63,7 +63,7 @@ final readonly class GetTeamProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?TeamOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

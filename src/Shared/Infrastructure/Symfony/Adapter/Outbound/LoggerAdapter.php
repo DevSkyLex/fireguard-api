@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Psr\Log\LoggerInterface;
-use Shared\Application\Log\LogLevel;
+use Shared\Application\Contract\Log\LogLevel;
 use Shared\Application\Port\Outbound\LoggerPort;
 
 /**

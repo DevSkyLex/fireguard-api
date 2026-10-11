@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace ServiceRequest\Application\UseCase\Command\ConvertServiceRequest;
 
-use ServiceRequest\Application\Contract\ServiceRequestView;
 use ServiceRequest\Application\Contract\Work\ServiceRequestWorkRequest;
-use ServiceRequest\Application\Port\Outbound\{ServiceRequestRepositoryPort, ServiceRequestWorkPort};
+use ServiceRequest\Application\Port\Outbound\Internal\ServiceRequestRepositoryPort;
+use ServiceRequest\Application\Port\Outbound\ServiceRequestWorkPort;
 use ServiceRequest\Application\Service\{ServiceRequestAccessGuard, ServiceRequestTargetGuard};
+use ServiceRequest\Application\Service\ServiceRequestViewMapper;
 use ServiceRequest\Domain\Event\ServiceRequestChangedEvent;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
@@ -49,7 +50,7 @@ final readonly class ConvertServiceRequestHandler implements CommandHandler
       if (null !== $receipt) {
         $this->assertReplay($request, $receipt, $operationId, $hash);
 
-        return new ConvertServiceRequestResult(ServiceRequestView::fromRequest($request));
+        return new ConvertServiceRequestResult(ServiceRequestViewMapper::fromRequest($request));
       }
       if (null !== $this->requests->conversionReceiptByOperation($request->organizationId, $operationId)) {
         throw ServiceRequestException::operationConflict();
@@ -68,7 +69,7 @@ final readonly class ConvertServiceRequestHandler implements CommandHandler
       $this->requests->saveConversionReceipt(new ServiceRequestConversionReceipt($converted->organizationId, $converted->id, $operationId, $hash, $link->interventionId, $link->taskId, $now));
       $this->events->dispatch(new ServiceRequestChangedEvent($converted->organizationId, $converted->id, 'converted', $converted->revision, $converted->updatedAt));
 
-      return new ConvertServiceRequestResult(ServiceRequestView::fromRequest($converted));
+      return new ConvertServiceRequestResult(ServiceRequestViewMapper::fromRequest($converted));
     });
   }
 

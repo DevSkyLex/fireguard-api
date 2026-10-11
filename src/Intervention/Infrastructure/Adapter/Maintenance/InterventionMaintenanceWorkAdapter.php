@@ -75,7 +75,7 @@ final readonly class InterventionMaintenanceWorkAdapter implements InterventionM
     }
     $query = $this->entityManager->createQueryBuilder()->select('w.id AS workItemId, w.target, i.id AS interventionId, i.number')
       ->from(InterventionWorkItemRecord::class, 'w')->join('w.intervention', 'i')
-      ->where('IDENTITY(i.organization) = :organization AND i.status NOT IN (:closed) AND w.action = :action AND w.occurrenceId IS NULL AND w.status <> :skipped')
+      ->where('i.organizationId = :organization AND i.status NOT IN (:closed) AND w.action = :action AND w.occurrenceId IS NULL AND w.status <> :skipped')
       ->setParameter('organization', $organizationId)->setParameter('closed', ['published', 'abandoned'])
       ->setParameter('action', 'inspection')->setParameter('skipped', 'skipped')
       ->setParameter('targets', array_map(static fn (string $id): string => '/api/equipment/' . $id, $equipmentIds))->orderBy('w.id', 'ASC');
@@ -119,7 +119,7 @@ final readonly class InterventionMaintenanceWorkAdapter implements InterventionM
       throw new InterventionConflictException('Preventive handover requires the main transaction.');
     }
     $item = $this->entityManager->find(InterventionWorkItemRecord::class, $workItemId);
-    if (!$item instanceof InterventionWorkItemRecord || !$item->intervention instanceof InterventionRecord || $item->intervention->organization?->id !== $organizationId) {
+    if (!$item instanceof InterventionWorkItemRecord || !$item->intervention instanceof InterventionRecord || $item->intervention->organizationId !== $organizationId) {
       throw new InterventionConflictException('The preventive handover work is unavailable.');
     }
     $order = $item->intervention;

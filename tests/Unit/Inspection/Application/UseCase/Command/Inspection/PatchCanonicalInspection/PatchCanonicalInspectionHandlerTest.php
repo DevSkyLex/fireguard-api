@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Inspection\PatchCanonicalInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{CanonicalInspectionRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\CanonicalInspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Application\UseCase\Command\Inspection\PatchCanonicalInspection\{PatchCanonicalInspectionCommand, PatchCanonicalInspectionHandler};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Exception\{CanonicalInspectionValidationException, InspectionNotFoundException, InspectionRevisionMismatchException};

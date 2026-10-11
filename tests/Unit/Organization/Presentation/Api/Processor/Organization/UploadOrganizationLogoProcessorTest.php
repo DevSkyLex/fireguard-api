@@ -7,24 +7,17 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{
-  UpdateOrganizationSettingsCommand,
-  UpdateOrganizationSettingsResult
-};
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
+use Organization\Application\UseCase\Command\Organization\UploadOrganizationLogo\{UploadOrganizationLogoCommand, UploadOrganizationLogoResult};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Domain\Exception\OrganizationNotFoundException;
-use Organization\Infrastructure\Image\OrganizationLogoResizer;
 use Organization\Presentation\Api\Processor\Organization\UploadOrganizationLogoProcessor;
-use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Contract\Image\InvalidImageInputException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Infrastructure\Image\ImageInputValidationAdapter;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -33,15 +26,12 @@ use Symfony\Component\HttpKernel\Exception\{
   BadRequestHttpException,
   UnprocessableEntityHttpException
 };
-use Tests\Support\Image\ImageFixtures;
 
 use function file_put_contents;
 use function imagecreatetruecolor;
 use function imagepng;
-use function is_string;
 use function restore_error_handler;
 use function set_error_handler;
-use function str_contains;
 use function str_repeat;
 use function sys_get_temp_dir;
 use function tempnam;
@@ -89,16 +79,14 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
   {
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::atLeastOnce())->method('write');
+    $fileStorage->expects(self::never())->method('write');
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
-      ->with(self::callback(static fn (UpdateOrganizationSettingsCommand $command): bool => self::ORGANIZATION_ID === $command->organizationId
-        && is_string($command->logoUrl)
-        && str_contains($command->logoUrl, '/api/organizations/' . self::ORGANIZATION_ID . '/logo.webp?v=')))
-      ->willReturn(new UpdateOrganizationSettingsResult(self::ORGANIZATION_ID));
+      ->with(self::callback(static fn (UploadOrganizationLogoCommand $command): bool => self::ORGANIZATION_ID === $command->organizationId && self::USER_ID === $command->actingUserId && '' !== $command->contents))
+      ->willReturn(new UploadOrganizationLogoResult(self::ORGANIZATION_ID, 'https://app.test/logo.webp'));
 
     $output = $this->createProcessor(
       request: $this->requestWithLogo(),
@@ -136,7 +124,7 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
   {
     $processor = $this->createProcessor(authorizationGranted: false);
 
-    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectException(OrganizationAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.settings.write permission.');
 
     $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
@@ -284,45 +272,6 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
     }
   }
 
-  #[Test]
-  #[DataProvider('rejectedImageHeaders')]
-  public function testRejectedImagesPreserveTheExistingLogoAndOrganizationState(string $contents, string $message): void
-  {
-    $request = new Request();
-    $request->files->set('logo', new UploadedFile($this->temporaryFile($contents), 'logo.png', 'image/png', test: true));
-
-    $storage = $this->createMock(FileStoragePort::class);
-    $storage->expects(self::never())->method('delete');
-    $storage->expects(self::never())->method('write');
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
-
-    $processor = $this->createProcessor(request: $request, commandBus: $commandBus, queryBus: $queryBus, fileStorage: $storage);
-
-    $this->expectException(InvalidImageInputException::class);
-    $this->expectExceptionMessage($message);
-
-    $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
-  }
-
-  /**
-   * Method rejectedImageHeaders
-   *
-   * Covers geometry rejection before decode and header-valid truncated pixels.
-   *
-   * @access public
-   *
-   * @return iterable<string, array{string, string}> the rejected source cases
-   */
-  public static function rejectedImageHeaders(): iterable
-  {
-    yield 'oversized geometry' => [ImageFixtures::pngHeader(2048, 2049), 'Image exceeds the 4194304 pixel limit.'];
-    yield 'malformed pixels' => [ImageFixtures::pngHeader(1, 1), 'Unable to decode the uploaded image.'];
-    yield 'GIF first-frame geometry' => [ImageFixtures::gifFirstFrameHeader(2048, 2049), 'Image exceeds the 4194304 pixel limit.'];
-  }
-
   private function createProcessor(
     ?Request $request = null,
     ?CommandBusPort $commandBus = null,
@@ -341,18 +290,15 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
       $queryBus->method('ask')->willReturn($this->organizationResult());
     }
 
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($authorizationGranted);
+    if (!$authorizationGranted) {
+      $queryBus = $this->createStub(QueryBusPort::class);
+      $queryBus->method('ask')->willThrowException(OrganizationAccessDeniedException::missingPermission('organization.settings.write'));
+    }
 
     return new UploadOrganizationLogoProcessor(
       requestStack: $requestStack,
-      logoResizer: new OrganizationLogoResizer(
-        $fileStorage ?? $this->createStub(FileStoragePort::class),
-        new ImageInputValidationAdapter(),
-      ),
       commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
-      authorization: $authorization,
       security: $security ?? $this->securityWithUser(),
     );
   }

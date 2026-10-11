@@ -12,7 +12,8 @@ use Auth\Application\UseCase\Command\Registration\ConfirmRegistration\{
 };
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
 use DateTimeImmutable;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
+use Otp\Application\Service\ChallengeAccessService;
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -20,9 +21,9 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\{EventBusPort, EventDispatcherPort};
-use Tests\Helper\TestEventIdProvider;
+use Tests\Helper\IdentityBoundaryFactories;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Model\User\User;
 
 /**
@@ -36,6 +37,8 @@ use User\Domain\Model\User\User;
 #[CoversClass(ConfirmRegistrationHandler::class)]
 final class ConfirmRegistrationHandlerTest extends TestCase
 {
+  use IdentityBoundaryFactories;
+
   // #region Constants
   private const string USER_ID = '00000000-0000-4000-a000-000000000001';
 
@@ -332,11 +335,13 @@ final class ConfirmRegistrationHandlerTest extends TestCase
     ?SessionTrackingPort $sessionTracking = null,
     ?EventDispatcherPort $eventDispatcher = null,
   ): ConfirmRegistrationHandler {
+    $otpRepository ??= $this->createStub(OtpRepositoryPort::class);
+    $userRepository ??= $this->createStub(UserRepositoryPort::class);
+
     return new ConfirmRegistrationHandler(
-      otpRepository: $otpRepository ?? $this->createStub(OtpRepositoryPort::class),
-      userRepository: $userRepository ?? $this->createStub(UserRepositoryPort::class),
-      eventBus: $eventBus ?? $this->createStub(EventBusPort::class),
-      eventIdProvider: new TestEventIdProvider(),
+      otpRepository: new ChallengeAccessService($otpRepository),
+      otpChallenge: $this->challengeCapability($otpRepository),
+      userRepository: $this->registrationCapability($userRepository, $eventBus),
       tokenService: $tokenService ?? $this->createStub(JwtTokenServicePort::class),
       sessionTracking: $sessionTracking ?? $this->createStub(SessionTrackingPort::class),
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),

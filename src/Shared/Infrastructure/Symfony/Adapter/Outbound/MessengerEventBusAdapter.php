@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
+use Shared\Application\Port\Outbound\Event\IntegrationEventDecoderPort;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\Event\DomainEvent;
 use Symfony\Component\Messenger\Exception\NoHandlerForMessageException;
@@ -30,9 +31,11 @@ final readonly class MessengerEventBusAdapter implements EventBusPort
    * @since 1.0.0
    *
    * @param MessageBusInterface $eventBus the messenger bus to publish events
+   * @param IntegrationEventDecoderPort $eventDecoder owner-local legacy snapshot decoder
    */
   public function __construct(
     private readonly MessageBusInterface $eventBus,
+    private IntegrationEventDecoderPort $eventDecoder,
   ) {
   }
   // #endregion
@@ -56,7 +59,7 @@ final readonly class MessengerEventBusAdapter implements EventBusPort
   {
     foreach ($events as $event) {
       try {
-        $this->eventBus->dispatch(message: $event);
+        $this->eventBus->dispatch(message: $this->eventDecoder->decode($event));
       } catch (NoHandlerForMessageException) {
         continue;
       } catch (Throwable $exception) {

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Symfony\Contracts\Translation\TranslatorInterface;
+use Shared\Application\Port\Outbound\TranslationPort;
 
 use function htmlspecialchars;
 use function in_array;
@@ -45,13 +45,13 @@ final readonly class OrganizationInvitationNotifier
    * @param NotificationPort $notificationPort the notification module port
    * @param string $frontendUrl the public frontend base URL for the accept link
    * @param OrganizationInvitationTokenHasher $tokenHasher the shared token generator/hasher
-   * @param TranslatorInterface $translator the translator, for the localized subject and body
+   * @param TranslationPort $translator the translator, for the localized subject and body
    */
   public function __construct(
     private NotificationPort $notificationPort,
     private string $frontendUrl,
     private OrganizationInvitationTokenHasher $tokenHasher,
-    private TranslatorInterface $translator,
+    private TranslationPort $translator,
   ) {
   }
   // #endregion
@@ -141,7 +141,7 @@ final readonly class OrganizationInvitationNotifier
       $channels[] = NotificationChannel::MERCURE;
     }
 
-    $subject = $this->translator->trans(
+    $subject = $this->translator->translate(
       'invitation.emailSubject',
       ['%org%' => $organizationName],
       'emails',
@@ -153,13 +153,13 @@ final readonly class OrganizationInvitationNotifier
       subject: $subject,
       body: sprintf(
         '<p>%s</p><p>%s</p>',
-        $this->translator->trans(
+        $this->translator->translate(
           'invitation.heading',
           ['%org%' => htmlspecialchars($organizationName)],
           'emails',
           $locale,
         ),
-        $this->translator->trans(
+        $this->translator->translate(
           'invitation.expires',
           ['%date%' => $this->formatExpiresAt($expiresAt, $locale)],
           'emails',

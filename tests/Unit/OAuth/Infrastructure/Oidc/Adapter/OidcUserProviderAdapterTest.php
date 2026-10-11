@@ -10,9 +10,8 @@ use OAuth\Infrastructure\Oidc\Adapter\OidcUserProviderAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 use User\Domain\ValueObject\UserId;
 
 /**
@@ -34,8 +33,8 @@ final class OidcUserProviderAdapterTest extends TestCase
   #[Test]
   public function testFindByIdentifierReturnsNullForEmptyIdentifier(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
+    $queryBus = $this->createMock(UserDirectoryPort::class);
+    $queryBus->expects(self::never())->method('findById');
 
     $adapter = new OidcUserProviderAdapter(queryBus: $queryBus);
 
@@ -50,10 +49,10 @@ final class OidcUserProviderAdapterTest extends TestCase
   #[Test]
   public function testFindByIdentifierReturnsNullOnQueryFailure(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(GetUserQuery::class))
+      ->method('findById')
+      ->with(self::isString())
       ->willThrowException(new RuntimeException('failure'));
 
     $adapter = new OidcUserProviderAdapter(queryBus: $queryBus);
@@ -64,11 +63,11 @@ final class OidcUserProviderAdapterTest extends TestCase
   #[Test]
   public function testFindByIdentifierReturnsNullWhenUserMissing(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(GetUserQuery::class))
-      ->willReturn(new GetUserResult(null));
+      ->method('findById')
+      ->with(self::isString())
+      ->willReturn(null);
 
     $adapter = new OidcUserProviderAdapter(queryBus: $queryBus);
 
@@ -85,11 +84,11 @@ final class OidcUserProviderAdapterTest extends TestCase
   {
     $user = $this->createUser();
 
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(GetUserQuery::class))
-      ->willReturn(new GetUserResult($user));
+      ->method('findById')
+      ->with(self::isString())
+      ->willReturn($user);
 
     $adapter = new OidcUserProviderAdapter(queryBus: $queryBus);
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Architecture\Unit;
 
 use App\Tests\Architecture\Support\{ArchitectureLayer, ModuleCollection};
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -162,6 +162,45 @@ final class ClassLocationTest extends TestCase
   }
 
   /**
+   * The suffix and layer role must agree; a generic persistence mapper cannot move to Application.
+   */
+  #[Test]
+  #[DataProvider('mapperLocationProvider')]
+  public function testMapperPlacementFollowsItsRole(string $name, string $path, bool $allowed): void
+  {
+    self::assertSame($allowed, self::isAllowedMapperLocation($name, $path));
+  }
+
+  /**
+   * @return array<string, array{string, string, bool}>
+   */
+  public static function mapperLocationProvider(): array
+  {
+    return [
+      'persistence' => ['EquipmentMapper', 'Infrastructure/Persistence/Doctrine/Mapper/EquipmentMapper.php', true],
+      'private aggregate to public view' => ['EquipmentViewMapper', 'Application/Service/EquipmentViewMapper.php', true],
+      'HTTP exception translation' => ['EquipmentExceptionMapper', 'Presentation/Api/Service/EquipmentExceptionMapper.php', true],
+      'persistence outside infrastructure' => ['EquipmentMapper', 'Application/Service/EquipmentMapper.php', false],
+      'view in domain' => ['EquipmentViewMapper', 'Domain/Service/EquipmentViewMapper.php', false],
+      'persistence disguised as presentation helper' => ['EquipmentMapper', 'Presentation/Api/Service/EquipmentMapper.php', false],
+      'exception business orchestration' => ['EquipmentExceptionMapper', 'Application/Service/EquipmentExceptionMapper.php', false],
+      'view adapter outside persistence' => ['EquipmentViewMapper', 'Infrastructure/Adapter/EquipmentViewMapper.php', false],
+    ];
+  }
+
+  /**
+   * Allowed service roles remain subject to the layer and exact module dependency gates.
+   */
+  private static function isAllowedMapperLocation(string $name, string $relativePath): bool
+  {
+    $path = str_replace('\\', '/', $relativePath);
+
+    return str_starts_with($path, 'Infrastructure/Persistence/')
+      || (str_ends_with($name, 'ViewMapper') && str_starts_with($path, 'Application/Service/'))
+      || (str_ends_with($name, 'ExceptionMapper') && str_starts_with($path, 'Presentation/Api/Service/'));
+  }
+
+  /**
    * Method assertSuffixOnlyInDirectory.
    *
    * Asserts that all classes with a given suffix
@@ -202,7 +241,8 @@ final class ClassLocationTest extends TestCase
           $pathname,
         );
 
-        if (!str_starts_with($relativePath, $allowedPath)) {
+        if (!str_starts_with($relativePath, $allowedPath . DIRECTORY_SEPARATOR)
+          && !('Mapper' === $suffix && self::isAllowedMapperLocation($shortName, $relativePath))) {
           $classPath = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
           $classPath = str_replace('.php', '', $classPath);
           $allowedPathFormatted = str_replace(DIRECTORY_SEPARATOR, '/', $allowedPath);

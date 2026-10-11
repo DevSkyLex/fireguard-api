@@ -14,8 +14,8 @@ use function is_string;
 /**
  * Service InspectionExportCriteriaFactory.
  *
- * Builds the `array<string, mixed>` filter shape {@see \Inspection\Application\Port\Outbound\InspectionRepositoryPort::countExportCandidates()}/
- * {@see \Inspection\Application\Port\Outbound\InspectionRepositoryPort::listExportCandidates()}
+ * Builds the `array<string, mixed>` filter shape {@see \Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort::countExportCandidates()}/
+ * {@see \Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort::listExportCandidates()}
  * expect, from the export controller's raw `Request` query string — the
  * documented export filter subset (`equipmentId`, `facilityId`, `result`,
  * `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`,

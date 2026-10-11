@@ -71,7 +71,7 @@ final class MaintenancePlanProviderTest extends TestCase
     $bus->expects(self::once())->method('ask')->with(self::callback(static fn (ReadMaintenancePlansQuery $query): bool => self::ORGANIZATION === $query->organizationId && self::ACTOR === $query->actorUserId && 'detail' === $query->action && self::PLAN === $query->planId))->willReturn(new ReadMaintenancePlansResult(items: [$details], total: 1, mode: 'plans'));
     $provider = new MaintenancePlanProvider($bus, $this->actor(), new MaintenancePlanOutputFactory(), new RequestStack());
 
-    $output = $provider->provide(new Get(name: MaintenancePlanOperations::GET), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new Get(name: MaintenancePlanOperations::GET), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
 
     self::assertInstanceOf(MaintenancePlanOutput::class, $output);
     self::assertSame(self::PLAN, $output->id);
@@ -98,7 +98,7 @@ final class MaintenancePlanProviderTest extends TestCase
     $bus->expects(self::once())->method('ask')->with(self::callback(static fn (ReadMaintenancePlansQuery $query): bool => self::ORGANIZATION === $query->organizationId && self::ACTOR === $query->actorUserId && 'list' === $query->action && null === $query->planId && 3 === $query->page && 20 === $query->itemsPerPage && self::EQUIPMENT === $query->equipmentId && 'control' === $query->operationKind && 'Annual' === $query->search))->willReturn(new ReadMaintenancePlansResult(items: [$this->details()], total: 61, mode: 'plans'));
     $provider = new MaintenancePlanProvider($bus, $this->actor(), new MaintenancePlanOutputFactory(), $requests);
 
-    $output = $provider->provide(new GetCollection(name: MaintenancePlanOperations::LIST), ['organizationId' => self::ORGANIZATION]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(name: MaintenancePlanOperations::LIST), ['organizationId' => self::ORGANIZATION]));
 
     self::assertInstanceOf(TraversablePaginator::class, $output);
     self::assertSame(3.0, $output->getCurrentPage());
@@ -124,7 +124,7 @@ final class MaintenancePlanProviderTest extends TestCase
     $bus->expects(self::once())->method('ask')->with(self::callback(static fn (ReadMaintenancePlansQuery $query): bool => 'list' === $query->action && 1 === $query->page && 30 === $query->itemsPerPage && null === $query->equipmentId && null === $query->operationKind && null === $query->search))->willReturn(new ReadMaintenancePlansResult());
     $provider = new MaintenancePlanProvider($bus, $this->actor(), new MaintenancePlanOutputFactory(), new RequestStack());
 
-    $output = $provider->provide(new GetCollection(name: MaintenancePlanOperations::LIST), ['organizationId' => self::ORGANIZATION]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(name: MaintenancePlanOperations::LIST), ['organizationId' => self::ORGANIZATION]));
 
     self::assertInstanceOf(TraversablePaginator::class, $output);
     self::assertSame(0.0, $output->getTotalItems());
@@ -153,7 +153,7 @@ final class MaintenancePlanProviderTest extends TestCase
     $bus->expects(self::once())->method('ask')->with(self::callback(static fn (ReadMaintenancePlansQuery $query): bool => $expectedPage === $query->page && $expectedSize === $query->itemsPerPage))->willReturn(new ReadMaintenancePlansResult());
     $provider = new MaintenancePlanProvider($bus, $this->actor(), new MaintenancePlanOutputFactory(), $requests);
 
-    $output = $provider->provide(new GetCollection(name: MaintenancePlanOperations::LIST), ['organizationId' => self::ORGANIZATION]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(name: MaintenancePlanOperations::LIST), ['organizationId' => self::ORGANIZATION]));
 
     self::assertInstanceOf(TraversablePaginator::class, $output);
     self::assertSame((float) $expectedPage, $output->getCurrentPage());
@@ -187,7 +187,7 @@ final class MaintenancePlanProviderTest extends TestCase
     $bus->expects(self::once())->method('ask')->with(self::callback(static fn (ReadMaintenancePlansQuery $query): bool => 'preview' === $query->action && self::PLAN === $query->planId && self::ORGANIZATION === $query->organizationId))->willReturn(new ReadMaintenancePlansResult(dates: [new DateTimeImmutable('2026-02-28T08:00:00+00:00'), new DateTimeImmutable('2026-03-31T08:00:00+00:00'), new DateTimeImmutable('2026-04-30T08:00:00+00:00')]));
     $provider = new MaintenancePlanProvider($bus, $this->actor(), new MaintenancePlanOutputFactory(), new RequestStack());
 
-    $output = $provider->provide(new Get(name: MaintenancePlanOperations::PREVIEW), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new Get(name: MaintenancePlanOperations::PREVIEW), ['organizationId' => self::ORGANIZATION, 'id' => self::PLAN]));
 
     self::assertInstanceOf(MaintenancePlanPreviewOutput::class, $output);
     self::assertSame(['2026-02-28T08:00:00+00:00', '2026-03-31T08:00:00+00:00', '2026-04-30T08:00:00+00:00'], $output->dates);
@@ -207,7 +207,7 @@ final class MaintenancePlanProviderTest extends TestCase
     $bus->expects(self::once())->method('ask')->with(self::callback(static fn (ReadMaintenancePlansQuery $query): bool => 'engine' === $query->action && null === $query->planId && self::ORGANIZATION === $query->organizationId))->willReturn(new ReadMaintenancePlansResult(mode: 'legacy', preparedCount: 7));
     $provider = new MaintenancePlanProvider($bus, $this->actor(), new MaintenancePlanOutputFactory(), new RequestStack());
 
-    $output = $provider->provide(new Get(name: MaintenancePlanOperations::ENGINE), ['organizationId' => self::ORGANIZATION]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new Get(name: MaintenancePlanOperations::ENGINE), ['organizationId' => self::ORGANIZATION]));
 
     self::assertInstanceOf(MaintenancePlanEngineOutput::class, $output);
     self::assertSame('legacy', $output->mode);
@@ -229,7 +229,7 @@ final class MaintenancePlanProviderTest extends TestCase
     $provider = new MaintenancePlanProvider($bus, $this->actor(null), new MaintenancePlanOutputFactory(), new RequestStack());
     $this->expectException(AccessDeniedHttpException::class);
 
-    $provider->provide(new GetCollection(name: MaintenancePlanOperations::LIST), ['organizationId' => self::ORGANIZATION]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(name: MaintenancePlanOperations::LIST), ['organizationId' => self::ORGANIZATION]));
   }
 
   /**
@@ -250,7 +250,7 @@ final class MaintenancePlanProviderTest extends TestCase
     $provider = new MaintenancePlanProvider($bus, $this->actor(), new MaintenancePlanOutputFactory(), new RequestStack());
     $this->expectException(BadRequestHttpException::class);
 
-    $provider->provide(new Get(name: MaintenancePlanOperations::GET), $variables);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new Get(name: MaintenancePlanOperations::GET), $variables));
   }
 
   /**

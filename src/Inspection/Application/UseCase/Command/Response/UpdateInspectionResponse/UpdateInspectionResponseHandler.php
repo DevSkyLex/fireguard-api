@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Response\UpdateInspectionResponse;
 
-use Inspection\Application\Contract\Response\InspectionResponseView;
-use Inspection\Application\Port\Outbound\{InspectionResponseRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\InspectionResponseRepositoryPort;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Domain\Exception\InspectionResponseNotFoundException;
 use Inspection\Domain\Model\Response\InspectionResponse;
 use Inspection\Domain\ValueObject\InspectionResponseId;
@@ -77,7 +77,7 @@ final readonly class UpdateInspectionResponseHandler implements CommandHandler
       return $response;
     });
 
-    return new UpdateInspectionResponseResult(InspectionResponseView::fromModel($response));
+    return new UpdateInspectionResponseResult(\Inspection\Application\Service\InspectionResponseViewMapper::fromModel($response));
   }
 
   /**

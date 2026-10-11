@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Session\Application\UseCase\Command\Session\UpdateSessionTokens;
 
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\UseCase\Command\Session\UpdateSessionTokens\{UpdateSessionTokensCommand, UpdateSessionTokensHandler};
 
 final class UpdateSessionTokensHandlerTest extends TestCase

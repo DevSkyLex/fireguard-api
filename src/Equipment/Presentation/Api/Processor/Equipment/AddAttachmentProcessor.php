@@ -6,7 +6,7 @@ namespace Equipment\Presentation\Api\Processor\Equipment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\UseCase\Command\Equipment\AddAttachment\{AddAttachmentCommand, AddAttachmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\AddAttachmentInput;
@@ -14,7 +14,7 @@ use Equipment\Presentation\Api\Dto\Output\Equipment\AttachmentOutput;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -70,7 +70,7 @@ final readonly class AddAttachmentProcessor implements ProcessorInterface
   {
     /** @var AddAttachmentInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -110,6 +110,7 @@ final readonly class AddAttachmentProcessor implements ProcessorInterface
       $result = $this->commandBus->dispatch(new AddAttachmentCommand(
         organizationId: $organizationId,
         equipmentId: $equipmentId,
+        userId: $user->getId(),
         fileName: $data->fileName,
         contents: $contents,
         mimeType: $data->mimeType,

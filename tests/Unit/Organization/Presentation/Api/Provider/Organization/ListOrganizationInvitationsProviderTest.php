@@ -8,9 +8,9 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\{GetOrganizationInvitationResult, ListOrganizationInvitationsQuery};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationInvitationsProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -45,6 +45,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), []);
@@ -72,6 +73,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($this->createStub(QueryBusPort::class)),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -131,6 +133,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441951']);
@@ -158,6 +161,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($this->createStub(QueryBusPort::class)),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -191,6 +195,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -257,6 +262,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(
@@ -312,6 +318,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);

@@ -9,9 +9,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\{LoggerInterface, NullLogger};
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
-use User\Application\UseCase\Query\User\AuthenticateUser\{AuthenticateUserQuery, AuthenticateUserResult};
+use User\Application\Port\Inbound\UserAuthenticationPort;
 
 /**
  * Test UserAuthenticationAdapterTest.
@@ -25,11 +24,11 @@ final class UserAuthenticationAdapterTest extends TestCase
   #[Test]
   public function testAuthenticateReturnsSuccess(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createMock(UserAuthenticationPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(AuthenticateUserQuery::class))
-      ->willReturn(new AuthenticateUserResult(
+      ->method('authenticate')
+      ->with('user@example.com', 'password')
+      ->willReturn(new \User\Application\Contract\User\UserAuthentication(
         authenticated: true,
         userId: 'user-1',
         email: 'user@example.com',
@@ -47,10 +46,10 @@ final class UserAuthenticationAdapterTest extends TestCase
   #[Test]
   public function testAuthenticateReturnsFailedWhenNotAuthenticated(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createMock(UserAuthenticationPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new AuthenticateUserResult(authenticated: false));
+      ->method('authenticate')
+      ->willReturn(new \User\Application\Contract\User\UserAuthentication(authenticated: false));
 
     $adapter = new UserAuthenticationAdapter($queryBus, new NullLogger());
 
@@ -62,11 +61,11 @@ final class UserAuthenticationAdapterTest extends TestCase
   #[Test]
   public function testAuthenticateReturnsFailedOnException(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createMock(UserAuthenticationPort::class);
     $exception = new class ('fail') extends RuntimeException implements Throwable {
     };
     $queryBus->expects(self::once())
-      ->method('ask')
+      ->method('authenticate')
       ->willThrowException($exception);
 
     $logger = $this->createMock(LoggerInterface::class);

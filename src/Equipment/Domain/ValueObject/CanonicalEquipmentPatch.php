@@ -17,7 +17,7 @@ use Equipment\Domain\Exception\CanonicalEquipmentValidationException;
  * things here. An absent `brand` leaves the stored brand alone; `"brand":
  * null` erases it. An absent `status` is a no-op; `"status": null` is a
  * rejection. The flags come from the raw request body, read by
- * `Shared\Presentation\Api\Http\MergePatchFields` — a deserialized DTO
+ * `Equipment\Presentation\Api\Http\MergePatchFields` — a deserialized DTO
  * cannot carry the distinction, both cases arriving as a null property.
  *
  * `facilityId` is an identifier, not the IRI the client sent: the processor

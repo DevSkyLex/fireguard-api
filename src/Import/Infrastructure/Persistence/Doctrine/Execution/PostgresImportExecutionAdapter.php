@@ -9,7 +9,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Import\Application\Exception\ImportLeaseUnavailable;
-use Import\Application\Port\Outbound\{ImportExecutionPort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort};
 use Import\Domain\Exception\ImportJobNotFoundException;
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\ImportJobId;

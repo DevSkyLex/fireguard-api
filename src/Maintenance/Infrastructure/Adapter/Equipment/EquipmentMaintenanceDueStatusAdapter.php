@@ -8,7 +8,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Port\Outbound\MaintenanceDueStatusPort;
 use Maintenance\Domain\ValueObject\MaintenanceDueStatus;
 use Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Adapter EquipmentMaintenanceDueStatusAdapter.
@@ -64,13 +63,12 @@ final readonly class EquipmentMaintenanceDueStatusAdapter implements Maintenance
       $dueStatuses[$equipmentId] = MaintenanceDueStatus::UNSCHEDULED->value;
     }
 
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     $qb = $this->entityManager->createQueryBuilder()
       ->select('s.equipmentId AS equipmentId, s.dueStatus AS dueStatus')
       ->from(MaintenanceScheduleRecord::class, 's')
-      ->where('s.organization = :organization')
+      ->where('s.organizationId = :organization')
       ->andWhere('s.equipmentId IN (:equipmentIds)')
       ->setParameter('organization', $organization)
       ->setParameter('equipmentIds', $equipmentIds);

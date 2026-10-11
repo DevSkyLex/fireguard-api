@@ -7,7 +7,7 @@ namespace Inspection\Application\Contract\Export;
 /**
  * Domain NonConformityExportCandidate.
  *
- * A single non-conformity row as read from {@see \Inspection\Application\Port\Outbound\NonConformityRepositoryPort::listExportCandidates()},
+ * A single non-conformity row as read from {@see \Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort::listExportCandidates()},
  * carrying the raw `facilityId`/`equipmentId` identifiers resolved from its
  * owning inspection — no display name is resolved yet, mirroring
  * {@see InspectionExportCandidate}.

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Messaging\Application\Contract\Attachment;
 
-use Messaging\Application\Contract\Attachment\MessagingAttachmentPage;
-use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
-use Messaging\Domain\ValueObject\MessagingAttachmentId;
+use DateTimeImmutable;
+use Messaging\Application\Contract\Attachment\{MessagingAttachmentPage, MessagingAttachmentView};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -23,18 +22,17 @@ final class MessagingAttachmentPageTest extends TestCase
   #[Test]
   public function itRoundTripsItsItemsAndPaginationMetadata(): void
   {
-    $attachment = MessagingAttachment::create(
-      id: MessagingAttachmentId::fromString('66666666-6666-4666-8666-666666666666'),
+    $attachment = new MessagingAttachmentView(
+      id: '66666666-6666-4666-8666-666666666666',
       messageId: 'msg-1',
       conversationId: 'conv-1',
       organizationId: 'org-1',
       uploadedByMemberId: 'member-1',
-      file: new MessagingAttachmentFile(
-        fileName: 'file.pdf',
-        storagePath: 'org-1/conv-1/file.pdf',
-        mimeType: 'application/pdf',
-        size: 100,
-      ),
+      fileName: 'file.pdf',
+      mimeType: 'application/pdf',
+      size: 100,
+      label: null,
+      uploadedAt: new DateTimeImmutable('2026-01-01'),
     );
 
     $page = new MessagingAttachmentPage(items: [$attachment], page: 1, itemsPerPage: 10, total: 1);

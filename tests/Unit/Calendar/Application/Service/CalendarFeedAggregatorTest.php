@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Calendar\Application\Service;
 
 use Calendar\Application\Contract\Feed\CalendarFeedItem;
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Service\CalendarFeedAggregator;
 use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;

@@ -150,7 +150,7 @@ services:
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
       DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
     command:
-      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "main_outbox", "async", "--time-limit=3600", "--memory-limit=256M"]
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "main_outbox", "auth_outbox", "async", "--time-limit=3600", "--memory-limit=256M"]
     volumes:
       - app_var:/var/www/html/var
       - jwt_keys:/var/www/html/config/jwt:ro
@@ -236,7 +236,7 @@ services:
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
       DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
     command:
-      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "scheduler_maintenance", "scheduler_intervention", "scheduler_approval", "scheduler_inspection", "scheduler_organization", "--time-limit=3600", "--memory-limit=256M"]
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "scheduler_maintenance", "scheduler_intervention", "scheduler_approval", "scheduler_inspection", "scheduler_organization", "scheduler_webhook", "--time-limit=3600", "--memory-limit=256M"]
     volumes:
       - app_var:/var/www/html/var
       - jwt_keys:/var/www/html/config/jwt:ro

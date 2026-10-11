@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Security\Voter;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedPrincipal;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\{Vote, Voter};
@@ -73,7 +73,7 @@ final class OAuth2ScopeVoter extends Voter
   {
     $user = $token->getUser();
 
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedPrincipal) {
       return false;
     }
 

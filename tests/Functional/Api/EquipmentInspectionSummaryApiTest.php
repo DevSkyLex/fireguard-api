@@ -207,7 +207,7 @@ final class EquipmentInspectionSummaryApiTest extends WebTestCase
     $now = new DateTimeImmutable();
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT;
-    $equipment->organization = $organization ?? $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $equipment->organizationId = $organization->id ?? self::ORG;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = 'under_maintenance';
     $equipment->createdAt = $now;
@@ -223,7 +223,7 @@ final class EquipmentInspectionSummaryApiTest extends WebTestCase
     $now = new DateTimeImmutable();
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization ?? $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $inspection->organizationId = $organization->id ?? self::ORG;
     $inspection->equipmentId = $equipmentId;
     $inspection->inspectorType = 'internal';
     $inspection->inspectorName = 'Inspector';

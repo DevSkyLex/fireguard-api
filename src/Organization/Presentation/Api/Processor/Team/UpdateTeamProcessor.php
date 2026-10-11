@@ -6,16 +6,17 @@ namespace Organization\Presentation\Api\Processor\Team;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Team\UpdateTeam\UpdateTeamCommand;
 use Organization\Application\UseCase\Query\Team\GetTeam\{GetTeamQuery, GetTeamResult};
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNameAlreadyExistsException, TeamNotFoundException};
+use Organization\Domain\Exception\{TeamNameAlreadyExistsException, TeamNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Team\UpdateTeamInput;
 use Organization\Presentation\Api\Dto\Output\Team\TeamOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -87,7 +88,7 @@ final readonly class UpdateTeamProcessor implements ProcessorInterface
   {
     /** @var UpdateTeamInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

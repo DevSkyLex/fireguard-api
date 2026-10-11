@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAttachment;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort};
 use Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAttachment\{DeleteInspectionAttachmentCommand, DeleteInspectionAttachmentHandler, DeleteInspectionAttachmentResult};
 use Inspection\Domain\Exception\{InspectionAttachmentNotFoundException, InspectionNotFoundException};
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
@@ -22,7 +22,7 @@ use Inspection\Domain\ValueObject\{
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(DeleteInspectionAttachmentHandler::class)]
@@ -50,14 +50,17 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('findById')->willReturn($attachment);
     $attachmentRepository->expects(self::once())->method('delete');
 
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::once())->method('delete')->with($attachment->storagePath());
+    /** @var FileCleanupPort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileCleanupPort::class);
+    $fileStorage->expects(self::once())->method('request')->with($attachment->storagePath());
 
     $handler = new DeleteInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
       attachmentRepository: $attachmentRepository,
-      fileStorage: $fileStorage,
+      fileCleanup: $fileStorage,
+      transactions: $this->transactions(),
+      media: $this->media(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $result = $handler->__invoke(new DeleteInspectionAttachmentCommand(
@@ -79,13 +82,16 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
     $attachmentRepository = $this->createMock(InspectionAttachmentRepositoryPort::class);
     $attachmentRepository->expects(self::never())->method('delete');
 
-    $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::never())->method('delete');
+    $fileStorage = $this->createMock(FileCleanupPort::class);
+    $fileStorage->expects(self::never())->method('request');
 
     $handler = new DeleteInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
       attachmentRepository: $attachmentRepository,
-      fileStorage: $fileStorage,
+      fileCleanup: $fileStorage,
+      transactions: $this->transactions(),
+      media: $this->media(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -110,13 +116,16 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('findById')->willReturn($attachment);
     $attachmentRepository->expects(self::never())->method('delete');
 
-    $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::never())->method('delete');
+    $fileStorage = $this->createMock(FileCleanupPort::class);
+    $fileStorage->expects(self::never())->method('request');
 
     $handler = new DeleteInspectionAttachmentHandler(
       inspectionRepository: $inspectionRepository,
       attachmentRepository: $attachmentRepository,
-      fileStorage: $fileStorage,
+      fileCleanup: $fileStorage,
+      transactions: $this->transactions(),
+      media: $this->media(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(InspectionAttachmentNotFoundException::class);
@@ -134,7 +143,10 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
     $handler = new DeleteInspectionAttachmentHandler(
       inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       attachmentRepository: $this->createStub(InspectionAttachmentRepositoryPort::class),
-      fileStorage: $this->createStub(FileStoragePort::class),
+      fileCleanup: $this->createStub(FileCleanupPort::class),
+      transactions: $this->transactions(),
+      media: $this->media(),
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -171,5 +183,32 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
       ),
       uploadedAt: new DateTimeImmutable(),
     );
+  }
+
+  private function transactions(): RootTransactionManagerPort
+  {
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
+  }
+
+  private function media(): \Inspection\Application\Port\Outbound\InspectionMediaLookupPort
+  {
+    $media = $this->createStub(\Inspection\Application\Port\Outbound\InspectionMediaLookupPort::class);
+    $media->method('attachment')->willReturn(new \Inspection\Application\Contract\Attachment\InspectionAttachmentView(
+      self::ATTACHMENT_ID,
+      self::ORG_ID,
+      self::INSPECTION_ID,
+      'file.pdf',
+      'application/pdf',
+      1,
+      null,
+      1,
+      '2026-01-01T00:00:00+00:00',
+      null,
+    ));
+
+    return $media;
   }
 }

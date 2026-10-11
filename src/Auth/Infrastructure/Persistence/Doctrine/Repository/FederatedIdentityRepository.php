@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
-use Auth\Application\Contract\Federation\FederatedConnection;
+use Auth\Application\Contract\Federation\{FederatedConnection, FederatedProvider};
 use Auth\Application\Port\Outbound\Federation\FederatedIdentityRepositoryPort;
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
 use Auth\Infrastructure\Persistence\Doctrine\Record\FederatedIdentityRecord;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;

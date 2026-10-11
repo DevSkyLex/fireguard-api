@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Logging;
 
+use Auth\Application\Port\Outbound\SecurityLogSanitizerPort;
 use Auth\Infrastructure\Exception\MissingPiiSaltException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -22,7 +23,7 @@ use function trim;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class SecurityLogSanitizer
+final readonly class SecurityLogSanitizer implements SecurityLogSanitizerPort
 {
   // #region Constructor
   /**

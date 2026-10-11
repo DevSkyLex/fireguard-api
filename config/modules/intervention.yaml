@@ -88,7 +88,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort:
+  Intervention\Application\Port\Outbound\Internal\InterventionTimeEntryRepositoryPort:
     alias: Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionTimeEntryRepository
 
   intervention.time_transaction_manager:
@@ -115,7 +115,7 @@ services:
     arguments:
       $commentSanitizer: '@html_sanitizer.sanitizer.intervention.comment'
 
-  Intervention\Application\Port\Outbound\InterventionResourceGatewayPort:
+  Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort:
     alias: Intervention\Infrastructure\Adapter\Resource\DoctrineInterventionResourceGatewayAdapter
 
   Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository:
@@ -129,17 +129,11 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort:
+  Intervention\Application\Port\Outbound\Internal\InterventionAttachmentRepositoryPort:
     alias: Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository
 
   # R11b: generalized intervention attachments (multipart, phase-based write)
-  Intervention\Presentation\Api\Processor\Attachment\InterventionMediaProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
   Intervention\Application\Port\Outbound\InterventionEquipmentDraftProviderPort:
     alias: Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter
@@ -449,3 +443,27 @@ services:
 
   Intervention\Application\UseCase\Query\ExportInterventions\ExportInterventionsHandler:
     tags: ['messenger.message_handler']
+
+  Intervention\Application\Port\Inbound\InterventionResourcesPort:
+    alias: Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter
+
+  Intervention\Application\Port\Outbound\InterventionMediaLookupPort:
+    alias: Intervention\Infrastructure\Adapter\Attachment\DoctrineInterventionMediaLookupAdapter
+
+  Intervention\Infrastructure\Adapter\Attachment\DoctrineInterventionMediaLookupAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\UseCase\Query\Attachment\ResolveInterventionMedia\ResolveInterventionMediaHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Export\RecordInterventionExport\RecordInterventionExportHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\Port\Outbound\InterventionEquipmentSummaryPort:
+    alias: Equipment\Infrastructure\Adapter\Intervention\InterventionEquipmentSummaryAdapter
+
+  Intervention\Application\Service\InterventionWorkItemEnrichment: ~

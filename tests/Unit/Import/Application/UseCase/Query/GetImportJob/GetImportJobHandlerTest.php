@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Import\Application\UseCase\Query\GetImportJob;
 
-use Import\Application\Port\Outbound\ImportJobRepositoryPort;
+use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
 use Import\Application\UseCase\Query\GetImportJob\{GetImportJobHandler, GetImportJobQuery};
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;
@@ -42,7 +42,7 @@ final class GetImportJobHandlerTest extends TestCase
       ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.facilities.read')
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\ImportExecutionPort::class));
+    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class));
 
     $result = $handler->__invoke(new GetImportJobQuery(self::USER_ID, self::JOB_ID));
 
@@ -62,7 +62,7 @@ final class GetImportJobHandlerTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
 
-    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\ImportExecutionPort::class));
+    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class));
 
     $this->expectException(ImportJobNotFoundException::class);
     $this->expectExceptionMessage(self::JOB_ID);
@@ -79,7 +79,7 @@ final class GetImportJobHandlerTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
-    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\ImportExecutionPort::class));
+    $handler = new GetImportJobHandler($repository, $authorization, $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class));
 
     $this->expectException(ImportAccessDeniedException::class);
     $this->expectExceptionMessage('organization.facilities.read');
@@ -93,7 +93,7 @@ final class GetImportJobHandlerTest extends TestCase
     $repository = $this->createStub(ImportJobRepositoryPort::class);
     $repository->method('findForExecution')->willReturn(null);
 
-    $handler = new GetImportJobHandler($repository, $this->createStub(OrganizationAuthorizationPort::class), $this->createStub(\Import\Application\Port\Outbound\ImportExecutionPort::class));
+    $handler = new GetImportJobHandler($repository, $this->createStub(OrganizationAuthorizationPort::class), $this->createStub(\Import\Application\Port\Outbound\Internal\ImportExecutionPort::class));
 
     $this->expectException(ImportJobNotFoundException::class);
 

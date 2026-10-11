@@ -12,8 +12,7 @@ use Intervention\Application\Service\InterventionMemberPolicy;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Adapter\ServiceRequest\ServiceRequestWorkAdapter;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationMemberDirectoryPort};
 use PHPUnit\Framework\TestCase;
 use ServiceRequest\Application\Contract\Work\ServiceRequestWorkRequest;
 
@@ -64,7 +63,7 @@ final class ServiceRequestWorkAdapterTest extends TestCase
     $activities = $this->createMock(InterventionActivityPort::class);
     $activities->expects(self::never())->method('append');
 
-    return new ServiceRequestWorkAdapter($manager, $workflow, $authorization, $equipment, $activities, new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class)));
+    return new ServiceRequestWorkAdapter($manager, $workflow, $authorization, $equipment, $activities, new InterventionMemberPolicy($this->createStub(OrganizationMemberDirectoryPort::class)));
   }
 
   private function request(): ServiceRequestWorkRequest

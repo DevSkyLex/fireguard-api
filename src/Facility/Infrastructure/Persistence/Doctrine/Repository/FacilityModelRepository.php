@@ -6,7 +6,7 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
-use Facility\Application\Port\Outbound\FacilityModelRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityModelRepositoryPort;
 use Facility\Domain\Exception\FacilityModelException;
 use Facility\Domain\Model\FacilityModel\FacilityModel;
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityModelMapper;

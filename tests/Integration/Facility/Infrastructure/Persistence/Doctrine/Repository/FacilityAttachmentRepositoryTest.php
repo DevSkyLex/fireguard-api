@@ -67,7 +67,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->type = 'site';
     $facility->name = 'Main Site';
     $facility->status = 'active';

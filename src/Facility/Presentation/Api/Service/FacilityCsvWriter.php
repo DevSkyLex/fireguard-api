@@ -20,7 +20,7 @@ use function fputcsv;
  * this writer: it formats, it never resolves anything itself.
  *
  * **The first seven header columns are the Import round-trip contract.**
- * {@see \Import\Application\Service\FacilityRowFactory} reads a CSV back
+ * the Import module CSV reader reads a CSV back
  * with exactly this column order (`type`, `name`, `code`, `address`,
  * `latitude`, `longitude`, `parentCode`) to provision facilities in bulk, so
  * a file exported here can be re-imported unchanged. Every column after
@@ -39,7 +39,7 @@ final readonly class FacilityCsvWriter
   /**
    * Constant HEADER.
    *
-   * The first seven columns are the {@see \Import\Application\Service\FacilityRowFactory}
+   * The first seven columns are the the Import module CSV reader
    * import contract, in the exact order that factory reads. Everything after
    * `parentCode` is read-only export metadata.
    *
@@ -107,7 +107,7 @@ final readonly class FacilityCsvWriter
    *
    * Maps a single facility export row to a CSV row. Latitude/longitude are
    * formatted as plain decimal strings (no locale-dependent formatting) so
-   * they round-trip through {@see \Import\Application\Service\FacilityRowFactory}'s
+   * they round-trip through the Import module CSV reader's
    * `is_numeric()` check unchanged.
    *
    * @since 1.0.0

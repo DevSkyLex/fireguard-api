@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Attachment\ListInspectionAttachments;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Attachment\ListInspectionAttachments\{ListInspectionAttachmentsHandler, ListInspectionAttachmentsQuery, ListInspectionAttachmentsResult};
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\Model\Attachment\InspectionAttachment;

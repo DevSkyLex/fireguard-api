@@ -16,8 +16,7 @@ use Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenancePlanRe
 use Maintenance\Presentation\Api\Factory\MaintenancePlanOutputFactory;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\CurrentActorPort;
+use Shared\Application\Port\Outbound\{CurrentActorPort, UuidGeneratorPort};
 use Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Bridge\Doctrine\Transport\{DoctrineTransport, DoctrineTransportFactory};
@@ -149,8 +148,8 @@ final class MaintenancePlanRepositoryTest extends KernelTestCase
   #[Test]
   public function occurrenceAndOutboxRollBackTogetherAndBecomeVisibleOnlyAfterCommit(): void
   {
-    $ids = $this->createStub(UuidFactory::class);
-    $ids->method('generateRaw')->willReturn(self::SECOND);
+    $ids = $this->createStub(UuidGeneratorPort::class);
+    $ids->method('generate')->willReturn(self::SECOND);
     $dispatcher = new TransactionalEventDispatcher($this->a, $this->sender, $ids, $this->createStub(CurrentActorPort::class));
 
     try {

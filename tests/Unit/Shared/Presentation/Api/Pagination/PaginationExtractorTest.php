@@ -6,7 +6,7 @@ namespace Tests\Unit\Shared\Presentation\Api\Pagination;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Presentation\Api\Pagination\PaginationExtractor;
+use Shared\Application\Contract\Pagination\PaginationExtractor;
 
 /**
  * Test PaginationExtractorTest.

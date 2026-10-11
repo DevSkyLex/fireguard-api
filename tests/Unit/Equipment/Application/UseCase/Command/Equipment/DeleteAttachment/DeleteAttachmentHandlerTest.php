@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\DeleteAttachment;
 
-use Equipment\Application\Port\Outbound\{AttachmentRepositoryPort, EquipmentRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\{AttachmentRepositoryPort, EquipmentRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\DeleteAttachment\{DeleteAttachmentCommand, DeleteAttachmentHandler, DeleteAttachmentResult};
 use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
@@ -13,7 +13,7 @@ use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizati
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\FileCleanupPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(DeleteAttachmentHandler::class)]
@@ -44,14 +44,14 @@ final class DeleteAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('findById')->willReturn($attachment);
     $attachmentRepository->expects(self::once())->method('delete');
 
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::once())->method('delete');
+    /** @var FileCleanupPort&MockObject $cleanup */
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::once())->method('request');
 
-    $handler = new DeleteAttachmentHandler(
+    $handler = $this->handler(
       equipmentRepository: $equipmentRepository,
       attachmentRepository: $attachmentRepository,
-      fileStorage: $fileStorage,
+      cleanup: $cleanup,
     );
 
     $result = $handler->__invoke(new DeleteAttachmentCommand(
@@ -75,14 +75,14 @@ final class DeleteAttachmentHandlerTest extends TestCase
     $attachmentRepository = $this->createMock(AttachmentRepositoryPort::class);
     $attachmentRepository->expects(self::never())->method('delete');
 
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::never())->method('delete');
+    /** @var FileCleanupPort&MockObject $cleanup */
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::never())->method('request');
 
-    $handler = new DeleteAttachmentHandler(
+    $handler = $this->handler(
       equipmentRepository: $equipmentRepository,
       attachmentRepository: $attachmentRepository,
-      fileStorage: $fileStorage,
+      cleanup: $cleanup,
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -111,14 +111,14 @@ final class DeleteAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('findById')->willReturn(null);
     $attachmentRepository->expects(self::never())->method('delete');
 
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::never())->method('delete');
+    /** @var FileCleanupPort&MockObject $cleanup */
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::never())->method('request');
 
-    $handler = new DeleteAttachmentHandler(
+    $handler = $this->handler(
       equipmentRepository: $equipmentRepository,
       attachmentRepository: $attachmentRepository,
-      fileStorage: $fileStorage,
+      cleanup: $cleanup,
     );
 
     $this->expectException(AttachmentNotFoundException::class);
@@ -157,14 +157,14 @@ final class DeleteAttachmentHandlerTest extends TestCase
     $attachmentRepository->method('findById')->willReturn($otherEquipmentAttachment);
     $attachmentRepository->expects(self::never())->method('delete');
 
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::never())->method('delete');
+    /** @var FileCleanupPort&MockObject $cleanup */
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::never())->method('request');
 
-    $handler = new DeleteAttachmentHandler(
+    $handler = $this->handler(
       equipmentRepository: $equipmentRepository,
       attachmentRepository: $attachmentRepository,
-      fileStorage: $fileStorage,
+      cleanup: $cleanup,
     );
 
     $this->expectException(AttachmentNotFoundException::class);
@@ -183,14 +183,14 @@ final class DeleteAttachmentHandlerTest extends TestCase
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
     $equipmentRepository->expects(self::never())->method('findById');
 
-    /** @var FileStoragePort&MockObject $fileStorage */
-    $fileStorage = $this->createMock(FileStoragePort::class);
-    $fileStorage->expects(self::never())->method('delete');
+    /** @var FileCleanupPort&MockObject $cleanup */
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::never())->method('request');
 
-    $handler = new DeleteAttachmentHandler(
+    $handler = $this->handler(
       equipmentRepository: $equipmentRepository,
       attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
-      fileStorage: $fileStorage,
+      cleanup: $cleanup,
     );
 
     $this->expectException(InvalidValueException::class);
@@ -214,5 +214,23 @@ final class DeleteAttachmentHandlerTest extends TestCase
       label: null,
     );
   }
+
   // #endregion
+  private function handler(EquipmentRepositoryPort $equipmentRepository, AttachmentRepositoryPort $attachmentRepository, FileCleanupPort $cleanup): DeleteAttachmentHandler
+  {
+    $transactions = $this->createStub(\Shared\Application\Port\Outbound\RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+    $interventions = $this->createStub(\Intervention\Application\Port\Inbound\InterventionResourcesPort::class);
+
+    return new DeleteAttachmentHandler(
+      $equipmentRepository,
+      $attachmentRepository,
+      $transactions,
+      $this->createStub(\Equipment\Application\Port\Outbound\EquipmentMediaLockPort::class),
+      $this->createStub(\Equipment\Application\Port\Outbound\EquipmentMediaReadPort::class),
+      new \Equipment\Application\Service\EquipmentMediaAccess($this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class), $interventions),
+      $interventions,
+      $cleanup,
+    );
+  }
 }

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Command\Role\CreateRole;
 
-use Authorization\Application\Port\Outbound\{PermissionRepositoryPort, RoleRepositoryPort};
+use Authorization\Application\Port\Outbound\Internal\{PermissionRepositoryPort, RoleRepositoryPort};
 use Authorization\Application\UseCase\Command\Role\CreateRole\{CreateRoleCommand, CreateRoleHandler, CreateRoleResult};
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\ValueObject\{PermissionId, PermissionName, RoleId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function in_array;
 
@@ -55,12 +55,11 @@ final class CreateRoleHandlerTest extends TestCase
       ))
       ->willReturnOnConsecutiveCalls($permission, null);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(RoleId::class)
-      ->willReturn($roleId);
+      ->method('generate')
+      ->willReturn((string) $roleId);
 
     $handler = new CreateRoleHandler(
       roleRepository: $roleRepository,

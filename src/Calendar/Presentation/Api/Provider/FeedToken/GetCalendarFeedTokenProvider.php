@@ -6,15 +6,13 @@ namespace Calendar\Presentation\Api\Provider\FeedToken;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Calendar\Application\UseCase\Query\FeedToken\GetCalendarFeedTokenMetadata\{GetCalendarFeedTokenMetadataQuery, GetCalendarFeedTokenMetadataResult};
 use Calendar\Presentation\Api\Dto\Output\FeedToken\CalendarFeedTokenOutput;
-use Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait;
 use DateTimeInterface;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -33,8 +31,6 @@ use function is_string;
  */
 final readonly class GetCalendarFeedTokenProvider implements ProviderInterface
 {
-  use CalendarExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -64,7 +60,7 @@ final readonly class GetCalendarFeedTokenProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): CalendarFeedTokenOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -73,15 +69,11 @@ final readonly class GetCalendarFeedTokenProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    try {
-      /** @var GetCalendarFeedTokenMetadataResult $result */
-      $result = $this->queryBus->ask(new GetCalendarFeedTokenMetadataQuery(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapCalendarException($exception);
-    }
+    /** @var GetCalendarFeedTokenMetadataResult $result */
+    $result = $this->queryBus->ask(new GetCalendarFeedTokenMetadataQuery(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+    ));
 
     $output = new CalendarFeedTokenOutput();
     $output->createdAt = $result->createdAt->format(DateTimeInterface::ATOM);

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Organization\Domain\Event\Role;
+namespace Tests\Unit\Organization\Application\Contract\Event\Role;
 
 use DateTimeImmutable;
-use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Application\Contract\Event\Role\OrganizationRoleAssignedEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

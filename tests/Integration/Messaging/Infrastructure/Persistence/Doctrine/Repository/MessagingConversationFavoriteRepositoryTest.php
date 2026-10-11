@@ -143,7 +143,7 @@ final class MessagingConversationFavoriteRepositoryTest extends KernelTestCase
 
     $record = new MessagingConversationRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->subjectType = 'facility';
     $record->subjectId = $subjectId;
     $record->visibility = 'subject';

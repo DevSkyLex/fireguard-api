@@ -27,6 +27,9 @@ final readonly class InterventionListMetrics
    * @param int $requiredIncomplete the required incomplete work item count
    * @param int $proposedChanges the proposed change count
    * @param int $resourceBlockers the resource blocker count
+   * @param int $commentsCount the grouped comment count
+   * @param bool $hasSignature whether a completion signature exists
+   * @param list<array{id: string, name: string, color: string}> $labels the grouped display labels
    */
   public function __construct(
     public int $facilities = 0,
@@ -37,6 +40,9 @@ final readonly class InterventionListMetrics
     public int $requiredIncomplete = 0,
     public int $proposedChanges = 0,
     public int $resourceBlockers = 0,
+    public int $commentsCount = 0,
+    public bool $hasSignature = false,
+    public array $labels = [],
   ) {
   }
 }

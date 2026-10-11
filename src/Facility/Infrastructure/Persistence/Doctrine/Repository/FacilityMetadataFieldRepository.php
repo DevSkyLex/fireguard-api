@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Model\MetadataField\FacilityMetadataField;
 use Facility\Domain\ValueObject\{FacilityMetadataFieldId, FacilityOrganizationId};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMetadataFieldMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityMetadataFieldRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException as ApplicationUniqueConstraintViolationException;
 
 use function array_map;
 
@@ -65,14 +66,13 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
   public function save(FacilityMetadataField $field): void
   {
     $record = FacilityMetadataFieldMapper::toRecord($field);
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $field->organizationId());
-    $record->organization = $organization;
+    $organization = (string) $field->organizationId();
+    $record->organizationId = $organization;
 
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof FacilityMetadataFieldRecord) {
-      $existing->organization = $organization;
+      $existing->organizationId = $organization;
       $existing->key = $record->key;
       $existing->label = $record->label;
       $existing->fieldType = $record->fieldType;
@@ -85,7 +85,11 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
       $this->entityManager->persist($record);
     }
 
-    $this->entityManager->flush();
+    try {
+      $this->entityManager->flush();
+    } catch (UniqueConstraintViolationException $exception) {
+      throw new ApplicationUniqueConstraintViolationException($exception);
+    }
   }
 
   /**
@@ -146,10 +150,9 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
    */
   public function findByOrganizationIdAndKey(FacilityOrganizationId $organizationId, string $key): ?FacilityMetadataField
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organization = (string) $organizationId;
 
-    $record = $this->repository->findOneBy(['organization' => $organization, 'key' => $key]);
+    $record = $this->repository->findOneBy(['organizationId' => $organization, 'key' => $key]);
 
     if (!$record instanceof FacilityMetadataFieldRecord) {
       return null;
@@ -172,11 +175,10 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
    */
   public function findByOrganizationId(FacilityOrganizationId $organizationId): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organization = (string) $organizationId;
 
     /** @var list<FacilityMetadataFieldRecord> $records */
-    $records = $this->repository->findBy(['organization' => $organization], ['label' => 'ASC']);
+    $records = $this->repository->findBy(['organizationId' => $organization], ['label' => 'ASC']);
 
     return array_map(
       static fn (FacilityMetadataFieldRecord $record): FacilityMetadataField => FacilityMetadataFieldMapper::toDomain($record),
@@ -197,10 +199,9 @@ final readonly class FacilityMetadataFieldRepository implements FacilityMetadata
    */
   public function countByOrganizationId(FacilityOrganizationId $organizationId): int
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $organization = (string) $organizationId;
 
-    return (int) $this->repository->count(['organization' => $organization]);
+    return (int) $this->repository->count(['organizationId' => $organization]);
   }
   // #endregion
 }

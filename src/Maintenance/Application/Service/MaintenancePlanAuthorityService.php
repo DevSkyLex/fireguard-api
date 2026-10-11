@@ -6,7 +6,8 @@ namespace Maintenance\Application\Service;
 
 use DateTimeImmutable;
 use Maintenance\Application\Contract\Plan\MaintenanceOperationResult;
-use Maintenance\Application\Port\Inbound\{MaintenanceOperationResultsPort, MaintenancePlanAuthorityPort};
+use Maintenance\Application\Port\Inbound\Internal\MaintenancePlanAuthorityPort;
+use Maintenance\Application\Port\Inbound\MaintenanceOperationResultsPort;
 use Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort;
 use Maintenance\Application\UseCase\Command\Campaign\GenerateInspectionCampaign\GenerateInspectionCampaignResult;
 use Maintenance\Application\UseCase\Command\Plan\ManageMaintenancePlan\{ManageMaintenancePlanCommand, ManageMaintenancePlanResult};

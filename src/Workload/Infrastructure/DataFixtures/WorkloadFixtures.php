@@ -10,8 +10,8 @@ use Doctrine\Bundle\FixturesBundle\FixtureGroupInterface;
 use Doctrine\Common\DataFixtures\FixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
+use Shared\Application\Contract\Seed\SeedUuid;
 use Shared\Application\Port\Outbound\ClockPort;
-use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Workload\Application\Port\Inbound\WorkloadCoordinationPort;
 use Workload\Infrastructure\Persistence\Doctrine\Record\{CapacityExceptionRecord, CapacityWeekRecord};
 

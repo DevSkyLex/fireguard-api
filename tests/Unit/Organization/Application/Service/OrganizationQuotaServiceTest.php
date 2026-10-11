@@ -6,16 +6,8 @@ namespace Tests\Unit\Organization\Application\Service;
 
 use DateTimeImmutable;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
-use Organization\Application\Port\Outbound\{
-  EquipmentStatisticsPort,
-  FacilityStatisticsPort,
-  InspectionStatisticsPort,
-  OrganizationInvitationRepositoryPort,
-  OrganizationMemberRepositoryPort,
-  OrganizationQuotaLockPort,
-  OrganizationRepositoryPort,
-  PlanRepositoryPort
-};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\Service\OrganizationQuotaService;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};

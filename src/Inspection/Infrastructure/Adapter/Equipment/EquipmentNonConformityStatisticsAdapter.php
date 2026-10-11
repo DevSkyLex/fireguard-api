@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Adapter\Equipment;
 
 use Equipment\Application\Port\Outbound\NonConformityStatisticsPort;
-use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityStatus};
 
 /**

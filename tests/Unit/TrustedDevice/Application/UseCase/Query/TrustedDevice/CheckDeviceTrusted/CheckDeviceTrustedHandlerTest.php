@@ -7,7 +7,7 @@ namespace Tests\Unit\TrustedDevice\Application\UseCase\Query\TrustedDevice\Check
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 use TrustedDevice\Application\UseCase\Query\TrustedDevice\CheckDeviceTrusted\{CheckDeviceTrustedHandler, CheckDeviceTrustedQuery, CheckDeviceTrustedResult};
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
 use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, TrustedDeviceId};

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Inspection\PatchCanonicalInspection;
 
-use Inspection\Application\Port\Outbound\{CanonicalInspectionRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\CanonicalInspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\Model\Inspection\CanonicalInspection;

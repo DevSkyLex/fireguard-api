@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\MetadataField\CreateMetadataField;
 
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Application\UseCase\Command\MetadataField\CreateMetadataField\{CreateMetadataFieldCommand, CreateMetadataFieldHandler, CreateMetadataFieldResult};
 use Facility\Domain\Exception\{FacilityMetadataFieldKeyAlreadyExistsException, FacilityMetadataFieldLimitExceededException};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -36,8 +36,8 @@ final class CreateMetadataFieldHandlerTest extends TestCase
     $repository->expects(self::once())->method('findByOrganizationIdAndKey')->willReturn(null);
     $repository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(\Facility\Domain\ValueObject\FacilityMetadataFieldId::fromString(self::GENERATED_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::GENERATED_ID);
 
     $handler = new CreateMetadataFieldHandler($repository, $uuidFactory);
 
@@ -66,8 +66,8 @@ final class CreateMetadataFieldHandlerTest extends TestCase
     $repository->expects(self::once())->method('countByOrganizationId')->willReturn(50);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(\Facility\Domain\ValueObject\FacilityMetadataFieldId::fromString(self::GENERATED_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::GENERATED_ID);
 
     $handler = new CreateMetadataFieldHandler($repository, $uuidFactory);
 
@@ -100,8 +100,8 @@ final class CreateMetadataFieldHandlerTest extends TestCase
     );
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(\Facility\Domain\ValueObject\FacilityMetadataFieldId::fromString(self::GENERATED_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::GENERATED_ID);
 
     $handler = new CreateMetadataFieldHandler($repository, $uuidFactory);
 
@@ -122,7 +122,7 @@ final class CreateMetadataFieldHandlerTest extends TestCase
     $repository = $this->createMock(FacilityMetadataFieldRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
 
     $handler = new CreateMetadataFieldHandler($repository, $uuidFactory);
 
@@ -143,8 +143,8 @@ final class CreateMetadataFieldHandlerTest extends TestCase
     $repository = $this->createMock(FacilityMetadataFieldRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(\Facility\Domain\ValueObject\FacilityMetadataFieldId::fromString(self::GENERATED_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::GENERATED_ID);
 
     $handler = new CreateMetadataFieldHandler($repository, $uuidFactory);
 

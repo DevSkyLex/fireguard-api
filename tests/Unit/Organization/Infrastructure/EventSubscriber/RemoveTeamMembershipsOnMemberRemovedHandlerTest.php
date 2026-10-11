@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Infrastructure\EventSubscriber;
 
-use Organization\Application\Port\Outbound\TeamRepositoryPort;
-use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Contract\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Port\Outbound\Internal\TeamRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationMemberId;
 use Organization\Infrastructure\EventSubscriber\RemoveTeamMembershipsOnMemberRemovedHandler;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

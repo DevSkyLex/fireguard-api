@@ -8,18 +8,18 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Application\UseCase\Query\Facility\GetFacilityChildren\GetFacilityChildrenQuery;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -42,7 +42,6 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
    * @access public
    *
    * @param QueryBusPort $queryBus retrieves paginated child facilities
-   * @param OrganizationAuthorizationPort $authorization checks organization access
    * @param Security $security resolves the authenticated user
    * @param RequestStack $requestStack provides request query parameters
    *
@@ -64,7 +63,7 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -84,9 +83,9 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $includeArchived = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
+    $includeArchived = \Facility\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Facility\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
@@ -108,7 +107,7 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
         search: SearchExtractor::fromContext($context),
         sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'code'], 'name'),
-        includePath: \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includePath', false),
+        includePath: \Facility\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includePath', false),
       ));
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);

@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\Service;
 
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\{OrganizationAuthorizationService, OrganizationCacheInvalidator};
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
-use Symfony\Contracts\Service\ResetInterface;
 
 #[CoversClass(OrganizationAuthorizationService::class)]
 final class OrganizationAuthorizationServiceTest extends TestCase
@@ -150,7 +149,6 @@ final class OrganizationAuthorizationServiceTest extends TestCase
 
     $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
-    self::assertInstanceOf(ResetInterface::class, $service);
     self::assertTrue($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
       organizationId: '550e8400-e29b-41d4-a716-446655440010',

@@ -11,7 +11,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
 use Inspection\Application\Contract\Export\NonConformityExportCandidate;
-use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId, NonConformityStatus};
 use Inspection\Infrastructure\Exception\{InvalidStorageTimeZoneException, StoredDateTimeReinterpretationException};
@@ -55,7 +55,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
    *
    * @var string
    */
-  private const string ORGANIZATION_ID_PREDICATE = 'o.id = :organizationId';
+  private const string ORGANIZATION_ID_PREDICATE = 'i.organizationId = :organizationId';
 
   /**
    * Constant SEVERITY_PREDICATE
@@ -414,7 +414,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       )
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->where(self::ORGANIZATION_ID_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId)
       ->setParameter('openStatus', 'open')
@@ -464,7 +463,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->select('r.status AS status, COUNT(r.id) AS nonConformityCount')
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId)
       ->groupBy('r.status')
@@ -497,7 +495,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->select('r.severity AS severity, COUNT(r.id) AS nonConformityCount')
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId)
       ->groupBy('r.severity')
@@ -536,7 +533,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->select(self::NON_CONFORMITY_COUNT_EXPRESSION)
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->andWhere('r.dueAt IS NOT NULL')
       ->andWhere('r.dueAt < :dueAtBefore')
@@ -575,7 +571,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->select(self::NON_CONFORMITY_COUNT_EXPRESSION)
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->andWhere(self::OPEN_STATUSES_PREDICATE)
       ->andWhere('r.slaBreachNotifiedAt IS NOT NULL')
@@ -609,7 +604,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->select(self::NON_CONFORMITY_COUNT_EXPRESSION)
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->andWhere('r.createdAt < :at')
       ->andWhere('(r.resolvedAt IS NULL OR r.resolvedAt > :at)')
@@ -800,7 +794,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       )
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->where(self::ORGANIZATION_ID_PREDICATE)
       ->andWhere('(
         (r.createdAt >= :periodFrom AND r.createdAt <= :periodTo) OR
@@ -847,7 +840,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->select(self::NON_CONFORMITY_COUNT_EXPRESSION)
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->andWhere(self::SEVERITY_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId)
@@ -1062,7 +1054,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->select('r')
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
       ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId);
 

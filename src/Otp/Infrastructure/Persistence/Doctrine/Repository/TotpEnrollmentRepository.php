@@ -7,7 +7,7 @@ namespace Otp\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
-use Otp\Application\Port\Outbound\Totp\TotpEnrollmentRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Totp\TotpEnrollmentRepositoryPort;
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\TotpEnrollmentMapper;
 use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;

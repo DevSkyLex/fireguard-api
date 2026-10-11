@@ -11,9 +11,9 @@ use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFai
 use DateInterval;
 use Intervention\Application\Contract\Draft\{CreateInterventionDraftRequest, InterventionDraftWorkItem};
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
-use Psr\Log\LoggerInterface;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\LoggerPort;
 use Throwable;
 
 use function array_filter;
@@ -73,7 +73,7 @@ final readonly class ExecuteAutomationRuleHandler implements CommandHandler
    * @param InterventionDraftFactoryPort $draftFactory the cross-module intervention draft factory port
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    * @param ClockPort $clock the clock port
-   * @param LoggerInterface $logger the logger
+   * @param LoggerPort $logger the logger
    */
   public function __construct(
     private AutomationRunPort $runs,
@@ -81,7 +81,7 @@ final readonly class ExecuteAutomationRuleHandler implements CommandHandler
     private InterventionDraftFactoryPort $draftFactory,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
-    private LoggerInterface $logger,
+    private LoggerPort $logger,
     private TransactionManagerPort $transactions,
   ) {
   }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\Service;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\Exception\FacilityAttachmentNotAncestorException;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;

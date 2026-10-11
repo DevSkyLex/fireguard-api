@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Presentation\Api\Factory;
 
 use DateTimeImmutable;
+use Messaging\Application\Contract\Attachment\MessagingAttachmentView;
 use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Reaction\MessageReactionView;
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
-use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
-use Messaging\Domain\ValueObject\MessagingAttachmentId;
-use Messaging\Presentation\Api\Factory\{MessageAttachmentOutputFactory, MessageOutputFactory};
+use Messaging\Application\Port\Outbound\Internal\MessagingAttachmentRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Presentation\Api\Factory\MessageAttachmentOutputFactory;
+use Messaging\Presentation\Api\Service\MessageOutputPresenter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Tests\Support\Messaging\MessageOutputTestFactory;
 
 use function array_map;
 
@@ -23,7 +25,8 @@ use function array_map;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(MessageOutputFactory::class)]
+#[CoversClass(\Messaging\Presentation\Api\Factory\MessageOutputFactory::class)]
+#[CoversClass(\Messaging\Application\UseCase\Query\Message\EnrichMessages\EnrichMessagesHandler::class)]
 final class MessageOutputFactoryTest extends TestCase
 {
   private const string MESSAGE_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -137,7 +140,7 @@ final class MessageOutputFactoryTest extends TestCase
     $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
     $savedMessages->method('findSavedMessageIds')->willReturn([]);
 
-    $factory = new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
+    $factory = MessageOutputTestFactory::create($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
 
     $outputs = $factory->fromViews([$this->view(), $this->view(id: $secondMessageId)], self::CURRENT_MEMBER_ID);
 
@@ -194,7 +197,7 @@ final class MessageOutputFactoryTest extends TestCase
       ->with(self::CURRENT_MEMBER_ID, [self::MESSAGE_ID, $secondMessageId])
       ->willReturn([self::MESSAGE_ID]);
 
-    $factory = new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
+    $factory = MessageOutputTestFactory::create($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
 
     $outputs = $factory->fromViews([$this->view(), $this->view(id: $secondMessageId)], self::CURRENT_MEMBER_ID);
 
@@ -313,7 +316,7 @@ final class MessageOutputFactoryTest extends TestCase
     $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
     $savedMessages->method('findSavedMessageIds')->willReturn([]);
 
-    $factory = new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
+    $factory = MessageOutputTestFactory::create($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
 
     $outputs = $factory->fromViews([$this->view(), $this->view(id: '550e8400-e29b-41d4-a716-446655440099')], self::CURRENT_MEMBER_ID);
 
@@ -321,20 +324,19 @@ final class MessageOutputFactoryTest extends TestCase
     self::assertSame([], $outputs[1]->attachments);
   }
 
-  private function attachment(): MessagingAttachment
+  private function attachment(): MessagingAttachmentView
   {
-    return MessagingAttachment::create(
-      id: MessagingAttachmentId::fromString('550e8400-e29b-41d4-a716-4466554400aa'),
+    return new MessagingAttachmentView(
+      id: '550e8400-e29b-41d4-a716-4466554400aa',
       messageId: self::MESSAGE_ID,
       conversationId: 'conversation-1',
       organizationId: 'org-1',
       uploadedByMemberId: 'author-1',
-      file: new MessagingAttachmentFile(
-        fileName: 'report.pdf',
-        storagePath: 'messaging/conversation-1/report.pdf',
-        mimeType: 'application/pdf',
-        size: 1024,
-      ),
+      fileName: 'report.pdf',
+      mimeType: 'application/pdf',
+      size: 1024,
+      label: null,
+      uploadedAt: new DateTimeImmutable(),
     );
   }
 
@@ -343,7 +345,7 @@ final class MessageOutputFactoryTest extends TestCase
    * @param list<string> $savedMessageIds
    * @param array<string, string> $names
    */
-  private function factory(array $reactions, array $savedMessageIds = [], array $names = []): MessageOutputFactory
+  private function factory(array $reactions, array $savedMessageIds = [], array $names = []): MessageOutputPresenter
   {
     $attachments = $this->createStub(MessagingAttachmentRepositoryPort::class);
     $attachments->method('findByMessageIds')->willReturn([]);
@@ -357,7 +359,7 @@ final class MessageOutputFactoryTest extends TestCase
     $directory = $this->createStub(MessagingMemberDirectoryPort::class);
     $directory->method('displayNamesFor')->willReturn($names);
 
-    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactionsPort, $savedMessages, $directory);
+    return MessageOutputTestFactory::create($attachments, new MessageAttachmentOutputFactory(), $reactionsPort, $savedMessages, $directory);
   }
 
   /**

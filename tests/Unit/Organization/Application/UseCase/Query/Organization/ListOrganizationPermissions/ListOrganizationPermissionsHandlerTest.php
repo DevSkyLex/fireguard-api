@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListOrganizationPermissions;
 
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationPermissions\{
   GetOrganizationPermissionResult,
   ListOrganizationPermissionsHandler,
   ListOrganizationPermissionsQuery,
   ListOrganizationPermissionsResult
 };
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

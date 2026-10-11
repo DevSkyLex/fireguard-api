@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment;
 
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
-use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
+use Messaging\Application\Port\Outbound\Internal\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry, MessagingUploadAttempt};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingAttachmentId, MessagingSubjectType};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
@@ -47,7 +48,10 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
    * @param MessagingAccessPolicy $accessPolicy policy enforcing organization and participant access
    * @param MessagingAttachmentRepositoryPort $attachments repository used to persist attachment metadata
    * @param FileStoragePort $fileStorage storage port used to write or roll back file bytes
-   * @param UuidFactory $uuidFactory factory for generating an attachment identifier
+   * @param UuidGeneratorPort $uuidFactory generates attachment and attempt identifiers
+   * @param RootTransactionManagerPort $transactions owns the final main commit
+   * @param FileCleanupPort $cleanup schedules failed compensation durably
+   * @param LoggerPort $logger records cleanup failures without masking persistence errors
    *
    * @return void
    */
@@ -58,7 +62,10 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
     private MessagingAccessPolicy $accessPolicy,
     private MessagingAttachmentRepositoryPort $attachments,
     private FileStoragePort $fileStorage,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
+    private RootTransactionManagerPort $transactions,
+    private FileCleanupPort $cleanup,
+    private LoggerPort $logger,
   ) {
   }
   // #endregion
@@ -70,6 +77,52 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
    * @since 1.0.0
    */
   public function __invoke(AddMessageAttachmentCommand $command): AddMessageAttachmentResult
+  {
+    $this->transactions->assertCanStart();
+    $attempt = new MessagingUploadAttempt();
+
+    try {
+      return $this->transactions->transactional(function () use ($command, $attempt): AddMessageAttachmentResult {
+        return $this->attachments->withMessageLock(
+          $command->messageId,
+          function () use ($command, $attempt): AddMessageAttachmentResult {
+            return $this->upload($command, $attempt);
+          },
+        );
+      });
+    } catch (Throwable $exception) {
+      $writtenPath = $attempt->storagePath();
+      if (null !== $writtenPath && !$exception instanceof CommitOutcomeUnknownException) {
+        try {
+          $this->fileStorage->delete($writtenPath);
+        } catch (Throwable $cleanupFailure) {
+          $this->logCleanupFailure('Messaging upload compensation failed.', $cleanupFailure);
+
+          try {
+            $this->transactions->transactional(fn () => $this->cleanup->request($writtenPath));
+          } catch (Throwable $enqueueFailure) {
+            $this->logCleanupFailure('Messaging upload cleanup enqueue failed.', $enqueueFailure);
+          }
+        }
+      }
+
+      throw $exception;
+    }
+  }
+
+  /**
+   * Method upload
+   *
+   * Checks identity and attachment limits while holding the message lock.
+   *
+   * @access private
+   *
+   * @param AddMessageAttachmentCommand $command upload request
+   * @param MessagingUploadAttempt $attempt invocation-local storage write state
+   *
+   * @return AddMessageAttachmentResult persisted or replayed attachment
+   */
+  private function upload(AddMessageAttachmentCommand $command, MessagingUploadAttempt $attempt): AddMessageAttachmentResult
   {
     $message = $this->messages->findAggregateById($command->messageId);
     if (null === $message) {
@@ -105,22 +158,26 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
     try {
       /** @var MessagingAttachmentId $attachmentId */
       $attachmentId = null === $command->attachmentId
-        ? $this->uuidFactory->create(MessagingAttachmentId::class)
+        ? new MessagingAttachmentId($this->uuidFactory->generate())
         : MessagingAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
-    // A client-supplied id that already exists is a retry overwriting its own
-    // row, not a new attachment — it must not be rejected at the cap.
-    if (null === $this->attachments->findById($attachmentId)) {
-      AttachmentConstraints::validateCount($this->attachments->countByMessageId($command->messageId));
+    $existing = $this->attachments->findById($attachmentId);
+    if (null !== $existing) {
+      if ($existing->messageId() !== $command->messageId || $existing->organizationId() !== $organizationId) {
+        throw new MessagingValidationException('The attachment identifier belongs to another message.');
+      }
+
+      return $this->result($existing, $this->attachments->findViewById((string) $attachmentId)->revision ?? 1);
     }
+    AttachmentConstraints::validateCount($this->attachments->countByMessageId($command->messageId));
 
     $storagePath = StoragePathScheme::build(
       module: 'messaging',
       parentId: $conversationId,
-      attachmentId: (string) $attachmentId,
+      attachmentId: (string) $attachmentId . '_' . $this->uuidFactory->generate(),
       fileName: $command->fileName,
     );
 
@@ -139,15 +196,27 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
       ),
     );
 
+    $attempt->mark($storagePath);
     $this->fileStorage->write($storagePath, $command->contents);
+    $this->attachments->save($attachment);
 
-    try {
-      $this->attachments->save($attachment);
-    } catch (Throwable $dbException) {
-      $this->fileStorage->delete($storagePath);
+    return $this->result($attachment);
+  }
 
-      throw $dbException;
-    }
+  /**
+   * Method result
+   *
+   * Copies persisted attachment metadata for the HTTP adapter.
+   *
+   * @access private
+   *
+   * @param MessagingAttachment $attachment persisted attachment
+   * @param int $revision persisted concurrency revision
+   *
+   * @return AddMessageAttachmentResult upload result
+   */
+  private function result(MessagingAttachment $attachment, int $revision = 1): AddMessageAttachmentResult
+  {
 
     return new AddMessageAttachmentResult(
       attachmentId: (string) $attachment->id(),
@@ -160,7 +229,28 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
       size: $attachment->size(),
       label: $attachment->label(),
       uploadedAt: $attachment->uploadedAt(),
+      revision: $revision,
     );
+  }
+
+  /**
+   * Method logCleanupFailure
+   *
+   * Keeps a failed diagnostic delivery from replacing the original persistence failure.
+   *
+   * @access private
+   *
+   * @param string $message diagnostic context
+   * @param Throwable $failure cleanup or enqueue failure
+   *
+   * @return void
+   */
+  private function logCleanupFailure(string $message, Throwable $failure): void
+  {
+    try {
+      $this->logger->warning($message, ['error' => $failure->getMessage()]);
+    } catch (Throwable) {
+    }
   }
   // #endregion
 }

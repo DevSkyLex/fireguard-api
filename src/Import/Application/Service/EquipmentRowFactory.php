@@ -29,7 +29,7 @@ use function trim;
  * `Infrastructure/Persistence/` Doctrine record mappers in this codebase
  * (see `tests/Architecture/Unit/ClassLocationTest`), while this class is an
  * Application-layer construction responsibility, mirroring
- * `Shared\Application\Factory\UuidFactory`.
+ * `Shared\Application\Port\Outbound\UuidGeneratorPort`.
  *
  * @category Service
  * @version 1.0.0

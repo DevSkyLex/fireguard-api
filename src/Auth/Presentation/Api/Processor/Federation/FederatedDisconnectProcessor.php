@@ -6,13 +6,13 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\Service\Federation\FederatedAuthenticationService;
-use Auth\Domain\Exception\Federation\{FederatedAuthException, FederatedConflictException, FederatedUnauthorizedException};
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Auth\Application\UseCase\Command\Federation\DisconnectFederation\DisconnectFederationCommand;
 use Auth\Presentation\Api\Dto\Output\Federation\FederatedConnectionsOutput;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -39,13 +39,13 @@ final readonly class FederatedDisconnectProcessor implements ProcessorInterface
    *
    * @access public
    *
-   * @param FederatedAuthenticationService $federation removes the current user's provider connection
+   * @param CommandBusPort $federation removes the current user's provider connection
    * @param Security $security resolves the authenticated security user
    *
    * @return void
    */
   public function __construct(
-    private FederatedAuthenticationService $federation,
+    private CommandBusPort $federation,
     private Security $security,
   ) {
   }
@@ -72,7 +72,7 @@ final readonly class FederatedDisconnectProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FederatedConnectionsOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -82,15 +82,10 @@ final readonly class FederatedDisconnectProcessor implements ProcessorInterface
       throw new BadRequestHttpException('unknown_provider');
     }
 
-    try {
-      return FederatedConnectionsOutput::fromContract($this->federation->remove($provider, $user->getId()));
-    } catch (FederatedConflictException $exception) {
-      throw new ConflictHttpException($exception->errorCode, $exception);
-    } catch (FederatedUnauthorizedException $exception) {
-      throw new UnauthorizedHttpException('Bearer', $exception->errorCode, $exception);
-    } catch (FederatedAuthException $exception) {
-      throw new BadRequestHttpException($exception->errorCode, $exception);
-    }
+    /** @var \Auth\Application\UseCase\Command\Federation\DisconnectFederation\DisconnectFederationResult $result */
+    $result = $this->federation->dispatch(new DisconnectFederationCommand($provider, $user->getId()));
+
+    return FederatedConnectionsOutput::fromContract($result->connections);
   }
   // #endregion
 }

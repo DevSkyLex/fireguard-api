@@ -16,8 +16,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Email;
-use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use Tests\Helper\{IdentityBoundaryFactories, TestEventIdProvider};
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -34,6 +34,8 @@ use function str_repeat;
 #[CoversClass(RequestPasswordResetHandler::class)]
 final class RequestPasswordResetHandlerTest extends TestCase
 {
+  use IdentityBoundaryFactories;
+
   private const string USER_ID = '00000000-0000-4000-a000-000000000001';
 
   private const string USER_EMAIL = 'jdoe@example.com';
@@ -58,7 +60,7 @@ final class RequestPasswordResetHandlerTest extends TestCase
     ));
 
     $handler = new RequestPasswordResetHandler(
-      userRepository: $repo,
+      userRepository: $this->directoryCapability($repo),
       otpChallenge: $otp,
     );
 
@@ -93,7 +95,7 @@ final class RequestPasswordResetHandlerTest extends TestCase
     ));
 
     $handler = new RequestPasswordResetHandler(
-      userRepository: $repo,
+      userRepository: $this->directoryCapability($repo),
       otpChallenge: $otp,
     );
 
@@ -136,7 +138,7 @@ final class RequestPasswordResetHandlerTest extends TestCase
       ));
 
     $handler = new RequestPasswordResetHandler(
-      userRepository: $repo,
+      userRepository: $this->directoryCapability($repo),
       otpChallenge: $otp,
     );
 
@@ -172,7 +174,7 @@ final class RequestPasswordResetHandlerTest extends TestCase
     ));
 
     $handler = new RequestPasswordResetHandler(
-      userRepository: $repo,
+      userRepository: $this->directoryCapability($repo),
       otpChallenge: $otp,
     );
 

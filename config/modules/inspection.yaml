@@ -28,9 +28,6 @@ services:
   # CanonicalInspectionMutationProcessor names no entity manager on purpose:
   # it holds none since the mutations moved to
   # Application\UseCase\{Command,Query}\Inspection\*CanonicalInspection*.
-  Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
   # InspectionResponseProcessor names no entity manager on purpose: it holds
   # none since the mutations moved to Application\UseCase\Command\Response.
@@ -82,13 +79,7 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   # R11b: generalized inspection + non-conformity attachments (multipart)
-  Inspection\Presentation\Api\Processor\Attachment\InspectionMediaProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Inspection\Presentation\Api\Provider\Attachment\InspectionMediaProvider:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
   inspection.main_transaction_manager:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
@@ -96,7 +87,7 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Port aliases
-  Inspection\Application\Port\Outbound\InspectionRepositoryPort:
+  Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
 
   Inspection\Application\Port\Outbound\NonConformityStatisticsGatewayPort:
@@ -170,20 +161,20 @@ services:
     tags:
       - { name: 'assistant.context_provider', priority: 20 }
 
-  Inspection\Application\Port\Outbound\NonConformityRepositoryPort:
+  Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository
 
-  Inspection\Application\Port\Outbound\InspectionAttachmentRepositoryPort:
+  Inspection\Application\Port\Outbound\Internal\InspectionAttachmentRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionAttachmentRepository
 
-  Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort:
+  Inspection\Application\Port\Outbound\Internal\InspectionResponseRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionResponseRepository
 
   # The offline-sync half of `inspections`: the three columns
   # InspectionRepositoryPort deliberately does not carry. Separate port because
   # `save(Inspection)` leaves record_status/intervention_id/revision untouched
   # and therefore cannot bump the canonical If-Match revision.
-  Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort:
+  Inspection\Application\Port\Outbound\Internal\CanonicalInspectionRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\CanonicalInspectionRepository
 
   # Cross-module: the owning module implements the port, this module declares
@@ -195,7 +186,7 @@ services:
 
   Intervention\Infrastructure\Adapter\Inspection\InterventionScopeAdapter: ~
 
-  Inspection\Application\Port\Outbound\ChecklistRepositoryPort:
+  Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository
 
   Inspection\Application\Port\Outbound\EquipmentValidationPort:
@@ -419,3 +410,24 @@ services:
 
   Inspection\Application\UseCase\Query\Park\GetParkAnomaliesSummary\GetParkAnomaliesSummaryHandler:
     tags: ['messenger.message_handler']
+
+  Inspection\Application\Port\Outbound\InspectionMediaLookupPort:
+    alias: Inspection\Infrastructure\Adapter\Attachment\DoctrineInspectionMediaLookupAdapter
+
+  Inspection\Infrastructure\Adapter\Attachment\DoctrineInspectionMediaLookupAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Application\UseCase\Query\Attachment\ResolveInspectionMedia\ResolveInspectionMediaHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Export\RecordInspectionExport\RecordInspectionExportHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Report\ResolveInspectionReportAccess\ResolveInspectionReportAccessHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\Service\InspectionResponseViewMapper: ~

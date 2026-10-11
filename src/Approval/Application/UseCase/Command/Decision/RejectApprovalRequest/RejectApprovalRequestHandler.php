@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Approval\Application\UseCase\Command\Decision\RejectApprovalRequest;
 
-use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort, ApprovalPolicyPort};
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Domain\Event\Request\{ApprovalExpiredEvent, ApprovalRejectedEvent};
 use Approval\Domain\Exception\{
   ApprovalAccessDeniedException,

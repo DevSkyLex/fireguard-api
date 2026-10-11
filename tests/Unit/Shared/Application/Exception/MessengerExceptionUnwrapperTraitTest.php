@@ -10,7 +10,7 @@ use LogicException;
 use PHPUnit\Framework\Attributes\{CoversTrait, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerExceptionUnwrapperTrait;
+use Shared\Application\Contract\Exception\MessengerExceptionUnwrapperTrait;
 use Throwable;
 
 /**

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Infrastructure\Adapter\Organization;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\ValueObject\FacilityOrganizationId;
 use Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

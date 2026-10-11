@@ -7,7 +7,7 @@ namespace Tests\Unit\Maintenance\Presentation\Api\Trait;
 use InvalidArgumentException;
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException, MaintenanceValidationException};
 use Maintenance\Presentation\Api\Trait\MaintenanceExceptionMapperTrait;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversTrait, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

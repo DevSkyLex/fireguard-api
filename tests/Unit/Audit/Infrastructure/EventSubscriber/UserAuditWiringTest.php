@@ -12,12 +12,11 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Domain\ValueObject\Uuid;
 use Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\RequestStack;
-use User\Domain\Event\{UserEmailChangeCancelledEvent, UserEmailChangeConfirmedEvent, UserEmailChangeRequestedEvent};
+use User\Application\Contract\Event\{UserEmailChangeCancelledEvent, UserEmailChangeConfirmedEvent, UserEmailChangeRequestedEvent};
 
 /**
  * Test UserAuditWiringTest.
@@ -104,7 +103,7 @@ final class UserAuditWiringTest extends TestCase
   private function event(string $class): object
   {
     return new $class(
-      eventId: new Uuid('00000000-0000-4000-a000-000000000042'),
+      eventId: '00000000-0000-4000-a000-000000000042',
       userId: self::USER_ID,
       currentEmail: self::CURRENT_EMAIL,
       newEmail: self::NEW_EMAIL,
@@ -151,6 +150,7 @@ final class UserAuditWiringTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     foreach ($events as $event) {

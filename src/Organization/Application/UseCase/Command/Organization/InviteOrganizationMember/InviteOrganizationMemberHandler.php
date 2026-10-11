@@ -8,23 +8,23 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\NotificationChannel;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
+use Organization\Application\Contract\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\{OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Port\Outbound\InvitationDeliveryQueuePort;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
-use Organization\Domain\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
-use Organization\Domain\Exception\OrganizationMembershipConflictException;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationMembershipConflictException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId, OrganizationRoleName};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Throwable;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_map;
 use function array_unique;
@@ -80,10 +80,10 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
    * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository port
-   * @param UserRepositoryPort $userRepository the user repository port
+   * @param UserDirectoryPort $userRepository the user repository port
    * @param OrganizationInvitationNotifier $invitationNotifier the invitation token/link/notification helper
    * @param LoggerPort $logger the logger port
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
@@ -94,10 +94,10 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     private OrganizationRoleRepositoryPort $roleRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationInvitationRepositoryPort $invitationRepository,
-    private UserRepositoryPort $userRepository,
+    private UserDirectoryPort $userRepository,
     private OrganizationInvitationNotifier $invitationNotifier,
     private LoggerPort $logger,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
     private OrganizationQuotaPort $quota,
     private EventDispatcherPort $eventDispatcher,
@@ -134,8 +134,8 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
 
     $email = $this->normalizeEmail($command->email);
 
-    $existingUser = $this->userRepository->findByEmail($email);
-    $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
+    $existingUser = $this->userRepository->findByEmail((string) $email);
+    $recipientUserId = null !== $existingUser ? (string) $existingUser->id : null;
     /** @var list<string> $resolvedRoleIds */
     $resolvedRoleIds = $this->resolveRoleIds($organizationId, $command->roleIds);
 
@@ -155,14 +155,14 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     if (null === $command->setupContext) {
       $this->assertCanInvite($organizationId, $email, $recipientUserId);
     }
-    $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale()->value);
+    $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale);
 
     $token = $this->invitationNotifier->generateToken();
     $tokenHash = $this->invitationNotifier->hashToken($token);
     $acceptUrl = $this->invitationNotifier->buildAcceptUrl($token);
 
     /** @var OrganizationInvitationId $invitationId */
-    $invitationId = $this->uuidFactory->create(OrganizationInvitationId::class);
+    $invitationId = new OrganizationInvitationId($this->uuidFactory->generate());
     $expiresAt = new DateTimeImmutable()->modify('+' . self::DEFAULT_EXPIRATION_DAYS . ' days');
 
     $invitation = OrganizationInvitation::create(

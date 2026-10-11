@@ -6,19 +6,15 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\UseCase\Command\Organization\LeaveOrganization\{LeaveOrganizationCommand, LeaveOrganizationResult};
-use Organization\Domain\Exception\{
-  OrganizationLastAdminException,
-  OrganizationMemberNotFoundException,
-  OrganizationNotFoundException,
-  OrganizationOwnerCannotLeaveException
-};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationOwnerCannotLeaveException};
 use Organization\Presentation\Api\Processor\Organization\LeaveOrganizationProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};

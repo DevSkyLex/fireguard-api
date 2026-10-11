@@ -333,7 +333,7 @@ final class InterventionReportExportApiTest extends WebTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
+    $intervention->organizationId = self::ORGANIZATION_ID;
     $intervention->type = 'site_setup';
     $intervention->name = 'Report Export Test Intervention';
     $intervention->number = 900;

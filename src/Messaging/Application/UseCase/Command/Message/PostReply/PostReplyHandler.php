@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Message\PostReply;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\MessagingRealtimePublisherPort;
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessageId};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
 
 /**
@@ -65,8 +66,9 @@ final readonly class PostReplyHandler implements CommandHandler
    * @param MessagingNotificationService $notifications the notification service
    * @param MessagingRealtimePublisherPort $realtime the realtime publisher port
    * @param MentionExtractor $mentionExtractor the mention extractor
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    * @param LoggerPort $logger the logger value
+   * @param RootTransactionManagerPort $transactions commits the reply and both counters together
    */
   public function __construct(
     private MessagingConversationRepositoryPort $conversations,
@@ -76,8 +78,9 @@ final readonly class PostReplyHandler implements CommandHandler
     private MessagingNotificationService $notifications,
     private MessagingRealtimePublisherPort $realtime,
     private MentionExtractor $mentionExtractor,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private LoggerPort $logger,
+    private RootTransactionManagerPort $transactions,
   ) {
   }
 
@@ -133,7 +136,7 @@ final readonly class PostReplyHandler implements CommandHandler
     }
 
     $reply = Message::create(
-      id: $this->uuidFactory->create(MessageId::class),
+      id: new MessageId($this->uuidFactory->generate()),
       conversationId: $conversationId,
       organizationId: $organizationId,
       authorMemberId: $authorMemberId,
@@ -142,9 +145,13 @@ final readonly class PostReplyHandler implements CommandHandler
       links: new MessageCreationLinks(parentMessageId: $command->parentMessageId),
     );
 
-    $view = $this->messages->append($reply);
-    $this->conversations->touchOnNewMessage($conversationId, $view->createdAt);
-    $this->messages->incrementReplyCount($command->parentMessageId);
+    $view = $this->transactions->transactional(function () use ($reply, $conversationId, $command) {
+      $view = $this->messages->append($reply);
+      $this->conversations->touchOnNewMessage($conversationId, $view->createdAt);
+      $this->messages->incrementReplyCount($command->parentMessageId);
+
+      return $view;
+    });
 
     try {
       $this->realtime->publishMessage($organizationId, $conversationId, [
@@ -156,10 +163,7 @@ final readonly class PostReplyHandler implements CommandHandler
         'createdAt' => $view->createdAt->format('c'),
       ]);
     } catch (Throwable $exception) {
-      $this->logger->warning('Messaging realtime publish failed.', [
-        'conversationId' => $conversationId,
-        'error' => $exception->getMessage(),
-      ]);
+      $this->logRealtimeFailure($conversationId, $exception);
     }
 
     foreach ($reply->mentions() as $mentionedMemberId) {
@@ -177,5 +181,25 @@ final readonly class PostReplyHandler implements CommandHandler
     }
 
     return new PostReplyResult($view, $authorMemberId);
+  }
+
+  /**
+   * Method logRealtimeFailure.
+   *
+   * A diagnostic failure cannot invalidate a committed reply or skip notifications.
+   *
+   * @param string $conversationId the conversation identifier
+   * @param Throwable $failure the publication failure
+   */
+  private function logRealtimeFailure(string $conversationId, Throwable $failure): void
+  {
+    try {
+      $this->logger->warning('Messaging realtime publish failed.', [
+        'conversationId' => $conversationId,
+        'error' => $failure->getMessage(),
+      ]);
+    } catch (Throwable) {
+      // Diagnostics are best-effort after the durable write.
+    }
   }
 }

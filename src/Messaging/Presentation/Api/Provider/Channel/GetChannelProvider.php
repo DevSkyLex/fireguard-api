@@ -6,7 +6,7 @@ namespace Messaging\Presentation\Api\Provider\Channel;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Messaging\Application\UseCase\Query\Channel\GetChannel\{GetChannelQuery, GetChannelResult};
 use Messaging\Presentation\Api\Dto\Output\ChannelOutput;
 use Messaging\Presentation\Api\Factory\ChannelOutputFactory;
@@ -82,12 +82,12 @@ final readonly class GetChannelProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

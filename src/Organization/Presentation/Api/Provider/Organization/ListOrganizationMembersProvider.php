@@ -8,28 +8,30 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{GetOrganizationMemberResult, ListOrganizationMembersQuery};
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{ListOrganizationRolesQuery, ListOrganizationRolesResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Pagination\PaginationExtractor;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\Exception\InvalidValueException;
-use Shared\Presentation\Api\Pagination\PaginationExtractor;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Contract\User\UserView;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_filter;
 use function array_map;
+use function array_unique;
 use function array_values;
 use function in_array;
 use function is_array;
@@ -93,6 +95,7 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private UserDirectoryPort $users,
   ) {
   }
   // #endregion
@@ -119,7 +122,7 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -163,9 +166,15 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
     }
 
     $roleNamesById = $this->roleNamesById($organizationId);
+
+    try {
+      $profiles = $this->users->findByIds(array_values(array_unique(array_map(static fn (GetOrganizationMemberResult $member): string => $member->userId, $result->items))));
+    } catch (Throwable) {
+      $profiles = [];
+    }
     $outputs = [];
     foreach ($result->items as $member) {
-      $outputs[] = $this->memberOutput($member, $roleNamesById);
+      $outputs[] = $this->memberOutput($member, $roleNamesById, $profiles);
     }
 
     return new TraversablePaginator(
@@ -193,8 +202,9 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
 
   /**
    * @param array<string, string> $roleNamesById
+   * @param array<string, UserView> $profiles the batch-resolved account projections
    */
-  private function memberOutput(GetOrganizationMemberResult $member, array $roleNamesById): OrganizationMemberOutput
+  private function memberOutput(GetOrganizationMemberResult $member, array $roleNamesById, array $profiles): OrganizationMemberOutput
   {
     $output = new OrganizationMemberOutput();
     $output->id = $member->id;
@@ -210,15 +220,15 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       $member->roleIds,
     )));
 
-    $userResult = $this->findUser($member->userId);
-    if ($userResult instanceof GetUserResult && null !== $userResult->user) {
-      $output->email = $userResult->user->email;
-      $output->firstName = $userResult->user->firstName;
-      $output->lastName = $userResult->user->lastName;
-      $output->displayName = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
-        ?: $userResult->user->username
+    $userResult = $profiles[$member->userId] ?? null;
+    if ($userResult instanceof UserView) {
+      $output->email = $userResult->email;
+      $output->firstName = $userResult->firstName;
+      $output->lastName = $userResult->lastName;
+      $output->displayName = trim($userResult->firstName . ' ' . $userResult->lastName)
+        ?: $userResult->username
         ?: $member->userId;
-      $output->avatarUrl = $userResult->user->avatarUrl;
+      $output->avatarUrl = $userResult->avatarUrl;
     }
 
     return $output;
@@ -281,20 +291,6 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
     return is_string($roleId) && '' !== $roleId ? $roleId : null;
   }
 
-  /**
-   * Resolves a user profile without making member listing fail when the user
-   * record is unavailable.
-   */
-  private function findUser(string $userId): ?GetUserResult
-  {
-    try {
-      /** @var GetUserResult $result */
-      $result = $this->queryBus->ask(new GetUserQuery($userId));
-    } catch (Throwable) {
-      return null;
-    }
 
-    return $result;
-  }
   // #endregion
 }

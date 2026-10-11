@@ -16,13 +16,13 @@ use Inspection\Presentation\Api\Dto\Input\NonConformity\UpdateNonConformityStatu
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Processor\NonConformity\UpdateNonConformityStatusProcessor;
 use InvalidArgumentException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response};

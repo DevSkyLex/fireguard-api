@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationMembers;
 
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;

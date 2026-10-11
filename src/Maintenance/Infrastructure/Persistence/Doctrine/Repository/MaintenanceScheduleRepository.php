@@ -13,8 +13,7 @@ use Maintenance\Application\Contract\Schedule\{MaintenanceSchedulePage, Maintena
 use Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort;
 use Maintenance\Domain\Exception\MaintenanceNotFoundException;
 use Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function array_map;
 use function implode;
@@ -55,7 +54,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
    *
    * @var string
    */
-  private const string ORGANIZATION_PREDICATE = 's.organization = :organization';
+  private const string ORGANIZATION_PREDICATE = 's.organizationId = :organization';
 
   /**
    * Constant FACILITY_PREDICATE
@@ -94,11 +93,11 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -180,7 +179,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $parameters = [];
     $now = new DateTimeImmutable()->format(self::DATABASE_TIMESTAMP_FORMAT);
     foreach ($snapshots as $index => $snapshot) {
-      $row = ['id' => $snapshot->id ?? $this->uuidFactory->generateRaw(), 'organization' => $snapshot->organizationId, 'equipment' => $snapshot->equipmentId,
+      $row = ['id' => $snapshot->id ?? $this->uuidFactory->generate(), 'organization' => $snapshot->organizationId, 'equipment' => $snapshot->equipmentId,
         'facility' => $snapshot->facilityId, 'type' => $snapshot->equipmentType, 'override' => $snapshot->intervalOverride,
         'closed' => $snapshot->lastInspectionClosedAt?->format(self::DATABASE_TIMESTAMP_FORMAT), 'due' => $snapshot->nextDueAt?->format(self::DATABASE_TIMESTAMP_FORMAT), 'status' => $snapshot->dueStatus,
         'reminded' => $snapshot->lastRemindedAt?->format(self::DATABASE_TIMESTAMP_FORMAT), 'remindedFor' => $snapshot->remindedFor?->format(self::DATABASE_TIMESTAMP_FORMAT),
@@ -232,7 +231,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
   ): MaintenanceSchedulePage {
     $page = max(1, $page);
     $itemsPerPage = max(1, min(100, $itemsPerPage));
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     $qb = $this->entityManager->createQueryBuilder()
       ->select('s')
@@ -292,7 +291,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     DateTimeImmutable $dueBefore,
     int $limit = 201,
   ): array {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     $qb = $this->entityManager->createQueryBuilder()
       ->select('s')
@@ -372,7 +371,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     if (null !== $snapshot->id && null === $existing) {
       throw MaintenanceNotFoundException::withId($snapshot->id);
     }
-    $id = $existing->id ?? $this->uuidFactory->generateRaw();
+    $id = $existing->id ?? $this->uuidFactory->generate();
     $now = new DateTimeImmutable();
     $this->entityManager->getConnection()->executeStatement(
       'INSERT INTO maintenance_schedules (id, organization_id, equipment_id, facility_id, equipment_type, interval_override,
@@ -492,7 +491,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     ?string $dueStatus,
     ?DateTimeImmutable $dueBefore = null,
   ): QueryBuilder {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     $qb = $this->entityManager->createQueryBuilder()
       ->from(MaintenanceScheduleRecord::class, 's')
@@ -581,11 +580,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
    */
   private function organizationId(MaintenanceScheduleRecord $record): string
   {
-    if (!$record->organization instanceof OrganizationRecord) {
-      throw MaintenanceNotFoundException::withId($record->id);
-    }
-
-    return $record->organization->id;
+    return $record->organizationId;
   }
 
   /**

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\AddTagToEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, TagId};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function mb_strtolower;
 use function trim;
@@ -34,14 +34,14 @@ final readonly class AddTagToEquipmentHandler implements CommandHandler
    *
    * @param EquipmentRepositoryPort $equipmentRepository port used to load equipment and confirm its organization scope
    * @param TagRepositoryPort $tagRepository port used to find or create the organization tag and link it
-   * @param UuidFactory $uuidFactory factory used when a new tag needs an identifier
+   * @param UuidGeneratorPort $uuidFactory factory used when a new tag needs an identifier
    *
    * @return void
    */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -69,7 +69,7 @@ final readonly class AddTagToEquipmentHandler implements CommandHandler
 
     if (null === $tag) {
       /** @var TagId $tagId */
-      $tagId = $this->uuidFactory->create(TagId::class);
+      $tagId = new TagId($this->uuidFactory->generate());
       $tag = Tag::create($tagId, $organizationId, $normalizedName);
       $this->tagRepository->saveAndLinkToEquipment($tag, $equipmentId);
     } else {

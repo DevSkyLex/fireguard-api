@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Organization\Application\Service;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationJoinAccessPort};
-use Organization\Application\Port\Outbound\{OrganizationJoinRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Exception\{OrganizationJoinException, OrganizationNotFoundException};
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationJoinAccessPort;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationJoinRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Exception\OrganizationJoinException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationJoin\{OrganizationDomain, OrganizationJoinRequest};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationJoinMode, OrganizationJoinPermissions, OrganizationRoleId, OrganizationRoleName};

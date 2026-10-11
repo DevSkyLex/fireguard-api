@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inspection\Infrastructure\Adapter\Approval;
 
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
 use Approval\Application\Contract\Execution\DeferredActionContext;
-use Approval\Domain\Exception\DeferredActionNoLongerApplicableException;
 use DateTimeImmutable;
 use Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\UpdateNonConformityStatusCommand;
 use Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityResult;
@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 
 /**

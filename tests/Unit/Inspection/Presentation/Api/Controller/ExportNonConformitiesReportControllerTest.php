@@ -5,25 +5,28 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Inspection\Application\Contract\Event\Export\NonConformitiesReportExportedEvent;
 use Inspection\Application\Contract\Export\NonConformityExportRow;
-use Inspection\Application\Port\Outbound\{InspectionReportEntitlementPort, NonConformityReportPdfRendererPort};
+use Inspection\Application\Port\Outbound\NonConformityReportPdfRendererPort;
+use Inspection\Application\UseCase\Command\Export\RecordInspectionExport\RecordInspectionExportCommand;
 use Inspection\Application\UseCase\Query\ExportNonConformities\{ExportNonConformitiesQuery, ExportNonConformitiesResult};
-use Inspection\Domain\Event\Export\NonConformitiesReportExportedEvent;
+use Inspection\Application\UseCase\Query\Report\ResolveInspectionReportAccess\{ResolveInspectionReportAccessQuery, ResolveInspectionReportAccessResult};
 use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException};
+use Inspection\Domain\Exception\InspectionReportNotEntitledException;
 use Inspection\Presentation\Api\Controller\ExportNonConformitiesReportController;
 use Inspection\Presentation\Api\Service\NonConformityExportCriteriaFactory;
-use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
+use Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Message\VoidResult;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
+use Throwable;
 
 use function array_map;
 use function str_pad;
@@ -124,6 +127,9 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturnCallback(
       static function (object $query) use (&$askedFilters): object {
+        if ($query instanceof ResolveInspectionReportAccessQuery) {
+          return new ResolveInspectionReportAccessResult('pro');
+        }
         self::assertInstanceOf(ExportNonConformitiesQuery::class, $query);
         $askedFilters = $query->filters;
 
@@ -133,19 +139,21 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
 
     $dispatched = null;
 
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
-        $dispatched = $event;
+      ->willReturnCallback(static function (RecordInspectionExportCommand $command) use (&$dispatched): VoidResult {
+        $dispatched = $command->event;
+
+        return new VoidResult();
       });
 
     $request = $this->request();
     $request->query->set('severity', 'critical');
     $request->query->set('status', 'open');
 
-    $this->createController($queryBus, eventDispatcher: $eventDispatcher)->__invoke($request);
+    $this->createController($queryBus, commandBus: $commandBus)->__invoke($request);
 
     self::assertSame(['severity' => 'critical', 'status' => 'open'], $askedFilters);
 
@@ -183,51 +191,49 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
   #[Test]
   public function testItAnswers404ForACallerOutsideTheOrganizationScope(): void
   {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+    $queryBus = $this->deniedAccess(new InspectionNotFoundException('Organization not found.'));
 
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Organization not found.');
 
-    $this->createController($this->queryBus(), authorization: $authorization)->__invoke($this->request());
+    $this->createController($queryBus)->__invoke($this->request());
   }
 
   #[Test]
   public function testItAnswers403ForAMemberWithoutTheReadPermission(): void
   {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
+    $queryBus = $this->deniedAccess(new InspectionAccessDeniedException('Missing organization.inspection.read permission.'));
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.inspection.read permission.');
 
-    $this->createController($this->queryBus(), authorization: $authorization)->__invoke($this->request());
+    $this->createController($queryBus)->__invoke($this->request());
   }
 
   #[Test]
-  public function testItAnswers403WhenThePlanIsNotEntitled(): void
+  public function testItAnswers403BeforeValidatingFiltersWhenThePlanIsNotEntitled(): void
   {
-    $entitlement = $this->createStub(InspectionReportEntitlementPort::class);
-    $entitlement->method('isExportEntitled')->willReturn(false);
+    $queryBus = $this->deniedAccess(InspectionReportNotEntitledException::planTooLow(self::ORGANIZATION_ID));
 
     $renderer = $this->createMock(NonConformityReportPdfRendererPort::class);
     $renderer->expects(self::never())->method('render');
 
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::never())->method('dispatch');
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
 
     $controller = $this->createController(
-      $this->queryBus(),
+      $queryBus,
       renderer: $renderer,
-      entitlement: $entitlement,
-      eventDispatcher: $eventDispatcher,
+      commandBus: $commandBus,
     );
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('plan does not include the inspection PDF report exports');
 
-    $controller->__invoke($this->request());
+    $request = $this->request();
+    $request->query->set('severity', 'catastrophic');
+    $controller->__invoke($request);
   }
 
   #[Test]
@@ -266,6 +272,24 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
 
   // #region Fixtures
 
+  /**
+   * @param Throwable $failure the Application access failure
+   */
+  private function deniedAccess(Throwable $failure): QueryBusPort
+  {
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())->method('ask')
+      ->with(self::callback(static function (ResolveInspectionReportAccessQuery $query): bool {
+        self::assertSame(self::USER_ID, $query->userId);
+        self::assertSame(self::ORGANIZATION_ID, $query->organizationId);
+
+        return true;
+      }))
+      ->willThrowException($failure);
+
+    return $queryBus;
+  }
+
   private function request(): Request
   {
     $request = new Request();
@@ -277,9 +301,7 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
   private function createController(
     QueryBusPort $queryBus,
     ?NonConformityReportPdfRendererPort $renderer = null,
-    ?OrganizationAuthorizationPort $authorization = null,
-    ?InspectionReportEntitlementPort $entitlement = null,
-    ?EventDispatcherPort $eventDispatcher = null,
+    ?CommandBusPort $commandBus = null,
     ?Security $security = null,
   ): ExportNonConformitiesReportController {
     if (null === $security) {
@@ -299,25 +321,12 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
       $renderer->method('render')->willReturn('%PDF-fake');
     }
 
-    if (null === $authorization) {
-      $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-      $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
-    }
-
-    if (null === $entitlement) {
-      $entitlement = $this->createStub(InspectionReportEntitlementPort::class);
-      $entitlement->method('isExportEntitled')->willReturn(true);
-      $entitlement->method('resolvePlanKey')->willReturn('pro');
-    }
-
     return new ExportNonConformitiesReportController(
       queryBus: $queryBus,
-      authorization: $authorization,
       branding: $this->brandingPort(),
-      entitlement: $entitlement,
       renderer: $renderer,
       criteriaFactory: new NonConformityExportCriteriaFactory(),
-      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
       security: $security,
     );
   }
@@ -377,7 +386,7 @@ final class ExportNonConformitiesReportControllerTest extends TestCase
     ];
 
     $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ExportNonConformitiesResult(rows: $rows, total: 3));
+    $queryBus->method('ask')->willReturnCallback(static fn (object $query): object => $query instanceof ResolveInspectionReportAccessQuery ? new ResolveInspectionReportAccessResult('pro') : new ExportNonConformitiesResult(rows: $rows, total: 3));
 
     return $queryBus;
   }

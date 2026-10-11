@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Application\UseCase\Query\Role\GetRole;
 
-use Authorization\Application\Port\Outbound\RoleRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\RoleRepositoryPort;
 use Authorization\Application\UseCase\Query\Permission\GetPermission\GetPermissionResult;
 use Authorization\Domain\Exception\RoleNotFoundException;
 use Authorization\Domain\Model\Permission\Permission;

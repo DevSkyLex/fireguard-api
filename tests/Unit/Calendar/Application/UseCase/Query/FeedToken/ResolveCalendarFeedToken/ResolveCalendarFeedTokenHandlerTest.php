@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Application\UseCase\Query\FeedToken\ResolveCalendarFeedToken;
 
-use Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\FeedToken\CalendarFeedTokenRepositoryPort;
 use Calendar\Application\Service\CalendarFeedTokenSecretFactory;
 use Calendar\Application\UseCase\Query\FeedToken\ResolveCalendarFeedToken\{ResolveCalendarFeedTokenHandler, ResolveCalendarFeedTokenQuery};
 use Calendar\Domain\Exception\CalendarFeedTokenNotFoundException;

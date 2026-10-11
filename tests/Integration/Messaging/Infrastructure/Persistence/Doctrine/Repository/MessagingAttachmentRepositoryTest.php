@@ -6,6 +6,7 @@ namespace Tests\Integration\Messaging\Infrastructure\Persistence\Doctrine\Reposi
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Messaging\Application\Contract\Attachment\MessagingAttachmentView;
 use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\MentionExtractor;
@@ -108,7 +109,7 @@ final class MessagingAttachmentRepositoryTest extends KernelTestCase
 
     self::assertCount(3, $found);
 
-    $messageIds = array_map(static fn (MessagingAttachment $a): string => $a->messageId(), $found);
+    $messageIds = array_map(static fn (MessagingAttachmentView $a): string => $a->messageId, $found);
     self::assertNotContains((string) $unrelated->id(), $messageIds);
   }
 
@@ -160,13 +161,13 @@ final class MessagingAttachmentRepositoryTest extends KernelTestCase
 
     self::assertSame(3, $firstPage->total);
     self::assertCount(2, $firstPage->items);
-    self::assertSame($newId, (string) $firstPage->items[0]->id());
-    self::assertSame($midId, (string) $firstPage->items[1]->id());
+    self::assertSame($newId, (string) $firstPage->items[0]->id);
+    self::assertSame($midId, (string) $firstPage->items[1]->id);
 
     $secondPage = $repository->listByConversationId(self::CONVERSATION_ID, 2, 2);
 
     self::assertCount(1, $secondPage->items);
-    self::assertSame($oldId, (string) $secondPage->items[0]->id());
+    self::assertSame($oldId, (string) $secondPage->items[0]->id);
   }
 
   #[Test]
@@ -301,7 +302,7 @@ final class MessagingAttachmentRepositoryTest extends KernelTestCase
 
     $record = new MessagingConversationRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->subjectType = 'facility';
     $record->subjectId = '550e8400-e29b-41d4-a716-446655449001';
     $record->visibility = 'subject';

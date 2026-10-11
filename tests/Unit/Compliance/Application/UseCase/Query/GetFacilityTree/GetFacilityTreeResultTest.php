@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Compliance\Application\UseCase\Query\GetFacilityTree;
 
-use Compliance\Application\Contract\FacilityTreeNode;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityTreeNode};
 use Compliance\Application\UseCase\Query\GetFacilityTree\GetFacilityTreeResult;
-use Compliance\Domain\ValueObject\ComplianceStatus;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\ResultMessage;

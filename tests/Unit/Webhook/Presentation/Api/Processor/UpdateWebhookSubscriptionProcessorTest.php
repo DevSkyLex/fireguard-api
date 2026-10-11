@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Webhook\Application\UseCase\Command\Subscription\UpdateWebhookSubscription\{UpdateWebhookSubscriptionCommand, UpdateWebhookSubscriptionResult};
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Presentation\Api\Dto\Input\UpdateWebhookSubscriptionInput;
@@ -175,7 +175,7 @@ final class UpdateWebhookSubscriptionProcessorTest extends TestCase
       new WebhookSubscriptionOutputFactory(),
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(WebhookSubscriptionNotFoundException::class);
 
     $processor->process(new UpdateWebhookSubscriptionInput(), new Patch(), [
       'organizationId' => self::ORGANIZATION_ID,

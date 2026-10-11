@@ -82,8 +82,11 @@ a retryable failure, never a downgrade based on an incomplete read.
 Subscription projection, organization plan and event receipt commit together in
 `main`. Receipts are unique by `(event_id, live_mode)` in `billing_stripe_events`;
 they contain identifiers and timestamps, not raw Stripe payloads. Technical failures
-roll back all local writes so the same event can be retried. Cross-database and
-external effects are outside this local atomicity guarantee.
+roll back all local writes so the same event can be retried. Organization plan events and over-quota notification snapshots are enqueued
+in the same main transaction, including the nested assignment. A late Billing
+receipt failure therefore rolls back both the plan and its pending consequences.
+Audit on auth and external notification channels run only after the outbox becomes
+visible; their independent receipts preserve already committed delivery on retry.
 
 The organization is resolved from the event `metadata.organization_id`,
 **cross-checked against** the locally stored `stripe_customer_id` → organization
@@ -125,7 +128,8 @@ Billing publishes two outbound ports that the **Organization** module implements
 - `Billing\Application\Port\Outbound\OrganizationPlanAssignmentPort` →
   `OrganizationPlanAssignmentAdapter`: resolves the stable plan key to its id and
   dispatches the existing `ChangeOrganizationPlanCommand`, so a paid plan is
-  applied through the same validated path as a self-service change.
+  applied through the trusted assignment path. Authenticated self-service checks
+  separately permit only the free default plan.
 - `Billing\Application\Port\Outbound\OrganizationAccessPort` →
   `OrganizationAccessAdapter`: delegates to `OrganizationAuthorizationPort` so
   Billing enforces organization permissions without depending on Organization
@@ -133,8 +137,8 @@ Billing publishes two outbound ports that the **Organization** module implements
 
 **Key invariant (enforced in `Organization`):** self-service
 `PATCH /api/organizations/{id}/plan` is restricted to the **default (free) plan
-only**; paid plans must go through Checkout. The webhook bypasses that processor
-(it dispatches the command directly), so it can still assign paid plans.
+only** by its authenticated Application use case; paid plans must go through Checkout. The webhook uses the separate trusted assignment
+command, so it can still assign paid plans.
 
 ## Persistence
 

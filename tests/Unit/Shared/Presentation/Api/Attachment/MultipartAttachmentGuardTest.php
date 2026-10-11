@@ -6,7 +6,8 @@ namespace Tests\Unit\Shared\Presentation\Api\Attachment;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Presentation\Api\Attachment\{MultipartAttachmentGuard, UploadedAttachment};
+use Shared\Application\Contract\Attachment\UploadedAttachment;
+use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnprocessableEntityHttpException};

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Customer\Infrastructure\Persistence\Doctrine\Repository;
 
-use Customer\Application\Port\Outbound\CustomerRepositoryPort;
+use Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort;
 use Customer\Domain\Exception\CustomerException;
 use Customer\Domain\Model\Customer\Customer;
 use Customer\Domain\ValueObject\{CustomerDetails, CustomerHistory};

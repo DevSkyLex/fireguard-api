@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Import\Application\UseCase\Query\ListImportJobs;
 
-use Import\Application\Port\Outbound\ImportJobRepositoryPort;
+use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
 use Import\Application\Service\ImportPermissions;
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};

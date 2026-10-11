@@ -6,12 +6,12 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
 use Organization\Application\Contract\Search\OrganizationSearchHit;
 use Organization\Application\UseCase\Query\Organization\SearchOrganization\{SearchOrganizationQuery, SearchOrganizationResult};
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationSearchHitOutput, OrganizationSearchOutput};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -88,7 +88,7 @@ final readonly class SearchOrganizationProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): OrganizationSearchOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -97,7 +97,7 @@ final readonly class SearchOrganizationProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $rawTerm = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('q');
+    $rawTerm = \Organization\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('q');
     $term = is_string($rawTerm) ? trim($rawTerm) : '';
     $length = mb_strlen($term);
     if ($length < self::MIN_TERM_LENGTH || $length > self::MAX_TERM_LENGTH) {

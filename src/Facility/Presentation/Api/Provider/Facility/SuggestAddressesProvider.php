@@ -101,7 +101,7 @@ final readonly class SuggestAddressesProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $address = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('q');
+    $address = \Facility\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('q');
     if (!is_string($address) || '' === $address) {
       throw new BadRequestHttpException('Address query parameter is required.');
     }

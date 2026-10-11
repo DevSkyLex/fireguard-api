@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember;
 
-use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Event\Role\OrganizationRoleUnassignedEvent;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Application\Contract\Event\Role\OrganizationRoleUnassignedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};

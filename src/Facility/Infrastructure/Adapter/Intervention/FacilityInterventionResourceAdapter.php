@@ -7,15 +7,14 @@ namespace Facility\Infrastructure\Adapter\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Infrastructure\Exception\FacilityPatchConflictException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Service\Intervention\FacilityInterventionPatchApplier;
-use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionResourceNotFoundException};
+use Intervention\Application\Contract\Resource\{InterventionResourceAssignment, InterventionResourceType};
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort};
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
-use Intervention\Domain\ValueObject\InterventionResourceType;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
@@ -56,7 +55,7 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
     FacilityArchivalGuardPort $archivalGuard,
     FacilityRepositoryPort $facilityRepository,
     FacilityMetadataSchemaGuard $metadataSchemaGuard,
-    \Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort $attachments,
+    \Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort $attachments,
     \Facility\Application\Service\FacilityAttachmentAncestryGuard $planAncestry,
     #[Autowire('%facility.hierarchy.max_depth%')]
     int $maxDepth = 8,
@@ -146,7 +145,7 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
   {
     $record = $this->entityManager->find(FacilityRecord::class, $resourceId);
 
-    return $record instanceof FacilityRecord && $record->organization?->id === $organizationId;
+    return $record instanceof FacilityRecord && $record->organizationId === $organizationId;
   }
 
   /**

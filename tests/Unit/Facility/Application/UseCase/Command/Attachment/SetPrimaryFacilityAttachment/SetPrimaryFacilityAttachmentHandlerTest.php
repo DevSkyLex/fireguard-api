@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment\{SetPrimaryFacilityAttachmentCommand, SetPrimaryFacilityAttachmentHandler, SetPrimaryFacilityAttachmentResult};
 use Facility\Domain\Exception\{FacilityAttachmentNotFloorPlanException, FacilityAttachmentNotFoundException, FacilityNotFoundException};
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
@@ -54,6 +54,7 @@ final class SetPrimaryFacilityAttachmentHandlerTest extends TestCase
     $transactionManager = $this->transactionManager();
 
     $handler = new SetPrimaryFacilityAttachmentHandler(
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       transactionManager: $transactionManager,
@@ -94,9 +95,10 @@ final class SetPrimaryFacilityAttachmentHandlerTest extends TestCase
     $attachmentRepository->expects(self::never())->method('save');
 
     $transactionManager = $this->createMock(TransactionManagerPort::class);
-    $transactionManager->expects(self::never())->method('transactional');
+    $transactionManager->expects(self::once())->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
     $handler = new SetPrimaryFacilityAttachmentHandler(
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       transactionManager: $transactionManager,
@@ -122,9 +124,10 @@ final class SetPrimaryFacilityAttachmentHandlerTest extends TestCase
     $attachmentRepository->expects(self::never())->method('findById');
 
     $handler = new SetPrimaryFacilityAttachmentHandler(
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
-      transactionManager: $this->createStub(TransactionManagerPort::class),
+      transactionManager: $this->transactionManager(),
     );
 
     $this->expectException(FacilityNotFoundException::class);
@@ -158,9 +161,10 @@ final class SetPrimaryFacilityAttachmentHandlerTest extends TestCase
     $attachmentRepository->expects(self::never())->method('save');
 
     $handler = new SetPrimaryFacilityAttachmentHandler(
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
-      transactionManager: $this->createStub(TransactionManagerPort::class),
+      transactionManager: $this->transactionManager(),
     );
 
     $this->expectException(FacilityAttachmentNotFoundException::class);
@@ -176,6 +180,7 @@ final class SetPrimaryFacilityAttachmentHandlerTest extends TestCase
   public function testInvokeRejectsAnInvalidFacilityId(): void
   {
     $handler = new SetPrimaryFacilityAttachmentHandler(
+      authorization: $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class),
       facilityRepository: $this->createStub(FacilityRepositoryPort::class),
       attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
       transactionManager: $this->createStub(TransactionManagerPort::class),

@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Approval\Presentation\Api\Trait;
 
-use Approval\Domain\Exception\{
-  ApprovalRequestNotFoundException,
-  ApprovalRequestNotPendingException,
-  ApproverNotAuthorizedException,
-  DeferredActionNoLongerApplicableException,
-  SelfApprovalNotAllowedException
-};
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
+use Approval\Domain\Exception\{ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApproverNotAuthorizedException, SelfApprovalNotAllowedException};
 use Approval\Presentation\Api\Trait\ApprovalExceptionMapperTrait;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversTrait, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

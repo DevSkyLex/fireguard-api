@@ -8,7 +8,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Application\UseCase\Query\Tenant\ListTenants\{ListTenantsHandler, ListTenantsQuery};
 use Tenant\Domain\Model\Tenant\Tenant;
 use Tenant\Domain\ValueObject\{TenantId, TenantName, TenantSettings};

@@ -8,7 +8,7 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use OAuth\Domain\Exception\Client\{InvalidClientException, InvalidOAuthClientIdentifierException, InvalidRedirectUriException};
 use OAuth\Domain\Exception\Token\{AuthorizationException as OAuthAuthorizationException, InvalidGrantTypeException, InvalidScopeException, UnauthorizedGrantTypeException};
 use OAuth\Presentation\Api\Operation\OAuthOperations;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Stringable;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;

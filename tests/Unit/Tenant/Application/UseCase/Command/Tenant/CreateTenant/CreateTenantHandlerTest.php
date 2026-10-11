@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Tenant\Application\UseCase\Command\Tenant\CreateTenant;
 
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Domain\ValueObject\Uuid;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Application\UseCase\Command\Tenant\CreateTenant\{CreateTenantCommand, CreateTenantHandler, CreateTenantResult};
 use Tenant\Domain\Event\TenantCreatedEvent;
 use Tenant\Domain\Model\Tenant\Tenant;
-use Tenant\Domain\ValueObject\TenantId;
 
 /**
  * Test CreateTenantHandlerTest.
@@ -39,16 +35,10 @@ final class CreateTenantHandlerTest extends TestCase
     $eventId = '00000000-0000-4000-a000-000000000001';
 
     // Mocks
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::exactly(2))
-      ->method('create')
-      ->willReturnCallback(static function (string $class) use ($tenantId, $eventId): object {
-        return match ($class) {
-          TenantId::class => new TenantId($tenantId),
-          Uuid::class => new Uuid($eventId),
-          default => throw new InvalidArgumentException('Unexpected UUID class.'),
-        };
-      });
+      ->method('generate')
+      ->willReturnOnConsecutiveCalls($tenantId, $eventId);
 
     $repository = $this->createMock(TenantRepositoryPort::class);
     $repository->expects(self::once())

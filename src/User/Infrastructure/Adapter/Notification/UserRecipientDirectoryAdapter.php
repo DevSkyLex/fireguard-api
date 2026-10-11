@@ -6,7 +6,7 @@ namespace User\Infrastructure\Adapter\Notification;
 
 use Notification\Application\Port\Outbound\RecipientDirectoryPort;
 use Shared\Domain\Exception\InvalidValueException;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
 /**

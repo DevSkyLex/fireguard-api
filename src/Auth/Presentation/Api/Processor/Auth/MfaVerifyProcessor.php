@@ -94,7 +94,7 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
       preAuthToken: $data->preAuthToken,
       code: $data->code,
       ipAddress: $ipAddress,
-      userAgent: \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent'),
+      userAgent: \Auth\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent'),
     );
 
     try {

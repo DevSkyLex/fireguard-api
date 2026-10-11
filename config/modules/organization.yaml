@@ -11,7 +11,7 @@ services:
     autowire: true
     autoconfigure: true
 
-  Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort:
+  Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort:
     alias: Organization\Application\Service\OrganizationMemberGrantGuardService
   Organization\Application\Service\OrganizationMemberGrantGuardService: ~
 
@@ -106,6 +106,9 @@ services:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\RemoveOrganizationLogo\RemoveOrganizationLogoHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Team\CreateTeam\CreateTeamHandler:
@@ -159,6 +162,10 @@ services:
   Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\ChangeOrganizationPlanHandler:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\ChangeSelfServiceOrganizationPlan\ChangeSelfServiceOrganizationPlanHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Plan\CreatePlan\CreatePlanHandler:
@@ -282,22 +289,22 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Outbound ports
-  Organization\Application\Port\Outbound\OrganizationRepositoryPort:
+  Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository
 
-  Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort:
+  Organization\Application\Port\Outbound\Internal\OrganizationRoleRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRoleRepository
 
-  Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort:
+  Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository
 
-  Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort:
+  Organization\Application\Port\Outbound\Internal\OrganizationInvitationRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository
 
-  Organization\Application\Port\Outbound\PlanRepositoryPort:
+  Organization\Application\Port\Outbound\Internal\PlanRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\PlanRepository
 
-  Organization\Application\Port\Outbound\TeamRepositoryPort:
+  Organization\Application\Port\Outbound\Internal\TeamRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\TeamRepository
 
   # Quota advisory lock (runs on the main connection carrying the create transaction)
@@ -305,7 +312,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Organization\Application\Port\Outbound\OrganizationQuotaLockPort:
+  Organization\Application\Port\Outbound\Internal\OrganizationQuotaLockPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Lock\PostgresOrganizationQuotaLockAdapter
 
   # Document branding (logo inlined as data URI, legal identity, regional settings)
@@ -324,7 +331,7 @@ services:
   Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort:
     alias: Organization\Application\Service\OrganizationNotificationPolicyService
 
-  Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort:
+  Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort:
     alias: Organization\Application\Service\OrganizationLastAdminGuardService
 
   Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort:
@@ -333,7 +340,7 @@ services:
   Organization\Application\Port\Inbound\TeamDirectoryPort:
     alias: Organization\Application\Service\TeamDirectoryService
 
-  Organization\Application\Port\Inbound\OrganizationCallerMembershipPort:
+  Organization\Application\Port\Inbound\Internal\OrganizationCallerMembershipPort:
     alias: Organization\Application\Service\OrganizationCallerMembershipService
 
   # Inbound port reused by the Import module's bulk CSV member import:
@@ -362,9 +369,30 @@ services:
 
   Organization\Application\Service\OrganizationCacheInvalidator: ~
 
-  Organization\Application\Service\OrganizationAuthorizationService: ~
+  Organization\Application\Service\OrganizationAuthorizationService:
+    tags: [{ name: kernel.reset, method: reset }]
 
-  Organization\Application\Service\OrganizationQuotaService: ~
+  Organization\Application\Port\Inbound\OrganizationOwnerReadPort:
+    alias: Organization\Infrastructure\Adapter\Read\OrganizationOwnerReadAdapter
+  Organization\Infrastructure\Adapter\Read\OrganizationOwnerReadAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+  Organization\Application\Port\Inbound\OrganizationMemberDirectoryPort:
+    alias: Organization\Infrastructure\Adapter\Read\OrganizationMemberDirectoryAdapter
+  Organization\Infrastructure\Adapter\Read\OrganizationMemberDirectoryAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+  Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort:
+    alias: Organization\Application\Service\OrganizationMemberNotificationDirectoryService
+  Organization\Application\Service\OrganizationMemberNotificationDirectoryService: ~
+  Organization\Application\Port\Outbound\OrganizationMemberPermissionReadPort:
+    alias: Organization\Infrastructure\Adapter\Read\OrganizationMemberPermissionReadAdapter
+  Organization\Infrastructure\Adapter\Read\OrganizationMemberPermissionReadAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Organization\Application\Service\OrganizationQuotaService:
+    tags: [{ name: kernel.reset, method: reset }]
 
   Organization\Application\Service\OrganizationNotificationPolicyService: ~
 
@@ -452,6 +480,17 @@ services:
   # Image services
   Organization\Infrastructure\Image\OrganizationLogoResizer: ~
 
+  Organization\Application\Port\Outbound\OrganizationLogoImagePort:
+    alias: Organization\Infrastructure\Image\OrganizationLogoResizer
+  Organization\Application\UseCase\Command\Organization\UploadOrganizationLogo\UploadOrganizationLogoHandler:
+    arguments:
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: ['messenger.message_handler']
+  Organization\Application\UseCase\Query\Organization\GetOrganizationLogo\GetOrganizationLogoHandler:
+    tags: ['messenger.message_handler']
+  Organization\Application\UseCase\Query\Organization\AuthorizeOrganizationLogoUpload\AuthorizeOrganizationLogoUploadHandler:
+    tags: ['messenger.message_handler']
+
   # Console Commands use #[AsCommand]
   Organization\Infrastructure\Console\CreateOrganizationConsoleCommand: ~
   Organization\Infrastructure\Console\AddOrganizationAdminConsoleCommand: ~
@@ -460,13 +499,13 @@ services:
   Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationJoinRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-  Organization\Application\Port\Outbound\OrganizationJoinRepositoryPort:
+  Organization\Application\Port\Outbound\Internal\OrganizationJoinRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationJoinRepository
   Organization\Infrastructure\Adapter\Native\OrganizationDomainProofAdapter: ~
   Organization\Application\Port\Outbound\OrganizationDomainProofPort:
     alias: Organization\Infrastructure\Adapter\Native\OrganizationDomainProofAdapter
   Organization\Application\Service\OrganizationJoinAccessService: ~
-  Organization\Application\Port\Inbound\OrganizationJoinAccessPort:
+  Organization\Application\Port\Inbound\Internal\OrganizationJoinAccessPort:
     alias: Organization\Application\Service\OrganizationJoinAccessService
   Organization\Application\UseCase\Command\Join\ManageOrganizationJoin\ManageOrganizationJoinHandler:
     arguments:
@@ -482,3 +521,8 @@ services:
   Organization\Infrastructure\Adapter\Symfony\OrganizationJoinNotificationAdapter: ~
   Organization\Application\Port\Outbound\OrganizationJoinNotificationPort:
     alias: Organization\Infrastructure\Adapter\Symfony\OrganizationJoinNotificationAdapter
+
+  Organization\Application\Port\Inbound\OrganizationOnboardingDirectoryPort:
+    alias: Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter
+
+  Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter: ~

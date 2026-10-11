@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Command\Client\RegisterClient;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Domain\Model\Client\Client;
 use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Service\EventIdProvider;
 
 use function bin2hex;
@@ -35,14 +35,14 @@ final readonly class RegisterClientHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param ClientRepositoryPort $clientRepository the client repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param HashingPort $hashing the hashing service
    * @param EventBusPort $eventBus the event bus
    * @param EventIdProvider $eventIdProvider the event ID provider
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
-    private readonly UuidFactory $uuidFactory,
+    private readonly UuidGeneratorPort $uuidFactory,
     private readonly HashingPort $hashing,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
@@ -65,7 +65,7 @@ final readonly class RegisterClientHandler implements CommandHandler
   public function __invoke(RegisterClientCommand $command): RegisterClientResult
   {
     // Generate client ID using factory
-    $clientId = $this->uuidFactory->create(ClientId::class);
+    $clientId = new ClientId($this->uuidFactory->generate());
 
     // Generate plain secret (32 random bytes = 64 hex chars)
     $plainSecret = bin2hex(random_bytes(32));

@@ -7,14 +7,13 @@ namespace Tests\Unit\User\Application\UseCase\Command\User\CreateUser;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\ValueObject\HashedSecret;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateUserHandler, CreateUserResult};
 use User\Domain\Model\User\User;
-use User\Domain\ValueObject\UserId;
 
 /**
  * Test CreateUserHandlerTest.
@@ -40,7 +39,7 @@ final class CreateUserHandlerTest extends TestCase
    *
    * Mock of the UUID factory.
    */
-  private UuidFactory&MockObject $uuidFactory;
+  private UuidGeneratorPort&MockObject $uuidFactory;
 
   /**
    * Property eventIdProvider.
@@ -82,7 +81,7 @@ final class CreateUserHandlerTest extends TestCase
   protected function setUp(): void
   {
     $this->userRepository = $this->createMock(UserRepositoryPort::class);
-    $this->uuidFactory = $this->createMock(UuidFactory::class);
+    $this->uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $this->hashing = $this->createMock(HashingPort::class);
     $this->eventBus = $this->createMock(EventBusPort::class);
     $this->eventIdProvider = new TestEventIdProvider();
@@ -123,9 +122,8 @@ final class CreateUserHandlerTest extends TestCase
     $hashedPassword = new HashedSecret('$2y$10$hashedpassword');
 
     $this->uuidFactory->expects($this->once())
-      ->method('create')
-      ->with(UserId::class)
-      ->willReturn(new UserId($userId));
+      ->method('generate')
+      ->willReturn($userId);
 
     $this->hashing->expects($this->once())
       ->method('hash')
@@ -160,8 +158,8 @@ final class CreateUserHandlerTest extends TestCase
       tenantId: $tenantId,
     );
 
-    $this->uuidFactory->method('create')->with(UserId::class)
-      ->willReturn(new UserId('123e4567-e89b-12d3-a456-426614174000'));
+    $this->uuidFactory->expects(self::once())->method('generate')
+      ->willReturn('123e4567-e89b-12d3-a456-426614174000');
     $this->hashing->expects(self::once())->method('hash')
       ->with('password123')->willReturn(new HashedSecret('$2y$10$hashedpassword'));
     $this->userRepository->expects(self::once())->method('save')

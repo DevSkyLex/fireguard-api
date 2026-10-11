@@ -113,7 +113,7 @@ final class FacilityDuplicateApiTest extends WebTestCase
     // The archived building is omitted. Its zone remains compatible when
     // reattached to the copied site, alongside the active building.
     /** @var list<FacilityRecord> $clones */
-    $clones = $entityManager->getRepository(FacilityRecord::class)->findBy(['organization' => $organization]);
+    $clones = $entityManager->getRepository(FacilityRecord::class)->findBy(['organizationId' => $organization->id]);
     $newRootClones = [];
     foreach ($clones as $clone) {
       if ($newRootId === $clone->id) {
@@ -510,7 +510,7 @@ final class FacilityDuplicateApiTest extends WebTestCase
   ): FacilityRecord {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = $parent;
     $facility->type = $type;
     $facility->name = $name;

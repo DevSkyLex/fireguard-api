@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance\{PutUnderMaintenanceCommand, PutUnderMaintenanceHandler, PutUnderMaintenanceResult};
 use Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent;
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
@@ -15,7 +16,7 @@ use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
@@ -23,8 +24,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 use function is_string;
@@ -81,11 +82,11 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       ),
     );
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
     $organizationRepository->expects(self::once())
-      ->method('findById')
-      ->willReturn($organization);
+      ->method('ownerUserId')
+      ->willReturn($organization->ownerUserId());
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -122,9 +123,9 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')
-      ->willReturn(MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')
+      ->willReturn((string) MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -172,9 +173,9 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -196,7 +197,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -225,9 +226,9 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -249,7 +250,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -279,9 +280,9 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -303,7 +304,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -345,9 +346,9 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $maintenanceLogRepository = $this->createMock(MaintenanceLogRepositoryPort::class);
     $maintenanceLogRepository->expects(self::never())->method('save');
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -370,7 +371,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -424,11 +425,11 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       ),
     );
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
     $organizationRepository->expects(self::once())
-      ->method('findById')
-      ->willReturn($organization);
+      ->method('ownerUserId')
+      ->willReturn($organization->ownerUserId());
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -450,9 +451,9 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
         ],
       );
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')
-      ->willReturn(MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')
+      ->willReturn((string) MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
 
     // The audit event follows the persisted state change and must not be
     // held back by a best-effort notification failure.
@@ -505,10 +506,10 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
-      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      organizationRepository: $this->createStub(OrganizationOwnerReadPort::class),
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -540,9 +541,9 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')
-      ->willReturn(MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')
+      ->willReturn((string) MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
 
     /** @var FacilityNamingPort&MockObject $facilityNaming */
     $facilityNaming = $this->createMock(FacilityNamingPort::class);
@@ -556,7 +557,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
       facilityNaming: $facilityNaming,
-      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      organizationRepository: $this->createStub(OrganizationOwnerReadPort::class),
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
       uuidFactory: $uuidFactory,

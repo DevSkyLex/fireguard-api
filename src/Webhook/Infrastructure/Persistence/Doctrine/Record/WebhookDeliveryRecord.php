@@ -104,6 +104,54 @@ class WebhookDeliveryRecord
   public int $attempts = 0;
 
   /**
+   * Property generation. Increments only for an explicit manual redelivery.
+   */
+  #[ORM\Column(type: 'integer', options: ['default' => 0])]
+  public int $generation = 0;
+
+  /**
+   * Property attemptToken. Owns and fences the current short HTTP lease.
+   */
+  #[ORM\Column(name: 'attempt_token', type: 'string', length: 36, nullable: true)]
+  public ?string $attemptToken = null;
+
+  /**
+   * Property commandToken. Owns the current wake's Messenger technical retry cycle.
+   */
+  #[ORM\Column(name: 'command_token', type: 'string', length: 36, nullable: true)]
+  public ?string $commandToken = null;
+
+  /**
+   * Property leaseUntil. Bounds HTTP ownership to 90 seconds.
+   */
+  #[ORM\Column(name: 'lease_until', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $leaseUntil = null;
+
+  /**
+   * Property wakeToken. Deduplicates durable queued wakes between competing workers.
+   */
+  #[ORM\Column(name: 'wake_token', type: 'string', length: 36, nullable: true)]
+  public ?string $wakeToken = null;
+
+  /**
+   * Property wakeAt. Reserves the next due or protected technical retry wake.
+   */
+  #[ORM\Column(name: 'wake_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $wakeAt = null;
+
+  /**
+   * Property technicalFailures. Bounds consecutive unexpected errors despite fresh recovery envelopes.
+   */
+  #[ORM\Column(name: 'technical_failures', type: 'integer', options: ['default' => 0])]
+  public int $technicalFailures = 0;
+
+  /**
+   * Property quarantined. Excludes exhausted technical generations from recovery.
+   */
+  #[ORM\Column(type: 'boolean', options: ['default' => false])]
+  public bool $quarantined = false;
+
+  /**
    * Property lastError.
    *
    * @since 1.0.0

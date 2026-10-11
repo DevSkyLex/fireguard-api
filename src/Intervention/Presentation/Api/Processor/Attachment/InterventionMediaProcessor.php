@@ -6,42 +6,25 @@ namespace Intervention\Presentation\Api\Processor\Attachment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentResult};
 use Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttachment\DeleteInterventionAttachmentCommand;
-use Intervention\Domain\Exception\InterventionAttachmentNotFoundException;
+use Intervention\Application\UseCase\Query\Attachment\ResolveInterventionMedia\{ResolveInterventionMediaQuery, ResolveInterventionMediaResult};
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
+use Intervention\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
+use Intervention\Presentation\Api\Http\RevisionGuard;
 use Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider;
-use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerExceptionUnwrapperTrait;
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Domain\Exception\InvalidValueException;
-use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
-use Shared\Presentation\Api\Http\{ResourceIriParser, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function is_string;
 
-/**
- * Processor InterventionMediaProcessor.
- *
- * Handles the multipart attachment endpoints of an intervention:
- * `POST /interventions/{interventionId}/attachments` and
- * `DELETE /intervention-attachments/{id}`.
- *
- * Upload and delete commands enforce phase-based write authorization in their
- * use-case handlers. A stored client UUID replay directly reads Doctrine instead
- * of dispatching an upload command, so this processor enforces the same scoped
- * read permission as the single-attachment GET provider before returning it.
- * Replay never reads the multipart file or overwrites the committed attachment.
- *
+/** InterventionMediaProcessor translates HTTP media requests through use cases.
  * @category Processor
  * @version 1.0.0
  *
@@ -51,138 +34,94 @@ use function is_string;
  */
 final readonly class InterventionMediaProcessor implements ProcessorInterface
 {
-  use InterventionWorkflowExceptionMapperTrait;
-  use MessengerExceptionUnwrapperTrait;
-
-  // #region Constants
-  /**
-   * Constant ATTACHMENT_NOT_FOUND_MESSAGE
-   *
-   * Uses the same response text for absent attachments and attachments hidden by context.
-   */
-  private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
-  // #endregion
-
-  // #region Constructor
-  /**
-   * Method __construct
-   *
-   * Provides the persistence, command, identity, request and validation services used to process
-   * intervention attachment uploads and removals.
-   *
-   * @access public
-   *
-   * @param EntityManagerInterface $entityManager loads existing attachments
-   * @param CommandBusPort $commandBus dispatches attachment commands
-   * @param Security $security resolves the authenticated user
-   * @param RequestStack $requestStack provides the current multipart request
-   * @param MultipartAttachmentGuard $attachmentGuard validates uploaded content
-   * @param RevisionGuard $revisionGuard checks optimistic revision headers
-   * @param OrganizationAuthorizationPort $authorization scopes stored client UUID replay reads
-   *
-   * @return void
-   */
   public function __construct(
-    private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,
+    private QueryBusPort $queryBus,
     private Security $security,
     private RequestStack $requestStack,
     private MultipartAttachmentGuard $attachmentGuard,
     private RevisionGuard $revisionGuard,
-    private OrganizationAuthorizationPort $authorization,
   ) {
   }
-  // #endregion
 
-  // #region Methods
-  /**
-   * Method process.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
+  /** @param array<string, mixed> $uriVariables
    * @param array<string, mixed> $context
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?InterventionAttachmentOutput
   {
-    if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
-      return $this->entityManager->wrapInTransaction(fn (): null => $this->delete($uriVariables));
+    $user = $this->security->getUser();
+    if (!$user instanceof AuthenticatedUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
     }
+    if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
+      $id = $uriVariables['id'] ?? null;
+      if (!is_string($id)) {
+        throw new NotFoundHttpException('Attachment not found.');
+      }
+      /** @var ResolveInterventionMediaResult $scope */
+      $scope = $this->queryBus->ask(new ResolveInterventionMediaQuery(userId: $user->getId(), attachmentId: $id, deletion: true));
+      if (null === $scope->attachment) {
+        throw new NotFoundHttpException('Attachment not found.');
+      }
+      $this->revisionGuard->assertMatches($scope->attachment->revision);
+      $this->commandBus->dispatch(new DeleteInterventionAttachmentCommand(userId: $user->getId(), interventionId: $scope->interventionId, attachmentId: $scope->attachment->id, expectedRevision: $scope->attachment->revision));
 
-    // The upload use case owns the complete transaction and post-commit blob cleanup.
-    return $this->upload($uriVariables);
-  }
-
-  /**
-   * Method upload.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   */
-  private function upload(array $uriVariables): InterventionAttachmentOutput
-  {
+      return null;
+    }
     $interventionId = $uriVariables['interventionId'] ?? null;
     if (!is_string($interventionId) || '' === $interventionId) {
       throw new BadRequestHttpException('The interventionId URI parameter is required.');
     }
-
-    $user = $this->user();
     $request = $this->currentRequest();
     $clientId = self::validatedClientId($request->request->get('clientId'));
     if (null !== $clientId) {
-      $existing = $this->existingAttachment($clientId, $interventionId, $user->getId());
-      if ($existing instanceof InterventionAttachmentOutput) {
-        return $existing;
+      /** @var ResolveInterventionMediaResult $replay */
+      $replay = $this->queryBus->ask(new ResolveInterventionMediaQuery(userId: $user->getId(), attachmentId: $clientId, interventionId: $interventionId, replay: true));
+      if (null !== $replay->attachment) {
+        return InterventionMediaProvider::output($replay->attachment);
       }
     }
-
-    // MIME/size validation happens LAST, only once the clientId dedup
-    // short-circuit above has ruled out a retry — a retry never needs the
-    // file re-read or re-checked. Same ordering as
-    // `Equipment\Presentation\Api\Processor\Media\MediaProcessor`.
     $uploaded = $this->attachmentGuard->fromRequest($request);
     $workItem = $request->request->get('workItemId');
     $kind = $request->request->get('kind');
+    /** @var AddInterventionAttachmentResult $result */
+    $result = $this->commandBus->dispatch(new AddInterventionAttachmentCommand(
+      userId: $user->getId(),
+      interventionId: $interventionId,
+      fileName: $uploaded->fileName,
+      contents: $uploaded->contents,
+      mimeType: $uploaded->mimeType,
+      size: $uploaded->size,
+      label: $uploaded->label,
+      attachmentId: $clientId,
+      workItemId: is_string($workItem) && '' !== $workItem ? ResourceIriParser::id($workItem, 'intervention-work-items') : null,
+      kind: is_string($kind) && '' !== $kind ? $kind : 'file',
+    ));
+    $output = new InterventionAttachmentOutput();
+    $output->id = $result->attachmentId;
+    $output->interventionId = $result->interventionId;
+    $output->fileName = $result->fileName;
+    $output->mimeType = $result->mimeType;
+    $output->size = $result->size;
+    $output->label = $result->label;
+    $output->revision = $result->revision;
+    $output->uploadedAt = $result->uploadedAt->format('c');
+    $output->workItemId = $result->workItemId;
+    $output->kind = $result->kind;
 
-    try {
-      $workItemId = is_string($workItem) && '' !== $workItem
-        ? ResourceIriParser::id($workItem, 'intervention-work-items')
-        : null;
-
-      /** @var AddInterventionAttachmentResult $result */
-      $result = $this->commandBus->dispatch(new AddInterventionAttachmentCommand(
-        userId: $user->getId(),
-        interventionId: $interventionId,
-        fileName: $uploaded->fileName,
-        contents: $uploaded->contents,
-        mimeType: $uploaded->mimeType,
-        size: $uploaded->size,
-        label: $uploaded->label,
-        attachmentId: $clientId,
-        workItemId: $workItemId,
-        kind: is_string($kind) && '' !== $kind ? $kind : 'file',
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWorkflowException($exception);
-    }
-
-    return $this->outputFor($result->attachmentId);
+    return $output;
   }
 
-  /**
-   * Method validatedClientId.
-   *
-   * Validates an optional multipart client UUID used to make uploads retry-safe.
-   *
-   * @access private
-   *
-   * @param mixed $clientId the submitted multipart field
-   *
-   * @return ?string the normalized UUID, or null when omitted
-   *
-   * @throws BadRequestHttpException when the field is not a valid UUID
-   */
+  private function currentRequest(): Request
+  {
+    $request = $this->requestStack->getCurrentRequest();
+    if (!$request instanceof Request) {
+      throw new BadRequestHttpException('Request payload is required.');
+    }
+
+    return $request;
+  }
+
   private static function validatedClientId(mixed $clientId): ?string
   {
     if (null !== $clientId && !is_string($clientId)) {
@@ -198,141 +137,4 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
       throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.', $exception);
     }
   }
-
-  /**
-   * Method existingAttachment.
-   *
-   * Returns an earlier upload only within the actor's read scope, before multipart file validation.
-   *
-   * @access private
-   *
-   * @param string $clientId the client-supplied attachment UUID
-   * @param string $interventionId the owning intervention identifier
-   * @param string $userId the authenticated actor
-   *
-   * @return ?InterventionAttachmentOutput the existing output, or null when absent
-   *
-   * @throws ConflictHttpException when the UUID belongs to another intervention
-   */
-  private function existingAttachment(string $clientId, string $interventionId, string $userId): ?InterventionAttachmentOutput
-  {
-    $parent = $this->entityManager->find(InterventionRecord::class, $interventionId);
-    if (!$parent instanceof InterventionRecord || null === $parent->organization) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-    $requestedAccess = $this->authorization->resolveAccess($userId, $parent->organization->id, 'organization.interventions.read');
-    if ($requestedAccess->isOutsideScope()) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-
-    $existing = $this->entityManager->find(InterventionAttachmentRecord::class, $clientId);
-    if (!$existing instanceof InterventionAttachmentRecord) {
-      return null;
-    }
-    if (null === $existing->intervention?->organization) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-    $readAccess = $existing->intervention->organization->id === $parent->organization->id
-      ? $requestedAccess
-      : $this->authorization->resolveAccess($userId, $existing->intervention->organization->id, 'organization.interventions.read');
-    if ($readAccess->isOutsideScope()) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-    if (!$readAccess->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.interventions.read permission.');
-    }
-    if ($existing->intervention->id !== $interventionId) {
-      throw new ConflictHttpException('Attachment client UUID is already assigned to another intervention.');
-    }
-
-    return InterventionMediaProvider::output($existing);
-  }
-
-  /**
-   * Method delete.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   */
-  private function delete(array $uriVariables): null
-  {
-    $id = $uriVariables['id'] ?? null;
-    if (!is_string($id)) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-
-    $record = $this->entityManager->find(InterventionAttachmentRecord::class, $id);
-    if (!$record instanceof InterventionAttachmentRecord || null === $record->intervention) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-
-    $user = $this->user();
-    $interventionId = $record->intervention->id;
-
-    $this->revisionGuard->assertMatches($record->revision);
-
-    try {
-      $this->commandBus->dispatch(new DeleteInterventionAttachmentCommand(
-        userId: $user->getId(),
-        interventionId: $interventionId,
-        attachmentId: $record->id,
-      ));
-    } catch (Throwable $exception) {
-      $notFound = $this->findException($exception, InterventionAttachmentNotFoundException::class);
-      if ($notFound instanceof InterventionAttachmentNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $this->mapWorkflowException($exception);
-    }
-
-    return null;
-  }
-
-  /**
-   * Method outputFor.
-   *
-   * @since 1.0.0
-   */
-  private function outputFor(string $attachmentId): InterventionAttachmentOutput
-  {
-    $record = $this->entityManager->find(InterventionAttachmentRecord::class, $attachmentId);
-    if (!$record instanceof InterventionAttachmentRecord) {
-      throw new NotFoundHttpException('Uploaded attachment not found.');
-    }
-
-    return InterventionMediaProvider::output($record);
-  }
-
-  /**
-   * Method currentRequest.
-   *
-   * @since 1.0.0
-   */
-  private function currentRequest(): Request
-  {
-    $request = $this->requestStack->getCurrentRequest();
-    if (!$request instanceof Request) {
-      throw new BadRequestHttpException('Request payload is required.');
-    }
-
-    return $request;
-  }
-
-  /**
-   * Method user.
-   *
-   * @since 1.0.0
-   */
-  private function user(): SecurityUser
-  {
-    $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
-      throw new AccessDeniedHttpException('Authentication required.');
-    }
-
-    return $user;
-  }
-  // #endregion
 }

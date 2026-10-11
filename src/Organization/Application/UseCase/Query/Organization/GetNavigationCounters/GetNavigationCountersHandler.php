@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Organization\GetNavigationCounters;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{InterventionStatisticsPort, NonConformityStatisticsPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{InterventionStatisticsPort, NonConformityStatisticsPort};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
 

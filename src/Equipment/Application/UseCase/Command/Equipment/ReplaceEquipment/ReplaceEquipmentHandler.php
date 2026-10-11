@@ -6,7 +6,8 @@ namespace Equipment\Application\UseCase\Command\Equipment\ReplaceEquipment;
 
 use Equipment\Application\Contract\Replacement\EquipmentReplacementReceipt;
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
-use Equipment\Application\Port\Outbound\{EquipmentReplacementRepositoryPort, FacilityValidationPort};
+use Equipment\Application\Port\Outbound\FacilityValidationPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentReplacementRepositoryPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentReplacementConflictException};
 use Equipment\Domain\Model\Replacement\{EquipmentReplacement, ReplacementEquipment};

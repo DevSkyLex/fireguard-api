@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Webhook\Infrastructure\Adapter\Messenger;
 
-use Symfony\Component\Messenger\MessageBusInterface;
+use Doctrine\DBAL\Connection;
+use LogicException;
+use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Webhook\Application\Port\Outbound\WebhookDeliveryQueuePort;
 use Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\DeliverWebhookCommand;
 
@@ -34,6 +37,7 @@ final readonly class MessengerWebhookDeliveryQueueAdapter implements WebhookDeli
    */
   public function __construct(
     private MessageBusInterface $messageBus,
+    private Connection $connection,
   ) {
   }
   // #endregion
@@ -46,9 +50,16 @@ final readonly class MessengerWebhookDeliveryQueueAdapter implements WebhookDeli
    *
    * @param string $deliveryId the webhook delivery identifier
    */
-  public function dispatch(string $deliveryId): void
+  public function dispatch(string $deliveryId, int $generation = 0, ?string $wakeToken = null, int $delayMilliseconds = 0): void
   {
-    $this->messageBus->dispatch(new DeliverWebhookCommand($deliveryId));
+    if (!$this->connection->isTransactionActive()) {
+      throw new LogicException('Webhook enqueue requires its owning main transaction.');
+    }
+
+    $this->messageBus->dispatch(new Envelope(
+      new DeliverWebhookCommand($deliveryId, $generation, $wakeToken),
+      $delayMilliseconds > 0 ? [new DelayStamp($delayMilliseconds)] : [],
+    ));
   }
   // #endregion
 }

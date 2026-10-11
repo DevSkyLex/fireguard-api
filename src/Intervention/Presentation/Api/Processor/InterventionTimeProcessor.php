@@ -6,13 +6,13 @@ namespace Intervention\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\{Delete, Operation, Post};
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Command\Time\WriteTimeEntry\{WriteTimeEntryCommand, WriteTimeEntryResult};
 use Intervention\Presentation\Api\Dto\Input\WriteTimeEntryInput;
 use Intervention\Presentation\Api\Dto\Output\TimeEntryOutput;
+use Intervention\Presentation\Api\Http\RevisionGuard;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
@@ -59,7 +59,7 @@ final readonly class InterventionTimeProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?TimeEntryOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
     if ($operation instanceof Post) {

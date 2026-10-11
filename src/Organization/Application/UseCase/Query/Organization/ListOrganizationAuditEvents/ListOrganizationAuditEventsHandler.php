@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationAuditEvents;
 
 use Audit\Application\Port\Inbound\OrganizationAuditFeedPort;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationAuditEntryProjector;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;

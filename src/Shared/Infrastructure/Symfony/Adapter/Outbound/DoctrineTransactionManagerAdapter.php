@@ -8,6 +8,7 @@ use Doctrine\DBAL\Exception as DoctrineDBALException;
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Infrastructure\Exception\TransactionExecutionException;
+use Shared\Infrastructure\Persistence\DatabaseFailureTranslator;
 use Throwable;
 
 /**
@@ -63,6 +64,11 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
         },
       );
     } catch (Throwable $exception) {
+      $translated = DatabaseFailureTranslator::translate($exception);
+      if ($translated !== $exception) {
+        throw $translated;
+      }
+
       if ($exception instanceof DoctrineDBALException) {
         throw TransactionExecutionException::wrap(
           previous: $exception,

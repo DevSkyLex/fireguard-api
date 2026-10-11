@@ -24,7 +24,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort:
+  Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort:
     alias: Approval\Infrastructure\Persistence\Doctrine\Repository\ApprovalRequestRepository
 
   # Cross-module outbound ports (adapters hosted in Organization)

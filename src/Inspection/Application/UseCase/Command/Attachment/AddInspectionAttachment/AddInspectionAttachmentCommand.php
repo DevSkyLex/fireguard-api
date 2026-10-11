@@ -46,6 +46,7 @@ final readonly class AddInspectionAttachmentCommand implements CommandMessage
     public ?string $nonConformityId = null,
     public ?string $label = null,
     public ?string $attachmentId = null,
+    public ?string $userId = null,
   ) {
   }
   // #endregion

@@ -6,17 +6,17 @@ namespace OAuth\Presentation\Api\Processor\Authorization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\{ProcessorInterface, ProviderInterface};
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedPrincipal;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
 use Nyholm\Psr7\{Response as Psr7Response, ServerRequest};
-use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
-use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AuthCodeRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\User\OidcUserProviderPort;
 use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentQuery, CheckConsentResult};
-use OAuth\Infrastructure\OAuth2\League\Entity\User as LeagueUser;
 use OAuth\Presentation\Api\Service\{AuthorizationGrantCompletion, AuthorizationResponseSupport};
+use OAuth\Presentation\Api\Service\AuthorizationUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -192,12 +192,12 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
    *
    * @param Request $request the incoming authorization request
    * @param AuthorizationRequestInterface $authorizationRequest the validated League request
-   * @param SecurityUser $securityUser the authenticated local user
+   * @param AuthenticatedPrincipal $securityUser the authenticated local user
    * @param list<string> $prompts the validated OIDC prompts
    *
    * @return Response the consent refusal or completed authorization response
    */
-  private function completeConsentedRequest(Request $request, AuthorizationRequestInterface $authorizationRequest, SecurityUser $securityUser, array $prompts): Response
+  private function completeConsentedRequest(Request $request, AuthorizationRequestInterface $authorizationRequest, AuthenticatedPrincipal $securityUser, array $prompts): Response
   {
     $requestedScopes = $this->extractScopeIdentifiers($authorizationRequest->getScopes());
     $clientId = (string) $authorizationRequest->getClient()->getIdentifier();
@@ -228,12 +228,11 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       );
     }
 
-    $userEntity = new LeagueUser();
     $userId = $securityUser->getId();
     if ('' === $userId) {
       throw new BadRequestHttpException(message: 'User identifier cannot be empty.');
     }
-    $userEntity->setIdentifier($userId);
+    $userEntity = new AuthorizationUser($userId);
 
     $authorizationRequest->setUser($userEntity);
     $authorizationRequest->setAuthorizationApproved(true);
@@ -252,7 +251,7 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
   /**
    * @param list<string> $prompts
    */
-  private function validateAuthorizationUser(Request $request, array $prompts): SecurityUser|JsonResponse
+  private function validateAuthorizationUser(Request $request, array $prompts): AuthenticatedPrincipal|JsonResponse
   {
     $maxAgeValue = $this->readParam($request, 'max_age');
     $maxAge = null;
@@ -264,7 +263,7 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     }
 
     $securityUser = $this->security->getUser();
-    if (!$securityUser instanceof SecurityUser) {
+    if (!$securityUser instanceof AuthenticatedPrincipal) {
       return AuthorizationResponseSupport::buildOidcError(
         error: 'login_required',
         description: 'Authentication required.',
@@ -278,7 +277,7 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
   /**
    * @param list<string> $prompts
    */
-  private function validateAuthenticatedUser(SecurityUser $securityUser, array $prompts, ?int $maxAge): SecurityUser|JsonResponse
+  private function validateAuthenticatedUser(AuthenticatedPrincipal $securityUser, array $prompts, ?int $maxAge): AuthenticatedPrincipal|JsonResponse
   {
     if ($this->requiresLogin($prompts)) {
       return AuthorizationResponseSupport::buildOidcError(

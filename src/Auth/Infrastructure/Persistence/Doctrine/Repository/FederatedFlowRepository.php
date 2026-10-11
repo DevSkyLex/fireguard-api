@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
-use Auth\Application\Contract\Federation\FederatedFlow;
+use Auth\Application\Contract\Federation\{FederatedFlow, FederatedProvider};
 use Auth\Application\Port\Outbound\Federation\FederatedFlowRepositoryPort;
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
 use Auth\Infrastructure\Persistence\Doctrine\Record\FederatedAuthFlowRecord;
 use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;

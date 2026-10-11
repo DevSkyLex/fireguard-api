@@ -346,7 +346,7 @@ final class InspectionReportExportApiTest extends WebTestCase
 
     $inspection = new InspectionRecord();
     $inspection->id = self::INSPECTION_ID;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = '550e8400-e29b-41d4-a716-446655520011';
     $inspection->inspectorType = 'user';
     $inspection->inspectorName = 'Report Test Inspector';

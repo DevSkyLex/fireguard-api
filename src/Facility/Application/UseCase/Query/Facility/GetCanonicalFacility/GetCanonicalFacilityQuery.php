@@ -35,6 +35,7 @@ final readonly class GetCanonicalFacilityQuery implements QueryMessage
    */
   public function __construct(
     public string $facilityId,
+    public ?string $userId = null,
   ) {
   }
   // #endregion

@@ -7,7 +7,8 @@ namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\GetOrganizati
 use Customer\Application\Contract\CustomerSnapshot;
 use Customer\Application\Port\Inbound\CustomerLookupPort;
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, EquipmentTypeCatalogPort, FacilityCustomerScopePort};
+use Equipment\Application\Port\Outbound\FacilityCustomerScopePort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, EquipmentTypeCatalogPort};
 use Equipment\Application\Service\EquipmentSelectionScopeResolver;
 use Equipment\Application\UseCase\Query\Equipment\GetOrganizationEquipmentSummary\{GetOrganizationEquipmentSummaryHandler, GetOrganizationEquipmentSummaryQuery};
 use Equipment\Domain\Model\EquipmentTypeCatalog\EquipmentTypeDefinition;

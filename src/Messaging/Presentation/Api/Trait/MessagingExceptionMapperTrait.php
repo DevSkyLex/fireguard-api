@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace Messaging\Presentation\Api\Trait;
 
-use InvalidArgumentException;
-use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingAttachmentNotFoundException, MessagingConflictException, MessagingNotFoundException, MessagingSubjectNotFoundException, MessagingValidationException};
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
 
 /**
@@ -38,25 +34,6 @@ trait MessagingExceptionMapperTrait
    */
   private function mapMessagingException(Throwable $exception): Throwable
   {
-    $current = $exception;
-    do {
-      $mapped = match (true) {
-        $current instanceof MessagingAccessDeniedException => new AccessDeniedHttpException($current->getMessage(), $exception),
-        $current instanceof OrganizationAccessDeniedException => new AccessDeniedHttpException($current->getMessage(), $exception),
-        $current instanceof MessagingNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
-        $current instanceof MessagingSubjectNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
-        $current instanceof MessagingAttachmentNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
-        $current instanceof MessagingValidationException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
-        $current instanceof MessagingConflictException => new ConflictHttpException($current->getMessage(), $exception),
-        $current instanceof InvalidArgumentException => new BadRequestHttpException($current->getMessage(), $exception),
-        default => null,
-      };
-      if ($mapped instanceof Throwable) {
-        return $mapped;
-      }
-      $current = $current->getPrevious();
-    } while ($current instanceof Throwable);
-
-    return $exception;
+    return new \Messaging\Presentation\Api\Service\MessagingExceptionMapper()->map($exception);
   }
 }

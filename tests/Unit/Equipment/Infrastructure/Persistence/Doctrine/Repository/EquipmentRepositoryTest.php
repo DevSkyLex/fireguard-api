@@ -7,12 +7,11 @@ namespace Tests\Unit\Equipment\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder};
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
+use Equipment\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function str_contains;
 
@@ -59,7 +58,6 @@ final class EquipmentRepositoryTest extends TestCase
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::once())->method('getRepository')->with(EquipmentRecord::class)->willReturn($doctrineRepository);
-    $entityManager->expects(self::once())->method('getReference')->with(OrganizationRecord::class, (string) $organizationId)->willReturn(new OrganizationRecord());
     $entityManager->expects(self::once())->method('createQueryBuilder')->willReturn($queryBuilder);
 
     $repository = new EquipmentRepository(entityManager: $entityManager);
@@ -111,7 +109,6 @@ final class EquipmentRepositoryTest extends TestCase
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::once())->method('getRepository')->with(EquipmentRecord::class)->willReturn($doctrineRepository);
-    $entityManager->expects(self::once())->method('getReference')->willReturn(new OrganizationRecord());
     $entityManager->expects(self::once())->method('createQueryBuilder')->willReturn($queryBuilder);
 
     $repository = new EquipmentRepository(entityManager: $entityManager);

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationInvitationRepositoryPort;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationInvitationMapper;

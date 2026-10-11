@@ -8,20 +8,20 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsQuery;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
+use Inspection\Presentation\Api\Http\OperationParameterReader;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\OperationParameterReader;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -106,12 +106,12 @@ final readonly class ListInspectionsProvider implements ProviderInterface
    *
    * @access private
    *
-   * @return SecurityUser the authenticated caller
+   * @return AuthenticatedUser the authenticated caller
    */
-  private function authenticatedUser(): SecurityUser
+  private function authenticatedUser(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -164,12 +164,12 @@ final readonly class ListInspectionsProvider implements ProviderInterface
    *
    * @access private
    *
-   * @param SecurityUser $user the authenticated caller
+   * @param AuthenticatedUser $user the authenticated caller
    * @param string $organizationId the requested organization scope
    *
    * @return void
    */
-  private function assertReadAccess(SecurityUser $user, string $organizationId): void
+  private function assertReadAccess(AuthenticatedUser $user, string $organizationId): void
   {
     if (!$this->hasParkScope()) {
       if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.inspection.read')) {

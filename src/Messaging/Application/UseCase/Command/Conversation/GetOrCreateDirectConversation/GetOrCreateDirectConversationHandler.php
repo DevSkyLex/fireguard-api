@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Messaging\Application\UseCase\Command\Conversation\GetOrCreateDirectConversation;
 
 use DateTimeImmutable;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Exception\MessagingValidationException;
 use Messaging\Domain\Service\DirectConversationKey;

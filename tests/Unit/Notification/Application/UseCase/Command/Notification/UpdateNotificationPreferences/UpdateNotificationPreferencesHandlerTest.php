@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Notification\Application\UseCase\Command\Notification\UpdateNotificationPreferences;
 
 use DateTimeImmutable;
-use Notification\Application\Port\Outbound\NotificationPreferenceRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationPreferenceRepositoryPort;
 use Notification\Application\UseCase\Command\Notification\UpdateNotificationPreferences\{
   UpdateNotificationPreferencesCommand,
   UpdateNotificationPreferencesHandler,

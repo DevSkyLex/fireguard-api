@@ -15,7 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Tests\Support\Factory\UserTestFactory;
 use User\Application\Contract\EmailOwnershipResult;
 use User\Application\Port\Inbound\EmailOwnershipPort;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 
 use function array_keys;
 use function json_decode;

@@ -14,8 +14,7 @@ use Symfony\Component\Console\Input\{InputArgument, InputInterface, InputOption}
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Throwable;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\UserId;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function is_string;
 use function sprintf;
@@ -46,11 +45,11 @@ final class CreateOrganizationConsoleCommand extends Command
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
-   * @param UserRepositoryPort $userRepository the user repository
+   * @param UserDirectoryPort $userRepository the user repository
    */
   public function __construct(
     private readonly CommandBusPort $commandBus,
-    private readonly UserRepositoryPort $userRepository,
+    private readonly UserDirectoryPort $userRepository,
   ) {
     parent::__construct();
   }
@@ -215,16 +214,16 @@ HELP
   private function resolveUserId(string $identifier): string
   {
     if (str_contains($identifier, '@')) {
-      $user = $this->userRepository->findByEmail(email: new Email(value: $identifier));
+      $user = $this->userRepository->findByEmail((string) new Email(value: $identifier));
     } else {
-      $user = $this->userRepository->findById(id: new UserId(value: $identifier));
+      $user = $this->userRepository->findById($identifier);
     }
 
     if (null === $user) {
       throw new OrganizationConsoleUserNotFoundException(sprintf('User "%s" not found.', $identifier));
     }
 
-    return $user->id()->value;
+    return $user->id;
   }
   // #endregion
 }

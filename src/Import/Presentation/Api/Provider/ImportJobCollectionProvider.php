@@ -8,17 +8,15 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Import\Application\UseCase\Query\ListImportJobs\{ListImportJobsQuery, ListImportJobsResult};
 use Import\Presentation\Api\Dto\Output\ImportJobOutput;
 use Import\Presentation\Api\Factory\ImportJobOutputFactory;
-use Import\Presentation\Api\Trait\ImportExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function array_map;
 use function is_string;
@@ -39,8 +37,6 @@ use function min;
  */
 final readonly class ImportJobCollectionProvider implements ProviderInterface
 {
-  use ImportExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -76,11 +72,11 @@ final readonly class ImportJobCollectionProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Import\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
@@ -90,18 +86,14 @@ final readonly class ImportJobCollectionProvider implements ProviderInterface
     $page = max(1, $query->getInt('page', 1));
     $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
-    try {
-      /** @var ListImportJobsResult $result */
-      $result = $this->queryBus->ask(new ListImportJobsQuery(
-        userId: $user->getId(),
-        organizationId: ResourceIriParser::id($organization, 'organizations'),
-        kind: is_string($kind) && '' !== $kind ? $kind : null,
-        page: $page,
-        itemsPerPage: $itemsPerPage,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapImportException($exception);
-    }
+    /** @var ListImportJobsResult $result */
+    $result = $this->queryBus->ask(new ListImportJobsQuery(
+      userId: $user->getId(),
+      organizationId: ResourceIriParser::id($organization, 'organizations'),
+      kind: is_string($kind) && '' !== $kind ? $kind : null,
+      page: $page,
+      itemsPerPage: $itemsPerPage,
+    ));
 
     return new TraversablePaginator(
       new ArrayIterator(array_map($this->outputFactory->fromView(...), $result->items)),

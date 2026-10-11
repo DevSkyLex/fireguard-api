@@ -6,8 +6,7 @@ namespace Facility\Presentation\Api\Processor\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
 use Facility\Domain\Exception\{
   FacilityCodeAlreadyExistsException,
@@ -16,31 +15,20 @@ use Facility\Domain\Exception\{
 };
 use Facility\Presentation\Api\Dto\Input\Facility\CreateFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
-use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
-use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{
-  ClientResourceAlreadyExistsException,
-  InterventionConflictException,
-  InterventionNotFoundException,
-  InterventionResourceNotFoundException
-};
-use Intervention\Domain\ValueObject\InterventionResourceType;
+use Facility\Presentation\Api\Http\CreationPreconditionGuard;
 use InvalidArgumentException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
   ConflictHttpException,
-  NotFoundHttpException
-  , UnprocessableEntityHttpException
+  NotFoundHttpException,
+  UnprocessableEntityHttpException
 };
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
@@ -70,19 +58,13 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus value
-   * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
-   * @param ?InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param ?CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
-   * @param ?EntityManagerInterface $entityManager the entity manager value
    */
   public function __construct(
     private CommandBusPort $commandBus,
-    private OrganizationAuthorizationPort $authorization,
     private Security $security,
-    private ?InterventionResourceManager $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
-    private ?EntityManagerInterface $entityManager = null,
   ) {
   }
   // #endregion
@@ -101,12 +83,6 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
     /** @var CreateFacilityInput $data */
-    if (null !== $this->entityManager) {
-      return $this->entityManager->wrapInTransaction(
-        fn (): FacilityOutput => $this->processCreation($data, $uriVariables),
-      );
-    }
-
     return $this->processCreation($data, $uriVariables);
   }
 
@@ -124,7 +100,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
   {
     $resourceId = $this->creationResourceId($data, $uriVariables);
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -132,16 +108,6 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     if (!is_string($organizationId) || '' === $organizationId) {
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
-
-    $permission = $this->interventionPermission($data->intervention, $user->getId(), $organizationId) ?? 'organization.facilities.write';
-    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
-    }
-    $this->assertOfflineCreate($data->clientId, null !== $resourceId);
 
     try {
       /** @var CreateFacilityResult $result */
@@ -162,6 +128,9 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
         elevationMeters: $data->elevationMeters,
         heightMeters: $data->heightMeters,
         customerId: $data->customerId,
+        userId: $user->getId(),
+        clientId: $data->clientId,
+        createOnly: null !== $resourceId,
       ));
     } catch (FacilityCodeAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
@@ -193,12 +162,9 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->customerId = $result->customerId;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
-    $assignment = $result->replayed
-      ? new InterventionResourceAssignment($result->interventionId, $result->recordStatus, $result->revision)
-      : $this->attachToIntervention($result->facilityId, $organizationId, $data->intervention, $data->clientId);
-    $output->intervention = null === $assignment->interventionId ? null : '/api/interventions/' . $assignment->interventionId;
-    $output->recordStatus = $assignment->recordStatus;
-    $output->revision = $assignment->revision;
+    $output->intervention = null === $result->interventionId ? null : '/api/interventions/' . $result->interventionId;
+    $output->recordStatus = $result->recordStatus;
+    $output->revision = $result->revision;
 
     return $output;
   }
@@ -261,101 +227,6 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     }
 
     throw $exception;
-  }
-
-  /**
-   * Method assertOfflineCreate.
-   *
-   * Executes the assert offline create operation.
-   *
-   * @since 1.0.0
-   *
-   * @param ?string $clientId the client id value
-   * @param bool $createOnly the create only value
-   */
-  private function assertOfflineCreate(?string $clientId, bool $createOnly): void
-  {
-    if (null === $clientId || '' === $clientId || null === $this->interventionResourceManager) {
-      return;
-    }
-
-    try {
-      $this->interventionResourceManager->assertOfflineCreate(InterventionResourceType::FACILITY, $clientId);
-    } catch (ClientResourceAlreadyExistsException $exception) {
-      throw new ClientResourceAlreadyExistsHttpException(
-        $createOnly ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
-        $exception,
-      );
-    }
-  }
-
-  /**
-   * Method interventionPermission.
-   *
-   * Executes the intervention permission operation.
-   *
-   * @since 1.0.0
-   *
-   * @param ?string $intervention the intervention value
-   * @param string $userId the current user id value
-   * @param string $organizationId the organization id the caller claims the facility
-   *                               belongs to — required to belong to the same organization as the intervention,
-   *                               checked inside mutationPermission() before any status-derived branch
-   *
-   * @return ?string the intervention permission result
-   */
-  private function interventionPermission(?string $intervention, string $userId, string $organizationId): ?string
-  {
-    if (null === $intervention || null === $this->interventionResourceManager) {
-      return null;
-    }
-
-    try {
-      return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId, $organizationId);
-    } catch (InterventionNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InterventionConflictException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    }
-  }
-
-  /**
-   * Method attachToIntervention.
-   *
-   * Executes the attach to intervention operation.
-   *
-   * @since 1.0.0
-   *
-   * @param string $facilityId the facility id value
-   * @param string $organizationId the organization id value
-   * @param ?string $intervention the intervention value
-   * @param ?string $clientId the client id value
-   *
-   * @return InterventionResourceAssignment the attach to intervention result
-   */
-  private function attachToIntervention(
-    string $facilityId,
-    string $organizationId,
-    ?string $intervention,
-    ?string $clientId,
-  ): InterventionResourceAssignment {
-    if (null === $this->interventionResourceManager) {
-      return new InterventionResourceAssignment(null, 'published', 1);
-    }
-
-    try {
-      return $this->interventionResourceManager->attach(
-        InterventionResourceType::FACILITY,
-        $facilityId,
-        $organizationId,
-        null === $intervention ? null : ResourceIriParser::id($intervention, 'interventions'),
-        $clientId,
-      );
-    } catch (InterventionNotFoundException|InterventionResourceNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InterventionConflictException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    }
   }
 
   /**

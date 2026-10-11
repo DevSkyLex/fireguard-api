@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Team;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Application\Contract\Event\Team\{TeamDeletedEvent, TeamMemberRemovedEvent, TeamUpdatedEvent};
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, TeamRepositoryPort};
 use Organization\Application\UseCase\Command\Team\DeleteTeam\{DeleteTeamCommand, DeleteTeamHandler};
 use Organization\Application\UseCase\Command\Team\RemoveTeamMember\{
   RemoveTeamMemberCommand,
@@ -17,13 +19,7 @@ use Organization\Application\UseCase\Query\Team\ListTeamMembers\{
   ListTeamMembersHandler,
   ListTeamMembersQuery
 };
-use Organization\Domain\Event\Team\{TeamDeletedEvent, TeamMemberRemovedEvent, TeamUpdatedEvent};
-use Organization\Domain\Exception\{
-  OrganizationNotFoundException,
-  TeamMemberNotFoundException,
-  TeamNameAlreadyExistsException,
-  TeamNotFoundException
-};
+use Organization\Domain\Exception\{TeamMemberNotFoundException, TeamNameAlreadyExistsException, TeamNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, TeamId, TeamName};

@@ -542,7 +542,7 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     $this->entityManager->persist($customer);
     $site = new FacilityRecord();
     $site->id = self::id($number + 1);
-    $site->organization = $organization;
+    $site->organizationId = $organization->id;
     $site->type = 'site';
     $site->name = 'Original site';
     $site->code = 'SITE-' . $number;
@@ -551,7 +551,7 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
     $this->entityManager->persist($site);
     $equipment = new EquipmentRecord();
     $equipment->id = self::id($number + 2);
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = $site->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->name = 'Original equipment';
@@ -577,7 +577,7 @@ final class InterventionPublicationFactsAdapterTest extends KernelTestCase
   {
     $record = new InterventionRecord();
     $record->id = self::id($number);
-    $record->organization = $organization ?? $this->organization;
+    $record->organizationId = ($organization ?? $this->organization)->id;
     $record->number = $number;
     $record->name = 'Live intervention ' . $number;
     $record->type = 'corrective_maintenance';

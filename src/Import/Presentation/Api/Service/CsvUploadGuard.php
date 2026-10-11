@@ -23,7 +23,7 @@ use const FILTER_VALIDATE_BOOLEAN;
  *
  * Extracts and validates the uploaded CSV file of a multipart
  * `POST /imports` request, mirroring
- * `Shared\Presentation\Api\Attachment\MultipartAttachmentGuard` — the shared
+ * `Import\Presentation\Api\Attachment\MultipartAttachmentGuard` — the shared
  * attachment kernel's MIME allow-list is images/PDF only, so bulk CSV
  * imports need their own policy rather than reusing it. Size is read from
  * filesystem metadata (`UploadedFile::getSize()`) before the file contents

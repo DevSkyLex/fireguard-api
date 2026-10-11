@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionOutcome};
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityProvisioningService;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
 use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
@@ -19,8 +19,8 @@ use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException,
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Sorting\Sorting;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 
 /**

@@ -6,7 +6,7 @@ namespace Tests\Unit\Onboarding\Presentation\Api\Processor\Onboarding;
 
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
+use Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Presentation\Api\Dto\Input\Onboarding\StartOrganizationOnboardingInput;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
@@ -15,12 +15,10 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort, UuidGeneratorPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 #[CoversClass(StartOrganizationOnboardingProcessor::class)]
 final class StartOrganizationOnboardingProcessorTest extends TestCase
@@ -60,8 +58,8 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn('550e8400-e29b-41d4-a716-446655440299');
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655440299');
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
@@ -104,8 +102,8 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn('550e8400-e29b-41d4-a716-446655440298');
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655440298');
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
@@ -132,9 +130,9 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
     ?OrganizationOnboardingSessionRepositoryPort $sessionRepository = null,
     ?QueryBusPort $queryBus = null,
     ?CommandBusPort $commandBus = null,
-    ?UuidFactory $uuidFactory = null,
+    ?UuidGeneratorPort $uuidFactory = null,
     ?TransactionManagerPort $transactionManager = null,
-    ?EventDispatcherInterface $eventDispatcher = null,
+    ?EventDispatcherPort $eventDispatcher = null,
   ): OrganizationOnboardingFlowService {
     if (null === $transactionManager) {
       $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -143,11 +141,12 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
 
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
-      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
-      uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
+      organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($queryBus ?? $this->createStub(QueryBusPort::class), $commandBus ?? $this->createStub(CommandBusPort::class)),
+      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      uuidFactory: $uuidFactory ?? $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
-      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
     );
   }
 

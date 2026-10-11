@@ -9,9 +9,8 @@ use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionBlockedException, InterventionConflictException, InterventionNotFoundException};
 use Intervention\Domain\ValueObject\PublicationStatus;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 
 use function array_filter;
 
@@ -36,14 +35,14 @@ final readonly class RequestPublicationHandler implements CommandHandler
    * @param PublicationQueuePort $queue the queue value
    * @param InterventionIssueFinder $issueFinder the issue finder value
    * @param OrganizationAuthorizationPort $authorization the authorization value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    */
   public function __construct(
     private PublicationRepositoryPort $publications,
     private PublicationQueuePort $queue,
     private InterventionIssueFinder $issueFinder,
     private OrganizationAuthorizationPort $authorization,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactions,
   ) {
   }
@@ -119,7 +118,7 @@ final readonly class RequestPublicationHandler implements CommandHandler
 
     $publication = null === $existing
       ? $this->publications->createOrGetPending(
-        $this->uuidFactory->generateRaw(),
+        $this->uuidFactory->generate(),
         $command->interventionId,
         $command->interventionRevision,
       )

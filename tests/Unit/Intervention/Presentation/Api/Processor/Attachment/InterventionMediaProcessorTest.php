@@ -7,25 +7,21 @@ namespace Tests\Unit\Intervention\Presentation\Api\Processor\Attachment;
 use ApiPlatform\Metadata\{Delete, Post};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Application\Contract\Attachment\InterventionAttachmentView;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentResult};
 use Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttachment\DeleteInterventionAttachmentCommand;
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionConflictException};
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
+use Intervention\Application\UseCase\Query\Attachment\ResolveInterventionMedia\{ResolveInterventionMediaQuery, ResolveInterventionMediaResult};
+use Intervention\Presentation\Api\Attachment\MultipartAttachmentGuard;
+use Intervention\Presentation\Api\Http\RevisionGuard;
 use Intervention\Presentation\Api\Processor\Attachment\InterventionMediaProcessor;
-use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\Stub;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
-use Shared\Presentation\Api\Http\RevisionGuard;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, PreconditionRequiredHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, PreconditionFailedHttpException, PreconditionRequiredHttpException};
+use Throwable;
 
 use function base64_decode;
 use function file_put_contents;
@@ -33,706 +29,122 @@ use function sys_get_temp_dir;
 use function tempnam;
 use function unlink;
 
-/**
- * Test InterventionMediaProcessorTest.
- *
- * Covers request wiring, revision handling, exception mapping and the scoped
- * read authorization required by stored client UUID replay. New uploads and
- * deletions retain their authoritative write permission checks in the handlers.
- *
- * @category Processor Tests
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
-#[CoversClass(InterventionMediaProcessor::class)]
 final class InterventionMediaProcessorTest extends TestCase
 {
-  private const string USER_ID = 'user-id';
-
-  private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440001';
-
-  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440002';
-
-  private const string CLIENT_ID = '550e8400-e29b-41d4-a716-446655440004';
-
-  private const string MINIMAL_GIF_BASE64 = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7';
+  private const string CLIENT = '550e8400-e29b-41d4-a716-446655440001';
 
   #[Test]
-  public function testUploadDispatchesCommandWithTheAuthenticatedUserId(): void
+  public function forwardsTheActorAndMultipartSnapshotToOneCommand(): void
   {
-    $path = $this->tempImage();
+    $file = tempnam(sys_get_temp_dir(), 'media-');
+    self::assertIsString($file);
+    file_put_contents($file, base64_decode('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', true));
 
     try {
-      $attachment = $this->attachmentRecord();
-
-      $entityManager = $this->wrappingEntityManager();
-      $entityManager->method('find')->willReturn($attachment);
-
-      $commandBus = $this->createMock(CommandBusPort::class);
-      $commandBus->expects(self::once())
-        ->method('dispatch')
-        ->with(self::callback(
-          static fn (AddInterventionAttachmentCommand $command): bool => self::USER_ID === $command->userId
-            && self::INTERVENTION_ID === $command->interventionId
-            && null === $command->attachmentId,
-        ))
-        ->willReturn(new AddInterventionAttachmentResult(
-          $attachment->id,
-          self::INTERVENTION_ID,
-          $attachment->fileName,
-          $attachment->mimeType,
-          $attachment->size,
-          null,
-          $attachment->uploadedAt,
-        ));
-
-      $result = new InterventionMediaProcessor(
-        $entityManager,
-        $commandBus,
-        $this->userSecurity(),
-        $this->requestStackWithUpload($path),
-        new MultipartAttachmentGuard(),
-        new RevisionGuard(new RequestStack()),
-        $this->readAuthorization(),
-      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-
-      self::assertSame($attachment->id, $result?->id);
+      $request = Request::create('/attachments', 'POST', ['label' => 'proof'], [], ['file' => new UploadedFile($file, 'proof.gif', 'image/gif', null, true)]);
+      $commands = $this->createMock(CommandBusPort::class);
+      $commands->expects(self::once())->method('dispatch')->with(self::callback(static fn (AddInterventionAttachmentCommand $command): bool => 'actor' === $command->userId && 'intervention' === $command->interventionId && 'proof' === $command->label && 'proof.gif' === $command->fileName))->willReturn(new AddInterventionAttachmentResult(
+        attachmentId: self::CLIENT,
+        interventionId: 'intervention',
+        fileName: 'proof.gif',
+        mimeType: 'image/gif',
+        size: 43,
+        label: 'proof',
+        uploadedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      ));
+      $queries = $this->createMock(QueryBusPort::class);
+      $queries->expects(self::never())->method('ask');
+      $output = $this->processor($request, $commands, $queries)->process(null, new Post(), ['interventionId' => 'intervention']);
+      self::assertInstanceOf(\Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput::class, $output);
+      self::assertSame(self::CLIENT, $output->id);
+      self::assertSame('proof', $output->label);
     } finally {
-      unlink($path);
+      unlink($file);
     }
-  }
-
-  #[Test]
-  public function testUploadForwardsTheWorkItemIdMultipartFieldToTheCommand(): void
-  {
-    $path = $this->tempImage();
-    $workItemId = '660e8400-e29b-41d4-a716-446655440099';
-
-    try {
-      $attachment = $this->attachmentRecord();
-
-      $entityManager = $this->wrappingEntityManager();
-      $entityManager->method('find')->willReturn($attachment);
-
-      $commandBus = $this->createMock(CommandBusPort::class);
-      $commandBus->expects(self::once())
-        ->method('dispatch')
-        ->with(self::callback(
-          static fn (AddInterventionAttachmentCommand $command): bool => $workItemId === $command->workItemId,
-        ))
-        ->willReturn(new AddInterventionAttachmentResult(
-          $attachment->id,
-          self::INTERVENTION_ID,
-          $attachment->fileName,
-          $attachment->mimeType,
-          $attachment->size,
-          null,
-          $attachment->uploadedAt,
-          $workItemId,
-        ));
-
-      $result = new InterventionMediaProcessor(
-        $entityManager,
-        $commandBus,
-        $this->userSecurity(),
-        $this->requestStackWithUpload($path, ['workItemId' => $workItemId]),
-        new MultipartAttachmentGuard(),
-        new RevisionGuard(new RequestStack()),
-        $this->readAuthorization(),
-      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-
-      self::assertSame($attachment->id, $result?->id);
-    } finally {
-      unlink($path);
-    }
-  }
-
-  #[Test]
-  public function testUploadRejectsANonStringClientId(): void
-  {
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('Multipart field "clientId" must be a UUID.');
-
-    new InterventionMediaProcessor(
-      $this->wrappingEntityManager(),
-      $commandBus,
-      $this->userSecurity(),
-      $this->requestStackWithoutFile(['clientId' => 42]),
-      new MultipartAttachmentGuard(),
-      new RevisionGuard(new RequestStack()),
-      $this->readAuthorization(),
-    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-  }
-
-  #[Test]
-  public function testUploadRejectsAMalformedClientId(): void
-  {
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('Multipart field "clientId" must be a UUID.');
-
-    new InterventionMediaProcessor(
-      $this->wrappingEntityManager(),
-      $commandBus,
-      $this->userSecurity(),
-      $this->requestStackWithoutFile(['clientId' => 'not-a-uuid']),
-      new MultipartAttachmentGuard(),
-      new RevisionGuard(new RequestStack()),
-      $this->readAuthorization(),
-    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
   }
 
   /**
-   * A replayed clientId is answered from the already-stored row: no command
-   * is dispatched (no duplicate), and the multipart file is not even
-   * required — the dedup short-circuit runs BEFORE the shared MIME/size
-   * guard, so a retry never re-reads the file.
+   * @return iterable<string, array{?string, class-string<Throwable>}>
+   */
+  public static function staleHeaders(): iterable
+  {
+    yield 'missing' => [null, PreconditionRequiredHttpException::class];
+    yield 'stale' => ['"revision-2"', PreconditionFailedHttpException::class];
+  }
+
+  /**
+   * @param class-string<Throwable> $exception
    */
   #[Test]
-  public function testUploadReplaysAnAlreadyStoredClientIdWithoutDispatching(): void
+  #[DataProvider('staleHeaders')]
+  public function refusesDeletionBeforeDispatchWhenTheHeaderFails(?string $header, string $exception): void
   {
-    $attachment = $this->attachmentRecord();
-    $attachment->id = self::CLIENT_ID;
-
-    $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturnCallback(
-      static fn (string $class): InterventionRecord|InterventionAttachmentRecord|null => InterventionRecord::class === $class
-        ? $attachment->intervention
-        : $attachment,
-    );
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())->method('resolveAccess')
-      ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.interventions.read')
-      ->willReturn(OrganizationAccessDecision::GRANTED);
-
-    $result = new InterventionMediaProcessor(
-      $entityManager,
-      $commandBus,
-      $this->userSecurity(),
-      $this->requestStackWithoutFile(['clientId' => self::CLIENT_ID]),
-      new MultipartAttachmentGuard(),
-      new RevisionGuard(new RequestStack()),
-      $authorization,
-    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-
-    self::assertSame(self::CLIENT_ID, $result?->id);
-  }
-
-  #[Test]
-  public function testUploadRejectsAClientIdOwnedByAnotherIntervention(): void
-  {
-    $attachment = $this->attachmentRecord();
-    $attachment->id = self::CLIENT_ID;
-    self::assertNotNull($attachment->intervention);
-    $attachment->intervention->id = '660e8400-e29b-41d4-a716-4466554400ff';
-
-    $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturnCallback(
-      static fn (string $class): InterventionRecord|InterventionAttachmentRecord => InterventionRecord::class === $class
-        ? $attachment->intervention
-        : $attachment,
-    );
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $this->expectException(ConflictHttpException::class);
-    $this->expectExceptionMessage('Attachment client UUID is already assigned to another intervention.');
-
-    new InterventionMediaProcessor(
-      $entityManager,
-      $commandBus,
-      $this->userSecurity(),
-      $this->requestStackWithoutFile(['clientId' => self::CLIENT_ID]),
-      new MultipartAttachmentGuard(),
-      new RevisionGuard(new RequestStack()),
-      $this->readAuthorization(),
-    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-  }
-
-  #[Test]
-  public function testUploadForwardsAFreshClientIdToTheCommandAsAttachmentId(): void
-  {
-    $path = $this->tempImage();
-
-    try {
-      $attachment = $this->attachmentRecord();
-      $attachment->id = self::CLIENT_ID;
-
-      // First find (dedup lookup) misses; second find (post-dispatch reload)
-      // returns the stored row.
-      $findCalls = 0;
-      $entityManager = $this->wrappingEntityManager();
-      $entityManager->method('find')->willReturnCallback(
-        static function (string $class) use (&$findCalls, $attachment): InterventionRecord|InterventionAttachmentRecord|null {
-          if (InterventionRecord::class === $class) {
-            return $attachment->intervention;
-          }
-          ++$findCalls;
-
-          return 1 === $findCalls ? null : $attachment;
-        },
-      );
-
-      $commandBus = $this->createMock(CommandBusPort::class);
-      $commandBus->expects(self::once())
-        ->method('dispatch')
-        ->with(self::callback(
-          static fn (AddInterventionAttachmentCommand $command): bool => self::CLIENT_ID === $command->attachmentId,
-        ))
-        ->willReturn(new AddInterventionAttachmentResult(
-          $attachment->id,
-          self::INTERVENTION_ID,
-          $attachment->fileName,
-          $attachment->mimeType,
-          $attachment->size,
-          null,
-          $attachment->uploadedAt,
-        ));
-
-      $result = new InterventionMediaProcessor(
-        $entityManager,
-        $commandBus,
-        $this->userSecurity(),
-        $this->requestStackWithUpload($path, ['clientId' => self::CLIENT_ID]),
-        new MultipartAttachmentGuard(),
-        new RevisionGuard(new RequestStack()),
-        $this->readAuthorization(OrganizationAccessDecision::MISSING_PERMISSION),
-      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-
-      self::assertSame(self::CLIENT_ID, $result?->id);
-    } finally {
-      unlink($path);
+    $request = Request::create('/attachments', 'DELETE');
+    if (null !== $header) {
+      $request->headers->set('If-Match', $header);
     }
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::never())->method('dispatch');
+    $queries = $this->scope();
+    $this->expectException($exception);
+    $this->processor($request, $commands, $queries)->process(null, new Delete(), ['id' => self::CLIENT]);
   }
 
   #[Test]
-  public function testUploadMapsAccessDeniedExceptionTo403(): void
+  public function forwardsTheComparedRevisionToTheOwningDeleteTransaction(): void
   {
-    $path = $this->tempImage();
-
-    try {
-      $commandBus = $this->createStub(CommandBusPort::class);
-      $commandBus->method('dispatch')->willThrowException(
-        new InterventionAccessDeniedException('Missing organization.interventions.execute permission.'),
-      );
-
-      $this->expectException(AccessDeniedHttpException::class);
-
-      new InterventionMediaProcessor(
-        $this->wrappingEntityManager(),
-        $commandBus,
-        $this->userSecurity(),
-        $this->requestStackWithUpload($path),
-        new MultipartAttachmentGuard(),
-        new RevisionGuard(new RequestStack()),
-        $this->readAuthorization(),
-      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-    } finally {
-      unlink($path);
-    }
+    $request = Request::create('/attachments', 'DELETE');
+    $request->headers->set('If-Match', '"revision-3"');
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::once())->method('dispatch')->with(self::callback(static fn (DeleteInterventionAttachmentCommand $command): bool => 3 === $command->expectedRevision && self::CLIENT === $command->attachmentId));
+    self::assertNull($this->processor($request, $commands, $this->scope())->process(null, new Delete(), ['id' => self::CLIENT]));
   }
 
   #[Test]
-  public function testUploadMapsConflictExceptionTo409(): void
+  public function replaysTheScopedSnapshotWithoutAFileOrMutation(): void
   {
-    $path = $this->tempImage();
-
-    try {
-      $commandBus = $this->createStub(CommandBusPort::class);
-      $commandBus->method('dispatch')->willThrowException(
-        new InterventionConflictException('Intervention resources are immutable in the current state.'),
-      );
-
-      $this->expectException(ConflictHttpException::class);
-
-      new InterventionMediaProcessor(
-        $this->wrappingEntityManager(),
-        $commandBus,
-        $this->userSecurity(),
-        $this->requestStackWithUpload($path),
-        new MultipartAttachmentGuard(),
-        new RevisionGuard(new RequestStack()),
-        $this->readAuthorization(),
-      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-    } finally {
-      unlink($path);
-    }
+    $request = Request::create('/attachments', 'POST', ['clientId' => self::CLIENT]);
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->with(self::callback(static fn (ResolveInterventionMediaQuery $query): bool => $query->replay && self::CLIENT === $query->attachmentId))->willReturn($this->scopeResult());
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::never())->method('dispatch');
+    $output = $this->processor($request, $commands, $queries)->process(null, new Post(), ['interventionId' => 'intervention']);
+    self::assertInstanceOf(\Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput::class, $output);
+    self::assertSame(3, $output->revision);
   }
 
   #[Test]
-  public function testDeleteRequiresIfMatchHeader(): void
+  public function validatesAClientUuidBeforeReadingMultipartBytes(): void
   {
-    $attachment = $this->attachmentRecord();
-
-    $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturnCallback(
-      static fn (string $class): InterventionRecord|InterventionAttachmentRecord|null => InterventionRecord::class === $class
-        ? $attachment->intervention
-        : $attachment,
-    );
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create('/api/intervention-attachments/' . $attachment->id, 'DELETE'));
-
-    $this->expectException(PreconditionRequiredHttpException::class);
-
-    new InterventionMediaProcessor(
-      $entityManager,
-      $commandBus,
-      $this->userSecurity(),
-      $requestStack,
-      new MultipartAttachmentGuard(),
-      new RevisionGuard($requestStack),
-      $this->readAuthorization(),
-    )->process(null, new Delete(), ['id' => $attachment->id]);
-  }
-
-  #[Test]
-  public function testDeleteDispatchesCommandWhenRevisionMatches(): void
-  {
-    $attachment = $this->attachmentRecord();
-    $attachment->revision = 1;
-
-    $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturn($attachment);
-
-    $requestStack = new RequestStack();
-    $request = Request::create('/api/intervention-attachments/' . $attachment->id, 'DELETE');
-    $request->headers->set('If-Match', '"revision-1"');
-    $requestStack->push($request);
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->with(self::callback(
-        static fn (object $command): bool => $command instanceof DeleteInterventionAttachmentCommand
-          && self::USER_ID === $command->userId
-          && self::INTERVENTION_ID === $command->interventionId
-          && 'attachment-id' === $command->attachmentId,
-      ));
-
-    $result = new InterventionMediaProcessor(
-      $entityManager,
-      $commandBus,
-      $this->userSecurity(),
-      $requestStack,
-      new MultipartAttachmentGuard(),
-      new RevisionGuard($requestStack),
-      $this->readAuthorization(),
-    )->process(null, new Delete(), ['id' => $attachment->id]);
-
-    self::assertNull($result);
-  }
-
-  #[Test]
-  public function testDeleteMapsAttachmentNotFoundExceptionTo404(): void
-  {
-    $attachment = $this->attachmentRecord();
-    $attachment->revision = 1;
-
-    $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturn($attachment);
-
-    $requestStack = new RequestStack();
-    $request = Request::create('/api/intervention-attachments/' . $attachment->id, 'DELETE');
-    $request->headers->set('If-Match', '"revision-1"');
-    $requestStack->push($request);
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
-      InterventionAttachmentNotFoundException::withId($attachment->id),
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    new InterventionMediaProcessor(
-      $entityManager,
-      $commandBus,
-      $this->userSecurity(),
-      $requestStack,
-      new MultipartAttachmentGuard(),
-      new RevisionGuard($requestStack),
-      $this->readAuthorization(),
-    )->process(null, new Delete(), ['id' => $attachment->id]);
-  }
-
-  #[Test]
-  public function testUploadRejectsAMissingInterventionIdUriVariable(): void
-  {
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
+    $request = Request::create('/attachments', 'POST', ['clientId' => 'invalid']);
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::never())->method('ask');
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::never())->method('dispatch');
     $this->expectException(BadRequestHttpException::class);
-
-    new InterventionMediaProcessor(
-      $this->wrappingEntityManager(),
-      $commandBus,
-      $this->userSecurity(),
-      new RequestStack(),
-      new MultipartAttachmentGuard(),
-      new RevisionGuard(new RequestStack()),
-      $this->readAuthorization(),
-    )->process(null, new Post(), []);
+    $this->processor($request, $commands, $queries)->process(null, new Post(), ['interventionId' => 'intervention']);
   }
 
-  #[Test]
-  public function testUploadRejectsAnUnauthenticatedUser(): void
+  private function scopeResult(): ResolveInterventionMediaResult
+  {
+    return new ResolveInterventionMediaResult('organization', 'intervention', new InterventionAttachmentView(self::CLIENT, 'organization', 'intervention', 'file.pdf', 'application/pdf', 4, null, 3, '2026-01-01T00:00:00+00:00', null, 'file'));
+  }
+
+  private function scope(): QueryBusPort
+  {
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturn($this->scopeResult());
+
+    return $queries;
+  }
+
+  private function processor(Request $request, CommandBusPort $commands, QueryBusPort $queries): InterventionMediaProcessor
   {
     $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(null);
+    $security->method('getUser')->willReturn(new SecurityUser('actor', 'actor@example.com', '', [], [], true));
+    $stack = new RequestStack();
+    $stack->push($request);
 
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $this->expectException(AccessDeniedHttpException::class);
-
-    new InterventionMediaProcessor(
-      $this->wrappingEntityManager(),
-      $commandBus,
-      $security,
-      new RequestStack(),
-      new MultipartAttachmentGuard(),
-      new RevisionGuard(new RequestStack()),
-      $this->readAuthorization(),
-    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-  }
-
-  #[Test]
-  public function testUploadRejectsAMissingRequest(): void
-  {
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $this->expectException(BadRequestHttpException::class);
-
-    new InterventionMediaProcessor(
-      $this->wrappingEntityManager(),
-      $commandBus,
-      $this->userSecurity(),
-      new RequestStack(),
-      new MultipartAttachmentGuard(),
-      new RevisionGuard(new RequestStack()),
-      $this->readAuthorization(),
-    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-  }
-
-  #[Test]
-  public function testUploadThrowsWhenTheStoredAttachmentCannotBeReloaded(): void
-  {
-    $path = $this->tempImage();
-
-    try {
-      $entityManager = $this->wrappingEntityManager();
-      $entityManager->method('find')->willReturn(null);
-
-      $commandBus = $this->createStub(CommandBusPort::class);
-      $commandBus->method('dispatch')->willReturn(new AddInterventionAttachmentResult(
-        'attachment-id',
-        self::INTERVENTION_ID,
-        'photo.gif',
-        'image/gif',
-        5,
-        null,
-        new DateTimeImmutable(),
-      ));
-
-      $this->expectException(NotFoundHttpException::class);
-      $this->expectExceptionMessage('Uploaded attachment not found.');
-
-      new InterventionMediaProcessor(
-        $entityManager,
-        $commandBus,
-        $this->userSecurity(),
-        $this->requestStackWithUpload($path),
-        new MultipartAttachmentGuard(),
-        new RevisionGuard(new RequestStack()),
-        $this->readAuthorization(),
-      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
-    } finally {
-      unlink($path);
-    }
-  }
-
-  #[Test]
-  public function testDeleteRejectsANonStringAttachmentId(): void
-  {
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create('/api/intervention-attachments/x', 'DELETE'));
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $this->expectException(NotFoundHttpException::class);
-
-    new InterventionMediaProcessor(
-      $this->wrappingEntityManager(),
-      $commandBus,
-      $this->userSecurity(),
-      $requestStack,
-      new MultipartAttachmentGuard(),
-      new RevisionGuard($requestStack),
-      $this->readAuthorization(),
-    )->process(null, new Delete(), []);
-  }
-
-  #[Test]
-  public function testDeleteThrowsWhenTheAttachmentRecordIsMissing(): void
-  {
-    $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturn(null);
-
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create('/api/intervention-attachments/attachment-id', 'DELETE'));
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $this->expectException(NotFoundHttpException::class);
-
-    new InterventionMediaProcessor(
-      $entityManager,
-      $commandBus,
-      $this->userSecurity(),
-      $requestStack,
-      new MultipartAttachmentGuard(),
-      new RevisionGuard($requestStack),
-      $this->readAuthorization(),
-    )->process(null, new Delete(), ['id' => 'attachment-id']);
-  }
-
-  #[Test]
-  public function testDeleteMapsANonNotFoundWorkflowExceptionToItsHttpStatus(): void
-  {
-    $attachment = $this->attachmentRecord();
-    $attachment->revision = 1;
-
-    $entityManager = $this->wrappingEntityManager();
-    $entityManager->method('find')->willReturn($attachment);
-
-    $requestStack = new RequestStack();
-    $request = Request::create('/api/intervention-attachments/' . $attachment->id, 'DELETE');
-    $request->headers->set('If-Match', '"revision-1"');
-    $requestStack->push($request);
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
-      new InterventionAccessDeniedException('Missing organization.interventions.execute permission.'),
-    );
-
-    $this->expectException(AccessDeniedHttpException::class);
-
-    new InterventionMediaProcessor(
-      $entityManager,
-      $commandBus,
-      $this->userSecurity(),
-      $requestStack,
-      new MultipartAttachmentGuard(),
-      new RevisionGuard($requestStack),
-      $this->readAuthorization(),
-    )->process(null, new Delete(), ['id' => $attachment->id]);
-  }
-
-  private function tempImage(): string
-  {
-    $path = tempnam(sys_get_temp_dir(), 'intervention-attachment-');
-    self::assertIsString($path);
-    file_put_contents($path, (string) base64_decode(self::MINIMAL_GIF_BASE64, true));
-
-    return $path;
-  }
-
-  private function attachmentRecord(): InterventionAttachmentRecord
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $intervention = new InterventionRecord();
-    $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
-
-    $attachment = new InterventionAttachmentRecord();
-    $attachment->id = 'attachment-id';
-    $attachment->intervention = $intervention;
-    $attachment->fileName = 'photo.gif';
-    $attachment->mimeType = 'image/gif';
-    $attachment->size = 5;
-    $attachment->uploadedAt = new DateTimeImmutable();
-
-    return $attachment;
-  }
-
-  /**
-   * @return EntityManagerInterface&Stub
-   */
-  private function wrappingEntityManager(): EntityManagerInterface
-  {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('wrapInTransaction')->willReturnCallback(
-      static fn (callable $callback): mixed => $callback(),
-    );
-
-    return $entityManager;
-  }
-
-  /**
-   * @param array<string, mixed> $parameters
-   */
-  private function requestStackWithUpload(string $path, array $parameters = []): RequestStack
-  {
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create(
-      '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
-      'POST',
-      $parameters,
-      [],
-      ['file' => new UploadedFile($path, 'photo.gif', 'image/gif', null, true)],
-    ));
-
-    return $requestStack;
-  }
-
-  /**
-   * @param array<string, mixed> $parameters
-   */
-  private function requestStackWithoutFile(array $parameters): RequestStack
-  {
-    $requestStack = new RequestStack();
-    $requestStack->push(Request::create(
-      '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
-      'POST',
-      $parameters,
-    ));
-
-    return $requestStack;
-  }
-
-  private function readAuthorization(OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED): OrganizationAuthorizationPort
-  {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn($decision);
-
-    return $authorization;
-  }
-
-  private function userSecurity(): Security
-  {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
-
-    return $security;
+    return new InterventionMediaProcessor($commands, $queries, $security, $stack, new MultipartAttachmentGuard(), new RevisionGuard($stack));
   }
 }

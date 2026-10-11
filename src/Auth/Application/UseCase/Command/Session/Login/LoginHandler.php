@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Session\Login;
 
+use Auth\Application\Contract\Token\SignInGrantType;
 use Auth\Application\Contract\User\UserAuthenticationResult;
+use Auth\Application\Port\Inbound\InteractiveSessionIssuerPort;
 use Auth\Application\Port\Outbound\UserAuthenticationPort;
-use Auth\Application\Service\Federation\SessionIssuer;
 use Auth\Domain\Event\Session\LoginFailedEvent;
-use Auth\Domain\ValueObject\Security\SignInGrantType;
-use Psr\Log\LoggerInterface;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, RateLimiterPort};
+use Shared\Application\Port\Outbound\LoggerPort;
 use Throwable;
 
 use function hash;
@@ -41,15 +41,15 @@ final readonly class LoginHandler implements CommandHandler
    * @param UserAuthenticationPort $userAuthentication the user authentication port
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
    * @param RateLimiterPort $rateLimiter the rate limiter
-   * @param SessionIssuer $sessionIssuer shared session and MFA issuer
-   * @param LoggerInterface $logger the structured application logger
+   * @param InteractiveSessionIssuerPort $sessionIssuer shared session and MFA issuer
+   * @param LoggerPort $logger the structured application logger
    */
   public function __construct(
     private readonly UserAuthenticationPort $userAuthentication,
     private readonly EventDispatcherPort $eventDispatcher,
     private readonly RateLimiterPort $rateLimiter,
-    private readonly SessionIssuer $sessionIssuer,
-    private readonly LoggerInterface $logger,
+    private readonly InteractiveSessionIssuerPort $sessionIssuer,
+    private readonly LoggerPort $logger,
   ) {
   }
   // #endregion
@@ -107,7 +107,7 @@ final readonly class LoginHandler implements CommandHandler
       $userId = $authResult->userId;
       $email = $authResult->email ?? $command->email;
 
-      $result = $this->sessionIssuer->issue(
+      $session = $this->sessionIssuer->issue(
         userId: $userId,
         email: $email,
         ipAddress: $command->ipAddress,
@@ -115,6 +115,24 @@ final readonly class LoginHandler implements CommandHandler
         trustedDeviceToken: $command->trustedDeviceToken,
         rememberMe: $command->rememberMe,
         grantType: SignInGrantType::PASSWORD,
+      );
+      $result = new LoginResult(
+        authenticated: $session->authenticated,
+        userId: $session->userId,
+        email: $session->email,
+        accessToken: $session->accessToken,
+        refreshToken: $session->refreshToken,
+        tokenType: $session->tokenType,
+        expiresIn: $session->expiresIn,
+        scopes: $session->scopes,
+        mfaRequired: $session->mfaRequired,
+        mfaToken: $session->mfaToken,
+        challengeToken: $session->challengeToken,
+        mfaMethod: $session->mfaMethod,
+        mfaDestination: $session->mfaDestination,
+        errorMessage: $session->errorMessage,
+        errorCode: $session->errorCode,
+        rateLimitRetryAfter: $session->rateLimitRetryAfter,
       );
     } catch (Throwable $exception) {
       $this->logger->critical('Password authentication failed unexpectedly.', [

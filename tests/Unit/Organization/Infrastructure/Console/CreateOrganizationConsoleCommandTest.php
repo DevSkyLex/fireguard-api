@@ -19,7 +19,7 @@ use Shared\Domain\ValueObject\Email;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -56,11 +56,11 @@ final class CreateOrganizationConsoleCommandTest extends TestCase
   #[Test]
   public function testResolvesTheOwnerByUuidAndCreatesTheOrganization(): void
   {
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->with(self::callback(static fn (UserId $id): bool => self::OWNER_USER_ID === $id->value))
+      ->with(self::OWNER_USER_ID)
       ->willReturn($this->user());
     $userRepository->expects(self::never())->method('findByEmail');
 
@@ -92,11 +92,11 @@ final class CreateOrganizationConsoleCommandTest extends TestCase
   #[Test]
   public function testResolvesTheOwnerByEmailAndDefaultsTheSlugToNull(): void
   {
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findByEmail')
-      ->with(self::callback(static fn (Email $email): bool => self::OWNER_EMAIL === $email->value))
+      ->with(self::OWNER_EMAIL)
       ->willReturn($this->user());
     $userRepository->expects(self::never())->method('findById');
 
@@ -144,7 +144,7 @@ final class CreateOrganizationConsoleCommandTest extends TestCase
   #[Test]
   public function testFailsWhenTheOwnerCannotBeResolved(): void
   {
-    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository = $this->createStub(UserDirectoryPort::class);
     $userRepository->method('findByEmail')->willReturn(null);
 
     $tester = new CommandTester($this->createCommand(
@@ -186,10 +186,10 @@ final class CreateOrganizationConsoleCommandTest extends TestCase
 
   private function createCommand(
     CommandBusPort $commandBus,
-    ?UserRepositoryPort $userRepository = null,
+    ?UserDirectoryPort $userRepository = null,
   ): CreateOrganizationConsoleCommand {
     if (null === $userRepository) {
-      $userRepository = $this->createStub(UserRepositoryPort::class);
+      $userRepository = $this->createStub(UserDirectoryPort::class);
       $userRepository->method('findById')->willReturn($this->user());
       $userRepository->method('findByEmail')->willReturn($this->user());
     }
@@ -200,16 +200,16 @@ final class CreateOrganizationConsoleCommandTest extends TestCase
     );
   }
 
-  private function user(): User
+  private function user(): \User\Application\Contract\User\UserView
   {
-    return User::register(
+    return \Tests\Support\Factory\UserTestFactory::view(User::register(
       id: new UserId(self::OWNER_USER_ID),
       username: new Username('owner'),
       email: new Email(self::OWNER_EMAIL),
       password: HashedPassword::fromPlain('Password123!'),
       profile: new UserProfile('Owner', 'User', null),
       eventIdProvider: new TestEventIdProvider(),
-    );
+    ));
   }
 
   private function successResult(): CreateOrganizationResult

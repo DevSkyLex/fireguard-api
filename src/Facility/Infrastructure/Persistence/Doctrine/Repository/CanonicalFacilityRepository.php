@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Facility\Application\Port\Outbound\CanonicalFacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\CanonicalFacilityRepositoryPort;
 use Facility\Domain\Model\Facility\CanonicalFacility;
 use Facility\Domain\ValueObject\FacilityId;
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\CanonicalFacilityMapper;

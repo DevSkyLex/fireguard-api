@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Functional\Api;
 
-use Otp\Application\Port\Outbound\Challenge\{OtpNotifierPort, OtpRepositoryPort};
+use Otp\Application\Port\Outbound\Internal\Challenge\{OtpNotifierPort, OtpRepositoryPort};
 use Otp\Domain\Model\Otp;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Shared\Application\Contract\Notification\EmailRequestDetails;
 use Shared\Domain\ValueObject\Email;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Model\User\User;
 
 use function array_keys;

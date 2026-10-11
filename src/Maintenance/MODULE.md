@@ -231,6 +231,14 @@ took 41.328 seconds; this measured synchronous cost establishes the default cap.
 
 ## Architecture
 
+CSV export preparation enters a command that resolves the existing bounded query and
+records export provenance after successful reads. Name resolution remains batched.
+Reminder recipients use Organization's published administrator directory in one
+owner-authorized batch lookup for effective maintenance-manage permissions.
+MaintenanceExceptionSubscriber translates HTTP failures centrally.
+Maintenance schedule persistence stores scalar organizationId; owner queries remain
+scoped and the schema listener preserves the existing foreign key and cascade action.
+
 - **Presentation** (`src/Maintenance/Presentation/Api`): `MaintenanceScheduleResource`
   (list/get/patch) and `MaintenanceCampaignResource` (generate), providers,
   processors, input/output DTOs, `ValidPeriodicityOverride` validator (delegates

@@ -8,7 +8,6 @@ use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem, RestoredCheckli
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, ChecklistStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord};
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Class ChecklistMapper
@@ -24,7 +23,7 @@ final class ChecklistMapper
    */
   public static function toDomain(ChecklistRecord $record, array $itemRecords = []): Checklist
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Checklist record must reference an organization.');
     }
 
@@ -42,7 +41,7 @@ final class ChecklistMapper
 
     return Checklist::reconstitute(
       id: ChecklistId::fromString($record->id),
-      organizationId: ChecklistOrganizationId::fromString($record->organization->id),
+      organizationId: ChecklistOrganizationId::fromString($record->organizationId),
       name: $record->name,
       revision: new RestoredChecklistRevision(
         version: $record->version,
@@ -73,6 +72,7 @@ final class ChecklistMapper
   {
     $record = new ChecklistRecord();
     $record->id = (string) $checklist->id();
+    $record->organizationId = (string) $checklist->organizationId();
     $record->name = $checklist->name();
     $record->referenceCode = $checklist->referenceCode();
     $record->version = $checklist->version();

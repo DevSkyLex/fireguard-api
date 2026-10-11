@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Checklist\ListChecklists;
 
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Application\UseCase\Query\Checklist\ListChecklists\{ListChecklistResult, ListChecklistsHandler, ListChecklistsQuery};
 use Inspection\Domain\Model\Checklist\Checklist;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};

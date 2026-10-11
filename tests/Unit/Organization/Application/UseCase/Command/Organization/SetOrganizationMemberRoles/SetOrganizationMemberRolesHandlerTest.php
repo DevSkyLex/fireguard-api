@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\SetOrganizationMemberRoles;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\{OrganizationLastAdminGuardPort, OrganizationPermissionGrantGuardPort};
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Contract\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleUnassignedEvent};
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
+use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\SetOrganizationMemberRoles\{SetOrganizationMemberRolesCommand, SetOrganizationMemberRolesHandler, SetOrganizationMemberRolesResult};
-use Organization\Domain\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleUnassignedEvent};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;

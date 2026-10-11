@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Notification\Application\UseCase\Query\Notification\GetUnreadNotificationsCount;
 
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUnreadNotificationsCount\{GetUnreadNotificationsCountHandler, GetUnreadNotificationsCountQuery, GetUnreadNotificationsCountResult};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;

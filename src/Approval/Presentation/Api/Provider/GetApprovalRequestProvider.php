@@ -9,12 +9,10 @@ use ApiPlatform\State\ProviderInterface;
 use Approval\Application\UseCase\Query\Request\GetApprovalRequest\{GetApprovalRequestQuery, GetApprovalRequestResult};
 use Approval\Presentation\Api\Dto\Output\ApprovalRequestOutput;
 use Approval\Presentation\Api\Factory\ApprovalRequestOutputFactory;
-use Approval\Presentation\Api\Trait\ApprovalExceptionMapperTrait;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -30,8 +28,6 @@ use function is_string;
  */
 final readonly class GetApprovalRequestProvider implements ProviderInterface
 {
-  use ApprovalExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -65,7 +61,7 @@ final readonly class GetApprovalRequestProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ApprovalRequestOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -76,16 +72,12 @@ final readonly class GetApprovalRequestProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId and requestId URI parameters are required.');
     }
 
-    try {
-      /** @var GetApprovalRequestResult $result */
-      $result = $this->queryBus->ask(new GetApprovalRequestQuery(
-        organizationId: $organizationId,
-        requestId: $requestId,
-        userId: $user->getId(),
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapApprovalException($exception);
-    }
+    /** @var GetApprovalRequestResult $result */
+    $result = $this->queryBus->ask(new GetApprovalRequestQuery(
+      organizationId: $organizationId,
+      requestId: $requestId,
+      userId: $user->getId(),
+    ));
 
     return $this->outputFactory->fromView($result);
   }

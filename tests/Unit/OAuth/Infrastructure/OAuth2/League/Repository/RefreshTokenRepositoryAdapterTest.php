@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Infrastructure\OAuth2\League\Repository;
 
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\RefreshTokenRepositoryPort;
 use OAuth\Domain\Model\Token\RefreshToken as DomainRefreshToken;
 use OAuth\Infrastructure\OAuth2\League\Entity\{AccessToken as LeagueAccessToken, Client as LeagueClient, RefreshToken as LeagueRefreshToken};
 use OAuth\Infrastructure\OAuth2\League\Repository\RefreshTokenRepositoryAdapter;

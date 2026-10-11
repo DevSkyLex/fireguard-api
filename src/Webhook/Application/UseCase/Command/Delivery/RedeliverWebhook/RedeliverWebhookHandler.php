@@ -7,7 +7,9 @@ namespace Webhook\Application\UseCase\Command\Delivery\RedeliverWebhook;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryQueuePort, WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookDeliveryWorkPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\WebhookDeliverySchedulePort;
 use Webhook\Domain\Exception\{WebhookDeliveryNotFoundException, WebhookSubscriptionNotFoundException};
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookSubscriptionId};
 
@@ -34,14 +36,18 @@ final readonly class RedeliverWebhookHandler implements CommandHandler
    *
    * @param WebhookSubscriptionRepositoryPort $subscriptionRepository the webhook subscription repository port
    * @param WebhookDeliveryRepositoryPort $deliveryRepository the webhook delivery repository port
-   * @param WebhookDeliveryQueuePort $queue the delivery queue port
+   * @param WebhookDeliverySchedulePort $queue the delivery schedule port
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param WebhookDeliveryWorkPort $work the fenced delivery state
+   * @param TransactionManagerPort $transactionManager the main transaction boundary
    */
   public function __construct(
     private WebhookSubscriptionRepositoryPort $subscriptionRepository,
     private WebhookDeliveryRepositoryPort $deliveryRepository,
-    private WebhookDeliveryQueuePort $queue,
+    private WebhookDeliverySchedulePort $queue,
     private OrganizationAuthorizationPort $authorization,
+    private WebhookDeliveryWorkPort $work,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -76,10 +82,15 @@ final readonly class RedeliverWebhookHandler implements CommandHandler
       throw WebhookDeliveryNotFoundException::withId($command->deliveryId);
     }
 
-    $delivery->reopen(new DateTimeImmutable());
-    $this->deliveryRepository->save($delivery);
+    $this->transactionManager->transactional(function () use ($command, $deliveryId): void {
+      $now = new DateTimeImmutable();
+      $generation = $this->work->reopen((string) $deliveryId, $command->subscriptionId, $now);
 
-    $this->queue->dispatch((string) $deliveryId);
+      if (null === $generation) {
+        throw WebhookDeliveryNotFoundException::withId($command->deliveryId);
+      }
+      $this->queue->enqueue((string) $deliveryId, $generation, $now);
+    });
 
     return new RedeliverWebhookResult(
       deliveryId: (string) $deliveryId,

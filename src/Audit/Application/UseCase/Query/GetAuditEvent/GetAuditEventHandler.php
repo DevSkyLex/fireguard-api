@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Audit\Application\UseCase\Query\GetAuditEvent;
 
 use Audit\Application\Contract\AuditEventView;
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Audit\Domain\Exception\AuditEventNotFoundException;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\EntityNotFoundException;

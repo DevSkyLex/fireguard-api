@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityAttachmentMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
+use LogicException;
 
 use function array_map;
 use function json_encode;
@@ -54,6 +55,36 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
 
   // #region Methods
   /**
+   * Method lock.
+   */
+  public function lock(FacilityId $facilityId): void
+  {
+    $connection = $this->entityManager->getConnection();
+    if (!$connection->isTransactionActive()) {
+      throw new LogicException('Facility attachments require an active main transaction.');
+    }
+    $connection->executeQuery('SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))', ['scope' => 'facility-attachments:' . (string) $facilityId])->fetchOne();
+    $connection->executeQuery('SELECT id FROM facility_attachments WHERE facility_id = :facility ORDER BY id FOR UPDATE', ['facility' => (string) $facilityId])->fetchFirstColumn();
+  }
+
+  /**
+   * Method saveIfAbsent.
+   */
+  public function saveIfAbsent(FacilityAttachment $attachment): bool
+  {
+    return 1 === $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO facility_attachments (id, facility_id, file_name, storage_path, mime_type, size, label, uploaded_at, kind, is_primary_plan, image_width, image_height, revision) VALUES (:id, :facility, :fileName, :path, :mime, :size, :label, :uploaded, :kind, FALSE, :width, :height, 1) ON CONFLICT (id) DO NOTHING',
+      [
+        'id' => (string) $attachment->id(), 'facility' => (string) $attachment->facilityId(),
+        'fileName' => $attachment->file()->fileName, 'path' => $attachment->file()->storagePath,
+        'mime' => $attachment->file()->mimeType, 'size' => $attachment->file()->size,
+        'label' => $attachment->label(), 'uploaded' => $attachment->file()->uploadedAt->format('Y-m-d H:i:s.u'),
+        'kind' => $attachment->kind()->value, 'width' => $attachment->imageWidth(), 'height' => $attachment->imageHeight(),
+      ],
+    );
+  }
+
+  /**
    * Method save.
    *
    * @since 1.0.0
@@ -96,6 +127,10 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
 
     if (!$record instanceof FacilityAttachmentRecord) {
       return null;
+    }
+
+    if ($this->entityManager->getConnection()->isTransactionActive()) {
+      $this->entityManager->refresh($record);
     }
 
     return FacilityAttachmentMapper::toDomain($record);
@@ -151,7 +186,7 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
       return;
     }
 
-    $organizationId = $record->facility?->organization?->id;
+    $organizationId = $record->facility?->organizationId;
     if (null !== $organizationId) {
       $this->entityManager->getConnection()->executeStatement(
         "UPDATE facilities SET plan_geometry = NULL, revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE organization_id = :organizationId AND plan_geometry->>'attachmentId' = :attachmentId",

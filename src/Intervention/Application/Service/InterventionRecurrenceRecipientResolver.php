@@ -4,27 +4,9 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Service;
 
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort;
 
-use function array_intersect;
-use function array_unique;
-use function array_values;
-
-/**
- * Service InterventionRecurrenceRecipientResolver.
- *
- * Resolves the organization's planning administrators — active members whose
- * effective permissions grant `organization.interventions.plan` directly or
- * through a wildcard. Two call sites rely on it: the fallback recipients of a
- * recurrence materialization failure notification (when the recurrence
- * carries no responsible member override), and the administrator escalation
- * of `intervention.overdue` reminders. Mirrors the administrator-detection rule
- * {@see \Maintenance\Application\Service\MaintenanceReminderRecipientResolver}
- * uses for `organization.maintenance.manage`, adapted to the planning
- * permission that governs intervention recurrences.
- *
+/** Resolves recipients through Organization's grouped effective-permission capability.
  * @category Service
  * @version 1.0.0
  *
@@ -32,63 +14,15 @@ use function array_values;
  */
 final readonly class InterventionRecurrenceRecipientResolver
 {
-  /**
-   * Granted permission patterns that satisfy organization.interventions.plan.
-   *
-   * @var list<string>
-   */
-  private const array ADMIN_GRANTING_PERMISSIONS = [
-    'organization.interventions.plan',
-    'organization.interventions.*',
-    'organization.*',
-    '*',
-    '*.*',
-    '*.*.*',
-  ];
-
-  // #region Constructor
-  /**
-   * Constructor.
-   *
-   * @since 1.0.0
-   *
-   * @param OrganizationMemberRepositoryPort $members the organization member repository port
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   */
-  public function __construct(
-    private OrganizationMemberRepositoryPort $members,
-    private OrganizationAuthorizationPort $authorization,
-  ) {
+  public function __construct(private OrganizationMemberNotificationDirectoryPort $members)
+  {
   }
-  // #endregion
 
-  // #region Methods
   /**
-   * Method organizationAdministrators.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   *
-   * @return list<string> the active administrators' user identifiers
+   * @return list<string>
    */
   public function organizationAdministrators(string $organizationId): array
   {
-    $organization = OrganizationId::fromString($organizationId);
-    $adminUserIds = [];
-
-    foreach ($this->members->findByOrganizationId($organization) as $member) {
-      if (!$member->isActive()) {
-        continue;
-      }
-
-      $permissions = $this->authorization->getUserPermissions($member->userId(), $organizationId);
-      if ([] !== array_intersect($permissions, self::ADMIN_GRANTING_PERMISSIONS)) {
-        $adminUserIds[] = $member->userId();
-      }
-    }
-
-    return array_values(array_unique($adminUserIds));
+    return $this->members->administratorUserIds($organizationId, 'organization.interventions.plan');
   }
-  // #endregion
 }

@@ -6,7 +6,8 @@ namespace Inspection\Application\UseCase\Query\ExportInspections;
 
 use Inspection\Application\Contract\Export\{InspectionExportCandidate, InspectionExportRow};
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
-use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort, InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
+use Inspection\Application\Port\Outbound\Internal\{ChecklistRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException};
 use Inspection\Domain\ValueObject\InspectionOrganizationId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;

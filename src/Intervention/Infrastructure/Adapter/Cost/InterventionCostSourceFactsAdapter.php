@@ -23,7 +23,7 @@ final readonly class InterventionCostSourceFactsAdapter implements InterventionC
   public function context(string $organizationId, string $interventionId, bool $lock = false): ?InterventionCostContext
   {
     $record = $this->entityManager->find(InterventionRecord::class, $interventionId, $lock ? LockMode::PESSIMISTIC_WRITE : null);
-    if (!$record instanceof InterventionRecord || $record->organization?->id !== $organizationId) {
+    if (!$record instanceof InterventionRecord || $record->organizationId !== $organizationId) {
       return null;
     }
     if ($lock) {

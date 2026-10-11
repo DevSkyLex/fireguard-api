@@ -790,7 +790,7 @@ final class InterventionApiTest extends WebTestCase
     $interventionId = $this->seedIntervention('650e8400-e29b-41d4-a716-449001000301', 'in_progress', 401, self::ADMIN_MEMBER_ID);
     $equipment = new EquipmentRecord();
     $equipment->id = '650e8400-e29b-41d4-a716-449001000302';
-    $equipment->organization = $this->entityManager()->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $equipment->organizationId = self::ORGANIZATION_ID;
     $equipment->type = 'fire_extinguisher';
     $equipment->createdAt = $equipment->updatedAt = new DateTimeImmutable('2026-09-01T00:00:00+00:00');
     $this->entityManager()->persist($equipment);
@@ -908,7 +908,7 @@ final class InterventionApiTest extends WebTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = $id;
-    $intervention->organization = $organization;
+    $intervention->organizationId = self::ORGANIZATION_ID;
     $intervention->type = 'site_setup';
     $intervention->name = 'Intervention API Test — ' . $id;
     $intervention->number = $number;

@@ -56,7 +56,7 @@ final class GenerateInspectionCampaignProcessorTest extends TestCase
     $input->name = 'Q1 Campaign';
     $input->dueBefore = '2026-02-01T00:00:00+00:00';
 
-    $output = $processor->process($input, new Post());
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Post()));
 
     self::assertInstanceOf(GenerateInspectionCampaignOutput::class, $output);
     self::assertSame('intervention-1', $output->interventionId);
@@ -76,7 +76,7 @@ final class GenerateInspectionCampaignProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process($input, new Post());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Post()));
   }
 
   #[Test]
@@ -94,7 +94,7 @@ final class GenerateInspectionCampaignProcessorTest extends TestCase
 
     $this->expectException(UnprocessableEntityHttpException::class);
 
-    $processor->process($input, new Post());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Post()));
   }
 
   #[Test]
@@ -105,7 +105,7 @@ final class GenerateInspectionCampaignProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Invalid request body.');
 
-    $processor->process(new stdClass(), new Post());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new stdClass(), new Post()));
   }
 
   #[Test]
@@ -124,7 +124,7 @@ final class GenerateInspectionCampaignProcessorTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $processor->process($input, new Post());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Post()));
   }
 
   private function security(): Security

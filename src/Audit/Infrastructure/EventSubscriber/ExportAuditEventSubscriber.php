@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\EventSubscriber;
 
+use Audit\Application\Contract\Event\AuditEventsExportedEvent;
 use Audit\Application\UseCase\Command\RecordAuditEvent\RecordAuditEventCommand;
-use Audit\Domain\Event\AuditEventsExportedEvent;
-use Compliance\Domain\Event\SafetyRegisterExportedEvent;
-use Equipment\Domain\Event\Export\{EquipmentLabelsExportedEvent, EquipmentReportExportedEvent, EquipmentsExportedEvent};
-use Facility\Domain\Event\Export\FacilitiesExportedEvent;
-use Inspection\Domain\Event\Export\{InspectionReportExportedEvent, InspectionsExportedEvent, NonConformitiesExportedEvent, NonConformitiesReportExportedEvent};
-use Intervention\Domain\Event\Export\InterventionsExportedEvent;
-use Intervention\Domain\Event\InterventionReportExportedEvent;
-use Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent;
+use Compliance\Application\Contract\Event\SafetyRegisterExportedEvent;
+use Equipment\Application\Contract\Event\Export\{EquipmentLabelsExportedEvent, EquipmentReportExportedEvent, EquipmentsExportedEvent};
+use Facility\Application\Contract\Event\Export\FacilitiesExportedEvent;
+use Inspection\Application\Contract\Event\Export\{InspectionReportExportedEvent, InspectionsExportedEvent, NonConformitiesExportedEvent, NonConformitiesReportExportedEvent};
+use Intervention\Application\Contract\Event\Export\InterventionsExportedEvent;
+use Intervention\Application\Contract\Event\InterventionReportExportedEvent;
+use Maintenance\Application\Contract\Event\Export\MaintenanceSchedulesExportedEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /** Records the export event family. */

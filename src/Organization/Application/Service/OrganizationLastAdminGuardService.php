@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Application\Service;
 
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
+use Organization\Application\Contract\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
+use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\OrganizationLastAdminException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationQuotaResource, OrganizationRoleId};
 use Shared\Application\Port\Outbound\EventDispatcherPort;

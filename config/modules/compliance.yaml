@@ -21,7 +21,7 @@ services:
   Compliance\Application\Port\Outbound\SafetyRegisterPdfRendererPort:
     alias: Compliance\Infrastructure\Pdf\DompdfSafetyRegisterRenderer
 
-  Compliance\Application\Port\Outbound\SafetyRegisterSnapshotRepositoryPort:
+  Compliance\Application\Port\Outbound\Internal\SafetyRegisterSnapshotRepositoryPort:
     alias: Compliance\Infrastructure\Persistence\Doctrine\Repository\SafetyRegisterSnapshotRepository
 
   # Cross-module outbound ports (adapters live in the owning module)
@@ -70,4 +70,7 @@ services:
     arguments:
       $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
       $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  Compliance\Application\UseCase\Command\Export\ExportSafetyRegister\ExportSafetyRegisterHandler:
     tags: ['messenger.message_handler']

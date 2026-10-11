@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Equipment\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipmentAttachmentContent\{GetEquipmentAttachmentContentQuery, GetEquipmentAttachmentContentResult};
 use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundException};
+use Equipment\Presentation\Api\Attachment\AttachmentDownloadResponder;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Psr\Log\LoggerInterface;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Storage\FileStorageException;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Infrastructure\Exception\FileStorageException;
-use Shared\Presentation\Api\Attachment\AttachmentDownloadResponder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
@@ -89,7 +89,7 @@ final class DownloadEquipmentAttachmentController extends AbstractController
   public function __invoke(Request $request): Response
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

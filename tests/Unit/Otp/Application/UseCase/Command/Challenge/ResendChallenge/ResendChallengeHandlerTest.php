@@ -6,14 +6,13 @@ namespace Tests\Unit\Otp\Application\UseCase\Command\Challenge\ResendChallenge;
 
 use DateTimeImmutable;
 use Otp\Application\Exception\{OtpNotFoundException, ResendNotAllowedException};
-use Otp\Application\Port\Outbound\Challenge\{OtpNotifierPort, OtpRepositoryPort};
+use Otp\Application\Port\Outbound\Internal\Challenge\{OtpNotifierPort, OtpRepositoryPort};
 use Otp\Application\UseCase\Command\Challenge\GenerateOtp\GenerateOtpHandler;
 use Otp\Application\UseCase\Command\Challenge\ResendChallenge\{ResendChallengeCommand, ResendChallengeHandler, ResendChallengeResult};
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
@@ -132,7 +131,7 @@ final class ResendChallengeHandlerTest extends TestCase
     $uuidGenerator->method('generate')
       ->willReturn('123e4567-e89b-12d3-a456-426614174999');
 
-    $uuidFactory = new UuidFactory($uuidGenerator);
+    $uuidFactory = $uuidGenerator;
 
     return new GenerateOtpHandler(
       otpRepository: $otpRepository,

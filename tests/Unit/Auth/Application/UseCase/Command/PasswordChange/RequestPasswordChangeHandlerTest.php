@@ -16,14 +16,16 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Email;
-use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use Tests\Helper\{IdentityBoundaryFactories, TestEventIdProvider};
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
 #[CoversClass(RequestPasswordChangeHandler::class)]
 final class RequestPasswordChangeHandlerTest extends TestCase
 {
+  use IdentityBoundaryFactories;
+
   private const string USER_ID = '00000000-0000-4000-a000-000000000001';
 
   private const string CURRENT_PASSWORD = 'CurrentP@ssw0rd!';
@@ -36,7 +38,7 @@ final class RequestPasswordChangeHandlerTest extends TestCase
     $repo->method('findById')->willReturn(null);
 
     $handler = new RequestPasswordChangeHandler(
-      userRepository: $repo,
+      userRepository: $this->credentialCapability($repo),
       otpChallenge: $this->createStub(OtpChallengePort::class),
     );
 
@@ -65,7 +67,7 @@ final class RequestPasswordChangeHandlerTest extends TestCase
     $otp->expects(self::never())->method('generate');
 
     $handler = new RequestPasswordChangeHandler(
-      userRepository: $repo,
+      userRepository: $this->credentialCapability($repo),
       otpChallenge: $otp,
     );
 
@@ -107,7 +109,7 @@ final class RequestPasswordChangeHandlerTest extends TestCase
       ));
 
     $handler = new RequestPasswordChangeHandler(
-      userRepository: $repo,
+      userRepository: $this->credentialCapability($repo),
       otpChallenge: $otp,
     );
 
@@ -145,7 +147,7 @@ final class RequestPasswordChangeHandlerTest extends TestCase
     $otp->expects(self::never())->method('generate');
 
     $handler = new RequestPasswordChangeHandler(
-      userRepository: $repo,
+      userRepository: $this->credentialCapability($repo),
       otpChallenge: $otp,
     );
 

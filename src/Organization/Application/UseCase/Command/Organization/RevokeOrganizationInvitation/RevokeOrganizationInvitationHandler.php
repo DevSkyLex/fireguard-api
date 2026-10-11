@@ -8,14 +8,14 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort};
-use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;
+use Organization\Application\Contract\Event\Invitation\OrganizationInvitationRevokedEvent;
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort};
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * UseCase RevokeOrganizationInvitationHandler.
@@ -42,7 +42,7 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
-    private UserRepositoryPort $userRepository,
+    private UserDirectoryPort $userRepository,
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
@@ -128,8 +128,8 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
       revokedByUserId: $command->revokedByUserId,
     ));
 
-    $existingUser = $this->userRepository->findByEmail($invitation->email());
-    $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
+    $existingUser = $this->userRepository->findByEmail((string) $invitation->email());
+    $recipientUserId = null !== $existingUser ? (string) $existingUser->id : null;
     $channels = [NotificationChannel::EMAIL];
 
     if (null !== $recipientUserId) {

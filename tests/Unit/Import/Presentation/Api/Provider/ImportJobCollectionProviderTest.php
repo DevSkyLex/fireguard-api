@@ -88,8 +88,8 @@ final class ImportJobCollectionProviderTest extends TestCase
         && null === $query->kind))
       ->willReturn(new ListImportJobsResult(items: [$this->view()], page: 1, itemsPerPage: 30, total: 1));
 
-    $output = $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID])
-      ->provide(new GetCollection());
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID])
+      ->provide(new GetCollection()));
 
     self::assertInstanceOf(TraversablePaginator::class, $output);
     self::assertSame(1.0, $output->getTotalItems());
@@ -114,8 +114,8 @@ final class ImportJobCollectionProviderTest extends TestCase
       ->with(self::callback(static fn (ListImportJobsQuery $query): bool => self::ORGANIZATION_ID === $query->organizationId))
       ->willReturn(new ListImportJobsResult(items: [], page: 1, itemsPerPage: 30, total: 0));
 
-    $this->createProvider($queryBus, ['organization' => '/api/organizations/' . self::ORGANIZATION_ID])
-      ->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, ['organization' => '/api/organizations/' . self::ORGANIZATION_ID])
+      ->provide(new GetCollection()));
   }
 
   #[Test]
@@ -128,8 +128,8 @@ final class ImportJobCollectionProviderTest extends TestCase
       ->with(self::callback(static fn (ListImportJobsQuery $query): bool => 'facility' === $query->kind))
       ->willReturn(new ListImportJobsResult(items: [], page: 1, itemsPerPage: 30, total: 0));
 
-    $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID, 'kind' => 'facility'])
-      ->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID, 'kind' => 'facility'])
+      ->provide(new GetCollection()));
   }
 
   #[Test]
@@ -142,8 +142,8 @@ final class ImportJobCollectionProviderTest extends TestCase
       ->with(self::callback(static fn (ListImportJobsQuery $query): bool => null === $query->kind))
       ->willReturn(new ListImportJobsResult(items: [], page: 1, itemsPerPage: 30, total: 0));
 
-    $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID, 'kind' => ''])
-      ->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID, 'kind' => ''])
+      ->provide(new GetCollection()));
   }
 
   /**
@@ -161,8 +161,8 @@ final class ImportJobCollectionProviderTest extends TestCase
         && $expectedItemsPerPage === $listQuery->itemsPerPage))
       ->willReturn(new ListImportJobsResult(items: [], page: $expectedPage, itemsPerPage: $expectedItemsPerPage, total: 0));
 
-    $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID] + $query)
-      ->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID] + $query)
+      ->provide(new GetCollection()));
   }
 
   #[Test]
@@ -184,7 +184,7 @@ final class ImportJobCollectionProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $provider->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $provider->provide(new GetCollection()));
   }
 
   #[Test]
@@ -196,7 +196,7 @@ final class ImportJobCollectionProviderTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('The organization filter is required.');
 
-    $this->createProvider($queryBus, [])->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, [])->provide(new GetCollection()));
   }
 
   #[Test]
@@ -207,7 +207,7 @@ final class ImportJobCollectionProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $this->createProvider($queryBus, ['organization' => ''])->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, ['organization' => ''])->provide(new GetCollection()));
   }
 
   /**
@@ -222,7 +222,7 @@ final class ImportJobCollectionProviderTest extends TestCase
 
     $this->expectException($expected);
 
-    $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID])->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID])->provide(new GetCollection()));
   }
 
   #[Test]
@@ -234,7 +234,7 @@ final class ImportJobCollectionProviderTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('database is down');
 
-    $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID])->provide(new GetCollection());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $this->createProvider($queryBus, ['organization' => self::ORGANIZATION_ID])->provide(new GetCollection()));
   }
 
   /**

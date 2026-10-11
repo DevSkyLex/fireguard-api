@@ -9,7 +9,8 @@ use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQ
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
 use LogicException;
 use Onboarding\Application\Contract\Setup\{OrganizationSetupConflict, OrganizationSetupOperation};
-use Onboarding\Application\Port\Outbound\{OrganizationOnboardingSessionRepositoryPort, OrganizationSetupRepositoryPort};
+use Onboarding\Application\Port\Outbound\Internal\OrganizationOnboardingSessionRepositoryPort;
+use Onboarding\Application\Port\Outbound\OrganizationSetupRepositoryPort;
 use Onboarding\Application\Service\{
   ExecuteOnboardingStepPayload,
   OrganizationOnboardingFlowService
@@ -19,20 +20,18 @@ use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboarding
 use Onboarding\Domain\Model\OrganizationOnboardingSession\{RestoredOnboardingHistory, RestoredOnboardingIdentity, RestoredOnboardingStatus, RestoredOnboardingTimestamps};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\{DeleteOrganizationRollbackAction, RollbackActionInterface};
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Application\Port\Outbound\TransactionManagerPort;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort, UuidGeneratorPort};
 
 #[CoversClass(OrganizationOnboardingFlowService::class)]
 final class OrganizationOnboardingFlowServiceTest extends TestCase
@@ -54,10 +53,10 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       ->method('save');
 
     /**
-     * @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+     * @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('generateRaw')
+      ->method('generate')
       ->willReturn($sessionId);
 
     $queryBus = $this->createStub(QueryBusPort::class);
@@ -96,8 +95,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($sessionId);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
@@ -127,8 +126,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($sessionId);
 
     // Org predates the session (pre-existing production org)
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
@@ -183,8 +182,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($sessionId);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, null);
@@ -222,8 +221,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($sessionId);
 
     // Org was created after the session started (simulates user creating the org during onboarding)
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId, new DateTimeImmutable('+1 hour'));
@@ -266,8 +265,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($sessionId);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, null);
@@ -306,8 +305,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($sessionId);
 
     // Pre-existing org with a past createdAt (predates the onboarding session)
     $orgResult = $this->buildOrganizationResult($orgId, 'Legacy Corp', $userId);
@@ -624,8 +623,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     );
 
     /**
-     * @var EventDispatcherInterface&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+     * @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())->method('dispatch');
 
     $service = $this->buildService(
@@ -758,8 +757,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     );
 
     /**
-     * @var EventDispatcherInterface&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+     * @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $service = $this->buildService(
@@ -1014,8 +1013,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $this->configureQueryBus($queryBus, $orgResult);
 
     /**
-     * @var EventDispatcherInterface&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+     * @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())->method('dispatch');
 
     $service = $this->buildService(
@@ -1346,8 +1345,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($sessionId);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, null);
@@ -1600,8 +1599,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $this->configureQueryBus($queryBus, $orgResult);
 
     /**
-     * @var EventDispatcherInterface&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+     * @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())->method('dispatch');
 
     $service = $this->buildService(
@@ -1694,8 +1693,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn($sessionId);
 
     // Two organizations were created during this onboarding session; the most
     // recently created one wins the adoption tiebreak.
@@ -1851,9 +1850,9 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     ?OrganizationOnboardingSessionRepositoryPort $sessionRepository = null,
     ?QueryBusPort $queryBus = null,
     ?CommandBusPort $commandBus = null,
-    ?UuidFactory $uuidFactory = null,
+    ?UuidGeneratorPort $uuidFactory = null,
     ?TransactionManagerPort $transactionManager = null,
-    ?EventDispatcherInterface $eventDispatcher = null,
+    ?EventDispatcherPort $eventDispatcher = null,
     ?OrganizationSetupRepositoryPort $setupRepository = null,
   ): OrganizationOnboardingFlowService {
     if (null === $transactionManager) {
@@ -1863,11 +1862,12 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
-      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
-      uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
+      organizationDirectory: new \Organization\Infrastructure\Adapter\Onboarding\OrganizationOnboardingDirectoryAdapter($queryBus ?? $this->createStub(QueryBusPort::class), $commandBus ?? $this->createStub(CommandBusPort::class)),
+      facilities: new \Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      equipment: new \Equipment\Infrastructure\Adapter\Onboarding\EquipmentAvailabilityAdapter($queryBus ?? $this->createStub(QueryBusPort::class)),
+      uuidFactory: $uuidFactory ?? $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
-      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
       setupRepository: $setupRepository,
     );
   }

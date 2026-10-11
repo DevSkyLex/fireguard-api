@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\SuggestAddresses;
 
-use Facility\Application\Port\Outbound\AddressSuggestionsPort;
+use Facility\Application\Port\Outbound\Internal\AddressSuggestionsPort;
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityAddressSuggestionsUnavailableException, FacilityNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;

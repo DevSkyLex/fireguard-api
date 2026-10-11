@@ -10,6 +10,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAtta
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * Test InterventionAttachmentRepositoryTest.
@@ -40,8 +41,21 @@ final class InterventionAttachmentRepositoryTest extends TestCase
     $entityManager->expects(self::never())->method('remove');
     $entityManager->expects(self::never())->method('flush');
 
-    new InterventionAttachmentRepository($entityManager)
+    new InterventionAttachmentRepository($entityManager, $this->createStub(\Shared\Application\Port\Outbound\RootTransactionManagerPort::class))
       ->delete(InterventionAttachmentId::fromString(self::ATTACHMENT_ID));
+  }
+
+  #[Test]
+  public function preservesCommitUncertaintyWithoutASecondPersistenceReset(): void
+  {
+    $failure = new \Shared\Application\Contract\Transaction\CommitOutcomeUnknownException(new RuntimeException('Commit lost.'));
+    $transactions = $this->createStub(\Shared\Application\Port\Outbound\RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willThrowException($failure);
+    $manager = $this->createMock(EntityManagerInterface::class);
+    $manager->method('getRepository')->willReturn($this->createStub(EntityRepository::class));
+    $manager->expects(self::never())->method('clear');
+    $this->expectExceptionObject($failure);
+    new InterventionAttachmentRepository($manager, $transactions)->withUploadLock('parent', self::ATTACHMENT_ID, static fn (): null => null);
   }
   // #endregion
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Security\Voter;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Authorization\Application\Port\Inbound\AuthorizationPort;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\{Vote, Voter};
@@ -96,7 +96,7 @@ final class RoleVoter extends Voter
   {
     $user = $token->getUser();
 
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       return false;
     }
 

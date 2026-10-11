@@ -6,11 +6,13 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\SearchO
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Contract\Search\OrganizationSearchHit;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{EquipmentSearchPort, FacilitySearchPort, InspectionSearchPort, InterventionSearchPort, NonConformitySearchPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{EquipmentSearchPort, FacilitySearchPort, InspectionSearchPort, InterventionSearchPort, NonConformitySearchPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\SearchOrganization\{SearchOrganizationHandler, SearchOrganizationQuery, SearchOrganizationResult};
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};

@@ -6,227 +6,93 @@ namespace Tests\Unit\Facility\Presentation\Api\Processor\Attachment;
 
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
-use Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment\{SetPrimaryFacilityAttachmentCommand, SetPrimaryFacilityAttachmentResult};
-use Facility\Domain\Exception\{FacilityAttachmentNotFloorPlanException, FacilityAttachmentNotFoundException};
-use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
+use Facility\Application\Contract\Attachment\FacilityAttachmentView;
+use Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment\SetPrimaryFacilityAttachmentCommand;
+use Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\{GetFacilityMediaContextQuery, GetFacilityMediaContextResult};
+use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityAttachmentNotFloorPlanException, FacilityAttachmentNotFoundException};
 use Facility\Presentation\Api\Processor\Attachment\SetPrimaryFacilityAttachmentProcessor;
-use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Message\ResultMessage;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};
+use Throwable;
 
-/**
- * Test SetPrimaryFacilityAttachmentProcessorTest.
- *
- * @category Test
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
+/** Pins authorized primary-plan mutation and its persisted output query. */
 #[CoversClass(SetPrimaryFacilityAttachmentProcessor::class)]
 final class SetPrimaryFacilityAttachmentProcessorTest extends TestCase
 {
-  private const string FACILITY_ID = '550e8400-e29b-41d4-a716-446655448001';
-
-  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655448002';
-
-  private const string ATTACHMENT_ID = '550e8400-e29b-41d4-a716-446655448003';
-
   #[Test]
-  public function testProcessPromotesTheAttachmentWhenAuthorized(): void
+  public function promotionDispatchesOnceAndReadsTheUpdatedSnapshot(): void
   {
-    $record = $this->attachmentRecord();
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::exactly(2))->method('ask')->with(self::callback(static fn (object $query): bool => $query instanceof GetFacilityMediaContextQuery && $query->write && 'user-id' === $query->userId && 'attachment-id' === $query->attachmentId))->willReturn(new GetFacilityMediaContextResult('organization-id', 'facility-id'), new GetFacilityMediaContextResult('organization-id', 'facility-id', new FacilityAttachmentView('attachment-id', 'facility-id', 'plan.png', 'image/png', 2048, null, 'now', 'floor_plan', true, 800, 600, null, null, null, 8)));
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::once())->method('dispatch')->with(self::callback(static fn (object $command): bool => $command instanceof SetPrimaryFacilityAttachmentCommand && 'organization-id' === $command->organizationId && 'facility-id' === $command->facilityId && 'attachment-id' === $command->attachmentId && 'user-id' === $command->userId))->willReturn($this->createStub(ResultMessage::class));
+    $output = new SetPrimaryFacilityAttachmentProcessor($commands, $this->security(), $queries)->process(null, new Post(), ['id' => 'attachment-id']);
+    self::assertTrue($output->isPrimaryPlan);
+    self::assertSame(8, $output->revision);
+  }
 
-    $entityManager = $this->createMock(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($record);
-    $entityManager->expects(self::once())->method('refresh')->with($record);
+  /**
+   * @param class-string<Throwable> $expected
+   */
+  #[Test]
+  #[DataProvider('commandFailures')]
+  public function commandRefusalsKeepTheirHttpStatus(Throwable $failure, string $expected): void
+  {
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->willReturn(new GetFacilityMediaContextResult('organization-id', 'facility-id'));
+    $commands = $this->createStub(CommandBusPort::class);
+    $commands->method('dispatch')->willThrowException($failure);
+    $this->expectException($expected);
+    new SetPrimaryFacilityAttachmentProcessor($commands, $this->security(), $queries)->process(null, new Post(), ['id' => 'attachment-id']);
+  }
 
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->with(self::callback(
-        static fn (object $command): bool => $command instanceof SetPrimaryFacilityAttachmentCommand
-          && self::ATTACHMENT_ID === $command->attachmentId,
-      ))
-      ->willReturn(new SetPrimaryFacilityAttachmentResult(
-        attachmentId: self::ATTACHMENT_ID,
-        facilityId: self::FACILITY_ID,
-        fileName: 'plan.png',
-        mimeType: 'image/png',
-        size: 2048,
-        label: null,
-        kind: 'floor_plan',
-        isPrimaryPlan: true,
-        imageWidth: 800,
-        imageHeight: 600,
-      ));
-
-    $processor = new SetPrimaryFacilityAttachmentProcessor(
-      $entityManager,
-      $commandBus,
-      $authorization,
-      $this->userSecurity(),
-    );
-
-    $output = $processor->process(null, new Post(), ['id' => self::ATTACHMENT_ID]);
-
-    self::assertSame(self::ATTACHMENT_ID, $output->id);
+  /**
+   * @return list<array{Throwable,class-string<Throwable>}>
+   */
+  public static function commandFailures(): array
+  {
+    return [[FacilityAttachmentNotFloorPlanException::forAttachment('attachment-id'), ConflictHttpException::class], [FacilityAttachmentNotFoundException::withId('attachment-id'), NotFoundHttpException::class]];
   }
 
   #[Test]
-  public function testProcessMapsTheDomainRefusalTo409(): void
+  public function refusedScopeNeverDispatchesTheMutation(): void
   {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($this->attachmentRecord());
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
-      FacilityAttachmentNotFloorPlanException::forAttachment(self::ATTACHMENT_ID),
-    );
-
-    $processor = new SetPrimaryFacilityAttachmentProcessor(
-      $entityManager,
-      $commandBus,
-      $authorization,
-      $this->userSecurity(),
-    );
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(null, new Post(), ['id' => self::ATTACHMENT_ID]);
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willThrowException(new FacilityAccessDeniedException('Missing permission.'));
+    $commands = $this->createMock(CommandBusPort::class);
+    $commands->expects(self::never())->method('dispatch');
+    $this->expectException(FacilityAccessDeniedException::class);
+    new SetPrimaryFacilityAttachmentProcessor($commands, $this->security(), $queries)->process(null, new Post(), ['id' => 'attachment-id']);
   }
 
   #[Test]
-  public function testProcessMapsAMissingAttachmentTo404(): void
+  public function unauthenticatedCallerNeverReachesTheQuery(): void
   {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($this->attachmentRecord());
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
-      FacilityAttachmentNotFoundException::withId(self::ATTACHMENT_ID),
-    );
-
-    $processor = new SetPrimaryFacilityAttachmentProcessor(
-      $entityManager,
-      $commandBus,
-      $authorization,
-      $this->userSecurity(),
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(null, new Post(), ['id' => self::ATTACHMENT_ID]);
-  }
-
-  #[Test]
-  public function testProcessRejectsWhenMissingPermission(): void
-  {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($this->attachmentRecord());
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $processor = new SetPrimaryFacilityAttachmentProcessor(
-      $entityManager,
-      $commandBus,
-      $authorization,
-      $this->userSecurity(),
-    );
-
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::never())->method('ask');
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
     $this->expectException(AccessDeniedHttpException::class);
-
-    $processor->process(null, new Post(), ['id' => self::ATTACHMENT_ID]);
+    new SetPrimaryFacilityAttachmentProcessor($this->createStub(CommandBusPort::class), $security, $queries)->process(null, new Post(), ['id' => 'attachment-id']);
   }
 
   #[Test]
-  public function testProcessReportsACallerOutsideTheOrganizationAsAttachmentNotFound(): void
+  public function missingIdentifierNeverReachesTheApplication(): void
   {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($this->attachmentRecord());
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $processor = new SetPrimaryFacilityAttachmentProcessor(
-      $entityManager,
-      $commandBus,
-      $authorization,
-      $this->userSecurity(),
-    );
-
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::never())->method('ask');
     $this->expectException(NotFoundHttpException::class);
-    $this->expectExceptionMessage('Attachment not found.');
-
-    $processor->process(null, new Post(), ['id' => self::ATTACHMENT_ID]);
+    new SetPrimaryFacilityAttachmentProcessor($this->createStub(CommandBusPort::class), $this->security(), $queries)->process(null, new Post());
   }
 
-  #[Test]
-  public function testProcessThrowsWhenTheAttachmentRecordIsMissing(): void
-  {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn(null);
-
-    $processor = new SetPrimaryFacilityAttachmentProcessor(
-      $entityManager,
-      $this->createStub(CommandBusPort::class),
-      $this->createStub(OrganizationAuthorizationPort::class),
-      $this->userSecurity(),
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(null, new Post(), ['id' => self::ATTACHMENT_ID]);
-  }
-
-  private function attachmentRecord(): FacilityAttachmentRecord
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $facility = new FacilityRecord();
-    $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
-
-    $record = new FacilityAttachmentRecord();
-    $record->id = self::ATTACHMENT_ID;
-    $record->facility = $facility;
-    $record->kind = 'floor_plan';
-    $record->mimeType = 'image/png';
-    $record->fileName = 'plan.png';
-    $record->storagePath = 'facility/' . self::FACILITY_ID . '/attachments/' . self::ATTACHMENT_ID . '_plan.png';
-    $record->size = 2048;
-    $record->uploadedAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
-
-    return $record;
-  }
-
-  private function userSecurity(): Security
+  private function security(): Security
   {
     $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
+    $security->method('getUser')->willReturn(new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true));
 
     return $security;
   }

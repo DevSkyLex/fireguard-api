@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacilityChildren;
 
-use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\FacilityEquipmentDependencyPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\GetFacilityChildren\{GetFacilityChildrenHandler, GetFacilityChildrenQuery};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\{Facility, FacilityDetails};

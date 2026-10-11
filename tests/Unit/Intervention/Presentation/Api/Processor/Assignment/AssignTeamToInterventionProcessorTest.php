@@ -8,15 +8,14 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\UseCase\Command\Assignment\AssignTeamToIntervention\{AssignTeamToInterventionCommand, AssignTeamToInterventionResult};
 use Intervention\Domain\Exception\InterventionValidationException;
-use Intervention\Domain\Service\InterventionTransitionPolicy;
 use Intervention\Presentation\Api\Dto\Input\AssignInterventionTeamInput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
+use Intervention\Presentation\Api\Http\RevisionGuard;
 use Intervention\Presentation\Api\Processor\Assignment\AssignTeamToInterventionProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, PreconditionRequiredHttpException, UnprocessableEntityHttpException};
@@ -51,7 +50,7 @@ final class AssignTeamToInterventionProcessorTest extends TestCase
 
     $processor = new AssignTeamToInterventionProcessor(
       $commandBus,
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $this->revisionGuard('"revision-3"'),
     );
@@ -72,7 +71,7 @@ final class AssignTeamToInterventionProcessorTest extends TestCase
 
     $processor = new AssignTeamToInterventionProcessor(
       $this->createStub(CommandBusPort::class),
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $this->revisionGuard('"revision-3"'),
     );
@@ -90,7 +89,7 @@ final class AssignTeamToInterventionProcessorTest extends TestCase
 
     $processor = new AssignTeamToInterventionProcessor(
       $this->createStub(CommandBusPort::class),
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $this->revisionGuard('"revision-3"'),
     );
@@ -111,7 +110,7 @@ final class AssignTeamToInterventionProcessorTest extends TestCase
 
     $processor = new AssignTeamToInterventionProcessor(
       $this->createStub(CommandBusPort::class),
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $this->revisionGuard('"revision-3"'),
     );
@@ -135,7 +134,7 @@ final class AssignTeamToInterventionProcessorTest extends TestCase
 
     $processor = new AssignTeamToInterventionProcessor(
       $commandBus,
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $this->revisionGuard('"revision-3"'),
     );
@@ -160,7 +159,7 @@ final class AssignTeamToInterventionProcessorTest extends TestCase
 
     $processor = new AssignTeamToInterventionProcessor(
       $commandBus,
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $this->revisionGuard(null),
     );

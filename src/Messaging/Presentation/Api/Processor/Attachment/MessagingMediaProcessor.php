@@ -6,17 +6,14 @@ namespace Messaging\Presentation\Api\Processor\Attachment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment\{AddMessageAttachmentCommand, AddMessageAttachmentResult};
 use Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment\DeleteMessageAttachmentCommand;
-use Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingAttachmentRecord;
+use Messaging\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Messaging\Presentation\Api\Dto\Output\MessageAttachmentOutput;
-use Messaging\Presentation\Api\Provider\Attachment\MessagingMediaProvider;
+use Messaging\Presentation\Api\Factory\MessageAttachmentOutputFactory;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
-use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -53,22 +50,20 @@ final readonly class MessagingMediaProcessor implements ProcessorInterface
    *
    * @access public
    *
-   * @param EntityManagerInterface $entityManager entity manager used to reload persisted attachment output and revisions
+   * @param MessageAttachmentOutputFactory $mapper maps committed attachment metadata
    * @param CommandBusPort $commandBus bus used to dispatch attachment commands
    * @param Security $security security context used to identify the authenticated user
    * @param RequestStack $requestStack current request used to read multipart data and HTTP method
    * @param MultipartAttachmentGuard $attachmentGuard guard that validates multipart attachment uploads
-   * @param RevisionGuard $revisionGuard guard that checks the attachment revision precondition
    *
    * @return void
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
+    private MessageAttachmentOutputFactory $mapper,
     private CommandBusPort $commandBus,
     private Security $security,
     private RequestStack $requestStack,
     private MultipartAttachmentGuard $attachmentGuard,
-    private RevisionGuard $revisionGuard,
   ) {
   }
   // #endregion
@@ -123,7 +118,7 @@ final readonly class MessagingMediaProcessor implements ProcessorInterface
       throw $this->mapMessagingException($exception);
     }
 
-    return $this->outputFor($result->attachmentId);
+    return $this->mapper->fromUploadResult($result);
   }
 
   /**
@@ -140,40 +135,19 @@ final readonly class MessagingMediaProcessor implements ProcessorInterface
       throw new NotFoundHttpException('Attachment not found.');
     }
 
-    $record = $this->entityManager->find(MessagingAttachmentRecord::class, $id);
-    if (!$record instanceof MessagingAttachmentRecord) {
-      throw new NotFoundHttpException('Attachment not found.');
-    }
-
-    $this->revisionGuard->assertMatches($record->revision);
-
     $user = $this->user();
 
     try {
       $this->commandBus->dispatch(new DeleteMessageAttachmentCommand(
         userId: $user->getId(),
         attachmentId: $id,
+        ifMatch: $this->currentRequest()->headers->get('If-Match'),
       ));
     } catch (Throwable $exception) {
       throw $this->mapMessagingException($exception);
     }
 
     return null;
-  }
-
-  /**
-   * Method outputFor.
-   *
-   * @since 1.0.0
-   */
-  private function outputFor(string $attachmentId): MessageAttachmentOutput
-  {
-    $record = $this->entityManager->find(MessagingAttachmentRecord::class, $attachmentId);
-    if (!$record instanceof MessagingAttachmentRecord) {
-      throw new NotFoundHttpException('Uploaded attachment not found.');
-    }
-
-    return MessagingMediaProvider::output($record);
   }
 
   /**
@@ -196,10 +170,10 @@ final readonly class MessagingMediaProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

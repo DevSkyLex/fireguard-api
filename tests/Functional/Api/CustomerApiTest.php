@@ -276,7 +276,7 @@ final class CustomerApiTest extends WebTestCase
     $site = $this->seedSite(self::CUSTOMER);
     $building = new FacilityRecord();
     $building->id = '550e8400-e29b-41d4-a716-448040000021';
-    $building->organization = $site->organization;
+    $building->organizationId = $site->organizationId;
     $building->parentFacility = $site;
     $building->type = 'building';
     $building->name = 'Selected Building';
@@ -368,7 +368,7 @@ final class CustomerApiTest extends WebTestCase
     $now = new DateTimeImmutable();
     $site = new FacilityRecord();
     $site->id = self::SITE;
-    $site->organization = $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $site->organizationId = self::ORG;
     $site->customerId = $customerId;
     $site->type = 'site';
     $site->name = 'Customer Site';

@@ -7,7 +7,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort;
 use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;

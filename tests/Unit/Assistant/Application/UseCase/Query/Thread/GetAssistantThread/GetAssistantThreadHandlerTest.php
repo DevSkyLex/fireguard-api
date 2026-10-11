@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Application\UseCase\Query\Thread\GetAssistantThread;
 
-use Assistant\Application\Port\Outbound\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Port\Outbound\Internal\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Application\UseCase\Query\Thread\GetAssistantThread\{GetAssistantThreadHandler, GetAssistantThreadQuery};

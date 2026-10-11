@@ -10,9 +10,9 @@ use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionResourceAssignment};
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
-use Intervention\Domain\ValueObject\InterventionResourceType;
+use Intervention\Application\Contract\Resource\InterventionResourceType;
 use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{AllowMockObjectsWithoutExpectations, CoversClass, Test};
@@ -599,10 +599,11 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
     int $revision = 1,
   ): void {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
 
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->interventionId = $interventionId;
     $equipment->clientId = $clientId;
     $equipment->recordStatus = $recordStatus;

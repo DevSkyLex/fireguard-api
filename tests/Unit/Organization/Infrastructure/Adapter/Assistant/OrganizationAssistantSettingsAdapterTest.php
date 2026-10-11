@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Infrastructure\Adapter\Assistant;
 
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\ValueObject\{OrganizationAssistantSettings, OrganizationId, OrganizationName, OrganizationSettings, OrganizationSlug};
 use Organization\Infrastructure\Adapter\Assistant\OrganizationAssistantSettingsAdapter;

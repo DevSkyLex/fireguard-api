@@ -8,7 +8,8 @@ use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, Prov
 use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome as FacilityProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
-use Import\Application\Port\Outbound\{CsvRowStreamerPort, ImportExecutionPort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\CsvRowStreamerPort;
+use Import\Application\Port\Outbound\Internal\{ImportExecutionPort, ImportJobRepositoryPort};
 use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory, MemberRowFactory};
 use Import\Application\Service\ImportPermissions;
 use Import\Application\Support\DryRunProjection;
@@ -20,10 +21,9 @@ use InvalidArgumentException;
 use LogicException;
 use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionOutcome as MemberProvisionOutcome};
 use Organization\Application\Port\Inbound\{MemberInvitationProvisioningPort, OrganizationAuthorizationPort};
-use Psr\Log\LoggerInterface;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, FileStoragePort};
+use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 use Throwable;
 
 /**
@@ -76,7 +76,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
    * @param MemberInvitationProvisioningPort $memberInvitationProvisioning the cross-module member invitation provisioning port
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    * @param ClockPort $clock the clock port
-   * @param LoggerInterface $logger the logger
+   * @param LoggerPort $logger the logger
    */
   public function __construct(
     private ImportExecutionPort $execution,
@@ -90,8 +90,8 @@ final readonly class ProcessImportJobHandler implements CommandHandler
     private MemberInvitationProvisioningPort $memberInvitationProvisioning,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
-    private LoggerInterface $logger,
-    private UuidFactory $ids,
+    private LoggerPort $logger,
+    private UuidGeneratorPort $ids,
     private ImportJobRepositoryPort $repository,
     private OrganizationAuthorizationPort $authorization,
   ) {
@@ -136,7 +136,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       return;
     }
 
-    $owner = $this->ids->generateRaw();
+    $owner = $this->ids->generate();
     $job = $this->execution->claim($id, $owner);
     if (null === $job) {
       return;

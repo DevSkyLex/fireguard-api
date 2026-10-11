@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Adapter\Organization;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Inspection\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistRecord, InspectionRecord};
 use Organization\Application\Contract\Search\OrganizationSearchHit;
 use Organization\Application\Port\Outbound\InspectionSearchPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function max;
 
@@ -48,14 +47,14 @@ final readonly class InspectionSearchAdapter implements InspectionSearchPort
    */
   public function search(string $organizationId, string $term, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('inspection', 'checklist.referenceCode AS checklistReferenceCode')
       ->from(InspectionRecord::class, 'inspection')
       ->leftJoin(ChecklistRecord::class, 'checklist', 'WITH', 'checklist.id = inspection.checklistId')
-      ->where('inspection.organization = :organization')
+      ->where('inspection.organizationId = :organization')
       ->andWhere('inspection.recordStatus = :publishedRecordStatus')
       ->andWhere("(LOWER(checklist.referenceCode) LIKE :searchTerm ESCAPE '\\' OR LOWER(inspection.id) LIKE :searchTerm ESCAPE '\\')")
       ->setParameter('organization', $organization)

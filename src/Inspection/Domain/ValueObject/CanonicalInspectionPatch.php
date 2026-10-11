@@ -15,7 +15,7 @@ namespace Inspection\Domain\ValueObject;
  * here. An absent `notes` leaves the stored note alone; `"notes": null` erases
  * it. An absent `status` is a no-op; `"status": null` is a rejection.
  *
- * The flags come from the raw request body — `Shared\Presentation\Api\Http\MergePatchFields`
+ * The flags come from the raw request body — `Inspection\Presentation\Api\Http\MergePatchFields`
  * reads which keys were present — because a deserialized DTO cannot carry that
  * distinction: both cases arrive as a null property.
  *

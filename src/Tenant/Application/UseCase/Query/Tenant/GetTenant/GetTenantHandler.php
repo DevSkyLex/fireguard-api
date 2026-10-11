@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tenant\Application\UseCase\Query\Tenant\GetTenant;
 
 use Shared\Application\Message\QueryHandler;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Domain\Exception\TenantNotFoundException;
 use Tenant\Domain\ValueObject\TenantId;
 

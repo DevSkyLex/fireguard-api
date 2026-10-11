@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function base64_decode;
 use function file_put_contents;
@@ -29,8 +31,11 @@ use function tempnam;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class FacilityAttachmentApiTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655490001';
@@ -431,7 +436,7 @@ final class FacilityAttachmentApiTest extends WebTestCase
       'attachment',
       $disposition,
       'A facility attachment (including a floor_plan SVG) must NEVER be served with an inline '
-        . 'Content-Disposition — see AttachmentDownloadResponder and src/Facility/MODULE.md.',
+        . 'Content-Disposition â€” see AttachmentDownloadResponder and src/Facility/MODULE.md.',
     );
 
     self::assertSame(
@@ -489,7 +494,7 @@ final class FacilityAttachmentApiTest extends WebTestCase
    * An SVG floor plan carrying an embedded `<script>` tag must still be
    * ACCEPTED (201) with its pixel dimensions probed. Content-sanitization
    * (stripping the script) is deliberately OUT OF SCOPE here: the security
-   * boundary is enforced entirely on the read side — every download goes
+   * boundary is enforced entirely on the read side â€” every download goes
    * through the shared {@see \Shared\Presentation\Api\Attachment\AttachmentDownloadResponder},
    * which forces `Content-Disposition: attachment` (never `inline`) and
    * `X-Content-Type-Options: nosniff`, so a browser downloads the file
@@ -536,13 +541,13 @@ final class FacilityAttachmentApiTest extends WebTestCase
   // The AttachmentConstraints::MAX_SIZE_BYTES (10 MiB) boundary is NOT
   // exercised here as a real multipart upload: this test environment's
   // php.ini caps `upload_max_filesize` at 2M, well under the 10 MiB
-  // attachment policy — `HttpKernelBrowser::filterFiles()` rejects any
+  // attachment policy â€” `HttpKernelBrowser::filterFiles()` rejects any
   // larger file with `UPLOAD_ERR_INI_SIZE` (a 400) before
   // `MultipartAttachmentGuard` is ever reached, so the 422 this test would
   // assert is unreachable through the HTTP layer in this environment. The
-  // boundary is covered instead as a unit test —
+  // boundary is covered instead as a unit test â€”
   // `FacilityMediaProcessorTest::testUploadRejectsAFloorPlanJustOverTheMaxSizeBeforeProbing`
-  // — which constructs an `UploadedFile` whose `getSize()` is overridden to
+  // â€” which constructs an `UploadedFile` whose `getSize()` is overridden to
   // `AttachmentConstraints::MAX_SIZE_BYTES + 1`, bypassing the php.ini
   // ceiling entirely, and asserts the command bus is never dispatched (i.e.
   // rejection happens before any dimension probing or persistence).
@@ -670,7 +675,7 @@ final class FacilityAttachmentApiTest extends WebTestCase
     $facility->planGeometry = ['attachmentId' => $attachmentId, 'points' => [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]];
     $equipment = new EquipmentRecord();
     $equipment->id = '550e8400-e29b-41d4-a716-446655490099';
-    $equipment->organization = $facility->organization;
+    $equipment->organizationId = $facility->organizationId;
     $equipment->facilityId = self::FACILITY_ID;
     $equipment->type = 'fire_extinguisher';
     $equipment->serialNumber = 'CLEANUP-PLAN-1';
@@ -773,7 +778,7 @@ final class FacilityAttachmentApiTest extends WebTestCase
    * Seeds (idempotently) an organization with an admin member (permissions
    * `['*']`) and a plain member (`organization.read` only, no
    * `organization.facilities.write`), plus a second, unrelated organization
-   * with its own member — the "outside scope" caller.
+   * with its own member â€” the "outside scope" caller.
    */
   private function seedOrganization(): void
   {
@@ -913,7 +918,7 @@ final class FacilityAttachmentApiTest extends WebTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->type = 'site';
     $facility->name = 'Facility Attachment Test Site';
     $facility->status = 'active';

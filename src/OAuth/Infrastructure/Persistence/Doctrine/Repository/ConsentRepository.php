@@ -6,7 +6,7 @@ namespace OAuth\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Consent\ConsentRepositoryPort;
 use OAuth\Domain\Model\Consent\Consent;
 use OAuth\Domain\ValueObject\Consent\ConsentId;
 use OAuth\Infrastructure\Persistence\Doctrine\Mapper\ConsentMapper;

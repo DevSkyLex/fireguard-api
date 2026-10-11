@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Join\ReadOrganizationJoin;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationJoinAccessPort;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Inbound\Internal\OrganizationJoinAccessPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Join\ReadOrganizationJoin\{ReadOrganizationJoinHandler, ReadOrganizationJoinQuery};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationJoin\{OrganizationAccessPolicy, OrganizationDomain};

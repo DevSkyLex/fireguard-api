@@ -8,7 +8,7 @@ use Assistant\Domain\Exception\{AssistantMessageIllegalStatusTransitionException
 use Assistant\Domain\ValueObject\AssistantMessageStatus;
 use Assistant\Presentation\Api\Trait\AssistantExceptionMapperTrait;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversTrait, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

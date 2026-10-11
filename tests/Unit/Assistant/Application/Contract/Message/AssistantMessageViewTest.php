@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Assistant\Application\Contract\Message;
 
 use Assistant\Application\Contract\Message\AssistantMessageView;
+use Assistant\Application\Service\AssistantMessageViewMapper;
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
 use DateTimeImmutable;
@@ -70,7 +71,7 @@ final class AssistantMessageViewTest extends TestCase
       now: $now,
     );
 
-    $view = AssistantMessageView::fromDomain($message);
+    $view = AssistantMessageViewMapper::fromDomain($message);
 
     self::assertSame(self::MESSAGE_ID, $view->id);
     self::assertSame(self::THREAD_ID, $view->threadId);

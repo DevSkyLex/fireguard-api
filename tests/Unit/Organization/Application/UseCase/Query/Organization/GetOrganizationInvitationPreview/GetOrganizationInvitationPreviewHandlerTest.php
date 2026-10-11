@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\{GetOrganizationInvitationPreviewHandler, GetOrganizationInvitationPreviewQuery, GetOrganizationInvitationPreviewResult};
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
@@ -19,7 +19,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 #[CoversClass(GetOrganizationInvitationPreviewHandler::class)]
 final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
@@ -69,11 +69,11 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($inviterUserId, 'inviter@example.com'));
+      ->willReturn(UserTestFactory::createActiveView($inviterUserId, 'inviter@example.com'));
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
@@ -139,7 +139,7 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn(null);
 
-    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository = $this->createStub(UserDirectoryPort::class);
     $userRepository->method('findById')->willReturn(null);
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
@@ -211,7 +211,7 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn(null);
 
-    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository = $this->createStub(UserDirectoryPort::class);
     $userRepository->method('findById')->willReturn(null);
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
@@ -242,8 +242,8 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::never())->method('findById');
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::never())->method('findById');
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
@@ -274,8 +274,8 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::never())->method('findById');
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::never())->method('findById');
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
@@ -328,8 +328,8 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::once())->method('findById')->willReturn(null);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())->method('findById')->willReturn(null);
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */

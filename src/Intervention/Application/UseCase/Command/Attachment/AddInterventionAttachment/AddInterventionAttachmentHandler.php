@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment;
 
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
-use Intervention\Application\Service\InterventionResourceManager;
+use Intervention\Application\Port\Outbound\Internal\InterventionAttachmentRepositoryPort;
+use Intervention\Application\Service\{AttachmentUploadAttempt, InterventionResourceManager};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile, InterventionAttachmentOptions};
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, LoggerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\{AttachmentCategory, AttachmentConstraints, StoragePathScheme};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
-use function array_unique;
 use function in_array;
 use function sprintf;
 
@@ -85,7 +85,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
    * @param OrganizationAuthorizationPort $authorization checks membership and permission grants
    * @param InterventionAttachmentRepositoryPort $attachmentRepository reads and persists attachments
    * @param FileStoragePort $fileStorage writes and removes attachment files
-   * @param UuidFactory $uuidFactory creates attachment identifiers when none is supplied
+   * @param UuidGeneratorPort $uuidFactory creates attachment identifiers when none is supplied
    *
    * @return void
    */
@@ -94,7 +94,10 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
     private OrganizationAuthorizationPort $authorization,
     private InterventionAttachmentRepositoryPort $attachmentRepository,
     private FileStoragePort $fileStorage,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
+    private FileCleanupPort $fileCleanup,
+    private LoggerPort $logger,
+    private ?\Intervention\Application\Port\Outbound\InterventionMediaLookupPort $media = null,
   ) {
   }
   // #endregion
@@ -117,7 +120,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
     try {
       /** @var InterventionAttachmentId $attachmentId */
       $attachmentId = null === $command->attachmentId
-        ? $this->uuidFactory->create(InterventionAttachmentId::class)
+        ? new InterventionAttachmentId($this->uuidFactory->generate())
         : InterventionAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
@@ -126,22 +129,41 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
     $storagePath = StoragePathScheme::build(
       module: 'intervention',
       parentId: $command->interventionId,
-      attachmentId: (string) $attachmentId . '_' . $this->uuidFactory->generateRaw(),
+      attachmentId: (string) $attachmentId . '_' . $this->uuidFactory->generate(),
       fileName: $command->fileName,
     );
 
-    $obsoletePaths = [];
+    $attempt = new AttachmentUploadAttempt();
 
     try {
       $result = $this->attachmentRepository->withUploadLock(
         $command->interventionId,
         (string) $attachmentId,
-        function () use ($command, $attachmentId, $storagePath, &$obsoletePaths): AddInterventionAttachmentResult {
+        function () use ($command, $attachmentId, $storagePath, $attempt): AddInterventionAttachmentResult {
           // The resource gateway takes a row lock, so its reads and all permission
           // checks must run inside the upload transaction rather than before it.
           $context = $this->interventionResourceManager->interventionContext($command->interventionId);
           if (null === $context) {
             throw InterventionNotFoundException::withId($command->interventionId);
+          }
+          $existing = $this->attachmentRepository->findById($attachmentId);
+          if (null !== $existing) {
+            $existingContext = $this->interventionResourceManager->interventionContext($existing->interventionId());
+            if (null === $existingContext || !$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
+              throw new InterventionNotFoundException('Attachment not found.');
+            }
+            $decision = $this->authorization->resolveAccess($command->userId, $existingContext->organizationId, 'organization.interventions.read');
+            if ($decision->isOutsideScope()) {
+              throw new InterventionNotFoundException('Attachment not found.');
+            }
+            if (!$decision->isGranted()) {
+              throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
+            }
+            if ($existing->interventionId() !== $command->interventionId) {
+              throw new InterventionConflictException('Attachment client UUID is already assigned to another intervention.');
+            }
+
+            return $this->result($existing);
           }
           $this->authorizeAttachment($command, $context);
           $kind = InterventionAttachmentKind::tryFrom($command->kind);
@@ -150,16 +172,23 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
           }
           self::assertSignatureAllowed($command, $context, $kind);
 
-          return $this->upload($command, $attachmentId, $kind, $storagePath, $obsoletePaths);
+          return $this->upload($command, $attachmentId, $kind, $storagePath, $attempt);
         },
       );
     } catch (Throwable $exception) {
-      $this->fileStorage->delete($storagePath);
+      if ($attempt->written && !$exception instanceof CommitOutcomeUnknownException) {
+        try {
+          $this->fileStorage->delete($storagePath);
+        } catch (Throwable $cleanupFailure) {
+          try {
+            $this->logger->warning('Unable to compensate a rolled-back intervention upload.', ['storagePath' => $storagePath, 'error' => $cleanupFailure->getMessage()]);
+          } catch (Throwable) {
+            // Diagnostics must preserve the original persistence failure.
+          }
+        }
+      }
 
       throw $exception;
-    }
-    foreach (array_unique($obsoletePaths) as $obsoletePath) {
-      $this->fileStorage->delete($obsoletePath);
     }
 
     return $result;
@@ -176,11 +205,11 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
    * @param InterventionAttachmentId $attachmentId serialized attachment identity
    * @param InterventionAttachmentKind $kind validated attachment kind
    * @param string $storagePath unique blob key owned by this attempt
-   * @param list<string> $obsoletePaths blob keys to delete after commit
+   * @param AttachmentUploadAttempt $attempt the bytes owned by this attempt
    *
    * @return AddInterventionAttachmentResult the committed upload summary
    */
-  private function upload(AddInterventionAttachmentCommand $command, InterventionAttachmentId $attachmentId, InterventionAttachmentKind $kind, string $storagePath, array &$obsoletePaths): AddInterventionAttachmentResult
+  private function upload(AddInterventionAttachmentCommand $command, InterventionAttachmentId $attachmentId, InterventionAttachmentKind $kind, string $storagePath, AttachmentUploadAttempt $attempt): AddInterventionAttachmentResult
   {
     $existing = $this->attachmentRepository->findById($attachmentId);
     if (null !== $existing && $existing->interventionId() !== $command->interventionId) {
@@ -214,6 +243,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       new InterventionAttachmentOptions(label: $command->label, workItemId: $command->workItemId, kind: $kind),
     );
 
+    $attempt->written = true;
     $this->fileStorage->write($storagePath, $command->contents);
 
     if (InterventionAttachmentKind::SIGNATURE === $kind) {
@@ -224,8 +254,10 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
 
     // Collect obsolete blobs here; the caller removes them only after commit.
     if (null !== $previousSignature && (string) $previousSignature->id() !== (string) $attachment->id()) {
-      $obsoletePaths[] = $previousSignature->storagePath();
+      $this->fileCleanup->request($previousSignature->storagePath());
     }
+
+    $this->interventionResourceManager->touchDraftIntervention($command->interventionId);
 
     return $this->result($attachment);
   }
@@ -253,6 +285,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       uploadedAt: $attachment->uploadedAt(),
       workItemId: $attachment->workItemId(),
       kind: $attachment->kind()->value,
+      revision: $this->media?->attachment((string) $attachment->id())->revision ?? 1,
     );
   }
 

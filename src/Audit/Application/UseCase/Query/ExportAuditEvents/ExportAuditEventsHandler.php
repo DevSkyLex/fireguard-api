@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Audit\Application\UseCase\Query\ExportAuditEvents;
 
+use Audit\Application\Contract\{AuditEventSearchCriteria, AuditExportAccessDeniedException};
 use Audit\Application\Contract\AuditExportTooLargeException;
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Contract\Event\AuditEventsExportedEvent;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
+use Authorization\Application\Port\Inbound\AuthorizationPort;
 use Shared\Application\Message\QueryHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * Handler ExportAuditEventsHandler.
@@ -54,9 +58,13 @@ final readonly class ExportAuditEventsHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param AuditEventRepositoryPort $repository the audit repository
+   * @param AuthorizationPort $authorization checks the caller's current export permission
+   * @param EventDispatcherPort $eventDispatcher records the approved export through its published event
    */
   public function __construct(
     private AuditEventRepositoryPort $repository,
+    private AuthorizationPort $authorization,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -74,15 +82,62 @@ final readonly class ExportAuditEventsHandler implements QueryHandler
    */
   public function __invoke(ExportAuditEventsQuery $query): ExportAuditEventsResult
   {
+    if ('' === $query->actorUserId || !$this->authorization->hasPermission($query->actorUserId, 'audit.export')) {
+      throw new AuditExportAccessDeniedException();
+    }
     $total = $this->repository->countMatching($query->criteria);
 
     if ($total > self::MAX_EXPORT_ROWS) {
       throw AuditExportTooLargeException::exceedsCap(matched: $total, maxRows: self::MAX_EXPORT_ROWS);
     }
 
-    return new ExportAuditEventsResult(
+    $result = new ExportAuditEventsResult(
       rows: $this->repository->stream($query->criteria),
       total: $total,
     );
+    $this->eventDispatcher->dispatch(new AuditEventsExportedEvent(
+      actorUserId: $query->actorUserId,
+      tenantId: $query->criteria->tenantId,
+      format: 'csv',
+      rowCount: $total,
+      filterKeys: $this->appliedFilterKeys($query->criteria),
+    ));
+
+    return $result;
+  }
+
+  /**
+   * Method appliedFilterKeys
+   *
+   * Keeps free-form filter values out of the export's own audit metadata.
+   *
+   * @access private
+   *
+   * @param AuditEventSearchCriteria $criteria the filters applied to the ledger read
+   *
+   * @return list<string> applied public export filter names
+   */
+  private function appliedFilterKeys(AuditEventSearchCriteria $criteria): array
+  {
+    $candidates = [
+      'action' => $criteria->action,
+      'actorType' => $criteria->actorType,
+      'actorId' => $criteria->actorId,
+      'subjectType' => $criteria->subjectType,
+      'subjectId' => $criteria->subjectId,
+      'clientId' => $criteria->clientId,
+      'tenantId' => $criteria->tenantId,
+      'ipHash' => $criteria->ipHash,
+      'from' => $criteria->from,
+      'to' => $criteria->to,
+    ];
+    $applied = [];
+    foreach ($candidates as $key => $value) {
+      if (null !== $value) {
+        $applied[] = $key;
+      }
+    }
+
+    return $applied;
   }
 }

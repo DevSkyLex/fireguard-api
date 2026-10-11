@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\Service;
 
 use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, InterventionResourceAssignment};
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Domain\Exception\{
   ClientResourceAlreadyExistsException,
   InterventionConflictException,
@@ -96,12 +96,14 @@ final readonly class InterventionResourceManager
    * @param InterventionResourceType $type the type value
    * @param ?string $clientId the client id value
    */
-  public function assertOfflineCreate(InterventionResourceType $type, ?string $clientId): void
+  public function assertOfflineCreate(InterventionResourceType $type, ?string $clientId, bool $forUpdate = true): void
   {
     if (null === $clientId || '' === $clientId) {
       return;
     }
-    $this->resources->lockClientIdentity($type, $clientId);
+    if ($forUpdate) {
+      $this->resources->lockClientIdentity($type, $clientId);
+    }
     if ($this->resources->clientIdExists($type, $clientId) || $this->resources->resourceExists($type, $clientId)) {
       throw new ClientResourceAlreadyExistsException('A resource with this client identifier already exists.');
     }
@@ -184,8 +186,10 @@ final readonly class InterventionResourceManager
     string $interventionId,
     ?string $userId = null,
     ?string $expectedOrganizationId = null,
+    bool $forUpdate = true,
   ): string {
-    $context = $this->resources->interventionMutationContext($interventionId);
+    $context = $forUpdate ? $this->resources->interventionMutationContext($interventionId)
+      : $this->resources->interventionAssignmentContext($interventionId);
     if (null === $context) {
       throw InterventionNotFoundException::withId($interventionId);
     }

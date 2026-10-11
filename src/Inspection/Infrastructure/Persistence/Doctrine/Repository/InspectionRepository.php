@@ -12,15 +12,14 @@ use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
 use Inspection\Application\Contract\Export\InspectionExportCandidate;
 use Inspection\Application\Contract\Inspection\{InspectionListCriteria, InspectionScope};
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
+use Inspection\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Inspection\Infrastructure\Exception\{InvalidStorageTimeZoneException, StoredDateTimeReinterpretationException};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
@@ -44,7 +43,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    *
    * @access private
    */
-  private const string ORGANIZATION_PREDICATE = 'i.organization = :organization';
+  private const string ORGANIZATION_PREDICATE = 'i.organizationId = :organizationId';
 
   /**
    * Constant STATUS_PREDICATE.
@@ -112,13 +111,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   public function save(Inspection $inspection): void
   {
     $record = $this->normalizeRecordDateTimesToStorage(InspectionMapper::toRecord($inspection));
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $inspection->organizationId());
-    $record->organization = $organization;
+    /** @var string $organization */
+    $organization = (string) $inspection->organizationId();
+    $record->organizationId = $organization;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof InspectionRecord) {
-      $existing->organization = $organization;
+      $existing->organizationId = $organization;
       $existing->equipmentId = $record->equipmentId;
       $existing->facilityId = $record->facilityId;
       $existing->inspectorType = $record->inspectorType;
@@ -200,7 +199,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   {
     /** @var array{organizationId: string, interventionId: string|null}|null $row */
     $row = $this->entityManager->createQueryBuilder()
-      ->select('IDENTITY(i.organization) AS organizationId', 'i.interventionId AS interventionId')
+      ->select('i.organizationId AS organizationId', 'i.interventionId AS interventionId')
       ->from(InspectionRecord::class, 'i')
       ->where('i.id = :id')
       ->setParameter('id', (string) $id)
@@ -249,8 +248,8 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   {
     /** @var list<array{equipmentId: string}> $rows */
     $rows = $this->entityManager->createQueryBuilder()->select('DISTINCT i.equipmentId AS equipmentId')
-      ->from(InspectionRecord::class, 'i')->where('IDENTITY(i.organization) = :organization')
-      ->andWhere('i.recordStatus = :published')->setParameter('organization', $organizationId)
+      ->from(InspectionRecord::class, 'i')->where('i.organizationId = :organizationId')
+      ->andWhere('i.recordStatus = :published')->setParameter('organizationId', $organizationId)
       ->setParameter('published', 'published')->getQuery()->getArrayResult();
 
     return array_map(static fn (array $row): string => $row['equipmentId'], $rows);
@@ -451,8 +450,8 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ?string $result = null,
     ?string $inspectorType = null,
   ): array {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    /** @var string $organization */
+    $organization = (string) $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select(
@@ -466,7 +465,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       )
       ->from(InspectionRecord::class, 'i')
       ->where(self::ORGANIZATION_PREDICATE)
-      ->setParameter('organization', $organization)
+      ->setParameter('organizationId', $organization)
       ->setParameter('draftStatus', 'draft')
       ->setParameter('submittedStatus', 'submitted')
       ->setParameter('closedStatus', 'closed')
@@ -693,8 +692,8 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ?string $result = null,
     ?string $inspectorType = null,
   ): array {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    /** @var string $organization */
+    $organization = (string) $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select(
@@ -708,7 +707,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('i.performedAt >= :performedAtFrom')
       ->andWhere('i.performedAt <= :performedAtTo')
-      ->setParameter('organization', $organization)
+      ->setParameter('organizationId', $organization)
       ->setParameter('performedAtFrom', $this->normalizeTimestampToStorageDateTime($performedAtFrom), Types::DATETIME_IMMUTABLE)
       ->setParameter('performedAtTo', $this->normalizeTimestampToStorageDateTime($performedAtTo), Types::DATETIME_IMMUTABLE)
       ->setParameter('closedStatus', 'closed')
@@ -755,8 +754,8 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     InspectionOrganizationId $organizationId,
     InspectionListCriteria $criteria,
   ): QueryBuilder {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    /** @var string $organization */
+    $organization = (string) $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('i')
@@ -764,7 +763,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('i.recordStatus = :publishedRecordStatus')
       ->setParameter('publishedRecordStatus', 'published')
-      ->setParameter('organization', $organization);
+      ->setParameter('organizationId', $organization);
 
     if (null !== $criteria->subject->equipmentId) {
       $queryBuilder

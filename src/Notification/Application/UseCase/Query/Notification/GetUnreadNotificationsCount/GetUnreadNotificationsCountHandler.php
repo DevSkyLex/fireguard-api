@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Application\UseCase\Query\Notification\GetUnreadNotificationsCount;
 
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Shared\Application\Message\QueryHandler;
 
 /**

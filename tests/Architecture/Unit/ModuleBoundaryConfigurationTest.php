@@ -89,7 +89,7 @@ final class ModuleBoundaryConfigurationTest extends TestCase
         self::assertSame(1, preg_match('/' . $public . '/', $module . chr(92) . $type));
         self::assertSame(0, preg_match('/' . $private . '/', $module . chr(92) . $type));
       }
-      foreach (['Infrastructure\Repository\PrivateRecord', 'Application\UseCase\PrivateHandler', 'Application\Service\PrivateService'] as $type) {
+      foreach (['Infrastructure\Repository\PrivateRecord', 'Application\UseCase\PrivateHandler', 'Application\Service\PrivateService', 'Application\Port\Outbound\Internal\Persistence\ExampleRepositoryPort', 'Application\Port\Inbound\Internal\ExampleLookupPort'] as $type) {
         self::assertSame(1, preg_match('/' . $private . '/', $module . chr(92) . $type));
         self::assertSame(0, preg_match('/' . $public . '/', $module . chr(92) . $type));
       }

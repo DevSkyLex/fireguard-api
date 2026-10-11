@@ -565,6 +565,35 @@
       register: fireguard_compose_projects
       changed_when: false
 
+    - name: Install the installed-runtime Webhook cutover guard
+      ansible.builtin.copy:
+        src: webhook-cutover.py
+        dest: "{{ fireguard_app_dir }}/fireguard-webhook-cutover.py"
+        owner: "{{ fireguard_deployment_user.stdout }}"
+        mode: "0750"
+
+    # Existing container IDs keep their old image and environment even though the
+    # next Compose configuration has already been staged. Never recreate the old
+    # worker with the new image to drain auth, and never discard delayed rows.
+    - name: Drain the installed auth Webhook runtime before any legacy project shutdown
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ fireguard_app_dir }}/fireguard-webhook-cutover.py"
+          - --app-dir
+          - "{{ fireguard_app_dir }}"
+          - --project
+          - "{{ fireguard_compose_project_name }}"
+          - --project
+          - "{{ fireguard_legacy_compose_project_name }}"
+          - --defer-bootstrap
+      register: fireguard_initial_webhook_cutover
+      changed_when: "'drained' in fireguard_initial_webhook_cutover.stdout"
+      when:
+        - fireguard_deployment_environment == 'production'
+        - fireguard_compose_project_name != fireguard_legacy_compose_project_name
+        - fireguard_compose_projects.stdout is search('"Name"\s*:\s*"' ~ fireguard_legacy_compose_project_name ~ '"')
+
     # The former production compose file had no explicit project name, so Docker
     # derived "back" from /srv/apps/fireguard/production/back. The new explicit
     # name must take over those services once, otherwise both projects publish the
@@ -909,6 +938,22 @@
         executable: /bin/sh
       no_log: true
 
+    # A missing database container cannot prove that its persistent volume is
+    # empty. This second guard reads the effective auth volume after dependency
+    # startup and identity validation, before any snapshot or schema mutation.
+    - name: Verify the effective auth Webhook queue before snapshots or schema changes
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ fireguard_app_dir }}/fireguard-webhook-cutover.py"
+          - --app-dir
+          - "{{ fireguard_app_dir }}"
+          - --project
+          - "{{ fireguard_compose_project_name }}"
+          - "--already-drained={{ 'false' if (fireguard_initial_webhook_cutover.skipped | default(false)) else 'true' }}"
+      register: fireguard_verified_webhook_cutover
+      changed_when: "'drained' in fireguard_verified_webhook_cutover.stdout"
+
     - name: Stop every managed writer before the consistent deployment snapshot
       ansible.builtin.command: "{{ fireguard_compose_command }} stop --timeout 120 {{ fireguard_writer_services }}"
       args:
@@ -1034,6 +1079,7 @@
         chdir: "{{ fireguard_app_dir }}"
       loop:
         - main_outbox
+        - auth_outbox
         - main_failed
         - async
         - webhook
@@ -1056,6 +1102,46 @@
       ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm --no-deps geoip_maintenance app:geoip:purge-session-locations --env=prod"
       args:
         chdir: "{{ fireguard_app_dir }}"
+
+    - name: Recover pending Webhook reservations before restarting producers
+      block:
+        - name: Record the recovery sweep verification boundary
+          ansible.builtin.command: date +%s
+          register: fireguard_recovery_started_at
+          changed_when: false
+
+        - name: Start only the scheduler before restoring HTTP and queue producers
+          ansible.builtin.command: "{{ fireguard_compose_command }} up -d scheduler_worker"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+
+        - name: Require a newly successful Webhook recovery sweep
+          ansible.builtin.command: >-
+            {{ fireguard_compose_command }} exec -T scheduler_worker php -r
+            '$path = "var/worker-sweeps/RecoverWebhookDeliveriesCommand.timestamp";
+            $timestamp = is_readable($path) ? (int) file_get_contents($path) : 0;
+            exit($timestamp > (int) $argv[1] && $timestamp <= time() ? 0 : 1);'
+            {{ fireguard_recovery_started_at.stdout }}
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+          register: fireguard_recovery_completed
+          retries: 36
+          delay: 5
+          until: fireguard_recovery_completed.rc == 0
+          changed_when: false
+          no_log: true
+      rescue:
+        - name: Stop every managed writer after unsuccessful Webhook recovery
+          ansible.builtin.command: "{{ fireguard_compose_command }} stop --timeout 120 {{ fireguard_writer_services }}"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+
+        - name: Keep failed Webhook recovery closed and the operation lock held
+          ansible.builtin.fail:
+            msg: >-
+              No newly successful Webhook recovery sweep was verified within three minutes.
+              All managed writers were stopped and the operation lock remains held.
+              No queued message was discarded; inspect recovery privately before resuming.
 
     - name: Start application and verify internal health
       block:

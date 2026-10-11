@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\Service;
 
 use Facility\Application\Contract\Model\FacilityModelView;
-use Facility\Application\Port\Outbound\{FacilityModelRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityModelRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\FacilityModelException;
 use Facility\Domain\Model\FacilityModel\FacilityModel;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityType};
@@ -225,7 +225,7 @@ final readonly class FacilityModelAccessGuard
       }
     }
 
-    return FacilityModelView::fromModel($model, $bindings, $issues);
+    return FacilityModelViewFactory::fromModel($model, $bindings, $issues);
   }
 
   /**

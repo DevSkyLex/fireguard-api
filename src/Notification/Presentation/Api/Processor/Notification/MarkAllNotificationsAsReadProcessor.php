@@ -6,7 +6,7 @@ namespace Notification\Presentation\Api\Processor\Notification;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Notification\Application\UseCase\Command\Notification\MarkAllNotificationsAsRead\{MarkAllNotificationsAsReadCommand, MarkAllNotificationsAsReadResult};
 use Notification\Presentation\Api\Dto\Output\Notification\MarkAllNotificationsAsReadOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -63,11 +63,11 @@ final readonly class MarkAllNotificationsAsReadProcessor implements ProcessorInt
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): MarkAllNotificationsAsReadOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $organizationId = $this->toNullableString(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization'));
+    $organizationId = $this->toNullableString(\Notification\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization'));
 
     /** @var MarkAllNotificationsAsReadResult $result */
     $result = $this->commandBus->dispatch(new MarkAllNotificationsAsReadCommand(

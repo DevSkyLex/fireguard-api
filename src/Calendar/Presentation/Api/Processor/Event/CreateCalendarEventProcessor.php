@@ -6,17 +6,15 @@ namespace Calendar\Presentation\Api\Processor\Event;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Calendar\Application\UseCase\Command\Event\CreateCalendarEvent\{CreateCalendarEventCommand, CreateCalendarEventResult};
 use Calendar\Presentation\Api\Dto\Input\Event\CreateCalendarEventInput;
 use Calendar\Presentation\Api\Dto\Output\Event\CalendarEventOutput;
 use Calendar\Presentation\Api\Factory\CalendarEventOutputFactory;
-use Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait;
 use DateTimeImmutable;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -32,8 +30,6 @@ use function is_string;
  */
 final readonly class CreateCalendarEventProcessor implements ProcessorInterface
 {
-  use CalendarExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -67,7 +63,7 @@ final readonly class CreateCalendarEventProcessor implements ProcessorInterface
   {
     /** @var CreateCalendarEventInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -76,21 +72,17 @@ final readonly class CreateCalendarEventProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    try {
-      /** @var CreateCalendarEventResult $result */
-      $result = $this->commandBus->dispatch(new CreateCalendarEventCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        title: $data->title,
-        description: $data->description,
-        startsAt: new DateTimeImmutable($data->startsAt),
-        endsAt: null !== $data->endsAt ? new DateTimeImmutable($data->endsAt) : null,
-        allDay: $data->allDay,
-        facilityId: $data->facilityId,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapCalendarException($exception);
-    }
+    /** @var CreateCalendarEventResult $result */
+    $result = $this->commandBus->dispatch(new CreateCalendarEventCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      title: $data->title,
+      description: $data->description,
+      startsAt: new DateTimeImmutable($data->startsAt),
+      endsAt: null !== $data->endsAt ? new DateTimeImmutable($data->endsAt) : null,
+      allDay: $data->allDay,
+      facilityId: $data->facilityId,
+    ));
 
     return $this->outputFactory->fromView($result);
   }

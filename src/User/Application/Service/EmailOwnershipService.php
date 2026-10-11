@@ -6,7 +6,8 @@ namespace User\Application\Service;
 
 use User\Application\Contract\EmailOwnershipResult;
 use User\Application\Port\Inbound\EmailOwnershipPort;
-use User\Application\Port\Outbound\{EmailOwnershipRepositoryPort, UserRepositoryPort};
+use User\Application\Port\Outbound\EmailOwnershipRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Exception\EmailOwnershipUnavailableException;
 use User\Domain\ValueObject\UserId;
 

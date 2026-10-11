@@ -346,7 +346,7 @@ final class EquipmentReportExportApiTest extends WebTestCase
 
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = null;
     $equipment->type = 'fire_extinguisher';
     $equipment->subType = 'CO2';

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Command\Role\UpdateRole;
 
-use Authorization\Application\Port\Outbound\{PermissionRepositoryPort, RoleRepositoryPort};
+use Authorization\Application\Port\Outbound\Internal\{PermissionRepositoryPort, RoleRepositoryPort};
 use Authorization\Application\UseCase\Command\Role\UpdateRole\{UpdateRoleCommand, UpdateRoleHandler, UpdateRoleResult};
 use Authorization\Domain\Exception\RoleNotFoundException;
 use Authorization\Domain\Model\Permission\Permission;

@@ -31,16 +31,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
   # CanonicalFacilityMutationProcessor names no entity manager on purpose:
   # it holds none since the mutations moved to
   # Application\UseCase\{Command,Query}\Facility\*CanonicalFacility*.
-  Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
   Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository:
     arguments:
@@ -62,7 +56,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Facility\Application\Port\Outbound\FacilityModelRepositoryPort:
+  Facility\Application\Port\Outbound\Internal\FacilityModelRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityModelRepository
 
   Facility\Application\Service\FacilityModelAccessGuard: ~
@@ -76,7 +70,9 @@ services:
   Facility\Application\Port\Outbound\FacilitySpatialReadPort:
     alias: Facility\Infrastructure\Adapter\Spatial\FacilitySpatialReadAdapter
 
-  Facility\Application\Service\FacilityHierarchyGuard: ~
+  Facility\Application\Service\FacilityHierarchyGuard:
+    arguments:
+      $maxDepth: '%facility.hierarchy.max_depth%'
   Facility\Application\Service\FacilityHierarchyPublicationContext: ~
   Facility\Application\Service\FacilityLifecycleReferenceGuard: ~
 
@@ -114,6 +110,8 @@ services:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Model\DeleteFacilityModel\DeleteFacilityModelHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Query\Model\GetFacilityModel\GetFacilityModelHandler:
@@ -129,17 +127,17 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Facility\Application\Port\Outbound\FacilityRepositoryPort:
+  Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository
 
-  Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort:
+  Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository
 
   # The offline-sync half of `facilities`: the three columns
   # FacilityRepositoryPort does not carry, plus the two hierarchy reads the
   # canonical guards need. Separate port because saving the aggregate cannot
   # bump the canonical If-Match revision.
-  Facility\Application\Port\Outbound\CanonicalFacilityRepositoryPort:
+  Facility\Application\Port\Outbound\Internal\CanonicalFacilityRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\CanonicalFacilityRepository
 
   # Third declaration of the same capability, one per consumer — Inspection
@@ -154,23 +152,14 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort:
+  Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository
 
   Facility\Application\Service\FacilityMetadataSchemaGuard: ~
 
   # R11b: generalized facility attachments (multipart /facilities/{id}/attachments)
-  Facility\Presentation\Api\Processor\Attachment\FacilityMediaProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Facility\Presentation\Api\Provider\Attachment\FacilityMediaProvider:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Facility\Presentation\Api\Processor\Attachment\SetPrimaryFacilityAttachmentProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Facility plan Phase 4: spatial zone geometry. Neither the processor nor
   # the provider touches Doctrine directly (they dispatch through the bus),
@@ -196,9 +185,6 @@ services:
 
   # R11b follow-up: the download endpoint serving attachment bytes, gated the
   # same way as FacilityMediaProvider/FacilityMediaProcessor.
-  Facility\Presentation\Api\Controller\DownloadFacilityAttachmentController:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Archival guard: refuses archiving a facility with active dependents (children,
   # equipment, inspections). The dependency ports are implemented by the owning modules.
@@ -274,6 +260,7 @@ services:
 
   Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityHandler:
     arguments:
+      $maxDepth: '%facility.hierarchy.max_depth%'
       $transactionManager: '@facility.main_transaction_manager'
       $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
     tags: ['messenger.message_handler']
@@ -295,6 +282,7 @@ services:
 
   Facility\Application\UseCase\Command\Facility\MoveFacility\MoveFacilityHandler:
     arguments:
+      $maxDepth: '%facility.hierarchy.max_depth%'
       $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
@@ -303,6 +291,7 @@ services:
   # on the `auth` connection while the writes go to `main`.
   Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\PatchCanonicalFacilityHandler:
     arguments:
+      $maxDepth: '%facility.hierarchy.max_depth%'
       $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
@@ -383,7 +372,7 @@ services:
   Facility\Application\UseCase\Query\SuggestAddresses\SuggestAddressesHandler:
     tags: ['messenger.message_handler']
 
-  Facility\Application\Port\Outbound\AddressSuggestionsPort:
+  Facility\Application\Port\Outbound\Internal\AddressSuggestionsPort:
     alias: Facility\Infrastructure\Adapter\Geocoding\PhotonAddressSuggestionsAdapter
 
   Facility\Infrastructure\Adapter\Geocoding\PhotonAddressSuggestionsAdapter: ~
@@ -396,3 +385,29 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
     tags: ['maintenance_export.identity_validator']
+
+  Facility\Application\Port\Inbound\FacilityAvailabilityPort:
+    alias: Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter
+
+  Facility\Infrastructure\Adapter\Onboarding\FacilityAvailabilityAdapter: ~
+
+  Facility\Application\Port\Inbound\FacilityMutationAuthorizationPort:
+    alias: Facility\Application\Service\FacilityMutationAuthorizationGuard
+
+  Facility\Application\Service\FacilityMutationAuthorizationGuard: ~
+
+  Facility\Application\Port\Outbound\CanonicalFacilityCollectionPort:
+    alias: Facility\Infrastructure\Persistence\Doctrine\Repository\CanonicalFacilityCollectionRepository
+
+  Facility\Infrastructure\Persistence\Doctrine\Repository\CanonicalFacilityCollectionRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Application\UseCase\Query\Facility\ListCanonicalFacilities\ListCanonicalFacilitiesHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\GetFacilityMediaContextHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Attachment\DownloadFacilityAttachment\DownloadFacilityAttachmentHandler:
+    tags: ['messenger.message_handler']

@@ -19,7 +19,7 @@ final readonly class ServiceRequestEquipmentTargetAdapter implements ServiceRequ
 
   public function find(string $equipmentId, string $organizationId): ?ServiceRequestEquipmentTarget
   {
-    $query = $this->entityManager->createQueryBuilder()->select('equipment')->from(EquipmentRecord::class, 'equipment')->where('equipment.id=:id')->andWhere('IDENTITY(equipment.organization)=:organization')->andWhere("equipment.recordStatus='published'")->setParameter('id', $equipmentId)->setParameter('organization', $organizationId)->getQuery()->setHint(Query::HINT_REFRESH, true);
+    $query = $this->entityManager->createQueryBuilder()->select('equipment')->from(EquipmentRecord::class, 'equipment')->where('equipment.id=:id')->andWhere('equipment.organizationId=:organization')->andWhere("equipment.recordStatus='published'")->setParameter('id', $equipmentId)->setParameter('organization', $organizationId)->getQuery()->setHint(Query::HINT_REFRESH, true);
     if ($this->entityManager->getConnection()->isTransactionActive()) {
       $query->setLockMode(LockMode::PESSIMISTIC_WRITE);
     }

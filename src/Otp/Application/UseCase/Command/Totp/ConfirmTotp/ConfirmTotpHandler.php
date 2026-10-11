@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Otp\Application\UseCase\Command\Totp\ConfirmTotp;
 
 use Otp\Application\Exception\TotpPendingEnrollmentNotFoundException;
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Domain\Event\Totp\TotpEnrollmentConfirmedEvent;
 use Otp\Domain\Exception\{TotpEnrollmentAlreadyActiveException, TotpEnrollmentMaxAttemptsException};
 use Shared\Application\Message\CommandHandler;

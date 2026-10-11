@@ -555,7 +555,7 @@ final class FacilityMetadataFieldApiTest extends WebTestCase
   ): FacilityMetadataFieldRecord {
     $record = new FacilityMetadataFieldRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->key = $key;
     $record->label = 'Label for ' . $key;
     $record->fieldType = 'number';

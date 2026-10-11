@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Query\Plan\ListPlans;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Application\UseCase\Query\Plan\ListPlans\{ListPlansHandler, ListPlansQuery};
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{PlanId, PlanKey};

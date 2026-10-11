@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Calendar\Application\Service;
 
 use Calendar\Application\Contract\Feed\{CalendarFeedItem, CalendarFeedSourceState};
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Domain\Model\Event\CalendarEvent;
 use DateTimeImmutable;
 use Shared\Application\Port\Outbound\LoggerPort;

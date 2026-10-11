@@ -19,7 +19,7 @@ use Throwable;
  * from three different write paths — the CreateFacility/UpdateFacility
  * command handlers (reaching the kernel wrapped by the messenger bus), the
  * canonical PATCH processor (thrown directly), and the offline intervention
- * apply() path (rethrown as {@see \Intervention\Domain\Exception\InterventionConflictException},
+ * apply() path (rethrown as {@see \Intervention\Application\Contract\Resource\InterventionConflictException},
  * which maps to 409 on its own path and never reaches this subscriber).
  * Mirrors {@see \Shared\Presentation\Api\EventSubscriber\AttachmentConstraintExceptionSubscriber}:
  * one status (422) for every one of these violations, regardless of which

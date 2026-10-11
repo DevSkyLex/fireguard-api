@@ -190,7 +190,7 @@ final class MessagingReactionRepositoryTest extends KernelTestCase
 
     $record = new MessagingConversationRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->subjectType = 'facility';
     $record->subjectId = '550e8400-e29b-41d4-a716-446655449001';
     $record->visibility = 'subject';

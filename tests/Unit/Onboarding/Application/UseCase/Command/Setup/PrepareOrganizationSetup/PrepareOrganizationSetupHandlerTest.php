@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Onboarding\Application\UseCase\Command\Setup\PrepareOrganizationSetup;
 
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
-use Onboarding\Application\Port\Inbound\{OrganizationOnboardingServicePort, OrganizationSetupPort};
+use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
+use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Onboarding\Application\UseCase\Command\Setup\PrepareOrganizationSetup\{PrepareOrganizationSetupCommand, PrepareOrganizationSetupHandler};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

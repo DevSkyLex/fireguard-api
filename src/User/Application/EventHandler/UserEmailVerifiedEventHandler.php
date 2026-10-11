@@ -9,7 +9,7 @@ use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Shared\Application\Port\Outbound\LoggerPort;
 use Throwable;
-use User\Domain\Event\UserEmailVerifiedEvent;
+use User\Application\Contract\Event\UserEmailVerifiedEvent;
 
 /**
  * Handler UserEmailVerifiedEventHandler.

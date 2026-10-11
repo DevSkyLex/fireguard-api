@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace TrustedDevice\Application\UseCase\Command\TrustedDevice\TrustDevice;
 
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
 use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, TrustedDeviceId};
 
@@ -30,11 +30,11 @@ final readonly class TrustDeviceHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param TrustedDeviceRepositoryPort $repository the device repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    */
   public function __construct(
     private readonly TrustedDeviceRepositoryPort $repository,
-    private readonly UuidFactory $uuidFactory,
+    private readonly UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -73,7 +73,7 @@ final readonly class TrustDeviceHandler implements CommandHandler
     }
 
     // Create new trusted device
-    $deviceId = $this->uuidFactory->create(TrustedDeviceId::class);
+    $deviceId = new TrustedDeviceId($this->uuidFactory->generate());
 
     $device = TrustedDevice::trust(
       id: $deviceId,

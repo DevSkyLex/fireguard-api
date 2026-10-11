@@ -6,7 +6,7 @@ namespace Messaging\Presentation\Api\Provider\Conversation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Messaging\Application\UseCase\Query\Message\GetConversationActivity\{GetConversationActivityQuery, GetConversationActivityResult};
 use Messaging\Presentation\Api\Dto\Output\ConversationActivityBucketOutput;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
@@ -96,7 +96,7 @@ final readonly class GetConversationActivityProvider implements ProviderInterfac
       throw new BadRequestHttpException('The conversationId URI parameter is required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Messaging\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $buckets = max(self::MIN_BUCKETS, min(self::MAX_BUCKETS, $query->getInt('buckets', self::DEFAULT_BUCKETS)));
 
     try {
@@ -138,12 +138,12 @@ final readonly class GetConversationActivityProvider implements ProviderInterfac
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

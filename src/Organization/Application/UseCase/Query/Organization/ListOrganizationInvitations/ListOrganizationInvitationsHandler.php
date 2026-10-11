@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;

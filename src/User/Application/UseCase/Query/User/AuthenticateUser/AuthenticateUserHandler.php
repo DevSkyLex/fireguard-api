@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace User\Application\UseCase\Query\User\AuthenticateUser;
 
 use Shared\Domain\ValueObject\Email;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Exception\{InvalidPasswordException, InvalidUserException, UserNotFoundException};
 use User\Domain\ValueObject\Username;
 

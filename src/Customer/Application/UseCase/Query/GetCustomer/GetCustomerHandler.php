@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Customer\Application\UseCase\Query\GetCustomer;
 
-use Customer\Application\Contract\CustomerView;
-use Customer\Application\Port\Outbound\CustomerRepositoryPort;
-use Customer\Application\Service\CustomerAccessGuard;
+use Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort;
+use Customer\Application\Service\{CustomerAccessGuard, CustomerViewMapper};
 use Customer\Domain\Exception\CustomerException;
 use Shared\Application\Message\QueryHandler;
 
@@ -25,6 +24,6 @@ final readonly class GetCustomerHandler implements QueryHandler
       throw CustomerException::notFound();
     }
 
-    return new GetCustomerResult(CustomerView::fromCustomer($customer));
+    return new GetCustomerResult(CustomerViewMapper::fromCustomer($customer));
   }
 }

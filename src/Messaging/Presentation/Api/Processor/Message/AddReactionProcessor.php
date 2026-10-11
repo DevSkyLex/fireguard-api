@@ -6,11 +6,11 @@ namespace Messaging\Presentation\Api\Processor\Message;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Messaging\Application\UseCase\Command\Message\AddReaction\{AddReactionCommand, AddReactionResult};
 use Messaging\Presentation\Api\Dto\Input\AddReactionInput;
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
-use Messaging\Presentation\Api\Factory\MessageOutputFactory;
+use Messaging\Presentation\Api\Service\MessageOutputPresenter;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -43,12 +43,12 @@ final readonly class AddReactionProcessor implements ProcessorInterface
    * @since 1.1.0
    *
    * @param CommandBusPort $commandBus the command bus value
-   * @param MessageOutputFactory $mapper the mapper value
+   * @param MessageOutputPresenter $mapper the mapper value
    * @param Security $security the security value
    */
   public function __construct(
     private CommandBusPort $commandBus,
-    private MessageOutputFactory $mapper,
+    private MessageOutputPresenter $mapper,
     private Security $security,
   ) {
   }
@@ -96,12 +96,12 @@ final readonly class AddReactionProcessor implements ProcessorInterface
    *
    * @since 1.1.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

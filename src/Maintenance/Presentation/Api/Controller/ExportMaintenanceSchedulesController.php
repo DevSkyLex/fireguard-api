@@ -4,20 +4,17 @@ declare(strict_types=1);
 
 namespace Maintenance\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
-use Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\{ExportMaintenanceSchedulesQuery, ExportMaintenanceSchedulesResult};
-use Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent;
+use Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\PrepareMaintenanceScheduleExportCommand;
+use Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\ExportMaintenanceSchedulesResult;
 use Maintenance\Presentation\Api\Service\{MaintenanceScheduleCsvWriter, MaintenanceScheduleExportCriteriaFactory};
-use Maintenance\Presentation\Api\Trait\MaintenanceExceptionMapperTrait;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
+use Shared\Application\Contract\Http\ResourceIriParser;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function fclose;
 use function fopen;
@@ -47,23 +44,19 @@ use function sprintf;
  */
 final class ExportMaintenanceSchedulesController extends AbstractController
 {
-  use MaintenanceExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param CommandBusPort $commandBus the query bus
    * @param Security $security the security service
    * @param MaintenanceScheduleExportCriteriaFactory $criteriaFactory the request-to-filters factory
    * @param MaintenanceScheduleCsvWriter $csvWriter the CSV row writer
    */
   public function __construct(
-    private readonly QueryBusPort $queryBus,
-    private readonly EventDispatcherPort $eventDispatcher,
+    private readonly CommandBusPort $commandBus,
     private readonly Security $security,
     private readonly MaintenanceScheduleExportCriteriaFactory $criteriaFactory,
     private readonly MaintenanceScheduleCsvWriter $csvWriter,
@@ -84,7 +77,7 @@ final class ExportMaintenanceSchedulesController extends AbstractController
   public function __invoke(Request $request): StreamedResponse
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -96,28 +89,14 @@ final class ExportMaintenanceSchedulesController extends AbstractController
 
     $filters = $this->criteriaFactory->fromRequest($request);
 
-    try {
-      /** @var ExportMaintenanceSchedulesResult $result */
-      $result = $this->queryBus->ask(new ExportMaintenanceSchedulesQuery(
-        userId: $user->getId(),
-        organizationId: $organizationId,
-        facilityId: $filters['facilityId'],
-        equipmentType: $filters['equipmentType'],
-        dueStatus: $filters['dueStatus'],
-        dueBefore: $filters['dueBefore'],
-      ));
-    } catch (Throwable $exception) {
-      // The query bus wraps handler exceptions, so a direct catch of the
-      // domain exception never matches — the mapper unwraps the chain.
-      throw $this->mapMaintenanceException($exception);
-    }
-
-    $this->eventDispatcher->dispatch(new MaintenanceSchedulesExportedEvent(
+    /** @var ExportMaintenanceSchedulesResult $result */
+    $result = $this->commandBus->dispatch(new PrepareMaintenanceScheduleExportCommand(
+      userId: $user->getId(),
       organizationId: $organizationId,
-      actorUserId: $user->getId(),
-      format: 'csv',
-      rowCount: $result->total,
-      filterKeys: $this->criteriaFactory->appliedFilterKeys($filters),
+      facilityId: $filters['facilityId'],
+      equipmentType: $filters['equipmentType'],
+      dueStatus: $filters['dueStatus'],
+      dueBefore: $filters['dueBefore'],
     ));
 
     $fileName = sprintf('maintenance-schedules-export-%s.csv', new DateTimeImmutable()->format('Ymd-His'));

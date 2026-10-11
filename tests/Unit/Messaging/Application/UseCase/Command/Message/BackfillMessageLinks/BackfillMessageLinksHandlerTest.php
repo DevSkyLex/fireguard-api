@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Message\BackfillMessa
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Link\MessageLinkBackfillCandidate;
-use Messaging\Application\Port\Outbound\{MessagingLinkRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\MessagingLinkRepositoryPort;
 use Messaging\Application\UseCase\Command\Message\BackfillMessageLinks\{BackfillMessageLinksCommand, BackfillMessageLinksHandler};
 use Messaging\Domain\Service\UrlExtractor;
 use PHPUnit\Framework\Attributes\CoversClass;

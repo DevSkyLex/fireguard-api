@@ -6,7 +6,7 @@ namespace Facility\Presentation\Api\Processor\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\Facility\MoveFacility\{MoveFacilityCommand, MoveFacilityResult};
 use Facility\Domain\Exception\{FacilityHierarchyException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Input\Facility\MoveFacilityInput;
@@ -15,8 +15,8 @@ use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
 use Facility\Presentation\Api\Service\FacilityRevisionGuard;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -48,13 +48,13 @@ final readonly class MoveFacilityProcessor implements ProcessorInterface
    *
    * @param FacilityDetailOutputFactory $detail reads the updated facility output
    * @param CommandBusPort $commandBus dispatches facility move commands
-   * @param OrganizationAuthorizationPort $authorization enforces organization access
    * @param Security $security resolves the authenticated user
    * @param RequestStack $requestStack provides the current request
    *
    * @return void
    */
   public function __construct(
+    private QueryBusPort $detailQueries,
     private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -84,7 +84,7 @@ final readonly class MoveFacilityProcessor implements ProcessorInterface
   {
     /** @var MoveFacilityInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -134,7 +134,10 @@ final readonly class MoveFacilityProcessor implements ProcessorInterface
       throw $this->mapMessengerException($exception);
     }
 
-    return $this->detail->read($organizationId, $result->facilityId);
+    /** @var \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult $detailResult */
+    $detailResult = $this->detailQueries->ask(new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery($organizationId, $result->facilityId));
+
+    return $this->detail->create($detailResult);
   }
 
   /**

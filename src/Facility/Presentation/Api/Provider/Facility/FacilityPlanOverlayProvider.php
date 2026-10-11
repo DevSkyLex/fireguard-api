@@ -6,7 +6,7 @@ namespace Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\{GetFacilityPlanOverlayQuery, GetFacilityPlanOverlayResult};
 use Facility\Domain\Exception\{
   FacilityAttachmentNotAncestorException,
@@ -17,7 +17,7 @@ use Facility\Domain\Exception\{
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityPlanOverlayOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -51,7 +51,6 @@ final readonly class FacilityPlanOverlayProvider implements ProviderInterface
    * @access public
    *
    * @param QueryBusPort $queryBus the query bus
-   * @param OrganizationAuthorizationPort $authorization the authorization
    * @param Security $security the security
    * @param RequestStack $requestStack the request stack
    *
@@ -79,7 +78,7 @@ final readonly class FacilityPlanOverlayProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): FacilityPlanOverlayOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -99,7 +98,7 @@ final readonly class FacilityPlanOverlayProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $attachmentId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('attachmentId');
+    $attachmentId = \Facility\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('attachmentId');
 
     try {
       /** @var GetFacilityPlanOverlayResult $result */

@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
@@ -16,10 +16,9 @@ use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, I
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
-use Shared\Application\Contract\Sorting\SortDirection;
+use Shared\Application\Contract\Http\ResourceIriParser;
+use Shared\Application\Contract\Sorting\{SortDirection, SortingExtractor};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{InputBag, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -97,7 +96,7 @@ final readonly class InterventionProvider implements ProviderInterface
       return $this->mapper->fromViewForCaller($result->view, $user->getId());
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Intervention\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
@@ -280,12 +279,12 @@ final readonly class InterventionProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

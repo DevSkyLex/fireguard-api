@@ -77,7 +77,7 @@ services:
     arguments:
       $connection: '@doctrine.dbal.main_connection'
 
-  Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort:
+  Maintenance\Application\Port\Inbound\Internal\MaintenancePlanAuthorityPort:
     alias: Maintenance\Application\Service\MaintenancePlanAuthorityService
 
   Maintenance\Application\Port\Inbound\MaintenanceOperationResultsPort:
@@ -158,4 +158,7 @@ services:
     tags: ['messenger.message_handler']
 
   Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\ExportMaintenanceSchedulesHandler:
+    tags: ['messenger.message_handler']
+
+  Maintenance\Application\UseCase\Command\Export\PrepareMaintenanceScheduleExport\PrepareMaintenanceScheduleExportHandler:
     tags: ['messenger.message_handler']

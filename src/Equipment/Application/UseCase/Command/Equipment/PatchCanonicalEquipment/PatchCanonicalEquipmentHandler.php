@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\PatchCanonicalEquipment;
 
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
-use Equipment\Application\Port\Outbound\{CanonicalEquipmentRepositoryPort, FacilityValidationPort, InterventionScopePort};
+use Equipment\Application\Port\Outbound\{FacilityValidationPort, InterventionScopePort};
+use Equipment\Application\Port\Outbound\Internal\CanonicalEquipmentRepositoryPort;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Equipment\Domain\Exception\{CanonicalEquipmentValidationException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Equipment\CanonicalEquipment;
 use Equipment\Domain\ValueObject\{CanonicalEquipmentPatch, EquipmentId, EquipmentStatus};
 use InvalidArgumentException;
+use LogicException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
@@ -60,7 +62,8 @@ final readonly class PatchCanonicalEquipmentHandler implements CommandHandler
     private InterventionScopePort $interventions,
     private EventDispatcherPort $eventDispatcher,
     private TransactionManagerPort $transactionManager,
-    private ?\Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort $typeCatalog = null,
+    private ?\Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort $typeCatalog = null,
+    private ?\Equipment\Application\Service\EquipmentMediaAccess $access = null,
   ) {
   }
   // #endregion
@@ -85,6 +88,16 @@ final readonly class PatchCanonicalEquipmentHandler implements CommandHandler
         $equipment = $this->equipment->findById($this->identifier($command->equipmentId));
         if (null === $equipment) {
           throw EquipmentNotFoundException::withId($command->equipmentId);
+        }
+
+        if (null !== $command->userId) {
+          ($this->access ?? throw new LogicException('Equipment authorization is unavailable.'))->assertWrite(
+            (string) $equipment->id(),
+            (string) $equipment->organizationId(),
+            $equipment->interventionId(),
+            $equipment->isScratchpad() ? $equipment->interventionId() : null,
+            $command->userId,
+          );
         }
 
         $equipment->assertRevisionMatches($command->expectedRevision);

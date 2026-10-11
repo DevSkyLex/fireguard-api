@@ -8,23 +8,25 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use Exception;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\UseCase\Query\Organization\ListOrganizationAuditEvents\{ListOrganizationAuditEventsQuery, OrganizationAuditEventResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationAuditEventOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Pagination\PaginationExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Throwable;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 
-use function array_key_exists;
+use function array_unique;
+use function array_values;
 use function is_string;
 use function min;
 use function trim;
@@ -102,6 +104,7 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
   public function __construct(
     private QueryBusPort $queryBus,
     private Security $security,
+    private UserDirectoryPort $users,
   ) {
   }
   // #endregion
@@ -130,7 +133,7 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -139,7 +142,7 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
       return new TraversablePaginator(new ArrayIterator([]), 1, 30, 0);
     }
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Organization\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pagination = PaginationExtractor::fromContext($context);
     $itemsPerPage = min($pagination->itemsPerPage, self::MAX_ITEMS_PER_PAGE);
@@ -180,6 +183,20 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
 
     /** @var array<string, ?string> $displayNameCache */
     $displayNameCache = [];
+    $userIds = [];
+    foreach ($result->items as $item) {
+      if ($item->actorIsOrganizationMember && null !== $item->actorId) {
+        $userIds[] = $item->actorId;
+      }
+    }
+
+    try {
+      foreach ($this->users->findByIds(array_values(array_unique($userIds))) as $userId => $profile) {
+        $displayNameCache[$userId] = trim($profile->firstName . ' ' . $profile->lastName) ?: ($profile->username ?: null);
+      }
+    } catch (Throwable) {
+      $displayNameCache = [];
+    }
     $outputs = [];
     foreach ($result->items as $event) {
       $outputs[] = $this->mapToOutput($event, $displayNameCache);
@@ -243,25 +260,27 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
    */
   private function resolveDisplayName(string $userId, array &$cache): ?string
   {
-    if (array_key_exists($userId, $cache)) {
-      return $cache[$userId];
+    return $cache[$userId] ?? null;
+  }
+
+  /**
+   * Method stringOrNull.
+   *
+   * Returns the string value or null when empty.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $value the raw value
+   *
+   * @return string|null the sanitized string or null
+   */
+  private function stringOrNull(mixed $value): ?string
+  {
+    if (!is_string($value) || '' === $value) {
+      return null;
     }
 
-    $name = null;
-
-    try {
-      $result = $this->queryBus->ask(new GetUserQuery($userId));
-      if ($result instanceof GetUserResult && null !== $result->user) {
-        $name = trim($result->user->firstName . ' ' . $result->user->lastName)
-          ?: ($result->user->username ?: null);
-      }
-    } catch (Throwable) {
-      $name = null;
-    }
-
-    $cache[$userId] = $name;
-
-    return $name;
+    return $value;
   }
 
   /**
@@ -296,24 +315,5 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
     }
   }
 
-  /**
-   * Method stringOrNull.
-   *
-   * Returns the string value or null when empty.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $value the raw value
-   *
-   * @return string|null the sanitized string or null
-   */
-  private function stringOrNull(mixed $value): ?string
-  {
-    if (!is_string($value) || '' === $value) {
-      return null;
-    }
-
-    return $value;
-  }
   // #endregion
 }

@@ -7,13 +7,13 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, OrganizationAccessAuditEventSubscriber, OrganizationLifecycleAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
+use Organization\Application\Contract\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
+use Organization\Application\Contract\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
+use Organization\Application\Contract\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationRestoredEvent, OrganizationSuspendedEvent};
 use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
-use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
-use Organization\Domain\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
-use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationRestoredEvent, OrganizationSuspendedEvent};
-use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
-use Organization\Domain\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
-use Organization\Domain\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
+use Organization\Application\Contract\Event\Plan\OrganizationPlanChangedEvent;
+use Organization\Application\Contract\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
+use Organization\Application\Contract\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -121,6 +121,7 @@ final class OrganizationAuditWiringTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     foreach ($events as $event) {

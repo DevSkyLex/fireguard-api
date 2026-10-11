@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Compliance\Infrastructure\Persistence\Doctrine\Repository;
 
-use Compliance\Application\Port\Outbound\SafetyRegisterSnapshotRepositoryPort;
+use Compliance\Application\Port\Outbound\Internal\SafetyRegisterSnapshotRepositoryPort;
 use Compliance\Domain\Model\Snapshot\SafetyRegisterSnapshot;
 use Compliance\Domain\ValueObject\SafetyRegisterSnapshotId;
 use Compliance\Infrastructure\Persistence\Doctrine\Mapper\SafetyRegisterSnapshotMapper;

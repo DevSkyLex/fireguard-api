@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Domain\ValueObject\OrganizationLegalType;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationLegalTypeOptionOutput;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -63,7 +63,7 @@ final readonly class ListOrganizationLegalTypesProvider implements ProviderInter
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Presentation\Api\Http;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Presentation\Api\Http\ResourceIriParser;
+use Shared\Application\Contract\Http\ResourceIriParser;
 
 /**
  * Test ResourceIriParserTest.

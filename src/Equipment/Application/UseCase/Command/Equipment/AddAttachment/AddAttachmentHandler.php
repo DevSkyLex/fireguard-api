@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\AddAttachment;
 
-use Equipment\Application\Port\Outbound\{AttachmentRepositoryPort, EquipmentRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentMediaLockPort, EquipmentMediaReadPort};
+use Equipment\Application\Port\Outbound\Internal\{AttachmentRepositoryPort, CanonicalEquipmentRepositoryPort, EquipmentRepositoryPort};
+use Equipment\Application\Service\EquipmentMediaAccess;
 use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
-use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId};
-use Shared\Application\Factory\UuidFactory;
+use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentRecordStatus};
+use Intervention\Application\Port\Inbound\InterventionResourcesPort;
+use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Attachment\AttachmentConstraints;
 use Throwable;
 
@@ -18,7 +22,7 @@ use function basename;
 use function sprintf;
 
 /**
- * UseCase AddAttachmentHandler.
+ * Commits the upload, intervention revision and durable cleanup as one media mutation.
  *
  * @category UseCase
  * @version 1.0.0
@@ -29,112 +33,103 @@ final readonly class AddAttachmentHandler implements CommandHandler
 {
   // #region Constructor
   /**
-   * Method __construct
-   *
-   * Receives equipment and attachment repositories, file storage, and an identifier factory to persist an attachment.
-   *
-   * @access public
-   *
-   * @param EquipmentRepositoryPort $equipmentRepository port used to load and validate the organization-scoped equipment
-   * @param AttachmentRepositoryPort $attachmentRepository port used to check attachment identity and persist the attachment record
-   * @param FileStoragePort $fileStorage port used to write the file and remove it if persistence fails
-   * @param UuidFactory $uuidFactory factory used to create an attachment identifier when the caller supplied none
-   *
-   * @return void
+   * Constructor. @since 1.0.0
    */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private AttachmentRepositoryPort $attachmentRepository,
     private FileStoragePort $fileStorage,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
+    private RootTransactionManagerPort $transactions,
+    private EquipmentMediaLockPort $locks,
+    private CanonicalEquipmentRepositoryPort $canonical,
+    private EquipmentMediaReadPort $media,
+    private EquipmentMediaAccess $access,
+    private InterventionResourcesPort $interventions,
+    private FileCleanupPort $cleanup,
+    private LoggerPort $logger,
   ) {
   }
   // #endregion
 
   // #region Methods
   /**
-   * Method __invoke.
-   *
    * @since 1.0.0
    */
   public function __invoke(AddAttachmentCommand $command): AddAttachmentResult
   {
-    $equipmentId = EquipmentId::fromString($command->equipmentId);
-    $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
-
-    $equipment = $this->equipmentRepository->findById($equipmentId);
-
-    if (null === $equipment || (string) $equipment->organizationId() !== (string) $organizationId) {
-      throw EquipmentNotFoundException::withId($command->equipmentId);
-    }
-
-    /** @var AttachmentId $attachmentId */
-    $attachmentId = null === $command->attachmentId
-      ? $this->uuidFactory->create(AttachmentId::class)
-      : AttachmentId::fromString($command->attachmentId);
-
-    $existing = $this->attachmentRepository->findById($attachmentId);
-    if (null !== $existing) {
-      if ((string) $existing->equipmentId() !== (string) $equipmentId) {
-        throw AttachmentNotFoundException::withId((string) $attachmentId);
-      }
-
-      return $this->result($existing);
-    }
-    AttachmentConstraints::validateCount($this->attachmentRepository->countByEquipmentId($equipmentId));
-
-    $storagePath = sprintf(
-      'equipment/%s/attachments/%s/%s_%s',
-      $command->equipmentId,
-      (string) $attachmentId,
-      $this->uuidFactory->generateRaw(),
-      basename($command->fileName),
-    );
-
-    $attachment = EquipmentAttachment::create(
-      id: $attachmentId,
-      equipmentId: $equipmentId,
-      fileName: $command->fileName,
-      storagePath: $storagePath,
-      mimeType: $command->mimeType,
-      size: $command->size,
-      label: $command->label,
-    );
-
-    $this->fileStorage->write($storagePath, $command->contents);
+    $this->transactions->assertCanStart();
+    $attemptPath = null;
 
     try {
-      $persisted = $this->attachmentRepository->saveIfAbsent($attachment);
-    } catch (Throwable $dbException) {
-      $this->fileStorage->delete($storagePath);
+      return $this->transactions->transactional(function () use ($command, &$attemptPath): AddAttachmentResult {
+        $equipmentId = EquipmentId::fromString($command->equipmentId);
+        $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
+        $this->locks->lock($command->equipmentId);
+        $equipment = $this->equipmentRepository->findById($equipmentId);
+        if (null === $equipment || (string) $equipment->organizationId() !== (string) $organizationId) {
+          throw EquipmentNotFoundException::withId($command->equipmentId);
+        }
+        $scope = $this->canonical->findById($equipmentId);
+        $interventionId = $command->interventionId ?? (EquipmentRecordStatus::DRAFT === $scope?->recordStatus() ? $scope->interventionId() : null);
+        if (null !== $command->userId) {
+          $this->access->assertWrite($command->equipmentId, $command->organizationId, $scope?->interventionId(), $interventionId, $command->userId);
+        }
+        /** @var AttachmentId $attachmentId */
+        $attachmentId = null === $command->attachmentId ? new AttachmentId($this->uuidFactory->generate()) : AttachmentId::fromString($command->attachmentId);
+        $existing = $this->attachmentRepository->findById($attachmentId);
+        if (null !== $existing) {
+          if ((string) $existing->equipmentId() !== (string) $equipmentId) {
+            throw AttachmentNotFoundException::withId((string) $attachmentId);
+          }
 
-      throw $dbException;
+          return $this->result($existing);
+        }
+        AttachmentConstraints::validateCount($this->attachmentRepository->countByEquipmentId($equipmentId));
+        $attemptPath = sprintf('equipment/%s/attachments/%s/%s_%s', $command->equipmentId, (string) $attachmentId, $this->uuidFactory->generate(), basename($command->fileName));
+        $attachment = EquipmentAttachment::create($attachmentId, $equipmentId, $command->fileName, $attemptPath, $command->mimeType, $command->size, $command->label);
+        $this->fileStorage->write($attemptPath, $command->contents);
+        $persisted = $this->attachmentRepository->saveIfAbsent($attachment);
+        if ($persisted->storagePath() !== $attemptPath) {
+          $this->cleanup->request($attemptPath);
+        } else {
+          $this->interventions->touchDraftIntervention($interventionId);
+        }
+
+        return $this->result($persisted);
+      });
+    } catch (Throwable $failure) {
+      /** @var string|null $attemptPath the callback retains its written key even when the transaction throws */
+      if (null !== $attemptPath && !$failure instanceof CommitOutcomeUnknownException) {
+        try {
+          $this->fileStorage->delete($attemptPath);
+        } catch (Throwable $cleanupFailure) {
+          try {
+            $this->logger->warning('Equipment upload compensation failed.', ['storagePath' => $attemptPath, 'error' => $cleanupFailure->getMessage()]);
+          } catch (Throwable) {
+            // Compensation diagnostics must preserve the primary transaction failure.
+          }
+        }
+      }
+
+      throw $failure;
     }
-
-    if ($persisted->storagePath() !== $storagePath) {
-      $this->fileStorage->delete($storagePath);
-    }
-
-    return $this->result($persisted);
   }
 
   /**
-   * Maps the stored upload, including idempotent replay, to its response.
-   *
-   * @param EquipmentAttachment $attachment stored attachment
-   *
-   * @return AddAttachmentResult upload metadata
+   * @since 1.0.0
    */
   private function result(EquipmentAttachment $attachment): AddAttachmentResult
   {
     return new AddAttachmentResult(
-      attachmentId: (string) $attachment->id(),
-      equipmentId: (string) $attachment->equipmentId(),
-      fileName: $attachment->fileName(),
-      mimeType: $attachment->mimeType(),
-      size: $attachment->size(),
-      label: $attachment->label(),
-      uploadedAt: $attachment->uploadedAt(),
+      (string) $attachment->id(),
+      (string) $attachment->equipmentId(),
+      $attachment->fileName(),
+      $attachment->mimeType(),
+      $attachment->size(),
+      $attachment->label(),
+      $attachment->uploadedAt(),
+      $this->media->find((string) $attachment->id())->revision ?? 1,
     );
   }
   // #endregion

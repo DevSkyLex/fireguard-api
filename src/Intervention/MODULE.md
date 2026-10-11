@@ -617,36 +617,26 @@ shared attachment kernel (`src/Shared/MODULE.md`) and the proven
 uses a plain `string $interventionId` (not a dedicated identifier value
 object), matching `Intervention\Domain\Model\Intervention\Intervention`'s own
 convention. Storage key:
-`intervention/{interventionId}/attachments/{attachmentId}_{fileName}`.
+`intervention/{interventionId}/attachments/{attachmentId}_{attemptId}_{fileName}`.
 
-**Phase-based write authorization** — no new permission, no new port. Reads
-require the flat `organization.interventions.read` permission. Writes
-(upload/delete) reuse the EXISTING `Intervention\Application\Service\InterventionResourceManager::mutationPermission(interventionId, userId)`
-— the same service `Equipment\Presentation\Api\Processor\Media\MediaProcessor`
-already uses for in-intervention equipment media:
+**Phase-based write authorization** — reads require
+`organization.interventions.read`. `ResolveInterventionMedia` owns scope and authorized
+replay queries; the HTTP processor validates headers and multipart metadata and sends
+commands. `AddInterventionAttachmentHandler` and `DeleteInterventionAttachmentHandler`
+resolve membership before phase or participant rules and enforce `.plan` in draft,
+otherwise `.execute`. Outside scope remains 404; missing permission remains 403;
+immutable writes remain 409. A stored identity replay checks read permission before
+returning it, even when the intervention is immutable, and the command rechecks identity
+under the upload lock.
 
-1. `InterventionMediaProcessor` resolves the intervention's organization via
-   `InterventionResourceManager::interventionContext()` (404 if missing/org
-   mismatch).
-   1bis. The handler gates on `OrganizationAuthorizationPort::isMemberOf()`
-   **before** step 2 and answers 404 when the caller has no active membership.
-   The order matters: `mutationPermission()` reads the intervention's phase
-   and can itself throw a 409, which would tell a caller outside the owning
-   organization both that this intervention exists and what state it is in.
-2. `mutationPermission()` loads+locks the intervention via
-   `InterventionResourceGatewayPort::interventionMutationContext()`, rejects
-   immutable states (`submitted`/`published`/`abandoned` → 409 Conflict via
-   `InterventionConflictException`), and returns the phase-derived permission:
-   `organization.interventions.plan` while `draft`, otherwise
-   `organization.interventions.execute` — additionally asserting, through
-   `InterventionMemberPolicy`, that the caller is the intervention's
-   responsible or a participant once it has left `draft`.
-3. The processor checks that resolved permission via
-   `OrganizationAuthorizationPort::hasPermission()` (403 if missing) before
-   dispatching the command — a plain 403 is right here, because step 1bis has
-   already established the caller is a member. A reviewer holding only
-   `organization.interventions.review` (not `.execute`) is therefore rejected
-   when uploading during `in_progress`, even though they can read/comment.
+Uploads own the final main commit through `RootTransactionManagerPort`. The repository
+retains the attachment advisory lock and parent row lock; an enclosing transaction is
+refused before any storage write. Attempt keys are unique. Compensation covers metadata,
+parent revision and commit: a confirmed rollback removes only that attempt's blob;
+an unknown commit outcome retains it. Cleanup or logging failure never masks the
+original persistence exception. Signature replacement and attachment deletion request
+`FileCleanupPort` inside the same SQL transaction. The durable outbox consumer removes
+obsolete blobs after commit and can retry safely; rollback keeps the old signature/blob.
 
 **Cardinality cap** — an intervention may carry at most
 `Shared\Domain\Attachment\AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
@@ -659,8 +649,8 @@ check and before writing anything to storage; the resulting
 to **422 Unprocessable Entity**, the same status the shared guard already
 returns for a MIME-type or size violation — the processor performs no mapping
 of its own. A retry carrying a client-supplied
-`attachmentId` that already exists overwrites its own row and is exempt from
-the cap.
+`attachmentId` that already exists returns its committed metadata and winning
+blob without consuming capacity or rewriting it.
 
 **Offline replay idempotency (`clientId`)** — `POST /interventions/{interventionId}/attachments`
 accepts an optional `clientId` multipart field, the exact mechanism
@@ -668,7 +658,7 @@ accepts an optional `clientId` multipart field, the exact mechanism
 a client-generated attachment UUID that lets the frontend's offline queue
 replay an upload without duplicating the row when a crash lands between the
 server's success and the local dequeue. `InterventionMediaProcessor` validates
-it (`InterventionAttachmentId::fromString`, 400 on a malformed value) and
+it (400 on a malformed UUID) and
 looks the id up BEFORE the shared MIME/size guard reads the file — a replay
 never needs the file re-read or re-checked:
 
@@ -721,14 +711,10 @@ attach scope, activated in this lot:
 - **`evidenceCount` on `InterventionWorkItemOutput`** — the number of
   attachments scoped to that work item, so a work item list/board can render
   a photo-evidence badge without a separate per-item attachments fetch.
-  Computed in `InterventionViewMapper::workItemView()` with one indexed
-  `COUNT` per row (`intervention_attachments.work_item_id` is indexed) —
-  a bounded per-row lazy load, mirroring the exact precedent
-  `interventionView()`'s `commentsCount` already established in this same
-  mapper, rather than a batched grouped query: the work item read paths
-  (single get, paginated list) always go through this one mapper method per
-  row already, so adding one more indexed count here is the cheapest correct
-  shape — no new query-bus round trip, no extra Presentation-layer wiring.
+  Detail reads use the indexed attachment count. Paginated work-item reads pass
+  `InterventionWorkItemReadMetrics` from two grouped page queries for evidence
+  count and spent minutes; the mapper performs no per-row aggregate query.
+
 
 **Download (Phase 4b)** — `GET /intervention-attachments/{id}/download` serves
 the attachment's raw stored bytes as a browser download
@@ -805,11 +791,9 @@ responsible captures when submitting field work from a plain evidence file:
 - **Read surface** — `InterventionAttachmentOutput.kind: string` on every
   attachment read (upload response, list, single-item get, download has no
   output body). `InterventionOutput.hasSignature: bool` is a cheap
-  existence check (`InterventionAttachmentRepositoryPort::hasSignature()` /
-  one indexed `COUNT` on `(intervention_id, kind)`) computed unconditionally
-  in `InterventionViewMapper::interventionView()`, mirroring the
-  `commentsCount` precedent in the same mapper rather than folding into the
-  metrics-preloaded list branch.
+  existence snapshot. Item reads use the indexed signature count; paginated
+  reads preload signature presence alongside comments and labels in
+  `InterventionListMetrics`, so mapping a page performs no per-row SQL.
 - **Issue-finder nudge** — `InterventionIssueFinder::find()` (now also
   depending on `InterventionAttachmentRepositoryPort`) adds a
   RECOMMENDATION-severity issue ("Capture the completion signature before
@@ -1040,8 +1024,8 @@ naming ports the Statistics endpoint above already uses for its
 `bySite`/`byResponsible` breakdown.
 
 Ledger wiring: the export dispatches
-`Intervention\Domain\Event\Export\InterventionsExportedEvent` after
-streaming starts, recorded by `Audit\...\AuditEventSubscriber` as
+`Intervention\Application\Contract\Event\Export\InterventionsExportedEvent` through
+`RecordInterventionExportHandler` after rendering, inside a main outbox transaction, recorded by `Audit\...\AuditEventSubscriber` as
 `intervention.list_exported` (subject: the organization; metadata:
 `row_count`, `filter_keys` — the applied filter **names** only, never their
 raw values), mirroring how the audit ledger records its own
@@ -1199,20 +1183,24 @@ oracle for this route too. See `src/Equipment/MODULE.md`. Regression coverage:
 `tests/Architecture/Unit/InterventionAuthorizationEnforcementTest` is the
 ratchet that keeps new handlers on this path.
 
-**Architecture debt — cross-module `Organization\Domain` imports (5).** The
-`CrossModuleDomainBoundaryTest` ratchet baseline for `Intervention =>
-Organization` was raised 4 → 5 on 2026-08-10: the reviewer-notification
-services added by 44da9e06 (`InterventionReviewerRecipientResolver`,
-alongside the four pre-existing siblings in `Application/Service/`) import
-`Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId,
-OrganizationNotificationSettings}` directly, because Organization's
-`Application/Contract/` exposes no id/settings types yet. Deliberate,
-documented debt: the eventual fix is Organization publishing contract types
-for those identifiers and this baseline shrinking back — do not add a sixth
-import; introduce the contract types instead, exactly as the 2026-08-18
-quota-contract migration did for `OrganizationQuotaPort` (resource enum and
-exception promoted to `Organization\Application\Contract\Quota`, shrinking
-the Facility/Equipment/Inspection pairs — see `src/Organization/MODULE.md`).
+### Published boundaries and persistence
+
+`Application/Contract` and public ports expose pure scalar snapshots, resource enums
+and refusal contracts. Foreign modules call `InterventionResourcesPort`; its adapter
+translates internal failures into `Application/Contract/Resource` exceptions. A
+preflight reads `mutationPermission(..., forUpdate: false)`; its owning command
+rechecks with the default locked context inside its main transaction. Repository
+interfaces with private Domain signatures live under `Application/Port/Outbound/Internal`.
+Organization membership, notification preferences and administrator selection come
+from the owning Organization directory and policy ports, using account identifiers.
+
+All organization links in Intervention Records are scalar `organizationId` fields.
+Existing SQL columns, foreign keys and deletion actions remain defined by the schema
+subscriber. Resource naming and equipment summaries use grouped owner projections. Paginated
+intervention reads preload comment counts, signature presence and labels; caller
+membership is resolved once per organization inside each enrichment call.
+Integration events are published under `Application/Contract/Event`; historical Domain
+event classes remain readable and are converted by the owner at dispatch.
 
 ### Read-model advisory fields (`allowedTransitions`, `allowedActions`)
 
@@ -1223,8 +1211,8 @@ bug waiting for the backend to change underneath it:
 
 - **`allowedTransitions: string[]`** — the workflow-legal next statuses from
   the domain `InterventionTransitionPolicy::allowedFrom()`, independent of
-  the caller's permissions. Populated by `InterventionOutputFactory::fromView()`
-  on every read, including the write-path responses.
+  the caller's permissions. Application enrichment populates the snapshot on every
+  read and write response; the output factory only maps it.
 - **`allowedActions: InterventionAllowedActionsOutput | null`** (added
   2026-08-19) — the **caller-specific** action-capability surface. Every flag
   already folds together the organization permission, the field-mutability
@@ -1263,7 +1251,7 @@ bug waiting for the backend to change underneath it:
   Populated on the item and collection **read** paths (`InterventionProvider`)
   and on every **mutation response** that returns the refreshed intervention
   (`InterventionProcessor`, `AssignTeamToInterventionProcessor`) — all via
-  `InterventionOutputFactory::fromViewForCaller()`, so a client that
+  `InterventionWorkItemEnrichment` and the deterministic output mapper, so a client that
   recomputes its menus from a write's response can never go stale. The
   computation is free wherever it runs: the organization's granted
   permissions are memoized per request by `OrganizationAuthorizationPort`,
@@ -1348,6 +1336,11 @@ against `InterventionLabelRecord` inside
 `InterventionWorkflowMutationSupport`, not through `InterventionLabelPort`
 — the workflow support already queries records directly elsewhere (e.g.
 `assertSiteBelongsToOrganization`).
+
+`InterventionWorkItemEnrichment` supplies grouped target/assignee projections and action
+snapshots to item, list and mutation results. Factories hold no permission or lookup
+state across messages. Export authorization and entitlement are Application policies;
+export audit consequences are recorded in the main outbox before returning success.
 
 `InterventionActivityPort::append` is supplied to the focused workflow writers
 through `InterventionWorkflowWriterRuntime`. They call it inside the gateway's
@@ -1692,11 +1685,11 @@ intervention_attachments (intervention_id) WHERE (kind = 'signature')`,
 - Doctrine records: `src/Intervention/Infrastructure/Persistence/Doctrine/Record`
 - Mappers: `InterventionMapper`, `InterventionViewMapper`
   (`.../Persistence/Doctrine/Mapper`). `InterventionViewMapper::interventionView`
-  computes `commentsCount` with a direct `intervention_activities` count
-  (`kind = 'comment'`) rather than through the cross-module
-  `InterventionListMetrics` port, and reads `labels` directly off
-  `InterventionRecord::$labels` (bounded per-row lazy load in the list path,
-  never fetch-joined into the paginated DQL query).
+  uses grouped `InterventionListMetrics` for comment counts, signature presence
+  and labels on a page. Work-item pages supply grouped evidence/time metrics
+  and preload their parent through a many-to-one join. Detail paths retain
+  direct indexed reads. Labels are never fetch-joined into paginated DQL.
+
 
 ## Audit trail
 
@@ -1720,7 +1713,7 @@ constructor-injected with `Shared\Application\Port\Outbound\EventDispatcherPort`
 (the same port `ExecutePublicationHandler` uses — Infrastructure consuming a
 Shared Application port is an established pattern in this codebase, see e.g.
 `OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter`) and dispatches
-`Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent`
+`Intervention\Application\Contract\Event\Workflow\InterventionStatusTransitionedEvent`
 (`intervention.status_transitioned` in the ledger) for every successful
 status change:
 

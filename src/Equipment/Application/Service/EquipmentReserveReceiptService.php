@@ -6,7 +6,7 @@ namespace Equipment\Application\Service;
 
 use Equipment\Application\Contract\Procurement\{EquipmentReserveReceiptRequest,EquipmentReserveReceiptResult};
 use Equipment\Application\Port\Inbound\EquipmentReserveReceiptPort;
-use Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand,CreateEquipmentResult};
 use Equipment\Domain\ValueObject\EquipmentIdentity;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};

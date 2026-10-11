@@ -16,10 +16,8 @@ use Intervention\Application\UseCase\Command\Template\InstantiateInterventionTem
 };
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationMemberDirectoryPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -193,17 +191,11 @@ final class InstantiateInterventionTemplateHandlerTest extends TestCase
 
   private function memberPolicy(): InterventionMemberPolicy
   {
-    $active = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::ACTIVE_MEMBER_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      'user-active',
-      true,
-      new DateTimeImmutable(),
-    );
+    $active = new OrganizationMemberView(self::ACTIVE_MEMBER_ID, self::ORGANIZATION_ID, 'user-active', true);
 
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findById')->willReturnCallback(
-      static fn (OrganizationMemberId $id): ?OrganizationMember => self::ACTIVE_MEMBER_ID === $id->value ? $active : null,
+      static fn (string $id): ?OrganizationMemberView => self::ACTIVE_MEMBER_ID === $id ? $active : null,
     );
 
     return new InterventionMemberPolicy($repository);

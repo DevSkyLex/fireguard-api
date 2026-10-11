@@ -128,9 +128,6 @@ final class ExportEquipmentLabelsControllerTest extends TestCase
 
     $controller = new ExportEquipmentLabelsController(
       queryBus: $queryBus,
-      branding: $this->createStub(OrganizationDocumentBrandingPort::class),
-      renderer: $this->createStub(EquipmentLabelSheetPdfRendererPort::class),
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       security: $security,
     );
 
@@ -258,13 +255,11 @@ final class ExportEquipmentLabelsControllerTest extends TestCase
       $renderer = $rendererStub;
     }
 
-    return new ExportEquipmentLabelsController(
-      queryBus: $queryBus,
-      branding: $branding,
-      renderer: $renderer,
-      eventDispatcher: $eventDispatcher,
-      security: $security,
-    );
+    $handler = new \Equipment\Application\UseCase\Query\RenderEquipmentLabels\RenderEquipmentLabelsHandler($queryBus, $branding, $renderer, $eventDispatcher);
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static fn (\Equipment\Application\UseCase\Query\RenderEquipmentLabels\RenderEquipmentLabelsQuery $query): object => $handler($query));
+
+    return new ExportEquipmentLabelsController($queries, $security);
   }
 
   private function createRow(): EquipmentExportRow

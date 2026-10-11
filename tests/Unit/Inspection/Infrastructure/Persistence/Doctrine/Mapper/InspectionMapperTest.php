@@ -20,7 +20,6 @@ use Inspection\Domain\ValueObject\{
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -80,8 +79,8 @@ final class InspectionMapperTest extends TestCase
   #[Test]
   public function testToDomainRejectsARecordWithoutAnOrganization(): void
   {
-    $record = $this->record();
-    $record->organization = null;
+    $record = new InspectionRecord();
+    $record->id = self::INSPECTION_ID;
 
     $this->expectException(LogicException::class);
 
@@ -118,12 +117,11 @@ final class InspectionMapperTest extends TestCase
 
   private function record(): InspectionRecord
   {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
+    $organizationId = self::ORGANIZATION_ID;
 
     $record = new InspectionRecord();
     $record->id = self::INSPECTION_ID;
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->equipmentId = self::EQUIPMENT_ID;
     $record->facilityId = self::FACILITY_ID;
     $record->inspectorType = 'user';

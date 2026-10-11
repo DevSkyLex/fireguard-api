@@ -30,7 +30,7 @@ final class ApprovalActionTypeCatalogProviderTest extends TestCase
   #[Test]
   public function testItExposesExactlyTheRegisteredActionTypes(): void
   {
-    $rows = new ApprovalActionTypeCatalogProvider()->provide(new GetCollection());
+    $rows = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => new ApprovalActionTypeCatalogProvider()->provide(new GetCollection()));
 
     self::assertCount(2, $rows);
     self::assertSame(ApprovalActionTypes::all(), array_column($rows, 'value'));
@@ -39,7 +39,7 @@ final class ApprovalActionTypeCatalogProviderTest extends TestCase
   #[Test]
   public function testItLabelsEveryRowFromTheCatalog(): void
   {
-    $rows = new ApprovalActionTypeCatalogProvider()->provide(new GetCollection());
+    $rows = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => new ApprovalActionTypeCatalogProvider()->provide(new GetCollection()));
 
     self::assertSame(ApprovalActionTypes::NC_WAIVER, $rows[0]->value);
     self::assertSame('Non-conformity waiver', $rows[0]->label);
@@ -54,8 +54,8 @@ final class ApprovalActionTypeCatalogProviderTest extends TestCase
     $provider = new ApprovalActionTypeCatalogProvider();
 
     self::assertEquals(
-      $provider->provide(new GetCollection()),
-      $provider->provide(new GetCollection(), ['organizationId' => 'ignored'], ['filters' => ['value' => 'nope']]),
+      \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $provider->provide(new GetCollection())),
+      \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $provider->provide(new GetCollection(), ['organizationId' => 'ignored'], ['filters' => ['value' => 'nope']])),
     );
   }
 }

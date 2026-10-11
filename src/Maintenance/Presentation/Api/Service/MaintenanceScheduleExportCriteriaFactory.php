@@ -6,7 +6,7 @@ namespace Maintenance\Presentation\Api\Service;
 
 use DateTimeImmutable;
 use Exception;
-use Shared\Presentation\Api\Http\ResourceIriParser;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 

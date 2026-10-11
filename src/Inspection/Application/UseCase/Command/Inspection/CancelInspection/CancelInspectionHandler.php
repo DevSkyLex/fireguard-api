@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Inspection\CancelInspection;
 
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Domain\Event\Inspection\InspectionCancelledEvent;
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};

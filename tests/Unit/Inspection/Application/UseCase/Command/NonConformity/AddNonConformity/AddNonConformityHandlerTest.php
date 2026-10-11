@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\NonConformity\AddNonConformity;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Command\NonConformity\AddNonConformity\{
   AddNonConformityCommand,
   AddNonConformityHandler,
@@ -29,8 +29,7 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -58,12 +57,11 @@ final class AddNonConformityHandlerTest extends TestCase
   {
     $ncId = NonConformityId::fromString(self::NC_ID);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(NonConformityId::class)
-      ->willReturn($ncId);
+      ->method('generate')
+      ->willReturn((string) $ncId);
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
     $inspectionRepository->method('findById')->willReturn($this->makeDraftInspection());
@@ -112,7 +110,7 @@ final class AddNonConformityHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
-    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
     $inspectionRepository->method('findById')->willReturn(null);
@@ -144,7 +142,7 @@ final class AddNonConformityHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenInspectionIsClosed(): void
   {
-    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
     $inspectionRepository->method('findById')->willReturn($this->makeClosedInspection());
@@ -181,7 +179,7 @@ final class AddNonConformityHandlerTest extends TestCase
     $handler = new AddNonConformityHandler(
       inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
@@ -245,9 +243,9 @@ final class AddNonConformityHandlerTest extends TestCase
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
     $inspectionRepository->method('findById')->willReturn($this->makeDraftInspection());
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
     if ($nonConformityId instanceof NonConformityId) {
-      $uuidFactory->method('create')->willReturn($nonConformityId);
+      $uuidFactory->method('generate')->willReturn((string) $nonConformityId);
     }
 
     return new AddNonConformityHandler(

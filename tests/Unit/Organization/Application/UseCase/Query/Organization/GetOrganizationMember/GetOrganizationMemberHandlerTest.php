@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrga
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationMember\{
   GetOrganizationMemberHandler,
   GetOrganizationMemberQuery

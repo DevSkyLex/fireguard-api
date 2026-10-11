@@ -278,7 +278,7 @@ final class InterventionExportApiTest extends WebTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = $id;
-    $intervention->organization = $organization;
+    $intervention->organizationId = self::ORGANIZATION_ID;
     $intervention->type = 'site_setup';
     $intervention->name = $name;
     $intervention->number = $number;

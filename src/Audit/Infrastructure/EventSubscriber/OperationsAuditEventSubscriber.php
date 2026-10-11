@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\EventSubscriber;
 
-use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
-use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent, CalendarFeedTokenCreatedEvent, CalendarFeedTokenRevokedEvent};
+use Automation\Application\Contract\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
+use Calendar\Application\Contract\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent, CalendarFeedTokenCreatedEvent, CalendarFeedTokenRevokedEvent};
 use DateTimeImmutable;
-use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
-use Messaging\Domain\Event\Channel\{
+use Import\Application\Contract\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
+use Messaging\Application\Contract\Event\Channel\{
   MessagingChannelCreatedEvent,
   MessagingChannelParentChangedEvent,
   MessagingChannelParticipantAddedEvent,
   MessagingChannelParticipantRemovedEvent,
   MessagingChannelTeamBindingChangedEvent
 };
-use Messaging\Domain\Event\Conversation\MessagingConversationArchivedEvent;
-use Messaging\Domain\Event\Message\{MessagingMessageModeratedEvent, MessagingMessageUnpinModeratedEvent};
+use Messaging\Application\Contract\Event\Conversation\MessagingConversationArchivedEvent;
+use Messaging\Application\Contract\Event\Message\{MessagingMessageModeratedEvent, MessagingMessageUnpinModeratedEvent};
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /** Records the operations event family. */

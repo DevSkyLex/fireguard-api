@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Assistant\Application\Contract\Message;
 
-use Assistant\Domain\Model\Message\AssistantMessage;
 use DateTimeImmutable;
 
 /**
@@ -59,38 +58,4 @@ final readonly class AssistantMessageView
   }
   // #endregion
 
-  // #region Methods
-  /**
-   * Method fromDomain.
-   *
-   * @static
-   *
-   * @since 1.0.0
-   *
-   * @param AssistantMessage $message the assistant message aggregate
-   *
-   * @return self the view built from the aggregate
-   */
-  public static function fromDomain(AssistantMessage $message): self
-  {
-    return new self(
-      id: (string) $message->id(),
-      threadId: $message->threadId(),
-      organizationId: $message->organizationId(),
-      role: $message->role()->value,
-      body: $message->body(),
-      status: $message->status()->value,
-      errorCode: $message->errorCode(),
-      tokenCount: $message->tokenCount(),
-      createdAt: $message->createdAt(),
-      completedAt: $message->completedAt(),
-      attemptId: $message->attemptId() ?? ($message->canCancel() ? (string) $message->id() : null),
-      attemptNumber: $message->attemptNumber(),
-      attemptSequence: $message->attemptSequence(),
-      attemptExpiresAt: $message->attemptExpiresAt(),
-      canCancel: $message->canCancel(),
-      canRetry: $message->canRetry(),
-    );
-  }
-  // #endregion
 }

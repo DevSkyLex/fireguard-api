@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Infrastructure\Adapter\Organization;
 
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria};
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Domain\ValueObject\InspectionOrganizationId;
 use Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

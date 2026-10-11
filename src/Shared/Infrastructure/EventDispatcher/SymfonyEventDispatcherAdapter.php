@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\EventDispatcher;
 
 use Psr\Log\LoggerInterface;
+use Shared\Application\Port\Outbound\Event\IntegrationEventDecoderPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -35,11 +36,13 @@ final readonly class SymfonyEventDispatcherAdapter implements EventDispatcherPor
    *
    * @param EventDispatcherInterface $eventDispatcher the Symfony event dispatcher
    * @param LoggerInterface $logger the logger
+   * @param IntegrationEventDecoderPort $eventDecoder owner-local legacy snapshot decoder
    */
   public function __construct(
     private EventDispatcherInterface $eventDispatcher,
     #[Autowire(service: 'monolog.logger.security')]
     private LoggerInterface $logger,
+    private IntegrationEventDecoderPort $eventDecoder,
   ) {
   }
 
@@ -58,6 +61,7 @@ final readonly class SymfonyEventDispatcherAdapter implements EventDispatcherPor
    */
   public function dispatch(object $event): void
   {
+    $event = $this->eventDecoder->decode($event);
     $eventName = $this->getEventName($event);
 
     $this->logger->debug('Dispatching domain event', [

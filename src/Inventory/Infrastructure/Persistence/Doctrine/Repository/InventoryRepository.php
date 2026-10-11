@@ -8,7 +8,7 @@ use DateTimeZone;
 use Doctrine\DBAL\{ArrayParameterType,Connection,Exception\UniqueConstraintViolationException,ParameterType};
 use InvalidArgumentException;
 use Inventory\Application\Contract\Stock\InventoryOperationReceipt;
-use Inventory\Application\Port\Outbound\InventoryStorePort;
+use Inventory\Application\Port\Outbound\Internal\InventoryStorePort;
 use Inventory\Domain\Exception\InventoryConflictException;
 use Inventory\Domain\Model\Stock\{ConsumptionDeclaration, InventoryReference, StockBalance, StockMovement};
 use Inventory\Infrastructure\Persistence\Doctrine\Lock\InventoryTransactionLock;

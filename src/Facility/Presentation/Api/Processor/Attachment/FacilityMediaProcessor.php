@@ -6,18 +6,16 @@ namespace Facility\Presentation\Api\Processor\Attachment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment\{AddFacilityAttachmentCommand, AddFacilityAttachmentResult};
 use Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\DeleteFacilityAttachmentCommand;
+use Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\{GetFacilityMediaContextQuery, GetFacilityMediaContextResult};
 use Facility\Domain\ValueObject\AttachmentKind;
-use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
+use Facility\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Facility\Presentation\Api\Dto\Output\Attachment\FacilityAttachmentOutput;
+use Facility\Presentation\Api\Http\RevisionGuard;
 use Facility\Presentation\Api\Provider\Attachment\FacilityMediaProvider;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
-use Shared\Presentation\Api\Http\RevisionGuard;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -59,9 +57,7 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
    *
    * @access public
    *
-   * @param EntityManagerInterface $entityManager the main entity manager
    * @param CommandBusPort $commandBus dispatches attachment commands
-   * @param OrganizationAuthorizationPort $authorization enforces organization access
    * @param Security $security resolves the authenticated user
    * @param RequestStack $requestStack provides the current request
    * @param MultipartAttachmentGuard $attachmentGuard validates uploaded file type and size
@@ -70,13 +66,12 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
    * @return void
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,
-    private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
     private MultipartAttachmentGuard $attachmentGuard,
     private RevisionGuard $revisionGuard,
+    private QueryBusPort $queryBus,
   ) {
   }
   // #endregion
@@ -92,11 +87,9 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?FacilityAttachmentOutput
   {
-    return $this->entityManager->wrapInTransaction(
-      fn (): ?FacilityAttachmentOutput => 'DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()
-        ? $this->delete($uriVariables)
-        : $this->upload($uriVariables),
-    );
+    return 'DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()
+      ? $this->delete($uriVariables)
+      : $this->upload($uriVariables);
   }
 
   /**
@@ -113,19 +106,8 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
       throw new BadRequestHttpException('The facilityId URI parameter is required.');
     }
 
-    $facility = $this->entityManager->find(FacilityRecord::class, $facilityId);
-    if (!$facility instanceof FacilityRecord || null === $facility->organization) {
-      throw new NotFoundHttpException('Facility not found.');
-    }
-
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $facility->organization->id, 'organization.facilities.write');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Facility not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
-    }
+    /** @var GetFacilityMediaContextResult $media */
+    $media = $this->queryBus->ask(new GetFacilityMediaContextQuery($this->user()->getId(), facilityId: $facilityId, write: true));
 
     $request = $this->requestStack->getCurrentRequest();
     if (!$request instanceof Request) {
@@ -144,22 +126,24 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
 
     /** @var AddFacilityAttachmentResult $result */
     $result = $this->commandBus->dispatch(new AddFacilityAttachmentCommand(
-      organizationId: $facility->organization->id,
-      facilityId: $facility->id,
+      organizationId: $media->organizationId,
+      facilityId: $media->facilityId,
       fileName: $uploaded->fileName,
       contents: $uploaded->contents,
       mimeType: $uploaded->mimeType,
       size: $uploaded->size,
       label: $uploaded->label,
       kind: $kind->value,
+      userId: $this->user()->getId(),
     ));
 
-    $record = $this->entityManager->find(FacilityAttachmentRecord::class, $result->attachmentId);
-    if (!$record instanceof FacilityAttachmentRecord) {
+    /** @var GetFacilityMediaContextResult $created */
+    $created = $this->queryBus->ask(new GetFacilityMediaContextQuery($this->user()->getId(), attachmentId: $result->attachmentId, write: true));
+    if (null === $created->attachment) {
       throw new NotFoundHttpException('Uploaded attachment not found.');
     }
 
-    return FacilityMediaProvider::output($record);
+    return FacilityMediaProvider::output($created->attachment);
   }
 
   /**
@@ -176,27 +160,18 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
       throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
-    $record = $this->entityManager->find(FacilityAttachmentRecord::class, $id);
-    if (!$record instanceof FacilityAttachmentRecord || null === $record->facility?->organization) {
+    /** @var GetFacilityMediaContextResult $media */
+    $media = $this->queryBus->ask(new GetFacilityMediaContextQuery($this->user()->getId(), attachmentId: $id, write: true));
+    if (null === $media->attachment) {
       throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
-
-    $organization = $record->facility->organization;
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.facilities.write');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
-    }
-
-    $this->revisionGuard->assertMatches($record->revision);
-
+    $this->revisionGuard->assertMatches($media->attachment->revision);
     $this->commandBus->dispatch(new DeleteFacilityAttachmentCommand(
-      organizationId: $organization->id,
-      facilityId: $record->facility->id,
-      attachmentId: $record->id,
+      organizationId: $media->organizationId,
+      facilityId: $media->facilityId,
+      attachmentId: $id,
+      expectedRevision: $media->attachment->revision,
+      userId: $this->user()->getId(),
     ));
 
     return null;
@@ -207,10 +182,10 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

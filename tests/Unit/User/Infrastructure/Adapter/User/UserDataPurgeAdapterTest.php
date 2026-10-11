@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Unit\User\Infrastructure\Adapter\User;
 
+use Authorization\Infrastructure\Adapter\Lifecycle\AuthorizationDataLifecycleAdapter;
 use Doctrine\ORM\{EntityManagerInterface, Query, QueryBuilder};
+use OAuth\Infrastructure\Adapter\Lifecycle\OAuthDataLifecycleAdapter;
 use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
+use Otp\Infrastructure\Adapter\Lifecycle\OtpDataLifecycleAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Session\Infrastructure\Adapter\Lifecycle\SessionDataLifecycleAdapter;
+use Shared\Application\Port\Outbound\FileCleanupPort;
+use TrustedDevice\Infrastructure\Adapter\Lifecycle\TrustedDeviceDataLifecycleAdapter;
+use User\Application\Port\Outbound\AvatarPersistencePort;
 use User\Infrastructure\Adapter\User\UserDataPurgeAdapter;
 
 /**
@@ -28,7 +35,7 @@ final class UserDataPurgeAdapterTest extends TestCase
     $entityManager->expects(self::never())
       ->method('createQueryBuilder');
 
-    $adapter = new UserDataPurgeAdapter(entityManager: $entityManager, totpEnrollmentPurge: $this->createStub(TotpEnrollmentPurgePort::class));
+    $adapter = $this->purgeAdapter($entityManager, $this->createStub(TotpEnrollmentPurgePort::class));
     $adapter->purgeForUser('   ');
   }
 
@@ -36,13 +43,13 @@ final class UserDataPurgeAdapterTest extends TestCase
   public function testPurgeExecutesDeleteQueries(): void
   {
     $entityManager = $this->createMock(EntityManagerInterface::class);
-    $entityManager->expects(self::exactly(10))
+    $entityManager->expects(self::exactly(11))
       ->method('createQueryBuilder')
       ->willReturnCallback(fn (): QueryBuilder => $this->createQueryBuilderMock());
 
     $totpPurge = $this->createMock(TotpEnrollmentPurgePort::class);
     $totpPurge->expects(self::once())->method('purgeForUser')->with('user-123');
-    $adapter = new UserDataPurgeAdapter(entityManager: $entityManager, totpEnrollmentPurge: $totpPurge);
+    $adapter = $this->purgeAdapter($entityManager, $totpPurge);
     $adapter->purgeForUser('user-123');
   }
 
@@ -51,7 +58,7 @@ final class UserDataPurgeAdapterTest extends TestCase
   {
     $purge = $this->createMock(TotpEnrollmentPurgePort::class);
     $purge->expects(self::once())->method('withUserLock')->with('user-123', self::isCallable())->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
-    $adapter = new UserDataPurgeAdapter($this->createStub(EntityManagerInterface::class), $purge);
+    $adapter = $this->purgeAdapter($this->createStub(EntityManagerInterface::class), $purge);
     self::assertSame('committed-result', $adapter->withUserLock('user-123', static fn (): string => 'committed-result'));
   }
 
@@ -72,5 +79,20 @@ final class UserDataPurgeAdapterTest extends TestCase
 
     return $builder;
   }
+
   // #endregion
+  private function purgeAdapter(EntityManagerInterface $manager, TotpEnrollmentPurgePort $totp): UserDataPurgeAdapter
+  {
+    return new UserDataPurgeAdapter(
+      entityManager: $manager,
+      totpEnrollmentPurge: $totp,
+      sessionLifecycle: new SessionDataLifecycleAdapter($manager),
+      otpLifecycle: new OtpDataLifecycleAdapter($manager),
+      trusteddeviceLifecycle: new TrustedDeviceDataLifecycleAdapter($manager),
+      oauthLifecycle: new OAuthDataLifecycleAdapter($manager),
+      avatars: $this->createStub(AvatarPersistencePort::class),
+      avatarCleanup: $this->createStub(FileCleanupPort::class),
+      authorizationLifecycle: new AuthorizationDataLifecycleAdapter($manager),
+    );
+  }
 }

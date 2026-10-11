@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Billing\Application\UseCase\Query\GetOrganizationSubscription;
 
-use Billing\Application\Port\Outbound\{OrganizationPlanPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\SubscriptionRepositoryPort;
+use Billing\Application\Port\Outbound\OrganizationPlanPort;
 use Billing\Application\Service\BillingPriceCatalog;
 use Shared\Application\Message\QueryHandler;
 

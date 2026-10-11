@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Organization;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{OrganizationAuthorizationService, OrganizationCacheInvalidator};
 use Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\{GetCurrentOrganizationMemberProfileHandler, GetCurrentOrganizationMemberProfileQuery};
 use Organization\Domain\Exception\OrganizationMemberNotFoundException;

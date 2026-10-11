@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Lock;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Organization\Application\Port\Outbound\OrganizationQuotaLockPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationQuotaLockPort;
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 
 /**

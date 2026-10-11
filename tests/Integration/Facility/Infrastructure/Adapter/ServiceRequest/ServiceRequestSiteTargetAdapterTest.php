@@ -158,7 +158,7 @@ final class ServiceRequestSiteTargetAdapterTest extends KernelTestCase
     if ('foreign target' === $scenario) {
       $organizationId = self::OTHER_ORGANIZATION;
     } elseif ('foreign ancestor' === $scenario) {
-      $this->root->organization = $this->organization(self::OTHER_ORGANIZATION);
+      $this->root->organizationId = $this->organization(self::OTHER_ORGANIZATION)->id;
     } elseif ('draft target' === $scenario) {
       $this->building->recordStatus = 'draft';
     } elseif ('draft ancestor' === $scenario) {
@@ -287,7 +287,7 @@ final class ServiceRequestSiteTargetAdapterTest extends KernelTestCase
   {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $this->organization;
+    $facility->organizationId = $this->organization->id;
     $facility->type = $type;
     $facility->name = $type . ' target';
     $facility->parentFacility = $parent;

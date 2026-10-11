@@ -280,7 +280,7 @@ final class FacilityPlacementCandidatesApiTest extends WebTestCase
   {
     $facility = new FacilityRecord();
     $facility->id = self::id($suffix);
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = $parent;
     $facility->name = $name;
     $facility->type = $type;
@@ -311,7 +311,7 @@ final class FacilityPlacementCandidatesApiTest extends WebTestCase
   {
     $equipment = new EquipmentRecord();
     $equipment->id = self::id($suffix);
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = $facilityId;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = 'operational';

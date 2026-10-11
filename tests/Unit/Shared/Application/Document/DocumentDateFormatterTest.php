@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Application\Document;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Document\DocumentDateFormatter;
+use Shared\Application\Contract\Document\DocumentDateFormatter;
 
 /**
  * Test DocumentDateFormatterTest.

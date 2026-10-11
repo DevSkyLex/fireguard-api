@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Response\CreateInspectionResponse;
 
-use Inspection\Application\Contract\Response\InspectionResponseView;
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, InspectionResponseRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, InspectionResponseRepositoryPort};
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Domain\Exception\{InspectionResponseClientIdAlreadyExistsException, InspectionResponseConflictException};
 use Inspection\Domain\Model\Response\InspectionResponse;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 
 use function trim;
 
@@ -45,14 +44,14 @@ final readonly class CreateInspectionResponseHandler implements CommandHandler
    * @param InspectionResponseRepositoryPort $responses the inspection response repository
    * @param InspectionRepositoryPort $inspections the inspection repository
    * @param InterventionScopePort $interventions the intervention scope port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    * @param TransactionManagerPort $transactionManager the transaction manager
    */
   public function __construct(
     private InspectionResponseRepositoryPort $responses,
     private InspectionRepositoryPort $inspections,
     private InterventionScopePort $interventions,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
   ) {
   }
@@ -91,7 +90,7 @@ final readonly class CreateInspectionResponseHandler implements CommandHandler
 
     /** @var InspectionResponseId $responseId */
     $responseId = null === $command->resourceId
-      ? $this->uuidFactory->create(InspectionResponseId::class)
+      ? new InspectionResponseId($this->uuidFactory->generate())
       : InspectionResponseId::fromString($command->resourceId);
 
     $response = InspectionResponse::create(
@@ -109,7 +108,7 @@ final readonly class CreateInspectionResponseHandler implements CommandHandler
       $this->interventions->touchDraft($command->interventionId);
     });
 
-    return new CreateInspectionResponseResult(InspectionResponseView::fromModel($response));
+    return new CreateInspectionResponseResult(\Inspection\Application\Service\InspectionResponseViewMapper::fromModel($response));
   }
   // #endregion
 }

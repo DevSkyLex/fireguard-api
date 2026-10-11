@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -78,7 +78,7 @@ final class EquipmentMessagingSubjectResolverAdapterTest extends TestCase
 
     $record = new EquipmentRecord();
     $record->id = self::EQUIPMENT_ID;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->recordStatus = $recordStatus;
     $record->type = $type;
     $record->serialNumber = $serialNumber;

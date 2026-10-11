@@ -17,7 +17,6 @@ use Equipment\Domain\ValueObject\{
 use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment, RestoredEquipmentHistory};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper EquipmentMapper.
@@ -43,13 +42,13 @@ final class EquipmentMapper
    */
   public static function toDomain(EquipmentRecord $record): Equipment
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Equipment record must reference an organization.');
     }
 
     return Equipment::reconstitute(
       id: EquipmentId::fromString($record->id),
-      organizationId: EquipmentOrganizationId::fromString($record->organization->id),
+      organizationId: EquipmentOrganizationId::fromString($record->organizationId),
       type: EquipmentTypeCode::fromString($record->type),
       details: new EquipmentCatalogDetails(
         subType: $record->subType,
@@ -90,6 +89,7 @@ final class EquipmentMapper
   {
     $record = new EquipmentRecord();
     $record->id = (string) $equipment->id();
+    $record->organizationId = (string) $equipment->organizationId();
     $record->facilityId = $equipment->facilityId()?->__toString();
     $record->type = $equipment->type()->value;
     $record->subType = $equipment->subType();

@@ -6,28 +6,18 @@ namespace Inspection\Presentation\Api\Provider\Attachment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Inspection\Application\Contract\Attachment\InspectionAttachmentView;
 use Inspection\Application\UseCase\Query\Attachment\ListInspectionAttachments\{ListInspectionAttachmentsQuery, ListInspectionAttachmentsResult};
-use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
-use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionAttachmentRecord, InspectionRecord, NonConformityRecord};
+use Inspection\Application\UseCase\Query\Attachment\ResolveInspectionMedia\{ResolveInspectionMediaQuery, ResolveInspectionMediaResult};
 use Inspection\Presentation\Api\Dto\Output\Attachment\InspectionAttachmentOutput;
-use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function is_string;
 
-/**
- * Provider InspectionMediaProvider.
- *
- * Serves `GET /inspections/{inspectionId}/attachments`,
- * `GET /non-conformities/{nonConformityId}/attachments` and
- * `GET /inspection-attachments/{id}`.
- *
+/** InspectionMediaProvider translates HTTP media requests through use cases.
  * @category Provider
  * @version 1.0.0
  *
@@ -37,286 +27,72 @@ use function is_string;
  */
 final readonly class InspectionMediaProvider implements ProviderInterface
 {
-  use MessengerExceptionUnwrapperTrait;
-
-  // #region Constants
-  /**
-   * Constant MISSING_READ_PERMISSION_MESSAGE
-   *
-   * Error text used when organization inspection-read permission is denied.
-   *
-   * @access private
-   *
-   * @var string
-   */
-  private const string MISSING_READ_PERMISSION_MESSAGE = 'Missing organization.inspection.read permission.';
-
-  /**
-   * Constant NON_CONFORMITY_NOT_FOUND_MESSAGE
-   *
-   * Error text for an unavailable non-conformity attachment owner.
-   *
-   * @access private
-   *
-   * @var string
-   */
-  private const string NON_CONFORMITY_NOT_FOUND_MESSAGE = 'Non-conformity not found.';
-
-  /**
-   * Constant ATTACHMENT_NOT_FOUND_MESSAGE
-   *
-   * Error text for an unavailable inspection attachment.
-   *
-   * @access private
-   *
-   * @var string
-   */
-  private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
-  // #endregion
-
-  // #region Constructor
-  /**
-   * Method __construct
-   *
-   * Initializes attachment persistence, query, access and security services.
-   *
-   * @access public
-   *
-   * @param EntityManagerInterface $entityManager attachment record manager
-   * @param QueryBusPort $queryBus attachment query bus
-   * @param OrganizationAuthorizationPort $authorization organization access checks
-   * @param Security $security current security context
-   *
-   * @return void
-   */
-  public function __construct(
-    private EntityManagerInterface $entityManager,
-    private QueryBusPort $queryBus,
-    private OrganizationAuthorizationPort $authorization,
-    private Security $security,
-  ) {
+  public function __construct(private QueryBusPort $queryBus, private Security $security)
+  {
   }
-  // #endregion
 
-  // #region Methods
-  /**
-   * Method provide.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
+  /** @param array<string, mixed> $uriVariables
    * @param array<string, mixed> $context
    *
    * @return InspectionAttachmentOutput|list<InspectionAttachmentOutput>
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): InspectionAttachmentOutput|array
   {
-    if (isset($uriVariables['nonConformityId'])) {
-      return $this->listForNonConformity($uriVariables);
+    $user = $this->security->getUser();
+    if (!$user instanceof AuthenticatedUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+    $inspectionId = $uriVariables['inspectionId'] ?? null;
+    $nonConformityId = $uriVariables['nonConformityId'] ?? null;
+    if (isset($uriVariables['nonConformityId']) && (!is_string($nonConformityId) || '' === $nonConformityId)) {
+      throw new BadRequestHttpException('The nonConformityId URI parameter is required.');
+    }
+    if (isset($uriVariables['inspectionId']) && (!is_string($inspectionId) || '' === $inspectionId)) {
+      throw new BadRequestHttpException('The inspectionId URI parameter is required.');
+    }
+    if (is_string($inspectionId) || is_string($nonConformityId)) {
+      /** @var ResolveInspectionMediaResult $scope */
+      $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), inspectionId: is_string($inspectionId) ? $inspectionId : null, nonConformityId: is_string($nonConformityId) ? $nonConformityId : null));
+      /** @var ListInspectionAttachmentsResult $result */
+      $result = $this->queryBus->ask(new ListInspectionAttachmentsQuery($scope->organizationId, $scope->inspectionId, is_string($nonConformityId) ? $nonConformityId : null));
+      $outputs = [];
+      foreach ($result->attachments as $attachment) {
+        $output = new InspectionAttachmentOutput();
+        $output->inspectionId = $scope->inspectionId;
+        foreach (['id', 'nonConformityId', 'fileName', 'mimeType', 'size', 'label', 'uploadedAt'] as $field) {
+          $output->{$field} = $attachment[$field];
+        }
+        $outputs[] = $output;
+      }
+
+      return $outputs;
+    }
+    $id = $uriVariables['id'] ?? null;
+    if (!is_string($id)) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    /** @var ResolveInspectionMediaResult $result */
+    $result = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), attachmentId: $id));
+    if (null === $result->attachment) {
+      throw new NotFoundHttpException('Attachment not found.');
     }
 
-    if (isset($uriVariables['inspectionId'])) {
-      return $this->listForInspection($uriVariables);
-    }
-
-    return $this->getOne($uriVariables);
+    return self::output($result->attachment);
   }
 
-  /**
-   * Method output.
-   *
-   * @static
-   *
-   * @since 1.0.0
-   */
-  public static function output(InspectionAttachmentRecord $record): InspectionAttachmentOutput
+  public static function output(InspectionAttachmentView $view): InspectionAttachmentOutput
   {
-    if (null === $record->inspection) {
-      throw new NotFoundHttpException('Attachment inspection not found.');
-    }
-
     $output = new InspectionAttachmentOutput();
-    $output->id = $record->id;
-    $output->inspectionId = $record->inspection->id;
-    $output->nonConformityId = $record->nonConformity?->id;
-    $output->fileName = $record->fileName;
-    $output->mimeType = $record->mimeType;
-    $output->size = $record->size;
-    $output->label = $record->label;
-    $output->revision = $record->revision;
-    $output->uploadedAt = $record->uploadedAt->format('c');
+    $output->id = $view->id;
+    $output->inspectionId = $view->inspectionId;
+    $output->fileName = $view->fileName;
+    $output->mimeType = $view->mimeType;
+    $output->size = $view->size;
+    $output->label = $view->label;
+    $output->revision = $view->revision;
+    $output->uploadedAt = $view->uploadedAt;
+    $output->nonConformityId = $view->nonConformityId;
 
     return $output;
   }
-
-  /**
-   * Method listForInspection.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   *
-   * @return list<InspectionAttachmentOutput>
-   */
-  private function listForInspection(array $uriVariables): array
-  {
-    $inspectionId = $uriVariables['inspectionId'] ?? null;
-    if (!is_string($inspectionId) || '' === $inspectionId) {
-      throw new BadRequestHttpException('The inspectionId URI parameter is required.');
-    }
-
-    $inspection = $this->entityManager->find(InspectionRecord::class, $inspectionId);
-    if (!$inspection instanceof InspectionRecord || null === $inspection->organization) {
-      throw new NotFoundHttpException('Inspection not found.');
-    }
-
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $inspection->organization->id, 'organization.inspection.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Inspection not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException(self::MISSING_READ_PERMISSION_MESSAGE);
-    }
-
-    return $this->ask($inspection->organization->id, $inspectionId, null, $inspectionId);
-  }
-
-  /**
-   * Method listForNonConformity.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   *
-   * @return list<InspectionAttachmentOutput>
-   */
-  private function listForNonConformity(array $uriVariables): array
-  {
-    $nonConformityId = $uriVariables['nonConformityId'] ?? null;
-    if (!is_string($nonConformityId) || '' === $nonConformityId) {
-      throw new BadRequestHttpException('The nonConformityId URI parameter is required.');
-    }
-
-    $nonConformity = $this->entityManager->find(NonConformityRecord::class, $nonConformityId);
-    if (!$nonConformity instanceof NonConformityRecord || !$nonConformity->inspection instanceof InspectionRecord) {
-      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
-    }
-
-    $inspection = $nonConformity->inspection;
-    $organization = $inspection->organization;
-    if (null === $organization) {
-      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
-    }
-
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException(self::MISSING_READ_PERMISSION_MESSAGE);
-    }
-
-    return $this->ask($organization->id, $inspection->id, $nonConformityId, $inspection->id);
-  }
-
-  /**
-   * Method ask.
-   *
-   * @since 1.0.0
-   *
-   * @return list<InspectionAttachmentOutput>
-   */
-  private function ask(string $organizationId, string $inspectionId, ?string $nonConformityId, string $outputInspectionId): array
-  {
-    try {
-      /** @var ListInspectionAttachmentsResult $result */
-      $result = $this->queryBus->ask(new ListInspectionAttachmentsQuery(
-        organizationId: $organizationId,
-        inspectionId: $inspectionId,
-        nonConformityId: $nonConformityId,
-      ));
-    } catch (InspectionNotFoundException|NonConformityNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InvalidArgumentException $exception) {
-      throw new BadRequestHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findException($exception, InspectionNotFoundException::class)
-        ?? $this->findException($exception, NonConformityNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
-
-    $outputs = [];
-    foreach ($result->attachments as $attachment) {
-      $output = new InspectionAttachmentOutput();
-      $output->id = $attachment['id'];
-      $output->inspectionId = $outputInspectionId;
-      $output->nonConformityId = $attachment['nonConformityId'];
-      $output->fileName = $attachment['fileName'];
-      $output->mimeType = $attachment['mimeType'];
-      $output->size = $attachment['size'];
-      $output->label = $attachment['label'];
-      $output->uploadedAt = $attachment['uploadedAt'];
-      $outputs[] = $output;
-    }
-
-    return $outputs;
-  }
-
-  /**
-   * Method getOne.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   */
-  private function getOne(array $uriVariables): InspectionAttachmentOutput
-  {
-    $id = $uriVariables['id'] ?? null;
-    if (!is_string($id)) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-
-    $record = $this->entityManager->find(InspectionAttachmentRecord::class, $id);
-    if (!$record instanceof InspectionAttachmentRecord || null === $record->inspection?->organization) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $record->inspection->organization->id, 'organization.inspection.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException(self::MISSING_READ_PERMISSION_MESSAGE);
-    }
-
-    return self::output($record);
-  }
-
-  /**
-   * Method user.
-   *
-   * @since 1.0.0
-   */
-  private function user(): SecurityUser
-  {
-    $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
-      throw new AccessDeniedHttpException('Authentication required.');
-    }
-
-    return $user;
-  }
-  // #endregion
 }

@@ -6,7 +6,7 @@ namespace Webhook\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Webhook\Application\Port\Outbound\WebhookDeliveryRepositoryPort;
+use Webhook\Application\Port\Outbound\Internal\WebhookDeliveryRepositoryPort;
 use Webhook\Domain\Model\Delivery\WebhookDelivery;
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, WebhookSubscriptionId};
 use Webhook\Infrastructure\Persistence\Doctrine\Mapper\WebhookDeliveryMapper;
@@ -164,6 +164,10 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
   public function findById(WebhookDeliveryId $id): ?WebhookDelivery
   {
     $record = $this->repository->find((string) $id);
+
+    if ($record instanceof WebhookDeliveryRecord) {
+      $this->entityManager->refresh($record);
+    }
 
     return $record instanceof WebhookDeliveryRecord ? WebhookDeliveryMapper::toDomain($record) : null;
   }

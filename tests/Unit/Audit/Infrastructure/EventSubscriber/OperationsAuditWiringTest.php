@@ -7,23 +7,23 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ExportAuditEventSubscriber, InterventionAuditEventSubscriber, OperationsAuditEventSubscriber, OrganizationAccessAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
-use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
-use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
+use Automation\Application\Contract\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
+use Calendar\Application\Contract\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
 use DateTimeImmutable;
-use Equipment\Domain\Event\Export\EquipmentsExportedEvent;
-use Facility\Domain\Event\Export\FacilitiesExportedEvent;
-use Inspection\Domain\Event\Export\{InspectionsExportedEvent, NonConformitiesExportedEvent};
-use Intervention\Domain\Event\Export\InterventionsExportedEvent;
-use Intervention\Domain\Event\Recurrence\{
+use Equipment\Application\Contract\Event\Export\EquipmentsExportedEvent;
+use Facility\Application\Contract\Event\Export\FacilitiesExportedEvent;
+use Inspection\Application\Contract\Event\Export\{InspectionsExportedEvent, NonConformitiesExportedEvent};
+use Intervention\Application\Contract\Event\Export\InterventionsExportedEvent;
+use Intervention\Application\Contract\Event\Recurrence\{
   InterventionRecurrenceCreatedEvent,
   InterventionRecurrenceDeletedEvent,
   InterventionRecurrenceMaterializedEvent,
   InterventionRecurrenceUpdatedEvent
 };
-use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
-use Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent;
-use Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent;
-use Organization\Domain\Event\Team\{TeamDeletedEvent, TeamMemberRemovedEvent, TeamUpdatedEvent};
+use Maintenance\Application\Contract\Event\Campaign\MaintenanceCampaignGeneratedEvent;
+use Maintenance\Application\Contract\Event\Export\MaintenanceSchedulesExportedEvent;
+use Maintenance\Application\Contract\Event\Schedule\MaintenanceScheduleOverriddenEvent;
+use Organization\Application\Contract\Event\Team\{TeamDeletedEvent, TeamMemberRemovedEvent, TeamUpdatedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -249,6 +249,7 @@ final class OperationsAuditWiringTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     foreach ($events as $event) {

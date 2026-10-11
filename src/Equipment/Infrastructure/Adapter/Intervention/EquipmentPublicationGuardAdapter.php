@@ -58,7 +58,7 @@ final readonly class EquipmentPublicationGuardAdapter implements InterventionPub
     /** @var list<EquipmentRecord> $records */
     $records = $this->entityManager->getRepository(EquipmentRecord::class)->findBy(['interventionId' => $interventionId, 'recordStatus' => 'draft']);
     foreach ($records as $record) {
-      if ($record->organization?->id !== $organizationId) {
+      if ($record->organizationId !== $organizationId) {
         throw new InvalidArgumentException('Publication equipment organization is invalid.');
       }
       $this->publicationFacilities->assertReference($organizationId, $record->facilityId, $record->status, $interventionId);
@@ -84,7 +84,7 @@ final readonly class EquipmentPublicationGuardAdapter implements InterventionPub
     /** @var list<EquipmentRecord> $records */
     $records = $this->entityManager->getRepository(EquipmentRecord::class)->findBy(['interventionId' => $interventionId]);
     foreach ($records as $record) {
-      if (null !== $record->facilityId && $record->organization?->id === $organizationId) {
+      if (null !== $record->facilityId && $record->organizationId === $organizationId) {
         $this->publicationFacilities->assertReference($organizationId, $record->facilityId, $record->status);
       }
     }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Inspection\SubmitInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Application\UseCase\Command\Inspection\SubmitInspection\{
   SubmitInspectionCommand,
   SubmitInspectionHandler,

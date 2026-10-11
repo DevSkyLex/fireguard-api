@@ -10,7 +10,7 @@ use Intervention\Application\Contract\Publication\{InterventionEquipmentSnapshot
 use Intervention\Application\Port\Inbound\{InterventionCostSourceFactsPort,InterventionPublicationFactsPort};
 use MaintenanceCost\Application\Contract\Cost\{MaintenanceCostItem,MaintenanceCostPlanning,MaintenanceCostSnapshot,MaintenanceCostTotals,MaintenanceCostView};
 use MaintenanceCost\Application\Port\Inbound\MaintenanceCostReadPort;
-use MaintenanceExport\Application\Port\Outbound\MaintenanceExportRepositoryPort;
+use MaintenanceExport\Application\Port\Outbound\Internal\MaintenanceExportRepositoryPort;
 use MaintenanceExport\Domain\Exception\MaintenanceExportException;
 use MaintenanceExport\Domain\Model\ExternalReference;
 use MaintenanceExport\Infrastructure\Adapter\Export\ExportSourceAdapter;

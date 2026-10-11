@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Persistence\Doctrine\Record;
 
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
 use DateTimeImmutable;
-use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -27,8 +25,6 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_status', columns: ['status'])]
 class UserRecord
 {
-  // #endregion
-
   // #region Properties
   /**
    * Property id.
@@ -100,6 +96,12 @@ class UserRecord
    */
   #[ORM\Column(type: 'string', length: 255, nullable: true)]
   public ?string $avatarUrl = null;
+
+  /**
+   * Immutable avatar generation; null reads historical canonical variants.
+   */
+  #[ORM\Column(name: 'avatar_storage_key', type: 'string', length: 36, nullable: true)]
+  public ?string $avatarStorageKey = null;
 
   /**
    * Property status.
@@ -189,30 +191,5 @@ class UserRecord
   #[ORM\Column(type: 'string', length: 10, options: ['default' => 'system'])]
   public string $locale = 'system';
 
-  /**
-   * Property roles.
-   *
-   * The roles assigned to this user.
-   *
-   * @since 1.0.0
-   *
-   * @var Collection<int, RoleRecord>
-   */
-  #[ORM\ManyToMany(targetEntity: RoleRecord::class)]
-  #[ORM\JoinTable(name: 'user_roles')]
-  #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id')]
-  #[ORM\InverseJoinColumn(name: 'role_id', referencedColumnName: 'id')]
-  public Collection $roles;
-
-  // #region Constructor
-  /**
-   * Constructor.
-   *
-   * Initializes collections.
-   */
-  public function __construct()
-  {
-    $this->roles = new ArrayCollection();
-  }
   // #endregion
 }

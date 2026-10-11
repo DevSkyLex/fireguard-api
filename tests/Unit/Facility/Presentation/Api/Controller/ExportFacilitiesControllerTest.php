@@ -7,7 +7,6 @@ namespace Tests\Unit\Facility\Presentation\Api\Controller;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Facility\Application\Contract\Export\FacilityExportRow;
 use Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesResult;
-use Facility\Domain\Event\Export\FacilitiesExportedEvent;
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityExportTooLargeException, FacilityNotFoundException};
 use Facility\Presentation\Api\Controller\ExportFacilitiesController;
 use Facility\Presentation\Api\Service\{FacilityCsvWriter, FacilityExportCriteriaFactory};
@@ -98,34 +97,12 @@ final class ExportFacilitiesControllerTest extends TestCase
   }
 
   #[Test]
-  public function testItAuditsTheExportWithFilterNamesOnly(): void
+  public function testItForwardsTheAuthenticatedExportAndFiltersThroughTheQueryBus(): void
   {
-    $request = new Request(
-      query: ['status' => 'active', 'type' => 'building'],
-      attributes: ['organizationId' => self::ORGANIZATION_ID],
-    );
-
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ExportFacilitiesResult(rows: [], total: 7));
-
-    $dispatched = null;
-
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())
-      ->method('dispatch')
-      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
-        $dispatched = $event;
-      });
-
-    $this->createController($queryBus, $eventDispatcher)->__invoke($request);
-
-    self::assertInstanceOf(FacilitiesExportedEvent::class, $dispatched);
-    self::assertSame(self::USER_ID, $dispatched->actorUserId);
-    self::assertSame(self::ORGANIZATION_ID, $dispatched->organizationId);
-    self::assertSame('csv', $dispatched->format);
-    self::assertSame(7, $dispatched->rowCount);
-    self::assertSame(['type', 'status'], $dispatched->filterKeys);
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())->method('ask')->with(self::callback(static fn (\Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesQuery $query): bool => self::USER_ID === $query->userId && self::ORGANIZATION_ID === $query->organizationId && ['includeArchived' => false, 'type' => 'building', 'status' => 'active'] === $query->filters))->willReturn(new ExportFacilitiesResult([], 7));
+    $response = $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke(new Request(query: ['status' => 'active', 'type' => 'building'], attributes: ['organizationId' => self::ORGANIZATION_ID]));
+    self::assertInstanceOf(StreamedResponse::class, $response);
   }
 
   #[Test]
@@ -139,7 +116,6 @@ final class ExportFacilitiesControllerTest extends TestCase
 
     $controller = new ExportFacilitiesController(
       queryBus: $queryBus,
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       security: $security,
       criteriaFactory: new FacilityExportCriteriaFactory(),
       csvWriter: new FacilityCsvWriter(new SpreadsheetSafeTextAdapter()),
@@ -216,7 +192,6 @@ final class ExportFacilitiesControllerTest extends TestCase
 
     return new ExportFacilitiesController(
       queryBus: $queryBus,
-      eventDispatcher: $eventDispatcher,
       security: $security,
       criteriaFactory: new FacilityExportCriteriaFactory(),
       csvWriter: new FacilityCsvWriter(new SpreadsheetSafeTextAdapter()),

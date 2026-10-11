@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Command\Facility\ArchiveFacility;
 
 use Facility\Application\Port\Inbound\{FacilityArchivalGuardPort, FacilityHierarchyPort};
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
@@ -14,8 +14,7 @@ use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
@@ -41,7 +40,7 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
    * @access public
    *
    * @param FacilityRepositoryPort $facilityRepository port used to load and persist the facility state
-   * @param OrganizationRepositoryPort $organizationRepository port used to load notification recipient context
+   * @param OrganizationOwnerReadPort $organizationRepository reads the notification recipient identifier
    * @param NotificationPort $notificationPort port used to notify relevant members about archival
    * @param LoggerPort $logger port used to record operational delivery failures
    * @param FacilityArchivalGuardPort $archivalGuard port used to validate whether the facility can be archived
@@ -51,7 +50,7 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
-    private OrganizationRepositoryPort $organizationRepository,
+    private OrganizationOwnerReadPort $organizationRepository,
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
     private FacilityArchivalGuardPort $archivalGuard,
@@ -118,7 +117,7 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
         facilityId: (string) $facility->id(),
       ));
 
-      $organization = $this->organizationRepository->findById(new OrganizationId((string) $organizationId));
+      $organization = $this->organizationRepository->ownerUserId((string) $organizationId);
     } else {
       $organization = null;
     }
@@ -137,14 +136,14 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
             'facilityType' => $facility->type()->value,
             'archivedAt' => $facility->updatedAt()->format('c'),
           ],
-          recipientUserId: $organization->ownerUserId(),
+          recipientUserId: $organization,
           organizationId: (string) $organizationId,
         ));
       } catch (Throwable $exception) {
         $this->logger->warning('Facility archived notification dispatch failed.', [
           'organizationId' => (string) $organizationId,
           'facilityId' => (string) $facility->id(),
-          'recipientUserId' => $organization->ownerUserId(),
+          'recipientUserId' => $organization,
           'error' => $exception->getMessage(),
         ]);
       }

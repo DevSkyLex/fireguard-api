@@ -7,13 +7,13 @@ namespace Tests\Integration\Calendar\Infrastructure\DataFixtures;
 use Calendar\Infrastructure\DataFixtures\CalendarFixtures;
 use Calendar\Infrastructure\Persistence\Doctrine\Record\CalendarEventRecord;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
+use Shared\Application\Contract\Seed\SeedTimeline;
+use Shared\Infrastructure\DataFixtures\{SeedFixtureAdapter, SeedReferenceRegistryAdapter};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_filter;
@@ -49,18 +49,20 @@ final class CalendarFixturesIntegrationTest extends KernelTestCase
     $calendarFixtures = static::getContainer()->get(CalendarFixtures::class);
 
     self::assertSame(['calendar', 'main-seed'], CalendarFixtures::getGroups());
-    self::assertSame([OrganizationFixtures::class, FacilityFixtures::class], $calendarFixtures->getDependencies());
+    self::assertSame([], $calendarFixtures->getDependencies());
 
-    $loader = new Loader();
-    $loader->addFixture($organizationFixtures);
-    $loader->addFixture($facilityFixtures);
-    $loader->addFixture($calendarFixtures);
+    $registry = new SeedReferenceRegistryAdapter();
+    $fixtures = [
+      new SeedFixtureAdapter($organizationFixtures, $this->entityManager, $registry, 'organization', []),
+      new SeedFixtureAdapter($facilityFixtures, $this->entityManager, $registry, 'facility', ['organization']),
+      new SeedFixtureAdapter($calendarFixtures, $this->entityManager, $registry, 'calendar', ['organization', 'facility']),
+    ];
 
     $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
     // Purge before loading: the test databases carry the seeded baseline, so
     // appending on top of it collides on primary keys and makes the counts
     // below meaningless. DAMA rolls the purge back with the rest of the test.
-    $executor->execute($loader->getFixtures(), false);
+    $executor->execute($fixtures, false);
 
     /** @var list<CalendarEventRecord> $events */
     $events = $this->entityManager->getRepository(CalendarEventRecord::class)->findBy([], ['startsAt' => 'ASC']);

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests;
 
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
-use Organization\Application\Port\Outbound\{InterventionStatisticsPort, MaintenanceStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\{InterventionStatisticsPort, MaintenanceStatisticsPort, NonConformityStatisticsPort};
 use Organization\Application\Service\{OrganizationWeeklyDigest, OrganizationWeeklyDigestNotifier};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\OrganizationId;

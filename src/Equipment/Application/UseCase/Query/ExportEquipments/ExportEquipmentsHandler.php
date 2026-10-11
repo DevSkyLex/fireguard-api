@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Query\ExportEquipments;
 
 use Equipment\Application\Contract\Export\{EquipmentExportCandidate, EquipmentExportRow};
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
+use Equipment\Domain\Event\Export\EquipmentsExportedEvent;
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentExportTooLargeException, EquipmentNotFoundException};
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function array_filter;
 use function array_map;
@@ -69,6 +72,7 @@ final readonly class ExportEquipmentsHandler implements QueryHandler
     private EquipmentRepositoryPort $repository,
     private FacilityNamingPort $facilityNaming,
     private OrganizationAuthorizationPort $authorization,
+    private EventDispatcherPort $events,
   ) {
   }
   // #endregion
@@ -130,6 +134,8 @@ final readonly class ExportEquipmentsHandler implements QueryHandler
       ),
       $candidates,
     );
+
+    $this->events->dispatch(new EquipmentsExportedEvent($query->organizationId, $query->userId, 'csv', $total));
 
     return new ExportEquipmentsResult($rows, $total);
   }

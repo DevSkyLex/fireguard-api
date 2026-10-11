@@ -87,7 +87,7 @@ final class CreateImportJobProcessorTest extends TestCase
         new ImportJobOutputFactory(),
       );
 
-      $output = $processor->process(null, new Post());
+      $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $processor->process(null, new Post()));
 
       self::assertInstanceOf(CreateImportJobCommand::class, $captured);
       self::assertSame(self::USER_ID, $captured->userId);
@@ -124,7 +124,7 @@ final class CreateImportJobProcessorTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $processor->process(null, new Post());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $processor->process(null, new Post()));
   }
 
   #[Test]
@@ -141,7 +141,7 @@ final class CreateImportJobProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Request payload is required.');
 
-    $processor->process(null, new Post());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $processor->process(null, new Post()));
   }
 
   #[Test]
@@ -161,7 +161,7 @@ final class CreateImportJobProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Multipart field "organization" is required.');
 
-    $processor->process(null, new Post());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $processor->process(null, new Post()));
   }
 
   #[Test]
@@ -195,7 +195,7 @@ final class CreateImportJobProcessorTest extends TestCase
       $this->expectException(BadRequestHttpException::class);
       $this->expectExceptionMessage('Unsupported import kind.');
 
-      $processor->process(null, new Post());
+      \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => $processor->process(null, new Post()));
     } finally {
       unlink($path);
     }

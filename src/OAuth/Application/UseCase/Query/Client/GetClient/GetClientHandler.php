@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Query\Client\GetClient;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Domain\ValueObject\Client\ClientId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\EntityNotFoundException;

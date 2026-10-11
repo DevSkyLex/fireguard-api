@@ -99,13 +99,13 @@ final class MaintenanceCalendarFeedAdapterTest extends KernelTestCase
 
   private function createSchedule(string $id, string $organizationId, ?DateTimeImmutable $nextDueAt, string $dueStatus): void
   {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     // Each schedule gets its own equipmentId: `(organization_id, equipment_id)`
     // is unique, and several schedules share `$organizationId` in these tests.
     $schedule = new MaintenanceScheduleRecord();
     $schedule->id = $id;
-    $schedule->organization = $organization;
+    $schedule->organizationId = $organization;
     $schedule->equipmentId = '880e8400-e29b-41d4-a716-' . substr($id, -12);
     $schedule->equipmentType = 'fire_extinguisher';
     $schedule->nextDueAt = $nextDueAt;

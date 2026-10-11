@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\EventSubscriber;
 
-use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
-use Intervention\Domain\Event\Recurrence\{
+use Intervention\Application\Contract\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
+use Intervention\Application\Contract\Event\Recurrence\{
   InterventionRecurrenceCreatedEvent,
   InterventionRecurrenceDeletedEvent,
   InterventionRecurrenceMaterializedEvent,
   InterventionRecurrenceUpdatedEvent
 };
-use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
-use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
-use Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent;
+use Intervention\Application\Contract\Event\Workflow\InterventionStatusTransitionedEvent;
+use Maintenance\Application\Contract\Event\Campaign\MaintenanceCampaignGeneratedEvent;
+use Maintenance\Application\Contract\Event\Schedule\MaintenanceScheduleOverriddenEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /** Records the intervention event family. */

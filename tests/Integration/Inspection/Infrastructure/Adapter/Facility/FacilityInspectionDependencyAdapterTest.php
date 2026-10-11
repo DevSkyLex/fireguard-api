@@ -156,7 +156,7 @@ final class FacilityInspectionDependencyAdapterTest extends KernelTestCase
   ): InspectionRecord {
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->facilityId = $facilityId;
     $inspection->recordStatus = $recordStatus;
     $inspection->equipmentId = self::EQUIPMENT_ID;

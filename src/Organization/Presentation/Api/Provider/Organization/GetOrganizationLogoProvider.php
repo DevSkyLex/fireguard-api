@@ -6,9 +6,8 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Organization\Infrastructure\Image\OrganizationLogoResizer;
-use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Infrastructure\Exception\FileStorageException;
+use Organization\Application\UseCase\Query\Organization\GetOrganizationLogo\{GetOrganizationLogoQuery, GetOrganizationLogoResult};
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -36,10 +35,10 @@ final readonly class GetOrganizationLogoProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param FileStoragePort $fileStorage reads stored logo files
+   * @param QueryBusPort $queries reads the public logo projection
    */
   public function __construct(
-    private FileStoragePort $fileStorage,
+    private QueryBusPort $queries,
   ) {
   }
   // #endregion
@@ -65,13 +64,13 @@ final readonly class GetOrganizationLogoProvider implements ProviderInterface
     $organizationIdValue = $uriVariables['organizationId'] ?? '';
     $organizationId = is_string($organizationIdValue) ? $organizationIdValue : '';
 
-    try {
-      $contents = $this->fileStorage->read(OrganizationLogoResizer::pathFor($organizationId));
-    } catch (FileStorageException) {
+    /** @var GetOrganizationLogoResult $result */
+    $result = $this->queries->ask(new GetOrganizationLogoQuery($organizationId));
+    if (null === $result->contents) {
       throw new NotFoundHttpException('Organization logo not found.');
     }
 
-    return new Response($contents, Response::HTTP_OK, [
+    return new Response($result->contents, Response::HTTP_OK, [
       'Content-Type' => 'image/webp',
       'Cache-Control' => 'public, max-age=86400',
       'X-Content-Type-Options' => 'nosniff',

@@ -8,17 +8,15 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Maintenance\Application\UseCase\Query\Schedule\GetMaintenanceSchedule\{GetMaintenanceScheduleQuery, GetMaintenanceScheduleResult};
 use Maintenance\Application\UseCase\Query\Schedule\ListMaintenanceSchedules\{ListMaintenanceSchedulesQuery, ListMaintenanceSchedulesResult};
 use Maintenance\Presentation\Api\Factory\MaintenanceScheduleOutputFactory;
-use Maintenance\Presentation\Api\Trait\MaintenanceExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function array_map;
 use function is_string;
@@ -37,8 +35,6 @@ use function min;
  */
 final readonly class MaintenanceScheduleProvider implements ProviderInterface
 {
-  use MaintenanceExceptionMapperTrait;
-
   /**
    * Constructor.
    *
@@ -73,17 +69,13 @@ final readonly class MaintenanceScheduleProvider implements ProviderInterface
     $user = $this->user();
     $id = $uriVariables['id'] ?? null;
     if (is_string($id) && '' !== $id) {
-      try {
-        /** @var GetMaintenanceScheduleResult $result */
-        $result = $this->queryBus->ask(new GetMaintenanceScheduleQuery($user->getId(), $id));
-      } catch (Throwable $exception) {
-        throw $this->mapMaintenanceException($exception);
-      }
+      /** @var GetMaintenanceScheduleResult $result */
+      $result = $this->queryBus->ask(new GetMaintenanceScheduleQuery($user->getId(), $id));
 
       return $this->mapper->fromView($result->schedule);
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Maintenance\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
@@ -96,21 +88,17 @@ final readonly class MaintenanceScheduleProvider implements ProviderInterface
     $page = max(1, $query->getInt('page', 1));
     $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
-    try {
-      /** @var ListMaintenanceSchedulesResult $result */
-      $result = $this->queryBus->ask(new ListMaintenanceSchedulesQuery(
-        userId: $user->getId(),
-        organizationId: ResourceIriParser::id($organization, 'organizations'),
-        facilityId: is_string($facility) && '' !== $facility ? ResourceIriParser::id($facility, 'facilities') : null,
-        equipmentType: is_string($equipmentType) && '' !== $equipmentType ? $equipmentType : null,
-        dueStatus: is_string($dueStatus) && '' !== $dueStatus ? $dueStatus : null,
-        dueBefore: $dueBefore,
-        page: $page,
-        itemsPerPage: $itemsPerPage,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapMaintenanceException($exception);
-    }
+    /** @var ListMaintenanceSchedulesResult $result */
+    $result = $this->queryBus->ask(new ListMaintenanceSchedulesQuery(
+      userId: $user->getId(),
+      organizationId: ResourceIriParser::id($organization, 'organizations'),
+      facilityId: is_string($facility) && '' !== $facility ? ResourceIriParser::id($facility, 'facilities') : null,
+      equipmentType: is_string($equipmentType) && '' !== $equipmentType ? $equipmentType : null,
+      dueStatus: is_string($dueStatus) && '' !== $dueStatus ? $dueStatus : null,
+      dueBefore: $dueBefore,
+      page: $page,
+      itemsPerPage: $itemsPerPage,
+    ));
 
     return new TraversablePaginator(
       new ArrayIterator(array_map($this->mapper->fromView(...), $result->page->items)),
@@ -125,12 +113,12 @@ final readonly class MaintenanceScheduleProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -6,6 +6,7 @@ namespace Inspection\Application\UseCase\Command\Inspection\CreateInspection;
 
 use DateTimeImmutable;
 use Shared\Application\Message\ResultMessage;
+use User\Application\Contract\User\UserView;
 
 /**
  * UseCase CreateInspectionResult.
@@ -40,6 +41,10 @@ final readonly class CreateInspectionResult implements ResultMessage
     public ?string $signature,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public ?string $interventionId = null,
+    public string $recordStatus = 'published',
+    public int $revision = 1,
+    public ?UserView $inspectorProfile = null,
   ) {
   }
   // #endregion

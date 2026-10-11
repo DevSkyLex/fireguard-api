@@ -6,18 +6,13 @@ namespace Tests\Unit\Messaging\Application\UseCase\Query\Channel\ListChannels;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Channel\{ChannelPage, ChannelView};
-use Messaging\Application\Port\Outbound\{
-  MessagingConversationFavoriteRepositoryPort,
-  MessagingConversationRepositoryPort,
-  MessagingMemberDirectoryPort,
-  MessagingParticipantRepositoryPort,
-  MessagingReadMarkerRepositoryPort
-};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\Channel\ListChannels\{ListChannelsHandler, ListChannelsQuery};
 use Messaging\Domain\Exception\MessagingNotFoundException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

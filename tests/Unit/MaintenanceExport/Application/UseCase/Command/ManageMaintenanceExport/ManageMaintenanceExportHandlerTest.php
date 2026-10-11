@@ -6,7 +6,8 @@ namespace Tests\Unit\MaintenanceExport\Application\UseCase\Command\ManageMainten
 
 use DateTimeImmutable;
 use MaintenanceExport\Application\Contract\{ExportOperation,ExportSourceState};
-use MaintenanceExport\Application\Port\Outbound\{MaintenanceExportIdentityPort,MaintenanceExportRepositoryPort,MaintenanceExportSourcePort};
+use MaintenanceExport\Application\Port\Outbound\Internal\MaintenanceExportRepositoryPort;
+use MaintenanceExport\Application\Port\Outbound\{MaintenanceExportIdentityPort, MaintenanceExportSourcePort};
 use MaintenanceExport\Application\UseCase\Command\ManageMaintenanceExport\{ManageMaintenanceExportCommand,ManageMaintenanceExportHandler};
 use MaintenanceExport\Domain\Exception\MaintenanceExportException;
 use MaintenanceExport\Domain\Model\ExportDocument;

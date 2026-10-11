@@ -225,7 +225,7 @@ final class MessagingAttachmentMapperTest extends KernelTestCase
   {
     $conversation = new MessagingConversationRecord();
     $conversation->id = self::CONVERSATION_ID;
-    $conversation->organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $conversation->organizationId = self::ORGANIZATION_ID;
     $conversation->subjectType = 'facility';
     $conversation->subjectId = '990e8400-e29b-41d4-a716-4466554408c0';
     $conversation->createdAt = new DateTimeImmutable('2026-01-02T00:00:00+00:00');

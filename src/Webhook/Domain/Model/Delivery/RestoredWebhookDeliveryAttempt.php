@@ -24,6 +24,9 @@ final readonly class RestoredWebhookDeliveryAttempt
    * @param ?string $lastError optional error recorded for the last attempt
    * @param ?DateTimeImmutable $nextRetryAt optional time scheduled for the next retry
    * @param ?DateTimeImmutable $deliveredAt optional time when delivery succeeded
+   * @param int $generation durable manual-redelivery generation, 0 for historical rows
+   * @param ?DateTimeImmutable $leaseUntil currently owned HTTP lease deadline
+   * @param bool $quarantined whether automatic recovery is disabled
    *
    * @return void
    */
@@ -34,6 +37,9 @@ final readonly class RestoredWebhookDeliveryAttempt
     public ?string $lastError,
     public ?DateTimeImmutable $nextRetryAt,
     public ?DateTimeImmutable $deliveredAt,
+    public int $generation = 0,
+    public ?DateTimeImmutable $leaseUntil = null,
+    public bool $quarantined = false,
   ) {
   }
   // #endregion

@@ -10,7 +10,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Webhook\Application\UseCase\Command\Subscription\PingWebhookSubscription\{PingWebhookSubscriptionCommand, PingWebhookSubscriptionResult};
 use Webhook\Domain\Exception\WebhookValidationException;
 use Webhook\Presentation\Api\Processor\PingWebhookSubscriptionProcessor;
@@ -100,7 +100,7 @@ final class PingWebhookSubscriptionProcessorTest extends TestCase
 
     $processor = new PingWebhookSubscriptionProcessor($commandBus, $this->authenticatedSecurity());
 
-    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectException(WebhookValidationException::class);
 
     $processor->process(null, new Post(), [
       'organizationId' => self::ORGANIZATION_ID,

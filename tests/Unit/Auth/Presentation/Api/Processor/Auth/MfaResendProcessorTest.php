@@ -13,7 +13,8 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
+use Otp\Application\Service\ChallengeAccessService;
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{
   ChallengeToken,
@@ -206,7 +207,7 @@ final class MfaResendProcessorTest extends TestCase
 
     $handler = new MfaResendHandler(
       jwtService: $jwtService,
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 

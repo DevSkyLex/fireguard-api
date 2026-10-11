@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Onboarding\Application\UseCase\Command\Setup\PrepareOrganizationSetup;
 
-use Onboarding\Application\Port\Inbound\{OrganizationOnboardingServicePort, OrganizationSetupPort};
+use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
+use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Shared\Application\Message\CommandHandler;
 
 /**

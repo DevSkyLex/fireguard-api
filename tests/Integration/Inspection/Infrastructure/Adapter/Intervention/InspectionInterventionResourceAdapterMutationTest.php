@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, InspectionResponseRecord};
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionResourceNotFoundException};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -275,7 +275,7 @@ final class InspectionInterventionResourceAdapterMutationTest extends KernelTest
 
     $record = new InspectionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->interventionId = $interventionId;
     $record->clientId = null;
     $record->recordStatus = $recordStatus;
@@ -303,7 +303,7 @@ final class InspectionInterventionResourceAdapterMutationTest extends KernelTest
 
     $record = new InspectionResponseRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->interventionId = $interventionId;
     $record->inspectionId = $inspectionId;
     $record->recordStatus = $recordStatus;

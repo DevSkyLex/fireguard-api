@@ -7,7 +7,7 @@ namespace Tests\Unit\Inspection\Infrastructure\Adapter\Calendar;
 use Calendar\Application\Contract\Feed\CalendarFeedItem;
 use DateTimeImmutable;
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\{Inspection, InspectionCreationOptions};
 use Inspection\Domain\ValueObject\{InspectionEquipmentId, InspectionId, InspectionOrganizationId, InspectionResult, Inspector};
 use Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter;

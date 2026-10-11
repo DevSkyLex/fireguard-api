@@ -7,11 +7,8 @@ namespace Inspection\Presentation\Api\Factory;
 use Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionResult;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Presentation\Api\Dto\Output\Inspection\{InspectionOutput, InspectorOutput};
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Throwable;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Contract\User\UserView;
 
-use function array_key_exists;
 use function trim;
 
 /**
@@ -24,29 +21,6 @@ use function trim;
  */
 final class InspectionOutputFactory
 {
-  /**
-   * Property userCache.
-   *
-   * @since 1.0.0
-   *
-   * @var array<string, GetUserResult|null>
-   */
-  private array $userCache = [];
-
-  /**
-   * Constructor.
-   *
-   * Initializes a new instance of the InspectionOutputFactory class.
-   *
-   * @since 1.0.0
-   *
-   * @param QueryBusPort $queryBus the query bus value
-   */
-  public function __construct(
-    private readonly QueryBusPort $queryBus,
-  ) {
-  }
-
   /**
    * Method fromGetResult.
    *
@@ -103,7 +77,7 @@ final class InspectionOutputFactory
     $output->result = $result->result;
     $output->status = $result->status;
     $output->performedAt = $result->performedAt;
-    $output->inspector = $this->mapInspector($result->inspectorType, $result->inspectorName, $result->inspectorUserId, $result->inspectorOrganizationName);
+    $output->inspector = $this->mapInspector($result->inspectorType, $result->inspectorName, $result->inspectorUserId, $result->inspectorOrganizationName, $result->inspectorProfile);
     $output->checklistId = $result->checklistId;
     $output->notes = $result->notes;
     $output->signature = $result->signature;
@@ -133,6 +107,7 @@ final class InspectionOutputFactory
     string $name,
     ?string $userId,
     ?string $organizationName,
+    ?UserView $profile,
   ): InspectorOutput {
     $output = new InspectorOutput();
     $output->type = $type;
@@ -144,43 +119,14 @@ final class InspectionOutputFactory
       return $output;
     }
 
-    $userResult = $this->findUser($userId);
-    if (!$userResult instanceof GetUserResult || null === $userResult->user) {
+    if (null === $profile) {
       return $output;
     }
-
-    $output->firstName = $userResult->user->firstName;
-    $output->lastName = $userResult->user->lastName;
-    $output->displayName = trim($userResult->user->firstName . ' ' . $userResult->user->lastName) ?: $name;
-    $output->avatarUrl = $userResult->user->avatarUrl;
+    $output->firstName = $profile->firstName;
+    $output->lastName = $profile->lastName;
+    $output->displayName = trim($profile->firstName . ' ' . $profile->lastName) ?: $name;
+    $output->avatarUrl = $profile->avatarUrl;
 
     return $output;
-  }
-
-  /**
-   * Method findUser.
-   *
-   * Executes the find user operation.
-   *
-   * @since 1.0.0
-   *
-   * @param string $userId the user id value
-   *
-   * @return ?GetUserResult the find user result
-   */
-  private function findUser(string $userId): ?GetUserResult
-  {
-    if (array_key_exists($userId, $this->userCache)) {
-      return $this->userCache[$userId];
-    }
-
-    try {
-      /** @var GetUserResult $result */
-      $result = $this->queryBus->ask(new GetUserQuery($userId));
-    } catch (Throwable) {
-      $result = null;
-    }
-
-    return $this->userCache[$userId] = $result;
   }
 }

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\UpdateEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentIdentity, EquipmentOrganizationId, EquipmentTypeCode};
@@ -42,7 +43,7 @@ final readonly class UpdateEquipmentHandler implements CommandHandler
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
     private FacilityNamingPort $facilityNaming,
-    private ?\Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort $typeCatalog = null,
+    private ?\Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort $typeCatalog = null,
   ) {
   }
   // #endregion

@@ -28,6 +28,6 @@ interface WebhookDeliveryQueuePort
    *
    * @param string $deliveryId the webhook delivery identifier to attempt
    */
-  public function dispatch(string $deliveryId): void;
+  public function dispatch(string $deliveryId, int $generation = 0, ?string $wakeToken = null, int $delayMilliseconds = 0): void;
   // #endregion
 }

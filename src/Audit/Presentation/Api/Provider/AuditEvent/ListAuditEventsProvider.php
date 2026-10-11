@@ -13,10 +13,9 @@ use Audit\Application\UseCase\Query\ListAuditEvents\ListAuditEventsQuery;
 use Audit\Presentation\Api\Dto\Output\AuditEvent\AuditEventOutput;
 use DateTimeImmutable;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Contract\Sorting\SortDirection;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\{SortDirection, SortingExtractor};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 
 use function array_map;
 use function is_numeric;
@@ -67,7 +66,7 @@ final readonly class ListAuditEventsProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Audit\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

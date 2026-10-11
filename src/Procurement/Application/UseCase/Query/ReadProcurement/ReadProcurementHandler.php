@@ -6,7 +6,7 @@ namespace Procurement\Application\UseCase\Query\ReadProcurement;
 
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Procurement\Application\Port\Outbound\Persistence\ProcurementRepositoryPort;
+use Procurement\Application\Port\Outbound\Internal\Persistence\ProcurementRepositoryPort;
 use Procurement\Application\Service\ProcurementProjection;
 use Procurement\Domain\Exception\ProcurementException;
 use Shared\Application\Message\QueryHandler;

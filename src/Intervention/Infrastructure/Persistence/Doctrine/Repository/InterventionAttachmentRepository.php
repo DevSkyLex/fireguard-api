@@ -6,12 +6,13 @@ namespace Intervention\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionAttachmentRepositoryPort;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionAttachmentMapper;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord, InterventionWorkItemRecord};
+use Shared\Application\Port\Outbound\RootTransactionManagerPort;
 use Throwable;
 
 use function array_map;
@@ -49,6 +50,7 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
+    private RootTransactionManagerPort $transactions,
   ) {
     $this->repository = $this->entityManager->getRepository(InterventionAttachmentRecord::class);
   }
@@ -72,27 +74,19 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
    */
   public function withUploadLock(string $interventionId, string $attachmentId, callable $operation): mixed
   {
-    try {
-      return $this->entityManager->getConnection()->transactional(function () use ($interventionId, $attachmentId, $operation): mixed {
-        $connection = $this->entityManager->getConnection();
-        $connection->executeQuery('SELECT pg_advisory_xact_lock(hashtext(:key))', ['key' => 'intervention:attachment:' . $attachmentId])->fetchOne();
-        if (false === $connection->fetchOne('SELECT id FROM interventions WHERE id = :id FOR UPDATE', ['id' => $interventionId])) {
-          throw InterventionNotFoundException::withId($interventionId);
-        }
-        $parent = $this->entityManager->find(InterventionRecord::class, $interventionId);
-        if ($parent instanceof InterventionRecord) {
-          $this->entityManager->refresh($parent);
-        }
-
-        return $operation();
-      });
-    } catch (Throwable $exception) {
-      if ($this->entityManager->isOpen()) {
-        $this->entityManager->clear();
+    return $this->transactions->transactional(function () use ($interventionId, $attachmentId, $operation): mixed {
+      $connection = $this->entityManager->getConnection();
+      $connection->executeQuery('SELECT pg_advisory_xact_lock(hashtext(:key))', ['key' => 'intervention:attachment:' . $attachmentId])->fetchOne();
+      if (false === $connection->fetchOne('SELECT id FROM interventions WHERE id = :id FOR UPDATE', ['id' => $interventionId])) {
+        throw InterventionNotFoundException::withId($interventionId);
+      }
+      $parent = $this->entityManager->find(InterventionRecord::class, $interventionId);
+      if ($parent instanceof InterventionRecord) {
+        $this->entityManager->refresh($parent);
       }
 
-      throw $exception;
-    }
+      return $operation();
+    });
   }
 
   /**
