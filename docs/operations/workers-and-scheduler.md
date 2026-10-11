@@ -6,11 +6,11 @@ A healthy HTTP process does not establish that queued or scheduled work is being
 
 ## Managed workers
 
-Compose declares four supervised consumers: `async_worker` consumes `main_outbox`
-and `async`; `webhook_worker` consumes `webhook`; `assistant_worker` consumes
-`assistant`; `scheduler_worker` consumes all five `scheduler_*` receivers. Webhook
+Compose declares four supervised consumers: `async_worker` consumes `main_outbox`,
+`auth_outbox` and `async`; `webhook_worker` consumes `webhook`; `assistant_worker` consumes
+`assistant`; `scheduler_worker` consumes all six `scheduler_*` receivers. Webhook
 and model calls cannot block the ordinary async receiver. Ansible initializes
-`main_outbox main_failed async webhook assistant failed` after both migrations and
+`main_outbox auth_outbox main_failed async webhook assistant failed` after both migrations and
 before starting any current consumer, including on fresh bootstrap. Each transport
 uses a separate `messenger:setup-transports` invocation, which accepts one name.
 
@@ -24,8 +24,9 @@ Docker health checks require a recent receiver-loop heartbeat and a live recorde
 PID. Every five minutes, host maintenance also checks both durable queue histories
 for messages overdue by more than 900 seconds or any failed messages, and checks
 successful sweep timestamps. Hourly sweeps have a two-hour allowance, domain
-verification two days, and weekly digests eight days. The first scheduler start
-creates a persistent monitoring baseline for the corresponding first-run
+verification two days, weekly digests eight days, and the minute Webhook recovery
+sweep five minutes. The first scheduler start creates a persistent monitoring
+baseline for the corresponding first-run
 allowance. Worker restarts never reset it; stale sweep markers remain unhealthy.
 No payload, token or customer identifier is observed.
 
@@ -33,6 +34,16 @@ For bounded queue metadata, run `app:workers:queues --max-age=900`; for sweep
 freshness, run `php bin/worker-health.php --sweeps` in `async_worker`. Alert on the
 fixed `fireguard-maintenance` failure messages. Do not use HTTP health as evidence
 of queue consumption or successful scheduled work.
+
+`app:webhook:deliveries --max-lease-age=180` observes main delivery counts and
+ages without reading payloads, destinations or customer identifiers. It reports
+pending age, expired lease age, quarantined generations and terminal failures.
+It returns nonzero for a lease expired more than three minutes ago or any
+quarantined/failed generation; inspect the cause before manual redelivery.
+The five-minute host `worker-observe` check runs this command as well as queue
+and successful-sweep observation. Active leases and future retry times remain
+distinct from terminal outcomes; receiver activity never refreshes a successful
+Webhook recovery timestamp.
 
 For an illustrative configured transport:
 
@@ -57,9 +68,10 @@ identity. Keep receipts for the replay horizon and preserve attempt history.
 **Purpose**: asynchronous commands (intervention publication, maintenance
 sweeps, recurrence materialization, automation rules) and the recurring
 schedules provided by the `Maintenance`, `Intervention`, `Approval`,
-`Inspection` and `Organization` modules (`#[AsSchedule('maintenance')]`,
+`Inspection`, `Organization` and `Webhook` modules (`#[AsSchedule('maintenance')]`,
 `#[AsSchedule('intervention')]`, `#[AsSchedule('approval')]`,
-`#[AsSchedule('inspection')]`, `#[AsSchedule('organization')]`).
+`#[AsSchedule('inspection')]`, `#[AsSchedule('organization')]`,
+`#[AsSchedule('webhook')]`).
 
 **The `assistant` transport now has its own container**, `assistant_worker`, in
 both `compose.yaml` and `compose.prod.yaml` — separate from the general worker
@@ -75,13 +87,13 @@ After the independent auth/main migrations, initialize framework-owned tables
 before starting the new worker version:
 
 ```bash
-for transport in main_outbox main_failed async webhook assistant failed; do
+for transport in main_outbox auth_outbox main_failed async webhook assistant failed; do
   php -d memory_limit=1G bin/console messenger:setup-transports "$transport" --env=prod --no-interaction || exit 1
 done
 ```
 
-`main_outbox` is the PostgreSQL outbox on the main connection; its table is
-excluded from ORM schema diffs because Messenger owns its schema. Deployment
+`main_outbox` and `auth_outbox` are PostgreSQL outboxes on their respective owning
+connections; their tables are excluded from ORM schema diffs because Messenger owns its schema. Deployment
 does not create a cross-database transaction. Both Compose configurations include
 the workflow consumer. Production keys and application configuration must already
 be provisioned through the normal deployment environment.
@@ -90,12 +102,18 @@ Use the [canonical worker command in OPERATIONS.md](../../OPERATIONS.md#messenge
 Its complete transport list is checked against the configured queues and schedule
 providers by the architecture tests; this guide does not maintain a second copy of the command.
 
-Monitor `messenger:stats main_outbox main_failed async failed`, the age of the
+Monitor `messenger:stats main_outbox auth_outbox main_failed async webhook failed`, the age of the
 oldest undelivered message, and business jobs that remain pending/processing.
 Inspect failures with `messenger:failed:show --transport=main_failed` (or `failed`
 for general work). After correcting the cause, retry selected message IDs with
 `messenger:failed:retry <id> --transport=main_failed`. Replays retain event identity;
 do not delete consumer receipts while messages or backups can still replay them.
+
+Avatar replacement and user purge enqueue obsolete avatar keys in `auth_outbox`
+with the auth mutation. The shared cleanup consumer commits its receipt on auth;
+attachment and signature cleanup retains main receipts. Auth cleanup retries use
+the existing `failed` queue, preserving historical failed messages for replay.
+Initialize `auth_outbox` before starting the updated ordinary async worker.
 
 For the import cutover, drain or stop the previous worker version before starting
 new workers. Reconcile legacy processing jobs before allowing automatic resumption:
@@ -128,6 +146,7 @@ work" and produces no log line to investigate. Concretely, per transport:
 | `scheduler_approval`     | Pending four-eyes approval requests never expire; they accumulate until manually decided                                                  |
 | `scheduler_inspection`   | Non-conformity SLA breaches are never escalated; the per-severity SLAs configured in the organization compliance settings stay decorative |
 | `scheduler_organization` | The weekly organization digest email is never sent; the `weeklyDigest` toggle in the organization notification settings stays decorative  |
+| `scheduler_webhook`      | Expired webhook leases and missing durable wakes are never recovered; interrupted deliveries remain pending                              |
 
 The `webhook` and `assistant` transports are deliberately isolated from `async`
 so a slow or unreachable third party (or a cold model load) cannot starve
@@ -135,6 +154,39 @@ ordinary async work. `assistant` runs with `retry_strategy.max_retries: 1`
 because replaying a partially streamed reply would republish its fragments —
 the `assistant_messages.status` state machine is what makes a retry replace
 rather than append.
+
+Webhook reservation/reopen and enqueue now commit on `main` together. Its
+transport is `doctrine://main?queue_name=webhook&auto_setup=false`, with a 120-second
+Doctrine redelivery timeout, 90-second owned HTTP leases and a 60-second maximum
+HTTP duration. Consume its one-minute `scheduler_webhook` recovery independently
+of the slow HTTP worker. Five HTTP attempts and five technical Messenger retries
+are separate budgets; technical exhaustion is quarantined and requires explicit
+manual redelivery. Recovery cannot release a newer attempt's lease.
+
+Ansible's installed-runtime guard performs cutover after ordinary dependency and
+database preflight, before snapshots or migrations. Legacy production project
+renames also run an earlier guard before old-project shutdown.
+It stops HTTP and every Webhook producer including `main_outbox`
+by existing container IDs, keeps only the confirmed old auth worker to drain all
+ready, delayed and received rows for up to 15 minutes, then stops it with a
+120-second grace period and rechecks zero. Its next check reads the effective auth
+volume after dependency startup; absent containers never prove the volume empty.
+Unknown transport/SQL state, forced shutdown, missing old worker or drain timeout
+retain messages and the installation lock while producers remain stopped.
+Apply both additive Webhook main migrations and initialize main transports.
+The scheduler then runs alone until a new successful recovery timestamp is
+verified within three minutes, before other workers and HTTP restart. Every
+later rollout repeats these checks without changing fixtures. See the
+[Webhook cutover runbook](../../src/Webhook/MODULE.md#transport-cutover-and-recovery-runbook).
+Never run generation-unaware workers after activation.
+
+The historical auth dead-letter is named **`failed`**, with queue `failed`; this
+repository has no `auth_failed` alias or queue. Keep `failed` configured and its
+stored envelopes available. Inspect/retry old messages with
+`messenger:failed:show --transport=failed` and
+`messenger:failed:retry <id> --transport=failed` using the compatible new decoder.
+New Webhook failures use `main_failed`. Historical commands lacking a generation
+always remain generation 0 and cannot acquire a manually redelivered generation.
 
 Notes:
 

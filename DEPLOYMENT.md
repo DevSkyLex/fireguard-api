@@ -2,6 +2,28 @@
 
 **Reading guide:** [Documentation index](docs/README.md) · [Related guide](docs/operations/current-installation.md).
 
+Ansible performs the [Webhook cutover](src/Webhook/MODULE.md#transport-cutover-and-recovery-runbook)
+before snapshots, migrations or legacy-project shutdown. The installed-runtime
+guard stops HTTP and all producers, including `main_outbox`, by their existing
+container IDs after dependency health and database identity checks. An earlier
+guard is also required before a legacy production Compose project is renamed.
+It keeps the single confirmed auth Webhook worker on its installed
+image and environment until every ready, delayed and received auth `webhook` row
+has drained. The drain is bounded to 15 minutes; it then allows 120 seconds for
+graceful worker shutdown and rechecks that the queue is empty. A second mandatory
+check verifies the effective auth volume after dependency startup, including on
+bootstrap. Missing tables count as empty only on a verified empty public schema.
+Unsupported transports, missing old workers with pending work, forced shutdowns,
+SQL failures and drain timeouts abort rollout without discarding messages or
+releasing `.fireguard-operation.lock`. Restore the exact installed runtime and
+resolve the cause before reviewing a retry; do not recreate the old worker with
+the next image. Subsequent deployments verify the empty auth queue again.
+After migrations and transport setup, only the scheduler starts first; Ansible
+requires a newly successful Webhook recovery sweep within three minutes before
+restoring HTTP, the main Webhook consumer and other queue producers.
+Retain the auth `failed` transport for compatible replay. After activation, never
+roll back to generation-unaware workers; an image rollback cannot undo that boundary.
+
 Configure production and development independently, with separate directories,
 Compose projects, volumes, databases, keys and URLs. The
 [installation appendix](docs/operations/current-installation.md) records the current
@@ -173,6 +195,15 @@ An image without provenance or validated on the other branch is rejected.
 Without `image_ref`, manual delivery rebuilds the currently selected commit.
 Because paths, projects, and volumes are separate, a development rollback
 does not affect production containers or databases.
+
+Avatar storage has a separate compatibility boundary: apply the additive nullable
+`users.avatar_storage_key` migration, deploy every reader that supports generation
+keys and the null legacy fallback, then enable new avatar uploads, user purge and
+the `auth_outbox` cleanup consumer. Keep those producers paused until all readers
+are compatible. After the first generation-key mutation or legacy-key cleanup,
+an older reader that only knows canonical avatar paths cannot be rolled back into
+service. Recover with a compatible image or restore the matching auth snapshot
+and files together; an image rollback cannot restore deleted legacy bytes.
 
 All application consumers and HTTP writers stop before pre-migration snapshots,
 migrations or fixture resets. Persisted transports initialize before any consumer

@@ -36,6 +36,8 @@ if [ "$task" = 'worker-observe' ]; then
     || fail "$?" 'A scheduled sweep has no recent successful completion'
   compose exec -T app php -d memory_limit=1G bin/console app:workers:queues --env=prod >/dev/null 2>&1 \
     || fail "$?" 'Durable queue age or failed message threshold exceeded'
+  compose exec -T app php -d memory_limit=1G bin/console app:webhook:deliveries --env=prod >/dev/null 2>&1 \
+    || fail "$?" 'Webhook leases or terminal delivery failures require recovery'
   exit 0
 fi
 

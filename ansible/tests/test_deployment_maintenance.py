@@ -166,6 +166,12 @@ case "$*" in
   *'bin/worker-health.php --sweeps'*) exit "${FAKE_SWEEP_FAILURE:-0}" ;;
   *'bin/worker-health.php'*) exit "${FAKE_WORKER_FAILURE:-0}" ;;
   *'app:workers:queues'*) exit "${FAKE_QUEUE_FAILURE:-0}" ;;
+  *'app:webhook:deliveries'*)
+    if [ "${FAKE_WEBHOOK_FAILURE:-0}" != 0 ]; then
+      echo 'PRIVATE_WEBHOOK_PAYLOAD_MUST_NOT_LEAK' >&2
+      exit "$FAKE_WEBHOOK_FAILURE"
+    fi
+    ;;
   *) exit 99 ;;
 esac
 """, newline="\n")
@@ -261,16 +267,24 @@ exit "${FAKE_LOGGER_FAILURE:-0}"
     def test_worker_observation_checks_all_consumers_sweeps_and_both_queue_histories(self):
         self.assertEqual(0, self.run_task("worker-observe").returncode)
         commands = self.docker_calls()
-        self.assertEqual(6, len(commands))
+        self.assertEqual(7, len(commands))
         for service, command in zip(["async_worker", "webhook_worker", "assistant_worker", "scheduler_worker"], commands):
             self.assertIn("exec -T " + service + " php bin/worker-health.php", command)
         self.assertIn("--sweeps", commands[4])
         self.assertIn("app:workers:queues --env=prod", commands[5])
+        self.assertIn("app:webhook:deliveries --env=prod", commands[6])
 
     def test_queue_failure_is_reported_as_fixed_metadata(self):
         result = self.run_task("worker-observe", FAKE_QUEUE_FAILURE="18")
         self.assertEqual(18, result.returncode)
         self.assertEqual("Durable queue age or failed message threshold exceeded\n", result.stderr)
+
+    def test_webhook_observation_failure_is_sanitized_and_preserves_its_status(self):
+        result = self.run_task("worker-observe", FAKE_WEBHOOK_FAILURE="19")
+        self.assertEqual(19, result.returncode)
+        self.assertEqual(7, len(self.docker_calls()))
+        self.assertEqual("Webhook leases or terminal delivery failures require recovery\n", result.stderr)
+        self.assertNotIn("PRIVATE_WEBHOOK", result.stdout + result.stderr + self.events.read_text())
 
     def test_operation_lock_prevents_any_maintenance_during_snapshot_or_migration(self):
         (self.app / ".fireguard-operation.lock").mkdir()
@@ -283,7 +297,7 @@ exit "${FAKE_LOGGER_FAILURE:-0}"
 class DeploymentOrderingTest(unittest.TestCase):
     def test_scheduler_and_configuration_fail_before_any_service_interruption(self):
         playbook = (ROOT / "ansible/deploy.yml").read_text()
-        first_interruption = playbook.index("- name: Stop the legacy production Compose project")
+        first_interruption = playbook.index("- name: Drain the installed auth Webhook runtime")
         for name in [
             "Require an installed crontab executable",
             "Require a running cron scheduler before changing services",

@@ -113,7 +113,7 @@ sequenceDiagram
   participant Bus as MessageBusInterface (webhook transport)
   Src->>Disp: dispatch(NonConformityRecordedEvent)
   Disp->>Sub: onNonConformityRecorded(event)
-  Note over Sub: Durable delivery failures propagate for retry;<br/>legacy synchronous delivery remains best-effort
+  Note over Sub: Durable delivery failures propagate for retry.<br/>Legacy synchronous delivery remains best-effort
   Sub->>Bus: dispatch(DispatchWebhookEventCommand)
 ```
 
@@ -409,12 +409,30 @@ or the `organization.*` owner wildcard.
 
 ### Transport cutover and recovery runbook
 
+The ordinary Ansible rollout enforces these steps with the installed-runtime
+guard `ansible/webhook-cutover.py`. It targets existing container IDs and their
+original image/environment, even after staging the next Compose configuration.
+It refuses unknown transport backends or multiple installed Webhook workers.
+Ordinary deployments run the drain after dependency health and database identity
+checks; legacy production project renames also require an earlier drain before
+the old project is shut down.
+The following sequence also applies to reviewed manual recovery.
+
 1. Stop every producer of Webhook work, including the `main_outbox` worker that
    fans integration events out. Keep the old webhook worker available for draining.
-2. Drain the old **auth** queue `webhook`, including delayed rows. Verify its row
-   count is zero and wait for all outbound calls in progress to finish. Do not
+2. Drain the old **auth** queue `webhook`, including ready, delayed and received
+   rows, without filtering `available_at` or `delivered_at`. Ansible polls for at
+   most 900 seconds. Verify its row count is zero and wait for all outbound calls
+   in progress to finish. Do not
    discard delayed or failed envelopes to accelerate the cutover. Stop the old
-   webhook worker once the queue is empty and its active HTTP calls have finished.
+   webhook worker with a 120-second grace period once the queue is empty, then
+   verify its exit was not forced and recount zero before any migration. A timeout,
+   unknown SQL state, missing legacy worker or late retry aborts without deleting
+   messages; producers stay stopped and the installation operation lock remains held.
+   Bring the exact old worker back after resolving the cause rather than replacing
+   its environment/image. A mandatory second check reads the effective auth volume
+   after dependencies start. An absent database container does not prove bootstrap;
+   a missing queue table is accepted only on an otherwise empty public schema.
 3. Deploy the compatible code and apply both additive main migrations
    (`Version20261011120000` and `Version20261011120001`) with
    `--configuration=config/migrations/main.yaml`. Set up each main transport separately:
@@ -425,8 +443,13 @@ or the `organization.*` owner wildcard.
    done
    ```
 
-4. Start `scheduler_webhook` to recover previously committed pending reservations,
-   then start the main `webhook` and `main_outbox` workers and restore producers.
+4. Start the scheduler alone to recover previously committed pending reservations.
+   Ansible requires a newly written successful
+   `var/worker-sweeps/RecoverWebhookDeliveriesCommand.timestamp` after startup,
+   within three minutes; a receiver heartbeat or first-run monitoring baseline is
+   insufficient. Failure stops every managed writer and retains the lock.
+   Only after this proof start the main `webhook` and `main_outbox` workers and
+   restore producers. Every later deployment repeats the empty-auth verification.
 5. Keep auth's historical failed transport readable. Replay its Webhook envelopes
    with the new decoder; missing generations always remain 0. Inspect `main_failed`
    and quarantined deliveries before explicitly requesting manual redelivery.
