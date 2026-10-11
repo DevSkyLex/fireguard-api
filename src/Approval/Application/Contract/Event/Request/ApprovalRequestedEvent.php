@@ -38,6 +38,7 @@ final readonly class ApprovalRequestedEvent
    * @param string $subjectId the acted-upon subject identifier
    * @param string $requestedByMemberId the requesting member identifier
    * @param string $requestedByUserId the requesting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -46,8 +47,9 @@ final readonly class ApprovalRequestedEvent
     public string $subjectId,
     public string $requestedByMemberId,
     public string $requestedByUserId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

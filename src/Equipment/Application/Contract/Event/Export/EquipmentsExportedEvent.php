@@ -42,14 +42,16 @@ final readonly class EquipmentsExportedEvent
    * @param string $actorUserId the exporting user identifier
    * @param string $format the export format (`csv`)
    * @param int $rowCount the number of equipment items matched/exported
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $actorUserId,
     public string $format,
     public int $rowCount,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

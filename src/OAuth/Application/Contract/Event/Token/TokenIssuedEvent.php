@@ -43,6 +43,7 @@ final readonly class TokenIssuedEvent
    * @param list<string> $scopes the granted scopes
    * @param int $expiresIn the token lifetime in seconds
    * @param string|null $ipAddress the client IP address
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public readonly string $tokenId,
@@ -52,8 +53,9 @@ final readonly class TokenIssuedEvent
     public readonly array $scopes = [],
     public readonly int $expiresIn = 0,
     public readonly ?string $ipAddress = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

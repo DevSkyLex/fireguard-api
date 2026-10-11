@@ -40,14 +40,16 @@ final readonly class EquipmentCommissionedEvent
    * @param string $equipmentId the equipment ID
    * @param string|null $facilityId the assigned facility ID
    * @param string $previousStatus the status before entering service
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $equipmentId,
     public ?string $facilityId,
     public string $previousStatus,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

@@ -70,15 +70,7 @@ final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
       if (null === $attachment || (string) $attachment->facilityId() !== (string) $facilityId) {
         throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
       }
-      if (null !== $command->userId) {
-        $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.facilities.write');
-        if ($decision->isOutsideScope()) {
-          throw new FacilityAttachmentNotFoundException('Attachment not found.');
-        }
-        if (!$decision->isGranted()) {
-          throw new FacilityAccessDeniedException('Missing organization.facilities.write permission.');
-        }
-      }
+      $this->assertWriteAccess($command);
       if (null !== $command->expectedRevision && $attachment->revision() !== $command->expectedRevision) {
         throw FacilityRevisionMismatchException::stale();
       }
@@ -91,6 +83,30 @@ final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
       attachmentId: (string) $attachmentId,
       facilityId: (string) $facilityId,
     );
+  }
+
+  /**
+   * Method assertWriteAccess
+   *
+   * Preserves scope and permission refusals after resolving the attachment parent.
+   *
+   * @access private
+   *
+   * @param DeleteFacilityAttachmentCommand $command deletion input and optional actor
+   *
+   * @return void
+   */
+  private function assertWriteAccess(DeleteFacilityAttachmentCommand $command): void
+  {
+    if (null !== $command->userId) {
+      $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.facilities.write');
+      if ($decision->isOutsideScope()) {
+        throw new FacilityAttachmentNotFoundException('Attachment not found.');
+      }
+      if (!$decision->isGranted()) {
+        throw new FacilityAccessDeniedException('Missing organization.facilities.write permission.');
+      }
+    }
   }
   // #endregion
 }

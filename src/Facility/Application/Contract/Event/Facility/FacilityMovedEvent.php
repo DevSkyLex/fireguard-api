@@ -39,14 +39,16 @@ final readonly class FacilityMovedEvent
    * @param string $facilityId the facility ID
    * @param string|null $previousParentFacilityId the parent before the move (null = root)
    * @param string|null $newParentFacilityId the parent after the move (null = root)
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $facilityId,
     public ?string $previousParentFacilityId,
     public ?string $newParentFacilityId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

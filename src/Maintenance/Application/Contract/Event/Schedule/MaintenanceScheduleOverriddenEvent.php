@@ -40,6 +40,7 @@ final readonly class MaintenanceScheduleOverriddenEvent
    * @param string $equipmentId the equipment identifier
    * @param ?string $intervalOverride the newly set ISO-8601 interval override, or null when cleared
    * @param ?string $actorUserId the acting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -47,8 +48,9 @@ final readonly class MaintenanceScheduleOverriddenEvent
     public string $equipmentId,
     public ?string $intervalOverride,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

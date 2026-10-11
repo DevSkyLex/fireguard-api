@@ -39,14 +39,16 @@ final readonly class OrganizationRoleUpdatedEvent
    * @param string $roleId the role ID
    * @param string $roleName the role name
    * @param list<string> $permissions the granted permissions after update
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $roleId,
     public string $roleName,
     public array $permissions,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

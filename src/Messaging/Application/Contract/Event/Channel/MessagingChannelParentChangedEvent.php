@@ -41,14 +41,16 @@ final readonly class MessagingChannelParentChangedEvent
    * @param string $conversationId the channel (conversation) identifier
    * @param ?string $parentConversationId the newly set parent channel identifier, null when detached
    * @param ?string $actorUserId the acting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $conversationId,
     public ?string $parentConversationId,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

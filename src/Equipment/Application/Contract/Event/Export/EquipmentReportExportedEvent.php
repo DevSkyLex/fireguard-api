@@ -44,14 +44,16 @@ final readonly class EquipmentReportExportedEvent
    * @param string $organizationId the owning organization identifier
    * @param string $actorUserId the exporting user identifier
    * @param string $planKey the plan key the export was entitled under
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $equipmentId,
     public string $organizationId,
     public string $actorUserId,
     public string $planKey,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

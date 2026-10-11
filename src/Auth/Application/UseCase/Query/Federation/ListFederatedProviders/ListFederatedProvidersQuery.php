@@ -16,7 +16,4 @@ use Shared\Application\Message\QueryMessage;
  */
 final readonly class ListFederatedProvidersQuery implements QueryMessage
 {
-  public function __construct()
-  {
-  }
 }

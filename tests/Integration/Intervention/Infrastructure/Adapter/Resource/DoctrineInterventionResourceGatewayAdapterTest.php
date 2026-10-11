@@ -18,6 +18,8 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function array_keys;
+
 /**
  * Test DoctrineInterventionResourceGatewayAdapterTest.
  *
@@ -213,6 +215,40 @@ final class DoctrineInterventionResourceGatewayAdapterTest extends KernelTestCas
     self::assertSame([], $this->adapter->listMetrics([]));
   }
 
+  /**
+   * Method testListMetricsKeepsCommentsSignaturesAndOrderedLabelsScopedToEachIntervention
+   *
+   * Proves grouped evidence metrics preserve kind filters, parent scope and label ordering.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testListMetricsKeepsCommentsSignaturesAndOrderedLabelsScopedToEachIntervention(): void
+  {
+    $this->createMetricEvidence();
+
+    $metrics = $this->adapter->listMetrics([self::SUBMITTED_INTERVENTION_ID, self::INTERVENTION_ID, self::UNKNOWN_INTERVENTION_ID]);
+
+    self::assertSame(2, $metrics[self::INTERVENTION_ID]->commentsCount);
+    self::assertTrue($metrics[self::INTERVENTION_ID]->hasSignature);
+    self::assertSame([
+      ['id' => '994e8400-e29b-41d4-a716-446655494801', 'name' => 'First', 'color' => '#123456'],
+      ['id' => '994e8400-e29b-41d4-a716-446655494802', 'name' => 'Second', 'color' => '#abcdef'],
+    ], $metrics[self::INTERVENTION_ID]->labels);
+    self::assertSame(1, $metrics[self::SUBMITTED_INTERVENTION_ID]->commentsCount);
+    self::assertFalse($metrics[self::SUBMITTED_INTERVENTION_ID]->hasSignature);
+    self::assertSame([], $metrics[self::SUBMITTED_INTERVENTION_ID]->labels);
+    self::assertSame(0, $metrics[self::UNKNOWN_INTERVENTION_ID]->commentsCount);
+    self::assertFalse($metrics[self::UNKNOWN_INTERVENTION_ID]->hasSignature);
+    self::assertSame([], $metrics[self::UNKNOWN_INTERVENTION_ID]->labels);
+
+    $draftOnly = $this->adapter->listMetrics([self::INTERVENTION_ID]);
+    self::assertSame([self::INTERVENTION_ID], array_keys($draftOnly));
+    self::assertEquals($metrics[self::INTERVENTION_ID], $draftOnly[self::INTERVENTION_ID]);
+  }
+
   #[Test]
   public function testTouchDraftInterventionBumpsAMutableInterventionOnly(): void
   {
@@ -344,6 +380,42 @@ final class DoctrineInterventionResourceGatewayAdapterTest extends KernelTestCas
     $this->entityManager->persist($record);
   }
 
+  /**
+   * Method createMetricEvidence
+   *
+   * Seeds both requested parents with distinct comment and media kinds plus reverse-ordered labels.
+   *
+   * @access private
+   *
+   * @return void
+   */
+  private function createMetricEvidence(): void
+  {
+    $connection = $this->entityManager->getConnection();
+    $timestamp = '2026-03-01 10:00:00';
+    foreach ([
+      ['994e8400-e29b-41d4-a716-446655494601', self::INTERVENTION_ID, 'comment'],
+      ['994e8400-e29b-41d4-a716-446655494602', self::INTERVENTION_ID, 'comment'],
+      ['994e8400-e29b-41d4-a716-446655494603', self::INTERVENTION_ID, 'system'],
+      ['994e8400-e29b-41d4-a716-446655494604', self::SUBMITTED_INTERVENTION_ID, 'comment'],
+    ] as [$id, $interventionId, $kind]) {
+      $connection->insert('intervention_activities', ['id' => $id, 'intervention_id' => $interventionId, 'organization_id' => self::ORGANIZATION_ID, 'kind' => $kind, 'event' => 'comment' === $kind ? 'comment' : 'created', 'created_at' => $timestamp]);
+    }
+    foreach ([
+      ['994e8400-e29b-41d4-a716-446655494701', self::INTERVENTION_ID, 'signature'],
+      ['994e8400-e29b-41d4-a716-446655494702', self::SUBMITTED_INTERVENTION_ID, 'file'],
+    ] as [$id, $interventionId, $kind]) {
+      $connection->insert('intervention_attachments', ['id' => $id, 'intervention_id' => $interventionId, 'file_name' => 'evidence.png', 'storage_path' => 'gateway-metrics/' . $id, 'mime_type' => 'image/png', 'size' => 4, 'kind' => $kind, 'revision' => 1, 'uploaded_at' => $timestamp]);
+    }
+    foreach ([
+      ['994e8400-e29b-41d4-a716-446655494802', 'Second', '#abcdef'],
+      ['994e8400-e29b-41d4-a716-446655494801', 'First', '#123456'],
+    ] as [$id, $name, $color]) {
+      $connection->insert('intervention_labels', ['id' => $id, 'organization_id' => self::ORGANIZATION_ID, 'name' => $name, 'color' => $color, 'created_at' => $timestamp, 'updated_at' => $timestamp]);
+      $connection->insert('intervention_label_assignments', ['intervention_id' => self::INTERVENTION_ID, 'label_id' => $id]);
+    }
+  }
+
   private function revisionOf(string $interventionId): int
   {
     $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
@@ -446,6 +518,10 @@ final class DoctrineInterventionResourceGatewayAdapterTest extends KernelTestCas
       'DELETE FROM interventions WHERE id IN (:interventionIds)',
       ['interventionIds' => $interventionIds],
       ['interventionIds' => ArrayParameterType::STRING],
+    );
+    $connection->executeStatement(
+      'DELETE FROM intervention_labels WHERE organization_id = :organizationId',
+      ['organizationId' => self::ORGANIZATION_ID],
     );
     $connection->executeStatement(
       'DELETE FROM organizations WHERE id = :organizationId',

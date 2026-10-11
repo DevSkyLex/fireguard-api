@@ -39,14 +39,16 @@ final readonly class MaintenanceCampaignGeneratedEvent
    * @param string $interventionId the created intervention identifier
    * @param int $workItemsCount the number of seeded work items
    * @param ?string $actorUserId the acting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $interventionId,
     public int $workItemsCount,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

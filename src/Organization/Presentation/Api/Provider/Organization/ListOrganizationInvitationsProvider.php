@@ -102,42 +102,10 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       organizationId: $organizationId,
       pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
     ));
-
-    /** @var array<string, ?string> $displayNameCache */
-    $displayNameCache = [];
-    $userIds = [];
-    foreach ($result->items as $item) {
-      $userIds[] = $item->invitedByUserId;
-    }
-
-    try {
-      foreach ($this->users->findByIds(array_values(array_unique($userIds))) as $userId => $profile) {
-        $displayNameCache[$userId] = trim($profile->firstName . ' ' . $profile->lastName) ?: ($profile->username ?: null);
-      }
-    } catch (Throwable) {
-      $displayNameCache = [];
-    }
+    $displayNameCache = $this->displayNamesForInviters($result);
     $outputs = [];
     foreach ($result->items as $invitation) {
-      $output = new OrganizationInvitationOutput();
-      $output->id = $invitation->id;
-      $output->organizationId = $invitation->organizationId;
-      $output->email = $invitation->email;
-      $output->status = $invitation->status;
-      $output->invitedByUserId = $invitation->invitedByUserId;
-      $output->invitedByDisplayName = $this->resolveDisplayName(
-        $invitation->invitedByUserId,
-        $displayNameCache,
-      );
-      $output->acceptedByUserId = $invitation->acceptedByUserId;
-      $output->revokedByUserId = $invitation->revokedByUserId;
-      $output->expiresAt = $invitation->expiresAt->format('c');
-      $output->createdAt = $invitation->createdAt->format('c');
-      $output->updatedAt = $invitation->updatedAt->format('c');
-      $output->acceptedAt = null !== $invitation->acceptedAt ? $invitation->acceptedAt->format('c') : null;
-      $output->revokedAt = null !== $invitation->revokedAt ? $invitation->revokedAt->format('c') : null;
-      $output->roleIds = $invitation->roleIds;
-      $outputs[] = $output;
+      $outputs[] = $this->mapToOutput($invitation, $displayNameCache);
     }
 
     $filters = \Organization\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
@@ -165,6 +133,70 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       itemsPerPage: (float) $pagination->itemsPerPage,
       totalItems: (float) $total,
     );
+  }
+
+  /**
+   * Method displayNamesForInviters.
+   *
+   * Resolves distinct inviter profiles once and keeps a missing-account fallback for the listing.
+   *
+   * @access private
+   *
+   * @param PaginatedResult<GetOrganizationInvitationResult> $result the authorized invitation page
+   *
+   * @return array<string, ?string> available display names keyed by account identifier
+   */
+  private function displayNamesForInviters(PaginatedResult $result): array
+  {
+    /** @var array<string, ?string> $displayNameCache */
+    $displayNameCache = [];
+    $userIds = [];
+    foreach ($result->items as $item) {
+      $userIds[] = $item->invitedByUserId;
+    }
+
+    try {
+      foreach ($this->users->findByIds(array_values(array_unique($userIds))) as $userId => $profile) {
+        $displayNameCache[$userId] = trim($profile->firstName . ' ' . $profile->lastName) ?: ($profile->username ?: null);
+      }
+    } catch (Throwable) {
+      $displayNameCache = [];
+    }
+
+    return $displayNameCache;
+  }
+
+  /**
+   * Method mapToOutput.
+   *
+   * Maps the invitation projection and its already batched inviter display name.
+   *
+   * @access private
+   *
+   * @param GetOrganizationInvitationResult $invitation the owned invitation result
+   * @param array<string, ?string> $displayNameCache available inviter names
+   *
+   * @return OrganizationInvitationOutput the deterministic transport projection
+   */
+  private function mapToOutput(GetOrganizationInvitationResult $invitation, array &$displayNameCache): OrganizationInvitationOutput
+  {
+    $output = new OrganizationInvitationOutput();
+    $output->id = $invitation->id;
+    $output->organizationId = $invitation->organizationId;
+    $output->email = $invitation->email;
+    $output->status = $invitation->status;
+    $output->invitedByUserId = $invitation->invitedByUserId;
+    $output->invitedByDisplayName = $this->resolveDisplayName($invitation->invitedByUserId, $displayNameCache);
+    $output->acceptedByUserId = $invitation->acceptedByUserId;
+    $output->revokedByUserId = $invitation->revokedByUserId;
+    $output->expiresAt = $invitation->expiresAt->format('c');
+    $output->createdAt = $invitation->createdAt->format('c');
+    $output->updatedAt = $invitation->updatedAt->format('c');
+    $output->acceptedAt = null !== $invitation->acceptedAt ? $invitation->acceptedAt->format('c') : null;
+    $output->revokedAt = null !== $invitation->revokedAt ? $invitation->revokedAt->format('c') : null;
+    $output->roleIds = $invitation->roleIds;
+
+    return $output;
   }
 
   /**

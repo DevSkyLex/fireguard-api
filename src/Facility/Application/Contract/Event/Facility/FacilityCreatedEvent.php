@@ -38,12 +38,14 @@ final readonly class FacilityCreatedEvent
    *
    * @param string $organizationId the organization ID
    * @param string $facilityId the facility ID
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $facilityId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

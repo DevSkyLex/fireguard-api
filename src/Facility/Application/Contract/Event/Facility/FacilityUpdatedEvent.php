@@ -43,13 +43,15 @@ final readonly class FacilityUpdatedEvent
    * @param string $organizationId the organization ID
    * @param string $facilityId the facility ID
    * @param list<string> $changedFields the field names that changed
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $facilityId,
     public array $changedFields,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

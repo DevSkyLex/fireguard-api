@@ -38,6 +38,7 @@ final readonly class ApprovalRejectedEvent
    * @param string $subjectId the acted-upon subject identifier
    * @param string $decisionByMemberId the rejecting member identifier
    * @param string $decisionByUserId the rejecting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -46,8 +47,9 @@ final readonly class ApprovalRejectedEvent
     public string $subjectId,
     public string $decisionByMemberId,
     public string $decisionByUserId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

@@ -38,13 +38,15 @@ final readonly class EquipmentReturnedToStockEvent
    * @param string $organizationId the organization ID
    * @param string $equipmentId the equipment ID
    * @param string $previousStatus the status before returning to stock
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $equipmentId,
     public string $previousStatus,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

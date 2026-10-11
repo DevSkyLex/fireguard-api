@@ -39,12 +39,14 @@ final readonly class OrganizationSettingsUpdatedEvent
    *
    * @param string $organizationId the organization ID
    * @param list<string> $changedFields the setting fields that changed
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public array $changedFields,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

@@ -40,6 +40,7 @@ final readonly class NonConformityStatusChangedEvent
    * @param string $nonConformityId the non-conformity ID
    * @param string $previousStatus the status before the change
    * @param string $status the status after the change
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -47,8 +48,9 @@ final readonly class NonConformityStatusChangedEvent
     public string $nonConformityId,
     public string $previousStatus,
     public string $status,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

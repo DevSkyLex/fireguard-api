@@ -40,14 +40,16 @@ final readonly class TokenIssueFailedEvent
    * @param string $clientId the client identifier
    * @param string|null $ipAddress the client IP address
    * @param string $reason the failure reason
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public readonly string $grantType,
     public readonly string $clientId,
     public readonly ?string $ipAddress,
     public readonly string $reason,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

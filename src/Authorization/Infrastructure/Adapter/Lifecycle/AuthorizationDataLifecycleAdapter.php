@@ -42,8 +42,6 @@ final readonly class AuthorizationDataLifecycleAdapter implements AuthorizationD
    */
   public function retainUntil(DateTimeImmutable $cutoff, bool $dryRun): array
   {
-    $counts = [];
-
-    return $counts;
+    return [];
   }
 }

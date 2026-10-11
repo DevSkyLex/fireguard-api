@@ -36,14 +36,16 @@ final readonly class ApprovalExpiredEvent
    * @param string $requestId the approval request identifier
    * @param string $actionType the regulated action type
    * @param string $subjectId the acted-upon subject identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $requestId,
     public string $actionType,
     public string $subjectId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

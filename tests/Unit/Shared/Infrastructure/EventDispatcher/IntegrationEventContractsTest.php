@@ -96,6 +96,7 @@ final class IntegrationEventContractsTest extends TestCase
       }
       self::assertSame($expected, $property->getValue($converted));
     }
+    $this->assertFreshOccurrenceDefault($target, $converted);
     foreach ($target->getMethods() as $method) {
       $returnType = $method->getReturnType();
       if ($returnType instanceof ReflectionNamedType) {
@@ -109,9 +110,7 @@ final class IntegrationEventContractsTest extends TestCase
       }
     }
   }
-  // #endregion
 
-  // #region Methods
   /**
    * Method contracts
    *
@@ -137,6 +136,47 @@ final class IntegrationEventContractsTest extends TestCase
         yield $legacy => [$legacy, $public];
       }
     }
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method assertFreshOccurrenceDefault
+   *
+   * Confirms regular producers still obtain the current time when the restoration timestamp is omitted.
+   *
+   * @access private
+   *
+   * @param ReflectionClass<object> $target the published contract shape
+   * @param object $converted a restored snapshot containing the constructor facts
+   *
+   * @return void
+   */
+  private function assertFreshOccurrenceDefault(ReflectionClass $target, object $converted): void
+  {
+    $constructor = $target->getConstructor();
+    self::assertNotNull($constructor);
+    $arguments = [];
+    $hasTimestampDefault = false;
+    foreach ($constructor->getParameters() as $parameter) {
+      if ('occurredAt' === $parameter->getName() && $parameter->isDefaultValueAvailable()) {
+        $hasTimestampDefault = true;
+
+        continue;
+      }
+      $arguments[] = $target->getProperty($parameter->getName())->getValue($converted);
+    }
+    if (!$hasTimestampDefault) {
+      return;
+    }
+    $class = $target->getName();
+    $before = new DateTimeImmutable();
+    $fresh = new $class(...$arguments);
+    $after = new DateTimeImmutable();
+    $occurredAt = $target->getProperty('occurredAt')->getValue($fresh);
+    self::assertInstanceOf(DateTimeImmutable::class, $occurredAt);
+    self::assertGreaterThanOrEqual($before, $occurredAt);
+    self::assertLessThanOrEqual($after, $occurredAt);
   }
   // #endregion
 }

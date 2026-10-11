@@ -23,13 +23,15 @@ final readonly class ConsentGrantedEvent
 
   /**
    * @param list<string> $scopes
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $userId,
     public string $clientId,
     public array $scopes,
     public bool $isNew,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
 }

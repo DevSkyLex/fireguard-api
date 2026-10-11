@@ -37,13 +37,15 @@ final readonly class OrganizationCreatedEvent
    * @param string $organizationId the organization ID
    * @param string $name the organization name
    * @param string $ownerUserId the owner user ID
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $name,
     public string $ownerUserId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

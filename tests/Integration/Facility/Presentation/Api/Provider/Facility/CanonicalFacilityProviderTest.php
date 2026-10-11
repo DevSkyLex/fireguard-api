@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Port\Outbound\CanonicalFacilityCollectionPort;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
@@ -195,6 +196,57 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
   }
 
   /**
+   * Method scalarCollectionPreservesZeroNullAndChildrenAcrossInterventionFilters
+   *
+   * Confirms driver scalar normalization without excluding children outside the page filter.
+   */
+  #[Test]
+  public function scalarCollectionPreservesZeroNullAndChildrenAcrossInterventionFilters(): void
+  {
+    $connection = $this->entityManager->getConnection();
+    $connection->executeStatement('UPDATE facilities SET code = :empty, address = :empty, latitude = 0, longitude = 0, level_index = 0, elevation_meters = 0, height_meters = 0, metadata = :metadata WHERE id = :id', [
+      'empty' => '',
+      'metadata' => '{"nested":{"answer":42}}',
+      'id' => self::DRAFT_FACILITY_ID,
+    ]);
+    $connection->executeStatement('UPDATE facilities SET parent_facility_id = :parent WHERE id = :id', ['parent' => self::DRAFT_FACILITY_ID, 'id' => self::OTHER_DRAFT_FACILITY_ID]);
+    $collection = static::getContainer()->get(CanonicalFacilityCollectionPort::class);
+    self::assertInstanceOf(CanonicalFacilityCollectionPort::class, $collection);
+    $filtered = $collection->page(self::ORGANIZATION_ID, self::INTERVENTION_ID, 'draft', 1, 1);
+    self::assertSame(1, $filtered->total);
+    self::assertCount(1, $filtered->items);
+    $first = $filtered->items[0];
+    self::assertSame(self::DRAFT_FACILITY_ID, $first->id);
+    self::assertSame(self::INTERVENTION_ID, $first->interventionId);
+    self::assertTrue($first->hasChildren);
+    self::assertSame('', $first->code);
+    self::assertSame('', $first->address);
+    self::assertSame(0.0, $first->latitude);
+    self::assertSame(0.0, $first->longitude);
+    self::assertSame(0, $first->levelIndex);
+    self::assertSame(0.0, $first->elevationMeters);
+    self::assertSame(0.0, $first->heightMeters);
+    self::assertSame(['nested' => ['answer' => 42]], $first->metadata);
+    self::assertNull($first->parentFacilityId);
+    self::assertNull($first->customerId);
+    self::assertSame('2026-01-01T00:00:00+00:00', $first->createdAt);
+    $secondPage = $collection->page(self::ORGANIZATION_ID, null, 'draft', 2, 1);
+    self::assertSame(2, $secondPage->total);
+    self::assertCount(1, $secondPage->items);
+    $second = $secondPage->items[0];
+    self::assertSame(self::OTHER_DRAFT_FACILITY_ID, $second->id);
+    self::assertSame(self::DRAFT_FACILITY_ID, $second->parentFacilityId);
+    self::assertFalse($second->hasChildren);
+    self::assertNull($second->code);
+    self::assertNull($second->address);
+    self::assertNull($second->latitude);
+    self::assertNull($second->longitude);
+    self::assertNull($second->levelIndex);
+    self::assertNull($second->elevationMeters);
+    self::assertNull($second->heightMeters);
+  }
+
+  /**
    * @param TraversablePaginator<FacilityOutput> $page
    *
    * @return list<string>
@@ -225,8 +277,8 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
     $queryBus = static::getContainer()->get(\Shared\Application\Port\Inbound\QueryBusPort::class);
     self::assertInstanceOf(\Shared\Application\Port\Inbound\QueryBusPort::class, $queryBus);
 
-    $collectionPort = static::getContainer()->get(\Facility\Application\Port\Outbound\CanonicalFacilityCollectionPort::class);
-    self::assertInstanceOf(\Facility\Application\Port\Outbound\CanonicalFacilityCollectionPort::class, $collectionPort);
+    $collectionPort = static::getContainer()->get(CanonicalFacilityCollectionPort::class);
+    self::assertInstanceOf(CanonicalFacilityCollectionPort::class, $collectionPort);
     $facilities = static::getContainer()->get(\Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort::class);
     self::assertInstanceOf(\Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort::class, $facilities);
     $hierarchy = static::getContainer()->get(\Facility\Application\Port\Inbound\FacilityHierarchyPort::class);

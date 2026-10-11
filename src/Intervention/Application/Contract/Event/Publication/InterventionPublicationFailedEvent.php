@@ -40,14 +40,16 @@ final readonly class InterventionPublicationFailedEvent
    * @param string $interventionId the intervention ID
    * @param string $publicationId the publication ID
    * @param string $reason the failure reason
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $interventionId,
     public string $publicationId,
     public string $reason,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

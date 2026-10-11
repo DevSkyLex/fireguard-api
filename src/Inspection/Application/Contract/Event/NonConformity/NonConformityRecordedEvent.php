@@ -39,14 +39,16 @@ final readonly class NonConformityRecordedEvent
    * @param string $inspectionId the inspection ID
    * @param string $nonConformityId the non-conformity ID
    * @param string $severity the severity (low, medium, high, critical)
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $inspectionId,
     public string $nonConformityId,
     public string $severity,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

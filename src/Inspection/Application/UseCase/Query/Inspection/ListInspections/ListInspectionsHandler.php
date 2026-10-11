@@ -25,6 +25,7 @@ use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Uuid;
 use Throwable;
+use User\Application\Contract\User\UserView;
 use User\Application\Port\Inbound\UserDirectoryPort;
 use ValueError;
 
@@ -80,25 +81,74 @@ final readonly class ListInspectionsHandler implements QueryHandler
    */
   public function __invoke(ListInspectionsQuery $query): PaginatedResult
   {
+    $organizationId = $this->organizationId($query->organizationId);
+    $criteria = $this->criteria($query);
+    $inspections = $this->inspectionRepository->findByOrganizationId(
+      organizationId: $organizationId,
+      criteria: $criteria,
+      sorting: $query->sorting,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
+    );
+    $total = $this->inspectionRepository->countByOrganizationId($organizationId, $criteria);
+
+    return new PaginatedResult(
+      items: $this->mapResults($inspections),
+      total: $total,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
+    );
+  }
+
+  /**
+   * Method organizationId
+   *
+   * Normalizes the owning organization before the remaining collection filters.
+   *
+   * @access private
+   *
+   * @param string $id the requested organization identifier
+   *
+   * @return InspectionOrganizationId the validated organization identifier
+   */
+  private function organizationId(string $id): InspectionOrganizationId
+  {
     try {
-      $organizationId = InspectionOrganizationId::fromString($query->organizationId);
+      return InspectionOrganizationId::fromString($id);
+    } catch (Exception $exception) {
+      throw InvalidValueException::because($exception->getMessage(), $exception);
+    }
+  }
+
+  /**
+   * Method criteria
+   *
+   * Parses filters in their existing order before resolving the optional parc scope.
+   *
+   * @access private
+   *
+   * @param ListInspectionsQuery $query the requested collection filters
+   *
+   * @return InspectionListCriteria the normalized collection criteria
+   */
+  private function criteria(ListInspectionsQuery $query): InspectionListCriteria
+  {
+    try {
       $equipmentId = null !== $query->equipmentId ? (string) InspectionEquipmentId::fromString($query->equipmentId) : null;
       $facilityId = null !== $query->facilityId ? (string) InspectionFacilityId::fromString($query->facilityId) : null;
       $result = null !== $query->result ? InspectionResult::from($query->result)->value : null;
       $status = null !== $query->status ? InspectionStatus::from($query->status)->value : null;
-      $performedAtFrom = null !== $query->performedAtFrom ? new DateTimeImmutable($query->performedAtFrom) : null;
-      $performedAtTo = null !== $query->performedAtTo ? new DateTimeImmutable($query->performedAtTo) : null;
+      $performedAtFrom = $this->date($query->performedAtFrom);
+      $performedAtTo = $this->date($query->performedAtTo);
       $inspectorUserId = null !== $query->inspectorUserId ? (string) new Uuid($query->inspectorUserId) : null;
       $checklistId = null !== $query->checklistId ? (string) InspectionChecklistId::fromString($query->checklistId) : null;
     } catch (ValueError|Exception $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
-    if (null !== $performedAtFrom && null !== $performedAtTo && $performedAtFrom > $performedAtTo) {
-      throw InvalidValueException::because('performedAtFrom cannot be after performedAtTo.');
-    }
+    $this->assertDateRange($performedAtFrom, $performedAtTo);
 
-    $criteria = new InspectionListCriteria(
+    return new InspectionListCriteria(
       subject: new InspectionSubjectCriteria($equipmentId, $query->includeDescendants ? null : $facilityId, $checklistId, $this->parkCandidates($query)),
       execution: new InspectionExecutionCriteria(
         $result,
@@ -110,27 +160,41 @@ final readonly class ListInspectionsHandler implements QueryHandler
       search: $query->search,
     );
 
-    $inspections = $this->inspectionRepository->findByOrganizationId(
-      organizationId: $organizationId,
-      criteria: $criteria,
-      sorting: $query->sorting,
-      limit: $query->pagination->limit,
-      offset: $query->pagination->offset,
-    );
+  }
 
-    $total = $this->inspectionRepository->countByOrganizationId(
-      $organizationId,
-      $criteria,
-    );
+  /**
+   * Method date
+   *
+   * Parses an optional inclusive date filter.
+   *
+   * @access private
+   *
+   * @param ?string $value the optional date value
+   *
+   * @return ?DateTimeImmutable the parsed date
+   */
+  private function date(?string $value): ?DateTimeImmutable
+  {
+    return null === $value ? null : new DateTimeImmutable($value);
+  }
 
-    $results = $this->mapResults($inspections);
-
-    return new PaginatedResult(
-      items: $results,
-      total: $total,
-      limit: $query->pagination->limit,
-      offset: $query->pagination->offset,
-    );
+  /**
+   * Method assertDateRange
+   *
+   * Rejects reversed bounds after all individual filters have been parsed.
+   *
+   * @access private
+   *
+   * @param ?DateTimeImmutable $from the inclusive lower bound
+   * @param ?DateTimeImmutable $to the inclusive upper bound
+   *
+   * @return void
+   */
+  private function assertDateRange(?DateTimeImmutable $from, ?DateTimeImmutable $to): void
+  {
+    if (null !== $from && null !== $to && $from > $to) {
+      throw InvalidValueException::because('performedAtFrom cannot be after performedAtTo.');
+    }
   }
 
   /**
@@ -141,20 +205,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
   private function mapResults(array $inspections): array
   {
     $results = [];
-    $userIds = [];
-    foreach ($inspections as $inspection) {
-      if (null !== $inspection->inspector()->userId) {
-        $userIds[$inspection->inspector()->userId] = true;
-      }
-    }
-
-    try {
-      $profiles = [] === $userIds ? [] : ($this->users?->findByIds(array_keys($userIds)) ?? []);
-    } catch (Throwable) {
-      $profiles = [];
-    }
-
-
+    $profiles = $this->profiles($inspections);
     $inspectionIds = [];
     foreach ($inspections as $inspection) {
       $inspectionIds[] = (string) $inspection->id();
@@ -218,6 +269,33 @@ final readonly class ListInspectionsHandler implements QueryHandler
     }
 
     return $results;
+  }
+
+  /**
+   * Method profiles
+   *
+   * Resolves inspector snapshots once for the page and retains the optional enrichment fallback.
+   *
+   * @access private
+   *
+   * @param list<Inspection> $inspections the current page
+   *
+   * @return array<string, UserView> the profiles indexed by inspector identifier
+   */
+  private function profiles(array $inspections): array
+  {
+    $userIds = [];
+    foreach ($inspections as $inspection) {
+      if (null !== $inspection->inspector()->userId) {
+        $userIds[$inspection->inspector()->userId] = true;
+      }
+    }
+
+    try {
+      return [] === $userIds ? [] : ($this->users?->findByIds(array_keys($userIds)) ?? []);
+    } catch (Throwable) {
+      return [];
+    }
   }
 
   /**

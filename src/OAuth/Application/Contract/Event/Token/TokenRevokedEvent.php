@@ -42,6 +42,7 @@ final readonly class TokenRevokedEvent
    * @param string|null $clientId the client ID (if known)
    * @param string|null $userId the user ID (if known)
    * @param string|null $ipAddress the client IP address (if known)
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $tokenId,
@@ -50,8 +51,9 @@ final readonly class TokenRevokedEvent
     public ?string $clientId = null,
     public ?string $userId = null,
     public ?string $ipAddress = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

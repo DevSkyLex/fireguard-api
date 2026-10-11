@@ -41,6 +41,7 @@ final readonly class MessagingMessageUnpinModeratedEvent
    * @param string $messageId the unpinned message identifier
    * @param string $pinnedByMemberId the original pinning member's identifier
    * @param ?string $actorUserId the acting (moderating) user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -48,8 +49,9 @@ final readonly class MessagingMessageUnpinModeratedEvent
     public string $messageId,
     public string $pinnedByMemberId,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

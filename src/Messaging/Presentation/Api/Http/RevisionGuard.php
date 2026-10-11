@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Messaging\Presentation\Api\Http;
 
+use Shared\Application\Contract\Http\{RevisionMismatchException, RevisionMissingException, RevisionPrecondition};
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{PreconditionFailedHttpException, PreconditionRequiredHttpException};
-
-use function preg_match;
 
 /**
  * Domain RevisionGuard.
@@ -44,8 +43,8 @@ final readonly class RevisionGuard
   public function assertMatches(int $revision): void
   {
     $expectedRevision = $this->expectedRevision();
-    if ($revision !== $expectedRevision) {
-      throw new PreconditionFailedHttpException('The resource revision is stale.');
+    if (!RevisionPrecondition::matches($expectedRevision, $revision)) {
+      throw new PreconditionFailedHttpException(RevisionMismatchException::MESSAGE);
     }
   }
 
@@ -61,13 +60,13 @@ final readonly class RevisionGuard
   public function expectedRevision(): int
   {
     $ifMatch = $this->requestStack->getCurrentRequest()?->headers->get('If-Match');
-    if (null === $ifMatch || '' === $ifMatch) {
-      throw new PreconditionRequiredHttpException('If-Match is required for this mutation.');
-    }
-    if (1 !== preg_match('/^"revision-(\d+)"$/', $ifMatch, $matches)) {
-      throw new PreconditionFailedHttpException('The resource revision is stale.');
-    }
 
-    return (int) $matches[1];
+    try {
+      return RevisionPrecondition::expectedRevision($ifMatch);
+    } catch (RevisionMissingException $failure) {
+      throw new PreconditionRequiredHttpException($failure->getMessage());
+    } catch (RevisionMismatchException $failure) {
+      throw new PreconditionFailedHttpException($failure->getMessage());
+    }
   }
 }

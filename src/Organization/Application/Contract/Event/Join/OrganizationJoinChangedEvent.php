@@ -30,9 +30,10 @@ final readonly class OrganizationJoinChangedEvent
    * @param string $actorUserId actor
    * @param string $operation action
    * @param ?string $resourceId domain or request
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
-  public function __construct(public string $organizationId, public string $actorUserId, public string $operation, public ?string $resourceId = null)
+  public function __construct(public string $organizationId, public string $actorUserId, public string $operation, public ?string $resourceId = null, ?DateTimeImmutable $occurredAt = null)
   {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
 }

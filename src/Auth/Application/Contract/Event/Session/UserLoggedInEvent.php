@@ -35,13 +35,15 @@ final readonly class UserLoggedInEvent
    * @param string $userId the user ID
    * @param string $email the user email
    * @param string|null $ipAddress the client IP address
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $userId,
     public string $email,
     public ?string $ipAddress = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

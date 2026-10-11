@@ -47,40 +47,78 @@ final readonly class UploadUserAvatarHandler implements CommandHandler
     try {
       $this->storage->resize($command->userId, $command->sourceContents, $generation);
 
-      return $this->transactions->transactional(fn (): UploadUserAvatarResult => $this->avatars->withUserLock($command->userId, function () use ($command, $userId, $generation): UploadUserAvatarResult {
-        $user = $this->users->findById($userId);
-        if (null === $user) {
-          throw UserNotFoundException::withId($command->userId);
-        }
-        $previous = $this->avatars->generation($command->userId);
-        $profile = $user->profile();
-        $user->updateProfile(new UserProfile(
-          firstName: $profile->firstName,
-          lastName: $profile->lastName,
-          avatarUrl: sprintf('%s/api/users/%s/avatar/%d.webp?v=%d', $command->baseUrl, $command->userId, AvatarVariants::SIZES[0], $command->version),
-        ));
-        $this->users->save($user);
-        $this->avatars->replace($command->userId, $generation);
-        foreach (AvatarPaths::variants($command->userId, $previous) as $path) {
-          $this->cleanup->request($path);
-        }
-
-        return new UploadUserAvatarResult($command->userId);
-      }));
+      return $this->transactions->transactional(fn (): UploadUserAvatarResult => $this->avatars->withUserLock(
+        $command->userId,
+        fn (): UploadUserAvatarResult => $this->persistAvatar($command, $userId, $generation),
+      ));
     } catch (Throwable $failure) {
       if (!$failure instanceof CommitOutcomeUnknownException) {
-        try {
-          $this->storage->delete($command->userId, $generation);
-        } catch (Throwable $cleanupFailure) {
-          try {
-            $this->logger->error('Avatar compensation failed.', ['userId' => $command->userId, 'generation' => $generation, 'failureClass' => $cleanupFailure::class]);
-          } catch (Throwable) {
-            // Logging must never replace the original storage or SQL failure.
-          }
-        }
+        $this->compensateUpload($command->userId, $generation);
       }
 
       throw $failure;
+    }
+  }
+
+  /**
+   * Method persistAvatar.
+   *
+   * Saves the fresh account and pointer with obsolete-file requests under its owning lock.
+   *
+   * @access private
+   * @since 1.1.0
+   *
+   * @param UploadUserAvatarCommand $command the upload command
+   * @param UserId $userId the validated account identifier
+   * @param string $generation the immutable attempt generation
+   *
+   * @return UploadUserAvatarResult the saved avatar outcome
+   */
+  private function persistAvatar(UploadUserAvatarCommand $command, UserId $userId, string $generation): UploadUserAvatarResult
+  {
+    $user = $this->users->findById($userId);
+    if (null === $user) {
+      throw UserNotFoundException::withId($command->userId);
+    }
+    $previous = $this->avatars->generation($command->userId);
+    $profile = $user->profile();
+    $user->updateProfile(new UserProfile(
+      firstName: $profile->firstName,
+      lastName: $profile->lastName,
+      avatarUrl: sprintf('%s/api/users/%s/avatar/%d.webp?v=%d', $command->baseUrl, $command->userId, AvatarVariants::SIZES[0], $command->version),
+    ));
+    $this->users->save($user);
+    $this->avatars->replace($command->userId, $generation);
+    foreach (AvatarPaths::variants($command->userId, $previous) as $path) {
+      $this->cleanup->request($path);
+    }
+
+    return new UploadUserAvatarResult($command->userId);
+  }
+
+  /**
+   * Method compensateUpload.
+   *
+   * Deletes only the failed attempt while preserving its original error.
+   *
+   * @access private
+   * @since 1.1.0
+   *
+   * @param string $userId the account identifier
+   * @param string $generation the immutable attempt generation
+   *
+   * @return void No return value
+   */
+  private function compensateUpload(string $userId, string $generation): void
+  {
+    try {
+      $this->storage->delete($userId, $generation);
+    } catch (Throwable $cleanupFailure) {
+      try {
+        $this->logger->error('Avatar compensation failed.', ['userId' => $userId, 'generation' => $generation, 'failureClass' => $cleanupFailure::class]);
+      } catch (Throwable) {
+        // Logging must never replace the original storage or SQL failure.
+      }
     }
   }
 }

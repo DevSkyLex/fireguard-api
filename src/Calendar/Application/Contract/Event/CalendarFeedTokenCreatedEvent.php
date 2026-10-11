@@ -41,14 +41,16 @@ final readonly class CalendarFeedTokenCreatedEvent
    * @param string $tokenId the feed token ID
    * @param string $actorUserId the acting (and owning) user identifier
    * @param bool $rotated whether this creation replaced a previously active token
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $tokenId,
     public string $actorUserId,
     public bool $rotated,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

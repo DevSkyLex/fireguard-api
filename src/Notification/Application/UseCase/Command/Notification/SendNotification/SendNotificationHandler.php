@@ -40,6 +40,15 @@ use function trim;
  */
 final readonly class SendNotificationHandler implements CommandHandler
 {
+  // #region Properties
+  /**
+   * Constant DELIVERED
+   *
+   * Identifies a channel receipt acknowledged by its transport.
+   */
+  private const string DELIVERED = 'delivered';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -183,7 +192,7 @@ final readonly class SendNotificationHandler implements CommandHandler
     );
     $persistedChannels = array_map(static fn (string $channel): NotificationChannel => NotificationChannel::from($channel), $notification->channels());
     $channelStatus = $this->deliverChannels($deliveryNotification, $persistedChannels, $channels, $preference, $command->deliveryPayload, $key);
-    $channelDelivery = array_map(static fn (string $status): bool => 'delivered' === $status, $channelStatus);
+    $channelDelivery = array_map(static fn (string $status): bool => self::DELIVERED === $status, $channelStatus);
 
     return new SendNotificationResult(
       id: (string) $notification->id(),
@@ -288,25 +297,46 @@ final readonly class SendNotificationHandler implements CommandHandler
         continue;
       }
 
-      $channelPayload = $this->extractChannelPayload($deliveryPayload, $channel->value);
-
-      try {
-        match ($channel) {
-          NotificationChannel::EMAIL => $this->emailChannel->send($notification, $channelPayload),
-          NotificationChannel::MERCURE => $this->mercureChannel->publish($notification, $channelPayload),
-        };
-        $channelDelivery[$channel->value] = 'delivered';
-        if (null !== $key) {
-          $this->deliveryReceipts?->record($key, $channel->value, 'delivered');
-        }
-      } catch (Throwable $exception) {
-        $channelDelivery[$channel->value] = 'failed';
-        $this->logChannelFailure($notification, $channel, $channelPayload, $exception);
-        // Best-effort delivery: notification creation must not fail on channel errors.
-      }
+      $channelDelivery[$channel->value] = $this->deliverChannel($notification, $channel, $deliveryPayload, $key);
     }
 
     return $channelDelivery;
+  }
+
+  /**
+   * Method deliverChannel
+   *
+   * Acknowledges a successful channel independently and reports a retryable failure without preventing other deliveries.
+   *
+   * @access private
+   *
+   * @param Notification $notification the persisted notification
+   * @param NotificationChannel $channel the enabled, unacknowledged channel
+   * @param array<string, mixed> $deliveryPayload the ephemeral payload keyed by channel
+   * @param string|null $key the durable receipt identity, when requested
+   *
+   * @return string the delivered or failed channel status
+   */
+  private function deliverChannel(Notification $notification, NotificationChannel $channel, array $deliveryPayload, ?string $key): string
+  {
+    $channelPayload = $this->extractChannelPayload($deliveryPayload, $channel->value);
+
+    try {
+      match ($channel) {
+        NotificationChannel::EMAIL => $this->emailChannel->send($notification, $channelPayload),
+        NotificationChannel::MERCURE => $this->mercureChannel->publish($notification, $channelPayload),
+      };
+      if (null !== $key) {
+        $this->deliveryReceipts?->record($key, $channel->value, self::DELIVERED);
+      }
+
+      return self::DELIVERED;
+    } catch (Throwable $exception) {
+      $this->logChannelFailure($notification, $channel, $channelPayload, $exception);
+
+      // Best-effort delivery: notification creation must not fail on channel errors.
+      return 'failed';
+    }
   }
 
   /**

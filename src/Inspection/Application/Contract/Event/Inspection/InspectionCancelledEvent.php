@@ -39,14 +39,16 @@ final readonly class InspectionCancelledEvent
    * @param string $inspectionId the inspection ID
    * @param string $equipmentId the inspected equipment ID
    * @param string $previousStatus the status before cancellation (draft, submitted)
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $inspectionId,
     public string $equipmentId,
     public string $previousStatus,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

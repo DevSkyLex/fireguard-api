@@ -41,6 +41,7 @@ final readonly class CalendarEventUpdatedEvent
    * @param string $title the event's current title
    * @param DateTimeImmutable $startsAt the event's current start
    * @param ?string $actorUserId the acting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -48,8 +49,9 @@ final readonly class CalendarEventUpdatedEvent
     public string $title,
     public DateTimeImmutable $startsAt,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

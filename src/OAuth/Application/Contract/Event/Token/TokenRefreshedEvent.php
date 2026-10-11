@@ -38,12 +38,14 @@ final readonly class TokenRefreshedEvent
    *
    * @param string $userId the user ID
    * @param string|null $ipAddress the IP address
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public readonly string $userId,
     public readonly ?string $ipAddress,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

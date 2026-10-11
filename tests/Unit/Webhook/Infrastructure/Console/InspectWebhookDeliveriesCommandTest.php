@@ -109,6 +109,25 @@ final class InspectWebhookDeliveriesCommandTest extends TestCase
   }
 
   /**
+   * Method testMissingProjectionFailsWithoutPublishingPartialMetrics
+   *
+   * A missing aggregate result remains unhealthy and exposes only the bounded operational diagnostic.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  public function testMissingProjectionFailsWithoutPublishingPartialMetrics(): void
+  {
+    $connection = $this->createStub(Connection::class);
+    $connection->method('fetchAssociative')->willReturn(false);
+    $tester = new CommandTester(new InspectWebhookDeliveriesCommand($connection));
+
+    self::assertSame(1, $tester->execute([]));
+    self::assertSame("Webhook delivery observation failed; check migrations and main connectivity.\n", $tester->getDisplay(true));
+  }
+
+  /**
    * Method testDatabaseFailureIsUnhealthyWithoutLeakingItsMessage
    *
    * Connection diagnostics never reach the public operational projection.

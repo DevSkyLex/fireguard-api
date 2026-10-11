@@ -41,6 +41,7 @@ final readonly class InterventionRecurrenceMaterializedEvent
    * @param ?string $error the failure reason, when unsuccessful
    * @param ?string $templateId template used to resolve a durable failure notification
    * @param ?string $responsibleId responsible member override for failure delivery
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -50,8 +51,9 @@ final readonly class InterventionRecurrenceMaterializedEvent
     public ?string $error = null,
     public ?string $templateId = null,
     public ?string $responsibleId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

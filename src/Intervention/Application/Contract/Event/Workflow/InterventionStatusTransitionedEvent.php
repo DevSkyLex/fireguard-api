@@ -47,6 +47,7 @@ final readonly class InterventionStatusTransitionedEvent
    * @param string $fromStatus the source status
    * @param string $toStatus the target status
    * @param ?string $reviewNote the review note, present only for a `changes_requested` target
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -56,8 +57,9 @@ final readonly class InterventionStatusTransitionedEvent
     public string $fromStatus,
     public string $toStatus,
     public ?string $reviewNote = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

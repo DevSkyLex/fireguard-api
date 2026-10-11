@@ -32,11 +32,13 @@ final readonly class TotpEnrollmentConfirmedEvent
    * @since 1.0.0
    *
    * @param string $userId the user ID
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $userId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

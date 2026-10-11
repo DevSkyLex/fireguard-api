@@ -13,8 +13,8 @@ use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord, InspectionRecord, NonConformityRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Contract\Seed\SeedTimeline;
 use Shared\Infrastructure\DataFixtures\{SeedFixtureAdapter, SeedReferenceRegistryAdapter};
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_unique;

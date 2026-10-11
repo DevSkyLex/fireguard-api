@@ -40,13 +40,15 @@ final readonly class InterventionReportExportedEvent
    * @param string $interventionId the exported intervention identifier
    * @param string $organizationId the owning organization identifier
    * @param string $actorUserId the exporting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $interventionId,
     public string $organizationId,
     public string $actorUserId,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

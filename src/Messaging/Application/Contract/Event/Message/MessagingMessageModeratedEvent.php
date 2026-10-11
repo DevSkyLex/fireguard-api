@@ -40,6 +40,7 @@ final readonly class MessagingMessageModeratedEvent
    * @param string $messageId the moderated message identifier
    * @param string $authorMemberId the message author's member identifier
    * @param ?string $actorUserId the acting (moderating) user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -47,8 +48,9 @@ final readonly class MessagingMessageModeratedEvent
     public string $messageId,
     public string $authorMemberId,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

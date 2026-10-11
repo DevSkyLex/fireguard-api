@@ -41,6 +41,7 @@ final readonly class ImportJobCompletedEvent
    * @param int $successfulRows the number of rows successfully provisioned
    * @param int $failedRows the number of rows reported as failed
    * @param string $createdBy the user identifier who created the job
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $importJobId,
@@ -50,8 +51,9 @@ final readonly class ImportJobCompletedEvent
     public int $successfulRows,
     public int $failedRows,
     public string $createdBy,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

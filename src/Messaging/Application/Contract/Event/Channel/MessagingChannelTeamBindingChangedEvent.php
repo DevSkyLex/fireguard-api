@@ -40,14 +40,16 @@ final readonly class MessagingChannelTeamBindingChangedEvent
    * @param string $conversationId the channel (conversation) identifier
    * @param ?string $teamId the newly bound organization team identifier, null when unbound
    * @param ?string $actorUserId the acting user identifier
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $conversationId,
     public ?string $teamId,
     public ?string $actorUserId = null,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

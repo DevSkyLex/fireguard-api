@@ -21,6 +21,15 @@ use User\Application\Port\Inbound\UserCredentialsPort;
  */
 final readonly class ConfirmPasswordResetHandler implements CommandHandler
 {
+  // #region Properties
+  /**
+   * Constant INVALID_RESET_MESSAGE.
+   *
+   * Neutral refusal shared by invalid reset tokens and codes.
+   */
+  private const string INVALID_RESET_MESSAGE = 'Invalid or expired reset code. Please check the code, or request a new reset.';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -62,7 +71,7 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
     $otp = $this->otpRepository->find($command->token);
     if (null === $otp || OtpPurpose::PASSWORD_RESET !== $otp->purpose) {
       return ConfirmPasswordResetResult::failed(
-        message: 'Invalid or expired reset code. Please check the code, or request a new reset.',
+        message: self::INVALID_RESET_MESSAGE,
         errorCode: ConfirmPasswordResetResult::ERROR_INVALID_TOKEN,
       );
     }
@@ -77,8 +86,7 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
         message: match ($verification->errorCode) {
           'expired' => 'The password reset code has expired. Please request a new one.',
           'max_attempts_exceeded' => 'Maximum verification attempts exceeded. Please request a new code.',
-          'invalid_token' => 'Invalid or expired reset code. Please check the code, or request a new reset.',
-          default => 'Invalid or expired reset code. Please check the code, or request a new reset.',
+          default => self::INVALID_RESET_MESSAGE,
         },
         errorCode: match ($verification->errorCode) {
           'expired' => ConfirmPasswordResetResult::ERROR_EXPIRED,

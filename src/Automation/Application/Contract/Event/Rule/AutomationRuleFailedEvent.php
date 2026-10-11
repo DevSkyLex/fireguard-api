@@ -40,14 +40,16 @@ final readonly class AutomationRuleFailedEvent
    * @param string $organizationId the organization identifier
    * @param string $subjectId the subject identifier the rule ran against
    * @param string $error the failure reason
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $ruleKey,
     public string $organizationId,
     public string $subjectId,
     public string $error,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

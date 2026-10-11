@@ -83,7 +83,7 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
       $page,
       $itemsPerPage,
     ));
-    $output = array_map(self::map(...), $result->page->items);
+    $output = array_map(static fn (CanonicalEquipmentCollectionItem $item): EquipmentOutput => self::map($item), $result->page->items);
 
     return new TraversablePaginator(new ArrayIterator($output), (float) $result->page->page, (float) $result->page->itemsPerPage, (float) $result->page->total);
   }

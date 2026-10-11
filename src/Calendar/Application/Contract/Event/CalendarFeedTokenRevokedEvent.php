@@ -40,14 +40,16 @@ final readonly class CalendarFeedTokenRevokedEvent
    * @param string $tokenId the feed token ID
    * @param string $actorUserId the acting (and owning) user identifier
    * @param string $reason why the token was revoked (`revoked` or `rotated`)
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
     public string $tokenId,
     public string $actorUserId,
     public string $reason,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }

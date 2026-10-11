@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Doctrine\Search;
 
 use Doctrine\ORM\QueryBuilder;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Equipment\Infrastructure\Doctrine\Search\TrigramSearchExpression as EquipmentExpression;
+use Facility\Infrastructure\Doctrine\Search\TrigramSearchExpression as FacilityExpression;
+use Inspection\Infrastructure\Doctrine\Search\TrigramSearchExpression as InspectionExpression;
+use Intervention\Infrastructure\Doctrine\Search\TrigramSearchExpression as InterventionExpression;
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Search\SearchCriteria;
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
@@ -191,6 +195,73 @@ final class TrigramSearchExpressionTest extends TestCase
   public function testLikeValueWrapsEscapedLowercasedTermWithWildcards(): void
   {
     self::assertSame('%50\\%\\_term%', TrigramSearchExpression::likeValue('50%_TERM'));
+  }
+
+  /**
+   * Method ownedFacades
+   *
+   * Covers each owned Doctrine bridge without permitting a production dependency on foreign infrastructure.
+   *
+   * @access public
+   *
+   * @return array<string, array{class-string<TrigramSearchExpression|EquipmentExpression|FacilityExpression|InspectionExpression|InterventionExpression>}> the existing facade entry points
+   */
+  public static function ownedFacades(): array
+  {
+    return [
+      'Shared' => [TrigramSearchExpression::class],
+      'Equipment' => [EquipmentExpression::class],
+      'Facility' => [FacilityExpression::class],
+      'Inspection' => [InspectionExpression::class],
+      'Intervention' => [InterventionExpression::class],
+    ];
+  }
+
+  /**
+   * Method ownedFacadesBindTheSameGroupedPredicateAndValue
+   *
+   * Protects the public facade signatures and exact expression and parameter binding across all five owners.
+   *
+   * @access public
+   *
+   * @param class-string<TrigramSearchExpression|EquipmentExpression|FacilityExpression|InspectionExpression|InterventionExpression> $facade the owned Doctrine facade
+   *
+   * @return void
+   */
+  #[Test]
+  #[DataProvider('ownedFacades')]
+  public function ownedFacadesBindTheSameGroupedPredicateAndValue(string $facade): void
+  {
+    $builder = $this->createMock(QueryBuilder::class);
+    $builder->expects(self::once())->method('andWhere')->with("(LOWER(e.brand) LIKE :search ESCAPE '\\' OR LOWER(e.model) LIKE :search ESCAPE '\\')")->willReturnSelf();
+    $builder->expects(self::once())->method('setParameter')->with('search', '%éclair 50\\%\\_%')->willReturnSelf();
+
+    $facade::applyCriteria($builder, 'search', new SearchCriteria('  ÉCLAIR 50%_  '), 'e.brand', 'e.model');
+    self::assertSame('%éclair 50\\%\\_%', $facade::likeValue('ÉCLAIR 50%_'));
+  }
+
+  /**
+   * Method ownedFacadesKeepEmptyTermsAndColumnsAsNoOps
+   *
+   * Blank criteria and empty target columns neither append an expression nor bind an unused parameter.
+   *
+   * @access public
+   *
+   * @param class-string<TrigramSearchExpression|EquipmentExpression|FacilityExpression|InspectionExpression|InterventionExpression> $facade the owned Doctrine facade
+   *
+   * @return void
+   */
+  #[Test]
+  #[DataProvider('ownedFacades')]
+  public function ownedFacadesKeepEmptyTermsAndColumnsAsNoOps(string $facade): void
+  {
+    $builder = $this->createMock(QueryBuilder::class);
+    $builder->expects(self::never())->method('andWhere');
+    $builder->expects(self::never())->method('setParameter');
+
+    $facade::apply($builder, 'search', null, 'e.brand');
+    $facade::applyCriteria($builder, 'search', new SearchCriteria(" \t "), 'e.brand');
+    $facade::apply($builder, 'search', 'Fire');
   }
   // #endregion
 }

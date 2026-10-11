@@ -58,26 +58,51 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
+    $result = $this->dispatch(new CreateInspectionCommand(
+      organizationId: $organizationId,
+      equipmentId: $data->equipmentId,
+      result: $data->result,
+      performedAt: $data->performedAt,
+      inspectorType: $data->inspectorType,
+      inspectorName: $data->inspectorName,
+      facilityId: $data->facilityId,
+      checklistId: $data->checklistId,
+      inspectorUserId: $data->inspectorUserId,
+      inspectorOrganizationName: $data->inspectorOrganizationName,
+      notes: $data->notes,
+      signature: $data->signature,
+      resourceId: $resourceId,
+      interventionId: null !== $data->intervention ? ResourceIriParser::id($data->intervention, 'interventions') : null,
+      clientId: $data->clientId,
+      actorUserId: $user->getId(),
+    ), $resourceId);
+    $output = $this->outputMapper->fromCreateResult($result);
+    $output->intervention = null === $result->interventionId ? null : '/api/interventions/' . $result->interventionId;
+    $output->recordStatus = $result->recordStatus;
+    $output->revision = $result->revision;
+
+    return $output;
+  }
+
+  /**
+   * Method dispatch
+   *
+   * Retains the operation-specific conflict status for wrapped client-identity failures.
+   *
+   * @access private
+   *
+   * @param CreateInspectionCommand $command the translated creation request
+   * @param ?string $resourceId the offline PUT identity, absent for POST
+   *
+   * @return CreateInspectionResult the creation result
+   */
+  private function dispatch(CreateInspectionCommand $command, ?string $resourceId): CreateInspectionResult
+  {
     try {
       /** @var CreateInspectionResult $result */
-      $result = $this->commandBus->dispatch(new CreateInspectionCommand(
-        organizationId: $organizationId,
-        equipmentId: $data->equipmentId,
-        result: $data->result,
-        performedAt: $data->performedAt,
-        inspectorType: $data->inspectorType,
-        inspectorName: $data->inspectorName,
-        facilityId: $data->facilityId,
-        checklistId: $data->checklistId,
-        inspectorUserId: $data->inspectorUserId,
-        inspectorOrganizationName: $data->inspectorOrganizationName,
-        notes: $data->notes,
-        signature: $data->signature,
-        resourceId: $resourceId,
-        interventionId: null !== $data->intervention ? ResourceIriParser::id($data->intervention, 'interventions') : null,
-        clientId: $data->clientId,
-        actorUserId: $user->getId(),
-      ));
+      $result = $this->commandBus->dispatch($command);
+
+      return $result;
     } catch (Throwable $exception) {
       for ($current = $exception; null !== $current; $current = $current->getPrevious()) {
         if ($current instanceof ClientResourceAlreadyExistsException) {
@@ -87,11 +112,5 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
 
       throw $exception;
     }
-    $output = $this->outputMapper->fromCreateResult($result);
-    $output->intervention = null === $result->interventionId ? null : '/api/interventions/' . $result->interventionId;
-    $output->recordStatus = $result->recordStatus;
-    $output->revision = $result->revision;
-
-    return $output;
   }
 }

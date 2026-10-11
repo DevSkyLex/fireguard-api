@@ -17,6 +17,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationStatu
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\CachePort;
 use Throwable;
+use User\Application\Contract\User\UserView;
 use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_keys;
@@ -296,25 +297,11 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     if ([] === $result->recentInterventions) {
       return $result;
     }
-    $ids = [];
-    foreach ($result->recentInterventions as $row) {
-      $id = $row['responsibleUserId'];
-      if (null !== $id && !in_array($id, $ids, true)) {
-        $ids[] = $id;
-      }
-    }
-
-    try {
-      $profiles = [] !== $ids ? $this->users->findByIds($ids) : [];
-    } catch (Throwable) {
-      $profiles = [];
-    }
+    $profiles = $this->responsibleProfiles($result);
     $rows = [];
     foreach ($result->recentInterventions as $row) {
       $profile = null !== $row['responsibleUserId'] ? ($profiles[$row['responsibleUserId']] ?? null) : null;
-      $row['responsibleName'] = null !== $profile
-        ? (trim($profile->firstName . ' ' . $profile->lastName) ?: $profile->username ?: $row['responsibleId'])
-        : $row['responsibleId'];
+      $row['responsibleName'] = $this->responsibleDisplayName($profile, $row['responsibleId']);
       $row['responsibleAvatarUrl'] = $profile?->avatarUrl;
       $rows[] = $row;
     }
@@ -329,6 +316,59 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       trends: $result->trends,
       recentInterventions: $rows,
     );
+  }
+
+  /**
+   * Method responsibleProfiles.
+   *
+   * Batches distinct responsible accounts without retaining their profiles in the shared cache.
+   *
+   * @access private
+   *
+   * @param GetOrganizationDashboardResult $result the authorized cached aggregate
+   *
+   * @return array<string, UserView> current profiles, or an empty fallback on lookup failure
+   */
+  private function responsibleProfiles(GetOrganizationDashboardResult $result): array
+  {
+    $ids = [];
+    foreach ($result->recentInterventions as $row) {
+      $id = $row['responsibleUserId'];
+      if (null !== $id && !in_array($id, $ids, true)) {
+        $ids[] = $id;
+      }
+    }
+
+    try {
+      return [] !== $ids ? $this->users->findByIds($ids) : [];
+    } catch (Throwable) {
+      return [];
+    }
+  }
+
+  /**
+   * Method responsibleDisplayName.
+   *
+   * Preserves the full name, username and member-identifier fallback order.
+   *
+   * @access private
+   *
+   * @param ?UserView $profile the current account profile when available
+   * @param ?string $memberId the responsible membership fallback
+   *
+   * @return ?string the responsible label
+   */
+  private function responsibleDisplayName(?UserView $profile, ?string $memberId): ?string
+  {
+    if (null === $profile) {
+      return $memberId;
+    }
+    $name = trim($profile->firstName . ' ' . $profile->lastName);
+    if ($name) {
+      return $name;
+    }
+
+    return $profile->username ?: $memberId;
   }
 
   /**

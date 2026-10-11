@@ -63,46 +63,15 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
   public function __invoke(DeleteInterventionAttachmentCommand $command): DeleteInterventionAttachmentResult
   {
     return $this->transactions->transactional(function () use ($command): DeleteInterventionAttachmentResult {
-      $context = $this->interventionResourceManager->interventionContext($command->interventionId);
-
-      if (null === $context) {
-        throw InterventionNotFoundException::withId($command->interventionId);
-      }
-
-      // Scope gate BEFORE the permission is derived — see the identical note in
-      // AddInterventionAttachmentHandler: deriving the permission reads the
-      // intervention's phase and can throw a conflict, which would confirm to
-      // an outsider that this intervention exists.
-      if (!$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
-        throw InterventionNotFoundException::withId($command->interventionId);
-      }
-
-      $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
-
-      if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
-        throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
-      }
-
-      try {
-        $attachmentId = InterventionAttachmentId::fromString($command->attachmentId);
-      } catch (InvalidValueException $exception) {
-        throw InvalidValueException::because($exception->getMessage(), $exception);
-      }
-
+      $this->authorizeDeletion($command);
+      $attachmentId = $this->attachmentId($command->attachmentId);
       $attachment = $this->attachmentRepository->findById($attachmentId);
 
       if (null === $attachment || $attachment->interventionId() !== $command->interventionId) {
         throw InterventionAttachmentNotFoundException::withId($command->attachmentId);
       }
 
-      $stored = $this->media->attachment($command->attachmentId, lock: true);
-      if (null === $stored) {
-        throw new InterventionAttachmentNotFoundException('Attachment not found.');
-      }
-      if (null !== $command->expectedRevision && $stored->revision !== $command->expectedRevision) {
-        throw new InterventionPreconditionFailedException('The resource revision is stale.');
-      }
-
+      $this->assertLockedRevision($command);
       $this->attachmentRepository->delete($attachmentId);
       $this->fileCleanup->request($attachment->storagePath());
       $this->interventionResourceManager->touchDraftIntervention($command->interventionId);
@@ -112,6 +81,71 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
         interventionId: $command->interventionId,
       );
     });
+  }
+
+  /**
+   * Method authorizeDeletion
+   *
+   * Denies outsiders before phase-derived permission checks can reveal parent state.
+   *
+   * @access private
+   *
+   * @param DeleteInterventionAttachmentCommand $command parent scope and actor
+   *
+   * @return void
+   */
+  private function authorizeDeletion(DeleteInterventionAttachmentCommand $command): void
+  {
+    $context = $this->interventionResourceManager->interventionContext($command->interventionId);
+    if (null === $context || !$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+    $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
+    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
+      throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
+    }
+  }
+
+  /**
+   * Method attachmentId
+   *
+   * Validates attachment identity after the parent authorization guards.
+   *
+   * @access private
+   *
+   * @param string $value requested attachment identifier
+   *
+   * @return InterventionAttachmentId validated identity
+   */
+  private function attachmentId(string $value): InterventionAttachmentId
+  {
+    try {
+      return InterventionAttachmentId::fromString($value);
+    } catch (InvalidValueException $exception) {
+      throw InvalidValueException::because($exception->getMessage(), $exception);
+    }
+  }
+
+  /**
+   * Method assertLockedRevision
+   *
+   * Locks the stored row before checking the optional revision and mutating SQL state.
+   *
+   * @access private
+   *
+   * @param DeleteInterventionAttachmentCommand $command attachment identity and expected revision
+   *
+   * @return void
+   */
+  private function assertLockedRevision(DeleteInterventionAttachmentCommand $command): void
+  {
+    $stored = $this->media->attachment($command->attachmentId, lock: true);
+    if (null === $stored) {
+      throw new InterventionAttachmentNotFoundException('Attachment not found.');
+    }
+    if (null !== $command->expectedRevision && $stored->revision !== $command->expectedRevision) {
+      throw new InterventionPreconditionFailedException('The resource revision is stale.');
+    }
   }
   // #endregion
 }

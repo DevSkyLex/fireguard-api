@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Webhook\Infrastructure\Console;
 
 use Doctrine\DBAL\Connection;
-use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\{InputInterface, InputOption};
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
+use UnexpectedValueException;
 
 use function ctype_digit;
 use function is_numeric;
@@ -94,12 +94,12 @@ final class InspectWebhookDeliveriesCommand extends Command
         FROM webhook_deliveries
         SQL);
       if (false === $row) {
-        throw new RuntimeException('Missing webhook aggregate observation.');
+        throw new UnexpectedValueException('Missing webhook aggregate observation.');
       }
       $metrics = [];
       foreach (['pending_deliveries', 'oldest_pending_seconds', 'expired_leases', 'oldest_expired_lease_seconds', 'quarantined_generations', 'failed_generations'] as $name) {
         if (!is_numeric($row[$name] ?? null)) {
-          throw new RuntimeException('Unexpected webhook aggregate observation shape.');
+          throw new UnexpectedValueException('Unexpected webhook aggregate observation shape.');
         }
         $metrics[$name] = str_ends_with($name, '_seconds') ? (float) $row[$name] : (int) $row[$name];
       }

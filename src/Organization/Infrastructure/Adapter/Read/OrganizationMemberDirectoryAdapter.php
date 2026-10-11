@@ -62,10 +62,9 @@ final readonly class OrganizationMemberDirectoryAdapter implements OrganizationM
     if ([] === $memberIds) {
       return [];
     }
-    /** @var array<string, string> $identities */
-    $identities = $this->connection->fetchAllKeyValue('SELECT id, user_id FROM organization_members WHERE organization_id = :organization AND id IN (:members)' . ($activeOnly ? ' AND is_active = TRUE' : ''), ['organization' => $organizationId, 'members' => $memberIds], ['members' => ArrayParameterType::STRING]);
 
-    return $identities;
+    /** @var array<string, string> */
+    return $this->connection->fetchAllKeyValue('SELECT id, user_id FROM organization_members WHERE organization_id = :organization AND id IN (:members)' . ($activeOnly ? ' AND is_active = TRUE' : ''), ['organization' => $organizationId, 'members' => $memberIds], ['members' => ArrayParameterType::STRING]);
   }
 
   /**

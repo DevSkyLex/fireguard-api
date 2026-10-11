@@ -38,6 +38,7 @@ final readonly class NonConformitiesExportedEvent
    * @param string $format the export format (`csv`)
    * @param int $rowCount the number of non-conformities matched/exported
    * @param list<string> $filterKeys the names of the filters that were applied (values excluded on purpose)
+   * @param ?DateTimeImmutable $occurredAt persisted occurrence time, or null for a new event
    */
   public function __construct(
     public string $organizationId,
@@ -45,8 +46,9 @@ final readonly class NonConformitiesExportedEvent
     public string $format,
     public int $rowCount,
     public array $filterKeys,
+    ?DateTimeImmutable $occurredAt = null,
   ) {
-    $this->occurredAt = new DateTimeImmutable();
+    $this->occurredAt = $occurredAt ?? new DateTimeImmutable();
   }
   // #endregion
 }
