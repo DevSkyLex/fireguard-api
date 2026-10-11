@@ -6,13 +6,13 @@ namespace Equipment\Presentation\Api\Provider\Equipment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
@@ -42,14 +42,14 @@ final readonly class GetEquipmentProvider implements ProviderInterface
    *
    * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
    * @param Security $security security context used to obtain the requesting member
-   * @param \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail factory used to assemble the equipment detail response
+   * @param \Equipment\Presentation\Api\Service\EquipmentDetailReader $detail factory used to assemble the equipment detail response
    *
    * @return void
    */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
-    private \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail,
+    private \Equipment\Presentation\Api\Service\EquipmentDetailReader $detail,
   ) {
   }
   // #endregion
@@ -67,7 +67,7 @@ final readonly class GetEquipmentProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): EquipmentOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\RecordInterventionServiceHistory;
 
 use Equipment\Application\Contract\Intervention\ServicedEquipmentEntry;
-use Equipment\Application\Port\Outbound\{InterventionServiceReportPort, MaintenanceLogRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\MaintenanceLogRepositoryPort;
+use Equipment\Application\Port\Outbound\InterventionServiceReportPort;
 use Equipment\Domain\Model\MaintenanceLog\{EquipmentMaintenanceLog, InterventionMaintenanceDetails};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, MaintenanceLogId};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\{CommandHandler, VoidResult};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function hash;
 
@@ -47,12 +48,12 @@ final readonly class RecordInterventionServiceHistoryHandler implements CommandH
    *
    * @param InterventionServiceReportPort $serviceReport the intervention service report port
    * @param MaintenanceLogRepositoryPort $maintenanceLogRepository the maintenance log repository port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    */
   public function __construct(
     private InterventionServiceReportPort $serviceReport,
     private MaintenanceLogRepositoryPort $maintenanceLogRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -102,7 +103,7 @@ final readonly class RecordInterventionServiceHistoryHandler implements CommandH
     RecordInterventionServiceHistoryCommand $command,
   ): void {
     /** @var MaintenanceLogId $logId */
-    $logId = $this->uuidFactory->create(MaintenanceLogId::class);
+    $logId = new MaintenanceLogId($this->uuidFactory->generate());
 
     $log = EquipmentMaintenanceLog::recordInterventionService(
       id: $logId,

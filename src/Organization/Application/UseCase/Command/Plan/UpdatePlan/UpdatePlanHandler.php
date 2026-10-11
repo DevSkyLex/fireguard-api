@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Plan\UpdatePlan;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\PlanId;

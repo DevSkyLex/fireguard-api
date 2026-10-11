@@ -15,7 +15,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\UseCase\Command\User\DeleteUser\DeleteUserCommand;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};

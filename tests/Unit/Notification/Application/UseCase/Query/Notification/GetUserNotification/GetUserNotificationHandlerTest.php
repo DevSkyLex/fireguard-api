@@ -6,7 +6,7 @@ namespace Tests\Unit\Notification\Application\UseCase\Query\Notification\GetUser
 
 use DateTimeImmutable;
 use Notification\Application\Exception\NotificationNotFoundException;
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\{GetUserNotificationHandler, GetUserNotificationQuery, GetUserNotificationResult};
 use Notification\Domain\Model\Notification\{Notification, RestoredNotificationState};
 use Notification\Domain\ValueObject\NotificationId;

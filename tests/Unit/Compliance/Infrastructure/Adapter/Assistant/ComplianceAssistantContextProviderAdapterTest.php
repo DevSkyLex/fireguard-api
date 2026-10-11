@@ -8,8 +8,8 @@ use Assistant\Application\Contract\Context\{AssistantContextBudget, AssistantCon
 use Compliance\Application\Port\Outbound\{ComplianceFacilityDirectoryPort, EquipmentComplianceStatisticsPort, InspectionComplianceStatisticsPort, MaintenanceComplianceStatisticsPort};
 use Compliance\Application\Service\ComplianceRegisterAggregator;
 use Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

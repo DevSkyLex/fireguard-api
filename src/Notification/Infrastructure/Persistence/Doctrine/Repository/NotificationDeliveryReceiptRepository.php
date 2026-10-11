@@ -6,7 +6,7 @@ namespace Notification\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\{Connection, DriverManager};
-use Notification\Application\Port\Outbound\NotificationDeliveryReceiptPort;
+use Notification\Application\Port\Outbound\Internal\NotificationDeliveryReceiptPort;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Infrastructure\Persistence\Doctrine\Mapper\NotificationMapper;
 use Notification\Infrastructure\Persistence\Doctrine\Record\NotificationRecord;

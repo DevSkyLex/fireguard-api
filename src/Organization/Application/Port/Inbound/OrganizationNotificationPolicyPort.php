@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\Port\Inbound;
 
-use Organization\Domain\ValueObject\OrganizationNotificationSettings;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
 
 /**
  * Port OrganizationNotificationPolicyPort.

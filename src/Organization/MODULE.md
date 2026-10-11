@@ -7,6 +7,41 @@
 Organization manages Organizations and member-level RBAC inside each Organization.
 It is isolated from authentication storage and persisted in the dedicated main database.
 
+Plan assignment records the plan change event and any over-quota notification
+snapshot in the main outbox inside the owning transaction. Nested Billing calls
+therefore commit the plan, receipt and outbox together. Audit and notification
+delivery occur after commit, with independent auth/main consumer receipts.
+The notification snapshot retains the owner identity, organization name and
+usage/limit values; Notification resolves the owner's email at delivery time.
+Channel failures retry through the durable consumer and never undo a committed
+plan assignment. Re-applying an unchanged plan records no new consequences.
+
+The authenticated self-service plan use case checks settings-write permission
+before reading the plan and accepts only the catalog default free plan. Trusted
+Billing assignment uses the separate internal plan mutation capability.
+Periodicity keys in compliance settings are validated by Application through
+the equipment-type catalog port, including programmatic settings callers.
+
+Public capabilities expose scalar owner/member projections, batched effective
+notification recipients, notification policy contracts and published exceptions.
+Repositories and owner-only helper interfaces are private under
+`Application/Port/{Inbound,Outbound}/Internal`. Authentication consumers use
+the public authenticated-user and User directory contracts. Authorization and
+quota caches explicitly reset between persistent worker messages.
+
+Logo uploads own the final main commit and reject an existing transaction before
+writing storage. Each attempt writes an immutable UUID key; a confirmed rollback
+compensates only that attempt, while an uncertain commit retains its bytes. The
+locked organization is reread before changing the winning URL. Replacements and
+removals record cleanup in the same outbox transaction, preserving the preceding
+file until commit. Public reads keep the existing route and cache headers, and
+resolve both historical canonical keys and the new UUID version keys.
+
+PostgreSQL regressions use independent connections and a real Doctrine transport
+to verify late nested Billing receipt failures, standalone assignment snapshots
+and late logo rollback. Functional logo tests use final commits rather than a
+test-enclosing transaction, including authorization before multipart validation.
+
 ### Operating profile
 
 `operatingProfile` identifies operational defaults: `operator` for a site operator,
@@ -149,6 +184,15 @@ frontend's localized typed registries are the source of these values).
 | DELETE | `/api/plans/{id}` | Delete a subscription plan; the default plan cannot be deleted (`ROLE_ADMIN`) |
 
 ## Architecture
+
+Dashboard and trend filters depend on the owner-published Equipment, Facility and
+Inspection filter contracts. Accepted wire values and validation-message ordering
+remain identical; Organization does not import those modules' Domain enums.
+
+Recent intervention responsible profiles are enriched in Application through one
+User directory batch per dashboard read, after the aggregate cache. Cached KPI
+payloads retain no account names or avatars; updated profiles are read on every
+request. Missing or unavailable profiles retain the member identifier fallback.
 
 - Presentation: API resources, providers, processors, DTOs
 - Application: command/query use cases, ports, authorization service

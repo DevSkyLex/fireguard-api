@@ -6,7 +6,7 @@ namespace Notification\Presentation\Api\Provider\MercureSubscription;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use Notification\Presentation\Api\Dto\Output\MercureSubscription\MercureSubscriptionOutput;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -68,7 +68,7 @@ final readonly class GetMercureSubscriptionProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): MercureSubscriptionOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

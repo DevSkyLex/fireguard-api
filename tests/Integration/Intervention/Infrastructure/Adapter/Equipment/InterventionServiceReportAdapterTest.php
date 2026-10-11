@@ -163,7 +163,7 @@ final class InterventionServiceReportAdapterTest extends KernelTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
+    $intervention->organizationId = self::ORGANIZATION_ID;
     $intervention->type = 'site_setup';
     $intervention->name = 'Service report adapter test';
     $intervention->number = 7;

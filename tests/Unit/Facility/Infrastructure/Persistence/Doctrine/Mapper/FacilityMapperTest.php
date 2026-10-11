@@ -10,7 +10,6 @@ use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, 
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -21,12 +20,11 @@ final class FacilityMapperTest extends TestCase
   public function testToDomainMapsAllFields(): void
   {
     $record = new FacilityRecord();
-    $organization = new OrganizationRecord();
-    $organization->id = '550e8400-e29b-41d4-a716-446655441601';
+    $organizationId = '550e8400-e29b-41d4-a716-446655441601';
     $parent = new FacilityRecord();
     $parent->id = '550e8400-e29b-41d4-a716-446655441602';
     $record->id = '550e8400-e29b-41d4-a716-446655441600';
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->parentFacility = $parent;
     $record->type = 'building';
     $record->name = 'Building A';
@@ -61,10 +59,9 @@ final class FacilityMapperTest extends TestCase
   public function testToDomainHandlesNullOptionalFields(): void
   {
     $record = new FacilityRecord();
-    $organization = new OrganizationRecord();
-    $organization->id = '550e8400-e29b-41d4-a716-446655441604';
+    $organizationId = '550e8400-e29b-41d4-a716-446655441604';
     $record->id = '550e8400-e29b-41d4-a716-446655441603';
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->parentFacility = null;
     $record->type = 'site';
     $record->name = 'HQ';
@@ -89,10 +86,9 @@ final class FacilityMapperTest extends TestCase
   public function testToDomainTreatsSingleCoordinateAsMissing(): void
   {
     $record = new FacilityRecord();
-    $organization = new OrganizationRecord();
-    $organization->id = '550e8400-e29b-41d4-a716-446655441704';
+    $organizationId = '550e8400-e29b-41d4-a716-446655441704';
     $record->id = '550e8400-e29b-41d4-a716-446655441703';
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->type = 'site';
     $record->name = 'HQ';
     $record->status = 'active';
@@ -136,7 +132,7 @@ final class FacilityMapperTest extends TestCase
 
     self::assertInstanceOf(FacilityRecord::class, $record);
     self::assertSame('550e8400-e29b-41d4-a716-446655441606', $record->id);
-    self::assertNull($record->organization);
+    self::assertSame((string) $facility->organizationId(), $record->organizationId);
     self::assertNull($record->parentFacility);
     self::assertSame('floor', $record->type);
     self::assertSame('Floor 1', $record->name);
@@ -182,10 +178,9 @@ final class FacilityMapperTest extends TestCase
   public function testToDomainAndToRecordRoundTrip(): void
   {
     $record = new FacilityRecord();
-    $organization = new OrganizationRecord();
-    $organization->id = '550e8400-e29b-41d4-a716-446655441611';
+    $organizationId = '550e8400-e29b-41d4-a716-446655441611';
     $record->id = '550e8400-e29b-41d4-a716-446655441610';
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->parentFacility = null;
     $record->type = 'zone';
     $record->name = 'Zone Alpha';
@@ -203,7 +198,7 @@ final class FacilityMapperTest extends TestCase
     $roundTripped = FacilityMapper::toRecord($facility);
 
     self::assertSame($record->id, $roundTripped->id);
-    self::assertNull($roundTripped->organization);
+    self::assertSame($record->organizationId, $roundTripped->organizationId);
     self::assertNull($roundTripped->parentFacility);
     self::assertSame($record->type, $roundTripped->type);
     self::assertSame($record->name, $roundTripped->name);
@@ -223,10 +218,9 @@ final class FacilityMapperTest extends TestCase
   public function testRetainsInvalidHistoricalGeometryOnRoundTrip(): void
   {
     $record = new FacilityRecord();
-    $organization = new OrganizationRecord();
-    $organization->id = '550e8400-e29b-41d4-a716-446655441621';
+    $organizationId = '550e8400-e29b-41d4-a716-446655441621';
     $record->id = '550e8400-e29b-41d4-a716-446655441622';
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->type = 'zone';
     $record->name = 'Historical zone';
     $record->status = 'active';
@@ -246,7 +240,7 @@ final class FacilityMapperTest extends TestCase
   {
     $record = new FacilityRecord();
     $record->id = '550e8400-e29b-41d4-a716-446655441620';
-    $record->organization = null;
+    unset($record->organizationId);
     $record->type = 'building';
     $record->name = 'Orphan';
     $record->status = 'active';

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Notification\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Notification\Application\Port\Outbound\NotificationPreferenceRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationPreferenceRepositoryPort;
 use Notification\Domain\Model\NotificationPreference\NotificationPreference;
 use Notification\Infrastructure\Persistence\Doctrine\Mapper\NotificationPreferenceMapper;
 use Notification\Infrastructure\Persistence\Doctrine\Record\NotificationPreferenceRecord;

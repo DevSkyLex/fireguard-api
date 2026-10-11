@@ -1,6 +1,10 @@
 framework:
     messenger:
         failure_transport: failed
+        buses:
+            messenger.bus.default:
+                middleware:
+                    - Shared\Infrastructure\Messaging\IntegrationEventCompatibilityMiddleware
 
         transports:
             # PostgreSQL is the transactional outbox for main-owned events and
@@ -14,6 +18,16 @@ framework:
                     multiplier: 3
                     max_delay: 600000
             main_failed: 'doctrine://main?queue_name=main_failed&auto_setup=false'
+            # Auth-owned mutations enqueue on their own connection. Delivery
+            # uses the shared envelope handler with separately owned receipts.
+            auth_outbox:
+                dsn: 'doctrine://auth?queue_name=auth_outbox&auto_setup=false'
+                failure_transport: failed
+                retry_strategy:
+                    max_retries: 5
+                    delay: 1000
+                    multiplier: 3
+                    max_delay: 600000
             async:
                 dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
                 options:
@@ -24,16 +38,16 @@ framework:
             # third-party endpoint (and its retries) cannot starve other async
             # work, with its own tuned backoff and a per-transport dead-letter.
             webhook:
-                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                dsn: 'doctrine://main?queue_name=webhook&auto_setup=false'
                 options:
-                    queue_name: webhook
+                    redeliver_timeout: 120
                 retry_strategy:
                     max_retries: 5
                     delay: 1000
                     multiplier: 3
                     max_delay: 3600000
                     jitter: 0.5
-                failure_transport: failed
+                failure_transport: main_failed
             # Dedicated transport for AI-assistant reply generation: isolated
             # from the general-purpose `async` transport for the same reason
             # as `webhook` (an unresponsive Ollama backend and its retries
@@ -79,6 +93,7 @@ when@test:
         messenger:
             transports:
                 main_outbox: 'in-memory://'
+                auth_outbox: 'in-memory://'
                 async: 'in-memory://'
                 webhook: 'in-memory://'
                 assistant: 'in-memory://'

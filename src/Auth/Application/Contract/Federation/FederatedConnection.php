@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Auth\Application\Contract\Federation;
 
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
 use DateTimeImmutable;
 
 /**

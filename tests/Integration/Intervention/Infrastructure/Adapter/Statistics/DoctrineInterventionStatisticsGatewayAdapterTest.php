@@ -197,7 +197,7 @@ final class DoctrineInterventionStatisticsGatewayAdapterTest extends KernelTestC
 
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->name = 'Statistics Gateway Test ' . (++$this->sequence);
     $record->number = $this->sequence;
     $record->status = $status;

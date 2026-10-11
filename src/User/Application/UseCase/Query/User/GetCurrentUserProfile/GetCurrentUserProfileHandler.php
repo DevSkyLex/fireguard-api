@@ -7,7 +7,7 @@ namespace User\Application\UseCase\Query\User\GetCurrentUserProfile;
 use Authorization\Application\Port\Inbound\AuthorizationPort;
 use Otp\Application\Port\Inbound\Totp\TotpStatusPort;
 use User\Application\Contract\User\UserView;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\UserId;

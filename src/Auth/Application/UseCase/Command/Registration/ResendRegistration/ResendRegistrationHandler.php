@@ -6,10 +6,7 @@ namespace Auth\Application\UseCase\Command\Registration\ResendRegistration;
 
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
-use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Application\Service\ChallengeResendPolicy;
-use Otp\Domain\ValueObject\ChallengeToken;
+use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePort};
 use Shared\Application\Message\CommandHandler;
 
 /**
@@ -34,11 +31,11 @@ final readonly class ResendRegistrationHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param OtpRepositoryPort $otpRepository the OTP repository port
+   * @param ChallengeAccessPort $otpRepository the OTP repository port
    * @param OtpChallengePort $otpChallenge the OTP challenge port
    */
   public function __construct(
-    private readonly OtpRepositoryPort $otpRepository,
+    private readonly ChallengeAccessPort $otpRepository,
     private readonly OtpChallengePort $otpChallenge,
   ) {
   }
@@ -58,10 +55,9 @@ final readonly class ResendRegistrationHandler implements CommandHandler
    */
   public function __invoke(ResendRegistrationCommand $command): ResendRegistrationResult
   {
-    $challengeToken = ChallengeToken::fromString($command->token);
-    $otp = $this->otpRepository->findByChallengeToken($challengeToken);
+    $otp = $this->otpRepository->find($command->token);
 
-    if (null === $otp || OtpPurpose::EMAIL_VERIFICATION->value !== $otp->purpose()->value || 'pending' !== $otp->status()) {
+    if (null === $otp || OtpPurpose::EMAIL_VERIFICATION->value !== $otp->purpose->value || 'pending' !== $otp->status) {
       return ResendRegistrationResult::failed(
         message: 'Invalid or expired verification token.',
         errorCode: ResendRegistrationResult::ERROR_INVALID_TOKEN,
@@ -69,8 +65,8 @@ final readonly class ResendRegistrationHandler implements CommandHandler
     }
 
     $now = new DateTimeImmutable();
-    $canResendIn = ChallengeResendPolicy::canResendIn(
-      createdAt: $otp->createdAt(),
+    $canResendIn = $this->otpRepository->canResendIn(
+      createdAt: $otp->createdAt,
       now: $now,
     );
 
@@ -83,10 +79,10 @@ final readonly class ResendRegistrationHandler implements CommandHandler
     }
 
     $challenge = $this->otpChallenge->generate(
-      userId: $otp->userId(),
+      userId: $otp->userId,
       purpose: OtpPurpose::EMAIL_VERIFICATION,
-      channel: OtpChannel::from($otp->channel()->value),
-      recipient: $otp->recipient(),
+      channel: OtpChannel::from($otp->channel->value),
+      recipient: $otp->recipient,
     );
 
     return ResendRegistrationResult::success(
@@ -94,7 +90,7 @@ final readonly class ResendRegistrationHandler implements CommandHandler
       maskedRecipient: $challenge->maskedRecipient,
       expiresAt: $challenge->expiresAt,
       maxAttempts: $challenge->maxAttempts,
-      canResendIn: ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS,
+      canResendIn: ChallengeAccessPort::RESEND_COOLDOWN_SECONDS,
       message: 'A new verification code has been sent.',
     );
   }

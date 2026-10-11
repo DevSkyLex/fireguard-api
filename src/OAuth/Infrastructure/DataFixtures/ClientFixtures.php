@@ -11,8 +11,7 @@ use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret, Redirec
 use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
 use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
 use OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper;
-use Shared\Infrastructure\Service\UuidEventIdProvider;
-use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
+use Shared\Domain\Service\EventIdProvider;
 
 use function array_map;
 use function password_hash;
@@ -87,6 +86,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
    */
   public function __construct(
     private readonly ClientMapper $clientMapper,
+    private readonly EventIdProvider $eventIds,
   ) {
   }
   // #endregion
@@ -251,7 +251,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
       redirectUris: $redirectUriObjects,
       grantTypes: new GrantTypes(...$grantTypes),
       scopes: new Scopes(...$scopes),
-      eventIdProvider: new UuidEventIdProvider(new UuidGeneratorAdapter()),
+      eventIdProvider: $this->eventIds,
     );
 
     // Clear domain events

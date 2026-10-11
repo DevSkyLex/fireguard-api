@@ -19,7 +19,6 @@ use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetCurrentUserProfile\GetCurrentUserProfileResult;
 use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 use User\Domain\Exception\UserNotFoundException;
-use User\Infrastructure\Image\AvatarResizer;
 use User\Presentation\Api\Dto\Output\User\CurrentUserProfileOutput;
 use User\Presentation\Api\Processor\User\{
   UploadCurrentUserAvatarProcessor,
@@ -142,7 +141,6 @@ final class UploadCurrentUserAvatarProcessorTest extends TestCase
   {
     return new UploadUserAvatarProcessor(
       requestStack: new RequestStack(),
-      avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $this->createStub(QueryBusPort::class),
     );
@@ -173,7 +171,6 @@ final class UploadCurrentUserAvatarProcessorTest extends TestCase
 
     return new UploadUserAvatarProcessor(
       requestStack: $requestStack,
-      avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $commandBus,
       queryBus: $queryBus,
     );

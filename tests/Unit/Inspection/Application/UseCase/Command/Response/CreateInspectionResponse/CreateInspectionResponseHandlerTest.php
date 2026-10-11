@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Response\CreateInspectionResponse;
 
 use Inspection\Application\Contract\Inspection\InspectionScope;
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, InspectionResponseRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, InspectionResponseRepositoryPort};
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Application\UseCase\Command\Response\CreateInspectionResponse\{CreateInspectionResponseCommand, CreateInspectionResponseHandler};
 use Inspection\Domain\Exception\{InspectionResponseClientIdAlreadyExistsException, InspectionResponseConflictException};
 use Inspection\Domain\Model\Response\InspectionResponse;
 use Inspection\Domain\ValueObject\InspectionResponseId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 
 /**
  * Test CreateInspectionResponseHandlerTest.
@@ -231,8 +231,8 @@ final class CreateInspectionResponseHandlerTest extends TestCase
   #[Test]
   public function testAClientChosenIdentifierIsUsedInsteadOfAGeneratedOne(): void
   {
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $saved = null;
     $responses = $this->createStub(InspectionResponseRepositoryPort::class);
@@ -265,7 +265,7 @@ final class CreateInspectionResponseHandlerTest extends TestCase
    * @param ?InspectionResponseRepositoryPort $responses the response repository
    * @param ?InspectionRepositoryPort $inspections the inspection repository
    * @param ?InterventionScopePort $interventions the intervention scope port
-   * @param ?UuidFactory $uuidFactory the uuid factory
+   * @param ?UuidGeneratorPort $uuidFactory the uuid factory
    *
    * @return CreateInspectionResponseHandler the handler under test
    */
@@ -273,7 +273,7 @@ final class CreateInspectionResponseHandlerTest extends TestCase
     ?InspectionResponseRepositoryPort $responses = null,
     ?InspectionRepositoryPort $inspections = null,
     ?InterventionScopePort $interventions = null,
-    ?UuidFactory $uuidFactory = null,
+    ?UuidGeneratorPort $uuidFactory = null,
   ): CreateInspectionResponseHandler {
     $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')->willReturnCallback(
@@ -281,8 +281,8 @@ final class CreateInspectionResponseHandlerTest extends TestCase
     );
 
     if (null === $uuidFactory) {
-      $uuidFactory = $this->createStub(UuidFactory::class);
-      $uuidFactory->method('create')->willReturn(InspectionResponseId::fromString(self::RESPONSE_ID));
+      $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+      $uuidFactory->method('generate')->willReturn((string) InspectionResponseId::fromString(self::RESPONSE_ID));
     }
 
     return new CreateInspectionResponseHandler(

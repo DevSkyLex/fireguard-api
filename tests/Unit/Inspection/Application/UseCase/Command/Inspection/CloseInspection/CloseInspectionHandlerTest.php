@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Inspection\CloseInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{InspectionMaintenanceSynchronizerPort, InspectionRepositoryPort};
+use Inspection\Application\Port\Outbound\InspectionMaintenanceSynchronizerPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Application\UseCase\Command\Inspection\CloseInspection\{
   CloseInspectionCommand,
   CloseInspectionHandler,
@@ -28,7 +29,6 @@ use Inspection\Domain\ValueObject\{
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
@@ -86,7 +86,7 @@ final class CloseInspectionHandlerTest extends TestCase
       inspectionRepository: $repository,
       eventDispatcher: $eventDispatcher,
       maintenanceSynchronizer: $maintenanceSynchronizer,
-      logger: new NullLogger(),
+      logger: $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class),
     );
 
     $result = $handler->__invoke(new CloseInspectionCommand(
@@ -120,7 +120,7 @@ final class CloseInspectionHandlerTest extends TestCase
       inspectionRepository: $repository,
       eventDispatcher: $eventDispatcher,
       maintenanceSynchronizer: $maintenanceSynchronizer,
-      logger: new NullLogger(),
+      logger: $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class),
     );
 
     $result = $handler->__invoke(new CloseInspectionCommand(
@@ -145,7 +145,7 @@ final class CloseInspectionHandlerTest extends TestCase
       inspectionRepository: $repository,
       eventDispatcher: $eventDispatcher,
       maintenanceSynchronizer: $this->createStub(InspectionMaintenanceSynchronizerPort::class),
-      logger: new NullLogger(),
+      logger: $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class),
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -172,7 +172,7 @@ final class CloseInspectionHandlerTest extends TestCase
       inspectionRepository: $repository,
       eventDispatcher: $eventDispatcher,
       maintenanceSynchronizer: $this->createStub(InspectionMaintenanceSynchronizerPort::class),
-      logger: new NullLogger(),
+      logger: $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class),
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -199,7 +199,7 @@ final class CloseInspectionHandlerTest extends TestCase
       inspectionRepository: $repository,
       eventDispatcher: $eventDispatcher,
       maintenanceSynchronizer: $this->createStub(InspectionMaintenanceSynchronizerPort::class),
-      logger: new NullLogger(),
+      logger: $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class),
     );
 
     $this->expectException(InspectionNotSubmittedException::class);
@@ -218,7 +218,7 @@ final class CloseInspectionHandlerTest extends TestCase
       inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       maintenanceSynchronizer: $this->createStub(InspectionMaintenanceSynchronizerPort::class),
-      logger: new NullLogger(),
+      logger: $this->createStub(\Shared\Application\Port\Outbound\LoggerPort::class),
     );
 
     $this->expectException(InvalidValueException::class);

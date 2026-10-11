@@ -15,7 +15,6 @@ use Intervention\Domain\Service\{InterventionChangePolicy, PublicationTransition
 use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionStatus, PublicationStatus};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, PublicationRecord};
 use MaintenanceCost\Application\Port\Inbound\MaintenanceCostPublicationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_filter;
 use function array_map;
@@ -74,13 +73,13 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
   public function interventionContext(string $interventionId): ?InterventionPublicationContext
   {
     $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
-    if (!$intervention instanceof InterventionRecord || !$intervention->organization instanceof OrganizationRecord) {
+    if (!$intervention instanceof InterventionRecord || !isset($intervention->organizationId)) {
       return null;
     }
 
     return new InterventionPublicationContext(
       $intervention->id,
-      $intervention->organization->id,
+      $intervention->organizationId,
       $intervention->status,
       $intervention->revision,
       $intervention->name,
@@ -246,11 +245,11 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
       }
       // Stock declarations acquire this resources fence before their work
       // lock. Publication uses the same order to avoid a lock inversion.
-      $sourceOrganization = $publication->intervention->organization;
-      if (!$sourceOrganization instanceof OrganizationRecord) {
+      if (!isset($publication->intervention->organizationId)) {
         throw new InterventionConflictException('Intervention organization is unavailable.');
       }
-      $this->costs->assertReadyToPublish($sourceOrganization->id, $publication->intervention->id);
+      $sourceOrganization = $publication->intervention->organizationId;
+      $this->costs->assertReadyToPublish($sourceOrganization, $publication->intervention->id);
       $intervention = $this->entityManager->find(InterventionRecord::class, $publication->intervention->id, LockMode::PESSIMISTIC_WRITE);
       // @codeCoverageIgnoreStart
       // Unreachable: line 220 already dereferences $publication->intervention,
@@ -266,11 +265,11 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
       if (InterventionStatus::SUBMITTED->value !== $intervention->status || $intervention->revision !== $publication->interventionRevision) {
         throw new InterventionConflictException('Intervention changed before publication execution.');
       }
-      if (!$intervention->organization instanceof OrganizationRecord) {
+      if (!isset($intervention->organizationId)) {
         throw new InterventionConflictException('Intervention organization is unavailable.');
       }
 
-      $organizationId = $intervention->organization->id;
+      $organizationId = $intervention->organizationId;
       $this->applyPublicationResources($intervention, $organizationId);
       $this->operations->publish($intervention, $organizationId);
       $this->entityManager->flush();

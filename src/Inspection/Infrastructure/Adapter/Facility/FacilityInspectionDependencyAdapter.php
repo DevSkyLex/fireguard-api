@@ -56,7 +56,7 @@ final readonly class FacilityInspectionDependencyAdapter implements FacilityInsp
       ->select('COUNT(record.id)')
       ->from(InspectionRecord::class, 'record')
       ->where('record.facilityId = :facilityId')
-      ->andWhere('IDENTITY(record.organization) = :organizationId')
+      ->andWhere('record.organizationId = :organizationId')
       ->andWhere('record.recordStatus = :published')
       ->andWhere('record.status IN (:activeStatuses)')
       ->setParameter('facilityId', $facilityId)

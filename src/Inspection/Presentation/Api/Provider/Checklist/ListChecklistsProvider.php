@@ -8,17 +8,17 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Query\Checklist\ListChecklists\{ListChecklistResult, ListChecklistsQuery};
 use Inspection\Presentation\Api\Dto\Output\Checklist\ChecklistOutput;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -62,7 +62,7 @@ final readonly class ListChecklistsProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -76,9 +76,9 @@ final readonly class ListChecklistsProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
+    $status = \Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Inspection\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

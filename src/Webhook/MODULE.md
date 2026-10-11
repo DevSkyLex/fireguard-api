@@ -96,7 +96,7 @@ a source domain event requires updating both `WebhookEventCatalog` and
 
 ## Flows
 
-### Dispatch (event-driven, request thread — enqueue only)
+### Dispatch (source event — enqueue only)
 
 Event handling enqueues delivery work and returns to the producer. The request thread does not perform outbound webhook HTTP delivery.
 
@@ -113,15 +113,15 @@ sequenceDiagram
   participant Bus as MessageBusInterface (webhook transport)
   Src->>Disp: dispatch(NonConformityRecordedEvent)
   Disp->>Sub: onNonConformityRecorded(event)
-  Note over Sub: try/catch(Throwable) — never fails the source request
+  Note over Sub: Durable delivery failures propagate for retry;<br/>legacy synchronous delivery remains best-effort
   Sub->>Bus: dispatch(DispatchWebhookEventCommand)
 ```
 
-`WebhookEventSubscriber` follows the Audit subscriber pattern (subscribes
-to curated event names, one typed handler method per event, swallows
-and logs errors) but dispatches directly onto the raw Symfony message bus —
-**not** `CommandBusPort`, which expects a `HandledStamp` an async-routed
-dispatch never produces.
+`WebhookEventSubscriber` subscribes to curated event names with one typed handler
+per event and dispatches directly onto the raw Symfony message bus. Durable source
+events reuse their outbox identity and propagate enqueue failures to Messenger;
+legacy synchronous calls log failures without invalidating their source request.
+`CommandBusPort` expects a `HandledStamp` an async-routed dispatch never produces.
 
 ### Fan-out + delivery (async, `webhook` transport)
 
@@ -147,22 +147,54 @@ sequenceDiagram
     DispatchH->>Worker: enqueue DeliverWebhookCommand(deliveryId)
   end
   Worker->>DeliverH: DeliverWebhookCommand
-  DeliverH->>Repo: findById(deliveryId)
+  DeliverH->>Repo: claim(deliveryId, generation, attemptToken, 90-second lease)
   DeliverH->>DeliverH: decrypt secret, sign, build headers
   DeliverH->>Http: post(url, headers, body, timeout)
   alt 2xx
-    DeliverH->>Repo: save (status=delivered)
+    DeliverH->>Repo: finalize only owned generation/token (status=delivered)
   else non-2xx / transport error, attempts < 5
-    DeliverH->>Repo: save (status=pending, attempts++)
-    DeliverH-->>Worker: throw WebhookDeliveryAttemptFailedException (triggers retry)
+    DeliverH->>Repo: finalize pending + reserve/enqueue durable delayed wake atomically
   else attempts >= 5
-    DeliverH->>Repo: save (status=failed)
+    DeliverH->>Repo: finalize only owned generation/token (status=failed)
   end
 ```
 
 `PingWebhookSubscriptionHandler` and `RedeliverWebhookHandler` join this
 same pipeline directly (reserve/reopen + enqueue `DeliverWebhookCommand`),
 bypassing the fan-out since they target exactly one subscription.
+
+Reservation and enqueue share the `main` transaction for fan-out and ping.
+Manual redelivery atomically increments the generation, clears the prior lease,
+resets both budgets and enqueues that generation. An old command cannot acquire
+or finalize a newer generation. Historical PHP-serialized commands lacking a
+generation deserialize as generation **0**, never the current generation.
+
+Delivery claims commit before HTTP; running inside an outer main transaction is
+refused. HTTP starts only after its attempt count is durably incremented. A worker
+crash therefore consumes the attempt it may have sent. Finalization checks the
+generation, token and unexpired lease; stale responses have no effect.
+
+Five HTTP calls per generation and five Messenger technical retries are separate
+budgets. HTTP failures reserve their own durable delayed wakes (1, 3, 9, 27 seconds)
+and return normally. Unexpected technical exceptions propagate to Messenger;
+their persisted budget prevents periodic recovery from resetting exhaustion.
+Exhausted technical generations are quarantined until manual redelivery.
+Reserving a new wake transfers technical retry-cycle ownership once the prior
+lease is absent or expired. Finalization also hands ownership to an already
+reserved busy wake. A late failure of the preceding envelope, including a
+historical command without a token, cannot quarantine the new wake. An active
+lease retains its command's technical cycle; an expired attempt cannot release
+or rewrite a wake reserved by recovery.
+Claims verify this cycle identity before acquiring a lease. An older envelope
+cannot reacquire the cycle when its replacement wake becomes due. Historical
+reservations without a command identity are adopted only by their exact wake;
+tokenless historical commands retain their own technical retries.
+
+Busy leases and future retry times retain a delayed wake without consuming an
+HTTP attempt. A one-minute sweep recovers expired leases and stale wake messages;
+atomic reservations prevent competing sweep workers from enqueueing the same
+wake. Delivered, failed and quarantined generations are excluded. A crash on the
+fifth HTTP attempt becomes terminal once its lease expires.
 
 ## Signature & replay protection
 
@@ -342,22 +374,29 @@ or the `organization.*` owner wildcard.
 - Doctrine mapping: `src/Webhook/Infrastructure/Persistence/Doctrine/Record`
   (main entity manager). No ORM associations (plain string columns), FKs
   added directly in the migration — mirrors `Import\...\ImportJobRecord`.
-- Migration: `migrations/main/Version20260718063344.php`.
+- Migrations: `migrations/main/Version20260718063344.php` and the additive
+  `Version20261011120000.php` for generation, attempt token, lease, wake reservation,
+  technical-failure count and quarantine state, then `Version20261011120001.php`
+  for retry-cycle ownership. Existing rows remain generation 0.
 
 ## Configuration
 
 - Service wiring: `config/modules/webhook.yaml`.
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`.
 - Messenger: `config/packages/messenger.yaml` — a dedicated `webhook`
-  transport (`retry_strategy`: `max_retries: 5`, `delay: 1000`,
-  `multiplier: 3`, `max_delay: 3600000`, `jitter: 0.5`,
-  `failure_transport: failed`), routing
-  `DispatchWebhookEventCommand`/`DeliverWebhookCommand` onto it. A `failed`
-  transport (`doctrine://auth?queue_name=failed`) is the per-transport
-  dead-letter backstop for unexpected exhaustion — the auth DB's
-  `default_connection`, not the main DB, since this is a generic Messenger
-  infrastructure table, not a Webhook-owned one. `when@test` overrides both
-  `async` and `webhook` to `in-memory://`.
+  transport on **main**, `doctrine://main?queue_name=webhook&auto_setup=false`,
+  with `redeliver_timeout: 120`, five technical retries and `main_failed`.
+  The `main` sender and repository writes use the same connection. HTTP duration
+  remains capped at 60 seconds, below the 90-second application lease.
+  `when@test` uses an in-memory webhook transport for ordinary handler/API tests;
+  atomicity integration tests instantiate the native Doctrine transport explicitly.
+- Recovery: a stateful, lock-guarded `scheduler_webhook` schedule runs each minute.
+  Run `messenger:consume webhook` and `messenger:consume scheduler_webhook` as
+  separate supervised workers; preserve the existing `main_outbox` consumer.
+- The old `failed` transport on auth remains readable for historical failed
+  envelopes. New Webhook failures go to `main_failed`.
+- Error mapping: Webhook resources use `WebhookExceptionSubscriber`; processors
+  and providers propagate use-case failures. Existing status codes/messages remain.
 - Env vars: `WEBHOOK_ENCRYPTION_KEY` (base64, 32 raw bytes),
   `WEBHOOK_ALLOW_INSECURE_URLS` (dev-only http:// toggle),
   `WEBHOOK_HTTP_TIMEOUT` (outbound request timeout, seconds).
@@ -368,10 +407,49 @@ or the `organization.*` owner wildcard.
   permissions, unlike the platform-level `Authorization` module the sync
   command actually targets); documented here to avoid re-investigating.
 
+### Transport cutover and recovery runbook
+
+1. Stop every producer of Webhook work, including the `main_outbox` worker that
+   fans integration events out. Keep the old webhook worker available for draining.
+2. Drain the old **auth** queue `webhook`, including delayed rows. Verify its row
+   count is zero and wait for all outbound calls in progress to finish. Do not
+   discard delayed or failed envelopes to accelerate the cutover. Stop the old
+   webhook worker once the queue is empty and its active HTTP calls have finished.
+3. Deploy the compatible code and apply both additive main migrations
+   (`Version20261011120000` and `Version20261011120001`) with
+   `--configuration=config/migrations/main.yaml`. Set up each main transport separately:
+
+   ```sh
+   for transport in webhook main_outbox main_failed; do
+     php -d memory_limit=1G bin/console messenger:setup-transports "$transport" --env=prod --no-interaction || exit 1
+   done
+   ```
+
+4. Start `scheduler_webhook` to recover previously committed pending reservations,
+   then start the main `webhook` and `main_outbox` workers and restore producers.
+5. Keep auth's historical failed transport readable. Replay its Webhook envelopes
+   with the new decoder; missing generations always remain 0. Inspect `main_failed`
+   and quarantined deliveries before explicitly requesting manual redelivery.
+
+Monitor queue age, oldest pending delivery, expired leases and quarantined rows.
+Run `php bin/console app:webhook:deliveries --env=prod --max-lease-age=180` for
+aggregate counts and ages without exposing payloads, URLs or organization IDs.
+The host's five-minute worker observation alerts on overdue leases, quarantined
+or failed generations and recovery sweeps without success for five minutes.
+Correct the cause before an explicit manual redelivery; generic Messenger replay
+does not reopen a terminal generation.
+Recovery never resets a terminal/exhausted generation. Do not roll back to a worker
+that ignores generation fencing after this migration becomes active. An old HTTP
+response can neither overwrite a newer result nor release its lease.
+
 ## Testing
 
 - Unit: `tests/Unit/Webhook`
 - Functional: `tests/Functional/Api/WebhookSubscriptionApiTest.php`
+- PostgreSQL atomicity, fencing and recovery:
+  `tests/Integration/Webhook/Infrastructure/Delivery/WebhookDeliveryAtomicityTest.php`
+  uses independent connections and the real Doctrine transport, without relying
+  on the in-memory override or DAMA's enclosing transaction.
 - Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/Webhook`
 
 ## Error Codes
@@ -379,7 +457,7 @@ or the `organization.*` owner wildcard.
 | Exception                                                                   | HTTP                     |
 | --------------------------------------------------------------------------- | ------------------------ |
 | `WebhookSubscriptionNotFoundException` / `WebhookDeliveryNotFoundException` | 404 Not Found            |
-| `Organization\Domain\Exception\OrganizationAccessDeniedException`           | 403 Forbidden            |
+| `Organization\Application\Contract\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
 | `WebhookValidationException`                                                | 422 Unprocessable Entity |
 | `InvalidArgumentException`                                                  | 400 Bad Request          |
 

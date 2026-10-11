@@ -6,9 +6,8 @@ namespace Equipment\Infrastructure\Adapter\Messaging;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
+use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
 
 use function sprintf;
 
@@ -88,7 +87,7 @@ final readonly class EquipmentMessagingSubjectResolverAdapter implements Messagi
     $record = $this->entityManager->find(EquipmentRecord::class, $subjectId);
 
     $exists = $record instanceof EquipmentRecord
-      && $record->organization?->id === $organizationId
+      && $record->organizationId === $organizationId
       && 'published' === $record->recordStatus;
 
     return new MessagingSubjectResolution(

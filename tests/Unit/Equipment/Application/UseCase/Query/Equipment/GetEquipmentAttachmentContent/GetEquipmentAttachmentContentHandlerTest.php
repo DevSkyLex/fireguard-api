@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\GetEquipmentAttachmentContent;
 
-use Equipment\Application\Port\Outbound\{AttachmentRepositoryPort, EquipmentRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\{AttachmentRepositoryPort, EquipmentRepositoryPort};
 use Equipment\Application\UseCase\Query\Equipment\GetEquipmentAttachmentContent\{GetEquipmentAttachmentContentHandler, GetEquipmentAttachmentContentQuery, GetEquipmentAttachmentContentResult};
 use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;

@@ -8,16 +8,16 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Messaging\Application\Contract\Attachment\MessagingAttachmentView;
 use Messaging\Application\UseCase\Query\Attachment\ListConversationAttachments\{ListConversationAttachmentsQuery, ListConversationAttachmentsResult};
-use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingAttachmentRecord, MessagingMessageRecord};
 use Messaging\Presentation\Api\Dto\Output\MessageAttachmentOutput;
 use Messaging\Presentation\Api\Factory\MessageAttachmentOutputFactory;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
 use function array_map;
@@ -85,7 +85,7 @@ final readonly class MessagingMediaProvider implements ProviderInterface
       throw new BadRequestHttpException('The conversationId URI parameter is required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Messaging\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $page = max(1, $query->getInt('page', 1));
     $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
@@ -102,7 +102,7 @@ final readonly class MessagingMediaProvider implements ProviderInterface
     }
 
     return new TraversablePaginator(
-      new ArrayIterator(array_map($this->mapper->fromAttachment(...), $result->page->items)),
+      new ArrayIterator(array_map($this->mapper->fromView(...), $result->page->items)),
       (float) $result->page->page,
       (float) $result->page->itemsPerPage,
       (float) $result->page->total,
@@ -122,26 +122,9 @@ final readonly class MessagingMediaProvider implements ProviderInterface
    *
    * @since 1.0.0
    */
-  public static function output(MessagingAttachmentRecord $record): MessageAttachmentOutput
+  public static function output(MessagingAttachmentView $record): MessageAttachmentOutput
   {
-    if (!$record->message instanceof MessagingMessageRecord) {
-      throw new NotFoundHttpException('Attachment message not found.');
-    }
-
-    $output = new MessageAttachmentOutput();
-    $output->id = $record->id;
-    $output->message = '/api/messages/' . $record->message->id;
-    $output->conversation = '/api/conversations/' . $record->conversationId;
-    $output->uploadedByMember = '/api/organizations/' . $record->organizationId . '/members/' . $record->uploadedByMemberId;
-    $output->contentUrl = '/api/messaging-attachments/' . $record->id . '/content';
-    $output->fileName = $record->fileName;
-    $output->mimeType = $record->mimeType;
-    $output->size = $record->size;
-    $output->label = $record->label;
-    $output->revision = $record->revision;
-    $output->uploadedAt = $record->uploadedAt->format('c');
-
-    return $output;
+    return new MessageAttachmentOutputFactory()->fromView($record);
   }
 
   /**
@@ -149,10 +132,10 @@ final readonly class MessagingMediaProvider implements ProviderInterface
    *
    * @since 1.0.0
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

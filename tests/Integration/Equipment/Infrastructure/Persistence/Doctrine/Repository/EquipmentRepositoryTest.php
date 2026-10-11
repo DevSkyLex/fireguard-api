@@ -249,11 +249,12 @@ final class EquipmentRepositoryTest extends KernelTestCase
     string $status = 'operational',
   ): void {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
     $timestamp = $createdAt ?? new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->recordStatus = $recordStatus;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = $status;

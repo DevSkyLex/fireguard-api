@@ -7,18 +7,18 @@ namespace Tests\Unit\Approval\Application\Service;
 use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateRequest};
 use Approval\Application\Contract\Policy\ApprovalPolicy;
 use Approval\Application\Contract\Reservation\ApprovalReservation;
-use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort};
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Application\Service\ApprovalGate;
 use Approval\Domain\Event\Request\ApprovalRequestedEvent;
 use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, UuidGeneratorPort};
 
 /**
@@ -309,7 +309,7 @@ final class ApprovalGateTest extends TestCase
       authorization: $authorization,
       eventDispatcher: $eventDispatcher,
       clock: $clock,
-      uuidFactory: new UuidFactory($uuidGenerator),
+      uuidFactory: $uuidGenerator,
     );
   }
 

@@ -8,19 +8,22 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingAttachmentRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\UseCase\Command\Message\AddReaction\{AddReactionCommand, AddReactionResult};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Presentation\Api\Dto\Input\AddReactionInput;
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
-use Messaging\Presentation\Api\Factory\{MessageAttachmentOutputFactory, MessageOutputFactory};
+use Messaging\Presentation\Api\Factory\MessageAttachmentOutputFactory;
 use Messaging\Presentation\Api\Processor\Message\AddReactionProcessor;
+use Messaging\Presentation\Api\Service\MessageOutputPresenter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
+use Tests\Support\Messaging\MessageOutputTestFactory;
 
 /**
  * Test AddReactionProcessorTest.
@@ -127,7 +130,7 @@ final class AddReactionProcessorTest extends TestCase
     $processor->process(null, new Post(), []);
   }
 
-  private function outputFactory(): MessageOutputFactory
+  private function outputFactory(): MessageOutputPresenter
   {
     $attachments = $this->createStub(MessagingAttachmentRepositoryPort::class);
     $attachments->method('findByMessageIds')->willReturn([]);
@@ -138,7 +141,7 @@ final class AddReactionProcessorTest extends TestCase
     $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
     $savedMessages->method('findSavedMessageIds')->willReturn([]);
 
-    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
+    return MessageOutputTestFactory::create($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
   }
 
   private function securityWithUser(): Security

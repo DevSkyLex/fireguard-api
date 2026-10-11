@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRoleRepositoryPort;
 use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;

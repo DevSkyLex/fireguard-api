@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace Calendar\Application\UseCase\Command\FeedToken\RotateCalendarFeedToken;
 
-use Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\FeedToken\CalendarFeedTokenRepositoryPort;
 use Calendar\Application\Service\CalendarFeedTokenSecretFactory;
 use Calendar\Domain\Event\{CalendarFeedTokenCreatedEvent, CalendarFeedTokenRevokedEvent};
 use Calendar\Domain\Model\FeedToken\CalendarFeedToken;
 use Calendar\Domain\ValueObject\CalendarFeedTokenId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 /**
  * UseCase RotateCalendarFeedTokenHandler.
@@ -46,14 +45,14 @@ final readonly class RotateCalendarFeedTokenHandler implements CommandHandler
    * @param CalendarFeedTokenRepositoryPort $repository the feed token repository port
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param CalendarFeedTokenSecretFactory $secretFactory the secret generator/hasher
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private CalendarFeedTokenRepositoryPort $repository,
     private OrganizationAuthorizationPort $authorization,
     private CalendarFeedTokenSecretFactory $secretFactory,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -85,7 +84,7 @@ final readonly class RotateCalendarFeedTokenHandler implements CommandHandler
     $secret = $this->secretFactory->generate();
 
     /** @var CalendarFeedTokenId $id */
-    $id = $this->uuidFactory->create(CalendarFeedTokenId::class);
+    $id = new CalendarFeedTokenId($this->uuidFactory->generate());
 
     $token = CalendarFeedToken::create(
       id: $id,

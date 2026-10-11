@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Team\UpdateTeam;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Application\Contract\Event\Team\TeamUpdatedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, TeamRepositoryPort};
 use Organization\Application\UseCase\Command\Team\UpdateTeam\{UpdateTeamCommand, UpdateTeamHandler, UpdateTeamResult};
-use Organization\Domain\Event\Team\TeamUpdatedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNameAlreadyExistsException, TeamNotFoundException};
+use Organization\Domain\Exception\{TeamNameAlreadyExistsException, TeamNotFoundException};
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, TeamId, TeamName};

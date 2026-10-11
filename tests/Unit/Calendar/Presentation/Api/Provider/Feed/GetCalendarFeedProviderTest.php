@@ -72,9 +72,9 @@ final class GetCalendarFeedProviderTest extends TestCase
 
     $provider = new GetCalendarFeedProvider($queryBus, $security);
 
-    $output = $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], [
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], [
       'filters' => ['from' => '2026-08-01T00:00:00+00:00', 'to' => '2026-08-31T23:59:59+00:00'],
-    ]);
+    ]));
 
     self::assertInstanceOf(GetCalendarFeedQuery::class, $captured);
     self::assertSame(self::USER_ID, $captured->userId);
@@ -102,9 +102,9 @@ final class GetCalendarFeedProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], [
       'filters' => ['from' => '2026-08-01T00:00:00+00:00', 'to' => '2026-08-31T23:59:59+00:00'],
-    ]);
+    ]));
   }
 
   #[Test]
@@ -119,7 +119,7 @@ final class GetCalendarFeedProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], ['filters' => []]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], ['filters' => []]));
   }
 
   #[Test]
@@ -135,9 +135,9 @@ final class GetCalendarFeedProviderTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('OrganizationId URI parameter is required.');
 
-    $provider->provide(new Get(), [], [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), [], [
       'filters' => ['from' => '2026-08-01T00:00:00+00:00', 'to' => '2026-08-31T23:59:59+00:00'],
-    ]);
+    ]));
   }
 
   #[Test]
@@ -158,8 +158,8 @@ final class GetCalendarFeedProviderTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('The "from" filter is not a valid date.');
 
-    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Calendar', fn () => $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], [
       'filters' => ['from' => 'not-a-date', 'to' => '2026-08-31T23:59:59+00:00'],
-    ]);
+    ]));
   }
 }

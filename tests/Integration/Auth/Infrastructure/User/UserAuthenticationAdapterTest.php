@@ -8,8 +8,8 @@ use Auth\Application\Contract\User\UserAuthenticationResult;
 use Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Psr\Log\NullLogger;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use User\Application\Port\Inbound\UserAuthenticationPort;
 
 use function bin2hex;
 use function random_bytes;
@@ -34,8 +34,8 @@ final class UserAuthenticationAdapterTest extends KernelTestCase
     self::bootKernel();
     $container = static::getContainer();
 
-    /** @var QueryBusPort $queryBus */
-    $queryBus = $container->get(QueryBusPort::class);
+    /** @var UserAuthenticationPort $queryBus */
+    $queryBus = $container->get(UserAuthenticationPort::class);
     $this->adapter = new UserAuthenticationAdapter(queryBus: $queryBus, logger: new NullLogger());
   }
 

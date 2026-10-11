@@ -155,6 +155,10 @@ projection reconstruction and row outcomes.
 
 ## Architecture
 
+Application processing logs through Shared's published LoggerPort; vendor logging
+stays in Infrastructure. ImportExceptionSubscriber owns HTTP translation after the
+existing stable failure-code subscriber, preserving permission, scope and lease errors.
+
 Use cases own decisions and inject public provisioning/coordination ports from the business owners. Infrastructure implements persistence/storage/transport; HTTP adapters translate. The ownership and transaction boundaries above remain authoritative.
 
 ## Configuration

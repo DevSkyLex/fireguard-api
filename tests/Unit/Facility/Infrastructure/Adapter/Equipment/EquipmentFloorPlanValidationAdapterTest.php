@@ -9,7 +9,7 @@ use Equipment\Application\Contract\FloorPlan\{
   FloorPlanAttachmentNotFloorPlanException,
   FloorPlanAttachmentNotFoundException
 };
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityAttachmentAncestryGuard;
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\Model\Facility\Facility;

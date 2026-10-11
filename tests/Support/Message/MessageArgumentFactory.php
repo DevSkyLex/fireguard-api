@@ -213,6 +213,7 @@ final class MessageArgumentFactory
     $lower = strtolower($name);
 
     return match (true) {
+      'owningdatabase' === $lower => 'auth',
       str_ends_with($lower, 'id'), str_ends_with($lower, 'ids') => self::UUID,
       str_contains($lower, 'email') => 'user@example.com',
       str_contains($lower, 'url'), str_contains($lower, 'uri') => 'https://example.test/resource',

@@ -6,14 +6,14 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\Service\Federation\FederatedAuthenticationService;
-use Auth\Domain\Exception\Federation\FederatedAuthException;
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Auth\Application\UseCase\Command\Federation\StartFederation\StartFederationCommand;
 use Auth\Presentation\Api\Dto\Input\Federation\FederatedStartInput;
 use Auth\Presentation\Api\Dto\Output\Federation\FederatedStartOutput;
 use Auth\Presentation\Api\Operation\FederatedAuthOperations;
 use Auth\Presentation\Api\Service\FederatedFlowCookieService;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -54,7 +54,7 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
    *
    * @access public
    *
-   * @param FederatedAuthenticationService $federation starts the provider authorization flow
+   * @param CommandBusPort $federation starts the provider authorization flow
    * @param Security $security resolves the authenticated user for account linking
    * @param RequestStack $requestStack provides the current request and client address
    * @param FederatedFlowCookieService $flowCookieService creates the browser binding cookie
@@ -63,7 +63,7 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
    * @return void
    */
   public function __construct(
-    private FederatedAuthenticationService $federation,
+    private CommandBusPort $federation,
     private Security $security,
     private RequestStack $requestStack,
     private FederatedFlowCookieService $flowCookieService,
@@ -100,23 +100,21 @@ final readonly class FederatedStartProcessor implements ProcessorInterface
     $this->enforceRateLimit($ipAddress);
     $browserBinding = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
 
-    try {
-      if (FederatedAuthOperations::LINK_START === $operation->getName()) {
-        $user = $this->security->getUser();
-        if (!$user instanceof SecurityUser) {
-          throw new AccessDeniedHttpException('Authentication required.');
-        }
-        $url = $this->federation->startLink($provider, $user->getId(), $browserBinding);
-      } else {
-        $url = $this->federation->startLogin($provider, $data->returnUrl, $browserBinding);
+    if (FederatedAuthOperations::LINK_START === $operation->getName()) {
+      $user = $this->security->getUser();
+      if (!$user instanceof AuthenticatedUser) {
+        throw new AccessDeniedHttpException('Authentication required.');
       }
-    } catch (FederatedAuthException $exception) {
-      throw new BadRequestHttpException($exception->errorCode, $exception);
+      /** @var \Auth\Application\UseCase\Command\Federation\StartFederation\StartFederationResult $result */
+      $result = $this->federation->dispatch(new StartFederationCommand(provider: $provider, browserBinding: $browserBinding, userId: $user->getId()));
+    } else {
+      /** @var \Auth\Application\UseCase\Command\Federation\StartFederation\StartFederationResult $result */
+      $result = $this->federation->dispatch(new StartFederationCommand(provider: $provider, browserBinding: $browserBinding, returnUrl: $data->returnUrl));
     }
 
     $request?->attributes->set('_federated_flow_cookie', $this->flowCookieService->createCookie($browserBinding));
 
-    return new FederatedStartOutput($url);
+    return new FederatedStartOutput($result->authorizationUrl);
   }
 
   /**

@@ -6,7 +6,8 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Attachment\SetFacility
 
 use DateTimeImmutable;
 use Facility\Application\Contract\Spatial\FacilitySpatialContext;
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort, FacilitySpatialReadPort};
+use Facility\Application\Port\Outbound\FacilitySpatialReadPort;
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Application\UseCase\Command\Attachment\SetFacilityAttachmentCalibration\{SetFacilityAttachmentCalibrationCommand, SetFacilityAttachmentCalibrationHandler};
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityAttachmentNotFoundException, FacilityRevisionMismatchException};

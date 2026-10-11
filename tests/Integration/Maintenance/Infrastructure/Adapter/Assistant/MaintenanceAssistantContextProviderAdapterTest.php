@@ -14,7 +14,7 @@ use Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenanceSchedu
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function strpos;
@@ -50,8 +50,8 @@ final class MaintenanceAssistantContextProviderAdapterTest extends KernelTestCas
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
 
-    /** @var UuidFactory $uuidFactory */
-    $uuidFactory = static::getContainer()->get(UuidFactory::class);
+    /** @var UuidGeneratorPort $uuidFactory */
+    $uuidFactory = static::getContainer()->get(UuidGeneratorPort::class);
 
     $this->cleanup();
 

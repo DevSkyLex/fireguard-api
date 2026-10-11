@@ -6,7 +6,7 @@ namespace Notification\Presentation\Api\Processor\NotificationPreference;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeInterface;
 use Notification\Application\UseCase\Command\Notification\UpdateNotificationPreferences\{
   UpdateNotificationPreferencesCommand,
@@ -70,7 +70,7 @@ final readonly class UpdateNotificationPreferencesProcessor implements Processor
     }
 
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

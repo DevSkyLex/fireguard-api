@@ -6,38 +6,23 @@ namespace Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
-use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\{
-  ChangeOrganizationPlanCommand,
-  ChangeOrganizationPlanResult
-};
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\ChangeOrganizationPlanResult;
+use Organization\Application\UseCase\Command\Organization\ChangeSelfServiceOrganizationPlan\ChangeSelfServiceOrganizationPlanCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationPlanUsageExceededException, PlanNotFoundException};
-use Organization\Domain\ValueObject\{OrganizationSettings, PlanId};
+use Organization\Domain\ValueObject\OrganizationSettings;
 use Organization\Presentation\Api\Dto\Input\Organization\ChangeOrganizationPlanInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationRegisteredAddressOutput, OrganizationSettingsOutput};
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{
-  AccessDeniedHttpException,
-  BadRequestHttpException,
-  ConflictHttpException,
-  NotFoundHttpException
-};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
 /**
  * Processor ChangeOrganizationPlanProcessor.
  *
- * Assigns a subscription plan to an organization and returns the refreshed
- * organization output. Self-service: requires the organization.settings.write
- * permission.
+ * Translates HTTP input to the authenticated self-service plan use case.
  *
  * @category Processor
  * @version 1.0.0
@@ -48,167 +33,49 @@ use function is_string;
  */
 final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterface
 {
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * The bus adapters wrap every handler failure into
-   * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
-   * bare in-process throw. The `MessengerRuntimeException` clauses using
-   * this trait are what map the real dispatch path.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-
   // #region Constructor
   /**
    * Constructor.
-   *
-   * Initializes a new instance of the ChangeOrganizationPlanProcessor class.
    *
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
    * @param QueryBusPort $queryBus the query bus
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   * @param PlanRepositoryPort $planRepository the plan repository port
-   * @param Security $security the security service
+   * @param Security $security the authenticated HTTP principal
    */
-  public function __construct(
-    private CommandBusPort $commandBus,
-    private QueryBusPort $queryBus,
-    private OrganizationAuthorizationPort $authorization,
-    private PlanRepositoryPort $planRepository,
-    private Security $security,
-  ) {
+  public function __construct(private CommandBusPort $commandBus, private QueryBusPort $queryBus, private Security $security)
+  {
   }
-
   // #endregion
+
   // #region Methods
   /**
    * Method process.
    *
-   * Processes API input and dispatches the change-plan command.
-   *
-   * @access public
    * @since 1.0.0
    *
-   * @param ChangeOrganizationPlanInput $data the input data
-   * @param Operation $operation the API operation metadata
-   * @param array<string, mixed> $uriVariables URI variables extracted from the request
-   * @param array<string, mixed> $context processing context values
+   * @param ChangeOrganizationPlanInput $data the HTTP plan input
+   * @param Operation $operation the API Platform metadata
+   * @param array<string, mixed> $uriVariables the resource identifiers
+   * @param array<string, mixed> $context the processing context
    *
-   * @return OrganizationOutput the organization with its updated plan
+   * @return OrganizationOutput the refreshed HTTP projection
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOutput
   {
     /** @var ChangeOrganizationPlanInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
-
     $organizationId = $uriVariables['id'] ?? null;
     if (!is_string($organizationId) || '' === $organizationId) {
       throw new BadRequestHttpException('Organization identifier is required.');
     }
-
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.settings.write')) {
-      throw new AccessDeniedHttpException('Missing organization.settings.write permission.');
-    }
-
-    // Self-service may only assign the free (default) plan. Paid plans are sold
-    // through Stripe Checkout and applied by the billing webhook, so this guard
-    // closes the "free upgrade" hole without coupling Organization to Stripe.
-    $plan = $this->planRepository->findById(PlanId::fromString($data->planId));
-
-    if (null === $plan) {
-      throw new NotFoundHttpException('Plan not found.');
-    }
-
-    if (!$plan->isDefault()) {
-      throw new ConflictHttpException('Paid plans must be subscribed to through billing. Use the checkout flow to upgrade.');
-    }
-
-    try {
-      /** @var ChangeOrganizationPlanResult $result */
-      $result = $this->commandBus->dispatch(new ChangeOrganizationPlanCommand(
-        organizationId: $organizationId,
-        planId: $data->planId,
-        acknowledgeOveruse: $data->acknowledgeOveruse,
-      ));
-    } catch (OrganizationNotFoundException|PlanNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationPlanUsageExceededException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (InvalidArgumentException $exception) {
-      throw new BadRequestHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $this->rethrowWrappedFailure($exception);
-    }
-
-    return $this->buildOutput($result->organizationId);
-  }
-
-  /**
-   * Method rethrowWrappedFailure
-   *
-   * Maps known wrapped application failures to their corresponding HTTP exceptions and rethrows unrecognized failures.
-   *
-   * @access private
-   *
-   * @param MessengerRuntimeException $exception the exception to inspect
-   *
-   * @return never this method never returns normally
-   */
-  private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
-  {
-    $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-      ?? $this->findWrappedException($exception, PlanNotFoundException::class);
-    if (null !== $notFound) {
-      throw new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-
-    $conflict = $this->findWrappedException($exception, OrganizationPlanUsageExceededException::class);
-    if (null !== $conflict) {
-      throw new ConflictHttpException($conflict->getMessage(), $exception);
-    }
-
-    $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
-    if (null !== $invalidArgument) {
-      throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    throw $exception;
-  }
-
-  /**
-   * Method buildOutput.
-   *
-   * Re-reads the organization and maps it to the API output.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   *
-   * @return OrganizationOutput the refreshed organization output
-   */
-  private function buildOutput(string $organizationId): OrganizationOutput
-  {
-    try {
-      /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
-
+    /** @var ChangeOrganizationPlanResult $changed */
+    $changed = $this->commandBus->dispatch(new ChangeSelfServiceOrganizationPlanCommand($organizationId, $data->planId, $user->getId(), $data->acknowledgeOveruse));
+    /** @var GetOrganizationResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationQuery($changed->organizationId));
     $output = new OrganizationOutput();
     $output->id = $result->id;
     $output->name = $result->name;
@@ -235,6 +102,5 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
 
     return $output;
   }
-
   // #endregion
 }

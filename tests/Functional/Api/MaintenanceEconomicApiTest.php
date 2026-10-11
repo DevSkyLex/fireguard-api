@@ -20,7 +20,7 @@ use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\{KernelBrowser, Test\WebTestCase};
 use Tests\Support\Auth\InteractiveTokenFactory;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
 use function json_decode;
@@ -155,7 +155,7 @@ final class MaintenanceEconomicApiTest extends WebTestCase
     $this->directMaterial();
     $unrelated = new InterventionRecord();
     $unrelated->id = '850e8400-e29b-41d4-a716-448040000065';
-    $unrelated->organization = $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $unrelated->organizationId = self::ORG;
     $unrelated->number = 2;
     $unrelated->name = 'Unrelated global repair';
     $unrelated->type = 'corrective_maintenance';
@@ -395,7 +395,7 @@ final class MaintenanceEconomicApiTest extends WebTestCase
     }
     $work = new InterventionRecord();
     $work->id = self::WORK;
-    $work->organization = $org;
+    $work->organizationId = $org->id;
     $work->name = 'Economic fire park repair';
     $work->number = 1;
     $work->type = 'corrective_maintenance';
@@ -451,7 +451,7 @@ final class MaintenanceEconomicApiTest extends WebTestCase
     $this->main()->persist($customer);
     $site = new FacilityRecord();
     $site->id = '850e8400-e29b-41d4-a716-448040000062';
-    $site->organization = $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $site->organizationId = self::ORG;
     $site->type = 'site';
     $site->name = 'Direct material site';
     $site->customerId = $customer->id;
@@ -459,7 +459,7 @@ final class MaintenanceEconomicApiTest extends WebTestCase
     $this->main()->persist($site);
     $equipment = new EquipmentRecord();
     $equipment->id = '850e8400-e29b-41d4-a716-448040000061';
-    $equipment->organization = $site->organization;
+    $equipment->organizationId = $site->organizationId;
     $equipment->facilityId = $site->id;
     $equipment->type = 'extinguisher';
     $equipment->name = 'Directly maintained asset';

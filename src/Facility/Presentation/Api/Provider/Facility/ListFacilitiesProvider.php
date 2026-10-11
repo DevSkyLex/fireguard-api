@@ -16,12 +16,12 @@ use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQue
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Pagination\PaginationExtractor;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Pagination\PaginationExtractor;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -51,7 +51,6 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
    * @access public
    *
    * @param QueryBusPort $queryBus port used to dispatch the facility-list query
-   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
    * @param Security $security security context used to obtain the requesting member
    * @param RequestStack $requestStack request context used to read collection filters and pagination
    * @param InterventionScopePort $interventions owns intervention preparation access
@@ -165,7 +164,7 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
    */
   private function listQuery(Operation $operation, array $context, string $organizationId, int $offset, int $itemsPerPage, bool $includePublishedParents): ListFacilitiesQuery
   {
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Facility\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $type = $query->get('type');
     $status = $query->get('status');
     $parentFacilityId = $query->get('parentFacilityId');

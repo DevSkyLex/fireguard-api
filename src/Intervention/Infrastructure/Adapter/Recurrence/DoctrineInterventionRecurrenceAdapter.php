@@ -11,8 +11,8 @@ use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCreateRe
 use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Application\Factory\UuidFactory;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function array_map;
 use function max;
@@ -40,13 +40,14 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    *
    * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
+    private OrganizationOwnerReadPort $organizations,
   ) {
   }
   // #endregion
@@ -67,8 +68,8 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
    */
   public function create(InterventionRecurrenceCreateRequest $request): InterventionRecurrenceView
   {
-    $organization = $this->entityManager->find(OrganizationRecord::class, $request->organizationId);
-    if (!$organization instanceof OrganizationRecord) {
+    $organization = $request->organizationId;
+    if (null === $this->organizations->ownerUserId($organization)) {
       throw InterventionNotFoundException::withId($request->organizationId);
     }
     $template = $this->entityManager->find(InterventionTemplateRecord::class, $request->templateId);
@@ -78,8 +79,8 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
 
     $now = new DateTimeImmutable();
     $record = new InterventionRecurrenceRecord();
-    $record->id = $this->uuidFactory->generateRaw();
-    $record->organization = $organization;
+    $record->id = $this->uuidFactory->generate();
+    $record->organizationId = $organization;
     $record->template = $template;
     $record->name = $request->name;
     $record->siteId = $request->siteId;
@@ -220,12 +221,12 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
   {
     $page = max(1, $page);
     $itemsPerPage = max(1, min(100, $itemsPerPage));
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     $qb = $this->entityManager->createQueryBuilder()
       ->select('r')
       ->from(InterventionRecurrenceRecord::class, 'r')
-      ->where('r.organization = :organization')
+      ->where('r.organizationId = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('r.name', 'ASC');
 
@@ -312,7 +313,7 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     $localOccurrenceDate = new DateTimeImmutable(
       $occurrenceDate->setTimezone(new DateTimeZone($recurrence->timezone))->format('Y-m-d'),
     );
-    $runId = $this->uuidFactory->generateRaw();
+    $runId = $this->uuidFactory->generate();
 
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
     // deliberately: the sweep processes many recurrences per request, and a
@@ -654,11 +655,11 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
    */
   private function organizationId(InterventionRecurrenceRecord $record): string
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new InterventionNotFoundException('Intervention recurrence organization is missing.');
     }
 
-    return $record->organization->id;
+    return $record->organizationId;
   }
 
   /**

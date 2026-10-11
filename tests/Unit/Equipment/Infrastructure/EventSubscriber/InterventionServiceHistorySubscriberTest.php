@@ -6,7 +6,7 @@ namespace Tests\Unit\Equipment\Infrastructure\EventSubscriber;
 
 use Equipment\Application\UseCase\Command\Equipment\RecordInterventionServiceHistory\RecordInterventionServiceHistoryCommand;
 use Equipment\Infrastructure\EventSubscriber\InterventionServiceHistorySubscriber;
-use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
+use Intervention\Application\Contract\Event\Publication\InterventionPublishedEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

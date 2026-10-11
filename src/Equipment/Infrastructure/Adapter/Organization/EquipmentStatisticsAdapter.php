@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Adapter\Organization;
 
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Domain\ValueObject\{EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use Organization\Application\Port\Outbound\EquipmentStatisticsPort;
 

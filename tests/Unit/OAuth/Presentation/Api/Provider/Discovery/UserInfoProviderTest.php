@@ -7,8 +7,9 @@ namespace Tests\Unit\OAuth\Presentation\Api\Provider\Discovery;
 use ApiPlatform\Metadata\Operation;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
+use OAuth\Application\Port\Outbound\Internal\User\OidcUserProviderPort;
 use OAuth\Application\Service\OidcClaimsBuilderInterface;
+use OAuth\Application\UseCase\Query\User\GetUserInfo\{GetUserInfoHandler, GetUserInfoQuery};
 use OAuth\Domain\Model\Oidc\OidcUser;
 use OAuth\Presentation\Api\Dto\Output\Discovery\UserInfoOutput;
 use OAuth\Presentation\Api\Provider\Discovery\UserInfoProvider;
@@ -16,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{HttpException, UnauthorizedHttpException};
 
@@ -36,11 +38,7 @@ final class UserInfoProviderTest extends TestCase
     $security = $this->createMock(Security::class);
     $security->expects(self::once())->method('getUser')->willReturn(null);
 
-    $provider = new UserInfoProvider(
-      security: $security,
-      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
-      claimsBuilder: $this->createStub(OidcClaimsBuilderInterface::class),
-    );
+    $provider = $this->userInfoProvider($security, $this->createStub(OidcUserProviderPort::class), $this->createStub(OidcClaimsBuilderInterface::class));
 
     $this->expectException(UnauthorizedHttpException::class);
 
@@ -55,11 +53,7 @@ final class UserInfoProviderTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser(scopes: ['email']));
 
-    $provider = new UserInfoProvider(
-      security: $security,
-      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
-      claimsBuilder: $this->createStub(OidcClaimsBuilderInterface::class),
-    );
+    $provider = $this->userInfoProvider($security, $this->createStub(OidcUserProviderPort::class), $this->createStub(OidcClaimsBuilderInterface::class));
 
     $this->expectException(HttpException::class);
 
@@ -81,11 +75,7 @@ final class UserInfoProviderTest extends TestCase
       ->with('user-123')
       ->willReturn(null);
 
-    $provider = new UserInfoProvider(
-      security: $security,
-      oidcUserProvider: $oidcUserProvider,
-      claimsBuilder: $this->createStub(OidcClaimsBuilderInterface::class),
-    );
+    $provider = $this->userInfoProvider($security, $oidcUserProvider, $this->createStub(OidcClaimsBuilderInterface::class));
 
     $this->expectException(UnauthorizedHttpException::class);
 
@@ -95,7 +85,7 @@ final class UserInfoProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsUserInfo(): void
   {
-    $securityUser = $this->createSecurityUser(scopes: ['openid', 'profile']);
+    $securityUser = $this->createSecurityUser(scopes: ['OPENID', 'PROFILE']);
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
@@ -124,7 +114,7 @@ final class UserInfoProviderTest extends TestCase
     $claimsBuilder = $this->createMock(OidcClaimsBuilderInterface::class);
     $claimsBuilder->expects(self::once())
       ->method('buildUserInfoClaims')
-      ->with($oidcUser, ['openid', 'profile'])
+      ->with($oidcUser, ['OPENID', 'PROFILE'])
       ->willReturn([
         'sub' => 'user-123',
         'name' => 'Test User',
@@ -137,11 +127,7 @@ final class UserInfoProviderTest extends TestCase
         'updated_at' => 1700000000,
       ]);
 
-    $provider = new UserInfoProvider(
-      security: $security,
-      oidcUserProvider: $oidcUserProvider,
-      claimsBuilder: $claimsBuilder,
-    );
+    $provider = $this->userInfoProvider($security, $oidcUserProvider, $claimsBuilder);
 
     $output = $provider->provide(operation: $this->createStub(Operation::class));
 
@@ -192,11 +178,7 @@ final class UserInfoProviderTest extends TestCase
         'updated_at' => 'not-int',
       ]);
 
-    $provider = new UserInfoProvider(
-      security: $security,
-      oidcUserProvider: $oidcUserProvider,
-      claimsBuilder: $claimsBuilder,
-    );
+    $provider = $this->userInfoProvider($security, $oidcUserProvider, $claimsBuilder);
 
     $output = $provider->provide(operation: $this->createStub(Operation::class));
 
@@ -239,11 +221,7 @@ final class UserInfoProviderTest extends TestCase
       ->method('buildUserInfoClaims')
       ->willThrowException(new RuntimeException('boom'));
 
-    $provider = new UserInfoProvider(
-      security: $security,
-      oidcUserProvider: $oidcUserProvider,
-      claimsBuilder: $claimsBuilder,
-    );
+    $provider = $this->userInfoProvider($security, $oidcUserProvider, $claimsBuilder);
 
     $this->expectException(UnauthorizedHttpException::class);
     $this->expectExceptionMessage('Failed to get user info: boom');
@@ -265,5 +243,13 @@ final class UserInfoProviderTest extends TestCase
       isActive: true,
     );
   }
+
   // #endregion
+  private function userInfoProvider(Security $security, OidcUserProviderPort $users, OidcClaimsBuilderInterface $claims): UserInfoProvider
+  {
+    $bus = $this->createStub(QueryBusPort::class);
+    $bus->method('ask')->willReturnCallback(static fn (GetUserInfoQuery $query) => new GetUserInfoHandler($users, $claims)($query));
+
+    return new UserInfoProvider($security, $bus);
+  }
 }

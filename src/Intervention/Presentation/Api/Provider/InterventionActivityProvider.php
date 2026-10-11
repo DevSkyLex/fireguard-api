@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Query\Activity\ListInterventionActivities\{ListInterventionActivitiesQuery, ListInterventionActivitiesResult};
 use Intervention\Presentation\Api\Dto\Output\InterventionActivityOutput;
 use Intervention\Presentation\Api\Factory\InterventionActivityOutputFactory;
@@ -79,7 +79,7 @@ final readonly class InterventionActivityProvider implements ProviderInterface
       throw new BadRequestHttpException('The interventionId URI parameter is required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Intervention\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
 
     try {
       /** @var ListInterventionActivitiesResult $result */
@@ -108,12 +108,12 @@ final readonly class InterventionActivityProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

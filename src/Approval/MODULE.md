@@ -134,6 +134,11 @@ sequenceDiagram
 
 ## Architecture
 
+Cross-module deferred executors report unavailable actions through the published
+Application/Contract/Exception/DeferredActionNoLongerApplicableException contract.
+Processors and providers propagate application failures; ApprovalExceptionSubscriber
+maps HTTP failures centrally after the existing stable decision-code subscriber.
+
 - **Domain** (`src/Approval/Domain`): `ApprovalRequest` (aggregate:
   approve/reject/cancel/expire/markExecuted/markExecutionFailed,
   isPending), `ApprovalRequestId`, `ApprovalStatus` (enum:
@@ -405,6 +410,6 @@ Frontend refresh after conflict retains the local decision note.
 | Exception                                                                                                                                                                                                                                                 | HTTP                                                                                                                                                                           |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `ApprovalRequestNotFoundException`                                                                                                                                                                                                                        | 404 Not Found — unknown id, a request owned by another organization, **and an organization the caller is not an active member of** (`::forOrganizationScope()` on the listing) |
-| `ApprovalAccessDeniedException` (member, but missing the required permission) / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` (still raised by `ApprovalGate`) | 403 Forbidden                                                                                                                                                                  |
+| `ApprovalAccessDeniedException` (member, but missing the required permission) / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` / `Organization\Application\Contract\Exception\OrganizationAccessDeniedException` (still raised by `ApprovalGate`) | 403 Forbidden                                                                                                                                                                  |
 | `ApprovalRequestNotPendingException` / `DeferredActionNoLongerApplicableException`                                                                                                                                                                        | 409 Conflict                                                                                                                                                                   |
 | `InvalidArgumentException`                                                                                                                                                                                                                                | 400 Bad Request                                                                                                                                                                |

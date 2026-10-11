@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -146,7 +146,7 @@ final class FacilityMessagingSubjectResolverAdapterTest extends KernelTestCase
   {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = null;
     $facility->type = 'site';
     $facility->name = $name;
@@ -162,7 +162,7 @@ final class FacilityMessagingSubjectResolverAdapterTest extends KernelTestCase
 
   private function removeOrganization(string $id): void
   {
-    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organization' => $id]) as $record) {
+    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organizationId' => $id]) as $record) {
       $this->entityManager->remove($record);
     }
     $organization = $this->entityManager->find(OrganizationRecord::class, $id);

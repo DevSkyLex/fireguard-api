@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Inspection\EditInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort, InspectionRepositoryPort};
+use Inspection\Application\Port\Outbound\{ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort};
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Application\UseCase\Command\Inspection\EditInspection\{
   EditInspectionCommand,
   EditInspectionHandler,

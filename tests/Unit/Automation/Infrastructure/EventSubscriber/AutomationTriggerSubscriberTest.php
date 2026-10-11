@@ -7,7 +7,7 @@ namespace Tests\Unit\Automation\Infrastructure\EventSubscriber;
 use Automation\Application\Contract\Trigger\AutomationTriggers;
 use Automation\Application\Port\Outbound\AutomationRuleQueuePort;
 use Automation\Infrastructure\EventSubscriber\AutomationTriggerSubscriber;
-use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent;
+use Inspection\Application\Contract\Event\NonConformity\NonConformityRecordedEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\{LoggerInterface, NullLogger};

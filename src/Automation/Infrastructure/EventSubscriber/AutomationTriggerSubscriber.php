@@ -6,7 +6,7 @@ namespace Automation\Infrastructure\EventSubscriber;
 
 use Automation\Application\Contract\Trigger\AutomationTriggers;
 use Automation\Application\Port\Outbound\AutomationRuleQueuePort;
-use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent;
+use Inspection\Application\Contract\Event\NonConformity\NonConformityRecordedEvent;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Outbound\{DurableEventContextPort, IdempotentConsumerPort};
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;

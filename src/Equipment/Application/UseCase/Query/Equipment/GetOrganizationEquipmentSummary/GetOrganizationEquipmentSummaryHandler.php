@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Query\Equipment\GetOrganizationEquipmentSummary;
 
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Application\Service\EquipmentSelectionScopeResolver;
 use Equipment\Application\UseCase\Query\Equipment\GetFacilityEquipmentSummary\GetFacilityEquipmentSummaryResult;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;

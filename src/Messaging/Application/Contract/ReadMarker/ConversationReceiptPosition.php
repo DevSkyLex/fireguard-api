@@ -13,7 +13,7 @@ final readonly class ConversationReceiptPosition
   /**
    * Method __construct.
    *
-   * Captures a member’s confirmed delivery and read positions in a conversation.
+   * Captures a memberâ€™s confirmed delivery and read positions in a conversation.
    *
    * @access public
    *

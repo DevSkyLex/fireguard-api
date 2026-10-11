@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Compliance\Application\UseCase\Query\GetComplianceOverview;
 
-use Compliance\Application\Contract\FacilityComplianceView;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityComplianceView};
 use Compliance\Application\UseCase\Query\GetComplianceOverview\GetComplianceOverviewResult;
-use Compliance\Domain\ValueObject\ComplianceStatus;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\ResultMessage;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function base64_decode;
 use function base64_encode;
@@ -38,8 +40,11 @@ use function tempnam;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class EquipmentAttachmentApiTest extends WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string DUMMY_UUID = '770e8400-e29b-41d4-a716-446655480000';
 
   private const string ORGANIZATION_ID = '770e8400-e29b-41d4-a716-446655480001';
@@ -643,7 +648,7 @@ final class EquipmentAttachmentApiTest extends WebTestCase
 
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = null;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = 'in_stock';
@@ -654,7 +659,7 @@ final class EquipmentAttachmentApiTest extends WebTestCase
 
     $outsider = new EquipmentRecord();
     $outsider->id = self::OUTSIDER_EQUIPMENT_ID;
-    $outsider->organization = $outsiderOrganization;
+    $outsider->organizationId = $outsiderOrganization->id;
     $outsider->facilityId = null;
     $outsider->type = 'fire_extinguisher';
     $outsider->status = 'in_stock';
@@ -691,7 +696,7 @@ final class EquipmentAttachmentApiTest extends WebTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = self::OUTSIDER_INTERVENTION_ID;
-    $intervention->organization = $outsiderOrganization;
+    $intervention->organizationId = $outsiderOrganization->id;
     $intervention->type = 'site_setup';
     $intervention->name = 'Equipment Attachment Cross-Org Intervention';
     $intervention->number = 990001;

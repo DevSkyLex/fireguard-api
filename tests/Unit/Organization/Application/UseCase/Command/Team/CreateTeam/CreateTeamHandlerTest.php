@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Team\CreateTeam;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Application\Contract\Event\Team\TeamCreatedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, TeamRepositoryPort};
 use Organization\Application\UseCase\Command\Team\CreateTeam\{CreateTeamCommand, CreateTeamHandler, CreateTeamResult};
-use Organization\Domain\Event\Team\TeamCreatedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNameAlreadyExistsException};
+use Organization\Domain\Exception\TeamNameAlreadyExistsException;
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, TeamId, TeamName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 #[CoversClass(CreateTeamHandler::class)]
 final class CreateTeamHandlerTest extends TestCase
@@ -46,12 +46,11 @@ final class CreateTeamHandlerTest extends TestCase
         return true;
       }));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(TeamId::class)
-      ->willReturn(new TeamId(self::TEAM_ID));
+      ->method('generate')
+      ->willReturn(self::TEAM_ID);
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -99,7 +98,7 @@ final class CreateTeamHandlerTest extends TestCase
     $handler = new CreateTeamHandler(
       organizationRepository: $organizationRepository,
       teamRepository: $this->createStub(TeamRepositoryPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -140,7 +139,7 @@ final class CreateTeamHandlerTest extends TestCase
     $handler = new CreateTeamHandler(
       organizationRepository: $organizationRepository,
       teamRepository: $teamRepository,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       eventDispatcher: $eventDispatcher,
     );
 

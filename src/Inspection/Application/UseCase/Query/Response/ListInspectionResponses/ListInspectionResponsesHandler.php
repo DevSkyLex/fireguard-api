@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Query\Response\ListInspectionResponses;
 
 use Inspection\Application\Contract\Response\InspectionResponseView;
-use Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionResponseRepositoryPort;
 use Inspection\Domain\Model\Response\InspectionResponse;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, InspectionResponseStatus};
 use Shared\Application\Message\QueryHandler;
@@ -77,7 +77,7 @@ final readonly class ListInspectionResponsesHandler implements QueryHandler
 
     return new ListInspectionResponsesResult(
       views: array_map(
-        static fn (InspectionResponse $response): InspectionResponseView => InspectionResponseView::fromModel($response),
+        static fn (InspectionResponse $response): InspectionResponseView => \Inspection\Application\Service\InspectionResponseViewMapper::fromModel($response),
         $responses,
       ),
       page: $query->page,

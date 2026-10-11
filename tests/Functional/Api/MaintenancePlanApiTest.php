@@ -414,7 +414,7 @@ final class MaintenancePlanApiTest extends WebTestCase
     }
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = 'operational';
     $equipment->createdAt = $now;
@@ -427,7 +427,7 @@ final class MaintenancePlanApiTest extends WebTestCase
   {
     $schedule = new MaintenanceScheduleRecord();
     $schedule->id = '780e8400-e29b-41d4-a716-446655440030';
-    $schedule->organization = $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $schedule->organizationId = self::ORG;
     $schedule->equipmentId = self::EQUIPMENT;
     $schedule->equipmentType = 'fire_extinguisher';
     $schedule->intervalOverride = 'P6M';

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Query\Permission\GetPermission;
 
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\PermissionRepositoryPort;
 use Authorization\Application\UseCase\Query\Permission\GetPermission\{GetPermissionHandler, GetPermissionQuery, GetPermissionResult};
 use Authorization\Domain\Exception\PermissionNotFoundException;
 use Authorization\Domain\Model\Permission\Permission;

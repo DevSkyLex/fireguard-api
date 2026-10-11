@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\User\CreateUser;
 
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\{Email, TenantId};
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -29,14 +29,14 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
    * @since 1.0.0
    *
    * @param UserRepositoryPort $userRepository the user repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param HashingPort $hashing the hashing service
    * @param EventBusPort $eventBus the event bus
    * @param EventIdProvider $eventIdProvider the event ID provider
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository,
-    private readonly UuidFactory $uuidFactory,
+    private readonly UuidGeneratorPort $uuidFactory,
     private readonly HashingPort $hashing,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
@@ -57,7 +57,7 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
   public function __invoke(CreateUserCommand $command): CreateUserResult
   {
     // Generate user ID using factory
-    $userId = $this->uuidFactory->create(UserId::class);
+    $userId = new UserId($this->uuidFactory->generate());
 
     // Hash the password
     $hashedPassword = new HashedPassword(

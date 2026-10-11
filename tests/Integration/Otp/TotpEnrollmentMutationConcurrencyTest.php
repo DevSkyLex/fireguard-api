@@ -7,7 +7,7 @@ namespace Tests\Integration\Otp;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\ORM\{EntityManager, EntityManagerInterface};
-use Otp\Application\Port\Outbound\Totp\TotpServicePort;
+use Otp\Application\Port\Outbound\Internal\Totp\TotpServicePort;
 use Otp\Application\UseCase\Command\Totp\ConfirmTotp\{ConfirmTotpCommand, ConfirmTotpHandler};
 use Otp\Application\UseCase\Command\Totp\SetupTotp\{SetupTotpCommand, SetupTotpHandler};
 use Otp\Domain\Exception\TotpEnrollmentAlreadyActiveException;

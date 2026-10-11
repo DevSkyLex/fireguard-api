@@ -8,8 +8,8 @@ use RuntimeException;
 
 use function dirname;
 use function is_dir;
+use function is_file;
 use function scandir;
-use function sprintf;
 use function usort;
 
 use const DIRECTORY_SEPARATOR;
@@ -54,7 +54,7 @@ final class ModuleCollection
     $modules = [];
 
     foreach (scandir(directory: $srcDir) ?: [] as $entry) {
-      if ('.' === $entry || '..' === $entry) {
+      if ('' === $entry || '.' === $entry || '..' === $entry) {
         continue;
       }
 
@@ -64,12 +64,12 @@ final class ModuleCollection
         continue;
       }
 
-      if (!is_dir(filename: $path . DIRECTORY_SEPARATOR . 'Domain')) {
+      if (!is_file(filename: $path . DIRECTORY_SEPARATOR . 'MODULE.md')) {
         continue;
       }
 
       $modules[] = new Module(
-        namespace: 'Shared' === $entry ? 'Shared' : sprintf('App\\%s', $entry),
+        namespace: $entry,
         path: $path,
       );
     }

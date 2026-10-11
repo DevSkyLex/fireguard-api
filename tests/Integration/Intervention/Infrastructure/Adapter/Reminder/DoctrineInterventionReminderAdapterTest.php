@@ -192,7 +192,7 @@ final class DoctrineInterventionReminderAdapterTest extends KernelTestCase
 
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->type = 'site_setup';
     $record->name = 'Intervention ' . $id;
     $record->number = $this->number++;

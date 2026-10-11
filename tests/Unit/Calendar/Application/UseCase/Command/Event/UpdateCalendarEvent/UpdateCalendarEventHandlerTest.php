@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent;
 
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent\{UpdateCalendarEventCommand, UpdateCalendarEventHandler};
 use Calendar\Domain\Event\CalendarEventUpdatedEvent;
 use Calendar\Domain\Exception\CalendarEventNotFoundException;

@@ -14,7 +14,7 @@ use Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenanceSchedu
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_column;
@@ -63,8 +63,8 @@ final class MaintenanceScheduleRepositoryTest extends KernelTestCase
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
 
-    /** @var UuidFactory $uuidFactory */
-    $uuidFactory = static::getContainer()->get(UuidFactory::class);
+    /** @var UuidGeneratorPort $uuidFactory */
+    $uuidFactory = static::getContainer()->get(UuidGeneratorPort::class);
 
     $this->cleanup();
 
@@ -305,9 +305,10 @@ final class MaintenanceScheduleRepositoryTest extends KernelTestCase
     $this->entityManager->clear();
 
     // A managed object must not hide the current database state after a writer waits.
-    $record = $this->entityManager->find(MaintenanceScheduleRecord::class, $created->id);
-    self::assertInstanceOf(MaintenanceScheduleRecord::class, $record);
-    $record->organization = null;
+    $record = new MaintenanceScheduleRecord();
+    $record->id = $created->id;
+    $this->entityManager->getUnitOfWork()->registerManaged($record, ['id' => $record->id], []);
+    self::assertTrue($this->entityManager->contains($record));
 
     $found = $this->repository->findById($created->id);
     self::assertSame(self::ORGANIZATION_ID, $found?->organizationId);
@@ -429,8 +430,8 @@ final class MaintenanceScheduleRepositoryTest extends KernelTestCase
     self::assertInstanceOf(\Symfony\Component\Messenger\Bridge\Doctrine\Transport\DoctrineTransport::class, $sender);
     $sender->setup();
     $connection->executeStatement('DELETE FROM messenger_messages WHERE queue_name = ?', ['maintenance_reminder_regression']);
-    $ids = self::getContainer()->get(UuidFactory::class);
-    self::assertInstanceOf(UuidFactory::class, $ids);
+    $ids = self::getContainer()->get(UuidGeneratorPort::class);
+    self::assertInstanceOf(UuidGeneratorPort::class, $ids);
     $events = new \Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher($connection, $sender, $ids, $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
     $directory = $this->createStub(\Maintenance\Application\Port\Outbound\Directory\MaintenanceEquipmentDirectoryPort::class);
     $directory->method('listEquipmentPage')->willReturn([]);

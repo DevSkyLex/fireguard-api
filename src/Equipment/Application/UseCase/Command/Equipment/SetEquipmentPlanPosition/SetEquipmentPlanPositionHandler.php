@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition;
 
-use Equipment\Application\Port\Outbound\{EquipmentFloorPlanValidationPort, EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\{EquipmentNotAssignedToFacilityException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, PlanPosition};

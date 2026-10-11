@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RestoreOrganization\RestoreOrganizationCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
@@ -85,7 +85,7 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

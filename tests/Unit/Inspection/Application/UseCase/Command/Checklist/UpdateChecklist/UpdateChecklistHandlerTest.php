@@ -6,8 +6,8 @@ namespace Tests\Unit\Inspection\Application\UseCase\Command\Checklist\UpdateChec
 
 use DateTimeImmutable;
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, InspectionRepositoryPort};
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException as DbalUniqueConstraintViolationException;
+use Inspection\Application\Port\Outbound\Internal\{ChecklistRepositoryPort, InspectionRepositoryPort};
 use Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\{
   UpdateChecklistCommand,
   UpdateChecklistHandler,
@@ -25,7 +25,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -245,7 +245,7 @@ final class UpdateChecklistHandlerTest extends TestCase
         return '23505';
       }
     };
-    $uniqueViolation = new UniqueConstraintViolationException($driverException, null);
+    $uniqueViolation = new UniqueConstraintViolationException(new DbalUniqueConstraintViolationException($driverException, null));
 
     /** @var ChecklistRepositoryPort&MockObject $checklistRepository */
     $checklistRepository = $this->createMock(ChecklistRepositoryPort::class);
@@ -327,7 +327,7 @@ final class UpdateChecklistHandlerTest extends TestCase
         return '23505';
       }
     };
-    $uniqueViolation = new UniqueConstraintViolationException($driverException, null);
+    $uniqueViolation = new UniqueConstraintViolationException(new DbalUniqueConstraintViolationException($driverException, null));
 
     /** @var ChecklistRepositoryPort&MockObject $checklistRepository */
     $checklistRepository = $this->createMock(ChecklistRepositoryPort::class);
@@ -362,12 +362,12 @@ final class UpdateChecklistHandlerTest extends TestCase
     );
   }
 
-  private function makeUuidFactory(): UuidFactory
+  private function makeUuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655449999');
 
-    return new UuidFactory($generator);
+    return $generator;
   }
   // #endregion
 }

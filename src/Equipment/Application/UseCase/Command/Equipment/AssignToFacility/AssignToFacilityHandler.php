@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\AssignToFacility;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, FacilityValidationPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{FacilityNamingPort, FacilityValidationPort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId};

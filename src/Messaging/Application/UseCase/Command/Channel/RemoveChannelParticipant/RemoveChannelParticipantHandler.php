@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Channel\RemoveChannelParticipant;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingParticipantRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\MessagingParticipantRepositoryPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Event\Channel\MessagingChannelParticipantRemovedEvent;
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};

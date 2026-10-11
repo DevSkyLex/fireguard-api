@@ -8,29 +8,25 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Application\Port\Outbound\MaintenanceDueStatusPort;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Equipment\Application\Contract\Equipment\CanonicalEquipmentCollectionItem;
+use Equipment\Application\UseCase\Query\Equipment\ListCanonicalEquipment\{ListCanonicalEquipmentQuery, ListCanonicalEquipmentResult};
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Intervention\Application\Service\InterventionResourceManager;
-use Maintenance\Application\Contract\Plan\MaintenanceEquipmentOperationsDue;
-use Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
+use Equipment\Presentation\Api\Http\OperationParameterReader;
+use Equipment\Presentation\Api\Service\EquipmentDetailReader;
+use Shared\Application\Contract\Http\ResourceIriParser;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function array_map;
 use function is_array;
 use function is_numeric;
 use function is_string;
-use function max;
-use function min;
 
 /**
- * Provider CanonicalEquipmentProvider.
+ * Translates canonical detail and bounded collection queries.
  *
  * @category Provider
  * @version 1.0.0
@@ -41,278 +37,92 @@ use function min;
  */
 final readonly class CanonicalEquipmentProvider implements ProviderInterface
 {
-  // #region Constants
-  /**
-   * Constant EQUIPMENT_NOT_FOUND_MESSAGE
-   */
-  private const string EQUIPMENT_NOT_FOUND_MESSAGE = 'Equipment not found.';
-
-  // #endregion
   // #region Constructor
   /**
-   * Constructor.
-   *
-   * Initializes a new instance of the CanonicalEquipmentProvider class.
-   *
-   * @since 1.0.0
-   *
-   * @param EntityManagerInterface $entityManager the entity manager value
-   * @param OrganizationAuthorizationPort $authorization the authorization value
-   * @param Security $security the security value
-   * @param RequestStack $requestStack the request stack value
-   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
-   * @param ?MaintenanceOperationsDuePort $operationsDue independent operation deadlines
-   * @param ?MaintenanceDueStatusPort $maintenanceDueStatusPort compatibility fallback when the independent owner port is unavailable
+   * Constructor. @since 1.0.0
    */
-  public function __construct(
-    private EntityManagerInterface $entityManager,
-    private OrganizationAuthorizationPort $authorization,
-    private Security $security,
-    private RequestStack $requestStack,
-    private InterventionResourceManager $interventionResourceManager,
-    private \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail,
-    private ?MaintenanceOperationsDuePort $operationsDue = null,
-    private ?MaintenanceDueStatusPort $maintenanceDueStatusPort = null,
-  ) {
+  public function __construct(private QueryBusPort $queries, private Security $security, private RequestStack $requestStack, private EquipmentDetailReader $detail)
+  {
   }
-
   // #endregion
+
   // #region Methods
   /**
-   * Method provide.
-   *
    * @since 1.0.0
    *
-   * @param Operation $operation the operation value
-   * @param array<string, mixed> $uriVariables the uri variables value
-   * @param array<string, mixed> $context the context value
+   * @param array<string, mixed> $uriVariables
+   * @param array<string, mixed> $context
    *
    * @return EquipmentOutput|TraversablePaginator<EquipmentOutput>
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
+    $user = $this->security->getUser();
+    if (!$user instanceof AuthenticatedUser) {
+      throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
+    }
     $id = $uriVariables['id'] ?? null;
     if (is_string($id) && '' !== $id) {
-      return $this->provideItem($id);
+      return $this->detail->readById($id, $user->getId());
     }
-
-    return $this->provideCollection($operation, $context);
-  }
-
-  /**
-   * Method provideItem
-   *
-   * Provides item the supplied values.
-   *
-   * @access private
-   *
-   * @param string $id the identifier
-   *
-   * @return EquipmentOutput
-   */
-  private function provideItem(string $id): EquipmentOutput
-  {
-    $record = $this->entityManager->find(EquipmentRecord::class, $id);
-    if (!$record instanceof EquipmentRecord) {
-      throw new NotFoundHttpException(self::EQUIPMENT_NOT_FOUND_MESSAGE);
-    }
-    if (null === $record->organization) {
-      throw new NotFoundHttpException(self::EQUIPMENT_NOT_FOUND_MESSAGE);
-    }
-    $this->assertRead($record->organization->id, self::EQUIPMENT_NOT_FOUND_MESSAGE);
-
-    return $this->detail->read($record->organization->id, $record->id);
-  }
-
-  /**
-   * @param array<string, mixed> $context
-   *
-   * @return TraversablePaginator<EquipmentOutput>
-   */
-  private function provideCollection(Operation $operation, array $context): TraversablePaginator
-  {
-    $request = $this->requestStack->getCurrentRequest();
-    $intervention = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('intervention');
-    $interventionId = is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null;
-    $organizationValue = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization');
-    $organization = $this->organization($organizationValue, $intervention);
-    $this->assertRead($organization, 'Organization not found.');
-    $recordStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('recordStatus');
-    $resolvedRecordStatus = null !== $interventionId ? 'draft' : 'published';
-    if (is_string($recordStatus) && '' !== $recordStatus) {
-      $resolvedRecordStatus = $recordStatus;
-    }
-    $query = $this->entityManager->createQueryBuilder()
-      ->select('e')
-      ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :recordStatus')
-      ->setParameter('organization', $organization)
-      ->setParameter('recordStatus', $resolvedRecordStatus)
-      ->orderBy('e.createdAt', 'ASC');
-    if (null !== $interventionId) {
-      $query->andWhere('e.interventionId = :interventionId')->setParameter('interventionId', $interventionId);
-    }
-    $facility = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('facility');
-    if (is_string($facility) && '' !== $facility) {
-      $query->andWhere('e.facilityId = :facilityId')->setParameter('facilityId', ResourceIriParser::id($facility, 'facilities'));
-    }
-
-    [$page, $itemsPerPage] = $this->pagination($context);
-    $countQuery = clone $query;
-    $total = (int) $countQuery
-      ->resetDQLPart('orderBy')
-      ->select('COUNT(e.id)')
-      ->getQuery()
-      ->getSingleScalarResult();
-    /** @var list<EquipmentRecord> $records */
-    $records = $query
-      ->setFirstResult(($page - 1) * $itemsPerPage)
-      ->setMaxResults($itemsPerPage)
-      ->getQuery()
-      ->getResult();
-    $equipmentIds = array_map(static fn (EquipmentRecord $record): string => $record->id, $records);
-    $operationsDueByEquipment = $this->operationsDue?->forEquipment($organization, $equipmentIds) ?? [];
-    $legacyDueStatuses = null === $this->operationsDue
-      ? ($this->maintenanceDueStatusPort?->dueStatusesForEquipment($organization, $equipmentIds) ?? [])
-      : [];
-    $output = [];
-    foreach ($records as $record) {
-      $output[] = $this->map($record, $operationsDueByEquipment[$record->id] ?? null, $legacyDueStatuses[$record->id] ?? 'unscheduled');
-    }
-
-    return new TraversablePaginator(new ArrayIterator($output), (float) $page, (float) $itemsPerPage, (float) $total);
-  }
-
-  /**
-   * Method pagination.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $context
-   *
-   * @return array{0: int, 1: int}
-   */
-  private function pagination(array $context): array
-  {
+    $parameters = OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $organization = $parameters->get('organization');
+    $intervention = $parameters->get('intervention');
+    $recordStatus = $parameters->get('recordStatus');
+    $facility = $parameters->get('facility');
     $filters = $context['filters'] ?? [];
     $page = is_array($filters) && is_numeric($filters['page'] ?? null) ? (int) $filters['page'] : 1;
     $itemsPerPage = is_array($filters) && is_numeric($filters['itemsPerPage'] ?? null) ? (int) $filters['itemsPerPage'] : 50;
+    /** @var ListCanonicalEquipmentResult $result */
+    $result = $this->queries->ask(new ListCanonicalEquipmentQuery(
+      $user->getId(),
+      is_string($organization) && '' !== $organization ? ResourceIriParser::id($organization, 'organizations') : null,
+      is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null,
+      is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : null,
+      is_string($facility) && '' !== $facility ? ResourceIriParser::id($facility, 'facilities') : null,
+      $page,
+      $itemsPerPage,
+    ));
+    $output = array_map(self::map(...), $result->page->items);
 
-    return [max(1, $page), max(1, min(100, $itemsPerPage))];
+    return new TraversablePaginator(new ArrayIterator($output), (float) $result->page->page, (float) $result->page->itemsPerPage, (float) $result->page->total);
   }
 
   /**
-   * Method organization.
-   *
-   * Resolves the owning organization directly or through the linked intervention context.
-   *
-   * @access private
    * @since 1.0.0
-   *
-   * @param mixed $organizationValue the organization value value
-   * @param mixed $interventionValue the intervention value value
-   *
-   * @return string the organization identifier
    */
-  private function organization(mixed $organizationValue, mixed $interventionValue): string
+  private static function map(CanonicalEquipmentCollectionItem $item): EquipmentOutput
   {
-    $organizationId = null;
-    if (is_string($organizationValue) && '' !== $organizationValue) {
-      $organizationId = ResourceIriParser::id($organizationValue, 'organizations');
-    } elseif (is_string($interventionValue) && '' !== $interventionValue) {
-      $organizationId = $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId;
-    }
-    if (null === $organizationId) {
-      throw new BadRequestHttpException('The organization or intervention filter is required.');
-    }
-
-    // No existence check here. `assertRead()` calls `resolveAccess()`, which
-    // answers OUTSIDE_SCOPE — and therefore the same 404, with the same
-    // message — for an organization that does not exist as for one the caller
-    // is not in. Looking the record up first would issue a second query to
-    // reach an answer the permission gate already gives.
-    return $organizationId;
-  }
-
-  /**
-   * Method assertRead.
-   *
-   * Requires organization equipment-read access and hides organizations outside the caller’s scope as not found.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param string $notFoundMessage the not-found message for this route when the caller
-   *                                has no active membership in the organization
-   * @param string $organizationId the organization whose equipment-read permission is checked
-   *
-   * @return void no return value
-   */
-  private function assertRead(string $organizationId, string $notFoundMessage): void
-  {
-    $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
-      throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
-    }
-
-    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.equipment.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException($notFoundMessage);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
-    }
-  }
-
-  /**
-   * Method map.
-   *
-   * Maps a persisted equipment record and its organization and intervention IRIs to the API output.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param EquipmentRecord $record the record value
-   * @param ?MaintenanceEquipmentOperationsDue $operationsDue the bulk-resolved operation statuses and dates
-   * @param string $controlDueStatus the compatibility control status
-   *
-   * @return EquipmentOutput the map result
-   */
-  private function map(EquipmentRecord $record, ?MaintenanceEquipmentOperationsDue $operationsDue = null, string $controlDueStatus = 'unscheduled'): EquipmentOutput
-  {
-    if (null === $record->organization) {
-      throw new NotFoundHttpException('Equipment organization not found.');
-    }
+    $view = $item->equipment;
     $output = new EquipmentOutput();
-    $output->id = $record->id;
-    $output->organizationId = $record->organization->id;
-    $output->intervention = null !== $record->interventionId ? '/api/interventions/' . $record->interventionId : null;
-    $output->recordStatus = $record->recordStatus;
-    $output->revision = $record->revision;
-    $output->facilityId = $record->facilityId;
-    $output->type = $record->type;
-    $output->subType = $record->subType;
-    $output->brand = $record->brand;
-    $output->model = $record->model;
-    $output->serialNumber = $record->serialNumber;
-    $output->locationLabel = $record->locationLabel;
-    $output->name = $record->name;
-    $output->assetCode = $record->assetCode;
-    $output->criticality = $record->criticality;
-    $output->technicalProperties = $record->technicalProperties;
-    $output->predecessorEquipmentId = $record->predecessorEquipmentId;
-    $output->successorEquipmentId = $record->successorEquipmentId;
-    $output->status = $record->status;
-    $output->installedAt = $record->installedAt?->format('c');
-    $output->commissionedAt = $record->commissionedAt?->format('c');
-    $output->controlDueStatus = $operationsDue->controlDueStatus ?? $controlDueStatus;
+    $output->id = $view->id;
+    $output->organizationId = $view->organizationId;
+    $output->recordStatus = $view->recordStatus;
+    $output->revision = $view->revision;
+    $output->facilityId = $view->facilityId;
+    $output->type = $view->type;
+    $output->subType = $view->subType;
+    $output->brand = $view->brand;
+    $output->model = $view->model;
+    $output->serialNumber = $view->serialNumber;
+    $output->locationLabel = $view->locationLabel;
+    $output->name = $view->name;
+    $output->assetCode = $view->assetCode;
+    $output->criticality = $view->criticality;
+    $output->technicalProperties = $view->technicalProperties;
+    $output->predecessorEquipmentId = $view->predecessorEquipmentId;
+    $output->successorEquipmentId = $view->successorEquipmentId;
+    $output->status = $view->status;
+    $output->installedAt = $view->installedAt;
+    $output->commissionedAt = $view->commissionedAt;
+    $output->createdAt = $view->createdAt;
+    $output->updatedAt = $view->updatedAt;
+    $output->intervention = null === $view->interventionId ? null : '/api/interventions/' . $view->interventionId;
+    $output->controlDueStatus = $item->operationsDue->controlDueStatus ?? $item->legacyDueStatus;
     $output->maintenanceDueStatus = $output->controlDueStatus;
-    $output->serviceDueStatus = $operationsDue->serviceDueStatus ?? 'unscheduled';
-    $output->controlNextDueAt = $operationsDue?->controlNextDueAt?->format('c');
-    $output->serviceNextDueAt = $operationsDue?->serviceNextDueAt?->format('c');
-    $output->createdAt = $record->createdAt->format('c');
-    $output->updatedAt = $record->updatedAt->format('c');
+    $output->serviceDueStatus = $item->operationsDue->serviceDueStatus ?? 'unscheduled';
+    $output->controlNextDueAt = $item->operationsDue?->controlNextDueAt?->format('c');
+    $output->serviceNextDueAt = $item->operationsDue?->serviceNextDueAt?->format('c');
 
     return $output;
   }

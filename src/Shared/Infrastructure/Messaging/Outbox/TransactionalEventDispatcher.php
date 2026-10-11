@@ -6,8 +6,8 @@ namespace Shared\Infrastructure\Messaging\Outbox;
 
 use Doctrine\DBAL\Connection;
 use LogicException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{CurrentActorPort, EventDispatcherPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Transport\Sender\SenderInterface;
 
@@ -30,12 +30,12 @@ final readonly class TransactionalEventDispatcher implements EventDispatcherPort
    *
    * @param Connection $connection verifies and shares the active transaction
    * @param SenderInterface $sender writes the outbox envelope
-   * @param UuidFactory $ids generates outbox event identifiers
+   * @param UuidGeneratorPort $ids generates outbox event identifiers
    * @param CurrentActorPort $actor supplies the event actor identifier
    *
    * @return void
    */
-  public function __construct(private Connection $connection, private SenderInterface $sender, private UuidFactory $ids, private CurrentActorPort $actor)
+  public function __construct(private Connection $connection, private SenderInterface $sender, private UuidGeneratorPort $ids, private CurrentActorPort $actor)
   {
   }
 
@@ -59,7 +59,7 @@ final readonly class TransactionalEventDispatcher implements EventDispatcherPort
     if (!$this->connection->isTransactionActive()) {
       throw new LogicException('Durable events must be recorded inside their owning transaction.');
     }
-    $this->sender->send(new Envelope(new OutboxEvent($this->ids->generateRaw(), $event, $this->actor->userId())));
+    $this->sender->send(new Envelope(new OutboxEvent($this->ids->generate(), $event, $this->actor->userId())));
   }
 
   /**

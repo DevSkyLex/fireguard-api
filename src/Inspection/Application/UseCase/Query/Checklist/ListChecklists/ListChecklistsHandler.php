@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Checklist\ListChecklists;
 
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Domain\ValueObject\{ChecklistOrganizationId, ChecklistStatus};
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;

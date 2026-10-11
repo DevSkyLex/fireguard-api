@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Command\Permission\CreatePermission;
 
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\PermissionRepositoryPort;
 use Authorization\Application\UseCase\Command\Permission\CreatePermission\{CreatePermissionCommand, CreatePermissionHandler, CreatePermissionResult};
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\ValueObject\PermissionId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Test CreatePermissionHandlerTest.
@@ -35,12 +35,11 @@ final class CreatePermissionHandlerTest extends TestCase
       ->method('save')
       ->with(self::isInstanceOf(Permission::class));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(PermissionId::class)
-      ->willReturn($permissionId);
+      ->method('generate')
+      ->willReturn((string) $permissionId);
 
     $handler = new CreatePermissionHandler(
       permissionRepository: $permissionRepository,

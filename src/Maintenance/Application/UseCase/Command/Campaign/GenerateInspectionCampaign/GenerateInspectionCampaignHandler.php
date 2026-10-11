@@ -60,7 +60,7 @@ final readonly class GenerateInspectionCampaignHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
     private int $maxCampaignWorkItems = 25,
     private ?\Maintenance\Application\Port\Outbound\Plan\MaintenancePlanStorePort $plans = null,
-    private ?\Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort $planAuthority = null,
+    private ?\Maintenance\Application\Port\Inbound\Internal\MaintenancePlanAuthorityPort $planAuthority = null,
   ) {
   }
 

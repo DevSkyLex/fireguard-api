@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\CreateOrganizationRole;
 
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNameAlreadyExistsException};
+use Organization\Application\Contract\Event\Role\OrganizationRoleCreatedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Exception\OrganizationRoleNameAlreadyExistsException;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 use Shared\Domain\Exception\InvalidValueException;
 
 use function array_unique;
@@ -39,13 +39,13 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -85,7 +85,7 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
     }
 
     /** @var OrganizationRoleId $roleId */
-    $roleId = $this->uuidFactory->create(OrganizationRoleId::class);
+    $roleId = new OrganizationRoleId($this->uuidFactory->generate());
 
     $role = OrganizationRole::create(
       id: $roleId,

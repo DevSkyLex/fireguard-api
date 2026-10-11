@@ -6,9 +6,11 @@ namespace Tests\Unit\Billing\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\GetCollection;
 use Billing\Application\Service\BillingPriceCatalog;
+use Billing\Application\UseCase\Query\GetPricing\{GetPricingQuery, GetPricingResult};
 use Billing\Presentation\Api\Provider\GetPricingProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\QueryBusPort;
 
 use function array_column;
 
@@ -36,7 +38,9 @@ final class GetPricingProviderTest extends TestCase
       ],
     ], 'eur');
 
-    $outputs = new GetPricingProvider($catalog)->provide(new GetCollection());
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->with(new GetPricingQuery())->willReturn(new GetPricingResult($catalog->pricing()));
+    $outputs = new GetPricingProvider($queries)->provide(new GetCollection());
 
     self::assertSame(['pro', 'max'], array_column($outputs, 'planKey'));
 
@@ -51,6 +55,8 @@ final class GetPricingProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsAnEmptyListWhenNoPlanIsPayable(): void
   {
-    self::assertSame([], new GetPricingProvider(new BillingPriceCatalog([], 'eur'))->provide(new GetCollection()));
+    $queries = $this->createMock(QueryBusPort::class);
+    $queries->expects(self::once())->method('ask')->willReturn(new GetPricingResult([]));
+    self::assertSame([], new GetPricingProvider($queries)->provide(new GetCollection()));
   }
 }

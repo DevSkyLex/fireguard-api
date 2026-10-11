@@ -8,7 +8,8 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\{InterventionResourceSummary, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\InterventionPublicationResourcesIssuesPort;
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\ExecutePublication\{ExecutePublicationCommand, ExecutePublicationHandler};
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
@@ -166,7 +167,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449151', 'building', self::FACILITY_ID, true);
     $intervention = $this->entityManager->find(InterventionRecord::class, self::INTERVENTION_ID);
     self::assertInstanceOf(InterventionRecord::class, $intervention);
-    self::assertInstanceOf(OrganizationRecord::class, $intervention->organization);
+    self::assertSame(self::ORGANIZATION_ID, $intervention->organizationId);
     $intervention->siteId = $draft->id;
     $facilityIri = '/api/facilities/' . $draft->id;
     $equipmentId = '880e8400-e29b-41d4-a716-446655449152';
@@ -194,13 +195,15 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     $appliedChange->id = '880e8400-e29b-41d4-a716-446655449156';
     $appliedChange->status = 'applied';
     $this->entityManager->persist($appliedChange);
-    $foreignOrganization = clone $intervention->organization;
+    $originalOrganization = $this->entityManager->getReference(OrganizationRecord::class, $intervention->organizationId);
+    self::assertInstanceOf(OrganizationRecord::class, $originalOrganization);
+    $foreignOrganization = clone $originalOrganization;
     $foreignOrganization->id = '880e8400-e29b-41d4-a716-446655449157';
     $foreignOrganization->slug = 'foreign-discard-reference';
     $this->entityManager->persist($foreignOrganization);
     $foreignIntervention = clone $intervention;
     $foreignIntervention->id = '880e8400-e29b-41d4-a716-446655449158';
-    $foreignIntervention->organization = $foreignOrganization;
+    $foreignIntervention->organizationId = $foreignOrganization->id;
     $this->entityManager->persist($foreignIntervention);
     $foreignItem = clone $item;
     $foreignItem->id = '880e8400-e29b-41d4-a716-446655449159';
@@ -280,7 +283,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449121', 'building', self::FACILITY_ID, true);
     $equipment = new \Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord();
     $equipment->id = '880e8400-e29b-41d4-a716-446655449122';
-    $equipment->organization = $draft->organization;
+    $equipment->organizationId = $draft->organizationId;
     $equipment->facilityId = $draft->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->createdAt = new DateTimeImmutable();
@@ -338,7 +341,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     $draft = $this->hierarchyFacility('880e8400-e29b-41d4-a716-446655449141', 'building', self::FACILITY_ID, true);
     $inspection = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord();
     $inspection->id = '880e8400-e29b-41d4-a716-446655449142';
-    $inspection->organization = $draft->organization;
+    $inspection->organizationId = $draft->organizationId;
     $inspection->equipmentId = '880e8400-e29b-41d4-a716-446655449143';
     $inspection->facilityId = $draft->id;
     $inspection->inspectorType = 'user';
@@ -370,7 +373,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     self::assertInstanceOf(OrganizationRecord::class, $organization);
     $equipment = new \Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord();
     $equipment->id = '880e8400-e29b-41d4-a716-446655449151';
-    $equipment->organization = $organization;
+    $equipment->organizationId = self::ORGANIZATION_ID;
     $equipment->interventionId = self::INTERVENTION_ID;
     $equipment->recordStatus = 'draft';
     $equipment->type = 'fire_extinguisher';
@@ -402,7 +405,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     $inspection->recordStatus = 'draft';
     $response = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionResponseRecord();
     $response->id = '880e8400-e29b-41d4-a716-446655449162';
-    $response->organization = $organization;
+    $response->organizationId = self::ORGANIZATION_ID;
     $response->inspectionId = $inspection->id;
     $response->itemKey = 'draft-dependency';
     $response->createdAt = new DateTimeImmutable();
@@ -911,7 +914,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
   {
     $equipment = new \Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord();
     $equipment->id = '880e8400-e29b-41d4-a716-446655449201';
-    $equipment->organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $equipment->organizationId = self::ORGANIZATION_ID;
     $equipment->type = 'fire_extinguisher';
     $equipment->facilityId = self::FACILITY_ID;
     $equipment->createdAt = $equipment->updatedAt = new DateTimeImmutable();
@@ -942,7 +945,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
   {
     $record = new FacilityRecord();
     $record->id = $id;
-    $record->organization = $this->entityManager->find(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->parentFacility = $this->entityManager->find(FacilityRecord::class, $parentId);
     $record->name = 'Publication ' . $type;
     $record->type = $type;
@@ -1027,7 +1030,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
   {
     $inspection = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = self::ORGANIZATION_ID;
     $inspection->equipmentId = $equipmentId;
     $inspection->inspectorType = 'user';
     $inspection->inspectorName = 'Draft dependency inspection';
@@ -1059,7 +1062,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = self::ORGANIZATION_ID;
     $facility->type = 'site';
     $facility->name = 'Publication Adapter Site';
     $facility->status = 'active';
@@ -1070,7 +1073,7 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
+    $intervention->organizationId = self::ORGANIZATION_ID;
     $intervention->type = 'site_setup';
     $intervention->name = 'Publication Adapter Intervention';
     $intervention->number = 9001;

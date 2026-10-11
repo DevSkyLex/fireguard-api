@@ -6,11 +6,10 @@ namespace Compliance\Infrastructure\Adapter\Assistant;
 
 use Assistant\Application\Contract\Context\{AssistantContextBudget, AssistantContextFragment, AssistantContextScope};
 use Assistant\Application\Port\Outbound\AssistantContextProviderPort;
-use Compliance\Application\Contract\FacilityComplianceView;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityComplianceView};
 use Compliance\Application\Service\{ComplianceRegisterAggregator, ComplianceStatusPolicy};
-use Compliance\Domain\ValueObject\ComplianceStatus;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Throwable;
 
 use function array_diff;

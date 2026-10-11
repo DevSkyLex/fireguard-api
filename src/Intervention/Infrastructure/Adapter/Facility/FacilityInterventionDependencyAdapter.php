@@ -57,7 +57,7 @@ final readonly class FacilityInterventionDependencyAdapter implements FacilityIn
       ->select('COUNT(record.id)')
       ->from(InterventionRecord::class, 'record')
       ->where('record.siteId = :facilityId')
-      ->andWhere('IDENTITY(record.organization) = :organizationId')
+      ->andWhere('record.organizationId = :organizationId')
       ->andWhere('record.status NOT IN (:closedStatuses)')
       ->setParameter('facilityId', $facilityId)
       ->setParameter('organizationId', $organizationId)

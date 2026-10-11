@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException as DoctrineUniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationSlug, OrganizationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 use function addcslashes;
@@ -129,7 +131,11 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
       $this->entityManager->persist($record);
     }
 
-    $this->entityManager->flush();
+    try {
+      $this->entityManager->flush();
+    } catch (DoctrineUniqueConstraintViolationException $exception) {
+      throw new UniqueConstraintViolationException($exception);
+    }
     if ($accessChanged) {
       $this->cacheInvalidator?->invalidateOrganization();
     }
@@ -153,6 +159,23 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     if (!$record instanceof OrganizationRecord) {
       return null;
     }
+
+    return OrganizationMapper::toDomain($record);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function findByIdForUpdate(OrganizationId $id): ?Organization
+  {
+    if (false === $this->entityManager->getConnection()->fetchOne('SELECT id FROM organizations WHERE id = :id FOR UPDATE', ['id' => (string) $id])) {
+      return null;
+    }
+    $record = $this->repository->find((string) $id);
+    if (!$record instanceof OrganizationRecord) {
+      return null;
+    }
+    $this->entityManager->refresh($record);
 
     return OrganizationMapper::toDomain($record);
   }

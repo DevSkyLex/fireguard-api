@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inspection\Infrastructure\Adapter\Equipment;
 
-use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort;
 use Inspection\Domain\ValueObject\InspectionOrganizationId;
 use Inspection\Infrastructure\Adapter\Equipment\EquipmentNonConformityStatisticsAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

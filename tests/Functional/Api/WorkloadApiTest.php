@@ -12,11 +12,10 @@ use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionTime
 use Organization\Infrastructure\Adapter\Workforce\OrganizationWorkforceDirectoryAdapter;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\FrameworkBundle\{KernelBrowser, Test\WebTestCase};
 use Symfony\Component\Uid\Uuid;
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\GetUserResult;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_keys;
 use function array_unique;
@@ -85,8 +84,8 @@ final class WorkloadApiTest extends WebTestCase
     $assignment->assignedAt = $now;
     $em->persist($assignment);
     $em->flush();
-    $queries = $this->createMock(QueryBusPort::class);
-    $queries->expects(self::once())->method('ask')->willReturn(new GetUserResult(new UserView(
+    $queries = $this->createMock(UserDirectoryPort::class);
+    $queries->expects(self::once())->method('findByIds')->with([$this->userId])->willReturn([$this->userId => new UserView(
       $this->userId,
       'alex',
       'alex@example.test',
@@ -99,7 +98,7 @@ final class WorkloadApiTest extends WebTestCase
       $now,
       null,
       true,
-    )));
+    )]);
     $directory = new OrganizationWorkforceDirectoryAdapter($em, $queries);
     self::assertSame([], $directory->profiles($this->organizationId, []));
     $profiles = $directory->profiles($this->organizationId, [$this->memberId, $otherMember->id]);
@@ -589,7 +588,7 @@ final class WorkloadApiTest extends WebTestCase
     $now = new DateTimeImmutable();
     $parent = new \Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord();
     $parent->id = Uuid::v4()->toRfc4122();
-    $parent->organization = $em->getReference(OrganizationRecord::class, $this->organizationId);
+    $parent->organizationId = $this->organizationId;
     $parent->name = 'Workload test intervention';
     $parent->number = random_int(100000, 99999999);
     $parent->type = 'inventory';

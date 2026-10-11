@@ -11,7 +11,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort:
+  Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort:
     alias: Calendar\Infrastructure\Persistence\Doctrine\Repository\CalendarEventRepository
 
   # Cross-module outbound ports (adapters live in the owning modules)
@@ -57,7 +57,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort:
+  Calendar\Application\Port\Outbound\Internal\FeedToken\CalendarFeedTokenRepositoryPort:
     alias: Calendar\Infrastructure\Persistence\Doctrine\Repository\CalendarFeedTokenRepository
 
   # Secret generator/hasher: raw secret lives in memory only, SHA-256 in base.

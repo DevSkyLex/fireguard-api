@@ -6,7 +6,7 @@ namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Inspection\Application\Contract\Inspection\CanonicalInspectionReadView;
-use Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\CanonicalInspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\CanonicalInspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\CanonicalInspectionMapper;
@@ -193,7 +193,7 @@ final readonly class CanonicalInspectionRepository implements CanonicalInspectio
   ): QueryBuilder {
     $query = $this->entityManager->createQueryBuilder()
       ->from(InspectionRecord::class, 'i')
-      ->where('i.organization = :organization')
+      ->where('i.organizationId = :organization')
       ->setParameter('organization', (string) $organizationId)
       ->andWhere('i.recordStatus = :recordStatus')
       ->setParameter('recordStatus', $recordStatus);

@@ -7,7 +7,7 @@ namespace Organization\Infrastructure\Adapter\Approval;
 use Approval\Application\Contract\Action\ApprovalActionTypes;
 use Approval\Application\Contract\Policy\ApprovalPolicy;
 use Approval\Application\Port\Outbound\ApprovalPolicyPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationApprovalDefaults;
 use Organization\Domain\ValueObject\{OrganizationApprovalSettings, OrganizationId};
 use Shared\Domain\Exception\InvalidValueException;

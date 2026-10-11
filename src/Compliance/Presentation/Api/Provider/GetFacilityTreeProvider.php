@@ -6,15 +6,13 @@ namespace Compliance\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Compliance\Application\UseCase\Query\GetFacilityTree\{GetFacilityTreeQuery, GetFacilityTreeResult};
 use Compliance\Presentation\Api\Dto\Output\FacilityTreeOutput;
 use Compliance\Presentation\Api\Factory\FacilityTreeOutputFactory;
-use Compliance\Presentation\Api\Trait\ComplianceExceptionMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Throwable;
 
 use function is_string;
 
@@ -30,8 +28,6 @@ use function is_string;
  */
 final readonly class GetFacilityTreeProvider implements ProviderInterface
 {
-  use ComplianceExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -65,7 +61,7 @@ final readonly class GetFacilityTreeProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): FacilityTreeOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -74,15 +70,11 @@ final readonly class GetFacilityTreeProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    try {
-      /** @var GetFacilityTreeResult $result */
-      $result = $this->queryBus->ask(new GetFacilityTreeQuery(
-        organizationId: $organizationId,
-        userId: $user->getId(),
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapComplianceException($exception);
-    }
+    /** @var GetFacilityTreeResult $result */
+    $result = $this->queryBus->ask(new GetFacilityTreeQuery(
+      organizationId: $organizationId,
+      userId: $user->getId(),
+    ));
 
     return $this->outputFactory->fromTree(
       organizationId: $organizationId,

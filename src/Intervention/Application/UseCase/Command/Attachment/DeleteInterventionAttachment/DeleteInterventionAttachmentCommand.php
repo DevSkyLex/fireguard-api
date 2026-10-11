@@ -34,6 +34,7 @@ final readonly class DeleteInterventionAttachmentCommand implements CommandMessa
     public string $userId,
     public string $interventionId,
     public string $attachmentId,
+    public ?int $expectedRevision = null,
   ) {
   }
   // #endregion

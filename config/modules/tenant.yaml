@@ -33,7 +33,7 @@ services:
     Tenant\Infrastructure\Persistence\Doctrine\Mapper\TenantMapper: ~
 
     # Port Binding
-    Tenant\Application\Port\Outbound\TenantRepositoryPort:
+    Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort:
         alias: Tenant\Infrastructure\Persistence\Doctrine\Repository\TenantRepository
 
     Tenant\Application\Port\Inbound\TenantResolverPort:

@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Record FacilityRecord.
@@ -44,13 +43,12 @@ class FacilityRecord
   public string $id;
 
   /**
-   * Property organization.
+   * Property organizationId.
    *
    * @since 1.0.0
    */
-  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'facilities')]
-  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-  public ?OrganizationRecord $organization = null;
+  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
+  public string $organizationId;
 
   /**
    * Property interventionId.
@@ -247,12 +245,11 @@ class FacilityRecord
    */
   public function organizationId(): string
   {
-    $organization = $this->organization;
-    if (null === $organization) {
+    if (!isset($this->organizationId)) {
       throw new LogicException('The facility organization is unavailable.');
     }
 
-    return $organization->id;
+    return $this->organizationId;
   }
   // #endregion
 }

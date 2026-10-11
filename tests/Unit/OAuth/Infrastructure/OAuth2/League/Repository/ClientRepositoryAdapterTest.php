@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Infrastructure\OAuth2\League\Repository;
 
-use OAuth\Application\Port\Outbound\Client\{ClientValidationPort, OAuthClientRepositoryPort};
+use OAuth\Application\Port\Outbound\Client\ClientValidationPort;
+use OAuth\Application\Port\Outbound\Internal\Client\OAuthClientRepositoryPort;
 use OAuth\Domain\Model\Client\OAuthClient;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scope;

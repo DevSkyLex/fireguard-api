@@ -25,7 +25,7 @@ final readonly class Module
    * Initialize the module with its
    * namespace and path
    *
-   * @param string $namespace The module namespace
+   * @param non-empty-string $namespace The module namespace
    * @param string $path The module path
    */
   public function __construct(
@@ -43,7 +43,7 @@ final readonly class Module
    *
    * @param ArchitectureLayer $layer The layer name
    *
-   * @return string The namespace of the layer
+   * @return non-empty-string The namespace of the layer
    */
   public function layerNamespace(ArchitectureLayer $layer): string
   {

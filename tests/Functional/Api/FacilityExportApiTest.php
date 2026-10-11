@@ -294,7 +294,7 @@ final class FacilityExportApiTest extends WebTestCase
 
     $parent = new FacilityRecord();
     $parent->id = self::PARENT_FACILITY_ID;
-    $parent->organization = $organization;
+    $parent->organizationId = $organization->id;
     $parent->type = 'site';
     $parent->name = 'Parent Site';
     $parent->code = 'PARENT-CODE';
@@ -308,7 +308,7 @@ final class FacilityExportApiTest extends WebTestCase
 
     $child = new FacilityRecord();
     $child->id = self::CHILD_FACILITY_ID;
-    $child->organization = $organization;
+    $child->organizationId = $organization->id;
     $child->parentFacility = $parent;
     $child->type = 'building';
     $child->name = 'Child Building';

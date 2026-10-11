@@ -6,7 +6,7 @@ namespace Inventory\Infrastructure\Adapter\Procurement;
 
 use InvalidArgumentException;
 use Inventory\Application\Port\Inbound\InventoryPartDirectoryPort;
-use Inventory\Application\Port\Outbound\InventoryStorePort;
+use Inventory\Application\Port\Outbound\Internal\InventoryStorePort;
 
 use function count;
 

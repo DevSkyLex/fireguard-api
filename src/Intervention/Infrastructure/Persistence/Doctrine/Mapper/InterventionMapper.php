@@ -15,7 +15,6 @@ use Intervention\Domain\Model\Intervention\{
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper InterventionMapper.
@@ -40,14 +39,14 @@ final class InterventionMapper
    */
   public static function toDomain(InterventionRecord $record): Intervention
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Intervention record must reference an organization.');
     }
 
     return Intervention::reconstitute(new InterventionRestoredState(
       creation: new InterventionCreation(
         id: $record->id,
-        organizationId: $record->organization->id,
+        organizationId: $record->organizationId,
         type: InterventionType::from($record->type),
         content: new InterventionContent($record->name, $record->description),
         ownership: new InterventionOwnership($record->siteId, $record->responsibleId, $record->participants),
@@ -92,6 +91,7 @@ final class InterventionMapper
   public static function sync(Intervention $intervention, InterventionRecord $record): InterventionRecord
   {
     $record->id = $intervention->id();
+    $record->organizationId = $intervention->organizationId();
     $record->type = $intervention->type()->value;
     $record->name = $intervention->name();
     $record->description = $intervention->description();

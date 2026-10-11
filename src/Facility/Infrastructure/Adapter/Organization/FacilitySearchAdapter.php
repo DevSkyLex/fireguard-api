@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Adapter\Organization;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Application\Contract\Search\OrganizationSearchHit;
 use Organization\Application\Port\Outbound\FacilitySearchPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function max;
 
@@ -48,13 +47,12 @@ final readonly class FacilitySearchAdapter implements FacilitySearchPort
    */
   public function search(string $organizationId, string $term, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('facility')
       ->from(FacilityRecord::class, 'facility')
-      ->where('facility.organization = :organization')
+      ->where('facility.organizationId = :organization')
       ->andWhere('facility.recordStatus = :publishedRecordStatus')
       ->setParameter('organization', $organization)
       ->setParameter('publishedRecordStatus', 'published')

@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Webhook\Application\UseCase\Command\Subscription\DeleteWebhookSubscription\DeleteWebhookSubscriptionCommand;
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Presentation\Api\Processor\DeleteWebhookSubscriptionProcessor;
@@ -99,7 +99,7 @@ final class DeleteWebhookSubscriptionProcessorTest extends TestCase
 
     $processor = new DeleteWebhookSubscriptionProcessor($commandBus, $this->authenticatedSecurity());
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(WebhookSubscriptionNotFoundException::class);
 
     $processor->process(null, new Delete(), [
       'organizationId' => self::ORGANIZATION_ID,

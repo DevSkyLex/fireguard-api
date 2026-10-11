@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 use TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices\{ListTrustedDevicesHandler, ListTrustedDevicesQuery, TrustedDeviceItemResult};
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
 use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId, TrustedDeviceTimeline};

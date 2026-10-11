@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Infrastructure\Console;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{
   AddOrganizationMemberCommand,
   AddOrganizationMemberResult
@@ -28,7 +28,7 @@ use Shared\Domain\ValueObject\Email;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
@@ -97,8 +97,8 @@ final class AddOrganizationAdminConsoleCommandTest extends TestCase
   #[Test]
   public function testResolvesTheUserByEmail(): void
   {
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findByEmail')
       ->willReturn($this->user());
@@ -168,7 +168,7 @@ final class AddOrganizationAdminConsoleCommandTest extends TestCase
   #[Test]
   public function testFailsWhenTheUserCannotBeResolved(): void
   {
-    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository = $this->createStub(UserDirectoryPort::class);
     $userRepository->method('findByEmail')->willReturn(null);
 
     $tester = new CommandTester($this->createCommand(
@@ -226,7 +226,7 @@ final class AddOrganizationAdminConsoleCommandTest extends TestCase
     CommandBusPort $commandBus,
     bool|Organization|null $organization = false,
     bool|OrganizationRole|null $ownerRole = false,
-    ?UserRepositoryPort $userRepository = null,
+    ?UserDirectoryPort $userRepository = null,
   ): AddOrganizationAdminConsoleCommand {
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn(
@@ -239,7 +239,7 @@ final class AddOrganizationAdminConsoleCommandTest extends TestCase
     );
 
     if (null === $userRepository) {
-      $userRepository = $this->createStub(UserRepositoryPort::class);
+      $userRepository = $this->createStub(UserDirectoryPort::class);
       $userRepository->method('findById')->willReturn($this->user());
       $userRepository->method('findByEmail')->willReturn($this->user());
     }
@@ -272,16 +272,16 @@ final class AddOrganizationAdminConsoleCommandTest extends TestCase
     );
   }
 
-  private function user(): User
+  private function user(): \User\Application\Contract\User\UserView
   {
-    return User::register(
+    return \Tests\Support\Factory\UserTestFactory::view(User::register(
       id: new UserId(self::USER_ID),
       username: new Username('owner'),
       email: new Email(self::USER_EMAIL),
       password: HashedPassword::fromPlain('Password123!'),
       profile: new UserProfile('Owner', 'User', null),
       eventIdProvider: new TestEventIdProvider(),
-    );
+    ));
   }
 
   private function successResult(): AddOrganizationMemberResult

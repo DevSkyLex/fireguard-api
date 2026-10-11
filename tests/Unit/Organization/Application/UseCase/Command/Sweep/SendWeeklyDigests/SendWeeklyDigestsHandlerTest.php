@@ -8,19 +8,21 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\{InterventionStatisticsPort, MaintenanceStatisticsPort, NonConformityStatisticsPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{InterventionStatisticsPort, MaintenanceStatisticsPort, NonConformityStatisticsPort};
 use Organization\Application\Service\{OrganizationWeeklyDigestNotifier, OrganizationWeeklyDigestRecipientResolver};
 use Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests\{SendWeeklyDigestsCommand, SendWeeklyDigestsHandler};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationNotificationSettings};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\{ClockPort, LoggerPort};
-use Symfony\Contracts\Translation\TranslatorInterface;
+use Shared\Application\Port\Outbound\TranslationPort;
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
@@ -344,13 +346,13 @@ final class SendWeeklyDigestsHandlerTest extends TestCase
       )),
     );
 
-    $translator = $this->createStub(TranslatorInterface::class);
-    $translator->method('trans')->willReturnCallback(static fn (string $id): string => $id);
+    $translator = $this->createStub(TranslationPort::class);
+    $translator->method('translate')->willReturnCallback(static fn (string $id): string => $id);
 
     return new OrganizationWeeklyDigestNotifier(
       $notifications,
       new OrganizationWeeklyDigestRecipientResolver($memberRepository, $authorization),
-      $queryBus,
+      \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
       $translator,
       $this->createStub(LoggerPort::class),
       'https://app.fireguard.test',

@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Intervention\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
+use Intervention\Application\Contract\Event\Export\InterventionsExportedEvent;
+use Intervention\Application\UseCase\Command\Export\RecordInterventionExport\RecordInterventionExportCommand;
 use Intervention\Application\UseCase\Query\ExportInterventions\{ExportInterventionsQuery, ExportInterventionsResult};
-use Intervention\Domain\Event\Export\InterventionsExportedEvent;
 use Intervention\Presentation\Api\Service\{InterventionCsvWriter, InterventionExportCriteriaFactory};
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
+use Shared\Application\Contract\Http\ResourceIriParser;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
@@ -55,14 +55,14 @@ final class ExportInterventionsController extends AbstractController
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param CommandBusPort $commandBus the domain event dispatcher
    * @param Security $security the security service
    * @param InterventionExportCriteriaFactory $criteriaFactory the request-to-filters factory
    * @param InterventionCsvWriter $csvWriter the CSV row writer
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
-    private readonly EventDispatcherPort $eventDispatcher,
+    private readonly CommandBusPort $commandBus,
     private readonly Security $security,
     private readonly InterventionExportCriteriaFactory $criteriaFactory,
     private readonly InterventionCsvWriter $csvWriter,
@@ -83,7 +83,7 @@ final class ExportInterventionsController extends AbstractController
   public function __invoke(Request $request): StreamedResponse
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -108,13 +108,13 @@ final class ExportInterventionsController extends AbstractController
       throw $this->mapWorkflowException($exception);
     }
 
-    $this->eventDispatcher->dispatch(new InterventionsExportedEvent(
+    $this->commandBus->dispatch(new RecordInterventionExportCommand(new InterventionsExportedEvent(
       organizationId: $organizationId,
       actorUserId: $user->getId(),
       format: 'csv',
       rowCount: $result->total,
       filterKeys: $this->criteriaFactory->appliedFilterKeys($filters),
-    ));
+    )));
 
     $fileName = sprintf('interventions-export-%s.csv', new DateTimeImmutable()->format('Ymd-His'));
 

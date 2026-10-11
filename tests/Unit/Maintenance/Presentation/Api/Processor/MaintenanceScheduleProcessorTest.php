@@ -59,7 +59,7 @@ final class MaintenanceScheduleProcessorTest extends TestCase
     $input = new UpdateMaintenanceScheduleInput();
     $input->intervalOverride = 'P90D';
 
-    $output = $processor->process($input, new Patch(), ['id' => self::SCHEDULE_ID]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process($input, new Patch(), ['id' => self::SCHEDULE_ID]));
 
     self::assertInstanceOf(MaintenanceScheduleOutput::class, $output);
     self::assertSame(self::SCHEDULE_ID, $output->id);
@@ -76,7 +76,7 @@ final class MaintenanceScheduleProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), []));
   }
 
   #[Test]
@@ -89,7 +89,7 @@ final class MaintenanceScheduleProcessorTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]));
   }
 
   #[Test]
@@ -103,7 +103,7 @@ final class MaintenanceScheduleProcessorTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('database is down');
 
-    $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]));
   }
 
   #[Test]
@@ -118,7 +118,7 @@ final class MaintenanceScheduleProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Invalid request body.');
 
-    $processor->process(new stdClass(), new Patch(), ['id' => self::SCHEDULE_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new stdClass(), new Patch(), ['id' => self::SCHEDULE_ID]));
   }
 
   #[Test]
@@ -136,7 +136,7 @@ final class MaintenanceScheduleProcessorTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]));
   }
 
   private function securityWithUser(): Security

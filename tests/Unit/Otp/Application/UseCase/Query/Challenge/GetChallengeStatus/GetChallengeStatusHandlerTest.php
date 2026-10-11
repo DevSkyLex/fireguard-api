@@ -6,7 +6,7 @@ namespace Tests\Unit\Otp\Application\UseCase\Query\Challenge\GetChallengeStatus;
 
 use DateTimeImmutable;
 use Otp\Application\Exception\OtpNotFoundException;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
 use Otp\Application\UseCase\Query\Challenge\GetChallengeStatus\{GetChallengeStatusHandler, GetChallengeStatusQuery, GetChallengeStatusResult};
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Query\MetadataField\ListMetadataFields;
 
 use DateTimeImmutable;
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\{ListMetadataFieldsHandler, ListMetadataFieldsQuery, ListMetadataFieldsResult};
 use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{

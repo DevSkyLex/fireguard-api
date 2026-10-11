@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests;
 
-use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\ApprovalDecisionLockPort;
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Domain\Event\Request\ApprovalExpiredEvent;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};

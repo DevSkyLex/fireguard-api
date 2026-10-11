@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeDevice\{RevokeDeviceCommand, RevokeDeviceHandler, RevokeDeviceResult};
 use TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException;
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;

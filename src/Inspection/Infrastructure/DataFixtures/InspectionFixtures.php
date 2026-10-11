@@ -6,17 +6,15 @@ namespace Inspection\Infrastructure\DataFixtures;
 
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
-use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Facility\Infrastructure\DataFixtures\FacilityFixtures;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Equipment\Application\Contract\Seed\SeedCatalog as EquipmentFixtures;
+use Facility\Application\Contract\Seed\SeedCatalog as FacilityFixtures;
 use Inspection\Domain\ValueObject\{ChecklistStatus, InspectionResult, InspectionStatus, InspectorType, NonConformitySeverity, NonConformityStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord, InspectionRecord, NonConformityRecord};
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
+use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
+use Shared\Application\Contract\Seed\SeedReference;
+use Shared\Application\Contract\Seed\{SeedTimeline, SeedUuid};
+use Shared\Application\Port\Inbound\{SeedReferenceConsumerPort, SeedReferenceRegistryPort};
 
 use function intdiv;
 use function sprintf;
@@ -28,8 +26,10 @@ use function sprintf;
  *
  * @category DataFixtures
  */
-final class InspectionFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+final class InspectionFixtures extends Fixture implements FixtureGroupInterface, SeedReferenceConsumerPort
 {
+  // #endregion
+
   // #region Constants
   /** Constant CHECKLIST_REFERENCE
    *
@@ -140,6 +140,22 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @var string
    */
   private const string AQUAFIRE_MAINTENANCE_NAME = 'AquaFire Maintenance';
+
+  // #region Properties
+  /**
+   * Scalar fixture facts supplied by the composition root.
+   */
+  private SeedReferenceRegistryPort $seedReferences;
+  // #endregion
+
+  // #region Methods
+  /**
+   * {@inheritdoc}
+   */
+  public function setSeedReferences(SeedReferenceRegistryPort $references): void
+  {
+    $this->seedReferences = $references;
+  }
   // #endregion
 
   // #region Methods
@@ -170,11 +186,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    */
   public function getDependencies(): array
   {
-    return [
-      OrganizationFixtures::class,
-      FacilityFixtures::class,
-      EquipmentFixtures::class,
-    ];
+    return [];
   }
 
   /**
@@ -190,8 +202,8 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    */
   public function load(ObjectManager $manager): void
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
+    /** @var SeedReference $organization */
+    $organization = $this->seedReferences->get(OrganizationFixtures::ORGANIZATION_REFERENCE);
 
     $checklist = $this->seedMonthlyChecklist($manager, $organization);
     $coreInspections = $this->seedCoreInspections($manager, $organization, $checklist);
@@ -217,17 +229,17 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    *
    * @return ChecklistRecord seeded checklist record
    */
-  private function seedMonthlyChecklist(ObjectManager $manager, OrganizationRecord $organization): ChecklistRecord
+  private function seedMonthlyChecklist(ObjectManager $manager, SeedReference $organization): ChecklistRecord
   {
 
 
     $checklist = new ChecklistRecord();
     $checklist->id = self::TREND_CHECKLIST_ID;
-    $checklist->organization = $organization;
+    $checklist->organizationId = $organization->id;
     $checklist->name = 'Monthly Equipment Check';
     $checklist->version = 'v1.0';
     $checklist->status = ChecklistStatus::ACTIVE->value;
@@ -257,14 +269,14 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
   /**
    * @return array{partial: InspectionRecord, failing: InspectionRecord, lateFail: InspectionRecord, latePartial: InspectionRecord}
    */
-  private function seedCoreInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): array
+  private function seedCoreInspections(ObjectManager $manager, SeedReference $organization, ChecklistRecord $checklist): array
   {
-    /** @var EquipmentRecord $extinguisher */
-    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $detector */
-    $detector = $this->getReference(EquipmentFixtures::DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $zone */
-    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
+    /** @var SeedReference $extinguisher */
+    $extinguisher = $this->seedReferences->get(EquipmentFixtures::EXTINGUISHER_REFERENCE);
+    /** @var SeedReference $detector */
+    $detector = $this->seedReferences->get(EquipmentFixtures::DETECTOR_REFERENCE);
+    /** @var SeedReference $zone */
+    $zone = $this->seedReferences->get(FacilityFixtures::ZONE_REFERENCE);
 
     $passingInspection = $this->createInspection(
       organization: $organization,
@@ -404,33 +416,33 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param ChecklistRecord $checklist monthly checklist
    *
    * @return void
    */
-  private function seedAprilCoreInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
+  private function seedAprilCoreInspections(ObjectManager $manager, SeedReference $organization, ChecklistRecord $checklist): void
   {
-    /** @var EquipmentRecord $extinguisher */
-    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $zone */
-    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $siteEmergencyLighting */
-    $siteEmergencyLighting = $this->getReference(EquipmentFixtures::SITE_EMERGENCY_LIGHTING_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $site */
-    $site = $this->getReference(FacilityFixtures::SITE_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $buildingFireDoor */
-    $buildingFireDoor = $this->getReference(EquipmentFixtures::BUILDING_FIRE_DOOR_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $building */
-    $building = $this->getReference(FacilityFixtures::BUILDING_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $floorOneCamera */
-    $floorOneCamera = $this->getReference(EquipmentFixtures::FLOOR_ONE_CAMERA_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $floorOne */
-    $floorOne = $this->getReference(FacilityFixtures::FLOOR_ONE_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $floorTwoGasDetector */
-    $floorTwoGasDetector = $this->getReference(EquipmentFixtures::FLOOR_TWO_GAS_DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $floorTwo */
-    $floorTwo = $this->getReference(FacilityFixtures::FLOOR_TWO_REFERENCE, FacilityRecord::class);
+    /** @var SeedReference $extinguisher */
+    $extinguisher = $this->seedReferences->get(EquipmentFixtures::EXTINGUISHER_REFERENCE);
+    /** @var SeedReference $zone */
+    $zone = $this->seedReferences->get(FacilityFixtures::ZONE_REFERENCE);
+    /** @var SeedReference $siteEmergencyLighting */
+    $siteEmergencyLighting = $this->seedReferences->get(EquipmentFixtures::SITE_EMERGENCY_LIGHTING_REFERENCE);
+    /** @var SeedReference $site */
+    $site = $this->seedReferences->get(FacilityFixtures::SITE_REFERENCE);
+    /** @var SeedReference $buildingFireDoor */
+    $buildingFireDoor = $this->seedReferences->get(EquipmentFixtures::BUILDING_FIRE_DOOR_REFERENCE);
+    /** @var SeedReference $building */
+    $building = $this->seedReferences->get(FacilityFixtures::BUILDING_REFERENCE);
+    /** @var SeedReference $floorOneCamera */
+    $floorOneCamera = $this->seedReferences->get(EquipmentFixtures::FLOOR_ONE_CAMERA_REFERENCE);
+    /** @var SeedReference $floorOne */
+    $floorOne = $this->seedReferences->get(FacilityFixtures::FLOOR_ONE_REFERENCE);
+    /** @var SeedReference $floorTwoGasDetector */
+    $floorTwoGasDetector = $this->seedReferences->get(EquipmentFixtures::FLOOR_TWO_GAS_DETECTOR_REFERENCE);
+    /** @var SeedReference $floorTwo */
+    $floorTwo = $this->seedReferences->get(FacilityFixtures::FLOOR_TWO_REFERENCE);
 
     $recentPassInspection = $this->createInspection(
       organization: $organization,
@@ -682,18 +694,18 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    *
    * @return ChecklistRecord seeded annual checklist
    */
-  private function seedAnnualChecklist(ObjectManager $manager, OrganizationRecord $organization): ChecklistRecord
+  private function seedAnnualChecklist(ObjectManager $manager, SeedReference $organization): ChecklistRecord
   {
 
 
     // Annual Safety Checklist
     $annualChecklist = new ChecklistRecord();
     $annualChecklist->id = 'd0ff24d9-e54d-427d-bfa0-eb99268ffdf2';
-    $annualChecklist->organization = $organization;
+    $annualChecklist->organizationId = $organization->id;
     $annualChecklist->name = 'Annual Safety Audit';
     $annualChecklist->version = 'v1.0';
     $annualChecklist->status = ChecklistStatus::ACTIVE->value;
@@ -728,21 +740,21 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param ChecklistRecord $annualChecklist annual checklist
    *
    * @return void
    */
-  private function seedAnnualWinterInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $annualChecklist): void
+  private function seedAnnualWinterInspections(ObjectManager $manager, SeedReference $organization, ChecklistRecord $annualChecklist): void
   {
-    /** @var EquipmentRecord $hydrant */
-    $hydrant = $this->getReference(EquipmentFixtures::HYDRANT_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $sprinkler */
-    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $alarmPanel */
-    $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $zoneB */
-    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
+    /** @var SeedReference $hydrant */
+    $hydrant = $this->seedReferences->get(EquipmentFixtures::HYDRANT_REFERENCE);
+    /** @var SeedReference $sprinkler */
+    $sprinkler = $this->seedReferences->get(EquipmentFixtures::SPRINKLER_REFERENCE);
+    /** @var SeedReference $alarmPanel */
+    $alarmPanel = $this->seedReferences->get(EquipmentFixtures::ALARM_PANEL_REFERENCE);
+    /** @var SeedReference $zoneB */
+    $zoneB = $this->seedReferences->get(FacilityFixtures::ZONE_B_REFERENCE);
 
     // February – hydrant annual inspection (PASS, closed)
     $hydrantPassInspection = $this->createInspection(
@@ -848,26 +860,26 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param ChecklistRecord $checklist monthly checklist
    * @param ChecklistRecord $annualChecklist annual checklist
    *
    * @return void
    */
-  private function seedSpringInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
+  private function seedSpringInspections(ObjectManager $manager, SeedReference $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
   {
-    /** @var EquipmentRecord $heatDetector */
-    $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $storageRoom */
-    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $extinguisher */
-    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $area */
-    $area = $this->getReference(FacilityFixtures::AREA_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $sprinkler */
-    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $zoneB */
-    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
+    /** @var SeedReference $heatDetector */
+    $heatDetector = $this->seedReferences->get(EquipmentFixtures::HEAT_DETECTOR_REFERENCE);
+    /** @var SeedReference $storageRoom */
+    $storageRoom = $this->seedReferences->get(FacilityFixtures::STORAGE_ROOM_REFERENCE);
+    /** @var SeedReference $extinguisher */
+    $extinguisher = $this->seedReferences->get(EquipmentFixtures::EXTINGUISHER_REFERENCE);
+    /** @var SeedReference $area */
+    $area = $this->seedReferences->get(FacilityFixtures::AREA_REFERENCE);
+    /** @var SeedReference $sprinkler */
+    $sprinkler = $this->seedReferences->get(EquipmentFixtures::SPRINKLER_REFERENCE);
+    /** @var SeedReference $zoneB */
+    $zoneB = $this->seedReferences->get(FacilityFixtures::ZONE_B_REFERENCE);
 
     // March – heat detector in storage room (DRAFT, in progress)
     $heatDetectorDraftInspection = $this->createInspection(
@@ -957,30 +969,30 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param ChecklistRecord $checklist monthly checklist
    * @param ChecklistRecord $annualChecklist annual checklist
    *
    * @return void
    */
-  private function seedJanuaryInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
+  private function seedJanuaryInspections(ObjectManager $manager, SeedReference $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
   {
-    /** @var EquipmentRecord $extinguisher */
-    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $zone */
-    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $detector */
-    $detector = $this->getReference(EquipmentFixtures::DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $area */
-    $area = $this->getReference(FacilityFixtures::AREA_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $hydrant */
-    $hydrant = $this->getReference(EquipmentFixtures::HYDRANT_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $alarmPanel */
-    $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $zoneB */
-    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $sprinkler */
-    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
+    /** @var SeedReference $extinguisher */
+    $extinguisher = $this->seedReferences->get(EquipmentFixtures::EXTINGUISHER_REFERENCE);
+    /** @var SeedReference $zone */
+    $zone = $this->seedReferences->get(FacilityFixtures::ZONE_REFERENCE);
+    /** @var SeedReference $detector */
+    $detector = $this->seedReferences->get(EquipmentFixtures::DETECTOR_REFERENCE);
+    /** @var SeedReference $area */
+    $area = $this->seedReferences->get(FacilityFixtures::AREA_REFERENCE);
+    /** @var SeedReference $hydrant */
+    $hydrant = $this->seedReferences->get(EquipmentFixtures::HYDRANT_REFERENCE);
+    /** @var SeedReference $alarmPanel */
+    $alarmPanel = $this->seedReferences->get(EquipmentFixtures::ALARM_PANEL_REFERENCE);
+    /** @var SeedReference $zoneB */
+    $zoneB = $this->seedReferences->get(FacilityFixtures::ZONE_B_REFERENCE);
+    /** @var SeedReference $sprinkler */
+    $sprinkler = $this->seedReferences->get(EquipmentFixtures::SPRINKLER_REFERENCE);
 
     // ── January ─────────────────────────────────────────────────────────────
 
@@ -1114,21 +1126,21 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param ChecklistRecord $checklist monthly checklist
    *
    * @return void
    */
-  private function seedFebruaryInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
+  private function seedFebruaryInspections(ObjectManager $manager, SeedReference $organization, ChecklistRecord $checklist): void
   {
-    /** @var EquipmentRecord $heatDetector */
-    $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $storageRoom */
-    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $extinguisher */
-    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $zone */
-    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
+    /** @var SeedReference $heatDetector */
+    $heatDetector = $this->seedReferences->get(EquipmentFixtures::HEAT_DETECTOR_REFERENCE);
+    /** @var SeedReference $storageRoom */
+    $storageRoom = $this->seedReferences->get(FacilityFixtures::STORAGE_ROOM_REFERENCE);
+    /** @var SeedReference $extinguisher */
+    $extinguisher = $this->seedReferences->get(EquipmentFixtures::EXTINGUISHER_REFERENCE);
+    /** @var SeedReference $zone */
+    $zone = $this->seedReferences->get(FacilityFixtures::ZONE_REFERENCE);
 
     // ── February extras ──────────────────────────────────────────────────────
 
@@ -1199,26 +1211,26 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param ChecklistRecord $checklist monthly checklist
    * @param ChecklistRecord $annualChecklist annual checklist
    *
    * @return void
    */
-  private function seedMarchAprilInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
+  private function seedMarchAprilInspections(ObjectManager $manager, SeedReference $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
   {
-    /** @var EquipmentRecord $sprinkler */
-    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $zoneB */
-    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $alarmPanel */
-    $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $heatDetector */
-    $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $storageRoom */
-    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
-    /** @var EquipmentRecord $hydrant */
-    $hydrant = $this->getReference(EquipmentFixtures::HYDRANT_REFERENCE, EquipmentRecord::class);
+    /** @var SeedReference $sprinkler */
+    $sprinkler = $this->seedReferences->get(EquipmentFixtures::SPRINKLER_REFERENCE);
+    /** @var SeedReference $zoneB */
+    $zoneB = $this->seedReferences->get(FacilityFixtures::ZONE_B_REFERENCE);
+    /** @var SeedReference $alarmPanel */
+    $alarmPanel = $this->seedReferences->get(EquipmentFixtures::ALARM_PANEL_REFERENCE);
+    /** @var SeedReference $heatDetector */
+    $heatDetector = $this->seedReferences->get(EquipmentFixtures::HEAT_DETECTOR_REFERENCE);
+    /** @var SeedReference $storageRoom */
+    $storageRoom = $this->seedReferences->get(FacilityFixtures::STORAGE_ROOM_REFERENCE);
+    /** @var SeedReference $hydrant */
+    $hydrant = $this->seedReferences->get(EquipmentFixtures::HYDRANT_REFERENCE);
 
     // ── March extras ─────────────────────────────────────────────────────────
 
@@ -1386,17 +1398,17 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @access private
    *
    * @param ObjectManager $manager fixture persistence manager
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param ChecklistRecord $checklist checklist assigned to the inspections
    *
    * @return void
    */
-  private function seedAdditionalEquipmentInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
+  private function seedAdditionalEquipmentInspections(ObjectManager $manager, SeedReference $organization, ChecklistRecord $checklist): void
   {
     $indexes = ['inspection' => 0, 'nonConformity' => 0];
     foreach (EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS as $equipmentIndex => $seed) {
-      /** @var EquipmentRecord $equipment */
-      $equipment = $this->getReference($seed['reference'], EquipmentRecord::class);
+      /** @var SeedReference $equipment */
+      $equipment = $this->seedReferences->get($seed['reference']);
       $context = [
         'organization' => $organization,
         'checklist' => $checklist,
@@ -1411,7 +1423,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
   }
 
   /**
-   * @param array{organization: OrganizationRecord, checklist: ChecklistRecord, equipment: EquipmentRecord, locationLabel: string} $context
+   * @param array{organization: SeedReference, checklist: ChecklistRecord, equipment: SeedReference, locationLabel: string} $context
    * @param array{inspection: int, nonConformity: int} $indexes
    */
   private function seedAdditionalInspection(ObjectManager $manager, array $context, int $equipmentIndex, int $inspectionIndex, array &$indexes): void
@@ -1540,7 +1552,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    *
    * @access private
    *
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param SeedInspectionIdentity $identity identifiers and associations
    * @param SeedInspectionObservation $observation inspection values
    * @param ?string $notes optional inspection notes
@@ -1548,14 +1560,14 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
    * @return InspectionRecord created inspection record
    */
   private function createInspection(
-    OrganizationRecord $organization,
+    SeedReference $organization,
     SeedInspectionIdentity $identity,
     SeedInspectionObservation $observation,
     ?string $notes,
   ): InspectionRecord {
     $inspection = new InspectionRecord();
     $inspection->id = $identity->id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = $identity->equipmentId;
     $inspection->facilityId = $identity->facilityId;
     $inspection->inspectorType = $observation->inspectorType;

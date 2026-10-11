@@ -6,14 +6,16 @@ namespace Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\RemoveOrganizationMembersInput;
 use Organization\Presentation\Api\Dto\Output\Organization\RemoveOrganizationMembersOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
@@ -79,7 +81,7 @@ final readonly class RemoveOrganizationMembersProcessor implements ProcessorInte
     array $context = [],
   ): RemoveOrganizationMembersOutput {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Application\UseCase\Query\Client\ListClients;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
 use OAuth\Application\UseCase\Query\Client\ListClients\{
   ListClientsHandler,

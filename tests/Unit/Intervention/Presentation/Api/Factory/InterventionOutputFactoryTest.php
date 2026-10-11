@@ -4,16 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Intervention\Presentation\Api\Factory;
 
-use DateTimeImmutable;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
-use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
-use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
-use LogicException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -39,7 +31,7 @@ final class InterventionOutputFactoryTest extends TestCase
       ['id' => 'label-2', 'name' => 'Follow-up', 'color' => '#00ff00'],
     ]));
 
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())->fromView($view);
+    $output = new InterventionOutputFactory()->fromView($view);
 
     self::assertSame(
       [
@@ -55,18 +47,19 @@ final class InterventionOutputFactoryTest extends TestCase
   {
     $view = new InterventionWorkflowView('intervention', 'organization-1', $this->baseData([]));
 
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())->fromView($view);
+    $output = new InterventionOutputFactory()->fromView($view);
 
     self::assertSame([], $output->labels);
   }
 
   #[Test]
-  public function itOffersWithdrawalAlongsideChangesRequestedFromSubmitted(): void
+  public function itMapsTheAuthorizedTransitionSnapshot(): void
   {
     $data = $this->baseData([]);
     $data['status'] = 'submitted';
+    $data['allowedTransitions'] = ['changes_requested', 'in_progress'];
 
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+    $output = new InterventionOutputFactory()
       ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
 
     self::assertSame(['changes_requested', 'in_progress'], $output->allowedTransitions);
@@ -78,7 +71,7 @@ final class InterventionOutputFactoryTest extends TestCase
     $data = $this->baseData([]);
     $data['status'] = 'archived_by_hand';
 
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+    $output = new InterventionOutputFactory()
       ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
 
     self::assertSame([], $output->allowedTransitions);
@@ -90,7 +83,7 @@ final class InterventionOutputFactoryTest extends TestCase
     $data = $this->baseData([]);
     $data['recurrence'] = '/api/intervention-recurrences/recurrence-1';
 
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+    $output = new InterventionOutputFactory()
       ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
 
     self::assertSame('/api/intervention-recurrences/recurrence-1', $output->recurrence);
@@ -104,7 +97,7 @@ final class InterventionOutputFactoryTest extends TestCase
     $data = $this->baseData([]);
     self::assertArrayNotHasKey('recurrence', $data);
 
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+    $output = new InterventionOutputFactory()
       ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
 
     self::assertNull($output->recurrence);
@@ -113,20 +106,21 @@ final class InterventionOutputFactoryTest extends TestCase
   #[Test]
   public function itLeavesAllowedActionsAbsentOnTheCallerAgnosticFromView(): void
   {
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+    $output = new InterventionOutputFactory()
       ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $this->baseData([])));
 
     self::assertNull($output->allowedActions);
   }
 
   #[Test]
-  public function itPopulatesAllowedActionsFromTheSharedActionPolicyForTheCaller(): void
+  public function itMapsTheAuthorizedActionSnapshotForTheCaller(): void
   {
     $data = $this->baseData([]);
     $data['status'] = 'draft';
+    $data['allowedActions'] = $this->actions();
     $view = new InterventionWorkflowView('intervention', self::ORGANIZATION_UUID, $data);
 
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy())
+    $output = new InterventionOutputFactory()
       ->fromViewForCaller($view, self::MEMBER_ID);
 
     self::assertNotNull($output->allowedActions);
@@ -137,47 +131,46 @@ final class InterventionOutputFactoryTest extends TestCase
   }
 
   #[Test]
-  public function itResolvesTheResponsibleAndParticipantIrisBackToRawMemberIdsForIdentityChecks(): void
+  public function itDoesNotPromoteADeniedActionWhenTheCallerMatchesTheResponsibleIri(): void
   {
     $data = $this->baseData([]);
     $data['status'] = 'in_progress';
     $data['responsible'] = '/api/organizations/' . self::ORGANIZATION_UUID . '/members/' . self::MEMBER_ID;
+    $data['allowedActions'] = $this->actions(canSubmit: false);
     $view = new InterventionWorkflowView('intervention', self::ORGANIZATION_UUID, $data);
 
-    $output = new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy())
+    $output = new InterventionOutputFactory()
       ->fromViewForCaller($view, self::MEMBER_ID);
 
     self::assertNotNull($output->allowedActions);
-    self::assertTrue($output->allowedActions->canSubmit);
+    self::assertFalse($output->allowedActions->canSubmit);
+    self::assertSame($data['responsible'], $output->responsible);
   }
 
   #[Test]
-  public function itRefusesToBuildTheCallerSpecificOutputWithoutAWiredActionPolicy(): void
+  public function itLeavesActionsAbsentWhenTheApplicationSnapshotIsMissing(): void
   {
-    $factory = new InterventionOutputFactory(new InterventionTransitionPolicy());
+    $factory = new InterventionOutputFactory();
 
-    $this->expectException(LogicException::class);
-
-    $factory->fromViewForCaller(new InterventionWorkflowView('intervention', 'organization-1', $this->baseData([])), self::MEMBER_ID);
+    $output = $factory->fromViewForCaller(new InterventionWorkflowView('intervention', 'organization-1', $this->baseData([])), self::MEMBER_ID);
+    self::assertNull($output->allowedActions);
   }
 
-  private function actionPolicy(): InterventionActionPolicy
+  private function actions(bool $canSubmit = false): \Intervention\Application\Contract\Workflow\InterventionAllowedActions
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $repository->method('findByOrganizationAndUser')->willReturnCallback(
-      static fn (OrganizationId $organizationId, string $userId): ?OrganizationMember => self::MEMBER_ID === $userId
-        ? OrganizationMember::reconstitute(OrganizationMemberId::fromString(self::MEMBER_ID), $organizationId, $userId, true, new DateTimeImmutable())
-        : null,
-    );
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    return new InterventionActionPolicy(
-      $authorization,
-      new InterventionMemberPolicy($repository),
-      new InterventionTransitionPolicy(),
-      new InterventionMutabilityPolicy(),
-      new InterventionChangePolicy(),
+    return new \Intervention\Application\Contract\Workflow\InterventionAllowedActions(
+      canEditDetails: true,
+      canEditSite: true,
+      canEditResponsible: true,
+      canEditPlanning: true,
+      canMutateWorkItems: true,
+      canMutateChanges: true,
+      canAssignTeam: true,
+      canManageAttachments: true,
+      canSubmit: $canSubmit,
+      canWithdraw: false,
+      canDelete: true,
+      canPublish: false,
     );
   }
 

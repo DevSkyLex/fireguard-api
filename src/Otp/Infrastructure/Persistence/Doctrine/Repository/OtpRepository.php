@@ -7,7 +7,7 @@ namespace Otp\Infrastructure\Persistence\Doctrine\Repository;
 use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{OtpId, OtpPurpose};
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\OtpMapper;

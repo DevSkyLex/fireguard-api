@@ -7,9 +7,7 @@ namespace Auth\Application\UseCase\Command\PasswordChange\RequestPasswordChange;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use Shared\Application\Message\CommandHandler;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\Exception\{InvalidPasswordException, InvalidUserException};
-use User\Domain\ValueObject\UserId;
+use User\Application\Port\Inbound\UserCredentialsPort;
 
 /**
  * Handler RequestPasswordChangeHandler.
@@ -34,11 +32,11 @@ final readonly class RequestPasswordChangeHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param UserRepositoryPort $userRepository the user repository port
+   * @param UserCredentialsPort $userRepository the user repository port
    * @param OtpChallengePort $otpChallenge the OTP challenge port
    */
   public function __construct(
-    private readonly UserRepositoryPort $userRepository,
+    private readonly UserCredentialsPort $userRepository,
     private readonly OtpChallengePort $otpChallenge,
   ) {
   }
@@ -58,46 +56,26 @@ final readonly class RequestPasswordChangeHandler implements CommandHandler
    */
   public function __invoke(RequestPasswordChangeCommand $command): RequestPasswordChangeResult
   {
-    $user = $this->userRepository->findById(new UserId($command->userId));
-
-    if (null === $user) {
+    $authentication = $this->userRepository->authenticate($command->userId, $command->currentPassword);
+    if ('authenticated' !== $authentication->status || null === $authentication->user) {
       return RequestPasswordChangeResult::failed(
-        message: 'User not found.',
-        errorCode: RequestPasswordChangeResult::ERROR_USER_NOT_FOUND,
+        message: match ($authentication->status) {
+          'invalid_password' => 'The current password is incorrect.',
+          'unavailable' => 'This account cannot change its password in its current state.',
+          default => 'User not found.',
+        },
+        errorCode: 'invalid_password' === $authentication->status
+          ? RequestPasswordChangeResult::ERROR_INVALID_PASSWORD
+          : RequestPasswordChangeResult::ERROR_USER_NOT_FOUND,
       );
     }
-
-    // Verify the current password before issuing an OTP challenge.
-    // authenticate() tracks failed attempts and locks the account
-    // past the threshold, giving brute-force protection for free.
-    $authenticationFailure = null;
-
-    try {
-      $user->authenticate($command->currentPassword);
-      $this->userRepository->save($user);
-    } catch (InvalidPasswordException) {
-      $this->userRepository->save($user);
-
-      $authenticationFailure = RequestPasswordChangeResult::failed(
-        message: 'The current password is incorrect.',
-        errorCode: RequestPasswordChangeResult::ERROR_INVALID_PASSWORD,
-      );
-    } catch (InvalidUserException) {
-      $authenticationFailure = RequestPasswordChangeResult::failed(
-        message: 'This account cannot change its password in its current state.',
-        errorCode: RequestPasswordChangeResult::ERROR_USER_NOT_FOUND,
-      );
-    }
-
-    if (null !== $authenticationFailure) {
-      return $authenticationFailure;
-    }
+    $user = $authentication->user;
 
     $challenge = $this->otpChallenge->generate(
-      userId: (string) $user->id(),
+      userId: $user->id,
       purpose: OtpPurpose::SENSITIVE_OPERATION,
       channel: OtpChannel::EMAIL,
-      recipient: $user->email()->value,
+      recipient: $user->email,
     );
 
     return RequestPasswordChangeResult::success(

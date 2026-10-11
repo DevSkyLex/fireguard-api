@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Provider\Plan;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Application\UseCase\Query\Plan\GetPlan\{GetPlanQuery, GetPlanResult};
 use Organization\Presentation\Api\Dto\Output\Plan\PlanOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -60,7 +60,7 @@ final readonly class GetPlanProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?PlanOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

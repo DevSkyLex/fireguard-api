@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Messaging\Application\UseCase\Command\ReadMarker\AcknowledgeDelivery;
 
 use DateTimeImmutable;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort, MessagingReadMarkerRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingReadMarkerRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\ValueObject\ConversationVisibility;

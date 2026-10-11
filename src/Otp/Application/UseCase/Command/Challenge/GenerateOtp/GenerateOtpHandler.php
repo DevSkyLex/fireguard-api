@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Otp\Application\UseCase\Command\Challenge\GenerateOtp;
 
-use Otp\Application\Port\Outbound\Challenge\{OtpNotifierPort, OtpRepositoryPort};
+use Otp\Application\Port\Outbound\Internal\Challenge\{OtpNotifierPort, OtpRepositoryPort};
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{OtpChannel as DomainOtpChannel, OtpGenerationOptions, OtpId, OtpPurpose as DomainOtpPurpose};
 use Shared\Application\Contract\Notification\EmailRequestDetails;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
 
 /**
@@ -34,7 +33,7 @@ final readonly class GenerateOtpHandler implements CommandHandler
    *
    * @param OtpRepositoryPort $otpRepository the OTP repository
    * @param OtpNotifierPort $otpNotifier the OTP notifier
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param int $otpCodeLength the OTP code length
    * @param ?GeoIpLookupPort $geoIp optional local email enrichment
    * @param ?RequestOriginPort $requestOrigin transient origin of the email request
@@ -42,8 +41,7 @@ final readonly class GenerateOtpHandler implements CommandHandler
   public function __construct(
     private readonly OtpRepositoryPort $otpRepository,
     private readonly OtpNotifierPort $otpNotifier,
-    private readonly UuidFactory $uuidFactory,
-    #[Autowire('%env(int:OTP_CODE_LENGTH)%')]
+    private readonly UuidGeneratorPort $uuidFactory,
     private readonly int $otpCodeLength = 6,
     private ?GeoIpLookupPort $geoIp = null,
     private ?RequestOriginPort $requestOrigin = null,
@@ -75,7 +73,7 @@ final readonly class GenerateOtpHandler implements CommandHandler
     );
 
     // Generate new OTP
-    $otpId = $this->uuidFactory->create(OtpId::class);
+    $otpId = new OtpId($this->uuidFactory->generate());
 
     $otp = Otp::generate(
       id: $otpId,

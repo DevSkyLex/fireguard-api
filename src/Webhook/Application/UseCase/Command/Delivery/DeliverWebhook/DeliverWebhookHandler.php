@@ -4,34 +4,30 @@ declare(strict_types=1);
 
 namespace Webhook\Application\UseCase\Command\Delivery\DeliverWebhook;
 
-use DateInterval;
 use DateTimeImmutable;
-use Psr\Log\LoggerInterface;
 use Shared\Application\Message\{CommandHandler, VoidResult};
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryRepositoryPort, WebhookHttpClientPort, WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
-use Webhook\Domain\Exception\WebhookDeliveryAttemptFailedException;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort, UuidGeneratorPort};
+use Throwable;
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookDeliveryWorkPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\{WebhookDeliverySchedulePort, WebhookHttpClientPort, WebhookSecretCipherPort};
+use Webhook\Domain\Exception\WebhookValidationException;
 use Webhook\Domain\Model\Delivery\WebhookDelivery;
+use Webhook\Domain\Service\WebhookUrlPolicy;
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus};
 
 use function hash_hmac;
 use function json_encode;
-use function min;
+use function max;
 use function sprintf;
 
 use const JSON_THROW_ON_ERROR;
 
 /**
- * UseCase DeliverWebhookHandler.
+ * Class DeliverWebhookHandler
  *
- * The actual outbound POST stage: decrypts the subscription's signing
- * secret just-in-time, computes the HMAC-SHA256 signature over
- * `{timestamp}.{rawBody}` (never logging the plaintext secret), sends the
- * request via `WebhookHttpClientPort` (redirect-following disabled,
- * host re-validated at send time by the adapter — SSRF/DNS-rebinding
- * hardening), and records the outcome. Idempotent: a delivery already
- * `delivered` or terminally `failed` is a safe no-op on Messenger
- * redelivery.
+ * Owns a short durable lease, performs HTTP without a database transaction and
+ * confirms only its generation and attempt token. HTTP retries use durable wakes;
+ * Messenger's five retries are reserved for unexpected technical exceptions.
  *
  * @category UseCase
  * @version 1.0.0
@@ -40,100 +36,86 @@ use const JSON_THROW_ON_ERROR;
  */
 final readonly class DeliverWebhookHandler implements CommandHandler
 {
-  // #region Constants
-  /**
-   * Constant MAX_ATTEMPTS.
-   *
-   * Mirrors the `webhook` Messenger transport's `retry_strategy.max_retries`
-   * (5): once this many attempts have been made, the delivery is marked
-   * terminally `failed` instead of throwing to request another retry.
-   *
-   * @since 1.0.0
-   *
-   * @var int MAX_ATTEMPTS
-   */
-  private const int MAX_ATTEMPTS = 5;
-
-  /**
-   * Constant RETRY_BASE_DELAY_SECONDS.
-   *
-   * Mirrors the `webhook` transport's `retry_strategy.delay` (1000ms),
-   * used only to compute the informational `nextRetryAt` column — the
-   * actual redelivery timing is owned by Messenger, not by this estimate.
-   *
-   * @since 1.0.0
-   *
-   * @var int RETRY_BASE_DELAY_SECONDS
-   */
-  private const int RETRY_BASE_DELAY_SECONDS = 1;
-
-  /**
-   * Constant RETRY_MULTIPLIER.
-   *
-   * Mirrors the `webhook` transport's `retry_strategy.multiplier` (3).
-   *
-   * @since 1.0.0
-   *
-   * @var int RETRY_MULTIPLIER
-   */
-  private const int RETRY_MULTIPLIER = 3;
-
-  /**
-   * Constant RETRY_MAX_DELAY_SECONDS.
-   *
-   * Mirrors the `webhook` transport's `retry_strategy.max_delay` (3600000ms).
-   *
-   * @since 1.0.0
-   *
-   * @var int RETRY_MAX_DELAY_SECONDS
-   */
-  private const int RETRY_MAX_DELAY_SECONDS = 3600;
-
-  // #endregion
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
+   * @access public
    * @since 1.0.0
    *
-   * @param WebhookDeliveryRepositoryPort $deliveryRepository the webhook delivery repository port
-   * @param WebhookSubscriptionRepositoryPort $subscriptionRepository the webhook subscription repository port
-   * @param WebhookSecretCipherPort $cipher the signing secret cipher port
-   * @param WebhookHttpClientPort $httpClient the outbound HTTP client port
-   * @param LoggerInterface $logger the logger
-   * @param int $timeoutSeconds the outbound request timeout, in seconds
+   * @param WebhookDeliveryRepositoryPort $deliveryRepository delivery lookup
+   * @param WebhookSubscriptionRepositoryPort $subscriptionRepository target lookup
+   * @param WebhookSecretCipherPort $cipher signing secret decryption
+   * @param WebhookHttpClientPort $httpClient bounded, guarded HTTP delivery
+   * @param LoggerPort $logger safe diagnostics
+   * @param WebhookDeliveryWorkPort $work durable fenced attempt state
+   * @param WebhookDeliverySchedulePort $schedule durable wake scheduling
+   * @param UuidGeneratorPort $ids attempt identifiers
+   * @param TransactionManagerPort $transactionManager main transaction boundary
+   * @param WebhookUrlPolicy $urlPolicy pure destination policy before consuming HTTP
+   * @param int $timeoutSeconds outbound timeout, bounded to 60 seconds by the adapter
+   *
+   * @return void
    */
   public function __construct(
     private WebhookDeliveryRepositoryPort $deliveryRepository,
     private WebhookSubscriptionRepositoryPort $subscriptionRepository,
     private WebhookSecretCipherPort $cipher,
     private WebhookHttpClientPort $httpClient,
-    private LoggerInterface $logger,
-    #[Autowire('%env(int:WEBHOOK_HTTP_TIMEOUT)%')]
+    private LoggerPort $logger,
+    private WebhookDeliveryWorkPort $work,
+    private WebhookDeliverySchedulePort $schedule,
+    private UuidGeneratorPort $ids,
+    private TransactionManagerPort $transactionManager,
+    private WebhookUrlPolicy $urlPolicy,
     private int $timeoutSeconds = 10,
   ) {
   }
-
   // #endregion
+
   // #region Methods
   /**
-   * Method __invoke.
+   * Method __invoke
    *
+   * Claims work before sending and retains a durable wake for busy/future deliveries.
+   *
+   * @access public
    * @since 1.0.0
    *
-   * @param DeliverWebhookCommand $command the command payload
+   * @param DeliverWebhookCommand $command generation-bound delivery command
    *
-   * @return VoidResult the command result
+   * @return VoidResult
    */
   public function __invoke(DeliverWebhookCommand $command): VoidResult
   {
-    $delivery = $this->deliveryRepository->findById(WebhookDeliveryId::fromString($command->deliveryId));
+    $now = new DateTimeImmutable();
+    $token = $this->ids->generate();
+    $generation = $command->generation();
+    $delivery = $this->work->claim($command->deliveryId, $generation, $command->wakeToken(), $token, $now);
 
     if (null === $delivery) {
-      $this->logger->error('Webhook delivery not found for delivery attempt.', ['delivery_id' => $command->deliveryId]);
-    } elseif (WebhookDeliveryStatus::PENDING === $delivery->status()) {
-      // A delivered or terminally failed delivery is a safe no-op on redelivery.
-      $this->attemptDelivery($delivery);
+      $current = $this->deliveryRepository->findById(WebhookDeliveryId::fromString($command->deliveryId));
+
+      if (null === $current) {
+        $this->logger->error('Webhook delivery not found for delivery attempt.', ['delivery_id' => $command->deliveryId]);
+      } elseif ($current->generation() === $generation && WebhookDeliveryStatus::PENDING === $current->status() && !$current->quarantined() && $current->attempts() < 5) {
+        $due = max($now->getTimestamp(), $current->leaseUntil()?->getTimestamp() ?? 0, $current->nextRetryAt()?->getTimestamp() ?? 0);
+        $this->schedule->enqueue($command->deliveryId, $generation, $now->setTimestamp($due));
+      }
+
+      return new VoidResult();
+    }
+
+    try {
+      $this->attemptDelivery($delivery, $generation, $token, $now);
+    } catch (Throwable $exception) {
+      try {
+        $this->work->technicalFailure($command->deliveryId, $generation, $token, new DateTimeImmutable());
+      } catch (Throwable) {
+        $this->logger->error('Could not release the webhook delivery lease after a technical failure.', ['delivery_id' => $command->deliveryId]);
+      }
+
+      throw $exception;
     }
 
     return new VoidResult();
@@ -142,22 +124,35 @@ final readonly class DeliverWebhookHandler implements CommandHandler
   /**
    * Method attemptDelivery
    *
-   * Attempts webhook delivery and records the resulting delivery state.
+   * Builds the signed request before consuming an HTTP attempt; confirms and
+   * enqueues the next HTTP wake together after the response.
    *
    * @access private
+   * @since 1.0.0
    *
-   * @param WebhookDelivery $delivery the delivery
+   * @param WebhookDelivery $delivery exclusively claimed delivery
+   * @param int $generation owning generation
+   * @param string $token owning attempt token
+   * @param DateTimeImmutable $now signing timestamp
    *
    * @return void
    */
-  private function attemptDelivery(WebhookDelivery $delivery): void
+  private function attemptDelivery(WebhookDelivery $delivery, int $generation, string $token, DateTimeImmutable $now): void
   {
     $subscription = $this->subscriptionRepository->findById($delivery->subscriptionId());
-    $now = new DateTimeImmutable();
 
     if (null === $subscription) {
-      $delivery->markFailed(null, 'The target subscription no longer exists.', $now);
-      $this->deliveryRepository->save($delivery);
+      $delivery->markFailed(null, 'The target subscription no longer exists.', $now, false);
+      $this->work->finish($delivery, $generation, $token);
+
+      return;
+    }
+
+    try {
+      $this->urlPolicy->assertValidUrl($subscription->url());
+    } catch (WebhookValidationException) {
+      $delivery->markFailed(null, 'The target URL is invalid or disallowed.', $now, false);
+      $this->work->finish($delivery, $generation, $token);
 
       return;
     }
@@ -166,7 +161,6 @@ final readonly class DeliverWebhookHandler implements CommandHandler
     $timestamp = (string) $now->getTimestamp();
     $secret = $this->cipher->decrypt($subscription->secretCiphertext());
     $signature = hash_hmac('sha256', $timestamp . '.' . $body, $secret);
-
     $headers = [
       'Content-Type' => 'application/json',
       'User-Agent' => 'Fireguard-Webhooks/1.0',
@@ -176,52 +170,30 @@ final readonly class DeliverWebhookHandler implements CommandHandler
       'X-Fireguard-Webhook-Signature' => 'sha256=' . $signature,
     ];
 
+    if (!$this->work->startHttpAttempt((string) $delivery->id(), $generation, $token)) {
+      return;
+    }
+    $delivery->beginHttpAttempt();
     $response = $this->httpClient->post($subscription->url(), $headers, $body, $this->timeoutSeconds);
+    $completedAt = new DateTimeImmutable();
 
     if ($response->isSuccessful()) {
-      $delivery->markDelivered((int) $response->statusCode, $now);
-      $this->deliveryRepository->save($delivery);
+      $delivery->markDelivered((int) $response->statusCode, $completedAt);
+    } else {
+      $error = $response->transportError ?? sprintf('Unexpected HTTP status %d.', $response->statusCode ?? 0);
 
-      return;
+      if ($delivery->attempts() >= 5 || 'The target URL is invalid or disallowed.' === $error) {
+        $delivery->markFailed($response->statusCode, $error, $completedAt);
+      } else {
+        $delivery->recordRetryableFailure($response->statusCode, $error, $completedAt->modify('+' . (3 ** ($delivery->attempts() - 1)) . ' seconds'), $completedAt);
+      }
     }
 
-    $error = $response->transportError ?? sprintf('Unexpected HTTP status %d.', $response->statusCode ?? 0);
-    $nextAttemptNumber = $delivery->attempts() + 1;
-
-    if ($nextAttemptNumber >= self::MAX_ATTEMPTS) {
-      $delivery->markFailed($response->statusCode, $error, $now);
-      $this->deliveryRepository->save($delivery);
-
-      return;
-    }
-
-    $delivery->recordRetryableFailure($response->statusCode, $error, self::estimateNextRetryAt($nextAttemptNumber, $now), $now);
-    $this->deliveryRepository->save($delivery);
-
-    throw new WebhookDeliveryAttemptFailedException($error);
-  }
-
-  /**
-   * Method estimateNextRetryAt.
-   *
-   * @static
-   *
-   * Informational only — Messenger's own `retry_strategy` owns the actual
-   * redelivery schedule for the `webhook` transport.
-   *
-   * @since 1.0.0
-   *
-   * @param int $attemptNumber the attempt number about to be retried
-   * @param DateTimeImmutable $now the current time
-   *
-   * @return DateTimeImmutable the estimated next retry time
-   */
-  private static function estimateNextRetryAt(int $attemptNumber, DateTimeImmutable $now): DateTimeImmutable
-  {
-    $delaySeconds = self::RETRY_BASE_DELAY_SECONDS * (self::RETRY_MULTIPLIER ** ($attemptNumber - 1));
-    $delaySeconds = min($delaySeconds, self::RETRY_MAX_DELAY_SECONDS);
-
-    return $now->add(new DateInterval('PT' . $delaySeconds . 'S'));
+    $this->transactionManager->transactional(function () use ($delivery, $generation, $token): void {
+      if ($this->work->finish($delivery, $generation, $token) && null !== $delivery->nextRetryAt()) {
+        $this->schedule->enqueue((string) $delivery->id(), $generation, $delivery->nextRetryAt());
+      }
+    });
   }
   // #endregion
 }

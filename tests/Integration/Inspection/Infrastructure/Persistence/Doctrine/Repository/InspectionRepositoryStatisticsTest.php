@@ -640,7 +640,7 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
 
     $record = new InspectionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->recordStatus = 'draft';
     $record->equipmentId = self::EQUIPMENT_A_ID;
     $record->inspectorType = 'user';

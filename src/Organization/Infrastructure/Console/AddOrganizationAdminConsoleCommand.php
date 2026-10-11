@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Console;
 
 use Organization\Application\Contract\Member\OrganizationMemberGrant;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleName};
 use Organization\Infrastructure\Exception\OrganizationConsoleUserNotFoundException;
@@ -17,8 +17,7 @@ use Symfony\Component\Console\Input\{InputArgument, InputInterface};
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Throwable;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\UserId;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function implode;
 use function is_string;
@@ -62,7 +61,7 @@ final class AddOrganizationAdminConsoleCommand extends Command
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
-   * @param UserRepositoryPort $userRepository the user repository
+   * @param UserDirectoryPort $userRepository the user repository
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationRoleRepositoryPort $organizationRoleRepository the organization role repository
    *
@@ -70,7 +69,7 @@ final class AddOrganizationAdminConsoleCommand extends Command
    */
   public function __construct(
     private readonly CommandBusPort $commandBus,
-    private readonly UserRepositoryPort $userRepository,
+    private readonly UserDirectoryPort $userRepository,
     private readonly OrganizationRepositoryPort $organizationRepository,
     private readonly OrganizationRoleRepositoryPort $organizationRoleRepository,
   ) {
@@ -325,16 +324,16 @@ HELP
   private function resolveUserId(string $identifier): string
   {
     if (str_contains($identifier, '@')) {
-      $user = $this->userRepository->findByEmail(email: new Email(value: $identifier));
+      $user = $this->userRepository->findByEmail((string) new Email(value: $identifier));
     } else {
-      $user = $this->userRepository->findById(id: new UserId(value: $identifier));
+      $user = $this->userRepository->findById($identifier);
     }
 
     if (null === $user) {
       throw new OrganizationConsoleUserNotFoundException(sprintf('User "%s" not found.', $identifier));
     }
 
-    return $user->id()->value;
+    return $user->id;
   }
   // #endregion
 }

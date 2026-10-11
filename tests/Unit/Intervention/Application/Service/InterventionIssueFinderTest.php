@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\Service;
 
 use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionIssue, InterventionResourceSummary, InterventionValidationContext, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\InterventionPublicationResourcesIssuesPort;
 use Intervention\Application\Service\InterventionIssueFinder;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Team\UpdateTeam;
 
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepositoryPort};
-use Organization\Domain\Event\Team\TeamUpdatedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNameAlreadyExistsException, TeamNotFoundException};
+use Organization\Application\Contract\Event\Team\TeamUpdatedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Domain\Exception\{TeamNameAlreadyExistsException, TeamNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, TeamId, TeamName};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;

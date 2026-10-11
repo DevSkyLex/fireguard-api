@@ -14,7 +14,7 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, Non
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\DataProvider;
-use ServiceRequest\Application\Port\Outbound\ServiceRequestRepositoryPort;
+use ServiceRequest\Application\Port\Outbound\Internal\ServiceRequestRepositoryPort;
 use ServiceRequest\Application\UseCase\Command\ConvertServiceRequest\{ConvertServiceRequestCommand, ConvertServiceRequestResult};
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
 use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestTarget};
@@ -113,7 +113,7 @@ final class ServiceRequestApiTest extends WebTestCase
     } elseif ('draft' === $scenario) {
       $equipment->recordStatus = 'draft';
     } elseif ('foreign' === $scenario) {
-      $equipment->organization = $this->organization(self::OTHER_ORG);
+      $equipment->organizationId = $this->organization(self::OTHER_ORG)->id;
     } elseif ('archived' === $scenario) {
       $this->main()->getConnection()->executeStatement("UPDATE facilities SET status = 'archived' WHERE id = ?", [self::SITE]);
     } elseif ('missing' === $scenario) {
@@ -146,7 +146,7 @@ final class ServiceRequestApiTest extends WebTestCase
     $this->seedTarget();
     $site = new FacilityRecord();
     $site->id = 'ad69061e-b12f-41de-8a66-000000000022';
-    $site->organization = $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $site->organizationId = self::ORG;
     $site->name = 'Other site';
     $site->type = 'site';
     $site->createdAt = $site->updatedAt = new DateTimeImmutable('2026-10-05T10:00:00+00:00');
@@ -172,7 +172,7 @@ final class ServiceRequestApiTest extends WebTestCase
     $this->seedTarget();
     $inspection = new InspectionRecord();
     $inspection->id = 'ad69061e-b12f-41de-8a66-000000000060';
-    $inspection->organization = 'foreign' === $scenario ? $this->organization(self::OTHER_ORG) : $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $inspection->organizationId = 'foreign' === $scenario ? $this->organization(self::OTHER_ORG)->id : self::ORG;
     $inspection->equipmentId = 'equipment' === $scenario ? 'ad69061e-b12f-41de-8a66-000000000039' : self::EQUIPMENT;
     $inspection->facilityId = 'site' === $scenario ? null : self::BUILDING;
     $inspection->recordStatus = 'draft' === $scenario ? 'draft' : 'published';
@@ -374,7 +374,7 @@ final class ServiceRequestApiTest extends WebTestCase
     self::assertIsString($body['interventionId']);
     self::assertIsString($body['taskId']);
     self::assertNotNull($body['convertedAt']);
-    self::assertSame(1, $this->main()->getRepository(InterventionRecord::class)->count(['organization' => self::ORG]));
+    self::assertSame(1, $this->main()->getRepository(InterventionRecord::class)->count(['organizationId' => self::ORG]));
     $task = $this->main()->find(InterventionWorkItemRecord::class, $body['taskId']);
     self::assertInstanceOf(InterventionWorkItemRecord::class, $task);
     self::assertSame('repair', $task->action);
@@ -397,7 +397,7 @@ final class ServiceRequestApiTest extends WebTestCase
     self::assertSame($first->request->interventionId, $body['interventionId']);
     self::assertSame($first->request->taskId, $body['taskId']);
     self::assertSame(3, $body['revision']);
-    self::assertSame(1, $this->main()->getRepository(InterventionRecord::class)->count(['organization' => self::ORG]));
+    self::assertSame(1, $this->main()->getRepository(InterventionRecord::class)->count(['organizationId' => self::ORG]));
   }
 
   public function testConversionLinksAnOpenFailedRepairAndPreservesItsExecutionHistory(): void
@@ -407,7 +407,7 @@ final class ServiceRequestApiTest extends WebTestCase
     $this->seedRequest(qualified: true);
     $order = new InterventionRecord();
     $order->id = 'ad69061e-b12f-41de-8a66-000000000070';
-    $order->organization = $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $order->organizationId = self::ORG;
     $order->name = 'Repair already open';
     $order->type = 'corrective_maintenance';
     $order->siteId = self::SITE;
@@ -449,7 +449,7 @@ final class ServiceRequestApiTest extends WebTestCase
     $first = $this->convert();
     $this->request($client, 'POST', '/' . self::REQUEST . '/convert', ['clientOperationId' => self::OPERATION, 'existingInterventionId' => $first->request->interventionId], 2);
     self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
-    self::assertSame(1, $this->main()->getRepository(InterventionRecord::class)->count(['organization' => self::ORG]));
+    self::assertSame(1, $this->main()->getRepository(InterventionRecord::class)->count(['organizationId' => self::ORG]));
     self::assertSame($first->request->taskId, $this->repository()->find(self::REQUEST, self::ORG)?->taskId);
   }
 
@@ -465,7 +465,7 @@ final class ServiceRequestApiTest extends WebTestCase
     self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
     self::assertSame('qualified', $this->repository()->find($second, self::ORG)?->status);
     self::assertNull($this->repository()->conversionReceiptForRequest($second, self::ORG));
-    self::assertSame(1, $this->main()->getRepository(InterventionRecord::class)->count(['organization' => self::ORG]));
+    self::assertSame(1, $this->main()->getRepository(InterventionRecord::class)->count(['organizationId' => self::ORG]));
   }
 
   public function testConversionRequiresInterventionPlanningBeyondRequestManagement(): void
@@ -476,7 +476,7 @@ final class ServiceRequestApiTest extends WebTestCase
     $this->request($client, 'POST', '/' . self::REQUEST . '/convert', ['clientOperationId' => self::OPERATION], 2);
     self::assertSame(403, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
     self::assertSame('qualified', $this->repository()->find(self::REQUEST, self::ORG)?->status);
-    self::assertSame(0, $this->main()->getRepository(InterventionRecord::class)->count(['organization' => self::ORG]));
+    self::assertSame(0, $this->main()->getRepository(InterventionRecord::class)->count(['organizationId' => self::ORG]));
   }
 
   public function testExplicitForeignInterventionIsHiddenDuringConversion(): void
@@ -486,7 +486,7 @@ final class ServiceRequestApiTest extends WebTestCase
     $this->seedRequest(qualified: true);
     $order = new InterventionRecord();
     $order->id = 'ad69061e-b12f-41de-8a66-000000000070';
-    $order->organization = $this->organization(self::OTHER_ORG);
+    $order->organizationId = $this->organization(self::OTHER_ORG)->id;
     $order->name = 'Foreign corrective draft';
     $order->type = 'corrective_maintenance';
     $order->number = 1;
@@ -567,7 +567,7 @@ final class ServiceRequestApiTest extends WebTestCase
     }
     $site = new FacilityRecord();
     $site->id = self::SITE;
-    $site->organization = $this->main()->getReference(OrganizationRecord::class, self::ORG);
+    $site->organizationId = self::ORG;
     $site->type = 'site';
     $site->name = 'Fire site';
     $site->customerId = $customer ? self::CUSTOMER : null;
@@ -575,7 +575,7 @@ final class ServiceRequestApiTest extends WebTestCase
     $this->main()->persist($site);
     $building = new FacilityRecord();
     $building->id = self::BUILDING;
-    $building->organization = $site->organization;
+    $building->organizationId = $site->organizationId;
     $building->type = 'building';
     $building->name = 'Building A';
     $building->parentFacility = $site;
@@ -583,7 +583,7 @@ final class ServiceRequestApiTest extends WebTestCase
     $this->main()->persist($building);
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT;
-    $equipment->organization = $site->organization;
+    $equipment->organizationId = $site->organizationId;
     $equipment->facilityId = $building->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->name = 'Extinguisher A';

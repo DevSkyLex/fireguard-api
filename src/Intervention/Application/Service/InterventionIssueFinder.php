@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Intervention\Application\Service;
 
 use Intervention\Application\Contract\Resource\{InterventionIssue, InterventionResourceSummary, InterventionValidationContext, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\InterventionPublicationResourcesIssuesPort;
 
 use function in_array;
 use function sprintf;

@@ -6,11 +6,16 @@ namespace Tests\Integration\Automation\Infrastructure\Adapter\Messenger;
 
 use Automation\Application\Port\Outbound\AutomationRuleQueuePort;
 use Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleCommand;
-use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent;
+use Inspection\Application\Contract\Event\NonConformity\NonConformityRecordedEvent;
+use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent as LegacyNonConformityRecordedEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Port\Outbound\{DurableEventContextPort, EventDispatcherPort};
+use Shared\Infrastructure\Messaging\Outbox\{DeliverOutboxEventHandler, OutboxEvent};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+use Symfony\Component\Messenger\Transport\Serialization\PhpSerializer;
 
 use function count;
 
@@ -67,7 +72,7 @@ final class MessengerAutomationRuleQueueAdapterTest extends KernelTestCase
   }
 
   /**
-   * Drives the REAL subscriber through the REAL event dispatcher, so the
+   * Drives the real subscriber through the application's event port, so the
    * wiring (subscriber -> queue port -> transport) is covered end to end and
    * not just at the adapter seam.
    */
@@ -81,8 +86,8 @@ final class MessengerAutomationRuleQueueAdapterTest extends KernelTestCase
     $transport = $container->get('messenger.transport.main_outbox');
     $before = count($transport->getSent());
 
-    /** @var EventDispatcherInterface $dispatcher */
-    $dispatcher = $container->get('event_dispatcher');
+    $dispatcher = $container->get(EventDispatcherPort::class);
+    self::assertInstanceOf(EventDispatcherPort::class, $dispatcher);
 
     $dispatcher->dispatch(
       new NonConformityRecordedEvent(
@@ -91,7 +96,6 @@ final class MessengerAutomationRuleQueueAdapterTest extends KernelTestCase
         nonConformityId: '018f0b68-6758-7a12-8a1d-3f0d97f64a03',
         severity: 'critical',
       ),
-      'inspection.non_conformity_recorded_event',
     );
 
     $sent = $transport->getSent();
@@ -101,5 +105,53 @@ final class MessengerAutomationRuleQueueAdapterTest extends KernelTestCase
       'a critical non-conformity must enqueue the automation rule; zero messages means the dispatch is silently failing again',
     );
     self::assertInstanceOf(ExecuteAutomationRuleCommand::class, $sent[count($sent) - 1]->getMessage());
+  }
+
+  #[Test]
+  public function aHistoricalDomainEnvelopeConvertsBeforeSubscribersAndReplaysWithoutReenqueuing(): void
+  {
+    self::bootKernel();
+    $container = self::getContainer();
+    $transport = $container->get('messenger.transport.main_outbox');
+    self::assertInstanceOf(InMemoryTransport::class, $transport);
+    $before = count($transport->getSent());
+    $source = new LegacyNonConformityRecordedEvent(
+      organizationId: '018f0b68-6758-7a12-8a1d-3f0d97f64a01',
+      inspectionId: '018f0b68-6758-7a12-8a1d-3f0d97f64a02',
+      nonConformityId: '018f0b68-6758-7a12-8a1d-3f0d97f64a03',
+      severity: 'critical',
+    );
+    $serializer = new PhpSerializer();
+    $envelope = $serializer->decode($serializer->encode(new Envelope(new OutboxEvent('018f0b68-6758-7a12-8a1d-3f0d97f64a04', $source))));
+    $message = $envelope->getMessage();
+    self::assertInstanceOf(OutboxEvent::class, $message);
+    self::assertInstanceOf(LegacyNonConformityRecordedEvent::class, $message->event);
+    $context = $container->get(DurableEventContextPort::class);
+    self::assertInstanceOf(DurableEventContextPort::class, $context);
+    $dispatcher = $container->get('event_dispatcher');
+    self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+    $observed = [];
+    $dispatcher->addListener('inspection.non_conformity_recorded_event', static function (NonConformityRecordedEvent $event) use ($source, $message, $context, &$observed): void {
+      self::assertSame($source->organizationId, $event->organizationId);
+      self::assertSame($source->inspectionId, $event->inspectionId);
+      self::assertSame($source->nonConformityId, $event->nonConformityId);
+      self::assertSame($source->severity, $event->severity);
+      self::assertSame($source->occurredAt->format('c'), $event->occurredAt->format('c'));
+      self::assertSame($message->id, $context->eventId());
+      $observed[] = $event;
+    }, 100);
+    $handler = $container->get(DeliverOutboxEventHandler::class);
+    self::assertInstanceOf(DeliverOutboxEventHandler::class, $handler);
+    $handler($message);
+    $handler($message);
+    self::assertCount(2, $observed);
+    self::assertCount($before + 1, $transport->getSent(), 'A replay must preserve the automation receipt and enqueue only once.');
+    $sent = $transport->getSent();
+    $command = $sent[count($sent) - 1]->getMessage();
+    self::assertInstanceOf(ExecuteAutomationRuleCommand::class, $command);
+    self::assertSame($source->nonConformityId, $command->subjectId);
+    self::assertSame('critical', $command->triggerPayload['severity']);
+    self::assertNull($context->eventId());
+    self::assertNull($context->actorUserId());
   }
 }

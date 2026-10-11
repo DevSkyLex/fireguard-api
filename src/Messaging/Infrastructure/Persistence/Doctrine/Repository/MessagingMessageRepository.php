@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Link\MessageLinkBackfillCandidate;
 use Messaging\Application\Contract\Message\{MessagePage, MessageView};
-use Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\ValueObject\{MessageId, MessageReference};

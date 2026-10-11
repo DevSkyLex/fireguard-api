@@ -27,6 +27,8 @@ use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(GetAssistantThreadSubscriptionProvider::class)]
+#[CoversClass(\Assistant\Application\UseCase\Query\Thread\GetAssistantThreadSubscription\GetAssistantThreadSubscriptionHandler::class)]
+#[CoversClass(\Assistant\Infrastructure\Adapter\Realtime\MercureAssistantSubscriberTokenAdapter::class)]
 final class GetAssistantThreadSubscriptionProviderTest extends TestCase
 {
   private const string ORGANIZATION_ID = '018f0b68-6758-7a12-8a1d-3f0d97f64e01';
@@ -41,7 +43,7 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $provider = new GetAssistantThreadSubscriptionProvider(
+    $provider = $this->subscriptionProvider(
       $this->createStub(QueryBusPort::class),
       $security,
       $this->createStub(TokenFactoryInterface::class),
@@ -49,7 +51,7 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID, 'threadId' => self::THREAD_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID, 'threadId' => self::THREAD_ID]));
   }
 
   #[Test]
@@ -60,7 +62,7 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
       new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
     );
 
-    $provider = new GetAssistantThreadSubscriptionProvider(
+    $provider = $this->subscriptionProvider(
       $this->createStub(QueryBusPort::class),
       $security,
       $this->createStub(TokenFactoryInterface::class),
@@ -68,7 +70,7 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $provider->provide(new Get(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), []));
   }
 
   #[Test]
@@ -84,7 +86,7 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
       AssistantThreadNotFoundException::withId(self::THREAD_ID),
     );
 
-    $provider = new GetAssistantThreadSubscriptionProvider(
+    $provider = $this->subscriptionProvider(
       $queryBus,
       $security,
       $this->createStub(TokenFactoryInterface::class),
@@ -92,10 +94,10 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $provider->provide(new Get(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
   }
 
   #[Test]
@@ -150,15 +152,25 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
       )
       ->willReturn('jwt-token');
 
-    $provider = new GetAssistantThreadSubscriptionProvider($queryBus, $security, $tokenFactory, tokenTtl: 60);
+    $provider = $this->subscriptionProvider($queryBus, $security, $tokenFactory, tokenTtl: 60);
 
-    $output = $provider->provide(new Get(), [
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
 
     self::assertInstanceOf(AssistantThreadSubscriptionOutput::class, $output);
     self::assertSame('jwt-token', $output->token);
     self::assertSame('/organizations/' . self::ORGANIZATION_ID . '/assistant/threads/' . self::THREAD_ID, $output->topic);
+  }
+
+  private function subscriptionProvider(QueryBusPort $queryBus, Security $security, TokenFactoryInterface $factory, int $tokenTtl = 900): GetAssistantThreadSubscriptionProvider
+  {
+    $tokens = new \Assistant\Infrastructure\Adapter\Realtime\MercureAssistantSubscriberTokenAdapter($factory, $tokenTtl);
+    $handler = new \Assistant\Application\UseCase\Query\Thread\GetAssistantThreadSubscription\GetAssistantThreadSubscriptionHandler($queryBus, $tokens);
+    $subscriptions = $this->createStub(QueryBusPort::class);
+    $subscriptions->method('ask')->willReturnCallback($handler(...));
+
+    return new GetAssistantThreadSubscriptionProvider($subscriptions, $security);
   }
 }

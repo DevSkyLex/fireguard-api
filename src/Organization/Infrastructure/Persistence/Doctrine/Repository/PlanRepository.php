@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\PlanMapper;

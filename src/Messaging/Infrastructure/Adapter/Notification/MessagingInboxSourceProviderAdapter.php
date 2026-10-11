@@ -6,7 +6,8 @@ namespace Messaging\Infrastructure\Adapter\Notification;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\ValueObject\MessagingSubjectType;
 use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};

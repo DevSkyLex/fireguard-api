@@ -6,7 +6,7 @@ namespace Onboarding\Presentation\Api\Processor\Onboarding;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Onboarding\Application\UseCase\Command\Setup\PrepareOrganizationSetup\{PrepareOrganizationSetupCommand, PrepareOrganizationSetupResult};
 use Onboarding\Presentation\Api\Dto\Input\Onboarding\PrepareOrganizationSetupInput;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
@@ -43,7 +43,7 @@ final readonly class PrepareOrganizationSetupProcessor implements ProcessorInter
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOnboardingOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
     /**

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Response\ResolveInspectionResponseScope;
 
 use Inspection\Application\Contract\Inspection\InspectionScope;
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Application\UseCase\Query\Response\ResolveInspectionResponseScope\{ResolveInspectionResponseScopeHandler, ResolveInspectionResponseScopeQuery};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;

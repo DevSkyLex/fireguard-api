@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\Service;
 
-use Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
 use Messaging\Domain\Exception\{MessagingConflictException, MessagingValidationException};
 use Messaging\Domain\Model\Conversation\Conversation;
 use Messaging\Domain\ValueObject\MessagingSubjectType;

@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Infrastructure\OAuth2\League\Adapter;
 
-use Auth\Domain\Model\Client\Client;
-use Auth\Domain\ValueObject\Client\ClientIdentifier;
-use Auth\Domain\ValueObject\Scope\Scope;
-use Auth\Domain\ValueObject\Security\GrantType;
+use Auth\Application\Contract\Client\ClientRegistration as Client;
 use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
 use OAuth\Infrastructure\OAuth2\League\Adapter\ClientRepositoryPortAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -42,16 +39,14 @@ final class ClientRepositoryPortAdapterTest extends TestCase
 
     $adapter = new ClientRepositoryPortAdapter($queryBus);
 
-    $client = $adapter->find(new ClientIdentifier('client-123'));
+    $client = $adapter->find('client-123');
 
     self::assertInstanceOf(Client::class, $client);
-    self::assertSame('client-123', $client->identifier()->value);
-    self::assertSame('Client App', $client->name());
-    self::assertSame(['https://example.com/callback'], $client->redirectUris());
-    self::assertSame([GrantType::AUTHORIZATION_CODE], $client->grantTypes());
-    self::assertSame([Scope::READ], $client->scopes());
-    self::assertNull($client->secret());
-    self::assertTrue($client->isConfidential());
+    self::assertSame('client-123', $client->identifier);
+    self::assertSame('Client App', $client->name);
+    self::assertSame(['https://example.com/callback'], $client->redirectUris);
+    self::assertSame(['AUTHORIZATION_CODE'], $client->grantTypes);
+    self::assertSame(['READ'], $client->scopes);
   }
 
   #[Test]
@@ -72,7 +67,7 @@ final class ClientRepositoryPortAdapterTest extends TestCase
 
     $adapter = new ClientRepositoryPortAdapter($queryBus);
 
-    self::assertNull($adapter->find(new ClientIdentifier('client-123')));
+    self::assertNull($adapter->find('client-123'));
   }
 
   #[Test]
@@ -85,7 +80,7 @@ final class ClientRepositoryPortAdapterTest extends TestCase
 
     $adapter = new ClientRepositoryPortAdapter($queryBus);
 
-    self::assertNull($adapter->find(new ClientIdentifier('client-123')));
+    self::assertNull($adapter->find('client-123'));
   }
   // #endregion
 }

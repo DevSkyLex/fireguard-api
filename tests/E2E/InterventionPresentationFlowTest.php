@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
+use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Attachment\AttachmentConstraints;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function array_key_exists;
 use function basename;
 use function file_put_contents;
 use function http_build_query;
+use function is_file;
 use function is_string;
 use function json_encode;
 use function sprintf;
@@ -23,6 +27,7 @@ use function str_contains;
 use function sys_get_temp_dir;
 use function tempnam;
 use function uniqid;
+use function unlink;
 
 use const UPLOAD_ERR_OK;
 
@@ -41,8 +46,11 @@ use const UPLOAD_ERR_OK;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[SkipDatabaseRollback]
 final class InterventionPresentationFlowTest extends OAuth2WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   private const string LD_JSON = 'application/ld+json';
 
   private const string FAKE_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -191,27 +199,47 @@ final class InterventionPresentationFlowTest extends OAuth2WebTestCase
     [$client, $token, $organizationId] = $this->setUpWithOrganization('attachcap');
     $interventionId = $this->createDraftIntervention($client, $token, $organizationId, 'Attachment cap mission');
 
-    $this->uploadAttachment($client, $token, $interventionId);
-    self::assertSame(
-      Response::HTTP_CREATED,
-      $client->getResponse()->getStatusCode(),
-      'A first upload below the cap should succeed. Response: ' . ($client->getResponse()->getContent() ?: ''),
-    );
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
+    self::assertFalse($entityManager->getConnection()->isTransactionActive(), 'The real upload must own its root commit.');
+    $storage = static::getContainer()->get(FileStoragePort::class);
+    self::assertInstanceOf(FileStoragePort::class, $storage);
+    /** @var list<string> $writtenPaths */
+    $writtenPaths = [];
 
-    $this->seedAttachmentsUpToTheCap($interventionId);
+    try {
+      $this->uploadAttachment($client, $token, $interventionId);
+      self::assertSame(
+        Response::HTTP_CREATED,
+        $client->getResponse()->getStatusCode(),
+        'A first upload below the cap should succeed. Response: ' . ($client->getResponse()->getContent() ?: ''),
+      );
 
-    $this->uploadAttachment($client, $token, $interventionId);
-    $response = $client->getResponse();
-    self::assertSame(
-      Response::HTTP_UNPROCESSABLE_ENTITY,
-      $response->getStatusCode(),
-      'An upload at the cap should be refused with 422. Response: ' . ($response->getContent() ?: ''),
-    );
-    self::assertStringContainsString(
-      'may not exceed the maximum of ' . AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT,
-      $response->getContent() ?: '',
-      'The 422 should carry the cap violation detail, not a generic error.',
-    );
+      $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+      self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
+      self::assertFalse($entityManager->getConnection()->isTransactionActive());
+      /** @var list<string> $writtenPaths */
+      $writtenPaths = $entityManager->getConnection()->fetchFirstColumn('SELECT storage_path FROM intervention_attachments WHERE intervention_id = ?', [$interventionId]);
+      self::assertCount(1, $writtenPaths, 'The successful upload must be committed before seeding the cap.');
+      $this->seedAttachmentsUpToTheCap($interventionId);
+
+      $this->uploadAttachment($client, $token, $interventionId);
+      $response = $client->getResponse();
+      self::assertSame(
+        Response::HTTP_UNPROCESSABLE_ENTITY,
+        $response->getStatusCode(),
+        'An upload at the cap should be refused with 422. Response: ' . ($response->getContent() ?: ''),
+      );
+      self::assertStringContainsString(
+        'may not exceed the maximum of ' . AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT,
+        $response->getContent() ?: '',
+        'The 422 should carry the cap violation detail, not a generic error.',
+      );
+    } finally {
+      foreach ($writtenPaths as $storagePath) {
+        $storage->delete($storagePath);
+      }
+    }
   }
 
   /**
@@ -357,20 +385,26 @@ final class InterventionPresentationFlowTest extends OAuth2WebTestCase
     self::assertIsString($path, 'A temporary upload file should be created.');
     file_put_contents($path, "%PDF-1.4 fireguard attachment cap flow\n");
 
-    $client->request(
-      method: 'POST',
-      uri: '/api/interventions/' . $interventionId . '/attachments',
-      files: [
-        'file' => new UploadedFile(
-          path: $path,
-          originalName: 'cap-proof.pdf',
-          mimeType: 'application/pdf',
-          error: UPLOAD_ERR_OK,
-          test: true,
-        ),
-      ],
-      server: ['HTTP_ACCEPT' => self::LD_JSON, 'HTTP_AUTHORIZATION' => 'Bearer ' . $token],
-    );
+    try {
+      $client->request(
+        method: 'POST',
+        uri: '/api/interventions/' . $interventionId . '/attachments',
+        files: [
+          'file' => new UploadedFile(
+            path: $path,
+            originalName: 'cap-proof.pdf',
+            mimeType: 'application/pdf',
+            error: UPLOAD_ERR_OK,
+            test: true,
+          ),
+        ],
+        server: ['HTTP_ACCEPT' => self::LD_JSON, 'HTTP_AUTHORIZATION' => 'Bearer ' . $token],
+      );
+    } finally {
+      if (is_file($path)) {
+        unlink($path);
+      }
+    }
   }
 
   /**

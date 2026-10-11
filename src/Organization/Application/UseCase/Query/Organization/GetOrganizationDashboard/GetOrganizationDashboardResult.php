@@ -46,6 +46,8 @@ final readonly class GetOrganizationDashboardResult implements ResultMessage
    *   siteName: ?string,
    *   responsibleId: ?string,
    *   responsibleUserId: ?string,
+   *   responsibleName?: ?string,
+   *   responsibleAvatarUrl?: ?string,
    *   dueAt: ?string,
    *   updatedAt: string,
    * }> $recentInterventions the 5 most recently updated organization

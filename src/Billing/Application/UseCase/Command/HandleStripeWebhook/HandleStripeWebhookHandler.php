@@ -6,14 +6,14 @@ namespace Billing\Application\UseCase\Command\HandleStripeWebhook;
 
 use Billing\Application\Contract\Stripe\{StripeEvent, StripeSubscription};
 use Billing\Application\Exception\StripeSubscriptionReconciliationException;
-use Billing\Application\Port\Outbound\{BillingReconciliationPort, OrganizationPlanAssignmentPort, StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\{BillingReconciliationPort, OrganizationPlanAssignmentPort};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{SubscriptionId, SubscriptionStatus};
 use DateTimeImmutable;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\{CommandHandler, VoidResult};
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 
 use function in_array;
 use function strcmp;
@@ -43,7 +43,7 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
    * @param SubscriptionRepositoryPort $subscriptions local subscription lookup and persistence
    * @param BillingPriceCatalog $priceCatalog configured Stripe-price mapping
    * @param OrganizationPlanAssignmentPort $planAssignment organization plan updates
-   * @param UuidFactory $uuidFactory subscription identifier creation
+   * @param UuidGeneratorPort $uuidFactory subscription identifier creation
    * @param BillingReconciliationPort $reconciliation event serialization and transaction boundary
    * @param LoggerPort $logger warnings for ignored mismatched events
    *
@@ -54,7 +54,7 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     private SubscriptionRepositoryPort $subscriptions,
     private BillingPriceCatalog $priceCatalog,
     private OrganizationPlanAssignmentPort $planAssignment,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private BillingReconciliationPort $reconciliation,
     private LoggerPort $logger,
   ) {
@@ -167,7 +167,7 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     $status = SubscriptionStatus::fromStripe($current->status);
     if (null === $subscription) {
       /** @var SubscriptionId $id */
-      $id = $this->uuidFactory->create(SubscriptionId::class);
+      $id = new SubscriptionId($this->uuidFactory->generate());
       $subscription = Subscription::start($id, $organizationId, $customerId);
     }
     $subscription->syncFromStripe(

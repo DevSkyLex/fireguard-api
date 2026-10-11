@@ -6,7 +6,7 @@ namespace Equipment\Presentation\Api\Processor\Equipment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\Contract\FloorPlan\{
   FloorPlanAttachmentNotAncestorException,
   FloorPlanAttachmentNotFloorPlanException,
@@ -22,7 +22,7 @@ use Equipment\Presentation\Api\Dto\Input\Equipment\SetEquipmentPlanPositionInput
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -62,7 +62,7 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
    * @param CommandBusPort $commandBus port used to dispatch the plan-position command
    * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped operation
    * @param Security $security security context used to obtain the acting member
-   * @param \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail factory used to assemble the updated equipment response
+   * @param \Equipment\Presentation\Api\Service\EquipmentDetailReader $detail factory used to assemble the updated equipment response
    *
    * @return void
    */
@@ -70,7 +70,7 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
-    private \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail,
+    private \Equipment\Presentation\Api\Service\EquipmentDetailReader $detail,
   ) {
   }
   // #endregion
@@ -95,7 +95,7 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
   {
     /** @var SetEquipmentPlanPositionInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

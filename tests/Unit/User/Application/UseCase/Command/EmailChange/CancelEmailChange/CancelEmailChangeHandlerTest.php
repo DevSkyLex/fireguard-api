@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\EmailChangeRequestRepositoryPort;
+use User\Application\Port\Outbound\Internal\EmailChangeRequestRepositoryPort;
 use User\Application\Service\EmailChangeTokenHasher;
 use User\Application\UseCase\Command\EmailChange\CancelEmailChange\{
   CancelEmailChangeCommand,

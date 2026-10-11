@@ -6,8 +6,8 @@ namespace Auth\Presentation\Api\Processor\PasswordChange;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Auth\Application\UseCase\Command\PasswordChange\RequestPasswordChange\{RequestPasswordChangeCommand, RequestPasswordChangeResult};
-use Auth\Infrastructure\Security\User\SecurityUser;
 use Auth\Presentation\Api\Dto\Input\PasswordChange\RequestPasswordChangeInput;
 use Auth\Presentation\Api\Dto\Output\PasswordChange\RequestPasswordChangeOutput;
 use InvalidArgumentException;
@@ -83,7 +83,7 @@ final readonly class RequestPasswordChangeProcessor implements ProcessorInterfac
     }
 
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

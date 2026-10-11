@@ -6,11 +6,10 @@ namespace Tests\Unit\Session\Application\UseCase\Command\Session\CreateSession;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\UseCase\Command\Session\CreateSession\{CreateSessionCommand, CreateSessionHandler, CreateSessionResult};
 use Session\Domain\Model\Session\Session;
-use Session\Domain\ValueObject\SessionId;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Test CreateSessionHandlerTest.
@@ -26,8 +25,8 @@ final class CreateSessionHandlerTest extends TestCase
   #[Test]
   public function testServerLocationOverridesCommandMetadataAndIsRemovedOnRevocation(): void
   {
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(new SessionId('123e4567-e89b-12d3-a456-426614174100'));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn('123e4567-e89b-12d3-a456-426614174100');
     $geo = $this->createMock(\Shared\Application\Port\Outbound\GeoIpLookupPort::class);
     $geo->expects(self::once())->method('locate')->with('8.8.8.8')
       ->willReturn(new \Shared\Application\Contract\GeoIp\IpLocation('FR', 'Paris'));
@@ -65,11 +64,10 @@ final class CreateSessionHandlerTest extends TestCase
     $sessionId = '123e4567-e89b-12d3-a456-426614174000';
 
     // Mocks
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(SessionId::class)
-      ->willReturn(new SessionId($sessionId));
+      ->method('generate')
+      ->willReturn($sessionId);
 
     $repository = $this->createMock(SessionRepositoryPort::class);
     $repository->expects(self::once())
@@ -106,11 +104,10 @@ final class CreateSessionHandlerTest extends TestCase
   {
     $sessionId = '123e4567-e89b-12d3-a456-426614174999';
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(SessionId::class)
-      ->willReturn(new SessionId($sessionId));
+      ->method('generate')
+      ->willReturn($sessionId);
 
     $repository = $this->createMock(SessionRepositoryPort::class);
     $repository->expects(self::once())

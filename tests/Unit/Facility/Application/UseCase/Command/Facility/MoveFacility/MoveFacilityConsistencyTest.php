@@ -6,7 +6,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\MoveFacility;
 
 use DateTimeImmutable;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Command\Facility\MoveFacility\{MoveFacilityCommand, MoveFacilityHandler};
 use Facility\Domain\Event\Facility\FacilityMovedEvent;
 use Facility\Domain\Exception\FacilityRevisionMismatchException;

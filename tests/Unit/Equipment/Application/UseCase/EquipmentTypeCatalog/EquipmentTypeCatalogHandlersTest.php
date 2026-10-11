@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\EquipmentTypeCatalog;
 
-use Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort;
 use Equipment\Application\UseCase\Command\EquipmentTypeCatalog\CreateEquipmentType\{CreateEquipmentTypeCommand, CreateEquipmentTypeHandler};
 use Equipment\Application\UseCase\Command\EquipmentTypeCatalog\PatchEquipmentType\{PatchEquipmentTypeCommand, PatchEquipmentTypeHandler};
 use Equipment\Application\UseCase\Query\EquipmentTypeCatalog\ListEquipmentTypes\{ListEquipmentTypesHandler, ListEquipmentTypesQuery};

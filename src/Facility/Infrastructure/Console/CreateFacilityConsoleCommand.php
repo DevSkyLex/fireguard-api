@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Console;
 
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
-use Facility\Domain\ValueObject\FacilityType;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\ValueObject\OrganizationId;
+use Facility\Domain\ValueObject\{FacilityOrganizationId, FacilityType};
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -45,11 +44,11 @@ final class CreateFacilityConsoleCommand extends Command
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
-   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationOwnerReadPort $organizationRepository reads organization existence
    */
   public function __construct(
     private readonly CommandBusPort $commandBus,
-    private readonly OrganizationRepositoryPort $organizationRepository,
+    private readonly OrganizationOwnerReadPort $organizationRepository,
   ) {
     parent::__construct();
   }
@@ -268,8 +267,8 @@ HELP
   private function organizationExists(string $organizationId, SymfonyStyle $io): bool
   {
     try {
-      $orgId = OrganizationId::fromString($organizationId);
-      if (null === $this->organizationRepository->findById(id: $orgId)) {
+      $orgId = FacilityOrganizationId::fromString($organizationId);
+      if (null === $this->organizationRepository->ownerUserId((string) $orgId)) {
         $io->error(sprintf('Organization "%s" not found.', $organizationId));
 
         return false;

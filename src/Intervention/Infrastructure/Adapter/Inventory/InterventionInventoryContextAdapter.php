@@ -8,7 +8,7 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Inventory\InventoryInterventionContext;
 use Intervention\Application\Port\Inbound\InterventionInventoryContextPort;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionMemberPolicy;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
@@ -48,7 +48,7 @@ final readonly class InterventionInventoryContextAdapter implements Intervention
 
   public function existsInOrganization(string $organizationId, string $interventionId): bool
   {
-    return null !== $this->entityManager->getRepository(InterventionRecord::class)->findOneBy(['id' => $interventionId, 'organization' => $organizationId]);
+    return null !== $this->entityManager->getRepository(InterventionRecord::class)->findOneBy(['id' => $interventionId, 'organizationId' => $organizationId]);
   }
 
   /**
@@ -94,7 +94,7 @@ final readonly class InterventionInventoryContextAdapter implements Intervention
     }
     $this->entityManager->getConnection()->executeQuery('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', ['key' => 'inventory-intervention:' . $organizationId . ':' . $interventionId]);
     $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId, LockMode::PESSIMISTIC_WRITE);
-    if (!$intervention instanceof InterventionRecord || $intervention->organization?->id !== $organizationId) {
+    if (!$intervention instanceof InterventionRecord || $intervention->organizationId !== $organizationId) {
       throw InterventionNotFoundException::withId($interventionId);
     }
     $this->entityManager->refresh($intervention, LockMode::PESSIMISTIC_WRITE);

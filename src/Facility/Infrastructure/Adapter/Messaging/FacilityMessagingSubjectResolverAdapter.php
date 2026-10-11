@@ -6,9 +6,8 @@ namespace Facility\Infrastructure\Adapter\Messaging;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
+use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
 
 /**
  * Adapter FacilityMessagingSubjectResolverAdapter.
@@ -83,7 +82,7 @@ final readonly class FacilityMessagingSubjectResolverAdapter implements Messagin
     $record = $this->entityManager->find(FacilityRecord::class, $subjectId);
 
     $exists = $record instanceof FacilityRecord
-      && $record->organization?->id === $organizationId
+      && $record->organizationId === $organizationId
       && 'published' === $record->recordStatus;
 
     return new MessagingSubjectResolution(

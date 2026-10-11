@@ -6,7 +6,8 @@ namespace Equipment\Infrastructure\Adapter\Inspection;
 
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Port\Inbound\EquipmentParkScopePort;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilitySubtreeScopePort};
+use Equipment\Application\Port\Outbound\FacilitySubtreeScopePort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Application\Service\EquipmentSelectionScopeResolver;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;

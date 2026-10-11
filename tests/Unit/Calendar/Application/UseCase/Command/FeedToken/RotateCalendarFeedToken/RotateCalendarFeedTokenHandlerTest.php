@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Application\UseCase\Command\FeedToken\RotateCalendarFeedToken;
 
-use Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\FeedToken\CalendarFeedTokenRepositoryPort;
 use Calendar\Application\Service\CalendarFeedTokenSecretFactory;
 use Calendar\Application\UseCase\Command\FeedToken\RotateCalendarFeedToken\{RotateCalendarFeedTokenCommand, RotateCalendarFeedTokenHandler, RotateCalendarFeedTokenResult};
 use Calendar\Domain\Event\{CalendarFeedTokenCreatedEvent, CalendarFeedTokenRevokedEvent};
 use Calendar\Domain\Model\FeedToken\CalendarFeedToken;
 use Calendar\Domain\ValueObject\CalendarFeedTokenId;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 use function hash;
@@ -159,7 +158,7 @@ final class RotateCalendarFeedTokenHandlerTest extends TestCase
       repository: $repository,
       authorization: $authorization ?? $this->createStub(OrganizationAuthorizationPort::class),
       secretFactory: new CalendarFeedTokenSecretFactory(),
-      uuidFactory: new UuidFactory($generator),
+      uuidFactory: $generator,
       eventDispatcher: $dispatcher ?? $this->createStub(EventDispatcherPort::class),
     );
   }

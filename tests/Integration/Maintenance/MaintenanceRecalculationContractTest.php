@@ -56,7 +56,7 @@ final class MaintenanceRecalculationContractTest extends KernelTestCase
     $this->em->persist($org);
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT;
-    $equipment->organization = $org;
+    $equipment->organizationId = $org->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = 'in_stock';
     $equipment->createdAt = new DateTimeImmutable();
@@ -108,7 +108,7 @@ final class MaintenanceRecalculationContractTest extends KernelTestCase
     foreach (['published', 'draft'] as $index => $recordStatus) {
       $inspection = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord();
       $inspection->id = 'c5000000-0000-4000-8000-00000000001' . $index;
-      $inspection->organization = $this->em->getReference(OrganizationRecord::class, self::ORG);
+      $inspection->organizationId = self::ORG;
       $inspection->equipmentId = self::EQUIPMENT;
       $inspection->recordStatus = $recordStatus;
       $inspection->inspectorType = 'internal';

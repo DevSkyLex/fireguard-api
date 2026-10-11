@@ -155,6 +155,12 @@ on the element as a `status-<code>` class. A small Fireguard mark closes the foo
 
 ## Architecture
 
+Live PDF exports enter ExportSafetyRegisterCommand: Application owns permission,
+plan entitlement, bounded read models, branding, rendering and export provenance.
+The HTTP controller supplies actor/scope and returns the typed PDF result.
+ComplianceExceptionSubscriber translates wrapped failures centrally with the existing
+status, detail and denial order.
+
 - **Presentation** (`src/Compliance/Presentation/Api`): `ComplianceSummaryResource`
   (org rollup + facility detail, both read-only `Get`s), `FacilityTreeResource`
   (enriched facility tree, read-only `Get`), `SafetyRegisterExportResource`
@@ -167,9 +173,9 @@ on the element as a `status-<code>` class. A small Fireguard mark closes the foo
   `ComplianceRegisterAggregator` (fan-out + assembly), `FacilityTreeBuilder`
   (pure reshape of the aggregator's flat views into a nested tree, zero
   additional port calls), `ComplianceStatusPolicy` (pure grading rule),
-  contracts (`FacilityComplianceView`, `FacilityTreeNode`, `EquipmentComplianceRow`,
+  pure contracts (`ComplianceStatus`, `FacilityComplianceView`, `FacilityTreeNode`, `EquipmentComplianceRow`,
   `NonConformitySeverityBreakdown`), outbound ports.
-- **Domain** (`src/Compliance/Domain`): `ComplianceStatus` enum, exceptions,
+- **Domain** (`src/Compliance/Domain`): historical `ComplianceStatus` enum retained for compatibility, exceptions,
   `SafetyRegisterExportedEvent`.
 - **Infrastructure** (`src/Compliance/Infrastructure`): `DompdfSafetyRegisterRenderer`
   (module-local PDF adapter; remote resource loading and inline PHP are both

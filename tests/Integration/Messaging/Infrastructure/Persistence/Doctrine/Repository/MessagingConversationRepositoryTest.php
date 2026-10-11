@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Messaging\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Conversation\Conversation;
@@ -14,7 +15,6 @@ use Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingConversationRe
 use Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -54,8 +54,8 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
 
-    /** @var UuidFactory $uuidFactory */
-    $uuidFactory = static::getContainer()->get(UuidFactory::class);
+    /** @var UuidGeneratorPort $uuidFactory */
+    $uuidFactory = static::getContainer()->get(UuidGeneratorPort::class);
     $this->repository = new MessagingConversationRepository($this->entityManager, $uuidFactory);
 
     $this->removeOrganization(self::ORG_ID);
@@ -226,7 +226,7 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
 
     $generator = self::createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn($takenId);
-    $repository = new MessagingConversationRepository($this->entityManager, new UuidFactory($generator));
+    $repository = new MessagingConversationRepository($this->entityManager, $generator);
 
     $this->expectException(MessagingNotFoundException::class);
 
@@ -254,7 +254,7 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
   }
 
   #[Test]
-  public function testFindByIdRejectsAConversationThatLostItsOrganizationAssociation(): void
+  public function testScalarOrganizationIdentityRetainsItsPhysicalForeignKey(): void
   {
     $conversationId = '550e8400-e29b-41d4-a716-446655447501';
     $organization = $this->entityManager->find(OrganizationRecord::class, self::ORG_ID);
@@ -262,15 +262,13 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
     $this->createConversation($conversationId, $organization, MessagingSubjectType::FACILITY->value, '550e8400-e29b-41d4-a716-446655447502', ConversationVisibility::SUBJECT->value);
     $this->entityManager->flush();
 
-    // Detach the association on the managed instance only: findById() resolves
-    // through the identity map, so the repository sees the orphaned record.
-    $record = $this->entityManager->find(MessagingConversationRecord::class, $conversationId);
-    self::assertInstanceOf(MessagingConversationRecord::class, $record);
-    $record->organization = null;
-
-    $this->expectException(MessagingNotFoundException::class);
-
-    $this->repository->findById($conversationId);
+    self::assertSame(self::ORG_ID, $this->repository->findById($conversationId)?->organizationId);
+    $connection = $this->entityManager->getConnection();
+    $this->expectException(ForeignKeyConstraintViolationException::class);
+    $connection->transactional(static fn () => $connection->executeStatement(
+      'UPDATE messaging_conversations SET organization_id = ? WHERE id = ?',
+      ['550e8400-e29b-41d4-a716-446655447599', $conversationId],
+    ));
   }
 
   private function addParticipant(string $conversationId, OrganizationRecord $organization, string $memberId): void
@@ -317,7 +315,7 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
 
     $record = new MessagingConversationRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->subjectType = $subjectType;
     $record->subjectId = $subjectId;
     $record->visibility = $visibility;

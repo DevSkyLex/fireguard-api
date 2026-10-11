@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Time\{TimeEntryTaskContext, TimeEntryVersionView, TimeEntryView};
-use Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionTimeEntryRepositoryPort;
 use Intervention\Domain\Model\TimeEntry\TimeEntry;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionTimeEntryRecord, InterventionTimeEntryVersionRecord, InterventionWorkItemAssignmentRecord, InterventionWorkItemRecord};
 use InvalidArgumentException;
@@ -38,6 +38,34 @@ final readonly class InterventionTimeEntryRepository implements InterventionTime
   {
   }
 
+  public function contexts(array $taskIds): array
+  {
+    if ([] === $taskIds) {
+      return [];
+    }
+    /** @var list<InterventionWorkItemRecord> $tasks */
+    $tasks = $this->entityManager->getRepository(InterventionWorkItemRecord::class)->createQueryBuilder('w')
+      ->select('w', 'p')->innerJoin('w.intervention', 'p')->where('w.id IN (:ids)')->setParameter('ids', $taskIds)->getQuery()->getResult();
+    /** @var list<InterventionWorkItemAssignmentRecord> $assignments */
+    $assignments = $this->entityManager->getRepository(InterventionWorkItemAssignmentRecord::class)->createQueryBuilder('a')
+      ->where('a.workItem IN (:ids)')->setParameter('ids', $taskIds)->getQuery()->getResult();
+    $previous = [];
+    foreach ($assignments as $assignment) {
+      if (null !== $assignment->workItem) {
+        $previous[$assignment->workItem->id][] = $assignment->memberId;
+      }
+    }
+    $result = [];
+    foreach ($tasks as $task) {
+      $parent = $task->intervention;
+      if (null !== $parent) {
+        $result[$task->id] = new TimeEntryTaskContext($task->id, $parent->id, $parent->organizationId, $task->assigneeId, $parent->responsibleId, $parent->participants, $previous[$task->id] ?? []);
+      }
+    }
+
+    return $result;
+  }
+
   /**
    * Reads task contribution rights, optionally locking the context for a write.
    *
@@ -51,7 +79,7 @@ final readonly class InterventionTimeEntryRepository implements InterventionTime
   public function context(string $taskId, bool $lock = false): ?TimeEntryTaskContext
   {
     $task = $this->entityManager->find(InterventionWorkItemRecord::class, $taskId);
-    if (!$task instanceof InterventionWorkItemRecord || null === $task->intervention || null === $task->intervention->organization) {
+    if (!$task instanceof InterventionWorkItemRecord || null === $task->intervention || !isset($task->intervention->organizationId)) {
       return null;
     }
     $parent = $task->intervention;
@@ -60,15 +88,12 @@ final readonly class InterventionTimeEntryRepository implements InterventionTime
       $this->entityManager->refresh($task);
     }
     $history = $this->entityManager->getRepository(InterventionWorkItemAssignmentRecord::class)->findBy(['workItem' => $task]);
-    $organization = $parent->organization;
-    if (null === $organization) {
-      return null;
-    }
+    $organization = $parent->organizationId;
 
     return new TimeEntryTaskContext(
       $taskId,
       $parent->id,
-      $organization->id,
+      $organization,
       $task->assigneeId,
       $parent->responsibleId,
       $parent->participants,

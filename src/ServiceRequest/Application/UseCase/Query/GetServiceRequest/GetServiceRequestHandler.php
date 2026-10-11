@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace ServiceRequest\Application\UseCase\Query\GetServiceRequest;
 
-use ServiceRequest\Application\Contract\ServiceRequestView;
-use ServiceRequest\Application\Port\Outbound\ServiceRequestRepositoryPort;
-use ServiceRequest\Application\Service\ServiceRequestAccessGuard;
+use ServiceRequest\Application\Port\Outbound\Internal\ServiceRequestRepositoryPort;
+use ServiceRequest\Application\Service\{ServiceRequestAccessGuard, ServiceRequestViewMapper};
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use Shared\Application\Message\QueryHandler;
 
@@ -22,6 +21,6 @@ final readonly class GetServiceRequestHandler implements QueryHandler
     $this->access->assertAccess($query->actorId, $query->organizationId, 'read');
     $request = $this->requests->find($query->requestId, $query->organizationId) ?? throw ServiceRequestException::notFound();
 
-    return new GetServiceRequestResult(ServiceRequestView::fromRequest($request));
+    return new GetServiceRequestResult(ServiceRequestViewMapper::fromRequest($request));
   }
 }

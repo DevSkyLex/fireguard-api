@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Adapter\Mfa;
 
-use Auth\Application\Port\Outbound\Mfa\ChallengeGeneratorPort;
+use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeGeneratorPort;
 use Auth\Application\UseCase\Command\Mfa\MfaChallenge\{MfaChallengeCommand, MfaChallengeResult};
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;

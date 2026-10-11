@@ -6,7 +6,8 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\PatchCanonica
 
 use DateTimeImmutable;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort, InterventionScopePort};
+use Facility\Application\Port\Outbound\Internal\{CanonicalFacilityRepositoryPort, FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\InterventionScopePort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\{PatchCanonicalFacilityCommand, PatchCanonicalFacilityHandler};
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};

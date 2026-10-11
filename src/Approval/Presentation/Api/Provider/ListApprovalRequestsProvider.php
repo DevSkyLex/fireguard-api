@@ -10,14 +10,12 @@ use ApiPlatform\State\ProviderInterface;
 use Approval\Application\UseCase\Query\Request\ListApprovalRequests\{ListApprovalRequestsQuery, ListApprovalRequestsResult};
 use Approval\Presentation\Api\Dto\Output\ApprovalRequestOutput;
 use Approval\Presentation\Api\Factory\ApprovalRequestOutputFactory;
-use Approval\Presentation\Api\Trait\ApprovalExceptionMapperTrait;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function array_map;
 use function is_string;
@@ -36,8 +34,6 @@ use function min;
  */
 final readonly class ListApprovalRequestsProvider implements ProviderInterface
 {
-  use ApprovalExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -73,7 +69,7 @@ final readonly class ListApprovalRequestsProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -82,25 +78,21 @@ final readonly class ListApprovalRequestsProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Approval\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $page = max(1, $query->getInt('page', 1));
     $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
     $status = $query->get('status');
     $actionType = $query->get('actionType');
 
-    try {
-      /** @var ListApprovalRequestsResult $result */
-      $result = $this->queryBus->ask(new ListApprovalRequestsQuery(
-        organizationId: $organizationId,
-        userId: $user->getId(),
-        status: is_string($status) && '' !== $status ? $status : null,
-        actionType: is_string($actionType) && '' !== $actionType ? $actionType : null,
-        page: $page,
-        itemsPerPage: $itemsPerPage,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapApprovalException($exception);
-    }
+    /** @var ListApprovalRequestsResult $result */
+    $result = $this->queryBus->ask(new ListApprovalRequestsQuery(
+      organizationId: $organizationId,
+      userId: $user->getId(),
+      status: is_string($status) && '' !== $status ? $status : null,
+      actionType: is_string($actionType) && '' !== $actionType ? $actionType : null,
+      page: $page,
+      itemsPerPage: $itemsPerPage,
+    ));
 
     return new TraversablePaginator(
       new ArrayIterator(array_map($this->outputFactory->fromView(...), $result->items)),

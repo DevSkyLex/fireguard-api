@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Query\Consent\CheckConsent;
 
-use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Consent\ConsentRepositoryPort;
 use OAuth\Domain\ValueObject\Scope\Scopes;
 use Shared\Application\Message\QueryHandler;
 

@@ -4,18 +4,15 @@ declare(strict_types=1);
 
 namespace Messaging\Presentation\Api\Factory;
 
+use Messaging\Application\Contract\Attachment\MessagingAttachmentView;
 use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Reaction\MessageReactionView;
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Application\UseCase\Query\Message\EnrichMessages\EnrichMessagesResult;
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
 
 use function array_combine;
 use function array_filter;
 use function array_map;
-use function array_merge;
-use function array_unique;
-use function array_values;
 use function in_array;
 use function ksort;
 
@@ -55,25 +52,16 @@ final class MessageOutputFactory
   /**
    * Method __construct
    *
-   * Provides the batched lookups and mappers needed to assemble message outputs with related data.
+   * Maps already enriched message projections without reading persistence.
    *
    * @access public
    *
-   * @param MessagingAttachmentRepositoryPort $attachments batch-loads message attachments
    * @param MessageAttachmentOutputFactory $attachmentMapper maps attachment outputs
-   * @param MessagingReactionRepositoryPort $reactions batch-loads message reactions
-   * @param MessagingSavedMessageRepositoryPort $savedMessages resolves the current member's saved messages
-   * @param MessagingMemberDirectoryPort $memberDirectory resolves display names for message participants
    *
    * @return void
    */
-  public function __construct(
-    private readonly MessagingAttachmentRepositoryPort $attachments,
-    private readonly MessageAttachmentOutputFactory $attachmentMapper,
-    private readonly MessagingReactionRepositoryPort $reactions,
-    private readonly MessagingSavedMessageRepositoryPort $savedMessages,
-    private readonly MessagingMemberDirectoryPort $memberDirectory,
-  ) {
+  public function __construct(private readonly MessageAttachmentOutputFactory $attachmentMapper)
+  {
   }
   // #endregion
 
@@ -81,9 +69,7 @@ final class MessageOutputFactory
   /**
    * Method fromView.
    *
-   * Maps a single message. Batch-loads that one message's attachments and
-   * reactions — call sites mapping a whole page of messages MUST use
-   * {@see self::fromViews()} instead, to avoid one query per message (N+1).
+   * Maps a single message using the same prepared projection as a whole page.
    *
    * @since 1.0.0
    *
@@ -92,12 +78,13 @@ final class MessageOutputFactory
    *                                so `reactions[].reactedByMe` is computed
    *                                relative to THIS member and never leaks
    *                                another member's flag
+   * @param EnrichMessagesResult $enrichment whole-page related metadata
    *
    * @return MessageOutput the message output
    */
-  public function fromView(MessageView $view, string $currentMemberId): MessageOutput
+  public function fromView(MessageView $view, string $currentMemberId, EnrichMessagesResult $enrichment): MessageOutput
   {
-    return $this->fromViews([$view], $currentMemberId)[0];
+    return $this->fromViews([$view], $currentMemberId, $enrichment)[0];
   }
 
   /**
@@ -107,9 +94,8 @@ final class MessageOutputFactory
    * the persisted record retains them (compliance), but the API contract
    * MUST never expose a tombstoned message's content. Attachments and
    * reactions are redacted the same way — a tombstoned message's entire
-   * social surface is hidden, not just its body. Batch-loads every
-   * attachment AND every reaction for the whole page in one query each, so
-   * mapping N messages never issues N attachment/reaction queries.
+   * social surface is hidden, not just its body. Related metadata is already
+   * batched by Application, so this mapping performs no queries.
    *
    * @since 1.0.0
    *
@@ -118,25 +104,20 @@ final class MessageOutputFactory
    *                                so `reactions[].reactedByMe` is computed
    *                                relative to THIS member and never leaks
    *                                another member's flag
+   * @param EnrichMessagesResult $enrichment whole-page related metadata
    *
    * @return list<MessageOutput> the message outputs
    */
-  public function fromViews(array $views, string $currentMemberId): array
+  public function fromViews(array $views, string $currentMemberId, EnrichMessagesResult $enrichment): array
   {
-    $messageIds = array_map(static fn (MessageView $view): string => $view->id, $views);
-    $attachmentsByMessage = $this->groupAttachmentsByMessageId($this->attachments->findByMessageIds($messageIds));
-    $reactionsByMessage = $this->groupReactionsByMessageId($this->reactions->findByMessageIds($messageIds));
-    $savedMessageIds = $this->savedMessages->findSavedMessageIds($currentMemberId, $messageIds);
-    $displayNames = $this->resolveDisplayNames($views);
-
     return array_map(
       fn (MessageView $view): MessageOutput => $this->build(
         $view,
-        $attachmentsByMessage[$view->id] ?? [],
-        $reactionsByMessage[$view->id] ?? [],
-        in_array($view->id, $savedMessageIds, true),
+        $enrichment->attachments[$view->id] ?? [],
+        $enrichment->reactions[$view->id] ?? [],
+        in_array($view->id, $enrichment->savedMessageIds, true),
         $currentMemberId,
-        $displayNames,
+        $enrichment->displayNames,
       ),
       $views,
     );
@@ -148,7 +129,7 @@ final class MessageOutputFactory
    * @since 1.0.0
    *
    * @param MessageView $view the message view
-   * @param list<MessagingAttachment> $attachments the message's attachments
+   * @param list<MessagingAttachmentView> $attachments the message's attachments
    * @param list<MessageReactionView> $reactions the message's flat, unaggregated reactions
    * @param bool $isSaved whether the CURRENT member saved this message (L1.5)
    * @param string $currentMemberId the current reading member's identifier
@@ -180,7 +161,7 @@ final class MessageOutputFactory
     $output->editedAt = $view->editedAt?->format('c');
     $output->isDeleted = $isDeleted;
     $output->deletedAt = $view->deletedAt?->format('c');
-    $output->attachments = $isDeleted ? [] : array_map($this->attachmentMapper->fromAttachment(...), $attachments);
+    $output->attachments = $isDeleted ? [] : array_map($this->attachmentMapper->fromView(...), $attachments);
     $output->pinnedAt = $view->pinnedAt?->format('c');
     $output->pinnedBy = null !== $view->pinnedByMemberId
       ? self::ORGANIZATION_IRI_PREFIX . $view->organizationId . self::MEMBER_IRI_SEGMENT . $view->pinnedByMemberId
@@ -205,81 +186,6 @@ final class MessageOutputFactory
     $output->updatedAt = $view->updatedAt->format('c');
 
     return $output;
-  }
-
-  /**
-   * Method resolveDisplayNames.
-   *
-   * Resolves every member name a page of messages needs, in one call.
-   *
-   * Authors, mentions and pinning members are gathered together on purpose:
-   * they come from the same directory, and asking per message — or worse, per
-   * mention — is the N+1 the batch port exists to prevent.
-   *
-   * @since 1.1.0
-   *
-   * @param list<MessageView> $views the message views being mapped
-   *
-   * @return array<string, string> display names indexed by member identifier
-   */
-  private function resolveDisplayNames(array $views): array
-  {
-    if ([] === $views) {
-      return [];
-    }
-
-    $memberIds = [];
-    foreach ($views as $view) {
-      $memberIds[] = [$view->authorMemberId];
-      $memberIds[] = $view->mentions;
-
-      if (null !== $view->pinnedByMemberId) {
-        $memberIds[] = [$view->pinnedByMemberId];
-      }
-    }
-
-    return $this->memberDirectory->displayNamesFor(
-      $views[0]->organizationId,
-      array_values(array_unique(array_merge(...$memberIds))),
-    );
-  }
-
-  /**
-   * Method groupAttachmentsByMessageId.
-   *
-   * @since 1.0.0
-   *
-   * @param list<MessagingAttachment> $attachments the flat attachment list
-   *
-   * @return array<string, list<MessagingAttachment>> the attachments indexed by owning message id
-   */
-  private function groupAttachmentsByMessageId(array $attachments): array
-  {
-    $grouped = [];
-    foreach ($attachments as $attachment) {
-      $grouped[$attachment->messageId()][] = $attachment;
-    }
-
-    return $grouped;
-  }
-
-  /**
-   * Method groupReactionsByMessageId.
-   *
-   * @since 1.1.0
-   *
-   * @param list<MessageReactionView> $reactions the flat reaction list
-   *
-   * @return array<string, list<MessageReactionView>> the reactions indexed by owning message id
-   */
-  private function groupReactionsByMessageId(array $reactions): array
-  {
-    $grouped = [];
-    foreach ($reactions as $reaction) {
-      $grouped[$reaction->messageId][] = $reaction;
-    }
-
-    return $grouped;
   }
 
   /**

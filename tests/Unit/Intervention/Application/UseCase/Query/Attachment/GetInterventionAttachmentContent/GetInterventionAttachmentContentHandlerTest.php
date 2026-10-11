@@ -6,7 +6,7 @@ namespace Tests\Unit\Intervention\Application\UseCase\Query\Attachment\GetInterv
 
 use DateTimeImmutable;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\UseCase\Query\Attachment\GetInterventionAttachmentContent\{GetInterventionAttachmentContentHandler, GetInterventionAttachmentContentQuery, GetInterventionAttachmentContentResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
 use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile};

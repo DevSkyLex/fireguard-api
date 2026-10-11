@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Checklist\ArchiveChecklist;
 
-use Inspection\Application\Port\Outbound\{ChecklistLockPort, ChecklistRepositoryPort};
+use Inspection\Application\Port\Outbound\ChecklistLockPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Domain\Exception\ChecklistNotFoundException;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Shared\Application\Message\CommandHandler;

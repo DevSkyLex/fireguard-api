@@ -6,7 +6,6 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Record FacilityMetadataFieldRecord.
@@ -33,9 +32,8 @@ class FacilityMetadataFieldRecord
   /**
    * Property organization
    */
-  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]
-  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-  public ?OrganizationRecord $organization = null;
+  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
+  public string $organizationId;
 
   /**
    * Property key

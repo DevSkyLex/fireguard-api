@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Adapter\Messaging;
 
 use Messaging\Application\Port\Outbound\MessagingMemberDirectoryPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Contract\User\UserView;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
+use function array_filter;
+use function array_map;
+use function array_unique;
+use function array_values;
 use function in_array;
 use function trim;
 
@@ -38,11 +42,11 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
    * @since 1.0.0
    *
    * @param OrganizationMemberRepositoryPort $members the organization member repository port
-   * @param QueryBusPort $queryBus the query bus, used to reach the user behind a member
+   * @param UserDirectoryPort $queryBus the query bus, used to reach the user behind a member
    */
   public function __construct(
     private OrganizationMemberRepositoryPort $members,
-    private QueryBusPort $queryBus,
+    private UserDirectoryPort $queryBus,
   ) {
   }
   // #endregion
@@ -145,13 +149,20 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
       return [];
     }
 
+    $requested = array_filter($members, static fn (OrganizationMember $member): bool => in_array($member->id()->value, $memberIds, true));
+
+    try {
+      $users = $this->queryBus->findByIds(array_values(array_unique(array_map(static fn (OrganizationMember $member): string => $member->userId(), $requested))));
+    } catch (Throwable) {
+      return [];
+    }
     $names = [];
-    foreach ($members as $member) {
+    foreach ($requested as $member) {
       if (!in_array($member->id()->value, $memberIds, true)) {
         continue;
       }
 
-      $name = $this->displayNameFor($member);
+      $name = $this->displayNameFor($users[$member->userId()] ?? null);
       if (null !== $name) {
         $names[$member->id()->value] = $name;
       }
@@ -212,24 +223,18 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
    *
    * @since 1.1.0
    *
-   * @param OrganizationMember $member the organization member
+   * @param ?UserView $user the published user projection
    *
    * @return ?string the display name, or null when it cannot be derived
    */
-  private function displayNameFor(OrganizationMember $member): ?string
+  private function displayNameFor(?UserView $user): ?string
   {
-    try {
-      $result = $this->queryBus->ask(new GetUserQuery($member->userId()));
-    } catch (Throwable) {
+    if (null === $user) {
       return null;
     }
 
-    if (!$result instanceof GetUserResult || null === $result->user) {
-      return null;
-    }
-
-    return trim($result->user->firstName . ' ' . $result->user->lastName)
-      ?: ($result->user->username ?: null);
+    return trim($user->firstName . ' ' . $user->lastName) ?: ($user->username ?: null);
   }
+
   // #endregion
 }

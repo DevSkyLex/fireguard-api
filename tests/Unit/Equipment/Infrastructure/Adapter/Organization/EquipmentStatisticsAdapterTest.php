@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Infrastructure\Adapter\Organization;
 
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
 use Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

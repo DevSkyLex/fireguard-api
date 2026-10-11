@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace OAuth\Application\UseCase\Command\Token\IssueToken;
 
 use OAuth\Application\Contract\Token\{AccessTokenGrantParameters, AccessTokenRequest};
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, AuthCodeRepositoryPort, AuthorizationServerPort, IdTokenIssuerPort, RefreshTokenRepositoryPort};
-use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
-use OAuth\Application\Service\OidcClaimsBuilderInterface;
+use OAuth\Application\Port\Outbound\Internal\Token\{AccessTokenRepositoryPort, AuthCodeRepositoryPort, AuthorizationServerPort, RefreshTokenRepositoryPort};
+use OAuth\Application\Port\Outbound\Internal\User\{OidcClaimsBuilderPort, OidcUserProviderPort};
+use OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort;
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent};
 use OAuth\Domain\Exception\Token\AuthorizationException;
 use Shared\Application\Message\CommandHandler;
@@ -47,7 +47,7 @@ final readonly class IssueTokenHandler implements CommandHandler
    * @param AuthCodeRepositoryPort $authCodeRepository the auth code repository
    * @param IdTokenIssuerPort $idTokenIssuer the ID token issuer
    * @param OidcUserProviderPort $oidcUserProvider the OIDC user provider
-   * @param OidcClaimsBuilderInterface $claimsBuilder the OIDC claims builder
+   * @param OidcClaimsBuilderPort $claimsBuilder the OIDC claims builder
    * @param RefreshTokenRepositoryPort $refreshTokenRepository the refresh token repository
    * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
    */
@@ -57,7 +57,7 @@ final readonly class IssueTokenHandler implements CommandHandler
     private readonly AuthCodeRepositoryPort $authCodeRepository,
     private readonly IdTokenIssuerPort $idTokenIssuer,
     private readonly OidcUserProviderPort $oidcUserProvider,
-    private readonly OidcClaimsBuilderInterface $claimsBuilder,
+    private readonly OidcClaimsBuilderPort $claimsBuilder,
     private readonly RefreshTokenRepositoryPort $refreshTokenRepository,
     private readonly AccessTokenRepositoryPort $accessTokenRepository,
   ) {

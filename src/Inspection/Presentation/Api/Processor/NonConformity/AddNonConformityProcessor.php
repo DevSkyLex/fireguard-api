@@ -6,7 +6,7 @@ namespace Inspection\Presentation\Api\Processor\NonConformity;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Command\NonConformity\AddNonConformity\{AddNonConformityCommand, AddNonConformityResult};
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionNotFoundException};
 use Inspection\Presentation\Api\Dto\Input\NonConformity\AddNonConformityInput;
@@ -14,7 +14,7 @@ use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -70,7 +70,7 @@ final readonly class AddNonConformityProcessor implements ProcessorInterface
   {
     /** @var AddNonConformityInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

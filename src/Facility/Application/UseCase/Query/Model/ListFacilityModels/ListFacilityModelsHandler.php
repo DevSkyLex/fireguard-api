@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Model\ListFacilityModels;
 
-use Facility\Application\Port\Outbound\FacilityModelRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityModelRepositoryPort;
 use Facility\Application\Service\FacilityModelAccessGuard;
 use Shared\Application\Message\QueryHandler;
 

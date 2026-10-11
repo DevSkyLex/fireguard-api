@@ -166,7 +166,7 @@ final class FacilityInterventionDependencyAdapterTest extends KernelTestCase
   ): InterventionRecord {
     $intervention = new InterventionRecord();
     $intervention->id = $id;
-    $intervention->organization = $organization;
+    $intervention->organizationId = $organization->id;
     $intervention->name = 'Intervention ' . $id;
     $intervention->number = $number;
     $intervention->status = $status;

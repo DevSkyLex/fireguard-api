@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Approval\Application\UseCase\Command\Decision\WithdrawApprovalRequest;
 
 use Approval\Application\Contract\Event\ApprovalWithdrawnEvent;
-use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort};
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Application\UseCase\Command\Decision\WithdrawApprovalRequest\{WithdrawApprovalRequestCommand, WithdrawApprovalRequestHandler};
 use Approval\Domain\Exception\{ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApprovalWithdrawalNotAllowedException};
 use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};

@@ -103,6 +103,30 @@ final class WorkerTransportDocumentationTest extends TestCase
   }
 
   /**
+   * Method testWebhookRecoveryAndTerminalFailuresAreObservedByTheHost
+   *
+   * Receiver health alone cannot detect a missing successful sweep or failed business delivery.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  #[Test]
+  public function testWebhookRecoveryAndTerminalFailuresAreObservedByTheHost(): void
+  {
+    $root = dirname(__DIR__, 3);
+    $maintenance = file_get_contents($root . '/ansible/templates/maintenance.sh.j2');
+    self::assertIsString($maintenance);
+    self::assertStringContainsString('php bin/worker-health.php --sweeps', $maintenance);
+    self::assertStringContainsString('bin/console app:workers:queues --env=prod', $maintenance);
+    self::assertStringContainsString('bin/console app:webhook:deliveries --env=prod', $maintenance);
+    $health = file_get_contents($root . '/bin/worker-health.php');
+    self::assertIsString($health);
+    self::assertSame(1, preg_match('/\x27RecoverWebhookDeliveriesCommand\x27\s*=>\s*(\d+)/', $health, $matches));
+    self::assertSame('300', $matches[1], 'A minute recovery sweep must report a successful completion within five minutes.');
+  }
+
+  /**
    * Method documentedWorkerCommand.
    *
    * @static

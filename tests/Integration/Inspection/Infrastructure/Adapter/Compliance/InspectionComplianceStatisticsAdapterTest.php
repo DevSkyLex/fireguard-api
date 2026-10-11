@@ -154,7 +154,7 @@ final class InspectionComplianceStatisticsAdapterTest extends KernelTestCase
   {
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->facilityId = $facilityId;
     $inspection->equipmentId = self::EQUIPMENT_ID;
     $inspection->inspectorType = 'user';

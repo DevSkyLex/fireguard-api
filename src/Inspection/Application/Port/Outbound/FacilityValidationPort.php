@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\Port\Outbound;
 
-use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Port FacilityValidationPort.
@@ -31,8 +31,9 @@ interface FacilityValidationPort
    *
    * @param string $facilityId the facility identifier
    * @param string $organizationId the expected organization identifier
+   * @param ?string $interventionId the optional owning draft intervention identifier
    *
-   * @throws InvalidArgumentException when the facility is not found, belongs to another organization, or is archived
+   * @throws InvalidValueException when the facility is not found, belongs to another organization, or is archived
    */
   public function assertFacilityIsUsable(string $facilityId, string $organizationId, ?string $interventionId = null): void;
   // #endregion

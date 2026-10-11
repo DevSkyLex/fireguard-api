@@ -82,7 +82,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
     $building->parentFacility = $site;
     $zone = new FacilityRecord();
     $zone->id = '880e8400-e29b-41d4-a716-446655470085';
-    $zone->organization = $building->organization;
+    $zone->organizationId = $building->organizationId;
     $zone->parentFacility = $building;
     $zone->name = 'Legacy intermediary';
     $zone->type = 'zone';
@@ -264,7 +264,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
     $entityManager = $this->mainEntityManager();
     $emptyBuilding = new FacilityRecord();
     $emptyBuilding->id = '880e8400-e29b-41d4-a716-446655470099';
-    $emptyBuilding->organization = $entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $emptyBuilding->organizationId = self::ORGANIZATION_ID;
     $emptyBuilding->type = 'building';
     $emptyBuilding->name = 'Empty Tower';
     $emptyBuilding->status = 'active';
@@ -439,7 +439,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
     $entityManager = $this->mainEntityManager();
     $area = new FacilityRecord();
     $area->id = '880e8400-e29b-41d4-a716-446655470080';
-    $area->organization = $entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $area->organizationId = self::ORGANIZATION_ID;
     $area->parentFacility = $entityManager->getReference(FacilityRecord::class, self::ROOM_ID);
     $area->type = 'area';
     $area->name = 'Nested equipment area';
@@ -455,7 +455,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
     ] as $index => $position) {
       $equipment = new EquipmentRecord();
       $equipment->id = '880e8400-e29b-41d4-a716-44665547009' . $index;
-      $equipment->organization = $area->organization;
+      $equipment->organizationId = $area->organizationId;
       $equipment->facilityId = $area->id;
       $equipment->type = 'fire_extinguisher';
       $equipment->status = 'operational';
@@ -658,7 +658,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
 
     $building = new FacilityRecord();
     $building->id = self::BUILDING_ID;
-    $building->organization = $organization;
+    $building->organizationId = $organization->id;
     $building->type = 'building';
     $building->name = 'Test Tower';
     $building->status = 'active';
@@ -669,7 +669,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
 
     $site = new FacilityRecord();
     $site->id = self::SITE_ID;
-    $site->organization = $organization;
+    $site->organizationId = $organization->id;
     $site->type = 'site';
     $site->name = 'Test Site (not a building)';
     $site->status = 'active';
@@ -682,7 +682,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
 
     $contentFloor = new FacilityRecord();
     $contentFloor->id = self::FLOOR_WITH_CONTENT_ID;
-    $contentFloor->organization = $organization;
+    $contentFloor->organizationId = $organization->id;
     $contentFloor->parentFacility = $building;
     $contentFloor->type = 'floor';
     $contentFloor->name = 'Ground Floor';
@@ -697,7 +697,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
     // ordering is by level_index first, created_at only as the tiebreaker.
     $archivedFloor = new FacilityRecord();
     $archivedFloor->id = self::ARCHIVED_FLOOR_ID;
-    $archivedFloor->organization = $organization;
+    $archivedFloor->organizationId = $organization->id;
     $archivedFloor->parentFacility = $building;
     $archivedFloor->type = 'floor';
     $archivedFloor->name = 'Archived Floor';
@@ -710,7 +710,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
 
     $emptyFloor = new FacilityRecord();
     $emptyFloor->id = self::FLOOR_EMPTY_ID;
-    $emptyFloor->organization = $organization;
+    $emptyFloor->organizationId = $organization->id;
     $emptyFloor->parentFacility = $building;
     $emptyFloor->type = 'floor';
     $emptyFloor->name = 'Unfinished Floor';
@@ -725,7 +725,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
 
     $draftFloor = new FacilityRecord();
     $draftFloor->id = self::DRAFT_FLOOR_ID;
-    $draftFloor->organization = $organization;
+    $draftFloor->organizationId = $organization->id;
     $draftFloor->parentFacility = $building;
     $draftFloor->type = 'floor';
     $draftFloor->name = 'Draft Floor';
@@ -739,7 +739,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
 
     $outsiderFacility = new FacilityRecord();
     $outsiderFacility->id = self::OUTSIDER_FACILITY_ID;
-    $outsiderFacility->organization = $outsiderOrganization;
+    $outsiderFacility->organizationId = $outsiderOrganization->id;
     $outsiderFacility->type = 'building';
     $outsiderFacility->name = 'Outsider Tower';
     $outsiderFacility->status = 'active';
@@ -766,7 +766,7 @@ final class FacilityBuildingModelApiTest extends WebTestCase
 
     $room = new FacilityRecord();
     $room->id = self::ROOM_ID;
-    $room->organization = $organization;
+    $room->organizationId = $organization->id;
     $room->parentFacility = $contentFloor;
     $room->type = 'zone';
     $room->name = 'Lobby';

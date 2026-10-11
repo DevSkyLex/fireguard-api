@@ -9,10 +9,9 @@ use Intervention\Application\Exception\InterventionNotificationDeliveryException
 use Intervention\Application\Service\{InterventionRecurrenceNotifier, InterventionRecurrenceRecipientResolver};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\{OrganizationMemberDirectoryPort, OrganizationNotificationPolicyPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -37,15 +36,9 @@ final class InterventionRecurrenceNotifierTest extends TestCase
   #[Test]
   public function testNotifiesTheResponsibleMemberWhenStillActiveInTheOrganization(): void
   {
-    $member = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::RESPONSIBLE_ID),
-      OrganizationId::fromString(self::ORG_ID),
-      'user-responsible',
-      true,
-      new DateTimeImmutable(),
-    );
+    $member = new OrganizationMemberView(self::RESPONSIBLE_ID, self::ORG_ID, 'user-responsible', true);
 
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($member);
 
     $notifications = $this->createMock(NotificationPort::class);
@@ -81,7 +74,7 @@ final class InterventionRecurrenceNotifierTest extends TestCase
     $notifier = new InterventionRecurrenceNotifier(
       $notifications,
       $this->policy(),
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->recipients(['user-a', 'user-b']),
     );
 
@@ -91,15 +84,9 @@ final class InterventionRecurrenceNotifierTest extends TestCase
   #[Test]
   public function testFallsBackToAdministratorsWhenResponsibleMemberIsInactive(): void
   {
-    $inactive = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::RESPONSIBLE_ID),
-      OrganizationId::fromString(self::ORG_ID),
-      'user-inactive',
-      false,
-      new DateTimeImmutable(),
-    );
+    $inactive = new OrganizationMemberView(self::RESPONSIBLE_ID, self::ORG_ID, 'user-inactive', false);
 
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($inactive);
 
     $notifications = $this->createMock(NotificationPort::class);
@@ -130,7 +117,7 @@ final class InterventionRecurrenceNotifierTest extends TestCase
     $notifier = new InterventionRecurrenceNotifier(
       $notifications,
       $this->policy(emailEnabled: false),
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->recipients(['user-admin']),
     );
 
@@ -146,7 +133,7 @@ final class InterventionRecurrenceNotifierTest extends TestCase
     $notifier = new InterventionRecurrenceNotifier(
       $notifications,
       $this->policy(emailEnabled: false, inAppEnabled: false),
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->recipients(['user-admin']),
     );
 
@@ -162,7 +149,7 @@ final class InterventionRecurrenceNotifierTest extends TestCase
     $notifier = new InterventionRecurrenceNotifier(
       $notifications,
       $this->policy(),
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->recipients(['user-admin-a', 'user-admin-b']),
     );
 
@@ -183,7 +170,7 @@ final class InterventionRecurrenceNotifierTest extends TestCase
     });
     $eventContext = $this->createStub(DurableEventContextPort::class);
     $eventContext->method('eventId')->willReturn('recurrence-outcome');
-    $notifier = new InterventionRecurrenceNotifier($notifications, $this->policy(), $this->createStub(OrganizationMemberRepositoryPort::class), $this->recipients(['user-admin']), $eventContext);
+    $notifier = new InterventionRecurrenceNotifier($notifications, $this->policy(), $this->createStub(OrganizationMemberDirectoryPort::class), $this->recipients(['user-admin']), $eventContext);
 
     try {
       $notifier->notifyMaterializationFailed(self::ORG_ID, 'recurrence-9', 'template-7', null, 'boom');
@@ -207,7 +194,7 @@ final class InterventionRecurrenceNotifierTest extends TestCase
     $notifications->expects(self::once())->method('send')->willThrowException($failure);
     $eventContext = $this->createStub(DurableEventContextPort::class);
     $eventContext->method('eventId')->willReturn('recurrence-outcome');
-    $notifier = new InterventionRecurrenceNotifier($notifications, $this->policy(), $this->createStub(OrganizationMemberRepositoryPort::class), $this->recipients(['user-admin']), $eventContext);
+    $notifier = new InterventionRecurrenceNotifier($notifications, $this->policy(), $this->createStub(OrganizationMemberDirectoryPort::class), $this->recipients(['user-admin']), $eventContext);
 
     try {
       $notifier->notifyMaterializationFailed(self::ORG_ID, 'recurrence-9', 'template-7', null, 'boom');
@@ -229,7 +216,7 @@ final class InterventionRecurrenceNotifierTest extends TestCase
     $notifier = new InterventionRecurrenceNotifier(
       $notifications,
       $policy,
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->recipients(['user-admin']),
     );
 
@@ -247,26 +234,10 @@ final class InterventionRecurrenceNotifierTest extends TestCase
    */
   private function recipients(array $userIds): InterventionRecurrenceRecipientResolver
   {
-    $members = [];
-    $offset = 40;
-    foreach ($userIds as $userId) {
-      $members[] = OrganizationMember::reconstitute(
-        OrganizationMemberId::fromString('550e8400-e29b-41d4-a716-4466554400' . $offset),
-        OrganizationId::fromString(self::ORG_ID),
-        $userId,
-        true,
-        new DateTimeImmutable(),
-      );
-      ++$offset;
-    }
+    $directory = $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class);
+    $directory->method('administratorUserIds')->willReturn($userIds);
 
-    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $memberRepository->method('findByOrganizationId')->willReturn($members);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('getUserPermissions')->willReturn(['organization.interventions.plan']);
-
-    return new InterventionRecurrenceRecipientResolver($memberRepository, $authorization);
+    return new InterventionRecurrenceRecipientResolver($directory);
   }
 
   private function policy(bool $inAppEnabled = true, bool $emailEnabled = true): OrganizationNotificationPolicyPort

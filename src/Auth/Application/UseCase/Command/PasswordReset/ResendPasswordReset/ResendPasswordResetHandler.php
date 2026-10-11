@@ -6,10 +6,7 @@ namespace Auth\Application\UseCase\Command\PasswordReset\ResendPasswordReset;
 
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
-use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Application\Service\ChallengeResendPolicy;
-use Otp\Domain\ValueObject\ChallengeToken;
+use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePort};
 use Shared\Application\Message\CommandHandler;
 
 /**
@@ -31,11 +28,11 @@ final readonly class ResendPasswordResetHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param OtpRepositoryPort $otpRepository the OTP repository port
+   * @param ChallengeAccessPort $otpRepository the OTP repository port
    * @param OtpChallengePort $otpChallenge the OTP challenge port
    */
   public function __construct(
-    private readonly OtpRepositoryPort $otpRepository,
+    private readonly ChallengeAccessPort $otpRepository,
     private readonly OtpChallengePort $otpChallenge,
   ) {
   }
@@ -55,10 +52,9 @@ final readonly class ResendPasswordResetHandler implements CommandHandler
    */
   public function __invoke(ResendPasswordResetCommand $command): ResendPasswordResetResult
   {
-    $challengeToken = ChallengeToken::fromString($command->token);
-    $otp = $this->otpRepository->findByChallengeToken($challengeToken);
+    $otp = $this->otpRepository->find($command->token);
 
-    if (null === $otp || OtpPurpose::PASSWORD_RESET->value !== $otp->purpose()->value || 'pending' !== $otp->status()) {
+    if (null === $otp || OtpPurpose::PASSWORD_RESET->value !== $otp->purpose->value || 'pending' !== $otp->status) {
       return ResendPasswordResetResult::failed(
         // Mirrors the confirm step: a decoy token must fail the same way a real
         // one does, or resending would reveal which addresses have accounts.
@@ -68,8 +64,8 @@ final readonly class ResendPasswordResetHandler implements CommandHandler
     }
 
     $now = new DateTimeImmutable();
-    $canResendIn = ChallengeResendPolicy::canResendIn(
-      createdAt: $otp->createdAt(),
+    $canResendIn = $this->otpRepository->canResendIn(
+      createdAt: $otp->createdAt,
       now: $now,
     );
 
@@ -82,10 +78,10 @@ final readonly class ResendPasswordResetHandler implements CommandHandler
     }
 
     $challenge = $this->otpChallenge->generate(
-      userId: $otp->userId(),
+      userId: $otp->userId,
       purpose: OtpPurpose::PASSWORD_RESET,
-      channel: OtpChannel::from($otp->channel()->value),
-      recipient: $otp->recipient(),
+      channel: OtpChannel::from($otp->channel->value),
+      recipient: $otp->recipient,
     );
 
     return ResendPasswordResetResult::success(
@@ -93,7 +89,7 @@ final readonly class ResendPasswordResetHandler implements CommandHandler
       maskedRecipient: $challenge->maskedRecipient,
       expiresAt: $challenge->expiresAt,
       maxAttempts: $challenge->maxAttempts,
-      canResendIn: ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS,
+      canResendIn: ChallengeAccessPort::RESEND_COOLDOWN_SECONDS,
       message: 'A new password reset code has been sent.',
     );
   }

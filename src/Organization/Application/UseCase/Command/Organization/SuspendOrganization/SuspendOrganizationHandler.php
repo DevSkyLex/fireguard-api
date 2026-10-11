@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\SuspendOrganization;
 
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\Event\Organization\OrganizationSuspendedEvent;
-use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationNotFoundException};
+use Organization\Application\Contract\Event\Organization\OrganizationSuspendedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
+use Organization\Domain\Exception\OrganizationArchivedException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;

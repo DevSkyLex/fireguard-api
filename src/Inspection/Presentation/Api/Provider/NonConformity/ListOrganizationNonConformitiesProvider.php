@@ -8,18 +8,17 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Query\NonConformity\ListOrganizationNonConformities\{ListOrganizationNonConformitiesQuery, OrganizationNonConformityResult};
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Contract\Sorting\SortDirection;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\{SortDirection, SortingExtractor};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -79,7 +78,7 @@ final readonly class ListOrganizationNonConformitiesProvider implements Provider
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -94,10 +93,10 @@ final readonly class ListOrganizationNonConformitiesProvider implements Provider
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $severity = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('severity');
-    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
+    $severity = \Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('severity');
+    $status = \Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Inspection\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

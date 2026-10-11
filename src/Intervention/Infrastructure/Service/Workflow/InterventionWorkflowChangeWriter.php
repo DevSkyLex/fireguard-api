@@ -141,7 +141,7 @@ final readonly class InterventionWorkflowChangeWriter
    */
   private function createChange(InterventionWorkflowMutation $mutation): InterventionWorkflowView
   {
-    $id = $mutation->id ?? $this->runtime->uuidFactory->generateRaw();
+    $id = $mutation->id ?? $this->runtime->uuidFactory->generate();
     if ($mutation->createOnly && $this->runtime->entityManager->find(InterventionChangeRecord::class, $id) instanceof InterventionChangeRecord) {
       throw new InterventionPreconditionFailedException('The client UUID intervention change already exists.');
     }

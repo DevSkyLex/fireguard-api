@@ -7,7 +7,8 @@ namespace Tests\Unit\Intervention\Application\UseCase\Command\Publication\Execut
 use DateTimeImmutable;
 use Intervention\Application\Contract\Publication\{InterventionPublicationContext, PublicationView};
 use Intervention\Application\Contract\Resource\{InterventionResourceSummary, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort, PublicationRepositoryPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\{InterventionPublicationResourcesIssuesPort, PublicationRepositoryPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\ExecutePublication\{ExecutePublicationCommand, ExecutePublicationHandler};
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};

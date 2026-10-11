@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Infrastructure\Adapter\Export;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
 use Organization\Domain\Model\Plan\Plan;

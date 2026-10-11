@@ -6,19 +6,16 @@ namespace Onboarding\Presentation\Api\Processor\Onboarding;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
 use LogicException;
-use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
+use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
 use Onboarding\Application\Service\ExecuteOnboardingStepPayload;
 use Onboarding\Presentation\Api\Dto\Input\Onboarding\ExecuteOrganizationOnboardingStepInput;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Mapper\Onboarding\OrganizationOnboardingOutputAssembler;
-use Organization\Domain\Exception\{
-  OrganizationNotFoundException,
-  OrganizationSlugAlreadyExistsException
-};
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Organization\Application\Contract\Exception\{OrganizationNotFoundException, OrganizationSlugAlreadyExistsException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
@@ -86,7 +83,7 @@ final readonly class ExecuteOrganizationOnboardingStepProcessor implements Proce
     /**
      * @var ExecuteOrganizationOnboardingStepInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

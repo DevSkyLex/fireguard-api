@@ -86,7 +86,7 @@ final class ChecklistRepositoryIntegrationTest extends KernelTestCase
     $this->repository->save($checklist);
     $inspection = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord();
     $inspection->id = '770e8400-e29b-41d4-a716-446655471201';
-    $inspection->organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $inspection->organizationId = self::ORGANIZATION_ID;
     $inspection->equipmentId = '770e8400-e29b-41d4-a716-446655471202';
     $inspection->checklistId = self::CHECKLIST_WITH_ITEMS_ID;
     $inspection->recordStatus = 'draft';

@@ -7,16 +7,17 @@ namespace Tests\Unit\Organization\Presentation\Api\Provider\Organization;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\UseCase\Query\Organization\ListOrganizationAuditEvents\{ListOrganizationAuditEventsQuery, OrganizationAuditEventResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationAuditEventOutput;
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationAuditEventsProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -51,6 +52,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
     $provider = new ListOrganizationAuditEventsProvider(
       queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($this->createStub(QueryBusPort::class)),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -86,6 +88,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
     $provider = new ListOrganizationAuditEventsProvider(
       queryBus: $queryBus,
       security: $this->securityFor(self::USER_ID),
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $paginator = $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID], [
@@ -131,6 +134,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
     $provider = new ListOrganizationAuditEventsProvider(
       queryBus: $queryBus,
       security: $this->securityFor(self::USER_ID),
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $paginator = $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
@@ -154,6 +158,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
     $provider = new ListOrganizationAuditEventsProvider(
       queryBus: $this->createStub(QueryBusPort::class),
       security: $this->securityFor(self::USER_ID),
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($this->createStub(QueryBusPort::class)),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -174,6 +179,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
     $provider = new ListOrganizationAuditEventsProvider(
       queryBus: $queryBus,
       security: $this->securityFor(self::USER_ID),
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -201,6 +207,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
       $provider = new ListOrganizationAuditEventsProvider(
         queryBus: $queryBus,
         security: $this->securityFor(self::USER_ID),
+        users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
       );
 
       try {
@@ -229,6 +236,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
     $provider = new ListOrganizationAuditEventsProvider(
       queryBus: $queryBus,
       security: $this->securityFor(self::USER_ID),
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -250,6 +258,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
     $provider = new ListOrganizationAuditEventsProvider(
       queryBus: $queryBus,
       security: $this->securityFor(self::USER_ID),
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -273,6 +282,7 @@ final class ListOrganizationAuditEventsProviderTest extends TestCase
     $provider = new ListOrganizationAuditEventsProvider(
       queryBus: $queryBus,
       security: $this->securityFor(self::USER_ID),
+      users: \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
     );
 
     $this->expectExceptionObject($failure);

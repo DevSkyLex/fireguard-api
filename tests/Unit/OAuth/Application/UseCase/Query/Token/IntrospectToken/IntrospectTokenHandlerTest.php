@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Application\UseCase\Query\Token\IntrospectToken;
 
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort, RefreshTokenRepositoryPort, TokenCachePort};
+use OAuth\Application\Port\Outbound\Internal\Token\{AccessTokenRepositoryPort, RefreshTokenRepositoryPort};
+use OAuth\Application\Port\Outbound\Token\{JwtParserPort, TokenCachePort};
 use OAuth\Application\UseCase\Query\Token\IntrospectToken\{IntrospectTokenHandler, IntrospectTokenQuery};
 use OAuth\Domain\Model\Token\{AccessToken, RefreshToken};
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Intervention\Application\Service;
 
-use DateTimeImmutable;
 use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, InterventionResourceAssignment};
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\{InterventionMemberPolicy, InterventionResourceManager};
 use Intervention\Domain\Exception\{
   ClientResourceAlreadyExistsException,
@@ -15,9 +14,8 @@ use Intervention\Domain\Exception\{
   InterventionResourceNotFoundException
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Port\Inbound\OrganizationMemberDirectoryPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -33,6 +31,26 @@ final class InterventionResourceManagerTest extends TestCase
   private const MEMBER_ID = '018f0b68-6758-7a12-8a1d-3f0d97f63c13';
 
   private const RESOURCE_ID = '018f0b68-6758-7a12-8a1d-3f0d97f63c14';
+
+  #[Test]
+  public function offlineIdentityPreflightReadsWithoutTakingTheCommandLock(): void
+  {
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::never())->method('lockClientIdentity');
+    $resources->expects(self::once())->method('clientIdExists')->with(InterventionResourceType::EQUIPMENT, self::RESOURCE_ID)->willReturn(true);
+    $this->expectException(ClientResourceAlreadyExistsException::class);
+    new InterventionResourceManager($resources)->assertOfflineCreate(InterventionResourceType::EQUIPMENT, self::RESOURCE_ID, false);
+  }
+
+  #[Test]
+  public function preflightReadsPolicyWithoutAcquiringAMutationLock(): void
+  {
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::once())->method('interventionAssignmentContext')->with(self::INTERVENTION_ID)
+      ->willReturn(new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'));
+    $resources->expects(self::never())->method('interventionMutationContext');
+    self::assertSame('organization.interventions.plan', new InterventionResourceManager($resources)->mutationPermission(self::INTERVENTION_ID, self::USER_ID, self::ORGANIZATION_ID, false));
+  }
 
   #[Test]
   public function testRejectsAnAlreadySynchronizedOfflineCreation(): void
@@ -99,16 +117,10 @@ final class InterventionResourceManagerTest extends TestCase
         'responsible-id',
         [self::MEMBER_ID],
       ));
-    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $members = $this->createMock(OrganizationMemberDirectoryPort::class);
     $members->expects(self::once())->method('findByOrganizationAndUser')
-      ->with(OrganizationId::fromString(self::ORGANIZATION_ID), self::USER_ID)
-      ->willReturn(OrganizationMember::reconstitute(
-        OrganizationMemberId::fromString(self::MEMBER_ID),
-        OrganizationId::fromString(self::ORGANIZATION_ID),
-        self::USER_ID,
-        true,
-        new DateTimeImmutable(),
-      ));
+      ->with(self::ORGANIZATION_ID, self::USER_ID)
+      ->willReturn(new OrganizationMemberView(self::MEMBER_ID, self::ORGANIZATION_ID, self::USER_ID, true));
 
     $manager = new InterventionResourceManager($resources, new InterventionMemberPolicy($members));
 

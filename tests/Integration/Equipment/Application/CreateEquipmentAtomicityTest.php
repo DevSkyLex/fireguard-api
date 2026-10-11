@@ -6,15 +6,15 @@ namespace Tests\Integration\Equipment\Application;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler};
-use Equipment\Domain\ValueObject\EquipmentId;
 use Intervention\Application\Port\Inbound\InterventionCreationPort;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -51,8 +51,8 @@ final class CreateEquipmentAtomicityTest extends KernelTestCase
     $before = $connection->fetchOne('SELECT COUNT(*) FROM equipment WHERE organization_id = :org', ['org' => self::ORGANIZATION_ID]);
     $quota = $this->createMock(OrganizationQuotaPort::class);
     $quota->expects(self::once())->method('assertCanAdd');
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(new EquipmentId(self::EQUIPMENT_ID));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn(self::EQUIPMENT_ID);
     $creation = $this->createMock(InterventionCreationPort::class);
     $creation->expects(self::once())->method('assertOfflineCreate');
     $creation->expects(self::once())->method('attach')->willReturnCallback(static function () use ($connection): never {

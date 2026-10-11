@@ -8,16 +8,11 @@ use DateTimeImmutable;
 use Maintenance\Application\Service\{MaintenanceReminderNotifier, MaintenanceReminderRecipientResolver};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\{OrganizationMemberNotificationDirectoryPort, OrganizationNotificationPolicyPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-
-use function array_keys;
-use function array_map;
 
 /**
  * Test MaintenanceReminderNotifierTest.
@@ -149,25 +144,10 @@ final class MaintenanceReminderNotifierTest extends TestCase
    */
   private function recipients(array $userIds): MaintenanceReminderRecipientResolver
   {
-    $members = array_map(
-      static fn (int $index, string $userId): OrganizationMember => OrganizationMember::reconstitute(
-        OrganizationMemberId::fromString('550e8400-e29b-41d4-a716-4466554400' . (20 + $index)),
-        OrganizationId::fromString(self::ORG_ID),
-        $userId,
-        true,
-        new DateTimeImmutable(),
-      ),
-      array_keys($userIds),
-      $userIds,
-    );
+    $directory = $this->createStub(OrganizationMemberNotificationDirectoryPort::class);
+    $directory->method('administratorUserIds')->willReturn($userIds);
 
-    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $memberRepository->method('findByOrganizationId')->willReturn($members);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('getUserPermissions')->willReturn(['organization.maintenance.manage']);
-
-    return new MaintenanceReminderRecipientResolver($memberRepository, $authorization);
+    return new MaintenanceReminderRecipientResolver($directory);
   }
 
   private function policy(bool $inspectionDue = true, bool $inAppEnabled = true, bool $emailEnabled = true): OrganizationNotificationPolicyPort

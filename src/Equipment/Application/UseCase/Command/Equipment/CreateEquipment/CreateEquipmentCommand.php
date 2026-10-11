@@ -54,6 +54,7 @@ final readonly class CreateEquipmentCommand implements CommandMessage
     public ?string $assetCode = null,
     public ?string $criticality = null,
     public array $technicalProperties = [],
+    public ?string $userId = null,
   ) {
   }
   // #endregion

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Presentation\Api\Trait;
 
-use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException};
+use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException, InspectionReportNotEntitledException};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
 
@@ -40,7 +40,7 @@ trait InspectionExportExceptionMapperTrait
     $current = $exception;
     do {
       $mapped = match (true) {
-        $current instanceof InspectionAccessDeniedException => new AccessDeniedHttpException($current->getMessage(), $exception),
+        $current instanceof InspectionAccessDeniedException, $current instanceof InspectionReportNotEntitledException => new AccessDeniedHttpException($current->getMessage(), $exception),
         $current instanceof InspectionNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
         $current instanceof InspectionExportTooLargeException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
         default => null,

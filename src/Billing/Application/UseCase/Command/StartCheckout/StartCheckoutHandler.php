@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Billing\Application\UseCase\Command\StartCheckout;
 
 use Billing\Application\Port\Outbound\BillingReconciliationPort;
-use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId};
 use InvalidArgumentException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 use function rawurlencode;
@@ -44,7 +44,7 @@ final readonly class StartCheckoutHandler implements CommandHandler
    * @param BillingPriceCatalog $priceCatalog the plan price catalog
    * @param StripeGatewayPort $stripe the Stripe gateway
    * @param SubscriptionRepositoryPort $subscriptions the subscription repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param BillingReconciliationPort $reconciliation the transaction manager
    * @param string $frontendUrl the public frontend base URL for return links
    */
@@ -52,7 +52,7 @@ final readonly class StartCheckoutHandler implements CommandHandler
     private BillingPriceCatalog $priceCatalog,
     private StripeGatewayPort $stripe,
     private SubscriptionRepositoryPort $subscriptions,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private BillingReconciliationPort $reconciliation,
     private string $frontendUrl,
   ) {
@@ -110,7 +110,7 @@ final readonly class StartCheckoutHandler implements CommandHandler
 
     if (null === $subscription) {
       /** @var SubscriptionId $subscriptionId */
-      $subscriptionId = $this->uuidFactory->create(SubscriptionId::class);
+      $subscriptionId = new SubscriptionId($this->uuidFactory->generate());
       $subscription = Subscription::start($subscriptionId, $command->organizationId, $customerId);
 
       $this->subscriptions->save($subscription);

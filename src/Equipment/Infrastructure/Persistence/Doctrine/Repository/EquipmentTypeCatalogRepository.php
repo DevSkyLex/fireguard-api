@@ -6,7 +6,7 @@ namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort;
 use Equipment\Domain\Exception\EquipmentTypeCatalogException;
 use Equipment\Domain\Model\EquipmentTypeCatalog\EquipmentTypeDefinition;
 use Equipment\Domain\ValueObject\EquipmentType;

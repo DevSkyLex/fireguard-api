@@ -6,12 +6,12 @@ namespace Organization\Application\UseCase\Command\Organization\DeliverOrganizat
 
 use Notification\Application\Contract\Notification\NotificationChannel;
 use Organization\Application\Exception\OrganizationInvitationDeliveryException;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationNotifier;
 use Organization\Domain\ValueObject\OrganizationInvitationId;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\IdempotentConsumerPort;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function hash_equals;
 
@@ -28,7 +28,7 @@ final readonly class DeliverOrganizationInvitationHandler implements CommandHand
    *
    * @param OrganizationInvitationRepositoryPort $invitations the invitations
    * @param OrganizationRepositoryPort $organizations the organizations
-   * @param UserRepositoryPort $users the users
+   * @param UserDirectoryPort $users the users
    * @param OrganizationInvitationNotifier $notifier the notifier
    * @param IdempotentConsumerPort $consumer the consumer
    *
@@ -37,7 +37,7 @@ final readonly class DeliverOrganizationInvitationHandler implements CommandHand
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitations,
     private OrganizationRepositoryPort $organizations,
-    private UserRepositoryPort $users,
+    private UserDirectoryPort $users,
     private OrganizationInvitationNotifier $notifier,
     private IdempotentConsumerPort $consumer,
   ) {
@@ -68,14 +68,14 @@ final readonly class DeliverOrganizationInvitationHandler implements CommandHand
       if (null === $organization) {
         return;
       }
-      $user = $this->users->findByEmail($invitation->email());
+      $user = $this->users->findByEmail((string) $invitation->email());
       $notification = $this->notifier->send(
         organizationName: (string) $organization->name(),
         email: (string) $invitation->email(),
         acceptUrl: $command->acceptUrl,
         expiresAt: $invitation->expiresAt(),
-        recipientUserId: null !== $user ? (string) $user->id() : null,
-        locale: $this->notifier->clampLocale($user?->locale()->value),
+        recipientUserId: null !== $user ? (string) $user->id : null,
+        locale: $this->notifier->clampLocale($user?->locale),
         organizationId: (string) $invitation->organizationId(),
       );
       if (!$notification->isDelivered(NotificationChannel::EMAIL)) {

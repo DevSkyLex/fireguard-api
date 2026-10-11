@@ -6,8 +6,9 @@ namespace Tests\Unit\OAuth\Application\UseCase\Command\Token\IssueToken;
 
 use DateTimeImmutable;
 use OAuth\Application\Contract\Token\AccessTokenRequest;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, AuthCodeRepositoryPort, AuthorizationServerPort, IdTokenIssuerPort, RefreshTokenRepositoryPort};
-use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
+use OAuth\Application\Port\Outbound\Internal\Token\{AccessTokenRepositoryPort, AuthCodeRepositoryPort, AuthorizationServerPort, RefreshTokenRepositoryPort};
+use OAuth\Application\Port\Outbound\Internal\User\OidcUserProviderPort;
+use OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort;
 use OAuth\Application\Service\OidcClaimsBuilderInterface;
 use OAuth\Application\UseCase\Command\Token\IssueToken\{IssueTokenCommand, IssueTokenHandler, IssueTokenResult};
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent};

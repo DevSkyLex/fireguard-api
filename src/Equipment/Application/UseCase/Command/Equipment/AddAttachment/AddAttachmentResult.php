@@ -43,6 +43,7 @@ final readonly class AddAttachmentResult implements ResultMessage
     public int $size,
     public ?string $label,
     public DateTimeImmutable $uploadedAt,
+    public int $revision = 1,
   ) {
   }
   // #endregion

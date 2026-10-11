@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\Console\Command\Client;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Domain\Model\Client\Client;
 use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret, RedirectUri};
 use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
 use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Service\EventIdProvider;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -55,7 +55,7 @@ final class CreateClientCommand extends Command
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
-    private readonly UuidFactory $uuidFactory,
+    private readonly UuidGeneratorPort $uuidFactory,
     private readonly EventIdProvider $eventIdProvider,
   ) {
     parent::__construct();
@@ -169,7 +169,7 @@ HELP
           $clientId = new ClientId($customId);
         } catch (Throwable) {
           // If invalid UUID format, generate a new one and warn user
-          $clientId = $this->uuidFactory->create(ClientId::class);
+          $clientId = new ClientId($this->uuidFactory->generate());
           $io->warning(sprintf(
             'Provided ID "%s" is not a valid UUID. Generated: %s',
             $customId,
@@ -177,7 +177,7 @@ HELP
           ));
         }
       } else {
-        $clientId = $this->uuidFactory->create(ClientId::class);
+        $clientId = new ClientId($this->uuidFactory->generate());
       }
 
       // Generate or use provided secret

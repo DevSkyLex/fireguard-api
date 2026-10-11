@@ -13,7 +13,7 @@ use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Application\Contract\Event\FacilityPlanGeometryChangedEvent;
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
-use Intervention\Domain\Exception\InterventionConflictException;
+use Intervention\Application\Contract\Resource\InterventionConflictException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Messaging\Outbox\{DeliverOutboxEventHandler, DurableEventContext, OutboxEvent};
@@ -75,7 +75,7 @@ final class SpatialMutationContractTest extends KernelTestCase
     $zone->parentFacility = $root;
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT;
-    $equipment->organization = $org;
+    $equipment->organizationId = $org->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->facilityId = self::ZONE;
     $equipment->status = 'in_stock';
@@ -221,7 +221,7 @@ final class SpatialMutationContractTest extends KernelTestCase
   {
     $record = new FacilityRecord();
     $record->id = $id;
-    $record->organization = $org;
+    $record->organizationId = $org->id;
     $record->name = 'Spatial facility';
     $record->type = 'building';
     $record->status = 'active';

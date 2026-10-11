@@ -6,7 +6,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\ArchiveFacili
 
 use DateTimeImmutable;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacilityCommand, ArchiveFacilityHandler, ArchiveFacilityResult};
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException, FacilityOrganizationNotFoundException};
@@ -16,7 +16,7 @@ use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
@@ -54,8 +54,8 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ->method('save')
       ->willThrowException(FacilityOrganizationNotFoundException::create());
 
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::never())->method('send');
@@ -95,9 +95,9 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ->willReturn(null);
     $repository->expects(self::never())->method('save');
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -146,9 +146,9 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ->willReturn($facility);
     $repository->expects(self::never())->method('save');
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -219,11 +219,11 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ),
     );
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
     $organizationRepository->expects(self::once())
-      ->method('findById')
-      ->willReturn($organization);
+      ->method('ownerUserId')
+      ->willReturn($organization->ownerUserId());
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -324,11 +324,11 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ),
     );
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
     $organizationRepository->expects(self::once())
-      ->method('findById')
-      ->willReturn($organization);
+      ->method('ownerUserId')
+      ->willReturn($organization->ownerUserId());
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -393,9 +393,9 @@ final class ArchiveFacilityHandlerTest extends TestCase
     $repository->method('findPublishedById')->willReturn($facility);
     $repository->expects(self::never())->method('save');
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var FacilityArchivalGuardPort&MockObject $guard */
     $guard = $this->createMock(FacilityArchivalGuardPort::class);
@@ -445,9 +445,9 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ->method('save')
       ->with(self::callback(static fn (Facility $savedFacility): bool => FacilityStatus::ARCHIVED === $savedFacility->status()));
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -492,9 +492,9 @@ final class ArchiveFacilityHandlerTest extends TestCase
     $repository->expects(self::never())->method('findById');
     $repository->expects(self::never())->method('save');
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::never())->method('findById');
+    /** @var OrganizationOwnerReadPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationOwnerReadPort::class);
+    $organizationRepository->expects(self::never())->method('ownerUserId');
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -530,7 +530,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
 
     $handler = new ArchiveFacilityHandler(
       facilityRepository: $repository,
-      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      organizationRepository: $this->createStub(OrganizationOwnerReadPort::class),
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
       archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
@@ -568,7 +568,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
 
     $handler = new ArchiveFacilityHandler(
       facilityRepository: $repository,
-      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      organizationRepository: $this->createStub(OrganizationOwnerReadPort::class),
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
       archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),

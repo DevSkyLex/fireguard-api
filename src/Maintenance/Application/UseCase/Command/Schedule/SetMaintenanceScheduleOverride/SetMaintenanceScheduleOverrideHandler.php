@@ -48,7 +48,7 @@ final readonly class SetMaintenanceScheduleOverrideHandler implements CommandHan
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
     private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort $locks,
-    private ?\Maintenance\Application\Port\Inbound\MaintenancePlanAuthorityPort $planAuthority = null,
+    private ?\Maintenance\Application\Port\Inbound\Internal\MaintenancePlanAuthorityPort $planAuthority = null,
   ) {
   }
 

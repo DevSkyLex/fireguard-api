@@ -6,14 +6,12 @@ namespace Webhook\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 use Webhook\Application\UseCase\Command\Delivery\RedeliverWebhook\{RedeliverWebhookCommand, RedeliverWebhookResult};
 use Webhook\Presentation\Api\Dto\Output\WebhookPingOutput;
-use Webhook\Presentation\Api\Trait\WebhookExceptionMapperTrait;
 
 use function is_string;
 
@@ -29,8 +27,6 @@ use function is_string;
  */
 final readonly class RedeliverWebhookProcessor implements ProcessorInterface
 {
-  use WebhookExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -61,7 +57,7 @@ final readonly class RedeliverWebhookProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): WebhookPingOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -76,17 +72,13 @@ final readonly class RedeliverWebhookProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId, webhookId, and deliveryId URI parameters are required.');
     }
 
-    try {
-      /** @var RedeliverWebhookResult $result */
-      $result = $this->commandBus->dispatch(new RedeliverWebhookCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        subscriptionId: $webhookId,
-        deliveryId: $deliveryId,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWebhookException($exception);
-    }
+    /** @var RedeliverWebhookResult $result */
+    $result = $this->commandBus->dispatch(new RedeliverWebhookCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      subscriptionId: $webhookId,
+      deliveryId: $deliveryId,
+    ));
 
     $output = new WebhookPingOutput();
     $output->deliveryId = $result->deliveryId;

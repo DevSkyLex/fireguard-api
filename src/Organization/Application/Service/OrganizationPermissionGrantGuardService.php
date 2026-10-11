@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Application\Service;
 
+use Organization\Application\Contract\Event\Security\OrganizationPermissionGrantDeniedEvent;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
-use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
-use Organization\Domain\Event\Security\OrganizationPermissionGrantDeniedEvent;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Port\Outbound\Internal\OrganizationRoleRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationRoleId;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 

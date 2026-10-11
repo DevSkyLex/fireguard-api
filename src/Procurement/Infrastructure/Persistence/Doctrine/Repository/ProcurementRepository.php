@@ -6,7 +6,7 @@ namespace Procurement\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\Connection;
 use Procurement\Application\Contract\{ProcurementOperationState, ProcurementReceiptState, ProcurementReturnState};
-use Procurement\Application\Port\Outbound\Persistence\ProcurementRepositoryPort;
+use Procurement\Application\Port\Outbound\Internal\Persistence\ProcurementRepositoryPort;
 use Procurement\Domain\Exception\ProcurementException;
 use Procurement\Domain\Model\{PurchaseOrder, Supplier};
 use Procurement\Infrastructure\Adapter\Doctrine\ProcurementTableStorageAdapter;

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\ExportInspections;
 
 use Inspection\Application\Contract\Export\InspectionExportCandidate;
-use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort, InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
+use Inspection\Application\Port\Outbound\Internal\{ChecklistRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\ExportInspections\{ExportInspectionsHandler, ExportInspectionsQuery, ExportInspectionsResult};
 use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException};
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;

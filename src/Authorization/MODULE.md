@@ -86,6 +86,12 @@ Key folders:
 - `src/Authorization/Domain`
 - `src/Authorization/Infrastructure`
 
+### Published and private capabilities
+
+Consumers use pure AuthorizationPort and the published Auth authentication-cache invalidation capability. AuthorizationDataLifecyclePort removes scalar user_roles and role assignments before User deletion in the same auth transaction, preserving NO ACTION foreign keys. User seeds compose roles through AuthorizationSeedRoleAssignmentsPort with scalar identities.
+
+Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
+
 ## Configuration
 
 - Service wiring: `config/modules/authorization.yaml`

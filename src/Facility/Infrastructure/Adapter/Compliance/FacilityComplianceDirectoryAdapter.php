@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Adapter\Compliance;
 
 use Compliance\Application\Port\Outbound\ComplianceFacilityDirectoryPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\FacilityOrganizationId;
 

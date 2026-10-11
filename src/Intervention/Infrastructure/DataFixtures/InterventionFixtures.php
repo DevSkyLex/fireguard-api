@@ -6,18 +6,16 @@ namespace Intervention\Infrastructure\DataFixtures;
 
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
-use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Facility\Infrastructure\DataFixtures\FacilityFixtures;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Equipment\Application\Contract\Seed\SeedCatalog as EquipmentFixtures;
+use Facility\Application\Contract\Seed\SeedCatalog as FacilityFixtures;
 use Intervention\Domain\ValueObject\InterventionStatus;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionAttachmentRecord, InterventionChangeRecord, InterventionLabelRecord, InterventionNumberCounterRecord, InterventionRecord, InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateItemRecord, InterventionTemplateRecord, InterventionWorkItemRecord, PublicationRecord};
 use LogicException;
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationRecord};
-use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
+use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
+use Shared\Application\Contract\Seed\SeedReference as OrganizationRecord;
+use Shared\Application\Contract\Seed\{SeedTimeline, SeedUuid};
+use Shared\Application\Port\Inbound\{SeedReferenceConsumerPort, SeedReferenceRegistryPort};
 
 use function array_values;
 use function count;
@@ -62,8 +60,10 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class InterventionFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+final class InterventionFixtures extends Fixture implements FixtureGroupInterface, SeedReferenceConsumerPort
 {
+  // #endregion
+
   // #region Constants
   /**
    * Constant PUBLISHED_INTERVENTION_REFERENCE
@@ -934,6 +934,22 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE,
     OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE,
   ];
+
+  // #region Properties
+  /**
+   * Scalar fixture facts supplied by the composition root.
+   */
+  private SeedReferenceRegistryPort $seedReferences;
+  // #endregion
+
+  // #region Methods
+  /**
+   * {@inheritdoc}
+   */
+  public function setSeedReferences(SeedReferenceRegistryPort $references): void
+  {
+    $this->seedReferences = $references;
+  }
   // #endregion
 
   // #region Methods
@@ -956,11 +972,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    */
   public function getDependencies(): array
   {
-    return [
-      OrganizationFixtures::class,
-      FacilityFixtures::class,
-      EquipmentFixtures::class,
-    ];
+    return [];
   }
 
   /**
@@ -977,7 +989,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
   public function load(ObjectManager $manager): void
   {
     /** @var OrganizationRecord $organization */
-    $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
+    $organization = $this->seedReferences->get(OrganizationFixtures::ORGANIZATION_REFERENCE);
 
     $labels = $this->loadLabels($manager, $organization);
     $templates = $this->loadTemplates($manager, $organization, $labels);
@@ -1021,7 +1033,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     foreach (self::LABEL_SEEDS as $seed) {
       $label = new InterventionLabelRecord();
       $label->id = $seed['id'];
-      $label->organization = $organization;
+      $label->organizationId = $organization->id;
       $label->name = $seed['name'];
       $label->color = $seed['color'];
       $label->createdAt = $createdAt;
@@ -1059,7 +1071,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
 
       $template = new InterventionTemplateRecord();
       $template->id = $seed['id'];
-      $template->organization = $organization;
+      $template->organizationId = $organization->id;
       $template->name = $seed['name'];
       $template->description = $seed['description'];
       $template->type = $seed['type'];
@@ -1126,7 +1138,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
 
       $intervention = new InterventionRecord();
       $intervention->id = $seed['id'];
-      $intervention->organization = $organization;
+      $intervention->organizationId = $organization->id;
       $intervention->type = $seed['type'];
       $intervention->name = $seed['name'];
       $intervention->number = $seed['number'];
@@ -1358,7 +1370,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
 
       $intervention = new InterventionRecord();
       $intervention->id = SeedUuid::from(sprintf('intervention-bulk:%d', $i));
-      $intervention->organization = $organization;
+      $intervention->organizationId = $organization->id;
       $intervention->type = $type;
       $intervention->name = sprintf('Bulk seed intervention #%d', $number);
       $intervention->number = $number;
@@ -1443,7 +1455,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
 
       $recurrence = new InterventionRecurrenceRecord();
       $recurrence->id = $seed['id'];
-      $recurrence->organization = $organization;
+      $recurrence->organizationId = $organization->id;
       $recurrence->template = $templates[$seed['templateReference']];
       $recurrence->name = $seed['name'];
       $recurrence->siteId = '' === $seed['siteReference'] ? null : $this->facilityId($seed['siteReference']);
@@ -1505,15 +1517,15 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ?string $body = null,
     ?array $payload = null,
   ): InterventionActivityRecord {
-    $organization = $intervention->organization;
-    if (!$organization instanceof OrganizationRecord) {
+    $organizationId = $intervention->organizationId;
+    if ('' === $organizationId) {
       throw new LogicException('Seeded intervention must belong to an organization before activity creation.');
     }
 
     $activity = new InterventionActivityRecord();
     $activity->id = $id;
     $activity->intervention = $intervention;
-    $activity->organizationId = $organization->id;
+    $activity->organizationId = $organizationId;
     $activity->actorId = $actorId;
     $activity->kind = 'comment' === $event ? 'comment' : 'system';
     $activity->event = $event;
@@ -1552,7 +1564,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    */
   private function memberId(string $reference): string
   {
-    return $this->getReference($reference, OrganizationMemberRecord::class)->id;
+    return $this->seedReferences->get($reference)->id;
   }
 
   /**
@@ -1566,7 +1578,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    */
   private function facilityId(string $reference): string
   {
-    return $this->getReference($reference, FacilityRecord::class)->id;
+    return $this->seedReferences->get($reference)->id;
   }
 
   /**
@@ -1580,7 +1592,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    */
   private function equipmentIri(string $reference): string
   {
-    return sprintf('/api/equipment/%s', $this->getReference($reference, EquipmentRecord::class)->id);
+    return sprintf('/api/equipment/%s', $this->seedReferences->get($reference)->id);
   }
   // #endregion
 }

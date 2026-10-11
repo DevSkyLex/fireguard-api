@@ -6,7 +6,8 @@ namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\DeleteCanon
 
 use DateTimeImmutable;
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
-use Equipment\Application\Port\Outbound\{CanonicalEquipmentRepositoryPort, InterventionScopePort};
+use Equipment\Application\Port\Outbound\Internal\CanonicalEquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\InterventionScopePort;
 use Equipment\Application\UseCase\Command\Equipment\DeleteCanonicalEquipment\{DeleteCanonicalEquipmentCommand, DeleteCanonicalEquipmentHandler};
 use Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent;
 use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentRevisionMismatchException};
@@ -175,6 +176,38 @@ final class DeleteCanonicalEquipmentHandlerTest extends TestCase
   // #endregion
 
   // #region Helpers
+  #[Test]
+  public function aParentMadeImmutableAfterPreflightIsRecheckedWithALockBeforeAnyWrite(): void
+  {
+    $insideTransaction = false;
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static function (callable $operation) use (&$insideTransaction): mixed {
+      $insideTransaction = true;
+
+      try {
+        return $operation();
+      } finally {
+        $insideTransaction = false;
+      }
+    });
+    $parent = '550e8400-e29b-41d4-a716-446655440995';
+    $actor = '550e8400-e29b-41d4-a716-446655440999';
+    $interventions = $this->createMock(\Intervention\Application\Port\Inbound\InterventionResourcesPort::class);
+    $interventions->expects(self::once())->method('mutationPermission')->with($parent, $actor, self::ORGANIZATION_ID, true)->willReturnCallback(static function () use (&$insideTransaction): never {
+      self::assertTrue($insideTransaction);
+
+      throw new \Intervention\Application\Contract\Resource\InterventionConflictException('Intervention became immutable after preflight.');
+    });
+    $authorization = $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+    $repository = $this->createMock(CanonicalEquipmentRepositoryPort::class);
+    $repository->method('findById')->willReturn($this->equipment(recordStatus: EquipmentRecordStatus::DRAFT, interventionId: $parent));
+    $repository->expects(self::never())->method('delete');
+    $handler = $this->handler(equipment: $repository, transactionManager: $transactions, access: new \Equipment\Application\Service\EquipmentMediaAccess($authorization, $interventions));
+    $this->expectException(\Intervention\Application\Contract\Resource\InterventionConflictException::class);
+    $this->expectExceptionMessage('Intervention became immutable after preflight.');
+    $handler(new DeleteCanonicalEquipmentCommand(self::EQUIPMENT_ID, 3, userId: $actor));
+  }
+
   /**
    * Method handler.
    *
@@ -190,11 +223,15 @@ final class DeleteCanonicalEquipmentHandlerTest extends TestCase
     ?EquipmentMaintenanceLogSynchronizerPort $synchronizer = null,
     ?InterventionScopePort $interventions = null,
     ?EventDispatcherPort $eventDispatcher = null,
+    ?TransactionManagerPort $transactionManager = null,
+    ?\Equipment\Application\Service\EquipmentMediaAccess $access = null,
   ): DeleteCanonicalEquipmentHandler {
-    $transactionManager = $this->createStub(TransactionManagerPort::class);
-    $transactionManager->method('transactional')->willReturnCallback(
-      static fn (callable $operation): mixed => $operation(),
-    );
+    if (null === $transactionManager) {
+      $transactionManager = $this->createStub(TransactionManagerPort::class);
+      $transactionManager->method('transactional')->willReturnCallback(
+        static fn (callable $operation): mixed => $operation(),
+      );
+    }
 
     return new DeleteCanonicalEquipmentHandler(
       equipment: $equipment ?? $this->createStub(CanonicalEquipmentRepositoryPort::class),
@@ -202,6 +239,7 @@ final class DeleteCanonicalEquipmentHandlerTest extends TestCase
       interventions: $interventions ?? $this->createStub(InterventionScopePort::class),
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
       transactionManager: $transactionManager,
+      access: $access,
     );
   }
 

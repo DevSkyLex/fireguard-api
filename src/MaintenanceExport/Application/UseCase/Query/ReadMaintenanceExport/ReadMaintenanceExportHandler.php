@@ -6,7 +6,7 @@ namespace MaintenanceExport\Application\UseCase\Query\ReadMaintenanceExport;
 
 use Intervention\Application\Contract\Publication\InterventionPublicationFacts;
 use Intervention\Application\Port\Inbound\InterventionPublicationFactsPort;
-use MaintenanceExport\Application\Port\Outbound\MaintenanceExportRepositoryPort;
+use MaintenanceExport\Application\Port\Outbound\Internal\MaintenanceExportRepositoryPort;
 use MaintenanceExport\Domain\Exception\MaintenanceExportException;
 use MaintenanceExport\Domain\ValueObject\ExportIdentity;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;

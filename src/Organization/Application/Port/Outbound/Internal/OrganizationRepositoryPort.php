@@ -1,0 +1,160 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Organization\Application\Port\Outbound\Internal;
+
+use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationSlug, OrganizationStatus};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+
+/**
+ * Port OrganizationRepositoryPort.
+ *
+ * @category Port
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+interface OrganizationRepositoryPort
+{
+  // #region Methods
+  /**
+   * Method lockSlugNamespace.
+   *
+   * Serializes slug allocation and writes for the current transaction.
+   *
+   * @since 1.1.0
+   */
+  public function lockSlugNamespace(): void;
+
+  /**
+   * Method slugExists.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationSlug $slug the candidate slug
+   *
+   * @return bool whether the candidate is already assigned
+   */
+  public function slugExists(OrganizationSlug $slug): bool;
+
+  /**
+   * Method save.
+   *
+   * Persists an organization aggregate.
+   *
+   * @since 1.0.0
+   *
+   * @param Organization $organization the organization aggregate
+   */
+  public function save(Organization $organization): void;
+
+  /**
+   * Method findById.
+   *
+   * Finds an organization by identifier.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $id the organization identifier
+   *
+   * @return ?Organization the organization aggregate when found
+   */
+  public function findById(OrganizationId $id): ?Organization;
+
+  /**
+   * Reads a fresh organization under the owning transaction's write lock.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $id the organization identifier
+   *
+   * @return ?Organization the current locked aggregate
+   */
+  public function findByIdForUpdate(OrganizationId $id): ?Organization;
+
+  /**
+   * Method statusOf.
+   *
+   * Reads an organization's status without hydrating the aggregate.
+   *
+   * This exists for the authorization hot path, which asks the question on
+   * every permission check and must not pay a full hydration for it.
+   *
+   * @since 1.2.0
+   *
+   * @param OrganizationId $id the organization identifier
+   *
+   * @return OrganizationStatus|null the status, or null when the organization does not exist
+   */
+  public function statusOf(OrganizationId $id): ?OrganizationStatus;
+
+  /**
+   * Method findByIds.
+   *
+   * Finds organizations by a list of identifiers with optional filters.
+   *
+   * @since 1.0.0
+   *
+   * @param list<OrganizationId> $ids the organization identifiers
+   * @param ?string $status optional status filter
+   * @param ?string $search optional text search applied before pagination
+   * @param Sorting $sorting requested sorting applied before pagination
+   * @param int $limit maximum number of results
+   * @param int $offset result offset
+   *
+   * @return list<Organization> the matching organizations
+   */
+  public function findByIds(
+    array $ids,
+    ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    int $limit = 20,
+    int $offset = 0,
+  ): array;
+
+  /**
+   * Method countByIds.
+   *
+   * Counts organizations by a list of identifiers with optional filters.
+   *
+   * @since 1.0.0
+   *
+   * @param list<OrganizationId> $ids the organization identifiers
+   * @param ?string $status optional status filter
+   * @param ?string $search optional text search applied before counting
+   *
+   * @return int the matching organization count
+   */
+  public function countByIds(array $ids, ?string $status = null, ?string $search = null): int;
+
+  /**
+   * Method pageActiveIds.
+   *
+   * Pages through the identifiers of every ACTIVE organization, ordered by
+   * identifier for a stable sweep iteration. Backs recurring organization-wide
+   * sweeps (e.g. the weekly digest) with bounded memory.
+   *
+   * @since 1.0.0
+   *
+   * @param int $limit maximum number of identifiers to return
+   * @param int $offset iteration offset
+   *
+   * @return list<string> the active organization identifiers page
+   */
+  public function pageActiveIds(int $limit, int $offset): array;
+
+  /**
+   * Method delete.
+   *
+   * Deletes an organization by identifier.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $id the organization identifier
+   */
+  public function delete(OrganizationId $id): void;
+  // #endregion
+}

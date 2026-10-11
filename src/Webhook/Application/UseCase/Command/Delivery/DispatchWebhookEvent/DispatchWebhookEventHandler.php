@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent;
 
-use Shared\Application\Factory\UuidFactory;
+use DateTimeImmutable;
 use Shared\Application\Message\{CommandHandler, VoidResult};
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 use Webhook\Application\Contract\Event\WebhookPayloadEnvelope;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryQueuePort, WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\WebhookDeliverySchedulePort;
 use Webhook\Domain\ValueObject\WebhookDeliveryId;
 
 /**
@@ -37,14 +39,16 @@ final readonly class DispatchWebhookEventHandler implements CommandHandler
    *
    * @param WebhookSubscriptionRepositoryPort $subscriptionRepository the webhook subscription repository port
    * @param WebhookDeliveryRepositoryPort $deliveryRepository the webhook delivery repository port
-   * @param WebhookDeliveryQueuePort $queue the delivery queue port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param WebhookDeliverySchedulePort $queue the durable delivery schedule
+   * @param UuidGeneratorPort $uuidFactory the UUID generator
+   * @param TransactionManagerPort $transactionManager the main transaction boundary
    */
   public function __construct(
     private WebhookSubscriptionRepositoryPort $subscriptionRepository,
     private WebhookDeliveryRepositoryPort $deliveryRepository,
-    private WebhookDeliveryQueuePort $queue,
-    private UuidFactory $uuidFactory,
+    private WebhookDeliverySchedulePort $queue,
+    private UuidGeneratorPort $uuidFactory,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -67,8 +71,7 @@ final readonly class DispatchWebhookEventHandler implements CommandHandler
     );
 
     foreach ($subscriptions as $subscription) {
-      /** @var WebhookDeliveryId $deliveryId */
-      $deliveryId = $this->uuidFactory->create(WebhookDeliveryId::class);
+      $deliveryId = WebhookDeliveryId::fromString($this->uuidFactory->generate());
 
       $envelope = new WebhookPayloadEnvelope(
         id: (string) $deliveryId,
@@ -78,18 +81,20 @@ final readonly class DispatchWebhookEventHandler implements CommandHandler
         data: $command->data,
       );
 
-      $reserved = $this->deliveryRepository->reserve(
-        id: $deliveryId,
-        subscriptionId: $subscription->id(),
-        organizationId: $command->organizationId,
-        eventType: $command->eventType,
-        eventId: $command->eventId,
-        payload: $envelope->toArray(),
-      );
+      $this->transactionManager->transactional(function () use ($deliveryId, $subscription, $command, $envelope): void {
+        $reserved = $this->deliveryRepository->reserve(
+          id: $deliveryId,
+          subscriptionId: $subscription->id(),
+          organizationId: $command->organizationId,
+          eventType: $command->eventType,
+          eventId: $command->eventId,
+          payload: $envelope->toArray(),
+        );
 
-      if ($reserved) {
-        $this->queue->dispatch((string) $deliveryId);
-      }
+        if ($reserved) {
+          $this->queue->enqueue((string) $deliveryId, 0, new DateTimeImmutable());
+        }
+      });
     }
 
     return new VoidResult();

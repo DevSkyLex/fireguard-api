@@ -19,7 +19,6 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleRecord};
 use Authorization\Presentation\Api\Dto\Input\Role\{AddPermissionInput, RoleInput};
 use Authorization\Presentation\Api\Dto\Output\Role\RoleOutput;
 use Authorization\Presentation\Api\Operation\AuthorizationOperations;
@@ -258,7 +257,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       status: HttpResponse::HTTP_OK,
       uriVariables: [
         'roleId' => new Link(
-          fromClass: RoleRecord::class,
+          fromClass: RoleResource::class,
           identifiers: ['id'],
         ),
       ],
@@ -312,11 +311,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       uriTemplate: '/roles/{roleId}/permissions/{permissionId}',
       uriVariables: [
         'roleId' => new Link(
-          fromClass: RoleRecord::class,
+          fromClass: RoleResource::class,
           identifiers: ['id'],
         ),
         'permissionId' => new Link(
-          fromClass: PermissionRecord::class,
+          fromClass: PermissionResource::class,
           identifiers: ['id'],
         ),
       ],

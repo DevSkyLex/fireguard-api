@@ -6,14 +6,12 @@ namespace Webhook\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 use Webhook\Application\UseCase\Command\Subscription\PingWebhookSubscription\{PingWebhookSubscriptionCommand, PingWebhookSubscriptionResult};
 use Webhook\Presentation\Api\Dto\Output\WebhookPingOutput;
-use Webhook\Presentation\Api\Trait\WebhookExceptionMapperTrait;
 
 use function is_string;
 
@@ -29,8 +27,6 @@ use function is_string;
  */
 final readonly class PingWebhookSubscriptionProcessor implements ProcessorInterface
 {
-  use WebhookExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -61,7 +57,7 @@ final readonly class PingWebhookSubscriptionProcessor implements ProcessorInterf
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): WebhookPingOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -71,16 +67,12 @@ final readonly class PingWebhookSubscriptionProcessor implements ProcessorInterf
       throw new BadRequestHttpException('OrganizationId and webhookId URI parameters are required.');
     }
 
-    try {
-      /** @var PingWebhookSubscriptionResult $result */
-      $result = $this->commandBus->dispatch(new PingWebhookSubscriptionCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        subscriptionId: $webhookId,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWebhookException($exception);
-    }
+    /** @var PingWebhookSubscriptionResult $result */
+    $result = $this->commandBus->dispatch(new PingWebhookSubscriptionCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      subscriptionId: $webhookId,
+    ));
 
     $output = new WebhookPingOutput();
     $output->deliveryId = $result->deliveryId;

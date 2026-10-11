@@ -6,7 +6,7 @@ namespace Notification\Presentation\Api\Processor\Notification;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead\{MarkNotificationAsReadCommand, MarkNotificationAsReadResult};
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
@@ -60,7 +60,7 @@ final readonly class MarkNotificationAsReadProcessor implements ProcessorInterfa
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): NotificationOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

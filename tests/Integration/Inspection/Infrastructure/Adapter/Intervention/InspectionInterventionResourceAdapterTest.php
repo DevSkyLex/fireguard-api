@@ -9,7 +9,7 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
-use Intervention\Domain\ValueObject\InterventionResourceType;
+use Intervention\Application\Contract\Resource\InterventionResourceType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -213,7 +213,7 @@ final class InspectionInterventionResourceAdapterTest extends KernelTestCase
   ): InspectionRecord {
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->interventionId = $interventionId;
     $inspection->clientId = $clientId;
     $inspection->recordStatus = 'published';

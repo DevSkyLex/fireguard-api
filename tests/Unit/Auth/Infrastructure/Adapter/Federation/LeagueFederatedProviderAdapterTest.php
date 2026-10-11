@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Infrastructure\Adapter\Federation;
 
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
+use Auth\Application\Contract\Federation\FederatedProvider;
 use Auth\Infrastructure\Adapter\Federation\{GooglePkceProviderAdapter, LeagueFederatedProviderAdapter, OidcPkceProviderAdapter};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;

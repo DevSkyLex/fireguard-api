@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Otp\Infrastructure\Adapter\Notifier;
 
-use Otp\Application\Port\Outbound\Challenge\OtpNotifierPort;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpNotifierPort;
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{
   OtpChannel,

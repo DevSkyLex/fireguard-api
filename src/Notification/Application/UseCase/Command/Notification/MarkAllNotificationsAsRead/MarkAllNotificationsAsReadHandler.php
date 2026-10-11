@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Application\UseCase\Command\Notification\MarkAllNotificationsAsRead;
 
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Shared\Application\Message\CommandHandler;
 
 /**

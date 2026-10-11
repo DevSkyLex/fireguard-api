@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\RestoreFacility;
 
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\RestoreFacility\{RestoreFacilityCommand, RestoreFacilityHandler, RestoreFacilityResult};
 use Facility\Domain\Event\Facility\FacilityRestoredEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException};
@@ -17,6 +16,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Persistence\ForeignKeyConstraintViolationException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -369,7 +369,7 @@ final class RestoreFacilityHandlerTest extends TestCase
 
     $repository->expects(self::once())
       ->method('save')
-      ->willThrowException(new ForeignKeyConstraintViolationException($driverException, null));
+      ->willThrowException(new ForeignKeyConstraintViolationException($driverException));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);

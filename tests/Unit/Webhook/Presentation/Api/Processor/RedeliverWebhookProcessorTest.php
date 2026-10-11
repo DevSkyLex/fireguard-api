@@ -10,7 +10,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Webhook\Application\UseCase\Command\Delivery\RedeliverWebhook\{RedeliverWebhookCommand, RedeliverWebhookResult};
 use Webhook\Domain\Exception\WebhookDeliveryNotFoundException;
 use Webhook\Presentation\Api\Processor\RedeliverWebhookProcessor;
@@ -102,7 +102,7 @@ final class RedeliverWebhookProcessorTest extends TestCase
 
     $processor = new RedeliverWebhookProcessor($commandBus, $this->authenticatedSecurity());
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(WebhookDeliveryNotFoundException::class);
 
     $processor->process(null, new Post(), $this->uriVariables());
   }

@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember;
 
+use Organization\Application\Contract\Event\Member\OrganizationMemberAddedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\{OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationMemberNotFoundException, OrganizationMemberNotInactiveException, OrganizationNotFoundException};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationMemberNotFoundException, OrganizationMemberNotInactiveException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
@@ -80,7 +81,7 @@ final readonly class ReactivateOrganizationMemberHandler implements CommandHandl
    *                                             belong to the organization
    * @throws OrganizationMemberNotInactiveException when the member is not
    *                                                currently inactive
-   * @throws \Organization\Domain\Exception\OrganizationAccessDeniedException when retained roles exceed the actor's grant ceiling
+   * @throws \Organization\Application\Contract\Exception\OrganizationAccessDeniedException when retained roles exceed the actor's grant ceiling
    * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
    *                                                                                     when reactivating would exceed the plan's member cap
    */

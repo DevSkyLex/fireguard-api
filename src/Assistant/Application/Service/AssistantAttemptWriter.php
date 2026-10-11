@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Assistant\Application\Service;
 
 use Assistant\Application\Contract\Generation\AssistantGenerationOutcome;
-use Assistant\Application\Port\Outbound\{AssistantAttemptLockPort, AssistantMessageRepositoryPort, AssistantRealtimePublisherPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Port\Outbound\AssistantAttemptLockPort;
+use Assistant\Application\Port\Outbound\Internal\{AssistantMessageRepositoryPort, AssistantRealtimePublisherPort, AssistantThreadRepositoryPort};
 use Assistant\Application\UseCase\Command\Message\GenerateAssistantReply\GenerateAssistantReplyCommand;
 use Assistant\Domain\Event\Message\AssistantReplyGeneratedEvent;
 use Assistant\Domain\Model\Message\AssistantMessage;

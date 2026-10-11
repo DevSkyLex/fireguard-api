@@ -6,7 +6,7 @@ namespace Audit\Application\Service;
 
 use Audit\Application\Contract\{AuditEventSearchCriteria, AuditEventView, AuditExportTooLargeException, OrganizationAuditEntry};
 use Audit\Application\Port\Inbound\OrganizationAuditFeedPort;
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Audit\Application\UseCase\Query\ExportAuditEvents\ExportAuditEventsHandler;
 use DateTimeImmutable;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};

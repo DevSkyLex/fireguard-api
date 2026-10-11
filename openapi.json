@@ -3921,7 +3921,7 @@
                     {
                         "name": "roleId",
                         "in": "path",
-                        "description": "RoleRecord identifier",
+                        "description": "Role identifier",
                         "required": true,
                         "deprecated": false,
                         "schema": {
@@ -3994,7 +3994,7 @@
                     {
                         "name": "roleId",
                         "in": "path",
-                        "description": "RoleRecord identifier",
+                        "description": "Role identifier",
                         "required": true,
                         "deprecated": false,
                         "schema": {
@@ -4006,7 +4006,7 @@
                     {
                         "name": "permissionId",
                         "in": "path",
-                        "description": "PermissionRecord identifier",
+                        "description": "PermissionResource identifier",
                         "required": true,
                         "deprecated": false,
                         "schema": {

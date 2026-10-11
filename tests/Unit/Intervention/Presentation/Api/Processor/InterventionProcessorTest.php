@@ -7,21 +7,17 @@ namespace Tests\Unit\Intervention\Presentation\Api\Processor;
 use ApiPlatform\Metadata\{Patch, Put};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
-use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Application\UseCase\Command\Workflow\MutateInterventionWorkflow\{
   MutateInterventionWorkflowCommand,
   MutateInterventionWorkflowResult
 };
-use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Presentation\Api\Dto\Input\UpdateInterventionInput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
+use Intervention\Presentation\Api\Http\{CreationPreconditionGuard, MergePatchFields, RevisionGuard};
 use Intervention\Presentation\Api\Processor\InterventionProcessor;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{CreationPreconditionGuard, MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, PreconditionRequiredHttpException};
@@ -62,7 +58,7 @@ final class InterventionProcessorTest extends TestCase
     $input = new UpdateInterventionInput();
     $processor = new InterventionProcessor(
       $commandBus,
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $stack,
       new RevisionGuard($stack),
@@ -215,6 +211,8 @@ final class InterventionProcessorTest extends TestCase
       'name' => 'Renamed',
       'description' => null,
       'status' => 'draft',
+      'allowedTransitions' => ['planned', 'abandoned'],
+      'allowedActions' => new \Intervention\Application\Contract\Workflow\InterventionAllowedActions(false, false, false, false, false, false, false, false, false, false, false, false),
       'site' => null,
       'responsible' => null,
       'participants' => [],
@@ -252,29 +250,12 @@ final class InterventionProcessorTest extends TestCase
   {
     return new InterventionProcessor(
       $commandBus,
-      new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $stack,
       new RevisionGuard($stack),
       new CreationPreconditionGuard($stack),
       new MergePatchFields($stack),
-    );
-  }
-
-  /**
-   * The shared {@see InterventionActionPolicy}, wired with inert
-   * collaborators sufficient to compute `allowedActions` without asserting
-   * on its content — these tests cover the processor's routing, not the
-   * policy's matrix (see InterventionActionPolicyTest for that).
-   */
-  private function actionPolicy(): InterventionActionPolicy
-  {
-    return new InterventionActionPolicy(
-      $this->createStub(OrganizationAuthorizationPort::class),
-      new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class)),
-      new InterventionTransitionPolicy(),
-      new InterventionMutabilityPolicy(),
-      new InterventionChangePolicy(),
     );
   }
 }

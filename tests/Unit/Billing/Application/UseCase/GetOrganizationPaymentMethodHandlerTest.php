@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Billing\Application\UseCase;
 
 use Billing\Application\Contract\Stripe\StripePaymentMethod;
-use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Application\UseCase\Query\GetOrganizationPaymentMethod\{
   GetOrganizationPaymentMethodHandler,
   GetOrganizationPaymentMethodQuery

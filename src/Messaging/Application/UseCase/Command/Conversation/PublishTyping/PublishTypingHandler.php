@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Conversation\PublishTyping;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\MessagingRealtimePublisherPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\ValueObject\ConversationVisibility;

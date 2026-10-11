@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Model\UpdateFacilityModel;
 
-use Facility\Application\Port\Outbound\FacilityModelRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityModelRepositoryPort;
 use Facility\Application\Service\FacilityModelAccessGuard;
 use Facility\Domain\Model\FacilityModel\FacilityModel;
 use Facility\Domain\ValueObject\FacilityModelTransform;

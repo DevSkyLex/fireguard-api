@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Infrastructure\Adapter\Auth;
 
-use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult as AuthRefreshTokenResult;
+use Auth\Application\Contract\Token\RefreshedTokens as AuthRefreshTokenResult;
 use OAuth\Application\UseCase\Query\Token\RefreshToken\{RefreshTokenQuery, RefreshTokenResult as OAuthRefreshTokenResult};
 use OAuth\Infrastructure\Adapter\Auth\TokenRefreshAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

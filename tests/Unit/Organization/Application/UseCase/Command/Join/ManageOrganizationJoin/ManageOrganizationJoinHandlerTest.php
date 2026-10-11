@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Join\ManageOrganizationJoin;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\{OrganizationJoinAccessPort, OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
-use Organization\Application\Port\Outbound\{OrganizationDomainProofPort, OrganizationInvitationRepositoryPort, OrganizationJoinNotificationPort, OrganizationJoinRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Inbound\Internal\OrganizationJoinAccessPort;
+use Organization\Application\Port\Inbound\{OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationDomainProofPort, OrganizationJoinNotificationPort};
 use Organization\Application\UseCase\Command\Join\ManageOrganizationJoin\{ManageOrganizationJoinCommand, ManageOrganizationJoinHandler};
 use Organization\Domain\Exception\OrganizationJoinException;
 use Organization\Domain\Model\Organization\Organization;

@@ -12,15 +12,36 @@ services:
   Webhook\Infrastructure\Adapter\:
     resource: '../../src/Webhook/Infrastructure/Adapter'
 
+  Webhook\Infrastructure\Scheduler\:
+    resource: '../../src/Webhook/Infrastructure/Scheduler'
+
+  Webhook\Infrastructure\Console\InspectWebhookDeliveriesCommand:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
   # Outbound ports
-  Webhook\Application\Port\Outbound\WebhookSubscriptionRepositoryPort:
+  Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort:
     alias: Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookSubscriptionRepository
 
-  Webhook\Application\Port\Outbound\WebhookDeliveryRepositoryPort:
+  Webhook\Application\Port\Outbound\Internal\WebhookDeliveryRepositoryPort:
     alias: Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookDeliveryRepository
 
   Webhook\Application\Port\Outbound\WebhookDeliveryQueuePort:
     alias: Webhook\Infrastructure\Adapter\Messenger\MessengerWebhookDeliveryQueueAdapter
+
+  Webhook\Application\Port\Outbound\Internal\WebhookDeliveryWorkPort:
+    alias: Webhook\Infrastructure\Adapter\Delivery\DoctrineWebhookDeliveryWorkAdapter
+
+  Webhook\Application\Port\Outbound\WebhookDeliverySchedulePort:
+    alias: Webhook\Infrastructure\Adapter\Delivery\DoctrineWebhookDeliveryScheduleAdapter
+
+  Webhook\Infrastructure\Adapter\Delivery\DoctrineWebhookDeliveryWorkAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Webhook\Infrastructure\Adapter\Delivery\DoctrineWebhookDeliveryScheduleAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
 
   Webhook\Application\Port\Outbound\WebhookSecretCipherPort:
     alias: Webhook\Infrastructure\Adapter\Crypto\OpensslWebhookSecretCipherAdapter
@@ -66,6 +87,7 @@ services:
   Webhook\Infrastructure\Adapter\Messenger\MessengerWebhookDeliveryQueueAdapter:
     arguments:
       $messageBus: '@messenger.default_bus'
+      $connection: '@doctrine.dbal.main_connection'
 
   # Curated-event subscriber: dispatches directly onto the raw message bus,
   # not CommandBusPort (see its docblock).
@@ -87,15 +109,27 @@ services:
     tags: ['messenger.message_handler']
 
   Webhook\Application\UseCase\Command\Subscription\PingWebhookSubscription\PingWebhookSubscriptionHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
     tags: ['messenger.message_handler']
 
   Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWebhookEventHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
     tags: ['messenger.message_handler']
 
   Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\DeliverWebhookHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $timeoutSeconds: '%env(int:WEBHOOK_HTTP_TIMEOUT)%'
     tags: ['messenger.message_handler']
 
   Webhook\Application\UseCase\Command\Delivery\RedeliverWebhook\RedeliverWebhookHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Command\Sweep\RecoverWebhookDeliveries\RecoverWebhookDeliveriesHandler:
     tags: ['messenger.message_handler']
 
   # Query handlers

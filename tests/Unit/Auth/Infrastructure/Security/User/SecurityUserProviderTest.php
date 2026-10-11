@@ -11,12 +11,11 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\CachePort;
 use stdClass;
 use Symfony\Component\Security\Core\Exception\{UnsupportedUserException, UserNotFoundException};
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * Test SecurityUserProviderTest.
@@ -50,12 +49,12 @@ final class SecurityUserProviderTest extends TestCase
       canLogin: true,
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(GetUserQuery::class))
-      ->willReturn(new GetUserResult(user: $userView));
+      ->method('findById')
+      ->with(self::isString())
+      ->willReturn($userView);
 
     /** @var AuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(AuthorizationPort::class);
@@ -86,12 +85,12 @@ final class SecurityUserProviderTest extends TestCase
   {
     $userView = $this->createUserView(canLogin: true);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(GetUserQuery::class))
-      ->willReturn(new GetUserResult(user: $userView));
+      ->method('findById')
+      ->with(self::isString())
+      ->willReturn($userView);
 
     /** @var AuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(AuthorizationPort::class);
@@ -116,11 +115,11 @@ final class SecurityUserProviderTest extends TestCase
   #[Test]
   public function testLoadUserByIdThrowsWhenUserMissing(): void
   {
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new GetUserResult(user: null));
+      ->method('findById')
+      ->willReturn(null);
 
     $authorization = $this->createStub(AuthorizationPort::class);
 
@@ -136,10 +135,10 @@ final class SecurityUserProviderTest extends TestCase
   #[Test]
   public function testLoadUserByIdThrowsWhenQueryFails(): void
   {
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
+      ->method('findById')
       ->willThrowException(new RuntimeException('boom'));
 
     $authorization = $this->createStub(AuthorizationPort::class);
@@ -158,11 +157,11 @@ final class SecurityUserProviderTest extends TestCase
   {
     $userView = $this->createUserView(canLogin: false);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new GetUserResult(user: $userView));
+      ->method('findById')
+      ->willReturn($userView);
 
     /** @var AuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(AuthorizationPort::class);
@@ -188,7 +187,7 @@ final class SecurityUserProviderTest extends TestCase
   public function testRefreshUserThrowsForUnsupportedUser(): void
   {
     $provider = new SecurityUserProvider(
-      queryBus: $this->createStub(QueryBusPort::class),
+      queryBus: $this->createStub(UserDirectoryPort::class),
       authorizationService: $this->createStub(AuthorizationPort::class),
     );
 
@@ -201,12 +200,12 @@ final class SecurityUserProviderTest extends TestCase
   {
     $userView = $this->createUserView(canLogin: true);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(GetUserQuery::class))
-      ->willReturn(new GetUserResult(user: $userView));
+      ->method('findById')
+      ->with(self::isString())
+      ->willReturn($userView);
 
     /** @var AuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(AuthorizationPort::class);
@@ -242,7 +241,7 @@ final class SecurityUserProviderTest extends TestCase
   public function testSupportsClassReturnsTrueForSecurityUser(): void
   {
     $provider = new SecurityUserProvider(
-      queryBus: $this->createStub(QueryBusPort::class),
+      queryBus: $this->createStub(UserDirectoryPort::class),
       authorizationService: $this->createStub(AuthorizationPort::class),
     );
 
@@ -268,8 +267,8 @@ final class SecurityUserProviderTest extends TestCase
       canLogin: true,
     );
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new GetUserResult(user: $userView));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')->willReturn($userView);
 
     $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')->willReturn([]);
@@ -302,8 +301,8 @@ final class SecurityUserProviderTest extends TestCase
       canLogin: true,
     );
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new GetUserResult(user: $userView));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')->willReturn($userView);
 
     $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')->willReturn([]);
@@ -321,8 +320,8 @@ final class SecurityUserProviderTest extends TestCase
   #[Test]
   public function testLoadUserByIdUsesCachedBaseUserButAppliesCurrentTokenScopes(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
+    $queryBus = $this->createMock(UserDirectoryPort::class);
+    $queryBus->expects(self::never())->method('findById');
 
     $authorization = $this->createMock(AuthorizationPort::class);
     $authorization->expects(self::never())->method('getUserRoleNames');
@@ -355,10 +354,10 @@ final class SecurityUserProviderTest extends TestCase
   #[Test]
   public function testLoadUserByIdFallsBackToQueryBusWhenCacheReadThrows(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+      ->method('findById')
+      ->willReturn($this->createUserView(canLogin: true));
 
     $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')->willReturn([]);
@@ -381,10 +380,10 @@ final class SecurityUserProviderTest extends TestCase
   #[Test]
   public function testLoadUserByIdIgnoresMalformedCachePayload(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+      ->method('findById')
+      ->willReturn($this->createUserView(canLogin: true));
 
     $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')->willReturn([]);
@@ -412,8 +411,8 @@ final class SecurityUserProviderTest extends TestCase
   #[Test]
   public function testLoadUserByIdSwallowsCacheWriteFailures(): void
   {
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+    $queryBus = $this->createStub(UserDirectoryPort::class);
+    $queryBus->method('findById')->willReturn($this->createUserView(canLogin: true));
 
     $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')->willReturn([]);

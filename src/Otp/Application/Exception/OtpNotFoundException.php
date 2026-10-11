@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Otp\Application\Exception;
 
-use Shared\Application\Exception\ApplicationException;
+use Shared\Application\Contract\Exception\ApplicationException;
 
 use function sprintf;
 

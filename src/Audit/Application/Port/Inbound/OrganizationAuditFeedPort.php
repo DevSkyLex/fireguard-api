@@ -18,7 +18,7 @@ use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
  * Organization module's activity-feed endpoint today).
  *
  * It exists because the alternative — a consumer injecting Audit's
- * `Application\Port\Outbound\AuditEventRepositoryPort` — reaches into this
+ * `Application\Port\Outbound\Internal\AuditEventRepositoryPort` — reaches into this
  * module's own dependency on its persistence adapter, hands the consumer the
  * unfiltered ledger (every tenant, every actor email, every chain hash), and
  * makes the reduction the consumer's problem to remember. Publishing the

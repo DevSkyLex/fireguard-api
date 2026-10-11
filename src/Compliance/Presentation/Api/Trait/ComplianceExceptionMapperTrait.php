@@ -6,7 +6,7 @@ namespace Compliance\Presentation\Api\Trait;
 
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceExportNotEntitledException, ComplianceNotFoundException};
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Throwable;
 

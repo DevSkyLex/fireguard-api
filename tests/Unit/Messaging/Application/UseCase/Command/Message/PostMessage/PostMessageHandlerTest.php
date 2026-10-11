@@ -7,23 +7,24 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Message\PostMessage;
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingLinkRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort, MessagingSubjectResolverPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingLinkRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Message\PostMessage\{PostMessageCommand, PostMessageHandler};
 use Messaging\Domain\Exception\{MessagingClientMessageAlreadyExistsException, MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity};
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
-use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessageId, MessagingSubjectType};
+use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessagingSubjectType};
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Domain\ValueObject\OrganizationNotificationSettings;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, RootTransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function sprintf;
 
@@ -139,6 +140,32 @@ final class PostMessageHandlerTest extends TestCase
     $result = $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello team'));
 
     self::assertSame('Hello team', $result->message->body);
+  }
+
+  #[Test]
+  public function testLoggerFailureAfterRealtimeFailurePreservesTheResultAndMentionNotification(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+    $body = 'Hey @{' . self::MENTIONED_MEMBER_ID . '}';
+    $view = $this->messageView($body, [self::MENTIONED_MEMBER_ID]);
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('append')->willReturn($view);
+    $realtime = $this->createMock(MessagingRealtimePublisherPort::class);
+    $realtime->expects(self::once())->method('publishMessage')->willThrowException(new RuntimeException('Mercure unavailable'));
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning')->willThrowException(new RuntimeException('Logger unavailable'));
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())->method('send');
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+    $members->method('memberIsActive')->willReturn(true);
+    $members->method('resolveUserIdForMember')->willReturn('mentioned-user-1');
+    $handler = $this->handler($conversations, $messages, $realtime, $notifications, $members, logger: $logger);
+
+    $result = $handler(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, $body));
+
+    self::assertSame($view, $result->message);
   }
 
   #[Test]
@@ -392,11 +419,16 @@ final class PostMessageHandlerTest extends TestCase
     $members = $this->createStub(MessagingMemberDirectoryPort::class);
     $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
 
+    $realtime = $this->createMock(MessagingRealtimePublisherPort::class);
+    $realtime->expects(self::never())->method('publishMessage');
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
     $handler = $this->handler(
       $conversations,
       $messages,
-      $this->createStub(MessagingRealtimePublisherPort::class),
-      $this->createStub(NotificationPort::class),
+      $realtime,
+      $notifications,
       $members,
     );
 
@@ -414,6 +446,7 @@ final class PostMessageHandlerTest extends TestCase
     ?MessagingParticipantRepositoryPort $participants = null,
     ?MessagingLinkRepositoryPort $links = null,
     ?MessagingSubjectResolverRegistry $registry = null,
+    ?LoggerPort $logger = null,
   ): PostMessageHandler {
     $registry ??= new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
 
@@ -427,8 +460,8 @@ final class PostMessageHandlerTest extends TestCase
     $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings());
     $notifications = new MessagingNotificationService($notificationPort, $members, $policy);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(MessageId::fromString('550e8400-e29b-41d4-a716-446655440099'));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('550e8400-e29b-41d4-a716-446655440099');
 
     return new PostMessageHandler(
       $conversations,
@@ -442,14 +475,23 @@ final class PostMessageHandlerTest extends TestCase
       new MentionExtractor(),
       new UrlExtractor(),
       $uuidFactory,
-      $this->createStub(LoggerPort::class),
+      $logger ?? $this->createStub(LoggerPort::class),
+      $this->transactions(),
     );
+  }
+
+  private function transactions(): RootTransactionManagerPort
+  {
+    $transactions = $this->createStub(RootTransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation) => $operation());
+
+    return $transactions;
   }
 
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (MessagingSubjectType $type): bool => MessagingSubjectType::FACILITY === $type);
+    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type);
     $resolver->method('resolve')->willReturn(new MessagingSubjectResolution(true, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;
@@ -458,7 +500,7 @@ final class PostMessageHandlerTest extends TestCase
   private function notFoundEquipmentResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (MessagingSubjectType $type): bool => MessagingSubjectType::FACILITY === $type || MessagingSubjectType::EQUIPMENT === $type);
+    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type || \Messaging\Application\Contract\Subject\MessagingSubjectType::EQUIPMENT === $type);
     $resolver->method('resolve')->willReturnCallback(static fn (string $organizationId, string $subjectId): MessagingSubjectResolution => new MessagingSubjectResolution('facility-1' === $subjectId, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;

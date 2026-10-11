@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\Service;
 
 use DateTimeImmutable;
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\FacilityMetadataValidationException;
 use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};

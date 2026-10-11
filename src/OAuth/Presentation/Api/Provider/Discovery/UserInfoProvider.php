@@ -6,10 +6,10 @@ namespace OAuth\Presentation\Api\Provider\Discovery;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
-use OAuth\Application\Service\OidcClaimsBuilderInterface;
+use Auth\Application\Contract\User\AuthenticatedPrincipal;
+use OAuth\Application\UseCase\Query\User\GetUserInfo\GetUserInfoQuery;
 use OAuth\Presentation\Api\Dto\Output\Discovery\UserInfoOutput;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\{HttpException, UnauthorizedHttpException};
@@ -42,13 +42,11 @@ final readonly class UserInfoProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param Security $security the Symfony Security service
-   * @param OidcUserProviderPort $oidcUserProvider the OIDC user provider
-   * @param OidcClaimsBuilderInterface $claimsBuilder the OIDC claims builder
+   * @param QueryBusPort $queryBus the UserInfo query bus
    */
   public function __construct(
     private readonly Security $security,
-    private readonly OidcUserProviderPort $oidcUserProvider,
-    private readonly OidcClaimsBuilderInterface $claimsBuilder,
+    private readonly QueryBusPort $queryBus,
   ) {
   }
   // #endregion
@@ -72,7 +70,7 @@ final readonly class UserInfoProvider implements ProviderInterface
   {
     $securityUser = $this->security->getUser();
 
-    if (!$securityUser instanceof SecurityUser) {
+    if (!$securityUser instanceof AuthenticatedPrincipal) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
         message: 'Authentication required',
@@ -88,18 +86,12 @@ final readonly class UserInfoProvider implements ProviderInterface
     }
 
     try {
-      $oidcUser = $this->oidcUserProvider->findByIdentifier($securityUser->getId());
-      if (null === $oidcUser) {
-        throw new UnauthorizedHttpException(
-          challenge: 'Bearer',
-          message: 'User not found',
-        );
+      /** @var \OAuth\Application\UseCase\Query\User\GetUserInfo\GetUserInfoResult $result */
+      $result = $this->queryBus->ask(new GetUserInfoQuery($securityUser->getId(), $securityUser->getScopes()));
+      if (null === $result->claims) {
+        throw new UnauthorizedHttpException('Bearer', $result->error ?? 'User not found');
       }
-
-      $claims = $this->claimsBuilder->buildUserInfoClaims(
-        user: $oidcUser,
-        scopes: $securityUser->getScopes(),
-      );
+      $claims = $result->claims;
 
       $output = new UserInfoOutput();
       $output->sub = $this->readStringClaim($claims, 'sub') ?? $securityUser->getId();

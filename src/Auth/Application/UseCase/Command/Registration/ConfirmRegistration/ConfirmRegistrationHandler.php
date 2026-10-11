@@ -9,15 +9,11 @@ use Auth\Domain\Event\Session\UserLoggedInEvent;
 use Auth\Domain\Event\Token\TokenIssuedEvent;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
 use Otp\Application\Contract\Challenge\OtpPurpose;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Domain\Exception\{OtpExpiredException, OtpMaxAttemptsException};
-use Otp\Domain\ValueObject\ChallengeToken;
+use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePort};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{EventBusPort, EventDispatcherPort};
-use Shared\Domain\Service\EventIdProvider;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use UnexpectedValueException;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\UserId;
+use User\Application\Port\Inbound\UserRegistrationPort;
 
 use function array_key_exists;
 use function is_array;
@@ -27,7 +23,7 @@ use function is_string;
  * Handler ConfirmRegistrationHandler.
  *
  * Verifies the email-verification OTP, activates the account
- * ({@see \User\Domain\Model\User\User::verifyEmail()}) and issues session tokens
+ * through the User-owned activation capability and issues session tokens
  * so the freshly verified user is logged in automatically. Mirrors the
  * password-reset confirm handler plus the login token-issuance path.
  *
@@ -47,19 +43,16 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param OtpRepositoryPort $otpRepository the OTP repository port
-   * @param UserRepositoryPort $userRepository the user repository port
-   * @param EventBusPort $eventBus the domain event bus
-   * @param EventIdProvider $eventIdProvider the event ID provider
+   * @param ChallengeAccessPort $otpRepository the OTP repository port
+   * @param UserRegistrationPort $userRepository the user repository port
    * @param JwtTokenServicePort $tokenService the JWT token service
    * @param SessionTrackingPort $sessionTracking the session tracking port
    * @param EventDispatcherPort $eventDispatcher the audit event dispatcher
    */
   public function __construct(
-    private readonly OtpRepositoryPort $otpRepository,
-    private readonly UserRepositoryPort $userRepository,
-    private readonly EventBusPort $eventBus,
-    private readonly EventIdProvider $eventIdProvider,
+    private readonly ChallengeAccessPort $otpRepository,
+    private readonly UserRegistrationPort $userRepository,
+    private OtpChallengePort $otpChallenge,
     private readonly JwtTokenServicePort $tokenService,
     private readonly SessionTrackingPort $sessionTracking,
     private readonly EventDispatcherPort $eventDispatcher,
@@ -81,46 +74,33 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
    */
   public function __invoke(ConfirmRegistrationCommand $command): ConfirmRegistrationResult
   {
-    $challengeToken = ChallengeToken::fromString($command->token);
-    $otp = $this->otpRepository->findByChallengeToken($challengeToken);
-
-    if (null === $otp || OtpPurpose::EMAIL_VERIFICATION->value !== $otp->purpose()->value) {
+    $otp = $this->otpRepository->find($command->token);
+    if (null === $otp || OtpPurpose::EMAIL_VERIFICATION !== $otp->purpose) {
       return ConfirmRegistrationResult::failed(
         message: 'Invalid or expired verification token.',
         errorCode: ConfirmRegistrationResult::ERROR_INVALID_TOKEN,
       );
     }
-
-    $verificationFailure = null;
-
-    try {
-      $verified = $otp->verify($command->code);
-      $this->otpRepository->save($otp);
-
-      if (!$verified) {
-        $verificationFailure = ConfirmRegistrationResult::failed(
-          message: 'Invalid verification code. Please check and try again.',
-          errorCode: ConfirmRegistrationResult::ERROR_INVALID_CODE,
-          attemptsRemaining: $otp->attemptsRemaining(),
-        );
-      }
-    } catch (OtpExpiredException) {
-      $verificationFailure = ConfirmRegistrationResult::failed(
-        message: 'The verification code has expired. Please request a new one.',
-        errorCode: ConfirmRegistrationResult::ERROR_EXPIRED,
-      );
-    } catch (OtpMaxAttemptsException) {
-      $verificationFailure = ConfirmRegistrationResult::failed(
-        message: 'Maximum verification attempts exceeded. Please request a new code.',
-        errorCode: ConfirmRegistrationResult::ERROR_MAX_ATTEMPTS,
+    $verification = $this->otpChallenge->verifyFor($command->token, $command->code, $otp->userId, OtpPurpose::EMAIL_VERIFICATION);
+    if (!$verification->success) {
+      return ConfirmRegistrationResult::failed(
+        message: match ($verification->errorCode) {
+          'expired' => 'The verification code has expired. Please request a new one.',
+          'max_attempts_exceeded' => 'Maximum verification attempts exceeded. Please request a new code.',
+          'invalid_token' => 'Invalid or expired verification token.',
+          default => 'Invalid verification code. Please check and try again.',
+        },
+        errorCode: match ($verification->errorCode) {
+          'expired' => ConfirmRegistrationResult::ERROR_EXPIRED,
+          'max_attempts_exceeded' => ConfirmRegistrationResult::ERROR_MAX_ATTEMPTS,
+          'invalid_token' => ConfirmRegistrationResult::ERROR_INVALID_TOKEN,
+          default => ConfirmRegistrationResult::ERROR_INVALID_CODE,
+        },
+        attemptsRemaining: $verification->attemptsRemaining,
       );
     }
 
-    if (null !== $verificationFailure) {
-      return $verificationFailure;
-    }
-
-    return $this->activateAndLogIn(new UserId($otp->userId()), $otp->recipient(), $command);
+    return $this->activateAndLogIn($otp->userId, $otp->recipient, $command);
   }
 
   /**
@@ -130,36 +110,27 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
    *
    * @access private
    *
-   * @param UserId $userId the pending account identifier
+   * @param string $userId the pending account identifier
    * @param string $recipient the recipient verified by the OTP
    * @param ConfirmRegistrationCommand $command the request context used to record the session
    *
    * @return ConfirmRegistrationResult the account confirmation outcome
    */
-  private function activateAndLogIn(UserId $userId, string $recipient, ConfirmRegistrationCommand $command): ConfirmRegistrationResult
+  private function activateAndLogIn(string $userId, string $recipient, ConfirmRegistrationCommand $command): ConfirmRegistrationResult
   {
-    $user = $this->userRepository->findById($userId);
+    $user = $this->userRepository->confirm($userId, $recipient);
 
-    if (null === $user || $recipient !== $user->email()->value) {
+    if (null === $user) {
       return ConfirmRegistrationResult::failed(
         message: 'User not found.',
         errorCode: ConfirmRegistrationResult::ERROR_INVALID_TOKEN,
       );
     }
 
-    // Activate the account (pending_verification -> active) and publish events.
-    $user->verifyEmail(eventIdProvider: $this->eventIdProvider);
-    $user->confirmEmailOwnership($user->email());
-    $this->userRepository->save($user);
-
-    foreach ($user->releaseEvents() as $event) {
-      $this->eventBus->publish($event);
-    }
-
     // Auto-login: issue session tokens for the now-active account.
     /** @var non-empty-string $userIdValue */
-    $userIdValue = $userId->value;
-    $email = $user->email()->value;
+    $userIdValue = $userId;
+    $email = $user->email;
     $scopes = DefaultScopes::USER_SCOPES;
 
     $tokens = $this->tokenService->generateTokens(

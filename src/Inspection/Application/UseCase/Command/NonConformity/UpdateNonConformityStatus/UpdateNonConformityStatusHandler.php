@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus;
 
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent;
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityId, NonConformityStatus};

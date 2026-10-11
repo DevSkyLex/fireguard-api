@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Presentation\Api\Service;
 
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
-use Shared\Presentation\Api\Http\ResourceIriParser;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 

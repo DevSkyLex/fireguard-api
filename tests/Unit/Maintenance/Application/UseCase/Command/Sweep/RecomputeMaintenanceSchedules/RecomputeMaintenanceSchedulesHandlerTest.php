@@ -19,10 +19,8 @@ use Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\
 use Maintenance\Domain\Service\MaintenanceScheduleRecomputePolicy;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\{OrganizationMemberNotificationDirectoryPort, OrganizationNotificationPolicyPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\VoidResult;
@@ -291,24 +289,13 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
     $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings());
 
-    $member = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString('550e8400-e29b-41d4-a716-446655440099'),
-      OrganizationId::fromString(self::ORG_ID),
-      'admin-user',
-      true,
-      new DateTimeImmutable(),
-    );
-
-    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $memberRepository->method('findByOrganizationId')->willReturn([$member]);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('getUserPermissions')->willReturn(['organization.maintenance.manage']);
+    $directory = $this->createStub(OrganizationMemberNotificationDirectoryPort::class);
+    $directory->method('administratorUserIds')->willReturn(['admin-user']);
 
     return new MaintenanceReminderNotifier(
       $notifications,
       $policy,
-      new MaintenanceReminderRecipientResolver($memberRepository, $authorization),
+      new MaintenanceReminderRecipientResolver($directory),
     );
   }
 

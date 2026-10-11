@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Persistence\Doctrine\Repository;
 
-use Auth\Application\Service\SecurityUserCacheInvalidator;
+use Auth\Application\Port\Inbound\SecurityUserCacheInvalidationPort;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException as PublicUniqueConstraintViolationException;
 use Shared\Application\Contract\Sorting\Sorting;
 use Shared\Domain\ValueObject\Email;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{UserId, Username};
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
@@ -53,19 +55,36 @@ final readonly class UserRepository implements UserRepositoryPort
    *
    * @param EntityManagerInterface $entityManager explicitly wired entity manager owning user records
    * @param UserMapper $mapper maps user aggregates and persisted records
-   * @param ?SecurityUserCacheInvalidator $securityUserCacheInvalidator optional invalidator called after successful writes
+   * @param ?SecurityUserCacheInvalidationPort $securityUserCacheInvalidator optional invalidator called after successful writes
    *
    * @return void
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private UserMapper $mapper,
-    private ?SecurityUserCacheInvalidator $securityUserCacheInvalidator = null,
+    private ?SecurityUserCacheInvalidationPort $securityUserCacheInvalidator = null,
   ) {
   }
   // #endregion
 
   // #region Methods
+
+  /**
+   * {@inheritDoc}
+   */
+  public function findByIds(array $userIds): array
+  {
+    if ([] === $userIds) {
+      return [];
+    }
+    /** @var list<UserRecord> $records */
+    $records = $this->entityManager->createQueryBuilder()
+      ->select('u')->from(UserRecord::class, 'u')
+      ->where('u.id IN (:ids)')->setParameter('ids', $userIds)
+      ->getQuery()->getResult();
+
+    return array_map(fn (UserRecord $record): User => $this->mapper->toDomain($record), $records);
+  }
 
   /**
    * Method save
@@ -92,7 +111,11 @@ final readonly class UserRepository implements UserRepositoryPort
       $this->entityManager->persist($existingRecord);
     }
 
-    $this->entityManager->flush();
+    try {
+      $this->entityManager->flush();
+    } catch (UniqueConstraintViolationException $exception) {
+      throw new PublicUniqueConstraintViolationException($exception);
+    }
     $this->securityUserCacheInvalidator?->invalidateUser($user->id()->value);
   }
 

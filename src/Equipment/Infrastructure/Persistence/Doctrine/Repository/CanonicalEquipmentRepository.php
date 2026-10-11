@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Equipment\Application\Port\Outbound\CanonicalEquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\CanonicalEquipmentRepositoryPort;
 use Equipment\Domain\Model\Equipment\CanonicalEquipment;
 use Equipment\Domain\ValueObject\EquipmentId;
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\CanonicalEquipmentMapper;

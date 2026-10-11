@@ -11,9 +11,7 @@ use Facility\Application\UseCase\Command\Facility\CreateFacility\{
 };
 use Facility\Domain\ValueObject\FacilityType;
 use Facility\Infrastructure\Console\CreateFacilityConsoleCommand;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\Model\Organization\Organization;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -242,25 +240,14 @@ final class CreateFacilityConsoleCommandTest extends TestCase
 
   private function createCommand(
     CommandBusPort $commandBus,
-    bool|Organization|null $organization = false,
+    ?bool $organization = false,
   ): CreateFacilityConsoleCommand {
-    $repository = $this->createStub(OrganizationRepositoryPort::class);
-    $repository->method('findById')->willReturn(
-      false === $organization ? $this->organization() : $organization,
-    );
+    $repository = $this->createStub(OrganizationOwnerReadPort::class);
+    $repository->method('ownerUserId')->willReturn(null === $organization ? null : self::OWNER_USER_ID);
 
     return new CreateFacilityConsoleCommand(
       commandBus: $commandBus,
       organizationRepository: $repository,
-    );
-  }
-
-  private function organization(): Organization
-  {
-    return Organization::create(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Test'),
-      ownerUserId: self::OWNER_USER_ID,
     );
   }
 

@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace User\Application\UseCase\Query\User\ListUsers;
 
 use Shared\Application\Contract\Pagination\PaginatedResult;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Contract\User\UserView;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Service\UserViewFactory;
 use User\Domain\Model\User\User;
+
+use function array_map;
 
 /**
  * Handler ListUsersHandler.
@@ -45,7 +49,7 @@ final readonly class ListUsersHandler implements \Shared\Application\Message\Que
    *
    * @param ListUsersQuery $query the query
    *
-   * @return PaginatedResult<User> the result
+   * @return PaginatedResult<UserView> the result
    */
   public function __invoke(ListUsersQuery $query): PaginatedResult
   {
@@ -59,7 +63,7 @@ final readonly class ListUsersHandler implements \Shared\Application\Message\Que
     $total = $this->userRepository->countFiltered($query->search, $query->tenantId);
 
     return new PaginatedResult(
-      items: $users,
+      items: array_map(fn (User $user): UserView => UserViewFactory::fromUser($user), $users),
       total: $total,
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,

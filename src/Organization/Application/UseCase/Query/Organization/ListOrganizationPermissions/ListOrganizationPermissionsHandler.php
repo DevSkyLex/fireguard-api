@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationPermissions;
 
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
 use Shared\Application\Message\QueryHandler;
 
 /**

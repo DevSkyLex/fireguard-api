@@ -333,7 +333,7 @@ final class InterventionStatisticsApiTest extends WebTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::SITE_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = self::ORGANIZATION_ID;
     $facility->type = 'site';
     $facility->name = 'Statistics Test Site';
     $facility->status = 'active';
@@ -372,7 +372,7 @@ final class InterventionStatisticsApiTest extends WebTestCase
     foreach ($this->interventionSeeds() as $index => $seed) {
       $intervention = new InterventionRecord();
       $intervention->id = $seed['id'];
-      $intervention->organization = $organization;
+      $intervention->organizationId = self::ORGANIZATION_ID;
       $intervention->type = 'site_setup';
       $intervention->name = 'Statistics Test Intervention ' . $index;
       $intervention->number = 100 + $index;

@@ -6,8 +6,8 @@ namespace Onboarding\Presentation\Api\Processor\Onboarding;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Mapper\Onboarding\OrganizationOnboardingOutputAssembler;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -66,7 +66,7 @@ final readonly class DismissOrganizationOnboardingProcessor implements Processor
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOnboardingOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

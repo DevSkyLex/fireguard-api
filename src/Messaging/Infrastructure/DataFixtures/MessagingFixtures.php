@@ -6,13 +6,13 @@ namespace Messaging\Infrastructure\DataFixtures;
 
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Messaging\Domain\Service\DirectConversationKey;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingMessageRecord, MessagingParticipantRecord, MessagingReactionRecord, MessagingReadMarkerRecord};
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
+use Shared\Application\Contract\Seed\SeedReference;
+use Shared\Application\Port\Inbound\{SeedReferenceConsumerPort, SeedReferenceRegistryPort};
 
 /**
  * Fixture MessagingFixtures.
@@ -31,8 +31,10 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class MessagingFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+final class MessagingFixtures extends Fixture implements FixtureGroupInterface, SeedReferenceConsumerPort
 {
+  // #endregion
+
   // #region Constants
   /** Constant GENERAL_CHANNEL_ID
    *
@@ -103,6 +105,22 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
    * @var string
    */
   private const string ORGANIZATION_ID = OrganizationFixtures::ORGANIZATION_ID;
+
+  // #region Properties
+  /**
+   * Scalar fixture facts supplied by the composition root.
+   */
+  private SeedReferenceRegistryPort $seedReferences;
+  // #endregion
+
+  // #region Methods
+  /**
+   * {@inheritdoc}
+   */
+  public function setSeedReferences(SeedReferenceRegistryPort $references): void
+  {
+    $this->seedReferences = $references;
+  }
   // #endregion
 
   // #region Methods
@@ -133,7 +151,7 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
    */
   public function getDependencies(): array
   {
-    return [OrganizationFixtures::class];
+    return [];
   }
 
   /**
@@ -149,8 +167,8 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
    */
   public function load(ObjectManager $manager): void
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
+    /** @var SeedReference $organization */
+    $organization = $this->seedReferences->get(OrganizationFixtures::ORGANIZATION_REFERENCE);
 
     $general = $this->createChannel(
       id: self::GENERAL_CHANNEL_ID,
@@ -178,7 +196,7 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
 
     $direct = new MessagingConversationRecord();
     $direct->id = self::DIRECT_CONVERSATION_ID;
-    $direct->organization = $organization;
+    $direct->organizationId = $organization->id;
     $direct->subjectType = MessagingSubjectType::DIRECT->value;
     $direct->subjectId = DirectConversationKey::for(self::OWNER_MEMBER_ID, self::INSPECTOR_MEMBER_ID);
     $direct->visibility = ConversationVisibility::PARTICIPANTS->value;
@@ -291,7 +309,7 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
    * @access private
    *
    * @param string $id conversation identifier
-   * @param OrganizationRecord $organization owning organization
+   * @param SeedReference $organization owning organization
    * @param string $name channel name
    * @param ?MessagingConversationRecord $parent parent channel, if nested
    * @param DateTimeImmutable $createdAt creation time
@@ -300,14 +318,14 @@ final class MessagingFixtures extends Fixture implements DependentFixtureInterfa
    */
   private function createChannel(
     string $id,
-    OrganizationRecord $organization,
+    SeedReference $organization,
     string $name,
     ?MessagingConversationRecord $parent,
     DateTimeImmutable $createdAt,
   ): MessagingConversationRecord {
     $channel = new MessagingConversationRecord();
     $channel->id = $id;
-    $channel->organization = $organization;
+    $channel->organizationId = $organization->id;
     $channel->subjectType = MessagingSubjectType::CHANNEL->value;
     $channel->subjectId = null;
     $channel->visibility = ConversationVisibility::PARTICIPANTS->value;

@@ -68,7 +68,7 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
 
     $inspection = new InspectionRecord();
     $inspection->id = self::INSPECTION_ID;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = '660e8400-e29b-41d4-a716-446655468888';
     $inspection->inspectorType = 'user';
     $inspection->inspectorName = 'Jane Doe';

@@ -6,14 +6,12 @@ namespace Onboarding\Infrastructure\EventSubscriber;
 
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
+use Onboarding\Application\Contract\Event\OrganizationOnboardingSessionCompletedEvent;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Psr\Log\LoggerInterface;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Throwable;
-use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function sprintf;
 
@@ -55,13 +53,13 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
    * @since 1.0.0
    *
    * @param NotificationPort $notificationPort the notification inbound port
-   * @param QueryBusPort $queryBus the shared query bus
+   * @param UserDirectoryPort $users the shared query bus
    * @param LoggerInterface $logger the PSR logger
    * @param OrganizationNotificationPolicyPort $policyPort the organization notification policy port
    */
   public function __construct(
     private NotificationPort $notificationPort,
-    private QueryBusPort $queryBus,
+    private UserDirectoryPort $users,
     private LoggerInterface $logger,
     private OrganizationNotificationPolicyPort $policyPort,
   ) {
@@ -75,7 +73,7 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
   public static function getSubscribedEvents(): array
   {
     return [
-      OrganizationOnboardingSessionCompletedEvent::class => 'onOrganizationOnboardingSessionCompleted',
+      'onboarding.organization_onboarding_session_completed_event' => 'onOrganizationOnboardingSessionCompleted',
     ];
   }
   // #endregion
@@ -168,11 +166,7 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
   private function resolveUserEmail(string $userId): ?string
   {
     try {
-      /**
-       * @var GetUserResult $result */
-      $result = $this->queryBus->ask(new GetUserQuery(id: $userId));
-
-      return $result->user instanceof UserView ? $result->user->email : null;
+      return $this->users->findById($userId)?->email;
     } catch (Throwable $exception) {
       $this->logger->warning('Could not resolve user e-mail for onboarding notification.', [
         'userId' => $userId,

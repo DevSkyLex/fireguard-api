@@ -6,8 +6,9 @@ namespace Billing\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Billing\Application\Service\BillingPriceCatalog;
+use Billing\Application\UseCase\Query\GetPricing\{GetPricingQuery, GetPricingResult};
 use Billing\Presentation\Api\Dto\Output\PlanPricingOutput;
+use Shared\Application\Port\Inbound\QueryBusPort;
 
 /**
  * Provider GetPricingProvider.
@@ -31,10 +32,10 @@ final readonly class GetPricingProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param BillingPriceCatalog $priceCatalog the plan price catalog
+   * @param QueryBusPort $queries the pricing query bus
    */
   public function __construct(
-    private BillingPriceCatalog $priceCatalog,
+    private QueryBusPort $queries,
   ) {
   }
   // #endregion
@@ -54,8 +55,9 @@ final readonly class GetPricingProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
     $outputs = [];
-
-    foreach ($this->priceCatalog->pricing() as $pricing) {
+    /** @var GetPricingResult $result */
+    $result = $this->queries->ask(new GetPricingQuery());
+    foreach ($result->plans as $pricing) {
       $output = new PlanPricingOutput();
       $output->planKey = $pricing->planKey;
       $output->currency = $pricing->currency;

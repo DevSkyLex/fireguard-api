@@ -4,19 +4,14 @@ declare(strict_types=1);
 
 namespace Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest;
 
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
 use Approval\Application\Contract\Execution\DeferredActionContext;
-use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort, ApprovalPolicyPort};
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Application\Service\ApprovalActionExecutorRegistry;
 use Approval\Domain\Event\Request\{ApprovalApprovedEvent, ApprovalExecutionFailedEvent};
 use Approval\Domain\Event\Request\ApprovalExpiredEvent;
-use Approval\Domain\Exception\{
-  ApprovalAccessDeniedException,
-  ApprovalRequestNotFoundException,
-  ApprovalRequestNotPendingException,
-  ApproverNotAuthorizedException,
-  DeferredActionNoLongerApplicableException,
-  SelfApprovalNotAllowedException
-};
+use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApproverNotAuthorizedException, SelfApprovalNotAllowedException};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;

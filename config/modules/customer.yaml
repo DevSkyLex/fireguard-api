@@ -12,7 +12,7 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Customer\Application\Port\Outbound\CustomerRepositoryPort:
+  Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort:
     alias: Customer\Infrastructure\Persistence\Doctrine\Repository\CustomerRepository
 
   Customer\Infrastructure\Adapter\Directory\CustomerLookupAdapter: ~

@@ -378,7 +378,7 @@ final class EquipmentPlanPositionApiTest extends WebTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->type = 'site';
     $facility->name = 'Plan Position Site';
     $facility->status = 'active';
@@ -425,7 +425,7 @@ final class EquipmentPlanPositionApiTest extends WebTestCase
 
     $assigned = new EquipmentRecord();
     $assigned->id = self::ASSIGNED_EQUIPMENT_ID;
-    $assigned->organization = $organization;
+    $assigned->organizationId = $organization->id;
     $assigned->facilityId = self::FACILITY_ID;
     $assigned->type = 'fire_extinguisher';
     $assigned->status = 'operational';
@@ -436,7 +436,7 @@ final class EquipmentPlanPositionApiTest extends WebTestCase
 
     $unassigned = new EquipmentRecord();
     $unassigned->id = self::UNASSIGNED_EQUIPMENT_ID;
-    $unassigned->organization = $organization;
+    $unassigned->organizationId = $organization->id;
     $unassigned->facilityId = null;
     $unassigned->type = 'fire_extinguisher';
     $unassigned->status = 'in_stock';
@@ -447,7 +447,7 @@ final class EquipmentPlanPositionApiTest extends WebTestCase
 
     $outsider = new EquipmentRecord();
     $outsider->id = self::OUTSIDER_EQUIPMENT_ID;
-    $outsider->organization = $outsiderOrganization;
+    $outsider->organizationId = $outsiderOrganization->id;
     $outsider->facilityId = null;
     $outsider->type = 'fire_extinguisher';
     $outsider->status = 'in_stock';

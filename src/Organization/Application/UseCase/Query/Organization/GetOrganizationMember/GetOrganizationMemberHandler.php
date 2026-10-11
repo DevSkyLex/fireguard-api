@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganizationMember;
 
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort;
 use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Domain\ValueObject\OrganizationMemberId;
 use Shared\Application\Message\QueryHandler;

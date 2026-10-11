@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Application\UseCase\Query\ListAuditEvents;
 
 use Audit\Application\Contract\AuditEventSearchCriteria;
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Audit\Application\UseCase\Query\ListAuditEvents\{ListAuditEventsHandler, ListAuditEventsQuery};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;

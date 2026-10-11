@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Billing\Application\UseCase;
 
 use Billing\Application\Contract\Stripe\{StripeEvent, StripeSubscription};
-use Billing\Application\Port\Outbound\{OrganizationPlanAssignmentPort, StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\OrganizationPlanAssignmentPort;
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Application\UseCase\Command\HandleStripeWebhook\{HandleStripeWebhookCommand, HandleStripeWebhookHandler};
 use Billing\Domain\Model\Subscription\Subscription;
@@ -13,8 +14,7 @@ use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId, SubscriptionSta
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 use Tests\Support\Billing\ImmediateBillingReconciliation;
 
 /**
@@ -247,8 +247,8 @@ final class HandleStripeWebhookHandlerTest extends TestCase
 
   private function handler(StripeGatewayPort $stripe, SubscriptionRepositoryPort $subscriptions, OrganizationPlanAssignmentPort $plans, ?ImmediateBillingReconciliation $journal = null): HandleStripeWebhookHandler
   {
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(new SubscriptionId(self::ID));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn(self::ID);
 
     return new HandleStripeWebhookHandler($stripe, $subscriptions, new BillingPriceCatalog(['pro' => ['month' => ['priceId' => 'price_pro_m', 'amount' => 1000]]], 'eur'), $plans, $uuid, $journal ?? new ImmediateBillingReconciliation(), $this->createStub(LoggerPort::class));
   }

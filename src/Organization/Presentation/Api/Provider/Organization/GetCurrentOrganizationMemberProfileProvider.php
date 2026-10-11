@@ -6,12 +6,12 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
 use Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\{
   GetCurrentOrganizationMemberProfileQuery,
   GetCurrentOrganizationMemberProfileResult
 };
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Presentation\Api\Dto\Output\Organization\{
   CurrentOrganizationMemberProfileOutput,
   OrganizationPermissionOutput,
@@ -70,7 +70,7 @@ final readonly class GetCurrentOrganizationMemberProfileProvider implements Prov
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?CurrentOrganizationMemberProfileOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -13,10 +13,10 @@ services:
     resource: '../../src/Assistant/Application/Service'
 
   # Outbound ports
-  Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort:
+  Assistant\Application\Port\Outbound\Internal\AssistantThreadRepositoryPort:
     alias: Assistant\Infrastructure\Persistence\Doctrine\Repository\AssistantThreadRepository
 
-  Assistant\Application\Port\Outbound\AssistantMessageRepositoryPort:
+  Assistant\Application\Port\Outbound\Internal\AssistantMessageRepositoryPort:
     alias: Assistant\Infrastructure\Persistence\Doctrine\Repository\AssistantMessageRepository
 
   # L2.3: hands a generation command to the dedicated `assistant` Messenger
@@ -48,7 +48,7 @@ services:
 
   # L2.3: a THIRD Mercure topic scheme, never reusing Messaging's or
   # Notification's (see the port's docblock).
-  Assistant\Application\Port\Outbound\AssistantRealtimePublisherPort:
+  Assistant\Application\Port\Outbound\Internal\AssistantRealtimePublisherPort:
     alias: Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherAdapter
 
   Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherAdapter:
@@ -100,6 +100,9 @@ services:
   # L2.3: consumes the dedicated `assistant` Messenger transport
   # (config/packages/messenger.yaml).
   Assistant\Application\UseCase\Command\Message\GenerateAssistantReply\GenerateAssistantReplyHandler:
+    arguments:
+      $defaultModel: '%env(OLLAMA_DEFAULT_MODEL)%'
+      $timeoutSeconds: '%env(int:OLLAMA_HTTP_TIMEOUT)%'
     tags: ['messenger.message_handler']
 
   # Query handlers
@@ -121,4 +124,14 @@ services:
       $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
 
   Assistant\Application\UseCase\Command\Message\ControlAssistantAttempt\ControlAssistantAttemptHandler:
+    tags: ['messenger.message_handler']
+
+  Assistant\Application\Port\Outbound\Internal\AssistantSubscriberTokenPort:
+    alias: Assistant\Infrastructure\Adapter\Realtime\MercureAssistantSubscriberTokenAdapter
+
+  Assistant\Infrastructure\Adapter\Realtime\MercureAssistantSubscriberTokenAdapter:
+    arguments:
+      $tokenTtl: '%env(default:mercure_subscriber_token_ttl:int:MERCURE_SUBSCRIBER_TOKEN_TTL)%'
+
+  Assistant\Application\UseCase\Query\Thread\GetAssistantThreadSubscription\GetAssistantThreadSubscriptionHandler:
     tags: ['messenger.message_handler']

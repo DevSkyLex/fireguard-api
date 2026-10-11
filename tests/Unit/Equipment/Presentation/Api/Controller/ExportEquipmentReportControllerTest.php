@@ -26,6 +26,7 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Throwable;
 
 /**
  * Test ExportEquipmentReportControllerTest.
@@ -45,6 +46,8 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 #[CoversClass(ExportEquipmentReportController::class)]
 final class ExportEquipmentReportControllerTest extends TestCase
 {
+  use \Tests\Unit\Equipment\Support\EquipmentHttpFailures;
+
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655508101';
 
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655508102';
@@ -309,15 +312,17 @@ final class ExportEquipmentReportControllerTest extends TestCase
       $entitlement->method('resolvePlanKey')->willReturn('pro');
     }
 
-    return new ExportEquipmentReportController(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      branding: $this->brandingPort(),
-      entitlement: $entitlement,
-      renderer: $renderer,
-      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
-      security: $security,
-    );
+    $handler = new \Equipment\Application\UseCase\Query\ExportEquipmentReport\ExportEquipmentReportHandler($queryBus, $authorization, $this->brandingPort(), $entitlement, $renderer, $eventDispatcher ?? $this->createStub(EventDispatcherPort::class));
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(function (\Equipment\Application\UseCase\Query\ExportEquipmentReport\ExportEquipmentReportQuery $query) use ($handler): object {
+      try {
+        return $handler($query);
+      } catch (Throwable $failure) {
+        throw $this->httpFailure($failure);
+      }
+    });
+
+    return new ExportEquipmentReportController($queries, $security);
   }
 
   /**

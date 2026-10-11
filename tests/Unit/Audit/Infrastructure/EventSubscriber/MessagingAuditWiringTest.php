@@ -7,15 +7,15 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, OperationsAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
-use Messaging\Domain\Event\Channel\{
+use Messaging\Application\Contract\Event\Channel\{
   MessagingChannelCreatedEvent,
   MessagingChannelParentChangedEvent,
   MessagingChannelParticipantAddedEvent,
   MessagingChannelParticipantRemovedEvent,
   MessagingChannelTeamBindingChangedEvent
 };
-use Messaging\Domain\Event\Conversation\MessagingConversationArchivedEvent;
-use Messaging\Domain\Event\Message\{MessagingMessageModeratedEvent, MessagingMessageUnpinModeratedEvent};
+use Messaging\Application\Contract\Event\Conversation\MessagingConversationArchivedEvent;
+use Messaging\Application\Contract\Event\Message\{MessagingMessageModeratedEvent, MessagingMessageUnpinModeratedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -178,6 +178,7 @@ final class MessagingAuditWiringTest extends TestCase
     return new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
   }
   // #endregion

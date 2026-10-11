@@ -1,0 +1,125 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Notification\Application\Port\Outbound\Internal;
+
+use DateTimeImmutable;
+use Notification\Application\Contract\Inbox\InboxCursor;
+use Notification\Application\Contract\Notification\NotificationListCriteria;
+use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\ValueObject\NotificationId;
+
+/**
+ * Port NotificationRepositoryPort.
+ *
+ * @category Port
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+interface NotificationRepositoryPort
+{
+  // #region Methods
+  /**
+   * Method save.
+   *
+   * Persists a notification.
+   *
+   * @since 1.0.0
+   *
+   * @param Notification $notification the notification
+   */
+  public function save(Notification $notification): void;
+
+  /**
+   * Method findByIdForUser.
+   *
+   * Returns a notification visible by a specific user.
+   *
+   * @since 1.0.0
+   *
+   * @param NotificationId $id the notification identifier
+   * @param string $userId the user identifier
+   *
+   * @return Notification|null the notification when found
+   */
+  public function findByIdForUser(NotificationId $id, string $userId): ?Notification;
+
+  /**
+   * Method findByUserId.
+   *
+   * Lists notifications for a user.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user identifier
+   * @param NotificationListCriteria $criteria filters also used by the matching count
+   * @param int $limit max number of results
+   * @param int $offset zero-based row offset for pagination
+   * @param DateTimeImmutable|null $before cursor: when provided, restricts results to notifications created strictly before this instant (used by the unified inbox seam for stable, non-offset pagination); when null, no cursor restriction applies
+   * @param InboxCursor|null $cursor composite cursor for the unified inbox
+   *
+   * @return list<Notification> the notifications
+   */
+  public function findByUserId(
+    string $userId,
+    NotificationListCriteria $criteria = new NotificationListCriteria(),
+    int $limit = 50,
+    int $offset = 0,
+    ?DateTimeImmutable $before = null,
+    ?InboxCursor $cursor = null,
+  ): array;
+
+  /**
+   * Method countByUserId.
+   *
+   * Counts notifications for a user, applying the same filters and
+   * read-visibility masking as {@see self::findByUserId()}, but without
+   * pagination — used to compute the total for a paginated collection.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the user identifier
+   * @param NotificationListCriteria $criteria the same filters as the collection
+   *
+   * @return int the total matching count
+   */
+  public function countByUserId(
+    string $userId,
+    NotificationListCriteria $criteria = new NotificationListCriteria(),
+  ): int;
+
+  /**
+   * Method countUnreadByUserId.
+   *
+   * Counts unread notifications for a user, optionally scoped to one
+   * organization.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the user identifier
+   * @param string|null $organizationId exact organization filter; when null, unread notifications across all organizations (and account-level ones) are counted
+   *
+   * @return int the unread count
+   */
+  public function countUnreadByUserId(string $userId, ?string $organizationId = null): int;
+
+  /**
+   * Method markAllAsReadForUser.
+   *
+   * Marks every unread notification of a user as read in a single bulk
+   * update, optionally scoped to one organization. Idempotent: calling it
+   * again once every notification is already read affects zero rows.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the user identifier
+   * @param string|null $organizationId exact organization filter; when null, notifications across all organizations (and account-level ones) are affected
+   * @param DateTimeImmutable|null $readAt the read datetime (defaults to now)
+   *
+   * @return int the number of notifications marked as read
+   */
+  public function markAllAsReadForUser(string $userId, ?string $organizationId = null, ?DateTimeImmutable $readAt = null): int;
+  // #endregion
+}

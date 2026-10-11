@@ -11,13 +11,11 @@ use ArrayIterator;
 use Assistant\Application\UseCase\Query\Thread\ListAssistantThreads\{ListAssistantThreadsQuery, ListAssistantThreadsResult};
 use Assistant\Presentation\Api\Dto\Output\AssistantThreadOutput;
 use Assistant\Presentation\Api\Factory\AssistantThreadOutputFactory;
-use Assistant\Presentation\Api\Trait\AssistantExceptionMapperTrait;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function array_map;
 use function is_string;
@@ -36,8 +34,6 @@ use function min;
  */
 final readonly class ListAssistantThreadsProvider implements ProviderInterface
 {
-  use AssistantExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -73,7 +69,7 @@ final readonly class ListAssistantThreadsProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -82,21 +78,17 @@ final readonly class ListAssistantThreadsProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Assistant\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $page = max(1, $query->getInt('page', 1));
     $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
-    try {
-      /** @var ListAssistantThreadsResult $result */
-      $result = $this->queryBus->ask(new ListAssistantThreadsQuery(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        page: $page,
-        itemsPerPage: $itemsPerPage,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapAssistantException($exception);
-    }
+    /** @var ListAssistantThreadsResult $result */
+    $result = $this->queryBus->ask(new ListAssistantThreadsQuery(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      page: $page,
+      itemsPerPage: $itemsPerPage,
+    ));
 
     return new TraversablePaginator(
       new ArrayIterator(array_map($this->outputFactory->fromView(...), $result->items)),

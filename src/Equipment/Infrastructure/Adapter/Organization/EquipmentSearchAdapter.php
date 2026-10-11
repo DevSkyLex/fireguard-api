@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Adapter\Organization;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Organization\Application\Contract\Search\OrganizationSearchHit;
 use Organization\Application\Port\Outbound\EquipmentSearchPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function max;
 use function trim;
@@ -49,15 +48,14 @@ final readonly class EquipmentSearchAdapter implements EquipmentSearchPort
    */
   public function search(string $organizationId, string $term, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organizationId = $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('equipment')
       ->from(EquipmentRecord::class, 'equipment')
-      ->where('equipment.organization = :organization')
+      ->where('equipment.organizationId = :organization')
       ->andWhere('equipment.recordStatus = :publishedRecordStatus')
-      ->setParameter('organization', $organization)
+      ->setParameter('organization', $organizationId)
       ->setParameter('publishedRecordStatus', 'published')
       ->orderBy('equipment.updatedAt', 'DESC')
       ->setMaxResults(max(1, $limit));

@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\Service;
 
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
+use Organization\Application\Port\Inbound\OrganizationMemberDirectoryPort;
 
 use function in_array;
 use function sprintf;
@@ -28,9 +27,9 @@ final readonly class InterventionMemberPolicy
    *
    * @since 1.0.0
    *
-   * @param OrganizationMemberRepositoryPort $members the members value
+   * @param OrganizationMemberDirectoryPort $members the members value
    */
-  public function __construct(private OrganizationMemberRepositoryPort $members)
+  public function __construct(private OrganizationMemberDirectoryPort $members)
   {
   }
 
@@ -46,12 +45,12 @@ final readonly class InterventionMemberPolicy
    */
   public function assertActiveMember(string $organizationId, string $memberId): void
   {
-    $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
+    $member = $this->members->findById($memberId);
 
     if (
       null === $member
-      || !$member->isActive()
-      || $member->organizationId()->value !== $organizationId
+      || !$member->active
+      || $member->organizationId !== $organizationId
     ) {
       throw new InterventionConflictException('Intervention assignees must be active members of the intervention organization.');
     }
@@ -75,8 +74,8 @@ final readonly class InterventionMemberPolicy
       throw new InterventionConflictException(sprintf('A responsible member is required to %s the intervention.', $action));
     }
 
-    $member = $this->members->findByOrganizationAndUser(OrganizationId::fromString($organizationId), $userId);
-    if (null === $member || !$member->isActive() || $member->id()->value !== $responsibleId) {
+    $member = $this->members->findByOrganizationAndUser($organizationId, $userId);
+    if (null === $member || !$member->active || $member->id !== $responsibleId) {
       throw new InterventionConflictException(sprintf('Only the responsible member can %s the intervention.', $action));
     }
   }
@@ -102,8 +101,8 @@ final readonly class InterventionMemberPolicy
     array $participants,
     ?string $assigneeId,
   ): void {
-    $member = $this->members->findByOrganizationAndUser(OrganizationId::fromString($organizationId), $userId);
-    $memberId = null !== $member && $member->isActive() ? $member->id()->value : null;
+    $member = $this->members->findByOrganizationAndUser($organizationId, $userId);
+    $memberId = null !== $member && $member->active ? $member->id : null;
     $allowed = null !== $memberId && (
       (null !== $assigneeId && $memberId === $assigneeId)
       || (null === $assigneeId && ($memberId === $responsibleId || in_array($memberId, $participants, true)))
@@ -131,13 +130,13 @@ final readonly class InterventionMemberPolicy
    */
   public function assertActiveMemberForUser(string $organizationId, string $userId): string
   {
-    $member = $this->members->findByOrganizationAndUser(OrganizationId::fromString($organizationId), $userId);
+    $member = $this->members->findByOrganizationAndUser($organizationId, $userId);
     if (null === $member) {
       throw new InterventionConflictException('The current user is not a member of the intervention organization.');
     }
-    $this->assertActiveMember($organizationId, $member->id()->value);
+    $this->assertActiveMember($organizationId, $member->id);
 
-    return $member->id()->value;
+    return $member->id;
   }
 
   /**
@@ -158,9 +157,9 @@ final readonly class InterventionMemberPolicy
    */
   public function findMemberId(string $organizationId, string $userId): ?string
   {
-    $member = $this->members->findByOrganizationAndUser(OrganizationId::fromString($organizationId), $userId);
+    $member = $this->members->findByOrganizationAndUser($organizationId, $userId);
 
-    return null !== $member && $member->isActive() ? $member->id()->value : null;
+    return null !== $member && $member->active ? $member->id : null;
   }
 
   /**

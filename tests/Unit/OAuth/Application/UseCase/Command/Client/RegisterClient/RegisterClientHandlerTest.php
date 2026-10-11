@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Application\UseCase\Command\Client\RegisterClient;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Application\UseCase\Command\Client\RegisterClient\{
   RegisterClientCommand,
   RegisterClientHandler,
   RegisterClientResult
 };
 use OAuth\Domain\Model\Client\Client;
-use OAuth\Domain\ValueObject\Client\{ClientId, RedirectUri};
+use OAuth\Domain\ValueObject\Client\RedirectUri;
 use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
 use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{
   EventBusPort,
   HashingPort
 };
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\ValueObject\HashedSecret;
 use Tests\Helper\TestEventIdProvider;
 
@@ -53,11 +53,10 @@ final class RegisterClientHandlerTest extends TestCase
     $hashedSecretValue = '$2y$10$hashedsecret';
 
     // Mocks
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(ClientId::class)
-      ->willReturn(new ClientId($clientId));
+      ->method('generate')
+      ->willReturn($clientId);
 
     $eventIdProvider = new TestEventIdProvider();
 

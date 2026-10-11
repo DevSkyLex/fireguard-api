@@ -6,7 +6,7 @@ namespace Tests\Functional\Api;
 
 use App\Tests\E2E\OAuth2WebTestCase;
 use DateTimeImmutable;
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Domain\Model\Totp\{TotpEnrollment, TotpEnrollmentAttempts, TotpEnrollmentSecrets};
 use Otp\Domain\ValueObject\TotpSecret;
 use Otp\Infrastructure\Adapter\Notifier\TotpAdapter;

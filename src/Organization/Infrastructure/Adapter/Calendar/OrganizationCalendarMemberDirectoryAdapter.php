@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Adapter\Calendar;
 
 use Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;
 

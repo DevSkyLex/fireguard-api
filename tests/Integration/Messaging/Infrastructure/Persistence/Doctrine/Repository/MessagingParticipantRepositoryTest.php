@@ -148,7 +148,7 @@ final class MessagingParticipantRepositoryTest extends KernelTestCase
 
     $record = new MessagingConversationRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->subjectType = 'channel';
     $record->subjectId = null;
     $record->visibility = 'participants';

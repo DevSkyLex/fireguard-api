@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Auth\Application\UseCase\Command\Session\Logout;
 
 use Auth\Application\Port\Outbound\TokenRevocationPort;
+use Auth\Domain\Event\Session\UserLoggedOutEvent;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * Handler LogoutHandler.
@@ -30,6 +32,7 @@ final readonly class LogoutHandler implements CommandHandler
    */
   public function __construct(
     private readonly TokenRevocationPort $tokenRevocation,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -62,6 +65,13 @@ final readonly class LogoutHandler implements CommandHandler
         jwtToken: $command->accessToken,
       );
     }
+
+    $this->eventDispatcher->dispatch(new UserLoggedOutEvent(
+      userId: null,
+      ipAddress: $command->ipAddress,
+      refreshTokenRevoked: $refreshRevoked,
+      accessTokenRevoked: $accessRevoked,
+    ));
 
     return new LogoutResult(
       success: true,

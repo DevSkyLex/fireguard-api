@@ -17,8 +17,7 @@ use Procurement\Domain\Model\{PurchaseOrder, Supplier};
 use Procurement\Domain\ValueObject\{ProcurementGoodsIdentity, ProcurementLine, SupplierDetails};
 use Procurement\Infrastructure\Persistence\Doctrine\Repository\ProcurementRepository;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\CurrentActorPort;
+use Shared\Application\Port\Outbound\{CurrentActorPort, UuidGeneratorPort};
 use Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher;
 use Symfony\Component\Messenger\Bridge\Doctrine\Transport\{DoctrineTransport, DoctrineTransportFactory};
 use Symfony\Component\Messenger\Transport\Serialization\PhpSerializer;
@@ -185,8 +184,8 @@ final class ProcurementRepositoryTest extends TestCase
   #[Test]
   public function orderPhysicalReceiptOperationAndOutboxCommitOrRollbackTogether(): void
   {
-    $ids = $this->createStub(UuidFactory::class);
-    $ids->method('generateRaw')->willReturn(self::OPERATION);
+    $ids = $this->createStub(UuidGeneratorPort::class);
+    $ids->method('generate')->willReturn(self::OPERATION);
     $dispatcher = new TransactionalEventDispatcher($this->a, $this->sender, $ids, $this->createStub(CurrentActorPort::class));
     $write = function () use ($dispatcher): void {
       $this->repository->saveOrder($this->order());

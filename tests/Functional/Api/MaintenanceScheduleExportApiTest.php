@@ -265,7 +265,7 @@ final class MaintenanceScheduleExportApiTest extends WebTestCase
 
     $schedule = new MaintenanceScheduleRecord();
     $schedule->id = self::SCHEDULE_ID;
-    $schedule->organization = $organization;
+    $schedule->organizationId = $organization->id;
     $schedule->equipmentId = '770e8400-e29b-41d4-a716-446655441031';
     $schedule->facilityId = null;
     $schedule->equipmentType = 'fire_extinguisher';

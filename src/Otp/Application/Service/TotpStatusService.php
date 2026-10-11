@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Otp\Application\Service;
 
 use Otp\Application\Port\Inbound\Totp\TotpStatusPort;
-use Otp\Application\Port\Outbound\Totp\TotpEnrollmentRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Totp\TotpEnrollmentRepositoryPort;
 
 /**
  * Service TotpStatusService.

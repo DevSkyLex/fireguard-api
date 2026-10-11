@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Assistant\Infrastructure\Adapter\Realtime;
 
-use Assistant\Application\Port\Outbound\AssistantRealtimePublisherPort;
+use Assistant\Application\Contract\Realtime\AssistantThreadTopic;
+use Assistant\Application\Port\Outbound\Internal\AssistantRealtimePublisherPort;
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Symfony\Component\Mercure\{HubInterface, Update};
 
 use function json_encode;
-use function sprintf;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -98,7 +98,7 @@ final readonly class MercureAssistantRealtimePublisherAdapter implements Assista
    */
   public static function topic(string $organizationId, string $threadId): string
   {
-    return sprintf('/organizations/%s/assistant/threads/%s', $organizationId, $threadId);
+    return AssistantThreadTopic::forThread($organizationId, $threadId);
   }
   // #endregion
 }

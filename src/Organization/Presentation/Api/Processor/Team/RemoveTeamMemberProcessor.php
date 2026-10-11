@@ -6,13 +6,14 @@ namespace Organization\Presentation\Api\Processor\Team;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Team\RemoveTeamMember\RemoveTeamMemberCommand;
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamMemberNotFoundException, TeamNotFoundException};
+use Organization\Domain\Exception\{TeamMemberNotFoundException, TeamNotFoundException};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -82,7 +83,7 @@ final readonly class RemoveTeamMemberProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): mixed
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -7,7 +7,7 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort;
 use Equipment\Domain\Exception\EquipmentTypeCatalogException;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
@@ -116,7 +116,7 @@ final class EquipmentTypeCatalogApiTest extends WebTestCase
     self::assertInstanceOf(OrganizationRecord::class, $organization);
     $record = new EquipmentRecord();
     $record->id = '770e8400-e29b-41d4-a716-446655491010';
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->type = 'legacy_custom';
     $record->status = 'in_stock';
     $record->recordStatus = 'published';
@@ -224,9 +224,9 @@ final class EquipmentTypeCatalogApiTest extends WebTestCase
   private function seed(KernelBrowser $client, array $permissions): void
   {
     $client->disableReboot();
-    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users = $this->createStub(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class);
     $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
-    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    static::getContainer()->set(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class, $users);
     $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), self::USER_ID, 'equipment-type-catalog@example.com'));
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');

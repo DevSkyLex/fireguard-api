@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments;
 
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;

@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile;
 
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{
-  OrganizationMemberRepositoryPort,
-  OrganizationRepositoryPort,
-  OrganizationRoleRepositoryPort
-};
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};
 use Shared\Application\Message\QueryHandler;
 

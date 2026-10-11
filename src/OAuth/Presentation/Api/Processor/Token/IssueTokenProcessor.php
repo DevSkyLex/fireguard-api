@@ -11,7 +11,7 @@ use OAuth\Application\UseCase\Command\Token\IssueToken\{IssueTokenCommand, Issue
 use OAuth\Domain\Exception\Token\AuthorizationException;
 use OAuth\Presentation\Api\Dto\Input\Token\TokenInput;
 use OAuth\Presentation\Api\Dto\Output\Token\TokenOutput;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;

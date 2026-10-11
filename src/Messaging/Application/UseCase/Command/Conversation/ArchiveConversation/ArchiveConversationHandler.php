@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Conversation\ArchiveConversation;
 
-use Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Event\Conversation\MessagingConversationArchivedEvent;
 use Messaging\Domain\Exception\MessagingNotFoundException;

@@ -15,7 +15,6 @@ use Facility\Domain\ValueObject\{
 };
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityMetadataFieldRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper FacilityMetadataFieldMapper.
@@ -39,13 +38,13 @@ final class FacilityMetadataFieldMapper
    */
   public static function toDomain(FacilityMetadataFieldRecord $record): FacilityMetadataField
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Facility metadata field record must reference an organization.');
     }
 
     return FacilityMetadataField::reconstitute(
       id: FacilityMetadataFieldId::fromString($record->id),
-      organizationId: FacilityOrganizationId::fromString($record->organization->id),
+      organizationId: FacilityOrganizationId::fromString($record->organizationId),
       definition: new FacilityMetadataFieldDefinition(
         new FacilityMetadataFieldKey($record->key),
         new FacilityMetadataFieldLabel($record->label),
@@ -73,6 +72,7 @@ final class FacilityMetadataFieldMapper
   {
     $record = new FacilityMetadataFieldRecord();
     $record->id = (string) $field->id();
+    $record->organizationId = (string) $field->organizationId();
     $record->key = (string) $field->key();
     $record->label = (string) $field->label();
     $record->fieldType = $field->fieldType()->value;

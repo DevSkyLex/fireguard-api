@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace Webhook\Infrastructure\EventSubscriber;
 
 use DateTimeImmutable;
-use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
-use Inspection\Domain\Event\Inspection\{InspectionClosedEvent, InspectionSubmittedEvent};
-use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
-use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
-use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
+use Equipment\Application\Contract\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
+use Facility\Application\Contract\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
+use Inspection\Application\Contract\Event\Inspection\{InspectionClosedEvent, InspectionSubmittedEvent};
+use Inspection\Application\Contract\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
+use Intervention\Application\Contract\Event\Publication\InterventionPublishedEvent;
+use Maintenance\Application\Contract\Event\Campaign\MaintenanceCampaignGeneratedEvent;
 use Psr\Log\LoggerInterface;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\DurableEventContextPort;
+use Shared\Application\Port\Outbound\{DurableEventContextPort, UuidGeneratorPort};
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
@@ -55,12 +54,12 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
    * @since 1.0.0
    *
    * @param MessageBusInterface $messageBus the raw Symfony message bus (routed to the `webhook` transport)
-   * @param UuidFactory $uuidFactory the uuid factory, used to mint each dispatch's dedupe key
+   * @param UuidGeneratorPort $uuidFactory the uuid factory, used to mint each dispatch's dedupe key
    * @param LoggerInterface $logger the logger
    */
   public function __construct(
     private MessageBusInterface $messageBus,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private LoggerInterface $logger,
     private DurableEventContextPort $eventContext,
   ) {
@@ -331,7 +330,7 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
       $this->messageBus->dispatch(new DispatchWebhookEventCommand(
         organizationId: $organizationId,
         eventType: $type->value,
-        eventId: $this->eventContext->eventId() ?? $this->uuidFactory->generateRaw(),
+        eventId: $this->eventContext->eventId() ?? $this->uuidFactory->generate(),
         data: $data,
         occurredAt: $occurredAt,
       ));

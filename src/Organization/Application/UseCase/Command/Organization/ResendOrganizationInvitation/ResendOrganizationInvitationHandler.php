@@ -6,16 +6,16 @@ namespace Organization\Application\UseCase\Command\Organization\ResendOrganizati
 
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\NotificationChannel;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
-use Organization\Application\Port\Outbound\OrganizationJoinRepositoryPort;
+use Organization\Application\Contract\Event\Invitation\OrganizationInvitationSentEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
-use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
-use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotificationFailedException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotificationFailedException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * UseCase ResendOrganizationInvitationHandler.
@@ -44,7 +44,7 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
    *
    * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository port
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
-   * @param UserRepositoryPort $userRepository the user repository port
+   * @param UserDirectoryPort $userRepository the user repository port
    * @param OrganizationInvitationNotifier $invitationNotifier the invitation token/link/notification helper
    * @param LoggerPort $logger the logger port
    * @param TransactionManagerPort $transactionManager the transaction manager
@@ -54,7 +54,7 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
     private OrganizationRepositoryPort $organizationRepository,
-    private UserRepositoryPort $userRepository,
+    private UserDirectoryPort $userRepository,
     private OrganizationInvitationNotifier $invitationNotifier,
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
@@ -142,9 +142,9 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
       resend: true,
     ));
 
-    $existingUser = $this->userRepository->findByEmail($invitation->email());
-    $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
-    $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale()->value);
+    $existingUser = $this->userRepository->findByEmail((string) $invitation->email());
+    $recipientUserId = null !== $existingUser ? (string) $existingUser->id : null;
+    $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale);
 
     $notification = null;
 

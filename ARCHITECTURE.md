@@ -58,8 +58,11 @@ src/<Module>/
     Port/
       Outbound/
         <Area>/      (optional, group ports by context)
+        Internal/    (optional, owner-private ports; never consumed by another module)
+          <Area>/    (optional, group private persistence or model-oriented ports)
       Inbound/        (optional)
         <Area>/      (optional, group ports by context)
+        Internal/    (optional, owner-private inbound capabilities)
     Service/
     UseCase/
       Command/
@@ -112,6 +115,12 @@ src/<Module>/
       EventSubscriber/
       Serialization/
 ```
+
+Pure owner-local aggregate-to-contract projections use `*ViewMapper` in
+`Application/Service`. HTTP exception translation uses `*ExceptionMapper` in
+`Presentation/Api/Service`. Record-to-aggregate persistence mappers remain in
+`Infrastructure/Persistence`. These names do not permit Doctrine or foreign private
+types in Application or Presentation; the layer and module dependency gates still apply.
 
 ### Context-Oriented Subfolder Examples
 
@@ -244,6 +253,11 @@ Example registration (config/modules/<module>.yaml):
 - Expose cross-module types (enums/DTOs) under `Application/Contract`.
 - Ports may reference contract types; do not expose Domain types outside the module.
 - Keep contract types stable and independent from framework/persistence details.
+- `Application/Port/{Inbound,Outbound}/Internal` contains owner-private ports that expose the owner's
+  Domain models or other private types. Preserve the port's direction; repositories normally
+  belong under `Outbound/Internal`. Their public
+  counterparts expose pure contract snapshots or capabilities instead. Migrate foreign
+  consumers to those published capabilities before moving a port into `Internal`.
 
 ## Presentation Layer Standard (Api Platform)
 
@@ -385,7 +399,8 @@ Minimum tests for a new endpoint:
 ## Executable module boundary gate
 
 `make deptrac` and CI run both the original layer rules and `tests/Architecture/deptrac/modules.php`.
-Each documented module has disjoint public (`Application/Port`, `Application/Contract`)
+Each documented module has disjoint public (`Application/Port`, except
+`Application/Port/{Inbound,Outbound}/Internal`, and `Application/Contract`)
 and private collectors. Only public surfaces cross module boundaries. Shared's existing
 Domain kernel and message-handler contracts are explicitly public infrastructure contracts.
 No business consumer, including Audit, is exempt. Native AST analysis also sees fully qualified

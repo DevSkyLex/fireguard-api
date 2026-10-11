@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\User\DeleteUser;
 
-use User\Application\Port\Outbound\{UserDataPurgePort, UserRepositoryPort};
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\UserDataPurgePort;
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\ValueObject\UserId;
 
@@ -62,8 +63,8 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
         throw UserNotFoundException::withId(id: $userId->value);
       }
 
-      $this->userRepository->delete(user: $user);
       $this->dataPurge->purgeForUser($user->id()->value);
+      $this->userRepository->delete(user: $user);
 
       return new DeleteUserResult(userId: $user->id()->value);
     });

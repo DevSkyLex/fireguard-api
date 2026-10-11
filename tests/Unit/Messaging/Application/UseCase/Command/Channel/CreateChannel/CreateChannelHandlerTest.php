@@ -7,17 +7,16 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Channel\CreateChannel
 use DateTimeImmutable;
 use Messaging\Application\Contract\Channel\ChannelView;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Channel\CreateChannel\{CreateChannelCommand, CreateChannelHandler};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
-use Messaging\Domain\ValueObject\ConversationId;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 /**
  * Test CreateChannelHandlerTest.
@@ -154,8 +153,8 @@ final class CreateChannelHandlerTest extends TestCase
 
     $accessPolicy = new MessagingAccessPolicy($authorization, $members, $participants);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(ConversationId::fromString(self::CHANNEL_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::CHANNEL_ID);
 
     return new CreateChannelHandler($conversations, $participants, $readMarkers, $accessPolicy, $uuidFactory, $eventDispatcher);
   }

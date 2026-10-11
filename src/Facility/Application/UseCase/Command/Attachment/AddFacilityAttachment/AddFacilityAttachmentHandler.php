@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityAttachmentNotFoundException};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId, ImageDimensions};
-use Shared\Application\Factory\UuidFactory;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, RootTransactionManagerPort, UuidGeneratorPort};
 use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
@@ -37,7 +39,7 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
    * @param FacilityRepositoryPort $facilityRepository port used to validate the facility and its organization scope
    * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to check attachment identity and persist metadata
    * @param FileStoragePort $fileStorage port used to write the file and remove it if persistence fails
-   * @param UuidFactory $uuidFactory factory used to create an attachment identifier when none is supplied
+   * @param UuidGeneratorPort $uuidFactory factory used to create an attachment identifier when none is supplied
    *
    * @return void
    */
@@ -45,7 +47,10 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,
     private FileStoragePort $fileStorage,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
+    private RootTransactionManagerPort $transactionManager,
+    private FileCleanupPort $cleanup,
+    private OrganizationAuthorizationPort $authorization,
   ) {
   }
   // #endregion
@@ -58,63 +63,83 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
    */
   public function __invoke(AddFacilityAttachmentCommand $command): AddFacilityAttachmentResult
   {
+    $this->transactionManager->assertCanStart();
+    $facilityId = FacilityId::fromString($command->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
+
     try {
-      $facilityId = FacilityId::fromString($command->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
       $kind = AttachmentKind::from($command->kind);
-    } catch (InvalidValueException|ValueError $exception) {
+    } catch (ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
-
-    $facility = $this->facilityRepository->findById($facilityId);
-
-    if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
-      throw FacilityNotFoundException::withId($command->facilityId);
-    }
-
-    /** @var FacilityAttachmentId $attachmentId */
     $attachmentId = null === $command->attachmentId
-      ? $this->uuidFactory->create(FacilityAttachmentId::class)
+      ? FacilityAttachmentId::fromString($this->uuidFactory->generate())
       : FacilityAttachmentId::fromString($command->attachmentId);
-
-    // A client-supplied id that already exists is a retry overwriting its own
-    // row, not a new attachment — it must not be rejected at the cap.
-    if (null === $this->attachmentRepository->findById($attachmentId)) {
-      AttachmentConstraints::validateCount($this->attachmentRepository->countByFacilityId($facilityId));
-    }
-
-    $storagePath = StoragePathScheme::build(
-      module: 'facility',
-      parentId: $command->facilityId,
-      attachmentId: (string) $attachmentId,
-      fileName: $command->fileName,
-    );
-
-    // The dimensions are metadata extracted from bytes already held in
-    // memory (no I/O) — see ImageDimensions's own docblock — and only ever
-    // computed for a floor plan; a document attachment carries none.
-    $dimensions = AttachmentKind::FLOOR_PLAN === $kind
-      ? ImageDimensions::fromContents($command->contents, $command->mimeType)
-      : null;
-
-    $attachment = FacilityAttachment::create(
-      id: $attachmentId,
-      facilityId: $facilityId,
-      fileName: $command->fileName,
-      storagePath: $storagePath,
-      mimeType: $command->mimeType,
-      size: $command->size,
-      options: new FacilityAttachmentCreationOptions($command->label, $kind, $dimensions?->width(), $dimensions?->height()),
-    );
-
-    $this->fileStorage->write($storagePath, $command->contents);
+    $storagePath = null;
 
     try {
-      $this->attachmentRepository->save($attachment);
-    } catch (Throwable $dbException) {
-      $this->fileStorage->delete($storagePath);
+      $attachment = $this->transactionManager->transactional(function () use ($command, $facilityId, $organizationId, $attachmentId, $kind, &$storagePath): FacilityAttachment {
+        $this->attachmentRepository->lock($facilityId);
+        $facility = $this->facilityRepository->findById($facilityId);
+        if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
+          throw FacilityNotFoundException::withId($command->facilityId);
+        }
+        if (null !== $command->userId) {
+          $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.facilities.write');
+          if ($decision->isOutsideScope()) {
+            throw new FacilityNotFoundException('Facility not found.');
+          }
+          if (!$decision->isGranted()) {
+            throw new FacilityAccessDeniedException('Missing organization.facilities.write permission.');
+          }
+        }
+        $existing = $this->attachmentRepository->findById($attachmentId);
+        if (null !== $existing) {
+          if ((string) $existing->facilityId() !== $command->facilityId) {
+            throw new FacilityAttachmentNotFoundException('Attachment not found.');
+          }
 
-      throw $dbException;
+          return $existing;
+        }
+        AttachmentConstraints::validateCount($this->attachmentRepository->countByFacilityId($facilityId));
+        $attemptPath = StoragePathScheme::build('facility', $command->facilityId, $this->uuidFactory->generate(), $command->fileName);
+        $dimensions = AttachmentKind::FLOOR_PLAN === $kind ? ImageDimensions::fromContents($command->contents, $command->mimeType) : null;
+        $attachment = FacilityAttachment::create(
+          $attachmentId,
+          $facilityId,
+          $command->fileName,
+          $attemptPath,
+          $command->mimeType,
+          $command->size,
+          new FacilityAttachmentCreationOptions($command->label, $kind, $dimensions?->width(), $dimensions?->height()),
+        );
+        $storagePath = $attemptPath;
+        $this->fileStorage->write($storagePath, $command->contents);
+        if (!$this->attachmentRepository->saveIfAbsent($attachment)) {
+          $winner = $this->attachmentRepository->findById($attachmentId);
+          if (null === $winner || (string) $winner->facilityId() !== $command->facilityId) {
+            throw new FacilityAttachmentNotFoundException('Attachment not found.');
+          }
+          $this->cleanup->request($storagePath);
+
+          return $winner;
+        }
+
+        return $attachment;
+      });
+    } catch (CommitOutcomeUnknownException $exception) {
+      throw $exception;
+    } catch (Throwable $exception) {
+      /** @var ?string $storagePath The transaction callback owns this attempt path. */
+      if (null !== $storagePath) {
+        try {
+          $this->fileStorage->delete($storagePath);
+        } catch (Throwable) {
+          // Preserve the transaction failure when compensation also fails.
+        }
+      }
+
+      throw $exception;
     }
 
     return new AddFacilityAttachmentResult(

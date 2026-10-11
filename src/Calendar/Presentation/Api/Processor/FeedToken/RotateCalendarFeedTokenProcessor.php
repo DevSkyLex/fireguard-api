@@ -6,16 +6,14 @@ namespace Calendar\Presentation\Api\Processor\FeedToken;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Calendar\Application\UseCase\Command\FeedToken\RotateCalendarFeedToken\{RotateCalendarFeedTokenCommand, RotateCalendarFeedTokenResult};
 use Calendar\Presentation\Api\Dto\Output\FeedToken\CalendarFeedTokenSecretOutput;
-use Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait;
 use DateTimeInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 use function sprintf;
@@ -35,8 +33,6 @@ use function sprintf;
  */
 final readonly class RotateCalendarFeedTokenProcessor implements ProcessorInterface
 {
-  use CalendarExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -69,7 +65,7 @@ final readonly class RotateCalendarFeedTokenProcessor implements ProcessorInterf
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): CalendarFeedTokenSecretOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -78,15 +74,11 @@ final readonly class RotateCalendarFeedTokenProcessor implements ProcessorInterf
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    try {
-      /** @var RotateCalendarFeedTokenResult $result */
-      $result = $this->commandBus->dispatch(new RotateCalendarFeedTokenCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapCalendarException($exception);
-    }
+    /** @var RotateCalendarFeedTokenResult $result */
+    $result = $this->commandBus->dispatch(new RotateCalendarFeedTokenCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+    ));
 
     $request = $this->requestStack->getCurrentRequest();
     $base = null !== $request ? $request->getSchemeAndHttpHost() : '';

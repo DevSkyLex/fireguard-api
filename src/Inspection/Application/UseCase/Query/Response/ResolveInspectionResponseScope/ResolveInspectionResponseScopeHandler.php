@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Response\ResolveInspectionResponseScope;
 
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, InterventionScopePort};
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
 use Inspection\Domain\ValueObject\InspectionId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;

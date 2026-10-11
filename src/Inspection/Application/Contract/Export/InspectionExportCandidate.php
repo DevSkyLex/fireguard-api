@@ -7,7 +7,7 @@ namespace Inspection\Application\Contract\Export;
 /**
  * Domain InspectionExportCandidate.
  *
- * A single inspection row as read from {@see \Inspection\Application\Port\Outbound\InspectionRepositoryPort::listExportCandidates()},
+ * A single inspection row as read from {@see \Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort::listExportCandidates()},
  * carrying only the raw `equipmentId`/`facilityId`/`checklistId` identifiers
  * — no display name is resolved yet, mirroring
  * `Intervention\Application\Contract\Export\InterventionExportCandidate`.

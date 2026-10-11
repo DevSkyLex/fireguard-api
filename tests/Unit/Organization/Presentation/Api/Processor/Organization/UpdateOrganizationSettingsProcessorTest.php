@@ -6,12 +6,14 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Patch;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use InvalidArgumentException;
 use LogicException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\EquipmentTypeCatalogPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{UpdateOrganizationSettingsCommand, UpdateOrganizationSettingsResult};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationQuery;
-use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationArchivedException;
 use Organization\Presentation\Api\Dto\Input\Organization\{
   UpdateOrganizationComplianceInput,
   UpdateOrganizationRegisteredAddressInput,
@@ -21,7 +23,7 @@ use Organization\Presentation\Api\Processor\Organization\UpdateOrganizationSetti
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
@@ -95,7 +97,7 @@ final class UpdateOrganizationSettingsProcessorTest extends TestCase
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
+    $commandBus->expects(self::once())->method('dispatch')->with(self::callback(static fn (UpdateOrganizationSettingsCommand $command): bool => ['teleporter' => 'P1Y'] === ($command->compliance['inspection_periodicity_defaults'] ?? null)))->willThrowException(new InvalidArgumentException('Unknown equipment type "teleporter".'));
 
     $processor = $this->createProcessor($commandBus);
 
@@ -287,7 +289,6 @@ final class UpdateOrganizationSettingsProcessorTest extends TestCase
       commandBus: $commandBus,
       queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
       authorization: $authorization,
-      equipmentTypeCatalog: $equipmentTypeCatalog,
       security: $security,
     );
   }

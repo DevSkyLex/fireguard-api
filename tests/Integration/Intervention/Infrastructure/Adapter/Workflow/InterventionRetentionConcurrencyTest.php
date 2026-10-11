@@ -10,7 +10,8 @@ use Doctrine\DBAL\{Connection, DriverManager};
 use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\ORM\{EntityManager, EntityManagerInterface};
 use Intervention\Application\Contract\Workflow\InterventionWorkflowMutation;
-use Intervention\Application\Port\Outbound\{InterventionResourceGatewayPort, InterventionWorkflowGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Intervention\Application\Service\InterventionMemberPolicy;
 use Intervention\Domain\Exception\InterventionConflictException;
 use Intervention\Infrastructure\Adapter\Cost\InterventionCostSourceFactsAdapter;
@@ -107,7 +108,7 @@ final class InterventionRetentionConcurrencyTest extends KernelTestCase
     $main->persist($assignment);
     $work = new InterventionRecord();
     $work->id = self::WORK;
-    $work->organization = $organization;
+    $work->organizationId = $organization->id;
     $work->name = 'Prepared retained work';
     $work->number = 1;
     $work->type = 'corrective_maintenance';

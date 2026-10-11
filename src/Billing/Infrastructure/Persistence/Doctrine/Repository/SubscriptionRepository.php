@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Infrastructure\Persistence\Doctrine\Repository;
 
-use Billing\Application\Port\Outbound\SubscriptionRepositoryPort;
+use Billing\Application\Port\Outbound\Internal\SubscriptionRepositoryPort;
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Infrastructure\Persistence\Doctrine\Mapper\SubscriptionMapper;
 use Billing\Infrastructure\Persistence\Doctrine\Record\SubscriptionRecord;

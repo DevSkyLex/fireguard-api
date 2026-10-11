@@ -6,16 +6,14 @@ namespace Webhook\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 use Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscription\{CreateWebhookSubscriptionCommand, CreateWebhookSubscriptionResult};
 use Webhook\Presentation\Api\Dto\Input\CreateWebhookSubscriptionInput;
 use Webhook\Presentation\Api\Dto\Output\WebhookSecretOutput;
 use Webhook\Presentation\Api\Factory\WebhookSubscriptionOutputFactory;
-use Webhook\Presentation\Api\Trait\WebhookExceptionMapperTrait;
 
 use function is_string;
 
@@ -31,8 +29,6 @@ use function is_string;
  */
 final readonly class CreateWebhookSubscriptionProcessor implements ProcessorInterface
 {
-  use WebhookExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -66,7 +62,7 @@ final readonly class CreateWebhookSubscriptionProcessor implements ProcessorInte
   {
     /** @var CreateWebhookSubscriptionInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -75,18 +71,14 @@ final readonly class CreateWebhookSubscriptionProcessor implements ProcessorInte
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    try {
-      /** @var CreateWebhookSubscriptionResult $result */
-      $result = $this->commandBus->dispatch(new CreateWebhookSubscriptionCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        url: $data->url,
-        eventTypes: $data->eventTypes,
-        description: $data->description,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWebhookException($exception);
-    }
+    /** @var CreateWebhookSubscriptionResult $result */
+    $result = $this->commandBus->dispatch(new CreateWebhookSubscriptionCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      url: $data->url,
+      eventTypes: $data->eventTypes,
+      description: $data->description,
+    ));
 
     return $this->outputFactory->secretFromResult($result);
   }

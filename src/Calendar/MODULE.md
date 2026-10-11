@@ -432,6 +432,10 @@ The authorized feed combines bounded owner-provided calendar sources. Standalone
 
 ## Architecture
 
+Processors and providers leave business errors to CalendarExceptionSubscriber.
+The public ICS controller retains its explicit uniform-404 policy. Seed composition
+consumes published facility/member identifiers, never sibling fixture classes or Records.
+
 Use cases own decisions and inject public provisioning/coordination ports from the business owners. Infrastructure implements persistence/storage/transport; HTTP adapters translate. The ownership and transaction boundaries above remain authoritative.
 
 ## Error Codes

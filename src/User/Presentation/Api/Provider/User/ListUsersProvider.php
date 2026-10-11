@@ -8,16 +8,16 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedPrincipal;
 use DateTimeInterface;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Search\SearchExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\SearchExtractor;
-use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, UnauthorizedHttpException};
+use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\ListUsers\ListUsersQuery;
-use User\Domain\Model\User\User;
 use User\Presentation\Api\Dto\Output\User\UserOutput;
 
 use function array_map;
@@ -75,7 +75,7 @@ final readonly class ListUsersProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $caller = $this->security->getUser();
-    if (!$caller instanceof SecurityUser) {
+    if (!$caller instanceof AuthenticatedPrincipal) {
       throw new UnauthorizedHttpException('Bearer', 'Authentication required.');
     }
 
@@ -84,7 +84,7 @@ final readonly class ListUsersProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Cross-tenant access requires elevated privileges.');
     }
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \User\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
@@ -100,7 +100,7 @@ final readonly class ListUsersProvider implements ProviderInterface
     $search = SearchExtractor::fromContext($context);
     $sorting = SortingExtractor::fromContext($context, ['username', 'email', 'firstName', 'lastName', 'status', 'createdAt'], 'createdAt');
 
-    /** @var PaginatedResult<User> $result */
+    /** @var PaginatedResult<UserView> $result */
     $result = $this->queryBus->ask(query: new ListUsersQuery(
       pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
       search: $search,
@@ -108,19 +108,19 @@ final readonly class ListUsersProvider implements ProviderInterface
       tenantId: $tenantId,
     ));
 
-    $outputs = array_map(function (User $user) {
+    $outputs = array_map(function (UserView $user) {
       $output = new UserOutput();
-      $output->id = $user->id()->value;
-      $output->username = $user->username()->value;
-      $output->email = $user->email()->value;
-      $output->firstName = $user->profile()->firstName;
-      $output->lastName = $user->profile()->lastName;
-      $output->avatarUrl = $user->profile()->avatarUrl;
-      $output->status = $user->status()->value;
-      $output->emailVerified = $user->isEmailVerified();
-      $output->tenantId = $user->tenantId()?->__toString();
-      $output->createdAt = $user->createdAt()->format(DateTimeInterface::ATOM);
-      $output->lastLoginAt = $user->lastLoginAt()?->format(DateTimeInterface::ATOM);
+      $output->id = $user->id;
+      $output->username = $user->username;
+      $output->email = $user->email;
+      $output->firstName = $user->firstName;
+      $output->lastName = $user->lastName;
+      $output->avatarUrl = $user->avatarUrl;
+      $output->status = $user->status;
+      $output->emailVerified = $user->emailVerified;
+      $output->tenantId = $user->tenantId;
+      $output->createdAt = $user->createdAt->format(DateTimeInterface::ATOM);
+      $output->lastLoginAt = $user->lastLoginAt?->format(DateTimeInterface::ATOM);
 
       return $output;
     }, $result->items);

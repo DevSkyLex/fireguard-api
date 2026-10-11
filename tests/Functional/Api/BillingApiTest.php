@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Billing\Application\Port\Outbound\{OrganizationAccessPort, StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\OrganizationAccessPort;
 use Billing\Domain\Exception\BillingGatewayUnavailableException;
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\SubscriptionId;

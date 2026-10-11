@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Message\DeleteMessage;
 
-use Messaging\Application\Port\Outbound\{MessagingMessageRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\MessagingRealtimePublisherPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Event\Message\MessagingMessageModeratedEvent;
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Application\Port\Outbound;
 
-use Shared\Application\Log\LogLevel;
+use Shared\Application\Contract\Log\LogLevel;
 
 /**
  * Port LoggerPort.

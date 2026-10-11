@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Assistant\Infrastructure\Persistence\Doctrine\Repository;
 
-use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
+use Assistant\Application\Port\Outbound\Internal\AssistantThreadRepositoryPort;
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\ValueObject\AssistantThreadId;
 use Assistant\Infrastructure\Persistence\Doctrine\Mapper\AssistantThreadMapper;

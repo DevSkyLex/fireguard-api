@@ -13,7 +13,7 @@ use MaintenanceCost\Application\Port\Inbound\MaintenanceCurrencyPort;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Procurement\Application\Contract\{ProcurementOperationState, ProcurementReceiptState, ProcurementReturnState};
-use Procurement\Application\Port\Outbound\Persistence\ProcurementRepositoryPort;
+use Procurement\Application\Port\Outbound\Internal\Persistence\ProcurementRepositoryPort;
 use Procurement\Application\Service\{ProcurementDraftLines, ProcurementInput, ProcurementOperationReplay, ProcurementProjection};
 use Procurement\Domain\Event\ProcurementChangedEvent;
 use Procurement\Domain\Exception\ProcurementException;

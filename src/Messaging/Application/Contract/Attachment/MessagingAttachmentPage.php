@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Messaging\Application\Contract\Attachment;
 
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
-
 /**
  * Contract MessagingAttachmentPage.
  *
@@ -22,7 +20,7 @@ final readonly class MessagingAttachmentPage
    *
    * @since 1.0.0
    *
-   * @param list<MessagingAttachment> $items the page items
+   * @param list<MessagingAttachmentView> $items the page items
    * @param int $page the page value
    * @param int $itemsPerPage the items per page value
    * @param int $total the total value

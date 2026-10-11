@@ -14,7 +14,7 @@ use Messaging\Infrastructure\Persistence\Doctrine\Repository\{MessagingConversat
 use Notification\Application\Contract\Inbox\InboxCursor;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
@@ -210,8 +210,8 @@ final class MessagingMessageRepositoryMentionsTest extends KernelTestCase
   #[Test]
   public function testFindSubjectTypesByIdsBatchResolvesEveryConversationAndOmitsUnknownIds(): void
   {
-    /** @var UuidFactory $uuidFactory */
-    $uuidFactory = self::getContainer()->get(UuidFactory::class);
+    /** @var UuidGeneratorPort $uuidFactory */
+    $uuidFactory = self::getContainer()->get(UuidGeneratorPort::class);
     $conversations = new MessagingConversationRepository($this->entityManager, $uuidFactory);
 
     $map = $conversations->findSubjectTypesByIds([
@@ -328,7 +328,7 @@ final class MessagingMessageRepositoryMentionsTest extends KernelTestCase
 
     $record = new MessagingConversationRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->subjectType = $subjectType;
     $record->subjectId = 'channel' === $subjectType ? null : '550e8400-e29b-41d4-a716-446655449001';
     $record->visibility = 'channel' === $subjectType ? 'participants' : 'subject';

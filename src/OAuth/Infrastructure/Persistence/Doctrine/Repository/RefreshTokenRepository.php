@@ -6,7 +6,7 @@ namespace OAuth\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
 use League\OAuth2\Server\CryptTrait;
-use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\RefreshTokenRepositoryPort;
 use OAuth\Domain\Model\Token\RefreshToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\RefreshTokenRecord;

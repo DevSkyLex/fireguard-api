@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Application\UseCase\Query\Token\ValidateToken;
 
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort};
+use OAuth\Application\Port\Outbound\Internal\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\JwtParserPort;
 use OAuth\Application\UseCase\Query\Token\ValidateToken\{ValidateTokenHandler, ValidateTokenQuery};
 use OAuth\Domain\Model\Token\AccessToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;

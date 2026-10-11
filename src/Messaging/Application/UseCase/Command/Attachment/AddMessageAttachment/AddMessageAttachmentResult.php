@@ -35,6 +35,7 @@ final readonly class AddMessageAttachmentResult implements ResultMessage
    * @param int $size persisted file size in bytes
    * @param ?string $label optional display label
    * @param DateTimeImmutable $uploadedAt time the attachment was uploaded
+   * @param int $revision persisted attachment concurrency revision
    *
    * @return void
    */
@@ -49,6 +50,7 @@ final readonly class AddMessageAttachmentResult implements ResultMessage
     public int $size,
     public ?string $label,
     public DateTimeImmutable $uploadedAt,
+    public int $revision = 1,
   ) {
   }
   // #endregion

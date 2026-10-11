@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Webhook\Presentation\Api\Trait;
 
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversTrait, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

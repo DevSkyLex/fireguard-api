@@ -8,9 +8,9 @@ use Compliance\Application\Port\Outbound\{ComplianceFacilityDirectoryPort, Equip
 use Compliance\Application\Service\ComplianceRegisterAggregator;
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceHandler, GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

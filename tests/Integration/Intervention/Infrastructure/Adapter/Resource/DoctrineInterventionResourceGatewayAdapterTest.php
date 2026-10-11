@@ -331,7 +331,7 @@ final class DoctrineInterventionResourceGatewayAdapterTest extends KernelTestCas
 
     $record = new InspectionRecord();
     $record->id = self::INSPECTION_ID;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->clientId = self::CLIENT_ID;
     $record->equipmentId = self::EQUIPMENT_ID;
     $record->inspectorType = 'external';
@@ -398,7 +398,7 @@ final class DoctrineInterventionResourceGatewayAdapterTest extends KernelTestCas
 
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->type = 'site_setup';
     $record->name = $name;
     $record->number = $number;

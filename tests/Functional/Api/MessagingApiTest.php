@@ -481,7 +481,7 @@ final class MessagingApiTest extends WebTestCase
 
     $subjectConversation = new MessagingConversationRecord();
     $subjectConversation->id = $subjectConversationId;
-    $subjectConversation->organization = $organization;
+    $subjectConversation->organizationId = $organization->id;
     $subjectConversation->subjectType = 'facility';
     $subjectConversation->subjectId = '550e8400-e29b-41d4-a716-446655449600';
     $subjectConversation->visibility = 'subject';
@@ -493,7 +493,7 @@ final class MessagingApiTest extends WebTestCase
 
     $directConversation = new MessagingConversationRecord();
     $directConversation->id = $directConversationId;
-    $directConversation->organization = $organization;
+    $directConversation->organizationId = $organization->id;
     $directConversation->subjectType = 'direct';
     $directConversation->subjectId = DirectConversationKey::for($memberId, '550e8400-e29b-41d4-a716-446655449700');
     $directConversation->visibility = 'participants';

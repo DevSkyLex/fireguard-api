@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\EventSubscriber;
 
-use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent};
+use OAuth\Application\Contract\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent};
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;

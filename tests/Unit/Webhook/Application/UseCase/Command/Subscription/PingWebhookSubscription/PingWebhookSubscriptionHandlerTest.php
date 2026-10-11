@@ -7,9 +7,9 @@ namespace Tests\Unit\Webhook\Application\UseCase\Command\Subscription\PingWebhoo
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\UuidGeneratorPort;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryQueuePort, WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\WebhookDeliverySchedulePort;
 use Webhook\Application\UseCase\Command\Subscription\PingWebhookSubscription\{PingWebhookSubscriptionCommand, PingWebhookSubscriptionHandler, PingWebhookSubscriptionResult};
 use Webhook\Domain\Exception\{WebhookSubscriptionNotFoundException, WebhookValidationException};
 use Webhook\Domain\Model\Subscription\WebhookSubscription;
@@ -42,8 +42,8 @@ final class PingWebhookSubscriptionHandlerTest extends TestCase
     $deliveryRepository = $this->createStub(WebhookDeliveryRepositoryPort::class);
     $deliveryRepository->method('reserve')->willReturn(true);
 
-    $queue = $this->createMock(WebhookDeliveryQueuePort::class);
-    $queue->expects(self::once())->method('dispatch')->with(self::DELIVERY_ID);
+    $queue = $this->createMock(WebhookDeliverySchedulePort::class);
+    $queue->expects(self::once())->method('enqueue')->with(self::DELIVERY_ID);
 
     $handler = new PingWebhookSubscriptionHandler(
       $subscriptionRepository,
@@ -51,6 +51,7 @@ final class PingWebhookSubscriptionHandlerTest extends TestCase
       $queue,
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->uuidFactory(),
+      $this->transactions(),
     );
 
     $result = $handler->__invoke(new PingWebhookSubscriptionCommand(
@@ -76,9 +77,10 @@ final class PingWebhookSubscriptionHandlerTest extends TestCase
     $handler = new PingWebhookSubscriptionHandler(
       $subscriptionRepository,
       $deliveryRepository,
-      $this->createStub(WebhookDeliveryQueuePort::class),
+      $this->createStub(WebhookDeliverySchedulePort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->uuidFactory(),
+      $this->transactions(),
     );
 
     $this->expectException(WebhookValidationException::class);
@@ -99,9 +101,10 @@ final class PingWebhookSubscriptionHandlerTest extends TestCase
     $handler = new PingWebhookSubscriptionHandler(
       $subscriptionRepository,
       $this->createStub(WebhookDeliveryRepositoryPort::class),
-      $this->createStub(WebhookDeliveryQueuePort::class),
+      $this->createStub(WebhookDeliverySchedulePort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->uuidFactory(),
+      $this->transactions(),
     );
 
     $this->expectException(WebhookSubscriptionNotFoundException::class);
@@ -132,13 +135,24 @@ final class PingWebhookSubscriptionHandlerTest extends TestCase
   /**
    * Method uuidFactory.
    *
-   * @return UuidFactory a uuid factory generating the delivery identifier under test
+   * @return UuidGeneratorPort a uuid factory generating the delivery identifier under test
    */
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn(self::DELIVERY_ID);
 
-    return new UuidFactory($generator);
+    return $generator;
+  }
+
+  /**
+   * Executes the owning transaction callback without a database in handler unit tests.
+   */
+  private function transactions(): TransactionManagerPort
+  {
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
   }
 }

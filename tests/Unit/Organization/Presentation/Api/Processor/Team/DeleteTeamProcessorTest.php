@@ -7,15 +7,16 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Team;
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Team\DeleteTeam\{DeleteTeamCommand, DeleteTeamResult};
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNotFoundException};
+use Organization\Domain\Exception\TeamNotFoundException;
 use Organization\Presentation\Api\Processor\Team\DeleteTeamProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{

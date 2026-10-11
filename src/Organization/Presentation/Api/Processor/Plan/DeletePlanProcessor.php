@@ -10,7 +10,7 @@ use InvalidArgumentException;
 use Organization\Application\UseCase\Command\Plan\DeletePlan\DeletePlanCommand;
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 

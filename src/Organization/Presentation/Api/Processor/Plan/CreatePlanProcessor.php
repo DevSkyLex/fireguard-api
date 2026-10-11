@@ -13,7 +13,7 @@ use Organization\Domain\Exception\{PlanKeyAlreadyExistsException, PlanNotFoundEx
 use Organization\Presentation\Api\Dto\Input\Plan\CreatePlanInput;
 use Organization\Presentation\Api\Dto\Output\Plan\PlanOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, ConflictHttpException, NotFoundHttpException};

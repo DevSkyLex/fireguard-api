@@ -7,7 +7,7 @@ namespace Webhook\Application\UseCase\Command\Subscription\UpdateWebhookSubscrip
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Webhook\Application\Contract\Event\WebhookEventCatalog;
-use Webhook\Application\Port\Outbound\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
 use Webhook\Domain\Exception\{WebhookSubscriptionNotFoundException, WebhookValidationException};
 use Webhook\Domain\Service\WebhookUrlPolicy;
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;

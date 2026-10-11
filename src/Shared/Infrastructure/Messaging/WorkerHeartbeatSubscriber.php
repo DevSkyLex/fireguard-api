@@ -110,7 +110,7 @@ final readonly class WorkerHeartbeatSubscriber implements EventSubscriberInterfa
   {
     $class = $event->getEnvelope()->getMessage()::class;
     $name = substr($class, (int) strrpos($class, '\\') + 1);
-    if (!in_array($name, ['RecomputeMaintenanceSchedulesCommand', 'MaterializeDueRecurrencesCommand', 'ExpireStaleApprovalRequestsCommand', 'EscalateNonConformitySlaBreachesCommand', 'SendWeeklyDigestsCommand', 'VerifyOrganizationDomainsCommand'], true)) {
+    if (!in_array($name, ['RecomputeMaintenanceSchedulesCommand', 'MaterializeDueRecurrencesCommand', 'ExpireStaleApprovalRequestsCommand', 'EscalateNonConformitySlaBreachesCommand', 'SendWeeklyDigestsCommand', 'VerifyOrganizationDomainsCommand', 'RecoverWebhookDeliveriesCommand'], true)) {
       return;
     }
     $directory = $this->sweepDirectoryPath();

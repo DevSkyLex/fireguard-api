@@ -9,6 +9,7 @@ use Auth\Application\UseCase\Command\Session\Logout\{LogoutCommand, LogoutHandle
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * Test LogoutHandlerTest.
@@ -38,7 +39,7 @@ final class LogoutHandlerTest extends TestCase
       ->with('access-token')
       ->willReturn(true);
 
-    $handler = new LogoutHandler(tokenRevocation: $revocation);
+    $handler = new LogoutHandler(tokenRevocation: $revocation, eventDispatcher: $this->createStub(EventDispatcherPort::class));
     $command = new LogoutCommand(refreshToken: 'refresh-token', accessToken: 'access-token');
 
     $result = $handler->__invoke(command: $command);
@@ -60,7 +61,7 @@ final class LogoutHandlerTest extends TestCase
     $revocation->expects(self::never())->method('revokeRefreshToken');
     $revocation->expects(self::never())->method('revokeAccessToken');
 
-    $handler = new LogoutHandler(tokenRevocation: $revocation);
+    $handler = new LogoutHandler(tokenRevocation: $revocation, eventDispatcher: $this->createStub(EventDispatcherPort::class));
     $command = new LogoutCommand(refreshToken: null, accessToken: '');
 
     $result = $handler->__invoke(command: $command);

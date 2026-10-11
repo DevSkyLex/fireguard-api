@@ -10,12 +10,10 @@ use Assistant\Application\UseCase\Command\Message\AskAssistantQuestion\{AskAssis
 use Assistant\Presentation\Api\Dto\Input\AskAssistantQuestionInput;
 use Assistant\Presentation\Api\Dto\Output\AskAssistantQuestionOutput;
 use Assistant\Presentation\Api\Factory\AssistantMessageOutputFactory;
-use Assistant\Presentation\Api\Trait\AssistantExceptionMapperTrait;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -34,8 +32,6 @@ use function is_string;
  */
 final readonly class AskAssistantQuestionProcessor implements ProcessorInterface
 {
-  use AssistantExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -69,7 +65,7 @@ final readonly class AskAssistantQuestionProcessor implements ProcessorInterface
   {
     /** @var AskAssistantQuestionInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -80,18 +76,14 @@ final readonly class AskAssistantQuestionProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId and threadId URI parameters are required.');
     }
 
-    try {
-      /** @var AskAssistantQuestionResult $result */
-      $result = $this->commandBus->dispatch(new AskAssistantQuestionCommand(
-        organizationId: $organizationId,
-        threadId: $threadId,
-        actorUserId: $user->getId(),
-        body: $data->body,
-        temperature: $data->temperature,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapAssistantException($exception);
-    }
+    /** @var AskAssistantQuestionResult $result */
+    $result = $this->commandBus->dispatch(new AskAssistantQuestionCommand(
+      organizationId: $organizationId,
+      threadId: $threadId,
+      actorUserId: $user->getId(),
+      body: $data->body,
+      temperature: $data->temperature,
+    ));
 
     $output = new AskAssistantQuestionOutput();
     $output->threadId = $result->threadId;

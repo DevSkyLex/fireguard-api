@@ -13,9 +13,8 @@ use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use Intervention\Application\Port\Outbound\{InterventionLabelPort, InterventionTemplatePort};
 use Intervention\Application\Service\{InterventionMemberPolicy, InterventionTemplateInstantiator};
 use Intervention\Domain\Exception\InterventionNotFoundException;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Port\Inbound\OrganizationMemberDirectoryPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -387,17 +386,11 @@ final class InterventionTemplateInstantiatorTest extends TestCase
 
   private function memberPolicy(): InterventionMemberPolicy
   {
-    $active = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::ACTIVE_MEMBER_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      'user-active',
-      true,
-      new DateTimeImmutable(),
-    );
+    $active = new OrganizationMemberView(self::ACTIVE_MEMBER_ID, self::ORGANIZATION_ID, 'user-active', true);
 
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findById')->willReturnCallback(
-      static fn (OrganizationMemberId $id): ?OrganizationMember => self::ACTIVE_MEMBER_ID === $id->value ? $active : null,
+      static fn (string $id): ?OrganizationMemberView => self::ACTIVE_MEMBER_ID === $id ? $active : null,
     );
 
     return new InterventionMemberPolicy($repository);

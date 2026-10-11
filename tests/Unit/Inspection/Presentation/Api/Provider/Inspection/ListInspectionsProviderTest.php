@@ -20,9 +20,9 @@ use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Contract\Sorting\SortDirection;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -654,6 +654,6 @@ final class ListInspectionsProviderTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new GetUserResult(null));
 
-    return new InspectionOutputFactory($queryBus);
+    return new InspectionOutputFactory();
   }
 }

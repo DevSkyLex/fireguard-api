@@ -6,18 +6,16 @@ namespace Import\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Import\Application\UseCase\Command\CreateImportJob\{CreateImportJobCommand, CreateImportJobResult};
 use Import\Presentation\Api\Dto\Output\ImportJobOutput;
 use Import\Presentation\Api\Factory\ImportJobOutputFactory;
 use Import\Presentation\Api\Service\CsvUploadGuard;
-use Import\Presentation\Api\Trait\ImportExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -39,8 +37,6 @@ use function is_string;
  */
 final readonly class CreateImportJobProcessor implements ProcessorInterface
 {
-  use ImportExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -77,7 +73,7 @@ final readonly class CreateImportJobProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ImportJobOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -89,21 +85,17 @@ final readonly class CreateImportJobProcessor implements ProcessorInterface
     $organizationId = $this->resolveOrganizationId($request);
     $uploaded = $this->uploadGuard->fromRequest($request);
 
-    try {
-      /** @var CreateImportJobResult $result */
-      $result = $this->commandBus->dispatch(new CreateImportJobCommand(
-        userId: $user->getId(),
-        organizationId: $organizationId,
-        kind: $uploaded->kind,
-        fileName: $uploaded->fileName,
-        contents: $uploaded->contents,
-        mimeType: $uploaded->mimeType,
-        size: $uploaded->size,
-        dryRun: $uploaded->dryRun,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapImportException($exception);
-    }
+    /** @var CreateImportJobResult $result */
+    $result = $this->commandBus->dispatch(new CreateImportJobCommand(
+      userId: $user->getId(),
+      organizationId: $organizationId,
+      kind: $uploaded->kind,
+      fileName: $uploaded->fileName,
+      contents: $uploaded->contents,
+      mimeType: $uploaded->mimeType,
+      size: $uploaded->size,
+      dryRun: $uploaded->dryRun,
+    ));
 
     return $this->outputFactory->fromResult($result);
   }

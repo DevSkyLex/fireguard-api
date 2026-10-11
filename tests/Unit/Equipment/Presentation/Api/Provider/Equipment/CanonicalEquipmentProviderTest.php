@@ -11,7 +11,7 @@ use Doctrine\ORM\{EntityManagerInterface, Query, QueryBuilder};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Maintenance\Application\Contract\Plan\MaintenanceEquipmentOperationsDue;
 use Maintenance\Application\Port\Inbound\MaintenanceOperationsDuePort;
@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Throwable;
 
 use function iterator_to_array;
 
@@ -40,6 +41,8 @@ use function iterator_to_array;
 #[CoversClass(CanonicalEquipmentProvider::class)]
 final class CanonicalEquipmentProviderTest extends TestCase
 {
+  use \Tests\Unit\Equipment\Support\EquipmentHttpFailures;
+
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655442100';
 
   private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655442101';
@@ -53,7 +56,7 @@ final class CanonicalEquipmentProviderTest extends TestCase
     foreach (['550e8400-e29b-41d4-a716-446655442102', '550e8400-e29b-41d4-a716-446655442103'] as $id) {
       $record = new EquipmentRecord();
       $record->id = $id;
-      $record->organization = $organization;
+      $record->organizationId = $organization->id;
       $record->type = 'fire_extinguisher';
       $record->createdAt = $record->updatedAt = new DateTimeImmutable('2026-10-01T00:00:00+00:00');
       $records[] = $record;
@@ -178,7 +181,7 @@ final class CanonicalEquipmentProviderTest extends TestCase
     $organization->id = self::ORGANIZATION_ID;
 
     $equipment = new EquipmentRecord();
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
 
     $entityManager = $this->createStub(EntityManagerInterface::class);
     $entityManager->method('find')->willReturn($equipment);
@@ -232,14 +235,40 @@ final class CanonicalEquipmentProviderTest extends TestCase
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
     $resources->method('interventionAssignmentContext')->willReturn($context);
 
-    return new CanonicalEquipmentProvider(
-      $entityManager,
+    $interventions = new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($resources));
+    $collection = new \Equipment\Application\UseCase\Query\Equipment\ListCanonicalEquipment\ListCanonicalEquipmentHandler(
+      new \Equipment\Infrastructure\Persistence\Doctrine\Repository\CanonicalEquipmentCollectionRepository($entityManager),
       $authorization,
+      $interventions,
+      $operationsDue,
+    );
+    $internal = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    $internal->method('ask')->willReturnCallback(function (\Shared\Application\Message\QueryMessage $query) use ($entityManager): object {
+      if ($query instanceof \Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentQuery) {
+        $record = $entityManager->find(EquipmentRecord::class, $query->equipmentId);
+        $view = $record instanceof EquipmentRecord && '' !== $record->organizationId
+          ? new \Equipment\Application\Contract\Equipment\CanonicalEquipmentView($query->equipmentId, $record->organizationId, $record->recordStatus, $record->interventionId, $record->revision) : null;
+
+        return new \Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentResult($view);
+      }
+
+      return $this->detailQueries()->ask($query);
+    });
+    $detail = new \Equipment\Application\UseCase\Query\Equipment\GetEquipmentDetail\GetEquipmentDetailHandler($internal, $authorization);
+    $queries = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(function (\Equipment\Application\UseCase\Query\Equipment\ListCanonicalEquipment\ListCanonicalEquipmentQuery|\Equipment\Application\UseCase\Query\Equipment\GetEquipmentDetail\GetEquipmentDetailQuery $query) use ($collection, $detail): object {
+      try {
+        return $query instanceof \Equipment\Application\UseCase\Query\Equipment\ListCanonicalEquipment\ListCanonicalEquipmentQuery ? $collection($query) : $detail($query);
+      } catch (Throwable $failure) {
+        throw $this->httpFailure($failure);
+      }
+    });
+
+    return new CanonicalEquipmentProvider(
+      $queries,
       $security,
       $requestStack,
-      new InterventionResourceManager($resources),
-      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->detailQueries(), new \Equipment\Presentation\Api\Factory\EquipmentOutputFactory()),
-      operationsDue: $operationsDue,
+      new \Equipment\Presentation\Api\Service\EquipmentDetailReader($queries, new \Equipment\Presentation\Api\Factory\EquipmentOutputFactory()),
     );
   }
 

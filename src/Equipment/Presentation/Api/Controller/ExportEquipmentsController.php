@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace Equipment\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\ExportEquipments\{ExportEquipmentsQuery, ExportEquipmentsResult};
-use Equipment\Domain\Event\Export\EquipmentsExportedEvent;
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentExportTooLargeException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Service\EquipmentCsvWriter;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
@@ -58,13 +56,11 @@ final class ExportEquipmentsController extends AbstractController
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param Security $security the security service
    * @param EquipmentCsvWriter $csvWriter the CSV row writer
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
-    private readonly EventDispatcherPort $eventDispatcher,
     private readonly Security $security,
     private readonly EquipmentCsvWriter $csvWriter,
   ) {
@@ -84,7 +80,7 @@ final class ExportEquipmentsController extends AbstractController
   public function __invoke(Request $request): StreamedResponse
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -104,13 +100,6 @@ final class ExportEquipmentsController extends AbstractController
       // domain exception never matches — the mapper unwraps the chain.
       throw $this->mapExportException($exception);
     }
-
-    $this->eventDispatcher->dispatch(new EquipmentsExportedEvent(
-      organizationId: $organizationId,
-      actorUserId: $user->getId(),
-      format: 'csv',
-      rowCount: $result->total,
-    ));
 
     $fileName = sprintf('equipments-export-%s.csv', new DateTimeImmutable()->format('Ymd-His'));
 

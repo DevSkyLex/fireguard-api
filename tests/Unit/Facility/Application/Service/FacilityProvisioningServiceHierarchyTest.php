@@ -6,7 +6,8 @@ namespace Tests\Unit\Facility\Application\Service;
 
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionOutcome};
-use Facility\Application\Port\Outbound\{FacilityHierarchySnapshotPort, FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\FacilityHierarchySnapshotPort;
+use Facility\Application\Port\Outbound\Internal\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\{FacilityHierarchyGuard, FacilityMetadataSchemaGuard, FacilityProvisioningService};
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityHandler};
 use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
@@ -14,9 +15,9 @@ use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationI
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Test FacilityProvisioningServiceHierarchyTest.
@@ -147,8 +148,8 @@ final class FacilityProvisioningServiceHierarchyTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->method('findByOrganizationId')->willReturn(null === $persistedParent ? [] : [$persistedParent]);
     $repository->expects(self::never())->method('save');
-    $ids = $this->createMock(UuidFactory::class);
-    $ids->expects(self::never())->method('create');
+    $ids = $this->createMock(UuidGeneratorPort::class);
+    $ids->expects(self::never())->method('generate');
     $quota = $this->createMock(OrganizationQuotaPort::class);
     $quota->expects(self::never())->method('assertCanAdd');
     $quota->expects(self::exactly($expectedQuotaChecks))->method('assertProjectedCanAdd');

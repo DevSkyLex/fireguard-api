@@ -12,7 +12,7 @@ use Symfony\Component\Console\Input\{InputArgument, InputInterface, InputOption}
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Throwable;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\UseCase\Command\User\DeleteUser\DeleteUserCommand;
 use User\Domain\ValueObject\UserId;
 use User\Infrastructure\Exception\UserConsoleNotFoundException;

@@ -9,7 +9,7 @@ use ApiPlatform\State\ProcessorInterface;
 use Approval\Application\Contract\Action\ApprovalActionTypes;
 use Approval\Application\Contract\Gate\ApprovalGateRequest;
 use Approval\Application\Port\Inbound\ApprovalGatePort;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\{UpdateNonConformityStatusCommand, UpdateNonConformityStatusResult};
 use Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\{GetNonConformityQuery, GetNonConformityResult};
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityAlreadyResolvedException, NonConformityNotFoundException};
@@ -18,9 +18,9 @@ use Inspection\Presentation\Api\Dto\Input\NonConformity\UpdateNonConformityStatu
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response as HttpResponse};
@@ -79,7 +79,7 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
   {
     /** @var UpdateNonConformityStatusInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

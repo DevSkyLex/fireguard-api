@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Presentation\Api\Sorting;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
-use Shared\Presentation\Api\Sorting\SortingExtractor;
+use Shared\Application\Contract\Sorting\SortingExtractor;
 
 /**
  * Test SortingExtractorTest.

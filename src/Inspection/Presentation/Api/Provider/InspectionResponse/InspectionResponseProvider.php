@@ -8,15 +8,15 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\Contract\Response\InspectionResponseView;
 use Inspection\Application\UseCase\Query\Response\GetInspectionResponse\{GetInspectionResponseQuery, GetInspectionResponseResult};
 use Inspection\Application\UseCase\Query\Response\ListInspectionResponses\{ListInspectionResponsesQuery, ListInspectionResponsesResult};
 use Inspection\Application\UseCase\Query\Response\ResolveInspectionResponseScope\{ResolveInspectionResponseScopeQuery, ResolveInspectionResponseScopeResult};
 use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponseOutput;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -116,9 +116,9 @@ final readonly class InspectionResponseProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $interventionId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('intervention'), 'interventions');
-    $inspectionId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('inspection'), 'inspections');
-    $organizationId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization'), 'organizations');
+    $interventionId = $this->filterId(\Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('intervention'), 'interventions');
+    $inspectionId = $this->filterId(\Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('inspection'), 'inspections');
+    $organizationId = $this->filterId(\Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization'), 'organizations');
 
     /** @var ResolveInspectionResponseScopeResult $scope */
     $scope = $this->queryBus->ask(new ResolveInspectionResponseScopeQuery(
@@ -133,8 +133,8 @@ final readonly class InspectionResponseProvider implements ProviderInterface
 
     $this->assertRead($scope->organizationId);
 
-    $recordStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('recordStatus');
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $recordStatus = \Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('recordStatus');
+    $filters = \Inspection\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
 
     /** @var ListInspectionResponsesResult $result */
     $result = $this->queryBus->ask(new ListInspectionResponsesQuery(
@@ -210,7 +210,7 @@ final readonly class InspectionResponseProvider implements ProviderInterface
   private function assertRead(string $organizationId): void
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 

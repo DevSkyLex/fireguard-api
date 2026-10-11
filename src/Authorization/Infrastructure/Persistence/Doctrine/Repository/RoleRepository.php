@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Persistence\Doctrine\Repository;
 
-use Authorization\Application\Port\Outbound\RoleRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\RoleRepositoryPort;
 use Authorization\Application\Service\AuthorizationCacheInvalidator;
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\ValueObject\{RoleId, RoleName, SubjectType};

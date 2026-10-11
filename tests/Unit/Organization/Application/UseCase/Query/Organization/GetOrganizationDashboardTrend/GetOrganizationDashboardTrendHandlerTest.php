@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend;
 
 use DateInterval;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort};
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\{GetOrganizationDashboardTrendHandler, GetOrganizationDashboardTrendQuery, GetOrganizationDashboardTrendResult};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

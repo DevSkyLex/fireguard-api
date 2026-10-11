@@ -67,7 +67,7 @@ final class InterventionInspectionResultAdapterTest extends TestCase
     $org->id = 'organization';
     $inspection = new InspectionRecord();
     $inspection->id = 'inspection';
-    $inspection->organization = $org;
+    $inspection->organizationId = $org->id;
     $inspection->interventionId = 'intervention';
     $inspection->equipmentId = 'equipment';
     $inspection->status = 'closed';

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\MetadataField\DeleteMetadataField;
 
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Exception\FacilityMetadataFieldNotFoundException;
 use Facility\Domain\ValueObject\{FacilityMetadataFieldId, FacilityOrganizationId};
 use Shared\Application\Message\CommandHandler;

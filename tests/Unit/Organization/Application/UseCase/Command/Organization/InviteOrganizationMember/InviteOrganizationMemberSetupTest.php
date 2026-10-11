@@ -9,7 +9,7 @@ use Notification\Application\Port\Inbound\NotificationPort;
 use Onboarding\Application\Contract\Setup\{OrganizationSetupContext, OrganizationSetupOperation};
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberHandler};
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
@@ -18,11 +18,11 @@ use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * Durable organization setup recovery.
@@ -70,11 +70,11 @@ final class InviteOrganizationMemberSetupTest extends TestCase
     $setup = $this->createMock(OrganizationSetupPort::class);
     $setup->method('begin')->willReturn(new OrganizationSetupOperation('invite_members', 'invite', ['email' => 'member@example.com'], $id));
     $setup->expects(self::never())->method('complete');
-    $uuid = $this->createStub(UuidFactory::class);
-    $uuid->method('create')->willReturn(OrganizationInvitationId::fromString('cc11c711-0000-4000-8000-000000000299'));
+    $uuid = $this->createStub(UuidGeneratorPort::class);
+    $uuid->method('generate')->willReturn('cc11c711-0000-4000-8000-000000000299');
     $transactions = $this->createStub(TransactionManagerPort::class);
     $transactions->method('transactional')->willReturnCallback(static fn (callable $work): mixed => $work());
-    $handler = new InviteOrganizationMemberHandler($orgs, $roles, $this->createStub(OrganizationMemberRepositoryPort::class), $invitations, $this->createStub(UserRepositoryPort::class), new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), EmailTranslatorTestFactory::create()), $this->createStub(LoggerPort::class), $uuid, $transactions, $quota, $events, $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class), $this->createStub(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class), $setup);
+    $handler = new InviteOrganizationMemberHandler($orgs, $roles, $this->createStub(OrganizationMemberRepositoryPort::class), $invitations, $this->createStub(UserDirectoryPort::class), new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create())), $this->createStub(LoggerPort::class), $uuid, $transactions, $quota, $events, $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class), $this->createStub(\Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort::class), $setup);
     $result = $handler(new InviteOrganizationMemberCommand($orgId, 'member@example.com', 'creator', setupContext: new OrganizationSetupContext('creator', 'session', 'invite')));
     self::assertSame($id, $result->invitationId);
     self::assertSame('pending', $result->status);

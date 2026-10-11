@@ -6,14 +6,15 @@ namespace Tests\Unit\Messaging\Infrastructure\EventSubscriber;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingChannelParticipantSynchronizer;
 use Messaging\Domain\Model\Conversation\Conversation;
 use Messaging\Domain\ValueObject\{ChannelName, ConversationId};
 use Messaging\Infrastructure\EventSubscriber\SyncTeamChannelParticipantsSubscriber;
+use Organization\Application\Contract\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Contract\Event\Team\{TeamDeletedEvent, TeamMemberAddedEvent, TeamMemberRemovedEvent};
 use Organization\Application\Port\Inbound\TeamDirectoryPort;
-use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
-use Organization\Domain\Event\Team\{TeamDeletedEvent, TeamMemberAddedEvent, TeamMemberRemovedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

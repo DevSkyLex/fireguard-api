@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound;
 
-use Auth\Domain\ValueObject\Security\SignInGrantType;
+use Auth\Application\Contract\Token\SignInGrantType;
 
 /**
  * Interface JwtTokenServicePort.

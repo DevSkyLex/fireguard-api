@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\Service;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationLastAdminGuardService;
-use Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
 use Organization\Domain\Exception\OrganizationLastAdminException;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;

@@ -6,14 +6,13 @@ namespace Tests\Unit\Compliance\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Compliance\Application\Contract\FacilityComplianceView;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityComplianceView};
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceNotFoundException};
-use Compliance\Domain\ValueObject\ComplianceStatus;
 use Compliance\Presentation\Api\Factory\ComplianceSummaryOutputFactory;
 use Compliance\Presentation\Api\Provider\GetComplianceOverviewProvider;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -87,7 +86,7 @@ final class GetComplianceOverviewProviderTest extends TestCase
         && self::USER_ID === $query->userId))
       ->willReturn($this->overviewResult());
 
-    $output = $this->createProvider($queryBus)->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]));
 
     self::assertSame(self::ORGANIZATION_ID, $output->organizationId);
     self::assertNull($output->facilityId);
@@ -118,7 +117,7 @@ final class GetComplianceOverviewProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   /**
@@ -133,7 +132,7 @@ final class GetComplianceOverviewProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->createProvider($queryBus)->provide(new Get(), $uriVariables);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), $uriVariables));
   }
 
   /**
@@ -148,7 +147,7 @@ final class GetComplianceOverviewProviderTest extends TestCase
 
     $this->expectException($expected);
 
-    $this->createProvider($queryBus)->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -160,7 +159,7 @@ final class GetComplianceOverviewProviderTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('database is down');
 
-    $this->createProvider($queryBus)->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   private function createProvider(QueryBusPort $queryBus): GetComplianceOverviewProvider

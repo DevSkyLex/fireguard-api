@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Intervention\Infrastructure\Adapter\Facility;
 
-use DateTimeImmutable;
 use Facility\Application\Contract\Hierarchy\InterventionParentAccess;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionMemberPolicy;
 use Intervention\Infrastructure\Adapter\Facility\InterventionScopeAdapter;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationMemberDirectoryPort};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -68,7 +65,7 @@ final class InterventionScopeAdapterTest extends TestCase
     $resources->method('interventionAssignmentContext')->willReturn($context);
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::never())->method('hasPermission');
-    $adapter = new InterventionScopeAdapter($resources, $authorization, new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class)));
+    $adapter = new InterventionScopeAdapter($resources, $authorization, new InterventionMemberPolicy($this->createStub(OrganizationMemberDirectoryPort::class)));
     self::assertSame(InterventionParentAccess::NOT_FOUND, $adapter->preparationAccess(self::ORGANIZATION_ID, self::INTERVENTION_ID, self::USER_ID));
   }
 
@@ -102,7 +99,7 @@ final class InterventionScopeAdapterTest extends TestCase
     $resources->method('interventionAssignmentContext')->willReturn(new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, $status));
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::never())->method('hasPermission');
-    $adapter = new InterventionScopeAdapter($resources, $authorization, new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class)));
+    $adapter = new InterventionScopeAdapter($resources, $authorization, new InterventionMemberPolicy($this->createStub(OrganizationMemberDirectoryPort::class)));
     self::assertSame(InterventionParentAccess::DENIED, $adapter->preparationAccess(self::ORGANIZATION_ID, self::INTERVENTION_ID, self::USER_ID));
   }
 
@@ -135,7 +132,7 @@ final class InterventionScopeAdapterTest extends TestCase
     $resources->method('interventionAssignmentContext')->willReturn(new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'));
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())->method('hasPermission')->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.interventions.plan')->willReturn(true);
-    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $members = $this->createMock(OrganizationMemberDirectoryPort::class);
     $members->expects(self::never())->method('findByOrganizationAndUser');
     $adapter = new InterventionScopeAdapter($resources, $authorization, new InterventionMemberPolicy($members));
     self::assertSame(InterventionParentAccess::GRANTED, $adapter->preparationAccess(self::ORGANIZATION_ID, self::INTERVENTION_ID, self::USER_ID));
@@ -155,7 +152,7 @@ final class InterventionScopeAdapterTest extends TestCase
     $resources->method('interventionAssignmentContext')->willReturn(new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'planned', self::MEMBER_ID));
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())->method('hasPermission')->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.interventions.execute')->willReturn(false);
-    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $members = $this->createMock(OrganizationMemberDirectoryPort::class);
     $members->expects(self::never())->method('findByOrganizationAndUser');
     $adapter = new InterventionScopeAdapter($resources, $authorization, new InterventionMemberPolicy($members));
     self::assertSame(InterventionParentAccess::DENIED, $adapter->preparationAccess(self::ORGANIZATION_ID, self::INTERVENTION_ID, self::USER_ID));
@@ -178,9 +175,9 @@ final class InterventionScopeAdapterTest extends TestCase
     $resources->method('interventionAssignmentContext')->willReturn(new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress', participants: $participating ? [self::MEMBER_ID] : []));
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
-    $member = OrganizationMember::reconstitute(OrganizationMemberId::fromString(self::MEMBER_ID), OrganizationId::fromString(self::ORGANIZATION_ID), self::USER_ID, true, new DateTimeImmutable());
-    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $members->expects(self::once())->method('findByOrganizationAndUser')->with(OrganizationId::fromString(self::ORGANIZATION_ID), self::USER_ID)->willReturn($member);
+    $member = new OrganizationMemberView(self::MEMBER_ID, self::ORGANIZATION_ID, self::USER_ID, true);
+    $members = $this->createMock(OrganizationMemberDirectoryPort::class);
+    $members->expects(self::once())->method('findByOrganizationAndUser')->with(self::ORGANIZATION_ID, self::USER_ID)->willReturn($member);
     $adapter = new InterventionScopeAdapter($resources, $authorization, new InterventionMemberPolicy($members));
     self::assertSame($participating ? InterventionParentAccess::GRANTED : InterventionParentAccess::DENIED, $adapter->preparationAccess(self::ORGANIZATION_ID, self::INTERVENTION_ID, self::USER_ID));
   }

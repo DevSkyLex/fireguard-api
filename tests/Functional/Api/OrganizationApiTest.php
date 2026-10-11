@@ -213,7 +213,7 @@ final class OrganizationApiTest extends WebTestCase
 
     $inspection = new InspectionRecord();
     $inspection->id = $inspectionId;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = '550e8400-e29b-41d4-a716-446655449905';
     $inspection->inspectorType = 'user';
     $inspection->inspectorName = 'Severity Breakdown Inspector';
@@ -392,7 +392,7 @@ final class OrganizationApiTest extends WebTestCase
     foreach ($interventionSeeds as $seed) {
       $intervention = new InterventionRecord();
       $intervention->id = $seed['id'];
-      $intervention->organization = $organization;
+      $intervention->organizationId = $organization->id;
       $intervention->name = 'Navigation counters intervention ' . $number;
       $intervention->number = $number++;
       $intervention->status = $seed['status'];
@@ -403,7 +403,7 @@ final class OrganizationApiTest extends WebTestCase
 
     $inspection = new InspectionRecord();
     $inspection->id = $inspectionId;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = '550e8400-e29b-41d4-a716-446655449925';
     $inspection->inspectorType = 'user';
     $inspection->inspectorName = 'Navigation Counters Inspector';

@@ -6,7 +6,7 @@ namespace Session\Presentation\Api\Processor\Session;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Session\Application\UseCase\Command\Session\RevokeAllUserSessions\RevokeAllUserSessionsCommand;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -52,7 +52,7 @@ final readonly class RevokeAllSessionsProcessor implements ProcessorInterface
       throw new UnauthorizedHttpException('Bearer', 'Authentication required.');
     }
 
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new UnauthorizedHttpException('Bearer', 'Authenticated user type is not supported.');
     }
 

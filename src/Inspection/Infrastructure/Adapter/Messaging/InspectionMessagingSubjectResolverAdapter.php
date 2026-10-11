@@ -6,9 +6,8 @@ namespace Inspection\Infrastructure\Adapter\Messaging;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
-use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
+use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
 
 use function mb_strimwidth;
 
@@ -102,7 +101,7 @@ final readonly class InspectionMessagingSubjectResolverAdapter implements Messag
 
     $exists = $record instanceof NonConformityRecord
       && $record->inspection instanceof InspectionRecord
-      && $record->inspection->organization?->id === $organizationId;
+      && $record->inspection->organizationId === $organizationId;
 
     return new MessagingSubjectResolution(
       exists: $exists,

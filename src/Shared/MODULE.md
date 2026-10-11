@@ -106,6 +106,12 @@ sequenceDiagram
 
 ## Architecture
 
+Doctrine schema generation retains foreign keys for scalar module identifiers through
+`ScalarForeignKeySchemaListener`, registered separately on `auth` and `main`. Main-side
+organization identifiers preserve `ON DELETE CASCADE`; Authorization's scalar `user_roles`
+membership preserves its composite key and `NO ACTION` foreign keys. Descriptors only act
+when both tables exist in the owning manager's schema, so no key crosses databases.
+
 HTTP 429 responses publish `code: rate_limit_exceeded` and nullable integer
 `retryAfterSeconds`, retaining the standard `Retry-After` header. Clients must not
 parse human-readable error copy to decide when to retry. Unknown deadlines remain
@@ -152,8 +158,9 @@ See [GeoIP operations and privacy](../../docs/guides/geoip-operations-and-privac
 ### Durable events and local consumer receipts
 
 `TransactionalEventDispatcher` writes a stable event envelope to the Doctrine
-`main_outbox` transport using the same `main` connection as its producer. It
-refuses calls outside an active transaction. Publication requests/completions,
+`main_outbox` transport using the same `main` connection as its producer. The
+explicit auth dispatcher uses `auth_outbox` and the auth connection. Both refuse
+calls outside an active transaction. Publication requests/completions,
 non-conformity automation triggers and automation outcomes use this boundary.
 Delivery is at least once; workers set a scoped `DurableEventContextPort` identity
 and clear it in `finally`, including failures and nested deliveries.
@@ -167,18 +174,25 @@ history retains its existing per-change deduplication; webhooks reuse the durabl
 event ID across fan-out retries. Durable subscriber failures propagate to Messenger.
 
 Messenger owns `messenger_messages`, excluded from ORM schema introspection in
-both databases. Deploy the additive receipt migrations and run
-`messenger:setup-transports main_outbox main_failed async webhook assistant failed`
-before consumers, including on a fresh installation.
-`main_outbox` failures go to `main_failed`; other asynchronous work has `failed`
-as its default destination. Never prune receipts while retained messages may replay.
+both databases. Deploy the additive receipt migrations and initialize each
+transport before consumers, including on a fresh installation:
+
+```sh
+for transport in main_outbox auth_outbox main_failed async webhook assistant failed; do
+  php -d memory_limit=1G bin/console messenger:setup-transports "$transport" --env=prod --no-interaction || exit 1
+done
+```
+
+`main_outbox` and `webhook` failures go to `main_failed`; `auth_outbox` and other
+asynchronous work use the historical auth `failed` queue. The ordinary async
+worker consumes both outboxes. Never prune receipts while retained messages may replay.
 External delivery remains at least once where a provider has no idempotency key.
 
 Consumer health observes a per-container receiver-loop heartbeat, including idle
 polls, instead of PID liveness alone. Successful known sweep messages update only
 their bounded persistent completion timestamps. `app:workers:queues` observes both
 explicit auth/main connections for overdue due work and failed queues, without
-reading payloads. Deploy every dedicated consumer and all five scheduler receivers;
+reading payloads. Deploy every dedicated consumer and all six scheduler receivers;
 run transport initialization before startup. See the worker operations guide for
 freshness thresholds and coordinated writer shutdown.
 
@@ -203,7 +217,7 @@ consumers are untouched: `Equipment` attachment add/delete, `User`
 - **Adapter**: `Shared\Infrastructure\Symfony\Adapter\Outbound\FlysystemFileStorageAdapter`
   wraps a `League\Flysystem\FilesystemOperator`. Every
   `League\Flysystem\FilesystemException` is caught and re-thrown as the
-  existing `Shared\Infrastructure\Exception\FileStorageException`
+  public `Shared\Application\Contract\Storage\FileStorageException`
   (`readFailed`/`writeFailed`/`deleteFailed`), so the write-then-persist
   rollback contract used by handlers (e.g. Equipment's `AddAttachmentHandler`)
   is unchanged. `delete()` stays idempotent (no error on a missing key),
@@ -244,6 +258,27 @@ consumers are untouched: `Equipment` attachment add/delete, `User`
   `OPERATIONS.md` for the runbook.
 
 ## Attachment Kernel (R11b — generalized per-module attachments)
+
+Media commands that couple bytes to SQL use `RootTransactionManagerPort` on their
+explicit owning connection: main for attachments and signatures, auth for avatars.
+They call `assertCanStart()` before writing bytes and
+own their final commit. An enclosing transaction is rejected before the operation;
+a savepoint cannot confirm durability. Operation failures propagate after confirmed
+rollback, while `CommitOutcomeUnknownException` signals failed commit or rollback
+confirmation and prohibits blind file compensation.
+
+Each upload attempt owns a distinct key. SQL mutations request obsolete-key deletion
+through `FileCleanupPort` inside their owning transaction. The strict transactional
+dispatcher records `FileCleanupRequested` in the outbox on that same connection.
+The storage consumer runs after commit, requires a durable delivery identity and
+records a receipt on the event's owning database only after an idempotent deletion
+succeeds. Main remains the default for legacy envelopes without a database field.
+The explicit auth cleanup service records auth ownership and receives its independent
+auth receipt adapter. Failed storage deletion rolls back only that receipt and follows
+the transport's bounded retry and failure policy. Replacement signatures and avatars
+use the same durable cleanup path; no transaction spans auth and main.
+Rollback preserves the existing bytes, and no request can delete another upload
+attempt's winning key. Historical global orphan collection remains a separate flow.
 
 A thin, **persistence-free** kernel shared by every module's own attachment
 slice (Inspection, Intervention, Facility — and optionally Equipment). It is
@@ -333,6 +368,17 @@ Tests never download the provider database.
     round-trip (real MIME sniffing via a minimal in-memory GIF fixture),
     missing file, disallowed MIME type, oversize rejection.
 - Architecture rules: `tests/Architecture`
+- Root-commit unit tests cover enclosing transactions, confirmed rollback and
+  uncertain commit/rollback outcomes. Cleanup tests cover failed deletion, replay
+  receipts and context reset between actor and system deliveries.
+- `TransactionalFileCleanupTest` uses independent PostgreSQL connections and the
+  native Doctrine transport to verify visibility only after commit, rollback of
+  cleanup requests and receipt retry after a storage failure.
+- `AuthTransactionalFileCleanupTest` verifies auth mutation/enqueue atomicity on
+  the real `auth_outbox` transport, auth-only receipts, deletion retries and
+  deserialized legacy cleanup requests that retain main receipts.
+- `FileCleanupWiringTest` checks compiled avatar auth bindings, independent
+  receipt connections and default main media bindings.
 
 ## Error Codes
 
@@ -342,3 +388,30 @@ Outbox envelopes capture only the initiating user id through `CurrentActorPort`.
 restores this context even across nested failures and clears it between messages. Older
 envelopes without an actor remain readable and represent system work; an ambient HTTP
 identity never replaces a system delivery's actor. No bearer, secret or email is stored.
+
+Integration subscribers consume owner-published `Application/Contract/Event` snapshots.
+The shared decoder delegates historical conversion to tagged owner-local adapters before
+dispatch. Historical Domain FQCN remain deserializable; converters copy persisted state
+without rerunning constructors. Stable event names, original timestamps and identifiers,
+actor attribution, envelope stamps and consumer receipts survive the conversion and replay.
+Already-public snapshots, including storage cleanup requests, pass through unchanged.
+Owner converters are explicitly registered in Shared's composition YAML, including modules
+whose named service configuration does not load an Infrastructure resource. Attributes alone
+cannot register those services.
+
+Shared public logging signatures use `Application/Contract/Log/LogLevel`; storage failures
+use `Application/Contract/Storage/FileStorageException`. Historical class names remain
+compatible. Transaction adapters translate uniqueness and reference constraint failures to
+pure `Application/Contract/Persistence` exceptions, preserving the driver diagnostic chain
+for owner-specific conflict mapping.
+
+### Module seed composition
+
+app:fixtures:load composes tagged, named SeedStepPort capabilities separately
+for auth and main. Prerequisites are stable group identities; duplicate, missing
+or cyclic groups fail before purge. Each adapter is explicitly bound to its owning
+manager and delegates private row construction to the local fixture.
+SeedReferenceRegistryPort exposes only identifiers and permitted scalar facts,
+without credentials or persistence objects. State resets between database passes
+and worker resets. Deterministic seed metadata and timeline helpers are published
+under Application contracts; append-safe workload examples remain opt-in.

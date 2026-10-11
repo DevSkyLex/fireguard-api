@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Assistant\Application\Contract\Thread;
 
 use Assistant\Application\Contract\Thread\AssistantThreadView;
+use Assistant\Application\Service\AssistantThreadViewMapper;
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\ValueObject\AssistantThreadId;
 use DateTimeImmutable;
@@ -67,7 +68,7 @@ final class AssistantThreadViewTest extends TestCase
       now: $now,
     );
 
-    $view = AssistantThreadView::fromDomain($thread);
+    $view = AssistantThreadViewMapper::fromDomain($thread);
 
     self::assertSame(self::THREAD_ID, $view->id);
     self::assertSame(self::ORG_ID, $view->organizationId);

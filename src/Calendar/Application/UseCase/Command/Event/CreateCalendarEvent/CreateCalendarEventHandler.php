@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Calendar\Application\UseCase\Command\Event\CreateCalendarEvent;
 
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort;
 use Calendar\Domain\Event\CalendarEventCreatedEvent;
 use Calendar\Domain\Exception\CalendarEventValidationException;
 use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 /**
  * UseCase CreateCalendarEventHandler.
@@ -46,14 +45,14 @@ final readonly class CreateCalendarEventHandler implements CommandHandler
    * @param CalendarEventRepositoryPort $repository the calendar event repository port
    * @param CalendarMemberDirectoryPort $members the cross-module member directory port
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private CalendarEventRepositoryPort $repository,
     private CalendarMemberDirectoryPort $members,
     private OrganizationAuthorizationPort $authorization,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -83,7 +82,7 @@ final readonly class CreateCalendarEventHandler implements CommandHandler
     }
 
     /** @var CalendarEventId $id */
-    $id = $this->uuidFactory->create(CalendarEventId::class);
+    $id = new CalendarEventId($this->uuidFactory->generate());
 
     $event = CalendarEvent::create(
       identity: new CalendarEventIdentity(

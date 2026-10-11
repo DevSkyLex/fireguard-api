@@ -7,7 +7,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Query\ReadMarker\GetConversat
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Contract\ReadMarker\ConversationReceiptPosition;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\ReadMarker\GetConversationReceipts\{GetConversationReceiptsHandler, GetConversationReceiptsQuery};
 use Messaging\Domain\Exception\MessagingAccessDeniedException;

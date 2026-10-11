@@ -6,7 +6,7 @@ namespace Tests\Unit\Shared\Presentation\Api\Search;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Presentation\Api\Search\CollectionSearcher;
+use Shared\Application\Contract\Search\CollectionSearcher;
 
 /**
  * Test CollectionSearcherTest.

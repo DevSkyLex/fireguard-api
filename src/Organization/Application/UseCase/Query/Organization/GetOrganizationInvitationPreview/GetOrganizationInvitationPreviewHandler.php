@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationInvitationStatus, OrganizationRoleId};
 use Shared\Application\Message\QueryHandler;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\UserId;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_map;
 use function explode;
@@ -43,14 +42,14 @@ final readonly class GetOrganizationInvitationPreviewHandler implements QueryHan
    *
    * @param OrganizationInvitationRepositoryPort $invitationRepository the invitation repository port
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
-   * @param UserRepositoryPort $userRepository the user repository port
+   * @param UserDirectoryPort $userRepository the user repository port
    * @param OrganizationInvitationTokenHasher $tokenHasher the shared token generator/hasher
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
     private OrganizationRepositoryPort $organizationRepository,
-    private UserRepositoryPort $userRepository,
+    private UserDirectoryPort $userRepository,
     private OrganizationInvitationTokenHasher $tokenHasher,
     private OrganizationRoleRepositoryPort $roleRepository,
   ) {
@@ -91,8 +90,8 @@ final readonly class GetOrganizationInvitationPreviewHandler implements QueryHan
     $organizationName = null !== $organization ? (string) $organization->name() : '';
     $organizationLogoUrl = $organization?->logoUrl();
 
-    $inviter = $this->userRepository->findById(new UserId($invitation->invitedByUserId()));
-    $inviterDisplayName = null !== $inviter ? $inviter->profile()->fullName() : '';
+    $inviter = $this->userRepository->findById($invitation->invitedByUserId());
+    $inviterDisplayName = null !== $inviter ? trim($inviter->firstName . ' ' . $inviter->lastName) : '';
 
     return new GetOrganizationInvitationPreviewResult(
       organizationId: (string) $invitation->organizationId(),

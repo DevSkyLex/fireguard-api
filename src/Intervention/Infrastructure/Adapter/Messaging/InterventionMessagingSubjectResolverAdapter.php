@@ -6,9 +6,8 @@ namespace Intervention\Infrastructure\Adapter\Messaging;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
+use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
 use Messaging\Application\Port\Outbound\MessagingSubjectResolverPort;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
 
 /**
  * Adapter InterventionMessagingSubjectResolverAdapter.
@@ -89,7 +88,7 @@ final readonly class InterventionMessagingSubjectResolverAdapter implements Mess
   {
     $record = $this->entityManager->find(InterventionRecord::class, $subjectId);
 
-    $exists = $record instanceof InterventionRecord && $record->organization?->id === $organizationId;
+    $exists = $record instanceof InterventionRecord && $record->organizationId === $organizationId;
 
     return new MessagingSubjectResolution(
       exists: $exists,

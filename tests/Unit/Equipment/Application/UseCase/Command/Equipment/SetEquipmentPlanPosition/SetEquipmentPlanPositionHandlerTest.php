@@ -10,7 +10,8 @@ use Equipment\Application\Contract\FloorPlan\{
   FloorPlanAttachmentNotFloorPlanException,
   FloorPlanAttachmentNotFoundException
 };
-use Equipment\Application\Port\Outbound\{EquipmentFloorPlanValidationPort, EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition\{
   SetEquipmentPlanPositionCommand,
   SetEquipmentPlanPositionHandler,

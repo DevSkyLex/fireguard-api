@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\UseCase\Command\Message\UnsaveMessage;
 
 use DateTimeImmutable;
-use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\UnsaveMessage\{UnsaveMessageCommand, UnsaveMessageHandler};
 use Messaging\Domain\Exception\MessagingNotFoundException;

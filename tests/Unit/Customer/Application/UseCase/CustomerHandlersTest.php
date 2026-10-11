@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Customer\Application\UseCase;
 
-use Customer\Application\Port\Outbound\CustomerRepositoryPort;
+use Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort;
 use Customer\Application\Service\CustomerAccessGuard;
 use Customer\Application\UseCase\Command\ChangeCustomer\{ChangeCustomerCommand, ChangeCustomerHandler};
 use Customer\Application\UseCase\Command\CreateCustomer\{CreateCustomerCommand, CreateCustomerHandler};

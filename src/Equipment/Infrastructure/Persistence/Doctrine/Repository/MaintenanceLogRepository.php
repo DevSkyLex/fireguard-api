@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Equipment\Application\Port\Outbound\MaintenanceLogRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\MaintenanceLogRepositoryPort;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\MaintenanceLogMapper;

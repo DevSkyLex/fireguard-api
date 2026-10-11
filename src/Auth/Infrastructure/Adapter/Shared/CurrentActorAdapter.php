@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Adapter\Shared;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Outbound\{CurrentActorPort, DurableEventContextPort};
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -46,7 +46,7 @@ final readonly class CurrentActorAdapter implements CurrentActorPort
     }
     $user = $this->security->getUser();
 
-    return $user instanceof SecurityUser ? $user->getId() : null;
+    return $user instanceof AuthenticatedUser ? $user->getId() : null;
   }
   // #endregion
 }

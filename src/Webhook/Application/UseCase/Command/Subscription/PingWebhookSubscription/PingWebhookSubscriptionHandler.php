@@ -6,10 +6,11 @@ namespace Webhook\Application\UseCase\Command\Subscription\PingWebhookSubscripti
 
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 use Webhook\Application\Contract\Event\{WebhookEventType, WebhookPayloadEnvelope};
-use Webhook\Application\Port\Outbound\{WebhookDeliveryQueuePort, WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\WebhookDeliverySchedulePort;
 use Webhook\Domain\Exception\{WebhookSubscriptionNotFoundException, WebhookValidationException};
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookSubscriptionId};
 
@@ -38,16 +39,18 @@ final readonly class PingWebhookSubscriptionHandler implements CommandHandler
    *
    * @param WebhookSubscriptionRepositoryPort $subscriptionRepository the webhook subscription repository port
    * @param WebhookDeliveryRepositoryPort $deliveryRepository the webhook delivery repository port
-   * @param WebhookDeliveryQueuePort $queue the delivery queue port
+   * @param WebhookDeliverySchedulePort $queue the delivery schedule port
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the UUID generator
+   * @param TransactionManagerPort $transactionManager the main transaction boundary
    */
   public function __construct(
     private WebhookSubscriptionRepositoryPort $subscriptionRepository,
     private WebhookDeliveryRepositoryPort $deliveryRepository,
-    private WebhookDeliveryQueuePort $queue,
+    private WebhookDeliverySchedulePort $queue,
     private OrganizationAuthorizationPort $authorization,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -75,11 +78,10 @@ final readonly class PingWebhookSubscriptionHandler implements CommandHandler
       throw WebhookSubscriptionNotFoundException::withId($command->subscriptionId);
     }
 
-    $eventId = $this->uuidFactory->generateRaw();
+    $eventId = $this->uuidFactory->generate();
     $now = new DateTimeImmutable();
 
-    /** @var WebhookDeliveryId $deliveryId */
-    $deliveryId = $this->uuidFactory->create(WebhookDeliveryId::class);
+    $deliveryId = WebhookDeliveryId::fromString($this->uuidFactory->generate());
 
     $envelope = new WebhookPayloadEnvelope(
       id: (string) $deliveryId,
@@ -92,20 +94,22 @@ final readonly class PingWebhookSubscriptionHandler implements CommandHandler
       ],
     );
 
-    $reserved = $this->deliveryRepository->reserve(
-      id: $deliveryId,
-      subscriptionId: $subscriptionId,
-      organizationId: $command->organizationId,
-      eventType: WebhookEventType::PING->value,
-      eventId: $eventId,
-      payload: $envelope->toArray(),
-    );
+    $this->transactionManager->transactional(function () use ($deliveryId, $subscriptionId, $command, $eventId, $envelope, $now): void {
+      $reserved = $this->deliveryRepository->reserve(
+        id: $deliveryId,
+        subscriptionId: $subscriptionId,
+        organizationId: $command->organizationId,
+        eventType: WebhookEventType::PING->value,
+        eventId: $eventId,
+        payload: $envelope->toArray(),
+      );
 
-    if (!$reserved) {
-      throw new WebhookValidationException('Could not enqueue the test delivery — please retry.');
-    }
+      if (!$reserved) {
+        throw new WebhookValidationException('Could not enqueue the test delivery — please retry.');
+      }
 
-    $this->queue->dispatch((string) $deliveryId);
+      $this->queue->enqueue((string) $deliveryId, 0, $now);
+    });
 
     return new PingWebhookSubscriptionResult(
       deliveryId: (string) $deliveryId,

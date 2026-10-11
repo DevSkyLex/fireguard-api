@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Service;
 
+use Auth\Application\Port\Inbound\SecurityUserCacheInvalidationPort;
 use Shared\Application\Port\Outbound\CachePort;
 use Throwable;
 
@@ -14,7 +15,7 @@ use Throwable;
  *
  * @category Service
  */
-final readonly class SecurityUserCacheInvalidator
+final readonly class SecurityUserCacheInvalidator implements SecurityUserCacheInvalidationPort
 {
   // #region Constructor
   /**

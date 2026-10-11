@@ -11,7 +11,7 @@ use RuntimeException;
  *
  * Thrown when the caller is a member of the organization but lacks the
  * `organization.equipment.read` permission required for the equipment CSV
- * export. Mirrors `Intervention\Domain\Exception\InterventionAccessDeniedException`.
+ * export. Mirrors `Intervention\Application\Contract\Resource\InterventionAccessDeniedException`.
  *
  * @category Exception
  * @version 1.0.0

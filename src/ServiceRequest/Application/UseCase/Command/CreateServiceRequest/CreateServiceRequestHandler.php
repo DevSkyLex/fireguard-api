@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace ServiceRequest\Application\UseCase\Command\CreateServiceRequest;
 
-use ServiceRequest\Application\Contract\ServiceRequestView;
-use ServiceRequest\Application\Port\Outbound\{ServiceRequestOriginPort, ServiceRequestRepositoryPort};
+use ServiceRequest\Application\Port\Outbound\Internal\ServiceRequestRepositoryPort;
+use ServiceRequest\Application\Port\Outbound\ServiceRequestOriginPort;
 use ServiceRequest\Application\Service\{ServiceRequestAccessGuard, ServiceRequestTargetGuard};
+use ServiceRequest\Application\Service\ServiceRequestViewMapper;
 use ServiceRequest\Domain\Event\ServiceRequestChangedEvent;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
 use ServiceRequest\Domain\ValueObject\{ServiceRequestContent, ServiceRequestTarget};
@@ -32,7 +33,7 @@ final readonly class CreateServiceRequestHandler implements CommandHandler
       $this->requests->save($request);
       $this->events->dispatch(new ServiceRequestChangedEvent($request->organizationId, $request->id, 'requested', $request->revision, $request->updatedAt));
 
-      return new CreateServiceRequestResult(ServiceRequestView::fromRequest($request));
+      return new CreateServiceRequestResult(ServiceRequestViewMapper::fromRequest($request));
     });
   }
 }

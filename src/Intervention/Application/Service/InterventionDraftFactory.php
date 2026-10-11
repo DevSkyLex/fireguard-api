@@ -13,8 +13,7 @@ use Intervention\Application\Contract\Workflow\InterventionWorkflowMutation;
 use Intervention\Application\Exception\InterventionDraftCreationException;
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
-use Psr\Log\LoggerInterface;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
 
 use function count;
 use function is_int;
@@ -56,12 +55,12 @@ final readonly class InterventionDraftFactory implements InterventionDraftFactor
    * @since 1.0.0
    *
    * @param InterventionWorkflowGatewayPort $gateway the intervention workflow gateway
-   * @param LoggerInterface $logger the logger
+   * @param LoggerPort $logger the logger
    * @param TransactionManagerPort $transactions owns the entire draft on main
    */
   public function __construct(
     private InterventionWorkflowGatewayPort $gateway,
-    private LoggerInterface $logger,
+    private LoggerPort $logger,
     private TransactionManagerPort $transactions,
   ) {
   }

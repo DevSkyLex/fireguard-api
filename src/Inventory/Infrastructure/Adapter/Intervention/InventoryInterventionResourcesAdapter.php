@@ -6,7 +6,7 @@ namespace Inventory\Infrastructure\Adapter\Intervention;
 
 use Inventory\Application\Contract\Stock\{InventoryCostFact,InventoryPublicationBlockedException};
 use Inventory\Application\Port\Inbound\InventoryInterventionResourcesPort;
-use Inventory\Application\Port\Outbound\InventoryStorePort;
+use Inventory\Application\Port\Outbound\Internal\InventoryStorePort;
 use Inventory\Domain\Model\Stock\ConsumptionDeclaration;
 use MaintenanceCost\Application\Port\Inbound\MaintenanceCurrencyPort;
 use Shared\Domain\ValueObject\DecimalAmount;

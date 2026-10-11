@@ -228,7 +228,7 @@ final class DoctrineInterventionActivityAdapterTest extends KernelTestCase
 
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->type = 'site_setup';
     $record->name = 'Intervention ' . $number;
     $record->number = $number;

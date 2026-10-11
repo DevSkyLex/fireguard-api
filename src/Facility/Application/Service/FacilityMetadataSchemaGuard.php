@@ -6,7 +6,7 @@ namespace Facility\Application\Service;
 
 use DateTimeImmutable;
 use Exception as PhpException;
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Exception\FacilityMetadataValidationException;
 use Facility\Domain\Model\MetadataField\FacilityMetadataField;
 use Facility\Domain\ValueObject\{FacilityMetadataFieldType, FacilityOrganizationId};

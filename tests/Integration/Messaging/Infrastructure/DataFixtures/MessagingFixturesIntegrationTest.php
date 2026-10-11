@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Integration\Messaging\Infrastructure\DataFixtures;
 
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
@@ -13,6 +12,7 @@ use Messaging\Infrastructure\DataFixtures\MessagingFixtures;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingMessageRecord, MessagingParticipantRecord, MessagingReactionRecord, MessagingReadMarkerRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Infrastructure\DataFixtures\{SeedFixtureAdapter, SeedReferenceRegistryAdapter};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_filter;
@@ -45,17 +45,19 @@ final class MessagingFixturesIntegrationTest extends KernelTestCase
     $messagingFixtures = static::getContainer()->get(MessagingFixtures::class);
 
     self::assertSame(['messaging', 'main-seed'], MessagingFixtures::getGroups());
-    self::assertSame([OrganizationFixtures::class], $messagingFixtures->getDependencies());
+    self::assertSame([], $messagingFixtures->getDependencies());
 
-    $loader = new Loader();
-    $loader->addFixture($organizationFixtures);
-    $loader->addFixture($messagingFixtures);
+    $registry = new SeedReferenceRegistryAdapter();
+    $fixtures = [
+      new SeedFixtureAdapter($organizationFixtures, $this->entityManager, $registry, 'organization', []),
+      new SeedFixtureAdapter($messagingFixtures, $this->entityManager, $registry, 'messaging', ['organization']),
+    ];
 
     $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
     // Purge before loading: the test databases carry the seeded baseline, so
     // appending on top of it collides on primary keys and makes the counts
     // below meaningless. DAMA rolls the purge back with the rest of the test.
-    $executor->execute($loader->getFixtures(), false);
+    $executor->execute($fixtures, false);
 
     self::assertSame(4, $this->entityManager->getRepository(MessagingConversationRecord::class)->count([]));
     self::assertSame(8, $this->entityManager->getRepository(MessagingParticipantRecord::class)->count([]));

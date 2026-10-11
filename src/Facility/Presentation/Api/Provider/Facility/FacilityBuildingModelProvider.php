@@ -6,7 +6,7 @@ namespace Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Query\Facility\GetFacilityBuildingModel\{GetFacilityBuildingModelQuery, GetFacilityBuildingModelResult};
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityBuildingModelOutput;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -48,7 +48,6 @@ final readonly class FacilityBuildingModelProvider implements ProviderInterface
    * @access public
    *
    * @param QueryBusPort $queryBus port used to dispatch the building-model query
-   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
    * @param Security $security security context used to obtain the requesting member
    *
    * @return void
@@ -74,7 +73,7 @@ final readonly class FacilityBuildingModelProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): FacilityBuildingModelOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

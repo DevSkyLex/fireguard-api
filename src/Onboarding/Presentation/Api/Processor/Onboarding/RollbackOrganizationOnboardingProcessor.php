@@ -6,12 +6,12 @@ namespace Onboarding\Presentation\Api\Processor\Onboarding;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use LogicException;
-use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
+use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Mapper\Onboarding\OrganizationOnboardingOutputAssembler;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException};
 
@@ -68,7 +68,7 @@ final readonly class RollbackOrganizationOnboardingProcessor implements Processo
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOnboardingOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -93,7 +93,7 @@ services:
       dockerfile: Dockerfile
       target: dev
     command:
-      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "main_outbox", "async", "--time-limit=3600", "-vv"]
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "main_outbox", "auth_outbox", "async", "--time-limit=3600", "-vv"]
     restart: unless-stopped
     stop_grace_period: 2m
     init: true
@@ -165,7 +165,7 @@ services:
       dockerfile: Dockerfile
       target: dev
     command:
-      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "scheduler_maintenance", "scheduler_intervention", "scheduler_approval", "scheduler_inspection", "scheduler_organization", "--time-limit=3600", "-vv"]
+      ["php", "-d", "memory_limit=1G", "bin/console", "messenger:consume", "scheduler_maintenance", "scheduler_intervention", "scheduler_approval", "scheduler_inspection", "scheduler_organization", "scheduler_webhook", "--time-limit=3600", "-vv"]
     restart: unless-stopped
     stop_grace_period: 2m
     init: true

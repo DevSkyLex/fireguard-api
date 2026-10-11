@@ -7,9 +7,7 @@ namespace Intervention\Application\Service;
 use Intervention\Application\Exception\InterventionNotificationDeliveryException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\ValueObject\OrganizationMemberId;
+use Organization\Application\Port\Inbound\{OrganizationMemberDirectoryPort, OrganizationNotificationPolicyPort};
 use Shared\Application\Port\Outbound\DurableEventContextPort;
 use Throwable;
 
@@ -41,14 +39,14 @@ final readonly class InterventionRecurrenceNotifier
    *
    * @param NotificationPort $notifications the notification inbound port
    * @param OrganizationNotificationPolicyPort $policy the organization notification policy port
-   * @param OrganizationMemberRepositoryPort $members the organization member repository port
+   * @param OrganizationMemberDirectoryPort $members the organization member repository port
    * @param InterventionRecurrenceRecipientResolver $recipients the recurrence recipient resolver
    * @param ?DurableEventContextPort $eventContext stable durable delivery identity, null for synchronous callers
    */
   public function __construct(
     private NotificationPort $notifications,
     private OrganizationNotificationPolicyPort $policy,
-    private OrganizationMemberRepositoryPort $members,
+    private OrganizationMemberDirectoryPort $members,
     private InterventionRecurrenceRecipientResolver $recipients,
     private ?DurableEventContextPort $eventContext = null,
   ) {
@@ -157,9 +155,9 @@ final readonly class InterventionRecurrenceNotifier
   private function resolveRecipients(string $organizationId, ?string $responsibleId): array
   {
     if (null !== $responsibleId) {
-      $member = $this->members->findById(OrganizationMemberId::fromString($responsibleId));
-      if (null !== $member && $member->isActive() && (string) $member->organizationId() === $organizationId) {
-        return [$member->userId()];
+      $member = $this->members->findById($responsibleId);
+      if (null !== $member && $member->active && $member->organizationId === $organizationId) {
+        return [$member->userId];
       }
     }
 

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Compliance\Application\Service;
 
+use Compliance\Application\Contract\ComplianceStatus;
 use Compliance\Application\Port\Outbound\{ComplianceFacilityDirectoryPort, EquipmentComplianceStatisticsPort, InspectionComplianceStatisticsPort, MaintenanceComplianceStatisticsPort};
 use Compliance\Application\Service\ComplianceRegisterAggregator;
-use Compliance\Domain\ValueObject\ComplianceStatus;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

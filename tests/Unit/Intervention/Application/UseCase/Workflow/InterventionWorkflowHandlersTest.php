@@ -29,8 +29,7 @@ use Intervention\Domain\Exception\{InterventionAccessDeniedException, Interventi
 use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Domain\ValueObject\InterventionStatus;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationMemberDirectoryPort};
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -717,7 +716,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
 
   private function memberPolicy(): InterventionMemberPolicy
   {
-    return new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class));
+    return new InterventionMemberPolicy($this->createStub(OrganizationMemberDirectoryPort::class));
   }
 
   /**
@@ -742,7 +741,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
    */
   private function rejectingMemberPolicy(): InterventionMemberPolicy
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findByOrganizationAndUser')->willReturn(null);
 
     return new InterventionMemberPolicy($members);

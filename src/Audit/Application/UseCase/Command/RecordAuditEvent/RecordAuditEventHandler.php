@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Audit\Application\UseCase\Command\RecordAuditEvent;
 
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Audit\Domain\Model\AuditEvent;
 use DateTimeImmutable;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\ValueObject\Uuid;
 
 /**
@@ -30,11 +30,11 @@ final readonly class RecordAuditEventHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param AuditEventRepositoryPort $repository the audit repository
    */
   public function __construct(
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private AuditEventRepositoryPort $repository,
   ) {
   }
@@ -54,7 +54,7 @@ final readonly class RecordAuditEventHandler implements CommandHandler
    */
   public function __invoke(RecordAuditEventCommand $command): RecordAuditEventResult
   {
-    $eventId = $this->uuidFactory->create(Uuid::class);
+    $eventId = new Uuid($this->uuidFactory->generate());
     $occurredAt = $command->occurredAt ?? new DateTimeImmutable();
 
     // The organizationId column drives organization-scoped reads but sits

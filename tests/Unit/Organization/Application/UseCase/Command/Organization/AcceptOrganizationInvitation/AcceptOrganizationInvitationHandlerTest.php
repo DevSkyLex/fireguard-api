@@ -8,14 +8,15 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\{NotificationType, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Event\Invitation\OrganizationInvitationAcceptedEvent;
+use Organization\Application\Contract\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Application\Contract\Member\OrganizationMemberGrant;
-use Organization\Application\Port\Inbound\{OrganizationMemberGrantGuardPort, OrganizationQuotaPort};
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationHandler, AcceptOrganizationInvitationResult};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler;
-use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
-use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
@@ -28,12 +29,12 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function hash;
 use function is_string;
@@ -102,11 +103,11 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
         ),
       ));
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($inviteeUserId, 'member@example.com'));
+      ->willReturn(UserTestFactory::createActiveView($inviteeUserId, 'member@example.com'));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -143,12 +144,11 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
         ),
       ]);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(OrganizationMemberId::class)
-      ->willReturn(new OrganizationMemberId($memberId));
+      ->method('generate')
+      ->willReturn($memberId);
 
     /** @var TransactionManagerPort&MockObject $addMemberTransactionManager */
     $addMemberTransactionManager = $this->createMock(TransactionManagerPort::class);
@@ -356,11 +356,11 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($inviteeUserId, 'member@example.com'));
+      ->willReturn(UserTestFactory::createActiveView($inviteeUserId, 'member@example.com'));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -391,12 +391,11 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
         ),
       ]);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(OrganizationMemberId::class)
-      ->willReturn(new OrganizationMemberId($memberId));
+      ->method('generate')
+      ->willReturn($memberId);
 
     /** @var TransactionManagerPort&MockObject $addMemberTransactionManager */
     $addMemberTransactionManager = $this->createMock(TransactionManagerPort::class);
@@ -562,11 +561,11 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::exactly(3))->method('findById')->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($inviteeUserId, 'member@example.com'));
+      ->willReturn(UserTestFactory::createActiveView($inviteeUserId, 'member@example.com'));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -590,9 +589,9 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
         ),
       ]);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::once())->method('create')->with(OrganizationMemberId::class)->willReturn(new OrganizationMemberId($memberId));
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::once())->method('generate')->willReturn($memberId);
 
     /** @var TransactionManagerPort&MockObject $addMemberTransactionManager */
     $addMemberTransactionManager = $this->createMock(TransactionManagerPort::class);
@@ -737,10 +736,10 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
-      userRepository: $this->createStub(UserRepositoryPort::class),
+      userRepository: $this->createStub(UserDirectoryPort::class),
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $this->createStub(TransactionManagerPort::class),
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -976,10 +975,10 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
-      userRepository: $this->createStub(UserRepositoryPort::class),
+      userRepository: $this->createStub(UserDirectoryPort::class),
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $this->createStub(TransactionManagerPort::class),
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),

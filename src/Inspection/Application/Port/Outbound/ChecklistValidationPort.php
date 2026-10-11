@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\Port\Outbound;
 
-use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Port ChecklistValidationPort.
@@ -32,7 +32,7 @@ interface ChecklistValidationPort
    * @param string $checklistId the checklist identifier
    * @param string $organizationId the expected organization identifier
    *
-   * @throws InvalidArgumentException when the checklist is not found, belongs to another organization, or is archived
+   * @throws InvalidValueException when the checklist is not found, belongs to another organization, or is archived
    */
   public function assertChecklistIsUsable(string $checklistId, string $organizationId): void;
   // #endregion

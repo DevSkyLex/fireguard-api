@@ -6,15 +6,15 @@ namespace User\Application\UseCase\Command\EmailChange\ConfirmEmailChange;
 
 use Auth\Application\Port\Outbound\TokenRevocationPort;
 use DateTimeImmutable;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Inbound\SessionRevocationPort;
 use Shared\Application\Contract\Notification\EmailRequestDetails;
+use Shared\Application\Contract\Persistence\UniqueConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, LoggerPort};
 use Shared\Application\Port\Outbound\{GeoIpLookupPort, RequestOriginPort};
 use Shared\Domain\Service\EventIdProvider;
 use Throwable;
-use User\Application\Port\Outbound\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
+use User\Application\Port\Outbound\Internal\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
 use User\Application\Service\{EmailChangeNotifier, EmailChangeTokenHasher};
 use User\Domain\Model\EmailChange\EmailChangeRequest;
 use User\Domain\Model\User\User;
@@ -65,7 +65,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
    * @param EmailChangeRequestRepositoryPort $emailChangeRequests the email change request repository port
    * @param UserRepositoryPort $userRepository the user repository port
    * @param EmailChangeTokenHasher $tokenHasher the token hasher
-   * @param SessionRepositoryPort $sessionRepository the session repository port
+   * @param SessionRevocationPort $sessionRepository the session repository port
    * @param TokenRevocationPort $tokenRevocation the token revocation port
    * @param EmailChangeNotifier $notifier the email-change notifier
    * @param ClockPort $clock the clock port
@@ -79,7 +79,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
     private EmailChangeRequestRepositoryPort $emailChangeRequests,
     private UserRepositoryPort $userRepository,
     private EmailChangeTokenHasher $tokenHasher,
-    private SessionRepositoryPort $sessionRepository,
+    private SessionRevocationPort $sessionRepository,
     private TokenRevocationPort $tokenRevocation,
     private EmailChangeNotifier $notifier,
     private ClockPort $clock,

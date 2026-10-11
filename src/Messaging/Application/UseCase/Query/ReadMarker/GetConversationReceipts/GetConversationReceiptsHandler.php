@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Query\ReadMarker\GetConversationReceipts;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\ValueObject\ConversationVisibility;

@@ -38,7 +38,7 @@ final class WithdrawApprovalRequestProcessorTest extends TestCase
     $actor->method('userId')->willReturn('user');
     $input = new WithdrawApprovalRequestInput();
     $input->decisionNote = 'Keep the record';
-    $output = new WithdrawApprovalRequestProcessor($bus, $actor, new ApprovalRequestOutputFactory())->process($input, new Post(), ['organizationId' => 'org', 'requestId' => $id]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => new WithdrawApprovalRequestProcessor($bus, $actor, new ApprovalRequestOutputFactory())->process($input, new Post(), ['organizationId' => 'org', 'requestId' => $id]));
     self::assertSame('withdrawn', $output->status);
     self::assertSame('Keep the record', $output->decisionNote);
   }
@@ -50,6 +50,6 @@ final class WithdrawApprovalRequestProcessorTest extends TestCase
     $actor = $this->createStub(CurrentActorPort::class);
     $actor->method('userId')->willReturn(null);
     $this->expectException(AccessDeniedHttpException::class);
-    new WithdrawApprovalRequestProcessor($bus, $actor, new ApprovalRequestOutputFactory())->process(new WithdrawApprovalRequestInput(), new Post());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => new WithdrawApprovalRequestProcessor($bus, $actor, new ApprovalRequestOutputFactory())->process(new WithdrawApprovalRequestInput(), new Post()));
   }
 }

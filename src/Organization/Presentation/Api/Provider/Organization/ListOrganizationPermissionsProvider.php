@@ -6,13 +6,13 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationPermissions\{ListOrganizationPermissionsQuery, ListOrganizationPermissionsResult};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationPermissionOutput;
+use Shared\Application\Contract\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Application\Contract\Sorting\{CollectionSorter, SortingExtractor};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -69,7 +69,7 @@ final readonly class ListOrganizationPermissionsProvider implements ProviderInte
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -6,16 +6,20 @@ namespace Intervention\Infrastructure\Persistence\Doctrine\Workflow;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Exception;
 use Intervention\Application\Contract\Export\InterventionExportCandidate;
+use Intervention\Application\Contract\Resource\InterventionListMetrics;
 use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowContext,
   InterventionWorkflowPage,
   InterventionWorkflowView
 };
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
+use Intervention\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper;
+use Intervention\Infrastructure\Persistence\Doctrine\Projection\InterventionWorkItemReadMetrics;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
   InterventionRecord,
@@ -23,9 +27,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
 };
 use Intervention\Infrastructure\Service\Workflow\InterventionWorkflowMutationSupport;
 use InvalidArgumentException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function array_filter;
 use function array_map;
@@ -204,18 +206,17 @@ final readonly class DoctrineInterventionWorkflowReader
       ->setMaxResults($itemsPerPage)
       ->getQuery()
       ->getResult();
+    $ids = array_map(static fn (InterventionRecord|InterventionWorkItemRecord|InterventionChangeRecord $record): string => $record->id, $records);
     $metrics = 'intervention' === $resource
-      ? $this->resources->listMetrics(array_map(
-        static fn (InterventionRecord|InterventionWorkItemRecord|InterventionChangeRecord $record): string => $record->id,
-        $records,
-      ))
+      ? $this->resources->listMetrics($ids)
       : [];
-    $items = array_map(function (object $record) use ($metrics): InterventionWorkflowView {
+    $workItemMetrics = 'work_item' === $resource ? $this->workItemMetrics($ids) : [];
+    $items = array_map(function (object $record) use ($metrics, $workItemMetrics): InterventionWorkflowView {
       if ($record instanceof InterventionRecord) {
-        return $this->views->interventionView($record, $metrics[$record->id] ?? null);
+        return $this->views->interventionView($record, $metrics[$record->id] ?? new InterventionListMetrics());
       }
       if ($record instanceof InterventionWorkItemRecord) {
-        return $this->views->workItemView($record);
+        return $this->views->workItemView($record, $workItemMetrics[$record->id]);
       }
 
       return $this->views->changeView($record);
@@ -346,12 +347,12 @@ final readonly class DoctrineInterventionWorkflowReader
    */
   private function interventionListQuery(string $organizationId, array $filters): QueryBuilder
   {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
     $qb = $this->entityManager->createQueryBuilder()
       ->select('m')
       ->from(InterventionRecord::class, 'm')
-      ->where('m.organization = :organization')
-      ->setParameter('organization', $organization)
+      ->where('m.organizationId = :organizationId')
+      ->setParameter('organizationId', $organization)
       ->orderBy('m.updatedAt', 'DESC');
     $this->applyInterventionFilters($qb, $filters);
     $this->applyMembershipFilters($qb, $organizationId, $filters);
@@ -429,8 +430,8 @@ final readonly class DoctrineInterventionWorkflowReader
   {
     if (is_string($filters['participantId'] ?? null) && '' !== $filters['participantId']) {
       $ids = $this->entityManager->getConnection()->fetchFirstColumn(
-        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :participant)',
-        ['organization' => $organizationId, 'participant' => $filters['participantId']],
+        'SELECT id FROM interventions WHERE organization_id = :organizationId AND jsonb_exists(participants::jsonb, :participant)',
+        ['organizationId' => $organizationId, 'participant' => $filters['participantId']],
       );
       $qb->andWhere([] === $ids ? '1 = 0' : 'm.id IN (:participantIds)');
       if ([] !== $ids) {
@@ -439,8 +440,8 @@ final readonly class DoctrineInterventionWorkflowReader
     }
     if (is_string($filters['memberId'] ?? null) && '' !== $filters['memberId']) {
       $ids = $this->entityManager->getConnection()->fetchFirstColumn(
-        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :member)',
-        ['organization' => $organizationId, 'member' => $filters['memberId']],
+        'SELECT id FROM interventions WHERE organization_id = :organizationId AND jsonb_exists(participants::jsonb, :member)',
+        ['organizationId' => $organizationId, 'member' => $filters['memberId']],
       );
       $qb->andWhere(
         [] === $ids
@@ -467,8 +468,9 @@ final readonly class DoctrineInterventionWorkflowReader
   {
     $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
     $qb = $this->entityManager->createQueryBuilder()
-      ->select('w')
+      ->select('w', 'parent')
       ->from(InterventionWorkItemRecord::class, 'w')
+      ->join('w.intervention', 'parent')
       ->where('w.intervention = :intervention')
       ->setParameter('intervention', $intervention)
       ->orderBy('w.updatedAt', 'DESC')
@@ -494,6 +496,50 @@ final readonly class DoctrineInterventionWorkflowReader
     );
 
     return $qb;
+  }
+
+  /**
+   * Method workItemMetrics
+   *
+   * Loads evidence and uncancelled time totals for only the requested page.
+   *
+   * @param list<string> $ids work item identifiers selected after filtering and pagination
+   *
+   * @return array<string, InterventionWorkItemReadMetrics> counters indexed by work item identifier
+   */
+  private function workItemMetrics(array $ids): array
+  {
+    if ([] === $ids) {
+      return [];
+    }
+    $connection = $this->entityManager->getConnection();
+    $types = ['ids' => ArrayParameterType::STRING];
+    $evidence = [];
+    /** @var list<array{work_item_id: string, total: string|int}> $evidenceRows */
+    $evidenceRows = $connection->fetchAllAssociative(
+      'SELECT work_item_id, COUNT(*) AS total FROM intervention_attachments WHERE work_item_id IN (:ids) GROUP BY work_item_id',
+      ['ids' => $ids],
+      $types,
+    );
+    foreach ($evidenceRows as $row) {
+      $evidence[$row['work_item_id']] = (int) $row['total'];
+    }
+    $minutes = [];
+    /** @var list<array{work_item_id: string, total: string|int}> $minuteRows */
+    $minuteRows = $connection->fetchAllAssociative(
+      'SELECT work_item_id, SUM(minutes) AS total FROM intervention_time_entries WHERE work_item_id IN (:ids) AND cancelled = false GROUP BY work_item_id',
+      ['ids' => $ids],
+      $types,
+    );
+    foreach ($minuteRows as $row) {
+      $minutes[$row['work_item_id']] = (int) $row['total'];
+    }
+    $metrics = [];
+    foreach ($ids as $id) {
+      $metrics[$id] = new InterventionWorkItemReadMetrics($evidence[$id] ?? 0, $minutes[$id] ?? 0);
+    }
+
+    return $metrics;
   }
 
   /**

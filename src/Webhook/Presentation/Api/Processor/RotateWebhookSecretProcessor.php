@@ -6,15 +6,13 @@ namespace Webhook\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 use Webhook\Application\UseCase\Command\Subscription\RotateWebhookSecret\{RotateWebhookSecretCommand, RotateWebhookSecretResult};
 use Webhook\Presentation\Api\Dto\Output\WebhookSecretOutput;
 use Webhook\Presentation\Api\Factory\WebhookSubscriptionOutputFactory;
-use Webhook\Presentation\Api\Trait\WebhookExceptionMapperTrait;
 
 use function is_string;
 
@@ -30,8 +28,6 @@ use function is_string;
  */
 final readonly class RotateWebhookSecretProcessor implements ProcessorInterface
 {
-  use WebhookExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -64,7 +60,7 @@ final readonly class RotateWebhookSecretProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): WebhookSecretOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -74,16 +70,12 @@ final readonly class RotateWebhookSecretProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId and webhookId URI parameters are required.');
     }
 
-    try {
-      /** @var RotateWebhookSecretResult $result */
-      $result = $this->commandBus->dispatch(new RotateWebhookSecretCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        subscriptionId: $webhookId,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWebhookException($exception);
-    }
+    /** @var RotateWebhookSecretResult $result */
+    $result = $this->commandBus->dispatch(new RotateWebhookSecretCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      subscriptionId: $webhookId,
+    ));
 
     return $this->outputFactory->secretFromResult($result);
   }

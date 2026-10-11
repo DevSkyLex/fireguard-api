@@ -7,8 +7,8 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ResourceAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
-use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
-use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
+use Inspection\Application\Contract\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
+use Inspection\Application\Contract\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -87,6 +87,7 @@ final class InspectionAuditWiringTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     foreach ($events as $event) {

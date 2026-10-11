@@ -8,16 +8,16 @@ use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\{GetOrganizationDashboardQuery, GetOrganizationDashboardResult};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationDashboardOutput;
 use Organization\Presentation\Api\Provider\Organization\GetOrganizationDashboardProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -25,8 +25,6 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
-use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function get_object_vars;
 use function in_array;
@@ -774,7 +772,7 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::exactly(2))
+    $queryBus->expects(self::once())
       ->method('ask')
       ->willReturnCallback(static fn (object $query): object => match (true) {
         $query instanceof GetOrganizationDashboardQuery => new GetOrganizationDashboardResult(
@@ -796,25 +794,13 @@ final class GetOrganizationDashboardProviderTest extends TestCase
               'siteName' => 'Siège — Paris 12e',
               'responsibleId' => 'member-1',
               'responsibleUserId' => 'user-1',
+              'responsibleName' => 'Claire Lefèvre',
+              'responsibleAvatarUrl' => 'https://api.example.com/api/users/user-1/avatar',
               'dueAt' => '2026-04-01T00:00:00+00:00',
               'updatedAt' => '2026-03-28T09:00:00+00:00',
             ],
           ],
         ),
-        $query instanceof GetUserQuery => new GetUserResult(new UserView(
-          id: 'user-1',
-          username: 'claire.lefevre',
-          email: 'claire@example.com',
-          firstName: 'Claire',
-          lastName: 'Lefèvre',
-          avatarUrl: 'https://api.example.com/api/users/user-1/avatar',
-          status: 'active',
-          emailVerified: true,
-          tenantId: null,
-          createdAt: $createdAt,
-          lastLoginAt: null,
-          canLogin: true,
-        )),
         default => throw new AccessDeniedHttpException('Unexpected query.'),
       });
 
@@ -845,7 +831,7 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::exactly(2))
+    $queryBus->expects(self::once())
       ->method('ask')
       ->willReturnCallback(static fn (object $query): object => match (true) {
         $query instanceof GetOrganizationDashboardQuery => new GetOrganizationDashboardResult(
@@ -872,7 +858,6 @@ final class GetOrganizationDashboardProviderTest extends TestCase
             ],
           ],
         ),
-        $query instanceof GetUserQuery => new GetUserResult(null),
         default => throw new AccessDeniedHttpException('Unexpected query.'),
       });
 
@@ -1251,7 +1236,7 @@ final class GetOrganizationDashboardProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideFallsBackThroughUsernameAndMemberIdForResponsibleName(): void
+  public function testProvideMapsTheApplicationResponsibleNameFallbacks(): void
   {
     $security = $this->createMock(Security::class);
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
@@ -1259,25 +1244,17 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::exactly(3))
+    $queryBus->expects(self::once())
       ->method('ask')
-      ->willReturnCallback(function (object $query) use ($createdAt): object {
+      ->willReturnCallback(function (object $query): object {
         if ($query instanceof GetOrganizationDashboardQuery) {
           return $this->createEmptyResult(recentInterventions: [
-            $this->createInterventionRow('intervention-3', 'member-3', 'user-3'),
-            $this->createInterventionRow('intervention-4', 'member-4', 'user-4'),
+            [...$this->createInterventionRow('intervention-3', 'member-3', 'user-3'), 'responsibleName' => 'jean.dupont', 'responsibleAvatarUrl' => null],
+            [...$this->createInterventionRow('intervention-4', 'member-4', 'user-4'), 'responsibleName' => 'member-4', 'responsibleAvatarUrl' => null],
           ]);
         }
 
-        self::assertInstanceOf(GetUserQuery::class, $query);
-
-        return new GetUserResult(match ($query->id) {
-          // Blank first/last name but a username: the username wins.
-          'user-3' => $this->createUserView('user-3', 'jean.dupont', '', '', $createdAt),
-          // Blank first/last name AND blank username: falls all the way back
-          // to the organization member id.
-          default => $this->createUserView('user-4', '', '  ', '', $createdAt),
-        });
+        throw new RuntimeException('Unexpected query.');
       });
 
     $provider = new GetOrganizationDashboardProvider(
@@ -1295,13 +1272,13 @@ final class GetOrganizationDashboardProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideKeepsInterventionsWhenUserLookupFails(): void
+  public function testProvideKeepsInterventionsWithoutOptionalProfileSnapshots(): void
   {
     $security = $this->createMock(Security::class);
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::exactly(2))
+    $queryBus->expects(self::once())
       ->method('ask')
       ->willReturnCallback(function (object $query): object {
         if ($query instanceof GetOrganizationDashboardQuery) {
@@ -1414,29 +1391,6 @@ final class GetOrganizationDashboardProviderTest extends TestCase
       'dueAt' => null,
       'updatedAt' => '2026-03-28T09:00:00+00:00',
     ];
-  }
-
-  private function createUserView(
-    string $id,
-    string $username,
-    string $firstName,
-    string $lastName,
-    DateTimeImmutable $createdAt,
-  ): UserView {
-    return new UserView(
-      id: $id,
-      username: $username,
-      email: 'user@example.com',
-      firstName: $firstName,
-      lastName: $lastName,
-      avatarUrl: null,
-      status: 'active',
-      emailVerified: true,
-      tenantId: null,
-      createdAt: $createdAt,
-      lastLoginAt: null,
-      canLogin: true,
-    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

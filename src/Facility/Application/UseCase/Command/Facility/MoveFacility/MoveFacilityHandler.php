@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\MoveFacility;
 
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Event\Facility\FacilityMovedEvent;
 use Facility\Domain\Exception\{
   FacilityArchivedException,
@@ -17,9 +16,9 @@ use Facility\Domain\Exception\{
 };
 use Facility\Domain\ValueObject\{CanonicalFacilityParent, CanonicalFacilityPatch, FacilityStatus};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
+use Shared\Application\Contract\Persistence\ForeignKeyConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 use function array_key_exists;
@@ -53,7 +52,6 @@ final readonly class MoveFacilityHandler implements CommandHandler
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private EventDispatcherPort $eventDispatcher,
-    #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
     private ?FacilityHierarchyPort $hierarchy = null,
     private ?TransactionManagerPort $transactionManager = null,

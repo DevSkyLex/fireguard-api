@@ -13,7 +13,7 @@ use Otp\Presentation\Api\Processor\Challenge\ResendChallengeProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;

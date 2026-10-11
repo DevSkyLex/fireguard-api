@@ -41,7 +41,7 @@ final class FacilityNotFoundException extends RuntimeException
    * Creates an exception for an organization outside the caller's scope —
    * deliberately the same 404 a missing facility returns, so the response
    * never confirms the organization exists. Mirrors
-   * {@see \Intervention\Domain\Exception\InterventionNotFoundException::forOrganizationScope()}.
+   * {@see \Intervention\Application\Contract\Resource\InterventionNotFoundException::forOrganizationScope()}.
    *
    * @since 1.0.0
    *

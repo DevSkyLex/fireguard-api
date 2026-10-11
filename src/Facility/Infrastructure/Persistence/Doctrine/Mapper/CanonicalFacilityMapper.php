@@ -8,7 +8,6 @@ use Facility\Domain\Model\Facility\{CanonicalFacility, CanonicalFacilityContent,
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityRecordStatus, FacilityStatus, FacilityType};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper CanonicalFacilityMapper.
@@ -37,14 +36,14 @@ final class CanonicalFacilityMapper
    */
   public static function toDomain(FacilityRecord $record): CanonicalFacility
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Facility record must reference an organization.');
     }
 
     return CanonicalFacility::reconstitute(
       reference: new CanonicalFacilityReference(
         FacilityId::fromString($record->id),
-        FacilityOrganizationId::fromString($record->organization->id),
+        FacilityOrganizationId::fromString($record->organizationId),
         FacilityRecordStatus::from($record->recordStatus),
         $record->interventionId,
         $record->parentFacility?->id,

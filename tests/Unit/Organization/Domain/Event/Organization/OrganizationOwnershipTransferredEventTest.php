@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Organization\Domain\Event\Organization;
+namespace Tests\Unit\Organization\Application\Contract\Event\Organization;
 
 use DateTimeImmutable;
-use Organization\Domain\Event\Organization\OrganizationOwnershipTransferredEvent;
+use Organization\Application\Contract\Event\Organization\OrganizationOwnershipTransferredEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\EventSubscriber;
 
+use Organization\Application\Contract\Event\Join\OrganizationJoinChangedEvent;
+use Organization\Application\Contract\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationOwnershipTransferredEvent, OrganizationRestoredEvent, OrganizationSuspendedEvent};
 use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
-use Organization\Domain\Event\Join\OrganizationJoinChangedEvent;
-use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationOwnershipTransferredEvent, OrganizationRestoredEvent, OrganizationSuspendedEvent};
-use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
+use Organization\Application\Contract\Event\Plan\OrganizationPlanChangedEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /** Records the organizationlifecycle event family. */
@@ -19,7 +19,7 @@ final readonly class OrganizationLifecycleAuditEventSubscriber extends AbstractA
   public static function getSubscribedEvents(): array
   {
     return [
-      OrganizationJoinChangedEvent::class => 'onOrganizationJoinChanged',
+      'organization.organization_join_changed_event' => 'onOrganizationJoinChanged',
       'organization.organization_created_event' => 'onOrganizationCreated',
       'organization.organization_archived_event' => 'onOrganizationArchived',
       'organization.organization_restored_event' => 'onOrganizationRestored',

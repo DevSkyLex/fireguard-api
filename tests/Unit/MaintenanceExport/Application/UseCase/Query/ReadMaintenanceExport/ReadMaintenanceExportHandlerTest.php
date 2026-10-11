@@ -7,7 +7,7 @@ namespace Tests\Unit\MaintenanceExport\Application\UseCase\Query\ReadMaintenance
 use DateTimeImmutable;
 use Intervention\Application\Contract\Publication\{InterventionPublicationFacts, InterventionPublicationFactsPage, InterventionPublishedWorkFact};
 use Intervention\Application\Port\Inbound\InterventionPublicationFactsPort;
-use MaintenanceExport\Application\Port\Outbound\MaintenanceExportRepositoryPort;
+use MaintenanceExport\Application\Port\Outbound\Internal\MaintenanceExportRepositoryPort;
 use MaintenanceExport\Application\UseCase\Query\ReadMaintenanceExport\{ReadMaintenanceExportHandler, ReadMaintenanceExportQuery};
 use MaintenanceExport\Domain\Exception\MaintenanceExportException;
 use MaintenanceExport\Domain\Model\ExportDocument;

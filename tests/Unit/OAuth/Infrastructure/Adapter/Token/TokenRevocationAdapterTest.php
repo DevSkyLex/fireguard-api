@@ -6,7 +6,8 @@ namespace Tests\Unit\OAuth\Infrastructure\Adapter\Token;
 
 use DateTimeImmutable;
 use Defuse\Crypto\Crypto;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort, RefreshTokenRepositoryPort, TokenCachePort, UserTokenRevocationPort};
+use OAuth\Application\Port\Outbound\Internal\Token\{AccessTokenRepositoryPort, RefreshTokenRepositoryPort};
+use OAuth\Application\Port\Outbound\Token\{JwtParserPort, TokenCachePort, UserTokenRevocationPort};
 use OAuth\Domain\Event\Token\TokenRevokedEvent;
 use OAuth\Domain\Model\Token\{AccessToken, RefreshToken};
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;

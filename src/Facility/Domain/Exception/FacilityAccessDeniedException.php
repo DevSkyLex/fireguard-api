@@ -11,7 +11,7 @@ use RuntimeException;
  *
  * Thrown when the caller is inside the organization's scope but lacks the
  * required `organization.facilities.*` permission — mirrors
- * {@see \Intervention\Domain\Exception\InterventionAccessDeniedException}.
+ * {@see \Intervention\Application\Contract\Resource\InterventionAccessDeniedException}.
  *
  * @category Exception
  * @version 1.0.0

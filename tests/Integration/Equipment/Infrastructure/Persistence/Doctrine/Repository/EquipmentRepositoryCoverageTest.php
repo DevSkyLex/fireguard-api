@@ -377,11 +377,12 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
     ?DateTimeImmutable $createdAt = null,
   ): void {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
     $timestamp = $createdAt ?? new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     $record = new EquipmentRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->recordStatus = $recordStatus;
     $record->type = $type;
     $record->status = $status;

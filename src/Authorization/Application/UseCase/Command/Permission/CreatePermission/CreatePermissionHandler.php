@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Authorization\Application\UseCase\Command\Permission\CreatePermission;
 
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\PermissionRepositoryPort;
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\ValueObject\{PermissionId, PermissionName};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Handler CreatePermissionHandler.
@@ -27,11 +27,11 @@ final readonly class CreatePermissionHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param PermissionRepositoryPort $permissionRepository the permission repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    */
   public function __construct(
     private PermissionRepositoryPort $permissionRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
   ) {
   }
   // #endregion
@@ -51,7 +51,7 @@ final readonly class CreatePermissionHandler implements CommandHandler
   public function __invoke(CreatePermissionCommand $command): CreatePermissionResult
   {
     $permission = Permission::create(
-      id: $this->uuidFactory->create(PermissionId::class),
+      id: new PermissionId($this->uuidFactory->generate()),
       name: new PermissionName(value: $command->name),
       description: $command->description ?? '',
     );

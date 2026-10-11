@@ -15,10 +15,9 @@ use Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\{Ma
 use Intervention\Domain\Event\Recurrence\InterventionRecurrenceMaterializedEvent;
 use Notification\Application\Contract\Notification\SendNotificationRequest;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\{OrganizationMemberDirectoryPort, OrganizationNotificationPolicyPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\VoidResult;
@@ -249,14 +248,14 @@ final class MaterializeDueRecurrencesHandlerTest extends TestCase
       $templates,
       $draftFactory,
       $this->createStub(InterventionLabelPort::class),
-      new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class)),
+      new InterventionMemberPolicy($this->createStub(OrganizationMemberDirectoryPort::class)),
     );
 
     $notifier = new InterventionRecurrenceNotifier(
       $notifications,
       $this->notificationPolicy(),
       $this->members(),
-      new InterventionRecurrenceRecipientResolver($this->members(), $this->createStub(OrganizationAuthorizationPort::class)),
+      new InterventionRecurrenceRecipientResolver($this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class)),
     );
 
     $clock = $this->createStub(ClockPort::class);
@@ -281,21 +280,14 @@ final class MaterializeDueRecurrencesHandlerTest extends TestCase
     return $policy;
   }
 
-  private function members(): OrganizationMemberRepositoryPort
+  private function members(): OrganizationMemberDirectoryPort
   {
-    $responsible = OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::RESPONSIBLE_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      'responsible-user',
-      true,
-      new DateTimeImmutable(),
-    );
+    $responsible = new OrganizationMemberView(self::RESPONSIBLE_ID, self::ORGANIZATION_ID, 'responsible-user', true);
 
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findById')->willReturnCallback(
-      static fn (OrganizationMemberId $id): ?OrganizationMember => self::RESPONSIBLE_ID === $id->value ? $responsible : null,
+      static fn (string $id): ?OrganizationMemberView => self::RESPONSIBLE_ID === $id ? $responsible : null,
     );
-    $repository->method('findByOrganizationId')->willReturn([$responsible]);
 
     return $repository;
   }

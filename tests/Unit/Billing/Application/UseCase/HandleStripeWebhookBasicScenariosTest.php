@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Billing\Application\UseCase;
 
 use Billing\Application\Contract\Stripe\{StripeEvent, StripeSubscription};
-use Billing\Application\Port\Outbound\{
-  OrganizationPlanAssignmentPort,
-  StripeGatewayPort,
-  SubscriptionRepositoryPort
-};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\OrganizationPlanAssignmentPort;
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Application\UseCase\Command\HandleStripeWebhook\{
   HandleStripeWebhookCommand,
@@ -19,8 +16,7 @@ use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\SubscriptionId;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 use Tests\Support\Billing\ImmediateBillingReconciliation;
 
 /**
@@ -153,10 +149,10 @@ final class HandleStripeWebhookBasicScenariosTest extends TestCase
     ];
   }
 
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
-    $factory = $this->createStub(UuidFactory::class);
-    $factory->method('create')->willReturn(SubscriptionId::fromString(self::SUBSCRIPTION_ID));
+    $factory = $this->createStub(UuidGeneratorPort::class);
+    $factory->method('generate')->willReturn(self::SUBSCRIPTION_ID);
 
     return $factory;
   }

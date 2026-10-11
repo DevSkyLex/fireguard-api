@@ -4,23 +4,24 @@ declare(strict_types=1);
 
 namespace Inspection\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
+use Inspection\Application\Contract\Event\Export\InspectionReportExportedEvent;
 use Inspection\Application\Contract\Response\InspectionResponseView;
-use Inspection\Application\Port\Outbound\{InspectionReportEntitlementPort, InspectionReportPdfRendererPort};
+use Inspection\Application\Port\Outbound\InspectionReportPdfRendererPort;
+use Inspection\Application\UseCase\Command\Export\RecordInspectionExport\RecordInspectionExportCommand;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspectionQuery, GetInspectionResult};
 use Inspection\Application\UseCase\Query\NonConformity\ListNonConformities\{ListNonConformitiesQuery, NonConformityResult};
+use Inspection\Application\UseCase\Query\Report\ResolveInspectionReportAccess\{ResolveInspectionReportAccessQuery, ResolveInspectionReportAccessResult};
 use Inspection\Application\UseCase\Query\Response\ListInspectionResponses\{ListInspectionResponsesQuery, ListInspectionResponsesResult};
-use Inspection\Domain\Event\Export\InspectionReportExportedEvent;
-use Inspection\Domain\Exception\{InspectionNotFoundException, InspectionReportNotEntitledException};
+use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Presentation\Api\Trait\InspectionExportExceptionMapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
+use Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort;
+use Shared\Application\Contract\Document\DocumentDateFormatter;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
-use Shared\Application\Document\DocumentDateFormatter;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
@@ -65,15 +66,6 @@ final class ExportInspectionReportController extends AbstractController
 
   // #region Constants
   /**
-   * Constant READ_PERMISSION.
-   *
-   * Organization permission required to export inspection reports.
-   *
-   * @access private
-   */
-  private const string READ_PERMISSION = 'organization.inspection.read';
-
-  /**
    * Constant MAX_ITEMS_PER_SECTION.
    *
    * Bounds the number of inspection report items loaded for each section.
@@ -90,20 +82,16 @@ final class ExportInspectionReportController extends AbstractController
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param OrganizationDocumentBrandingPort $branding the organization document branding port
-   * @param InspectionReportEntitlementPort $entitlement the report entitlement port
    * @param InspectionReportPdfRendererPort $renderer the PDF renderer port
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param CommandBusPort $commandBus the domain event dispatcher
    * @param Security $security the security service
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
-    private readonly OrganizationAuthorizationPort $authorization,
     private readonly OrganizationDocumentBrandingPort $branding,
-    private readonly InspectionReportEntitlementPort $entitlement,
     private readonly InspectionReportPdfRendererPort $renderer,
-    private readonly EventDispatcherPort $eventDispatcher,
+    private readonly CommandBusPort $commandBus,
     private readonly Security $security,
   ) {
   }
@@ -122,7 +110,7 @@ final class ExportInspectionReportController extends AbstractController
   public function __invoke(Request $request): Response
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -132,18 +120,11 @@ final class ExportInspectionReportController extends AbstractController
       throw new BadRequestHttpException('OrganizationId and inspectionId URI parameters are required.');
     }
 
-    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, self::READ_PERMISSION);
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
-    }
-
-    if (!$this->entitlement->isExportEntitled($organizationId)) {
-      $notEntitled = InspectionReportNotEntitledException::planTooLow($organizationId);
-
-      throw new AccessDeniedHttpException($notEntitled->getMessage(), $notEntitled);
+    try {
+      /** @var ResolveInspectionReportAccessResult $access */
+      $access = $this->queryBus->ask(new ResolveInspectionReportAccessQuery($user->getId(), $organizationId));
+    } catch (Throwable $exception) {
+      throw $this->mapExportException($exception);
     }
 
     try {
@@ -171,7 +152,7 @@ final class ExportInspectionReportController extends AbstractController
       throw $this->mapReportException($exception);
     }
 
-    $planKey = $this->entitlement->resolvePlanKey($organizationId) ?? 'unknown';
+    $planKey = $access->planKey;
 
     $context = $this->buildContext($inspectionResult, $responsesResult, $nonConformitiesResult);
     $context['planKey'] = $planKey;
@@ -179,12 +160,12 @@ final class ExportInspectionReportController extends AbstractController
 
     $pdf = $this->renderer->render($context);
 
-    $this->eventDispatcher->dispatch(new InspectionReportExportedEvent(
+    $this->commandBus->dispatch(new RecordInspectionExportCommand(new InspectionReportExportedEvent(
       inspectionId: $inspectionId,
       organizationId: $organizationId,
       actorUserId: $user->getId(),
       planKey: $planKey,
-    ));
+    )));
 
     $fileName = sprintf('inspection-%s-report.pdf', $inspectionId);
 

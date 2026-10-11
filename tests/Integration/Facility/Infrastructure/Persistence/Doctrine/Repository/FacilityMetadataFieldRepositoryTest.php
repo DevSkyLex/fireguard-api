@@ -86,7 +86,7 @@ final class FacilityMetadataFieldRepositoryTest extends KernelTestCase
 
     self::assertInstanceOf(FacilityMetadataField::class, $found);
     self::assertSame('surface-m2', (string) $found->key());
-    self::assertSame('m²', $found->unit());
+    self::assertSame('mÂ²', $found->unit());
     self::assertSame(FacilityMetadataFieldType::NUMBER, $found->fieldType());
   }
 
@@ -150,7 +150,7 @@ final class FacilityMetadataFieldRepositoryTest extends KernelTestCase
       ),
     );
 
-    $this->expectException(\Doctrine\DBAL\Exception\UniqueConstraintViolationException::class);
+    $this->expectException(\Shared\Application\Contract\Persistence\UniqueConstraintViolationException::class);
 
     $this->repository->save($duplicate);
   }
@@ -173,7 +173,7 @@ final class FacilityMetadataFieldRepositoryTest extends KernelTestCase
     $fields = $this->repository->findByOrganizationId(FacilityOrganizationId::fromString(self::ORGANIZATION_ID));
 
     self::assertCount(2, $fields);
-    self::assertSame('Surface (m²)', (string) $fields[0]->label());
+    self::assertSame('Surface (mÂ²)', (string) $fields[0]->label());
     self::assertSame('Zed field', (string) $fields[1]->label());
   }
 
@@ -212,10 +212,10 @@ final class FacilityMetadataFieldRepositoryTest extends KernelTestCase
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
       definition: new FacilityMetadataFieldDefinition(
         key: new FacilityMetadataFieldKey('surface-m2'),
-        label: new FacilityMetadataFieldLabel('Surface (m²)'),
+        label: new FacilityMetadataFieldLabel('Surface (mÂ²)'),
         fieldType: FacilityMetadataFieldType::NUMBER,
         required: true,
-        unit: 'm²',
+        unit: 'mÂ²',
         facilityType: FacilityType::BUILDING,
       ),
     );

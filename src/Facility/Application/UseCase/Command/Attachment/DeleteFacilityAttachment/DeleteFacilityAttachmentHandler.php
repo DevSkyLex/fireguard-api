@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityPlanReferenceCleanupPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\FacilityPlanReferenceCleanupPort;
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityRevisionMismatchException};
 use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotFoundException};
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityOrganizationId};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{FileStoragePort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{FileCleanupPort, TransactionManagerPort};
 
 /**
  * UseCase DeleteFacilityAttachmentHandler.
@@ -30,16 +33,17 @@ final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
    *
    * @param FacilityRepositoryPort $facilityRepository port used to validate the facility and its organization scope
    * @param FacilityAttachmentRepositoryPort $attachmentRepository port used to load and remove attachment metadata
-   * @param FileStoragePort $fileStorage port used to delete the attachment bytes
+   * @param FileCleanupPort $cleanup records deletion after the owning commit
    *
    * @return void
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,
-    private FileStoragePort $fileStorage,
+    private FileCleanupPort $cleanup,
     private FacilityPlanReferenceCleanupPort $referenceCleanup,
     private TransactionManagerPort $transactionManager,
+    private OrganizationAuthorizationPort $authorization,
   ) {
   }
   // #endregion
@@ -56,23 +60,32 @@ final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
     $organizationId = FacilityOrganizationId::fromString($command->organizationId);
     $attachmentId = FacilityAttachmentId::fromString($command->attachmentId);
 
-    $facility = $this->facilityRepository->findById($facilityId);
-
-    if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
-      throw FacilityNotFoundException::withId($command->facilityId);
-    }
-
-    $attachment = $this->attachmentRepository->findById($attachmentId);
-
-    if (null === $attachment || (string) $attachment->facilityId() !== (string) $facilityId) {
-      throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
-    }
-
-    $this->transactionManager->transactional(function () use ($command, $attachmentId): void {
+    $this->transactionManager->transactional(function () use ($command, $facilityId, $organizationId, $attachmentId): void {
+      $this->attachmentRepository->lock($facilityId);
+      $facility = $this->facilityRepository->findById($facilityId);
+      if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
+        throw FacilityNotFoundException::withId($command->facilityId);
+      }
+      $attachment = $this->attachmentRepository->findById($attachmentId);
+      if (null === $attachment || (string) $attachment->facilityId() !== (string) $facilityId) {
+        throw FacilityAttachmentNotFoundException::withId($command->attachmentId);
+      }
+      if (null !== $command->userId) {
+        $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.facilities.write');
+        if ($decision->isOutsideScope()) {
+          throw new FacilityAttachmentNotFoundException('Attachment not found.');
+        }
+        if (!$decision->isGranted()) {
+          throw new FacilityAccessDeniedException('Missing organization.facilities.write permission.');
+        }
+      }
+      if (null !== $command->expectedRevision && $attachment->revision() !== $command->expectedRevision) {
+        throw FacilityRevisionMismatchException::stale();
+      }
       $this->referenceCleanup->clearForAttachment($command->organizationId, $command->attachmentId);
       $this->attachmentRepository->delete($attachmentId);
+      $this->cleanup->request($attachment->file()->storagePath);
     });
-    $this->fileStorage->delete($attachment->file()->storagePath);
 
     return new DeleteFacilityAttachmentResult(
       attachmentId: (string) $attachmentId,

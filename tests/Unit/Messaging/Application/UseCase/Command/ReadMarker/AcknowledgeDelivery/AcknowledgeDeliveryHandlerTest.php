@@ -7,7 +7,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\ReadMarker\Acknowledg
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\ReadMarker\AcknowledgeDelivery\{AcknowledgeDeliveryCommand, AcknowledgeDeliveryHandler};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException, MessagingValidationException};

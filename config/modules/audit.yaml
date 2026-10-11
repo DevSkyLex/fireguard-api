@@ -30,7 +30,7 @@ services:
   Audit\Presentation\:
     resource: '../../src/Audit/Presentation/'
 
-  Audit\Application\Port\Outbound\AuditEventRepositoryPort: '@Audit\Infrastructure\Persistence\Doctrine\Repository\AuditEventRepository'
+  Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort: '@Audit\Infrastructure\Persistence\Doctrine\Repository\AuditEventRepository'
 
   # Published inbound capability: the organization-scoped, reduced slice of the
   # ledger. Consumed cross-module by Organization's activity-feed endpoint.

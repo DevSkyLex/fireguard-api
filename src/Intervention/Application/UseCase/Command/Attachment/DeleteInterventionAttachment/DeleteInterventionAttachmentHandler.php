@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttachment;
 
-use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionAttachmentRepositoryPort;
+use Intervention\Application\Port\Outbound\InterventionMediaLookupPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
+use Intervention\Domain\Exception\InterventionPreconditionFailedException;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileCleanupPort, RootTransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -37,7 +39,7 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
    * @param InterventionResourceManager $interventionResourceManager service resolving intervention context and mutation permissions
    * @param OrganizationAuthorizationPort $authorization port used to verify organization membership and permissions
    * @param InterventionAttachmentRepositoryPort $attachmentRepository repository used to locate and remove attachment records
-   * @param FileStoragePort $fileStorage storage port used to delete the attachment bytes
+   * @param FileCleanupPort $fileCleanup durably removes bytes after commit
    *
    * @return void
    */
@@ -45,7 +47,9 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
     private InterventionResourceManager $interventionResourceManager,
     private OrganizationAuthorizationPort $authorization,
     private InterventionAttachmentRepositoryPort $attachmentRepository,
-    private FileStoragePort $fileStorage,
+    private FileCleanupPort $fileCleanup,
+    private RootTransactionManagerPort $transactions,
+    private InterventionMediaLookupPort $media,
   ) {
   }
   // #endregion
@@ -58,45 +62,56 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
    */
   public function __invoke(DeleteInterventionAttachmentCommand $command): DeleteInterventionAttachmentResult
   {
-    $context = $this->interventionResourceManager->interventionContext($command->interventionId);
+    return $this->transactions->transactional(function () use ($command): DeleteInterventionAttachmentResult {
+      $context = $this->interventionResourceManager->interventionContext($command->interventionId);
 
-    if (null === $context) {
-      throw InterventionNotFoundException::withId($command->interventionId);
-    }
+      if (null === $context) {
+        throw InterventionNotFoundException::withId($command->interventionId);
+      }
 
-    // Scope gate BEFORE the permission is derived — see the identical note in
-    // AddInterventionAttachmentHandler: deriving the permission reads the
-    // intervention's phase and can throw a conflict, which would confirm to
-    // an outsider that this intervention exists.
-    if (!$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
-      throw InterventionNotFoundException::withId($command->interventionId);
-    }
+      // Scope gate BEFORE the permission is derived — see the identical note in
+      // AddInterventionAttachmentHandler: deriving the permission reads the
+      // intervention's phase and can throw a conflict, which would confirm to
+      // an outsider that this intervention exists.
+      if (!$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
+        throw InterventionNotFoundException::withId($command->interventionId);
+      }
 
-    $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
+      $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
 
-    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
-      throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
-    }
+      if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
+        throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
+      }
 
-    try {
-      $attachmentId = InterventionAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw InvalidValueException::because($exception->getMessage(), $exception);
-    }
+      try {
+        $attachmentId = InterventionAttachmentId::fromString($command->attachmentId);
+      } catch (InvalidValueException $exception) {
+        throw InvalidValueException::because($exception->getMessage(), $exception);
+      }
 
-    $attachment = $this->attachmentRepository->findById($attachmentId);
+      $attachment = $this->attachmentRepository->findById($attachmentId);
 
-    if (null === $attachment || $attachment->interventionId() !== $command->interventionId) {
-      throw InterventionAttachmentNotFoundException::withId($command->attachmentId);
-    }
+      if (null === $attachment || $attachment->interventionId() !== $command->interventionId) {
+        throw InterventionAttachmentNotFoundException::withId($command->attachmentId);
+      }
 
-    $this->attachmentRepository->delete($attachmentId);
-    $this->fileStorage->delete($attachment->storagePath());
+      $stored = $this->media->attachment($command->attachmentId, lock: true);
+      if (null === $stored) {
+        throw new InterventionAttachmentNotFoundException('Attachment not found.');
+      }
+      if (null !== $command->expectedRevision && $stored->revision !== $command->expectedRevision) {
+        throw new InterventionPreconditionFailedException('The resource revision is stale.');
+      }
 
-    return new DeleteInterventionAttachmentResult(
-      attachmentId: (string) $attachmentId,
-      interventionId: $command->interventionId,
-    );
+      $this->attachmentRepository->delete($attachmentId);
+      $this->fileCleanup->request($attachment->storagePath());
+      $this->interventionResourceManager->touchDraftIntervention($command->interventionId);
+
+      return new DeleteInterventionAttachmentResult(
+        attachmentId: (string) $attachmentId,
+        interventionId: $command->interventionId,
+      );
+    });
   }
   // #endregion
 }

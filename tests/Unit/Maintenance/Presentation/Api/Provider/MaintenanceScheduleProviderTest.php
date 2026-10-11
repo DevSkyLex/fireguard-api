@@ -52,7 +52,7 @@ final class MaintenanceScheduleProviderTest extends TestCase
 
     $provider = new MaintenanceScheduleProvider($queryBus, new MaintenanceScheduleOutputFactory(), $this->security(), new RequestStack());
 
-    $output = $provider->provide(new Get(), ['id' => self::SCHEDULE_ID]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new Get(), ['id' => self::SCHEDULE_ID]));
 
     self::assertInstanceOf(MaintenanceScheduleOutput::class, $output);
     self::assertSame(self::SCHEDULE_ID, $output->id);
@@ -73,7 +73,7 @@ final class MaintenanceScheduleProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $provider->provide(new GetCollection(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(), []));
   }
 
   #[Test]
@@ -93,7 +93,7 @@ final class MaintenanceScheduleProviderTest extends TestCase
 
     $provider = new MaintenanceScheduleProvider($queryBus, new MaintenanceScheduleOutputFactory(), $this->security(), $requestStack);
 
-    $result = $provider->provide(new GetCollection(), []);
+    $result = \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(), []));
 
     self::assertInstanceOf(TraversablePaginator::class, $result);
   }
@@ -109,7 +109,7 @@ final class MaintenanceScheduleProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Schedule not found.');
 
-    $provider->provide(new Get(), ['id' => self::SCHEDULE_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new Get(), ['id' => self::SCHEDULE_ID]));
   }
 
   #[Test]
@@ -128,7 +128,7 @@ final class MaintenanceScheduleProviderTest extends TestCase
 
     $provider = new MaintenanceScheduleProvider($queryBus, new MaintenanceScheduleOutputFactory(), $this->security(), $requestStack);
 
-    self::assertInstanceOf(TraversablePaginator::class, $provider->provide(new GetCollection(), []));
+    self::assertInstanceOf(TraversablePaginator::class, \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(), [])));
   }
 
   #[Test]
@@ -147,7 +147,7 @@ final class MaintenanceScheduleProviderTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Invalid "dueBefore" filter.');
 
-    $provider->provide(new GetCollection(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(), []));
   }
 
   #[Test]
@@ -164,7 +164,7 @@ final class MaintenanceScheduleProviderTest extends TestCase
     $this->expectException(UnprocessableEntityHttpException::class);
     $this->expectExceptionMessage('Unknown due status.');
 
-    $provider->provide(new GetCollection(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(), []));
   }
 
   #[Test]
@@ -183,7 +183,7 @@ final class MaintenanceScheduleProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $provider->provide(new GetCollection(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Maintenance', fn () => $provider->provide(new GetCollection(), []));
   }
 
   private function security(): Security

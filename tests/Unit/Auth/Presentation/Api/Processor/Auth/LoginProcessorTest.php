@@ -9,7 +9,7 @@ use Auth\Application\UseCase\Command\Session\Login\LoginResult;
 use Auth\Presentation\Api\Dto\Input\Auth\LoginInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Processor\Auth\LoginProcessor;
-use Auth\Presentation\Api\Service\RefreshTokenCookieService;
+use Auth\Presentation\Api\Service\{RefreshTokenCookieService, TrustedDeviceCookieService};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -19,7 +19,6 @@ use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
 use Symfony\Contracts\Translation\TranslatorInterface;
-use TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService;
 
 /**
  * Test LoginProcessorTest.

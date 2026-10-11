@@ -4,15 +4,26 @@ declare(strict_types=1);
 
 namespace Tests\Integration\User\Infrastructure\Adapter\User;
 
+use Authorization\Infrastructure\Adapter\Lifecycle\AuthorizationDataLifecycleAdapter;
 use Doctrine\ORM\EntityManagerInterface;
+use OAuth\Infrastructure\Adapter\Lifecycle\OAuthDataLifecycleAdapter;
 use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
+use Otp\Infrastructure\Adapter\Lifecycle\OtpDataLifecycleAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
+use Session\Infrastructure\Adapter\Lifecycle\SessionDataLifecycleAdapter;
 use Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository;
+use Shared\Application\Port\Outbound\FileCleanupPort;
 use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use User\Infrastructure\Adapter\User\UserDataPurgeAdapter;
+use Tests\Support\Factory\UserTestFactory;
+use TrustedDevice\Infrastructure\Adapter\Lifecycle\TrustedDeviceDataLifecycleAdapter;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\UseCase\Command\User\DeleteUser\{DeleteUserCommand, DeleteUserHandler};
+use User\Infrastructure\Adapter\User\{AvatarPersistenceAdapter, UserDataPurgeAdapter};
+
+use function substr;
 
 /**
  * Test UserDataPurgeAdapterIntegrationTest.
@@ -45,7 +56,7 @@ final class UserDataPurgeAdapterIntegrationTest extends KernelTestCase
     $this->sessions = new SessionRepository(entityManager: $this->entityManager);
     $purge = $container->get(TotpEnrollmentPurgePort::class);
     self::assertInstanceOf(TotpEnrollmentPurgePort::class, $purge);
-    $this->adapter = new UserDataPurgeAdapter($this->entityManager, $purge);
+    $this->adapter = $this->purgeAdapter($this->entityManager, $purge);
   }
 
   protected function tearDown(): void
@@ -104,6 +115,32 @@ final class UserDataPurgeAdapterIntegrationTest extends KernelTestCase
   }
 
   #[Test]
+  public function testDeletionPurgesScalarRoleLinksBeforeTheNoActionUserForeignKey(): void
+  {
+    $users = self::getContainer()->get(UserRepositoryPort::class);
+    self::assertInstanceOf(UserRepositoryPort::class, $users);
+    $connection = $this->entityManager->getConnection();
+    $roleId = $connection->fetchOne("SELECT id FROM roles WHERE name = 'user'");
+    self::assertIsString($roleId);
+    $targetId = '8a2d3b01-5e3f-4b2c-9d40-000000000207';
+    $otherId = '8a2d3b01-5e3f-4b2c-9d40-000000000208';
+    foreach ([$targetId, $otherId] as $userId) {
+      $users->save(UserTestFactory::createActive(id: $userId, email: $userId . '@example.test', username: 'role_link_' . substr($userId, -3)));
+      $connection->insert('user_roles', ['user_id' => $userId, 'role_id' => $roleId]);
+    }
+    self::assertSame('a', $connection->fetchOne("SELECT confdeltype FROM pg_constraint WHERE conrelid = 'user_roles'::regclass AND confrelid = 'users'::regclass AND contype = 'f'"));
+
+    $handler = new DeleteUserHandler($users, $this->adapter);
+    $result = $handler(new DeleteUserCommand($targetId));
+
+    self::assertSame($targetId, $result->userId);
+    self::assertFalse($connection->fetchOne('SELECT id FROM users WHERE id = ?', [$targetId]));
+    self::assertFalse($connection->fetchOne('SELECT user_id FROM user_roles WHERE user_id = ?', [$targetId]));
+    self::assertSame($otherId, $connection->fetchOne('SELECT user_id FROM user_roles WHERE user_id = ?', [$otherId]));
+    self::assertSame($otherId, $connection->fetchOne('SELECT id FROM users WHERE id = ?', [$otherId]));
+  }
+
+  #[Test]
   public function testPurgeRemovesAllTotpSecretSlotsAndPreservesTheOtherAccount(): void
   {
     $connection = $this->entityManager->getConnection();
@@ -136,5 +173,20 @@ final class UserDataPurgeAdapterIntegrationTest extends KernelTestCase
       refreshTokenId: null,
     );
   }
+
   // #endregion
+  private function purgeAdapter(EntityManagerInterface $manager, TotpEnrollmentPurgePort $totp): UserDataPurgeAdapter
+  {
+    return new UserDataPurgeAdapter(
+      entityManager: $manager,
+      totpEnrollmentPurge: $totp,
+      authorizationLifecycle: new AuthorizationDataLifecycleAdapter($manager),
+      sessionLifecycle: new SessionDataLifecycleAdapter($manager),
+      otpLifecycle: new OtpDataLifecycleAdapter($manager),
+      trusteddeviceLifecycle: new TrustedDeviceDataLifecycleAdapter($manager),
+      oauthLifecycle: new OAuthDataLifecycleAdapter($manager),
+      avatars: new AvatarPersistenceAdapter($manager, $totp),
+      avatarCleanup: $this->createStub(FileCleanupPort::class),
+    );
+  }
 }

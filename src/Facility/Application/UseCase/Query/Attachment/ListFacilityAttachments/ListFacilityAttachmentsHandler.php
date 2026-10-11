@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilitySpatialValidityResolver;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityId, FacilityOrganizationId};

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Response\ListInspectionResponses;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionResponseRepositoryPort;
 use Inspection\Application\UseCase\Query\Response\ListInspectionResponses\{ListInspectionResponsesHandler, ListInspectionResponsesQuery};
 use Inspection\Domain\Model\Response\{InspectionResponse, RestoredInspectionResponseState};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId, InspectionResponseStatus};

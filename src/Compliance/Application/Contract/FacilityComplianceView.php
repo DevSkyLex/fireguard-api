@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Compliance\Application\Contract;
 
-use Compliance\Domain\ValueObject\ComplianceStatus;
-
 use function round;
 
 /**

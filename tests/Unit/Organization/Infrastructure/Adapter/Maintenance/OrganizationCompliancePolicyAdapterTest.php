@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Infrastructure\Adapter\Maintenance;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};

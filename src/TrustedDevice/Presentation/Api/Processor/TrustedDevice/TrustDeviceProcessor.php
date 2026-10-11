@@ -6,7 +6,7 @@ namespace TrustedDevice\Presentation\Api\Processor\TrustedDevice;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -69,7 +69,7 @@ final readonly class TrustDeviceProcessor implements ProcessorInterface
       throw new BadRequestHttpException('User must be authenticated.');
     }
 
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new BadRequestHttpException('Authenticated user type is not supported.');
     }
 
@@ -80,9 +80,9 @@ final readonly class TrustDeviceProcessor implements ProcessorInterface
 
     $command = new TrustDeviceCommand(
       userId: $user->getId(),
-      userAgent: \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent', 'Unknown'),
+      userAgent: \TrustedDevice\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent', 'Unknown'),
       ipAddress: $request->getClientIp(),
-      acceptLanguage: \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('Accept-Language'),
+      acceptLanguage: \TrustedDevice\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('Accept-Language'),
     );
 
     /** @var TrustDeviceResult $result */

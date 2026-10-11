@@ -11,7 +11,7 @@ use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
 use LogicException;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Infrastructure\Messaging\Outbox\{DoctrineIdempotentConsumerAdapter, DurableEventContext, OutboxEvent, TransactionalEventDispatcher};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Bridge\Doctrine\Transport\{DoctrineTransport, DoctrineTransportFactory};
@@ -191,8 +191,8 @@ final class TransactionalOutboxTest extends KernelTestCase
 
   private function dispatcher(): TransactionalEventDispatcher
   {
-    $ids = $this->createStub(UuidFactory::class);
-    $ids->method('generateRaw')->willReturn(self::EVENT);
+    $ids = $this->createStub(UuidGeneratorPort::class);
+    $ids->method('generate')->willReturn(self::EVENT);
 
     return new TransactionalEventDispatcher($this->a, $this->sender, $ids, $this->createStub(\Shared\Application\Port\Outbound\CurrentActorPort::class));
   }

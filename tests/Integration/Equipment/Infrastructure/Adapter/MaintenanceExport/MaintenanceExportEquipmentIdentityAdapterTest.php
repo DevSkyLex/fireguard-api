@@ -110,7 +110,7 @@ final class MaintenanceExportEquipmentIdentityAdapterTest extends KernelTestCase
   {
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $this->main->getReference(OrganizationRecord::class, $organizationId);
+    $equipment->organizationId = $organizationId;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = $status;
     $equipment->recordStatus = $recordStatus;

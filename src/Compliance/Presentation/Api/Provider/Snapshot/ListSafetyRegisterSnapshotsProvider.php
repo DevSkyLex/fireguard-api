@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Compliance\Application\UseCase\Query\Snapshot\ListSafetyRegisterSnapshots\{ListSafetyRegisterSnapshotsQuery, ListSafetyRegisterSnapshotsResult};
 use Compliance\Presentation\Api\Dto\Output\Snapshot\SafetyRegisterSnapshotOutput;
 use Compliance\Presentation\Api\Factory\SafetyRegisterSnapshotOutputFactory;
@@ -75,7 +75,7 @@ final readonly class ListSafetyRegisterSnapshotsProvider implements ProviderInte
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -84,7 +84,7 @@ final readonly class ListSafetyRegisterSnapshotsProvider implements ProviderInte
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Compliance\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $page = max(1, $query->getInt('page', 1));
     $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 

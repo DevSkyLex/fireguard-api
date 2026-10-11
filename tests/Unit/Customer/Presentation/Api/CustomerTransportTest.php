@@ -6,6 +6,7 @@ namespace Tests\Unit\Customer\Presentation\Api;
 
 use ApiPlatform\Metadata\{GetCollection, Patch, Post};
 use Customer\Application\Contract\CustomerView;
+use Customer\Application\Service\CustomerViewMapper;
 use Customer\Application\UseCase\Command\ChangeCustomer\{ChangeCustomerCommand, ChangeCustomerResult};
 use Customer\Application\UseCase\Command\CreateCustomer\{CreateCustomerCommand, CreateCustomerResult};
 use Customer\Application\UseCase\Query\ListCustomers\{ListCustomersQuery, ListCustomersResult};
@@ -94,7 +95,7 @@ final class CustomerTransportTest extends TestCase
 
   private function view(): CustomerView
   {
-    return CustomerView::fromCustomer(Customer::create(self::ID, self::ORG, new CustomerDetails('Owner', null, null, null, []), new DateTimeImmutable()));
+    return CustomerViewMapper::fromCustomer(Customer::create(self::ID, self::ORG, new CustomerDetails('Owner', null, null, null, []), new DateTimeImmutable()));
   }
 
   private function actor(): CurrentActorPort

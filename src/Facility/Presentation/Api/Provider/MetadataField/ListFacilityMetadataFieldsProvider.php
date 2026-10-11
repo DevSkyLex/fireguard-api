@@ -6,12 +6,12 @@ namespace Facility\Presentation\Api\Provider\MetadataField;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\{ListMetadataFieldsQuery, ListMetadataFieldsResult, MetadataFieldResult};
 use Facility\Presentation\Api\Dto\Output\MetadataField\FacilityMetadataFieldOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -48,7 +48,6 @@ final readonly class ListFacilityMetadataFieldsProvider implements ProviderInter
    * @access public
    *
    * @param QueryBusPort $queryBus port used to dispatch the metadata-field query
-   * @param OrganizationAuthorizationPort $authorization port used to authorize the organization-scoped read
    * @param Security $security security context used to obtain the requesting member
    *
    * @return void
@@ -68,7 +67,7 @@ final readonly class ListFacilityMetadataFieldsProvider implements ProviderInter
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

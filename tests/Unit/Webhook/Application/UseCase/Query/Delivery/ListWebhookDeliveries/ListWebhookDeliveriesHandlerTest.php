@@ -7,7 +7,7 @@ namespace Tests\Unit\Webhook\Application\UseCase\Query\Delivery\ListWebhookDeliv
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
 use Webhook\Application\UseCase\Query\Delivery\ListWebhookDeliveries\{ListWebhookDeliveriesHandler, ListWebhookDeliveriesQuery, ListWebhookDeliveriesResult};
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Domain\Model\Delivery\WebhookDelivery;

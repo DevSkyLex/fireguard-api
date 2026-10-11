@@ -8,7 +8,7 @@ use Exception;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Message\ResultMessage;
 use Shared\Infrastructure\Exception\NoHandlerResultException;
 use Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerEventListenerAdapter;

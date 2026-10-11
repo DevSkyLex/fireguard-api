@@ -16,7 +16,8 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Tester\CommandTester;
-use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
+use User\Application\Contract\User\UserView;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * Test AssignRoleCommandTest.
@@ -30,21 +31,18 @@ final class AssignRoleCommandTest extends TestCase
   #[Test]
   public function testExecuteFailsWhenUserNotFound(): void
   {
-    $userRepo = $this->createMock(EntityRepository::class);
+    $userRepo = $this->createMock(UserDirectoryPort::class);
     $userRepo->expects(self::once())
-      ->method('findOneBy')
-      ->with(['email' => 'user@example.com'])
+      ->method('findByEmail')
+      ->with('user@example.com')
       ->willReturn(null);
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
-    $entityManager->expects(self::once())
-      ->method('getRepository')
-      ->with(UserRecord::class)
-      ->willReturn($userRepo);
+    $entityManager->expects(self::never())->method('getRepository');
     $entityManager->expects(self::never())
       ->method('flush');
 
-    $command = new AssignRoleCommand(entityManager: $entityManager);
+    $command = new AssignRoleCommand(entityManager: $entityManager, users: $this->directory($userRepo));
     $tester = new CommandTester($command);
 
     $tester->execute([
@@ -61,10 +59,10 @@ final class AssignRoleCommandTest extends TestCase
   {
     $user = $this->createUser();
 
-    $userRepo = $this->createMock(EntityRepository::class);
+    $userRepo = $this->createMock(UserDirectoryPort::class);
     $userRepo->expects(self::once())
-      ->method('findOneBy')
-      ->with(['email' => 'user@example.com'])
+      ->method('findByEmail')
+      ->with('user@example.com')
       ->willReturn($user);
 
     $roleRepo = $this->createMock(EntityRepository::class);
@@ -82,13 +80,12 @@ final class AssignRoleCommandTest extends TestCase
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
-        [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
       ]);
     $entityManager->expects(self::never())
       ->method('flush');
 
-    $command = new AssignRoleCommand(entityManager: $entityManager);
+    $command = new AssignRoleCommand(entityManager: $entityManager, users: $this->directory($userRepo));
     $tester = new CommandTester($command);
 
     $tester->execute([
@@ -110,10 +107,10 @@ final class AssignRoleCommandTest extends TestCase
     $user = $this->createUser();
     $role = $this->createRole('admin');
 
-    $userRepo = $this->createMock(EntityRepository::class);
+    $userRepo = $this->createMock(UserDirectoryPort::class);
     $userRepo->expects(self::once())
-      ->method('findOneBy')
-      ->with(['email' => 'user@example.com'])
+      ->method('findByEmail')
+      ->with('user@example.com')
       ->willReturn($user);
 
     $roleRepo = $this->createMock(EntityRepository::class);
@@ -136,14 +133,13 @@ final class AssignRoleCommandTest extends TestCase
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
-        [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
         [RoleAssignmentRecord::class, $assignmentRepo],
       ]);
     $entityManager->expects(self::once())
       ->method('flush');
 
-    $command = new AssignRoleCommand(entityManager: $entityManager);
+    $command = new AssignRoleCommand(entityManager: $entityManager, users: $this->directory($userRepo));
     $tester = new CommandTester($command);
 
     $tester->execute([
@@ -162,10 +158,10 @@ final class AssignRoleCommandTest extends TestCase
     $user = $this->createUser();
     $role = $this->createRole('admin');
 
-    $userRepo = $this->createMock(EntityRepository::class);
+    $userRepo = $this->createMock(UserDirectoryPort::class);
     $userRepo->expects(self::once())
-      ->method('findOneBy')
-      ->with(['email' => 'user@example.com'])
+      ->method('findByEmail')
+      ->with('user@example.com')
       ->willReturn($user);
 
     $roleRepo = $this->createMock(EntityRepository::class);
@@ -183,14 +179,13 @@ final class AssignRoleCommandTest extends TestCase
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
-        [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
         [RoleAssignmentRecord::class, $assignmentRepo],
       ]);
     $entityManager->expects(self::never())
       ->method('flush');
 
-    $command = new AssignRoleCommand(entityManager: $entityManager);
+    $command = new AssignRoleCommand(entityManager: $entityManager, users: $this->directory($userRepo));
     $tester = new CommandTester($command);
 
     $tester->execute([
@@ -209,10 +204,10 @@ final class AssignRoleCommandTest extends TestCase
     $role = $this->createRole('admin');
     $existingAssignment = $this->createAssignment($role, $user->id);
 
-    $userRepo = $this->createMock(EntityRepository::class);
+    $userRepo = $this->createMock(UserDirectoryPort::class);
     $userRepo->expects(self::once())
-      ->method('findOneBy')
-      ->with(['email' => 'user@example.com'])
+      ->method('findByEmail')
+      ->with('user@example.com')
       ->willReturn($user);
 
     $roleRepo = $this->createMock(EntityRepository::class);
@@ -233,7 +228,6 @@ final class AssignRoleCommandTest extends TestCase
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
-        [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
         [RoleAssignmentRecord::class, $assignmentRepo],
       ]);
@@ -243,7 +237,7 @@ final class AssignRoleCommandTest extends TestCase
     $entityManager->expects(self::once())
       ->method('flush');
 
-    $command = new AssignRoleCommand(entityManager: $entityManager);
+    $command = new AssignRoleCommand(entityManager: $entityManager, users: $this->directory($userRepo));
     $tester = new CommandTester($command);
 
     $tester->execute([
@@ -262,10 +256,10 @@ final class AssignRoleCommandTest extends TestCase
     $user = $this->createUser();
     $role = $this->createRole('admin');
 
-    $userRepo = $this->createMock(EntityRepository::class);
+    $userRepo = $this->createMock(UserDirectoryPort::class);
     $userRepo->expects(self::once())
-      ->method('findOneBy')
-      ->with(['email' => 'user@example.com'])
+      ->method('findByEmail')
+      ->with('user@example.com')
       ->willReturn($user);
 
     $roleRepo = $this->createMock(EntityRepository::class);
@@ -283,14 +277,13 @@ final class AssignRoleCommandTest extends TestCase
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
-        [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
         [RoleAssignmentRecord::class, $assignmentRepo],
       ]);
     $entityManager->expects(self::never())
       ->method('flush');
 
-    $command = new AssignRoleCommand(entityManager: $entityManager);
+    $command = new AssignRoleCommand(entityManager: $entityManager, users: $this->directory($userRepo));
     $tester = new CommandTester($command);
 
     $tester->execute([
@@ -309,7 +302,7 @@ final class AssignRoleCommandTest extends TestCase
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::never())->method('getRepository');
 
-    $command = new AssignRoleCommand(entityManager: $entityManager);
+    $command = new AssignRoleCommand(entityManager: $entityManager, users: $this->directory(null));
 
     $input = new ArrayInput([
       'email' => ['user@example.com'],
@@ -330,7 +323,7 @@ final class AssignRoleCommandTest extends TestCase
       ->method('getRepository')
       ->willThrowException(new RuntimeException('boom'));
 
-    $command = new AssignRoleCommand(entityManager: $entityManager);
+    $command = new AssignRoleCommand(entityManager: $entityManager, users: $this->directory(null));
     $tester = new CommandTester($command);
 
     $tester->execute([
@@ -342,19 +335,33 @@ final class AssignRoleCommandTest extends TestCase
     self::assertStringContainsString('Failed to assign role', $tester->getDisplay());
   }
 
-  private function createUser(): UserRecord
+  private function createUser(): UserView
   {
-    $user = new UserRecord();
-    $user->id = '123e4567-e89b-12d3-a456-426614174000';
-    $user->username = 'user';
-    $user->email = 'user@example.com';
-    $user->password = 'hash';
-    $user->firstName = 'User';
-    $user->lastName = 'Example';
-    $user->status = 'active';
-    $user->createdAt = new DateTimeImmutable();
+    return new UserView(
+      id: '123e4567-e89b-12d3-a456-426614174000',
+      username: 'user',
+      email: 'user@example.com',
+      firstName: 'User',
+      lastName: 'Example',
+      avatarUrl: null,
+      status: 'active',
+      emailVerified: true,
+      tenantId: null,
+      createdAt: new DateTimeImmutable(),
+      lastLoginAt: null,
+      canLogin: true,
+    );
+  }
 
-    return $user;
+  private function directory(?UserDirectoryPort $directory): UserDirectoryPort
+  {
+    if (null !== $directory) {
+      return $directory;
+    }
+    $directory = $this->createStub(UserDirectoryPort::class);
+    $directory->method('findByEmail')->willReturn($this->createUser());
+
+    return $directory;
   }
 
   private function createAssignment(RoleRecord $role, string $userId): RoleAssignmentRecord

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Approval\Presentation\Api\EventSubscriber;
 
-use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApprovalWithdrawalNotAllowedException, ApproverNotAuthorizedException, DeferredActionNoLongerApplicableException, SelfApprovalNotAllowedException};
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
+use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApprovalWithdrawalNotAllowedException, ApproverNotAuthorizedException, SelfApprovalNotAllowedException};
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;

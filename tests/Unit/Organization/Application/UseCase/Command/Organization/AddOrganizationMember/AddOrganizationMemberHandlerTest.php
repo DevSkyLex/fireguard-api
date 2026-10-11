@@ -8,14 +8,14 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Event\Member\OrganizationMemberAddedEvent;
+use Organization\Application\Contract\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler, AddOrganizationMemberResult};
-use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
-use Organization\Domain\Exception\OrganizationUserNotFoundException;
+use Organization\Domain\Exception\{OrganizationRoleNotFoundException, OrganizationUserNotFoundException};
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
@@ -24,10 +24,10 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function count;
 use function is_string;
@@ -68,11 +68,11 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($userId, 'member@example.com'));
+      ->willReturn(UserTestFactory::createActiveView($userId, 'member@example.com'));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -105,12 +105,11 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->method('findByIdsInOrganization')
       ->willReturn([$defaultRole]);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(OrganizationMemberId::class)
-      ->willReturn(new OrganizationMemberId($memberId));
+      ->method('generate')
+      ->willReturn($memberId);
 
     /** @var TransactionManagerPort&MockObject $transactionManager */
     $transactionManager = $this->createMock(TransactionManagerPort::class);
@@ -174,7 +173,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
           && $userId === $event->userId;
       }));
 
-    $grantGuard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class);
+    $grantGuard = $this->createMock(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class);
     $grantGuard->expects(self::once())->method('assertCanGrant')->with(
       self::callback(static fn (\Organization\Application\Contract\Member\OrganizationMemberGrant $grant): bool => 'actor' === $grant->reference),
       $organizationId,
@@ -253,11 +252,11 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($userId));
+      ->willReturn(UserTestFactory::createActiveView($userId));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -311,14 +310,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       }));
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $eventDispatcher,
@@ -378,11 +377,11 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($userId));
+      ->willReturn(UserTestFactory::createActiveView($userId));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -438,14 +437,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       }));
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $eventDispatcher,
@@ -506,11 +505,11 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($userId));
+      ->willReturn(UserTestFactory::createActiveView($userId));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -571,14 +570,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
         && 'technician' === $event->roleName));
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $eventDispatcher,
@@ -616,14 +615,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $logger->expects(self::never())->method('warning');
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
-      userRepository: $this->createStub(UserRepositoryPort::class),
+      userRepository: $this->createStub(UserDirectoryPort::class),
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -657,7 +656,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn($organization);
 
-    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository = $this->createStub(UserDirectoryPort::class);
     $userRepository->method('findById')->willReturn(null);
 
     /** @var TransactionManagerPort&MockObject $transactionManager */
@@ -665,14 +664,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $transactionManager->expects(self::never())->method('transactional');
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
       userRepository: $userRepository,
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -708,8 +707,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn($organization);
 
-    $userRepository = $this->createStub(UserRepositoryPort::class);
-    $userRepository->method('findById')->willReturn(UserTestFactory::createActive($userId));
+    $userRepository = $this->createStub(UserDirectoryPort::class);
+    $userRepository->method('findById')->willReturn(UserTestFactory::createActiveView($userId));
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
@@ -726,14 +725,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $transactionManager->expects(self::never())->method('transactional');
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       roleRepository: $roleRepository,
       userRepository: $userRepository,
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -771,11 +770,11 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($userId));
+      ->willReturn(UserTestFactory::createActiveView($userId));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -800,14 +799,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $logger->expects(self::never())->method('warning');
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $transactionManager,
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -856,11 +855,11 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findById')
-      ->willReturn(UserTestFactory::createActive($userId, 'member@example.com'));
+      ->willReturn(UserTestFactory::createActiveView($userId, 'member@example.com'));
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -885,12 +884,11 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->method('findByIdsInOrganization')
       ->willReturn([$role]);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(OrganizationMemberId::class)
-      ->willReturn(new OrganizationMemberId($memberId));
+      ->method('generate')
+      ->willReturn($memberId);
 
     /** @var TransactionManagerPort&MockObject $transactionManager */
     $transactionManager = $this->createMock(TransactionManagerPort::class);
@@ -920,7 +918,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       );
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
@@ -966,14 +964,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $quota->expects(self::never())->method('assertCanAdd');
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       userRepository: $userRepository,
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $this->passthroughTransactionManager(),
       quota: $quota,
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -1013,14 +1011,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5));
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       userRepository: $userRepository,
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $this->passthroughTransactionManager(),
       quota: $quota,
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -1055,14 +1053,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new AddOrganizationMemberHandler(
-      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class),
+      grantGuard: $this->createStub(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class),
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       userRepository: $userRepository,
       notificationPort: $this->createStub(NotificationPort::class),
       logger: $this->createStub(LoggerPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
       transactionManager: $this->passthroughTransactionManager(),
       quota: $this->createStub(OrganizationQuotaPort::class),
       eventDispatcher: $eventDispatcher,
@@ -1092,9 +1090,9 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $transactions = $this->createMock(TransactionManagerPort::class);
     $transactions->expects(self::never())->method('transactional');
     $grant = \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('actor');
-    $guard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class);
+    $guard = $this->createMock(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class);
     $guard->expects(self::once())->method('assertCanGrant')->with($grant, $organizationId, self::anything(), [$roleId])
-      ->willThrowException(\Organization\Domain\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.read'));
+      ->willThrowException(\Organization\Application\Contract\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.read'));
     $handler = new AddOrganizationMemberHandler(
       $organizations,
       $members,
@@ -1102,14 +1100,14 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       $users,
       $this->createStub(NotificationPort::class),
       $this->createStub(LoggerPort::class),
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
       $transactions,
       $this->createStub(OrganizationQuotaPort::class),
       $this->createStub(EventDispatcherPort::class),
       $guard,
     );
 
-    $this->expectException(\Organization\Domain\Exception\OrganizationAccessDeniedException::class);
+    $this->expectException(\Organization\Application\Contract\Exception\OrganizationAccessDeniedException::class);
     $handler(new AddOrganizationMemberCommand($organizationId, $userId, $grant, [$roleId]));
   }
 
@@ -1129,7 +1127,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $members->expects(self::never())->method('save');
     $members->expects(self::never())->method('assignRole');
     $members->expects(self::never())->method('unassignRole');
-    $guard = $this->createMock(\Organization\Application\Port\Inbound\OrganizationMemberGrantGuardPort::class);
+    $guard = $this->createMock(\Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort::class);
     $calls = 0;
     $guard->expects(self::exactly(2))->method('assertCanGrant')->willReturnCallback(
       static function (\Organization\Application\Contract\Member\OrganizationMemberGrant $grant, string $organization, string $email, array $effectiveRoles) use (&$calls, $roleId, $retainedRoleId): void {
@@ -1142,7 +1140,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
         }
         self::assertSame([$roleId, $retainedRoleId], $effectiveRoles);
 
-        throw \Organization\Domain\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.roles.manage');
+        throw \Organization\Application\Contract\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.roles.manage');
       },
     );
     $events = $this->createMock(EventDispatcherPort::class);
@@ -1154,7 +1152,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       $users,
       $this->createStub(NotificationPort::class),
       $this->createStub(LoggerPort::class),
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
       $this->passthroughTransactionManager(),
       $this->createStub(OrganizationQuotaPort::class),
       $events,
@@ -1164,7 +1162,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     try {
       $handler(new AddOrganizationMemberCommand($organizationId, $userId, \Organization\Application\Contract\Member\OrganizationMemberGrant::forActor('limited-actor'), [$roleId]));
       self::fail('The retained administrative grant must prevent activation.');
-    } catch (\Organization\Domain\Exception\OrganizationAccessDeniedException) {
+    } catch (\Organization\Application\Contract\Exception\OrganizationAccessDeniedException) {
       self::assertFalse($inactive->isActive());
     }
   }
@@ -1173,7 +1171,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
    * Builds the organization/user/member/role repository stubs for an existing
    * active member so the quota-branch tests can focus on the enforceQuota flag.
    *
-   * @return array{OrganizationRepositoryPort, UserRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort}
+   * @return array{OrganizationRepositoryPort, UserDirectoryPort, OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort}
    */
   private function activeMemberFixtures(string $organizationId, string $memberId, string $userId, string $roleId): array
   {
@@ -1207,8 +1205,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn($organization);
 
-    $userRepository = $this->createStub(UserRepositoryPort::class);
-    $userRepository->method('findById')->willReturn(UserTestFactory::createActive($userId));
+    $userRepository = $this->createStub(UserDirectoryPort::class);
+    $userRepository->method('findById')->willReturn(UserTestFactory::createActiveView($userId));
 
     $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
     $memberRepository->method('findByOrganizationAndUser')->willReturn($member);

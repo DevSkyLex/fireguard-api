@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AccessTokenRepositoryPort;
 use OAuth\Domain\Model\Token\AccessToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;

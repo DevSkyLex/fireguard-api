@@ -63,7 +63,15 @@ api_platform:
   # The prescribed fix for a handler that wants a status is a DOMAIN exception,
   # not an entry here. That work is cleanup, not a defect: nothing is broken.
   exception_to_status:
+    Audit\Application\Contract\AuditExportAccessDeniedException: 403
     Shared\Application\Contract\Image\InvalidImageInputException: 422
+    Intervention\Application\Contract\Resource\InterventionNotFoundException: 404
+    Intervention\Application\Contract\Resource\InterventionResourceNotFoundException: 404
+    Intervention\Application\Contract\Resource\InterventionConflictException: 409
+    Intervention\Application\Contract\Resource\InterventionAccessDeniedException: 403
+    Intervention\Domain\Exception\InterventionAttachmentNotFoundException: 404
+    Inspection\Domain\Exception\InspectionAttachmentNotFoundException: 404
+    Inspection\Domain\Exception\InspectionAccessDeniedException: 403
     Audit\Domain\Exception\AuditEventNotFoundException: 404
     Workload\Domain\Exception\WorkloadNotFoundException: 404
     Workload\Domain\Exception\WorkloadAccessDeniedException: 403
@@ -259,7 +267,7 @@ api_platform:
     # The referenced user does not exist. 400 said "your request is malformed"
     # about a well-formed request naming an absent resource.
     Organization\Domain\Exception\OrganizationUserNotFoundException: 404
-    Organization\Domain\Exception\OrganizationAccessDeniedException: 403
+    Organization\Application\Contract\Exception\OrganizationAccessDeniedException: 403
     Organization\Domain\Exception\OrganizationArchivedException: 409
     Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException: 422
     Organization\Domain\Exception\OrganizationInvitationNotFoundException: 404
@@ -269,11 +277,11 @@ api_platform:
     # would have turned its 409 into a 500. Its own unit test is what caught it.
     Organization\Domain\Exception\OrganizationMemberNotInactiveException: 409
     Organization\Domain\Exception\OrganizationMemberNotFoundException: 404
-    Organization\Domain\Exception\OrganizationNotFoundException: 404
+    Organization\Application\Contract\Exception\OrganizationNotFoundException: 404
     Organization\Domain\Exception\OrganizationOwnerCannotLeaveException: 409
     Organization\Domain\Exception\OrganizationOwnershipUnchangedException: 409
     Organization\Domain\Exception\OrganizationRoleNotFoundException: 404
-    Organization\Domain\Exception\OrganizationSlugAlreadyExistsException: 409
+    Organization\Application\Contract\Exception\OrganizationSlugAlreadyExistsException: 409
     Organization\Domain\Exception\PlanKeyAlreadyExistsException: 409
     Organization\Domain\Exception\PlanNotFoundException: 404
     Organization\Domain\Exception\TeamMemberNotFoundException: 404

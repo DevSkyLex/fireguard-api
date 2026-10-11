@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Otp\Application\UseCase\Command\Totp\SetupTotp;
 
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\UseCase\Command\Totp\SetupTotp\{SetupTotpCommand, SetupTotpHandler, SetupTotpResult};
 use Otp\Domain\Exception\TotpEnrollmentUnavailableException;
 use Otp\Domain\Model\Totp\TotpEnrollment;

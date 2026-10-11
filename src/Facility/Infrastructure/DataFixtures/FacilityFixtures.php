@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\DataFixtures;
 
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityStatus, FacilityType};
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
+use Shared\Application\Contract\Seed\{SeedReference, SeedTimeline};
+use Shared\Application\Port\Inbound\{SeedReferenceConsumerPort, SeedReferenceRegistryPort};
 use Shared\Domain\Attachment\StoragePathScheme;
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
 
 use function dirname;
 use function file_get_contents;
@@ -31,8 +30,10 @@ use function substr;
  *
  * @category DataFixtures
  */
-final class FacilityFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+final class FacilityFixtures extends Fixture implements FixtureGroupInterface, SeedReferenceConsumerPort
 {
+  // #endregion
+
   /**
    * The root site's identifier, paired with the literal its creation date is
    * authored on.
@@ -404,6 +405,22 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     ['id' => '512b75e9-79dd-4beb-b228-f08a63b30584', 'facilityReference' => self::LILLE_SITE_REFERENCE, 'fileName' => 'lille-sprinkler-as-built.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 1_572_864, 'label' => 'Sprinkler as-built drawings', 'uploadedAt' => '2026-03-12T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
   ];
 
+  // #region Properties
+  /**
+   * Scalar fixture facts supplied by the composition root.
+   */
+  private SeedReferenceRegistryPort $seedReferences;
+  // #endregion
+
+  // #region Methods
+  /**
+   * {@inheritdoc}
+   */
+  public function setSeedReferences(SeedReferenceRegistryPort $references): void
+  {
+    $this->seedReferences = $references;
+  }
+
   /**
    * Method getGroups
    *
@@ -431,7 +448,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
    */
   public function getDependencies(): array
   {
-    return [OrganizationFixtures::class];
+    return [];
   }
 
   /**
@@ -447,8 +464,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
    */
   public function load(ObjectManager $manager): void
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
+    /** @var SeedReference $organization */
+    $organization = $this->seedReferences->get(OrganizationFixtures::ORGANIZATION_REFERENCE);
 
     $roots = $this->seedParisRoots($manager, $organization);
     $rooms = $this->seedParisRooms($manager, $organization, $roots[self::FLOOR_ONE_REFERENCE], $roots[self::FLOOR_TWO_REFERENCE]);
@@ -573,7 +590,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
   /**
    * @return array<string, FacilityRecord>
    */
-  private function seedParisRoots(ObjectManager $manager, OrganizationRecord $organization): array
+  private function seedParisRoots(ObjectManager $manager, SeedReference $organization): array
   {
     $site = $this->createFacility(
       organization: $organization,
@@ -670,7 +687,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
   /**
    * @return array<string, FacilityRecord>
    */
-  private function seedParisRooms(ObjectManager $manager, OrganizationRecord $organization, FacilityRecord $floorOne, FacilityRecord $floorTwo): array
+  private function seedParisRooms(ObjectManager $manager, SeedReference $organization, FacilityRecord $floorOne, FacilityRecord $floorTwo): array
   {
     $zone = $this->createFacility(
       organization: $organization,
@@ -806,18 +823,18 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
    *
    * @access private
    *
-   * @param OrganizationRecord $organization owning organization record
+   * @param SeedReference $organization owning organization record
    * @param FacilitySeed $seed facility seed data
    * @param ?FacilitySeedOptions $options optional parent, location or metadata settings
    *
    * @return FacilityRecord persisted facility record
    */
-  private function createFacility(OrganizationRecord $organization, FacilitySeed $seed, ?FacilitySeedOptions $options = null): FacilityRecord
+  private function createFacility(SeedReference $organization, FacilitySeed $seed, ?FacilitySeedOptions $options = null): FacilityRecord
   {
     $options ??= new FacilitySeedOptions();
     $facility = new FacilityRecord();
     $facility->id = $seed->id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = $seed->parentFacility;
     $facility->type = $seed->type;
     $facility->name = $seed->name;

@@ -6,12 +6,11 @@ namespace Auth\Infrastructure\Security\User;
 
 use Auth\Application\Service\SecurityUserCacheKeys;
 use Authorization\Application\Port\Inbound\AuthorizationPort;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\CachePort;
 use Symfony\Component\Security\Core\Exception\{UnsupportedUserException, UserNotFoundException};
 use Symfony\Component\Security\Core\User\{UserInterface, UserProviderInterface};
 use Throwable;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_filter;
 use function array_key_exists;
@@ -58,7 +57,7 @@ final readonly class SecurityUserProvider implements UserProviderInterface
    *
    * @access public
    *
-   * @param QueryBusPort $queryBus retrieves the local user record
+   * @param UserDirectoryPort $queryBus retrieves the local user record
    * @param AuthorizationPort $authorizationService supplies the user's assigned role names
    * @param ?CachePort $cache optional cache for the authentication projection
    * @param int $cacheTtl cache freshness in seconds; non-positive values disable caching
@@ -66,7 +65,7 @@ final readonly class SecurityUserProvider implements UserProviderInterface
    * @return void
    */
   public function __construct(
-    private QueryBusPort $queryBus,
+    private UserDirectoryPort $queryBus,
     private AuthorizationPort $authorizationService,
     private ?CachePort $cache = null,
     private int $cacheTtl = self::DEFAULT_CACHE_TTL_SECONDS,
@@ -113,16 +112,14 @@ final readonly class SecurityUserProvider implements UserProviderInterface
     }
 
     try {
-      /** @var GetUserResult $result */
-      $result = $this->queryBus->ask(new GetUserQuery(id: $userId));
+      $user = $this->queryBus->findById($userId);
 
-      if (null === $result->user) {
+      if (null === $user) {
         throw new UserNotFoundException(
           message: sprintf('User "%s" not found.', $userId),
         );
       }
 
-      $user = $result->user;
 
       // Get RBAC roles
       $rbacRoles = $this->authorizationService->getUserRoleNames(userId: $user->id);

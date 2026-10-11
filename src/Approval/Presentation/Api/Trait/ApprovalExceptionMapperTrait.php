@@ -4,16 +4,10 @@ declare(strict_types=1);
 
 namespace Approval\Presentation\Api\Trait;
 
-use Approval\Domain\Exception\{
-  ApprovalAccessDeniedException,
-  ApprovalRequestNotFoundException,
-  ApprovalRequestNotPendingException,
-  ApproverNotAuthorizedException,
-  DeferredActionNoLongerApplicableException,
-  SelfApprovalNotAllowedException
-};
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
+use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApproverNotAuthorizedException, SelfApprovalNotAllowedException};
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
 

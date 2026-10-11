@@ -11,6 +11,7 @@ use Shared\Infrastructure\Messaging\WorkerHeartbeatSubscriber;
 use Symfony\Component\Messenger\{Envelope, MessageBusInterface, Worker};
 use Symfony\Component\Messenger\Event\{WorkerMessageHandledEvent, WorkerRunningEvent, WorkerStartedEvent};
 use Symfony\Component\Messenger\Transport\Receiver\ReceiverInterface;
+use Webhook\Application\UseCase\Command\Sweep\RecoverWebhookDeliveries\RecoverWebhookDeliveriesCommand;
 
 use function array_keys;
 use function file_get_contents;
@@ -31,6 +32,43 @@ use const JSON_THROW_ON_ERROR;
 
 final class WorkerHeartbeatSubscriberTest extends TestCase
 {
+  /**
+   * Method testOnlySuccessfulWebhookRecoveryRefreshesItsPersistentCompletion
+   *
+   * Idle polls and restarts cannot hide an overdue recovery sweep.
+   *
+   * @access public
+   *
+   * @return void
+   */
+  public function testOnlySuccessfulWebhookRecoveryRefreshesItsPersistentCompletion(): void
+  {
+    $path = tempnam(sys_get_temp_dir(), 'fg-webhook-health-');
+    self::assertNotFalse($path);
+    $directory = $path . '-sweeps';
+    mkdir($directory, 0700);
+    $baseline = $directory . '/monitoring-start.timestamp';
+    $sweep = $directory . '/RecoverWebhookDeliveriesCommand.timestamp';
+    file_put_contents($baseline, '123');
+    file_put_contents($sweep, '123');
+
+    try {
+      $worker = new Worker(['scheduler_webhook' => $this->createStub(ReceiverInterface::class)], $this->createStub(MessageBusInterface::class));
+      $subscriber = new WorkerHeartbeatSubscriber($path, $directory);
+      $subscriber->heartbeat(new WorkerStartedEvent($worker));
+      $subscriber->heartbeat(new WorkerRunningEvent($worker, true));
+      self::assertSame('123', file_get_contents($sweep));
+      $subscriber->sweepHandled(new WorkerMessageHandledEvent(new Envelope(new RecoverWebhookDeliveriesCommand()), 'scheduler_webhook'));
+      self::assertGreaterThanOrEqual(time() - 1, (int) file_get_contents($sweep));
+      self::assertSame('123', file_get_contents($baseline));
+    } finally {
+      unlink($path);
+      unlink($sweep);
+      unlink($baseline);
+      rmdir($directory);
+    }
+  }
+
   public function testSchedulerStartupKeepsThePersistentFirstRunBaselineAcrossRestarts(): void
   {
     $path = tempnam(sys_get_temp_dir(), 'fg-worker-health-');

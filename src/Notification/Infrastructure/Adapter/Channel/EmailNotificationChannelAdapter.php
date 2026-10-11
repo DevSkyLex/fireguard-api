@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Infrastructure\Adapter\Channel;
 
-use Notification\Application\Port\Outbound\EmailNotificationChannelPort;
+use Notification\Application\Port\Outbound\Internal\EmailNotificationChannelPort;
 use Notification\Domain\Model\Notification\Notification;
 use Shared\Application\Port\Outbound\MailerPort;
 use Twig\Environment;

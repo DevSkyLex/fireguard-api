@@ -6,14 +6,16 @@ namespace Organization\Application\UseCase\Command\Join\ManageOrganizationJoin;
 
 use DateTimeImmutable;
 use LogicException;
+use Organization\Application\Contract\Event\Member\OrganizationMemberAddedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
 use Organization\Application\Contract\Member\OrganizationMemberGrant;
-use Organization\Application\Port\Inbound\{OrganizationJoinAccessPort, OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
-use Organization\Application\Port\Outbound\{OrganizationDomainProofPort, OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Application\Port\Outbound\OrganizationJoinNotificationPort;
+use Organization\Application\Port\Inbound\Internal\OrganizationJoinAccessPort;
+use Organization\Application\Port\Inbound\{OrganizationPermissionGrantGuardPort, OrganizationQuotaPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationDomainProofPort, OrganizationJoinNotificationPort};
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationResult};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
-use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Exception\{OrganizationJoinException, OrganizationJoinInputException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationJoinException, OrganizationJoinInputException};
 use Organization\Domain\Model\OrganizationJoin\{OrganizationAccessPolicy, OrganizationDomain, OrganizationJoinRequest};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationJoinMode};
@@ -246,7 +248,7 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     }
     if ($changed) {
       $this->logger->info('Organization join operation committed.', ['operation' => $command->operation, 'organizationId' => $orgId, 'actorUserId' => $command->userId]);
-      $this->events->dispatch(new \Organization\Domain\Event\Join\OrganizationJoinChangedEvent($orgId, $command->userId, $command->operation, $changedRequest->id ?? $command->resourceId));
+      $this->events->dispatch(new \Organization\Application\Contract\Event\Join\OrganizationJoinChangedEvent($orgId, $command->userId, $command->operation, $changedRequest->id ?? $command->resourceId));
     }
     if (null !== $changedRequest) {
       $this->notify($changedRequest);

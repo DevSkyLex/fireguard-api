@@ -123,7 +123,7 @@ final class EquipmentReplacementApiTest extends WebTestCase
     $this->replace($client, [
       'clientOperationId' => self::OPERATION, 'successor' => ['type' => 'fire_extinguisher'],
     ], 409);
-    self::assertSame(2, $this->manager()->getRepository(EquipmentRecord::class)->count(['organization' => self::ORG]));
+    self::assertSame(2, $this->manager()->getRepository(EquipmentRecord::class)->count(['organizationId' => self::ORG]));
   }
 
   /**
@@ -197,7 +197,7 @@ final class EquipmentReplacementApiTest extends WebTestCase
     $this->manager()->persist($foreign);
     $foreignAsset = new EquipmentRecord();
     $foreignAsset->id = '770e8400-e29b-41d4-a716-446655491098';
-    $foreignAsset->organization = $foreign;
+    $foreignAsset->organizationId = $foreign->id;
     $foreignAsset->type = 'fire_extinguisher';
     $foreignAsset->status = 'in_stock';
     $foreignAsset->createdAt = $foreignAsset->updatedAt = new DateTimeImmutable();
@@ -333,9 +333,9 @@ final class EquipmentReplacementApiTest extends WebTestCase
   {
     $client = static::createClient();
     $client->disableReboot();
-    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users = $this->createStub(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class);
     $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
-    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    static::getContainer()->set(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class, $users);
     $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), self::USER, 'replacement@example.com'));
     $now = new DateTimeImmutable();
     $manager = $this->manager();
@@ -371,7 +371,7 @@ final class EquipmentReplacementApiTest extends WebTestCase
     $manager->persist($assignment);
     $site = new FacilityRecord();
     $site->id = self::SITE;
-    $site->organization = $organization;
+    $site->organizationId = $organization->id;
     $site->name = 'Replacement site';
     $site->type = 'site';
     $site->status = 'active';
@@ -381,7 +381,7 @@ final class EquipmentReplacementApiTest extends WebTestCase
     foreach ([self::OLD => 'operational', self::STOCK => 'in_stock'] as $id => $status) {
       $equipment = new EquipmentRecord();
       $equipment->id = $id;
-      $equipment->organization = $organization;
+      $equipment->organizationId = $organization->id;
       $equipment->type = 'fire_extinguisher';
       $equipment->status = $status;
       $equipment->facilityId = self::OLD === $id ? self::SITE : null;

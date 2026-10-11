@@ -37,7 +37,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionMapper;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionRecord
 };
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function array_key_exists;
@@ -70,6 +70,7 @@ final readonly class InterventionWorkflowInterventionWriter
     private InterventionTransitionPolicy $transitionPolicy,
     private InterventionDraftPublisher $draftPublisher,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationOwnerReadPort $organizations,
   ) {
   }
   // #endregion
@@ -125,13 +126,13 @@ final readonly class InterventionWorkflowInterventionWriter
    */
   private function createIntervention(InterventionWorkflowMutation $mutation): InterventionWorkflowView
   {
-    $id = $mutation->id ?? $this->runtime->uuidFactory->generateRaw();
+    $id = $mutation->id ?? $this->runtime->uuidFactory->generate();
     if ($mutation->createOnly && $this->runtime->entityManager->find(InterventionRecord::class, $id) instanceof InterventionRecord) {
       throw new InterventionPreconditionFailedException('The client UUID intervention already exists.');
     }
     $organizationId = InterventionWorkflowPayload::requiredString($mutation->payload, 'organizationId');
-    $organization = $this->runtime->entityManager->find(OrganizationRecord::class, $organizationId);
-    if (!$organization instanceof OrganizationRecord) {
+    $organization = $organizationId;
+    if (null === $this->organizations->ownerUserId($organization)) {
       throw InterventionNotFoundException::withId($organizationId);
     }
     $responsibleId = InterventionWorkflowPayload::nullableString($mutation->payload, 'responsibleId');
@@ -155,7 +156,7 @@ final readonly class InterventionWorkflowInterventionWriter
       ),
     ));
     $intervention = InterventionMapper::toRecord($aggregate);
-    $intervention->organization = $organization;
+    $intervention->organizationId = $organization;
     $intervention->number = $this->runtime->support->allocateNumber($organizationId);
     if (array_key_exists('labelIds', $mutation->payload)) {
       foreach ($this->runtime->support->resolveLabels($mutation->payload['labelIds'] ?? [], $organizationId) as $label) {

@@ -6,16 +6,17 @@ namespace Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility;
 
 use Facility\Application\Contract\Hierarchy\FacilityHierarchyNode;
 use Facility\Application\Port\Inbound\{FacilityArchivalGuardPort, FacilityHierarchyPort};
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort, InterventionScopePort};
+use Facility\Application\Port\Outbound\Internal\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\InterventionScopePort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Facility\Domain\Exception\{CanonicalFacilityValidationException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\CanonicalFacility;
 use Facility\Domain\ValueObject\{CanonicalFacilityChange, CanonicalFacilityParent, CanonicalFacilityPatch, FacilityId, FacilityStatus};
+use LogicException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function in_array;
 
@@ -73,9 +74,9 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
     private InterventionScopePort $interventions,
     private EventDispatcherPort $eventDispatcher,
     private TransactionManagerPort $transactionManager,
-    #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
     private ?FacilityHierarchyPort $hierarchy = null,
+    private ?\Facility\Application\Port\Inbound\FacilityMutationAuthorizationPort $authorization = null,
     private ?\Facility\Application\Port\Outbound\FacilityCustomerValidationPort $customers = null,
   ) {
   }
@@ -109,6 +110,15 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
             ?? throw FacilityNotFoundException::withId($command->facilityId);
         }
 
+        if (null !== $command->userId) {
+          ($this->authorization ?? throw new LogicException('Facility mutation authorization is unavailable.'))->assertCanMutate($command->userId, new \Facility\Application\Contract\Facility\CanonicalFacilityView(
+            (string) $facility->id(),
+            (string) $facility->organizationId(),
+            $facility->recordStatus()->value,
+            $facility->interventionId(),
+            $facility->revision(),
+          ));
+        }
         $facility->assertRevisionMatches($command->expectedRevision);
 
         $patch = self::patch($command);

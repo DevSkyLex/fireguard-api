@@ -8,12 +8,12 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Messaging\Application\UseCase\Query\Message\ListSavedMessages\{ListSavedMessagesQuery, ListSavedMessagesResult};
-use Messaging\Presentation\Api\Factory\MessageOutputFactory;
+use Messaging\Presentation\Api\Service\MessageOutputPresenter;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -48,13 +48,13 @@ final readonly class ListSavedMessagesProvider implements ProviderInterface
    * @since 1.2.0
    *
    * @param QueryBusPort $queryBus the query bus value
-   * @param MessageOutputFactory $mapper the mapper value
+   * @param MessageOutputPresenter $mapper the mapper value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
    */
   public function __construct(
     private QueryBusPort $queryBus,
-    private MessageOutputFactory $mapper,
+    private MessageOutputPresenter $mapper,
     private Security $security,
     private RequestStack $requestStack,
   ) {
@@ -75,7 +75,7 @@ final readonly class ListSavedMessagesProvider implements ProviderInterface
   {
     $user = $this->user();
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Messaging\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
@@ -109,12 +109,12 @@ final readonly class ListSavedMessagesProvider implements ProviderInterface
    *
    * @since 1.2.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

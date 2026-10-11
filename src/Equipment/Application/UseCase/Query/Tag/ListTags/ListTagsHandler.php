@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Query\Tag\ListTags;
 
-use Equipment\Application\Port\Outbound\TagRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\TagRepositoryPort;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
 use Shared\Application\Message\QueryHandler;
 

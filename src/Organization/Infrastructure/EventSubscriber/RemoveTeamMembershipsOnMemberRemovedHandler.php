@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\EventSubscriber;
 
-use Organization\Application\Port\Outbound\TeamRepositoryPort;
-use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Contract\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Application\Port\Outbound\Internal\TeamRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationMemberId;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 

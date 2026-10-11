@@ -7,7 +7,7 @@ namespace Tests\Unit\Webhook\Application\UseCase\Command\Subscription\UpdateWebh
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Application\Port\Outbound\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
 use Webhook\Application\UseCase\Command\Subscription\UpdateWebhookSubscription\{UpdateWebhookSubscriptionCommand, UpdateWebhookSubscriptionHandler, UpdateWebhookSubscriptionResult};
 use Webhook\Domain\Exception\{WebhookSubscriptionNotFoundException, WebhookValidationException};
 use Webhook\Domain\Model\Subscription\WebhookSubscription;

@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use Procurement\Application\Contract\{ProcurementOperationState, ProcurementReceiptState, ProcurementReturnState};
-use Procurement\Application\Port\Outbound\Persistence\ProcurementRepositoryPort;
+use Procurement\Application\Port\Outbound\Internal\Persistence\ProcurementRepositoryPort;
 use Procurement\Application\Service\ProcurementProjection;
 use Procurement\Application\UseCase\Command\ManageProcurement\{ManageProcurementCommand, ManageProcurementHandler};
 use Procurement\Domain\Exception\ProcurementException;

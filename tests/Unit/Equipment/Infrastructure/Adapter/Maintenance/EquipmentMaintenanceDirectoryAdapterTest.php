@@ -65,10 +65,10 @@ final class EquipmentMaintenanceDirectoryAdapterTest extends TestCase
   public function testFindEquipmentRefusesARecordWithoutAnOrganization(): void
   {
     $record = $this->record();
-    $record->organization = null;
+
 
     $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('createQueryBuilder')->willReturn($this->queryBuilder([$record]));
+    $entityManager->method('createQueryBuilder')->willReturn($this->queryBuilder([$record], missingOrganization: true));
 
     $this->expectException(EquipmentOrganizationMissingException::class);
     $this->expectExceptionMessage('Equipment organization is missing.');
@@ -128,11 +128,11 @@ final class EquipmentMaintenanceDirectoryAdapterTest extends TestCase
    * @param list<EquipmentRecord> $records
    * @param array<string, int> $paging captures the pagination window the adapter applied
    */
-  private function queryBuilder(array $records, array &$paging = []): QueryBuilder
+  private function queryBuilder(array $records, array &$paging = [], bool $missingOrganization = false): QueryBuilder
   {
     $query = $this->createStub(Query::class);
     $rows = array_map(static fn (EquipmentRecord $record): array => ['equipmentId' => $record->id,
-      'organizationId' => $record->organization?->id, 'facilityId' => $record->facilityId, 'equipmentType' => $record->type, 'status' => $record->status], $records);
+      'organizationId' => $missingOrganization ? null : $record->organizationId, 'facilityId' => $record->facilityId, 'equipmentType' => $record->type, 'status' => $record->status], $records);
     $query->method('getArrayResult')->willReturn($rows);
     $query->method('getOneOrNullResult')->willReturn($rows[0] ?? null);
 
@@ -168,7 +168,7 @@ final class EquipmentMaintenanceDirectoryAdapterTest extends TestCase
 
     $record = new EquipmentRecord();
     $record->id = self::EQUIPMENT_ID;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->facilityId = self::FACILITY_ID;
     $record->type = 'fire_extinguisher';
     $record->status = 'operational';

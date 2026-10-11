@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Notification\Infrastructure\Adapter\Channel;
 
 use Notification\Application\Contract\Notification\NotificationType;
-use Notification\Application\Port\Outbound\MercureNotificationChannelPort;
+use Notification\Application\Port\Outbound\Internal\MercureNotificationChannelPort;
 use Notification\Domain\Model\Notification\Notification;
 use Symfony\Component\Mercure\{HubInterface, Update};
 

@@ -350,6 +350,14 @@ Ports and adapters highlights:
 | `TokenCachePort`          | Cache introspection results     | Cache pool adapter             |
 | `JwtParserPort`           | Parse and validate JWT payloads | JWT parser adapter             |
 
+### Published and private capabilities
+
+User identity is resolved through UserDirectoryPort; refresh validation reads a fresh account projection. UserInfo enters a typed query after the HTTP principal/openid scope gate and checks scopes again in Application. Auth bridges exchange public contracts rather than foreign use-case results.
+
+OAuthDataLifecyclePort owns account consent, refresh-token, authorization-code and access-token purge/retention on the explicitly wired auth manager.
+
+Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
+
 ## Configuration
 
 Environment variables (examples):

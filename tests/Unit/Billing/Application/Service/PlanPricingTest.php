@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Billing\Application\Service;
 
-use Billing\Application\Service\PlanPricing;
+use Billing\Application\Contract\Pricing\PlanPricing;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

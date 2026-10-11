@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Messaging\Application\Service;
 
-use Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
 use Messaging\Application\Service\MessagingChannelHierarchyGuard;
 use Messaging\Domain\Exception\{MessagingConflictException, MessagingValidationException};
 use Messaging\Domain\Model\Conversation\Conversation;

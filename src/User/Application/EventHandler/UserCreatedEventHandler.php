@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace User\Application\EventHandler;
 
 use Shared\Application\Port\Outbound\LoggerPort;
-use User\Domain\Event\UserCreatedEvent;
+use User\Application\Contract\Event\UserCreatedEvent;
 
 /**
  * Handler UserCreatedEventHandler.

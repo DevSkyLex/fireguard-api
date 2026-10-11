@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Plan\DeletePlan;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Domain\Exception\{DefaultPlanCannotBeDeletedException, PlanNotFoundException};
 use Organization\Domain\ValueObject\PlanId;
 use Shared\Application\Message\CommandHandler;

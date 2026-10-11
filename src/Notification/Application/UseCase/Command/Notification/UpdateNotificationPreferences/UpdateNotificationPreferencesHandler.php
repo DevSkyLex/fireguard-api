@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Application\UseCase\Command\Notification\UpdateNotificationPreferences;
 
-use Notification\Application\Port\Outbound\NotificationPreferenceRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationPreferenceRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetNotificationPreferences\NotificationPreferenceResult;
 use Notification\Domain\Model\NotificationPreference\NotificationPreference;
 use Shared\Application\Message\CommandHandler;

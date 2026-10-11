@@ -7,26 +7,20 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\UseCase\Command\Organization\TransferOrganizationOwnership\{
   TransferOrganizationOwnershipCommand,
   TransferOrganizationOwnershipResult
 };
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Domain\Exception\{
-  OrganizationAccessDeniedException,
-  OrganizationArchivedException,
-  OrganizationDeletionConfirmationMismatchException,
-  OrganizationMemberNotFoundException,
-  OrganizationNotFoundException,
-  OrganizationOwnershipUnchangedException
-};
+use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationDeletionConfirmationMismatchException, OrganizationMemberNotFoundException, OrganizationOwnershipUnchangedException};
 use Organization\Presentation\Api\Dto\Input\Organization\TransferOrganizationOwnershipInput;
 use Organization\Presentation\Api\Processor\Organization\TransferOrganizationOwnershipProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{

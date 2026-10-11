@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Messaging\Application\Contract\Event\Channel\MessagingChannelCreatedEvent;
 use Messaging\Application\Port\Outbound\MessagingRealtimePublisherPort;
-use Messaging\Domain\Event\Channel\MessagingChannelCreatedEvent;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Tests\Support\Database\RootCommitDatabaseIsolationTrait;
 
 use function array_column;
 use function array_filter;
@@ -38,8 +40,11 @@ use const UPLOAD_ERR_OK;
  *
  * @category E2E Tests
  */
+#[SkipDatabaseRollback]
 final class MessagingAuthenticatedWritesFlowTest extends OAuth2WebTestCase
 {
+  use RootCommitDatabaseIsolationTrait;
+
   // #region Methods
   /**
    * Method authenticatedParticipantsCanCompleteTheMessageLifecycle.

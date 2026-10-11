@@ -6,29 +6,27 @@ namespace Tests\Unit\Webhook\Application\UseCase\Command\Delivery\DeliverWebhook
 
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
-use Psr\Log\{LoggerInterface, NullLogger};
-use Shared\Application\Message\VoidResult;
+use RuntimeException;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort, UuidGeneratorPort};
 use Webhook\Application\Contract\Http\WebhookHttpResponse;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryRepositoryPort, WebhookHttpClientPort, WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookDeliveryWorkPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\{WebhookDeliverySchedulePort, WebhookHttpClientPort, WebhookSecretCipherPort};
 use Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\{DeliverWebhookCommand, DeliverWebhookHandler};
-use Webhook\Domain\Exception\WebhookDeliveryAttemptFailedException;
 use Webhook\Domain\Model\Delivery\{RestoredWebhookDeliveryAttempt, RestoredWebhookDeliveryMetadata, WebhookDelivery};
-use Webhook\Domain\Model\Subscription\{RestoredWebhookSubscriptionMetadata, WebhookSubscription};
+use Webhook\Domain\Model\Subscription\WebhookSubscription;
+use Webhook\Domain\Service\WebhookUrlPolicy;
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, WebhookSubscriptionId};
 
 use function hash_hmac;
 use function json_encode;
+use function strlen;
+use function unserialize;
 
 use const JSON_THROW_ON_ERROR;
 
-/**
- * Test DeliverWebhookHandlerTest.
- *
- * @category Handler Tests
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
+/** Verifies HTTP budget, ownership, durable retry and historical generation identity. */
 #[CoversClass(DeliverWebhookHandler::class)]
 final class DeliverWebhookHandlerTest extends TestCase
 {
@@ -36,255 +34,210 @@ final class DeliverWebhookHandlerTest extends TestCase
 
   private const string SUBSCRIPTION_ID = '018f0b68-6758-7a12-8a1d-3f0d97f64a02';
 
-  private const string ORGANIZATION_ID = '018f0b68-6758-7a12-8a1d-3f0d97f64a03';
+  private const string TOKEN = '018f0b68-6758-7a12-8a1d-3f0d97f64a03';
 
-  private const string SECRET = 'whsec_test-secret-value';
+  private WebhookDeliveryWorkPort&MockObject $work;
+
+  private WebhookDeliverySchedulePort&MockObject $schedule;
+
+  private WebhookDeliveryRepositoryPort&Stub $repository;
+
+  private WebhookSubscriptionRepositoryPort&Stub $subscriptions;
+
+  private WebhookHttpClientPort&MockObject $http;
+
+  private WebhookSecretCipherPort&Stub $cipher;
+
+  protected function setUp(): void
+  {
+    $this->work = $this->createMock(WebhookDeliveryWorkPort::class);
+    $this->schedule = $this->createMock(WebhookDeliverySchedulePort::class);
+    $this->repository = $this->createStub(WebhookDeliveryRepositoryPort::class);
+    $this->subscriptions = $this->createStub(WebhookSubscriptionRepositoryPort::class);
+    $this->http = $this->createMock(WebhookHttpClientPort::class);
+    $this->cipher = $this->createStub(WebhookSecretCipherPort::class);
+  }
 
   #[Test]
-  public function itMarksDeliveredAndSignsCorrectlyOnA2xxResponse(): void
+  public function signsAndConfirmsTheOwnedAttempt(): void
   {
-    $delivery = $this->pendingDelivery(attempts: 0);
-    $subscription = $this->subscription();
+    $delivery = $this->delivery();
+    $this->claimed($delivery);
+    $this->work->expects(self::once())->method('startHttpAttempt')->with(self::DELIVERY_ID, 0, self::TOKEN)->willReturn(true);
+    $this->http->expects(self::once())->method('post')->willReturnCallback(static function (string $url, array $headers, string $body, int $timeout): WebhookHttpResponse {
+      self::assertSame('https://example.com/hook', $url);
+      self::assertSame(10, $timeout);
+      self::assertSame(self::DELIVERY_ID, $headers['X-Fireguard-Webhook-Id']);
+      self::assertIsString($headers['X-Fireguard-Webhook-Timestamp']);
+      self::assertSame('sha256=' . hash_hmac('sha256', $headers['X-Fireguard-Webhook-Timestamp'] . '.' . $body, 'secret'), $headers['X-Fireguard-Webhook-Signature']);
+      self::assertSame(json_encode(['resourceId' => 'r'], JSON_THROW_ON_ERROR), $body);
 
-    $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
-    $deliveryRepository->method('findById')->willReturn($delivery);
-    $deliveryRepository->expects(self::once())->method('save')->with($delivery);
-
-    $subscriptionRepository = $this->createStub(WebhookSubscriptionRepositoryPort::class);
-    $subscriptionRepository->method('findById')->willReturn($subscription);
-
-    $cipher = $this->createStub(WebhookSecretCipherPort::class);
-    $cipher->method('decrypt')->willReturn(self::SECRET);
-
-    $capturedHeaders = null;
-    $capturedBody = null;
-
-    $httpClient = $this->createMock(WebhookHttpClientPort::class);
-    $httpClient->expects(self::once())
-      ->method('post')
-      ->willReturnCallback(function (string $url, array $headers, string $body, int $timeout) use (&$capturedHeaders, &$capturedBody): WebhookHttpResponse {
-        self::assertSame('https://example.com/hook', $url);
-        self::assertSame(10, $timeout);
-        $capturedHeaders = $headers;
-        $capturedBody = $body;
-
-        return new WebhookHttpResponse(200);
-      });
-
-    $handler = new DeliverWebhookHandler(
-      $deliveryRepository,
-      $subscriptionRepository,
-      $cipher,
-      $httpClient,
-      new NullLogger(),
-      timeoutSeconds: 10,
-    );
-
-    $handler->__invoke(new DeliverWebhookCommand(self::DELIVERY_ID));
-
+      return new WebhookHttpResponse(200);
+    });
+    $this->work->expects(self::once())->method('finish')->with($delivery, 0, self::TOKEN)->willReturn(true);
+    $this->schedule->expects(self::never())->method('enqueue');
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
     self::assertSame(WebhookDeliveryStatus::DELIVERED, $delivery->status());
-    self::assertSame(200, $delivery->httpStatus());
     self::assertSame(1, $delivery->attempts());
-    self::assertNotNull($delivery->deliveredAt());
-
-    self::assertIsArray($capturedHeaders);
-    self::assertSame('application/json', $capturedHeaders['Content-Type']);
-    self::assertSame(self::DELIVERY_ID, $capturedHeaders['X-Fireguard-Webhook-Id']);
-    self::assertSame('intervention.published', $capturedHeaders['X-Fireguard-Webhook-Event']);
-    self::assertArrayHasKey('X-Fireguard-Webhook-Timestamp', $capturedHeaders);
-    self::assertArrayHasKey('X-Fireguard-Webhook-Signature', $capturedHeaders);
-
-    self::assertIsString($capturedBody);
-    self::assertSame(json_encode(['interventionId' => 'i-1'], JSON_THROW_ON_ERROR), $capturedBody);
-
-    $timestamp = $capturedHeaders['X-Fireguard-Webhook-Timestamp'];
-    self::assertIsString($timestamp);
-    $expectedSignature = 'sha256=' . hash_hmac('sha256', $timestamp . '.' . $capturedBody, self::SECRET);
-    self::assertSame($expectedSignature, $capturedHeaders['X-Fireguard-Webhook-Signature']);
   }
 
   #[Test]
-  public function itIsIdempotentWhenTheDeliveryIsAlreadyDelivered(): void
+  public function schedulesHttpFailureWithoutConsumingMessengerTechnicalRetries(): void
   {
-    $delivery = $this->pendingDelivery(attempts: 1);
-    $delivery->markDelivered(200, new DateTimeImmutable());
-
-    $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
-    $deliveryRepository->method('findById')->willReturn($delivery);
-    $deliveryRepository->expects(self::never())->method('save');
-
-    $subscriptionRepository = $this->createStub(WebhookSubscriptionRepositoryPort::class);
-    $cipher = $this->createStub(WebhookSecretCipherPort::class);
-
-    $httpClient = $this->createMock(WebhookHttpClientPort::class);
-    $httpClient->expects(self::never())->method('post');
-
-    $handler = new DeliverWebhookHandler($deliveryRepository, $subscriptionRepository, $cipher, $httpClient, new NullLogger());
-
-    $handler->__invoke(new DeliverWebhookCommand(self::DELIVERY_ID));
-  }
-
-  #[Test]
-  public function itRecordsARetryableFailureAndThrowsWhenAttemptsRemain(): void
-  {
-    $delivery = $this->pendingDelivery(attempts: 1);
-
-    $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
-    $deliveryRepository->method('findById')->willReturn($delivery);
-    $deliveryRepository->expects(self::once())->method('save')->with($delivery);
-
-    $subscriptionRepository = $this->createStub(WebhookSubscriptionRepositoryPort::class);
-    $subscriptionRepository->method('findById')->willReturn($this->subscription());
-
-    $cipher = $this->createStub(WebhookSecretCipherPort::class);
-    $cipher->method('decrypt')->willReturn(self::SECRET);
-
-    $httpClient = $this->createStub(WebhookHttpClientPort::class);
-    $httpClient->method('post')->willReturn(new WebhookHttpResponse(500));
-
-    $handler = new DeliverWebhookHandler($deliveryRepository, $subscriptionRepository, $cipher, $httpClient, new NullLogger());
-
-    $this->expectException(WebhookDeliveryAttemptFailedException::class);
-
-    $handler->__invoke(new DeliverWebhookCommand(self::DELIVERY_ID));
-
-    // Not reached due to expectException, but documents post-conditions:
-    self::assertSame(WebhookDeliveryStatus::PENDING, $delivery->status());
+    $delivery = $this->delivery(1);
+    $this->claimed($delivery);
+    $this->work->method('startHttpAttempt')->willReturn(true);
+    $this->http->expects(self::once())->method('post')->willReturn(new WebhookHttpResponse(503));
+    $this->work->expects(self::once())->method('finish')->with($delivery, 0, self::TOKEN)->willReturn(true);
+    $this->schedule->expects(self::once())->method('enqueue')->with(self::DELIVERY_ID, 0, self::isInstanceOf(DateTimeImmutable::class))->willReturn(true);
+    $this->work->expects(self::never())->method('technicalFailure');
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
     self::assertSame(2, $delivery->attempts());
+    self::assertSame(WebhookDeliveryStatus::PENDING, $delivery->status());
+    self::assertNotNull($delivery->nextRetryAt());
   }
 
   #[Test]
-  public function itMarksTerminallyFailedOnceTheMaxAttemptCountIsReached(): void
+  public function stopsAfterFiveHttpAttempts(): void
   {
-    // MAX_ATTEMPTS is 5; attempts=4 means this is the 5th (terminal) attempt.
-    $delivery = $this->pendingDelivery(attempts: 4);
-
-    $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
-    $deliveryRepository->method('findById')->willReturn($delivery);
-    $deliveryRepository->expects(self::once())->method('save')->with($delivery);
-
-    $subscriptionRepository = $this->createStub(WebhookSubscriptionRepositoryPort::class);
-    $subscriptionRepository->method('findById')->willReturn($this->subscription());
-
-    $cipher = $this->createStub(WebhookSecretCipherPort::class);
-    $cipher->method('decrypt')->willReturn(self::SECRET);
-
-    $httpClient = $this->createStub(WebhookHttpClientPort::class);
-    $httpClient->method('post')->willReturn(new WebhookHttpResponse(503));
-
-    $handler = new DeliverWebhookHandler($deliveryRepository, $subscriptionRepository, $cipher, $httpClient, new NullLogger());
-
-    // No exception — a terminal failure is recorded and returns normally.
-    $handler->__invoke(new DeliverWebhookCommand(self::DELIVERY_ID));
-
-    self::assertSame(WebhookDeliveryStatus::FAILED, $delivery->status());
+    $delivery = $this->delivery(4);
+    $this->claimed($delivery);
+    $this->work->method('startHttpAttempt')->willReturn(true);
+    $this->http->expects(self::once())->method('post')->willReturn(new WebhookHttpResponse(503));
+    $this->work->expects(self::once())->method('finish')->willReturn(true);
+    $this->schedule->expects(self::never())->method('enqueue');
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
     self::assertSame(5, $delivery->attempts());
-    self::assertSame(503, $delivery->httpStatus());
-  }
-
-  #[Test]
-  public function itMarksFailedWhenTheSubscriptionNoLongerExists(): void
-  {
-    $delivery = $this->pendingDelivery(attempts: 0);
-
-    $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
-    $deliveryRepository->method('findById')->willReturn($delivery);
-    $deliveryRepository->expects(self::once())->method('save')->with($delivery);
-
-    $subscriptionRepository = $this->createStub(WebhookSubscriptionRepositoryPort::class);
-    $subscriptionRepository->method('findById')->willReturn(null);
-
-    $cipher = $this->createStub(WebhookSecretCipherPort::class);
-    $httpClient = $this->createMock(WebhookHttpClientPort::class);
-    $httpClient->expects(self::never())->method('post');
-
-    $handler = new DeliverWebhookHandler($deliveryRepository, $subscriptionRepository, $cipher, $httpClient, new NullLogger());
-
-    $handler->__invoke(new DeliverWebhookCommand(self::DELIVERY_ID));
-
     self::assertSame(WebhookDeliveryStatus::FAILED, $delivery->status());
   }
 
   #[Test]
-  public function itLogsAndNoOpsWhenTheDeliveryNoLongerExists(): void
+  public function preservesADurableWakeWhenTheLeaseIsBusy(): void
   {
-    $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
-    $deliveryRepository->method('findById')->willReturn(null);
-    $deliveryRepository->expects(self::never())->method('save');
-
-    $subscriptionRepository = $this->createMock(WebhookSubscriptionRepositoryPort::class);
-    $subscriptionRepository->expects(self::never())->method('findById');
-
-    $httpClient = $this->createMock(WebhookHttpClientPort::class);
-    $httpClient->expects(self::never())->method('post');
-
-    $logger = $this->createMock(LoggerInterface::class);
-    $logger->expects(self::once())
-      ->method('error')
-      ->with(
-        'Webhook delivery not found for delivery attempt.',
-        ['delivery_id' => self::DELIVERY_ID],
-      );
-
-    $handler = new DeliverWebhookHandler(
-      $deliveryRepository,
-      $subscriptionRepository,
-      $this->createStub(WebhookSecretCipherPort::class),
-      $httpClient,
-      $logger,
-    );
-
-    self::assertInstanceOf(VoidResult::class, $handler->__invoke(new DeliverWebhookCommand(self::DELIVERY_ID)));
+    $lease = new DateTimeImmutable('+90 seconds');
+    $this->work->method('claim')->willReturn(null);
+    $this->repository->method('findById')->willReturn($this->delivery(0, leaseUntil: $lease));
+    $this->http->expects(self::never())->method('post');
+    $this->work->expects(self::never())->method('startHttpAttempt');
+    $this->schedule->expects(self::once())->method('enqueue')->with(self::DELIVERY_ID, 0, self::callback(static fn (DateTimeImmutable $due): bool => $due->getTimestamp() === $lease->getTimestamp()))->willReturn(true);
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
   }
 
-  /**
-   * Method pendingDelivery.
-   *
-   * @param int $attempts the number of attempts already recorded
-   *
-   * @return WebhookDelivery a pending delivery fixture
-   */
-  private function pendingDelivery(int $attempts): WebhookDelivery
+  #[Test]
+  public function doesNotInterpretAnOldEnvelopeAsTheCurrentGeneration(): void
   {
-    $now = new DateTimeImmutable('2026-07-18T09:00:00+00:00');
+    $class = DeliverWebhookCommand::class;
+    $wire = 'O:' . strlen($class) . ':"' . $class . '":1:{s:10:"deliveryId";s:36:"' . self::DELIVERY_ID . '";}';
+    $command = unserialize($wire, ['allowed_classes' => [$class]]);
+    self::assertInstanceOf(DeliverWebhookCommand::class, $command);
+    self::assertSame(0, $command->generation());
+    self::assertNull($command->wakeToken());
+    $this->work->expects(self::once())->method('claim')->with(self::DELIVERY_ID, 0, null, self::TOKEN, self::isInstanceOf(DateTimeImmutable::class))->willReturn(null);
+    $this->repository->method('findById')->willReturn($this->delivery(generation: 1));
+    $this->schedule->expects(self::never())->method('enqueue');
+    $this->http->expects(self::never())->method('post');
+    $this->handler()($command);
+  }
+
+  #[Test]
+  public function refusesHttpAfterLosingOwnershipBeforeTheRequest(): void
+  {
+    $this->schedule->expects(self::never())->method('enqueue');
+    $this->claimed($this->delivery());
+    $this->work->method('startHttpAttempt')->willReturn(false);
+    $this->http->expects(self::never())->method('post');
+    $this->work->expects(self::never())->method('finish');
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
+  }
+
+  #[Test]
+  public function doesNotScheduleFromAStaleHttpResponse(): void
+  {
+    $this->claimed($this->delivery());
+    $this->work->method('startHttpAttempt')->willReturn(true);
+    $this->http->expects(self::once())->method('post')->willReturn(new WebhookHttpResponse(500));
+    $this->work->expects(self::once())->method('finish')->willReturn(false);
+    $this->schedule->expects(self::never())->method('enqueue');
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
+  }
+
+  #[Test]
+  public function propagatesTechnicalFailureWithoutSendingOrCountingHttp(): void
+  {
+    $this->schedule->expects(self::never())->method('enqueue');
+    $delivery = $this->delivery();
+    $this->work->method('claim')->willReturn($delivery);
+    $this->subscriptions->method('findById')->willReturn($this->subscription());
+    $this->cipher->method('decrypt')->willThrowException(new RuntimeException('Cipher unavailable'));
+    $this->work->expects(self::once())->method('technicalFailure')->with(self::DELIVERY_ID, 0, self::TOKEN, self::isInstanceOf(DateTimeImmutable::class));
+    $this->work->expects(self::never())->method('startHttpAttempt');
+    $this->http->expects(self::never())->method('post');
+    $this->expectException(RuntimeException::class);
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
+  }
+
+  #[Test]
+  public function terminalMissingSubscriptionDoesNotConsumeHttpBudget(): void
+  {
+    $this->schedule->expects(self::never())->method('enqueue');
+    $delivery = $this->delivery();
+    $this->work->method('claim')->willReturn($delivery);
+    $this->subscriptions->method('findById')->willReturn(null);
+    $this->work->expects(self::once())->method('finish')->with($delivery, 0, self::TOKEN)->willReturn(true);
+    $this->work->expects(self::never())->method('startHttpAttempt');
+    $this->http->expects(self::never())->method('post');
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
+    self::assertSame(WebhookDeliveryStatus::FAILED, $delivery->status());
+    self::assertSame(0, $delivery->attempts());
+  }
+
+  #[Test]
+  public function invalidStoredDestinationTerminatesBeforeCountingOrSendingHttp(): void
+  {
+    $delivery = $this->delivery();
+    $this->work->method('claim')->willReturn($delivery);
+    $this->subscriptions->method('findById')->willReturn($this->subscription('https://127.0.0.1/private'));
+    $this->work->expects(self::once())->method('finish')->with($delivery, 0, self::TOKEN)->willReturn(true);
+    $this->work->expects(self::never())->method('startHttpAttempt');
+    $this->http->expects(self::never())->method('post');
+    $this->schedule->expects(self::never())->method('enqueue');
+    $this->handler()(new DeliverWebhookCommand(self::DELIVERY_ID));
+    self::assertSame(WebhookDeliveryStatus::FAILED, $delivery->status());
+    self::assertSame(0, $delivery->attempts());
+  }
+
+  private function claimed(WebhookDelivery $delivery): void
+  {
+    $this->work->method('claim')->willReturn($delivery);
+    $this->subscriptions->method('findById')->willReturn($this->subscription());
+    $this->cipher->method('decrypt')->willReturn('secret');
+  }
+
+  private function handler(): DeliverWebhookHandler
+  {
+    $ids = $this->createStub(UuidGeneratorPort::class);
+    $ids->method('generate')->willReturn(self::TOKEN);
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return new DeliverWebhookHandler($this->repository, $this->subscriptions, $this->cipher, $this->http, $this->createStub(LoggerPort::class), $this->work, $this->schedule, $ids, $transactions, new WebhookUrlPolicy());
+  }
+
+  private function delivery(int $attempts = 0, int $generation = 0, ?DateTimeImmutable $leaseUntil = null): WebhookDelivery
+  {
+    $now = new DateTimeImmutable();
 
     return WebhookDelivery::reconstitute(
-      id: WebhookDeliveryId::fromString(self::DELIVERY_ID),
-      subscriptionId: WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
-      organizationId: self::ORGANIZATION_ID,
-      metadata: new RestoredWebhookDeliveryMetadata(
-        eventType: 'intervention.published',
-        eventId: 'event-1',
-        payload: ['interventionId' => 'i-1'],
-        createdAt: $now,
-        updatedAt: $now,
-      ),
-      attempt: new RestoredWebhookDeliveryAttempt(
-        status: WebhookDeliveryStatus::PENDING,
-        attempts: $attempts,
-        httpStatus: null,
-        lastError: null,
-        nextRetryAt: null,
-        deliveredAt: null,
-      ),
+      WebhookDeliveryId::fromString(self::DELIVERY_ID),
+      WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
+      'org',
+      new RestoredWebhookDeliveryMetadata('intervention.published', 'event', ['resourceId' => 'r'], $now, $now),
+      new RestoredWebhookDeliveryAttempt(WebhookDeliveryStatus::PENDING, $attempts, null, null, null, null, $generation, $leaseUntil),
     );
   }
 
-  /**
-   * Method subscription.
-   *
-   * @return WebhookSubscription an active subscription fixture
-   */
-  private function subscription(): WebhookSubscription
+  private function subscription(string $url = 'https://example.com/hook'): WebhookSubscription
   {
-    return WebhookSubscription::reconstitute(
-      id: WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
-      organizationId: self::ORGANIZATION_ID,
-      url: 'https://example.com/hook',
-      secretCiphertext: 'ciphertext',
-      eventTypes: ['intervention.published'],
-      isActive: true,
-      metadata: new RestoredWebhookSubscriptionMetadata('', new DateTimeImmutable(), new DateTimeImmutable()),
-    );
+    return WebhookSubscription::create(WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID), 'org', $url, 'cipher', ['intervention.published']);
   }
 }

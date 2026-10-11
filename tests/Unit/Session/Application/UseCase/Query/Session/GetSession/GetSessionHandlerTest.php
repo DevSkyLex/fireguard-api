@@ -6,7 +6,7 @@ namespace Tests\Unit\Session\Application\UseCase\Query\Session\GetSession;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\UseCase\Query\Session\GetSession\{GetSessionHandler, GetSessionQuery, GetSessionResult};
 use Session\Domain\Exception\SessionNotFoundException;
 use Session\Domain\Model\Session\Session;

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Message\BackfillMessageLinks;
 
-use Messaging\Application\Port\Outbound\{MessagingLinkRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\MessagingLinkRepositoryPort;
 use Messaging\Domain\Service\UrlExtractor;
 use Shared\Application\Message\CommandHandler;
 

@@ -7,7 +7,7 @@ namespace Facility\Infrastructure\Service\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityHierarchyException, FacilityMetadataValidationException};
 use Facility\Domain\ValueObject\{FacilityFloorMetrics, FacilityId, FacilityType, PlanGeometry};
@@ -85,7 +85,7 @@ final readonly class FacilityInterventionPatchApplier
    * @param FacilityArchivalGuardPort $archivalGuard checks active descendants before archival
    * @param FacilityRepositoryPort $facilityRepository reads facility hierarchy
    * @param FacilityMetadataSchemaGuard $metadataSchemaGuard validates metadata changes
-   * @param \Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort $attachments resolves floor-plan attachments
+   * @param \Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort $attachments resolves floor-plan attachments
    * @param \Facility\Application\Service\FacilityAttachmentAncestryGuard $planAncestry checks attachment ancestry
    * @param int $maxDepth maximum allowed facility hierarchy depth
    *
@@ -96,7 +96,7 @@ final readonly class FacilityInterventionPatchApplier
     private FacilityArchivalGuardPort $archivalGuard,
     private FacilityRepositoryPort $facilityRepository,
     private FacilityMetadataSchemaGuard $metadataSchemaGuard,
-    private \Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort $attachments,
+    private \Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort $attachments,
     private \Facility\Application\Service\FacilityAttachmentAncestryGuard $planAncestry,
     private int $maxDepth,
     private ?\Facility\Application\Port\Inbound\FacilityHierarchyPort $hierarchy = null,
@@ -125,7 +125,7 @@ final readonly class FacilityInterventionPatchApplier
   {
     $this->assertPatchFields($patch);
     $record = $this->entityManager->find(FacilityRecord::class, $this->id($resource));
-    if (!$record instanceof FacilityRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
+    if (!$record instanceof FacilityRecord || $record->organizationId !== $organizationId || 'published' !== $record->recordStatus) {
       throw new FacilityPatchConflictException('Proposed facility change target is invalid.');
     }
     $previousStatus = $record->status;
@@ -167,7 +167,7 @@ final readonly class FacilityInterventionPatchApplier
    */
   public function assertPlanUsable(FacilityRecord $record): void
   {
-    if (null === $record->planGeometry || null === $record->organization) {
+    if (null === $record->planGeometry || '' === $record->organizationId) {
       return;
     }
 
@@ -435,7 +435,7 @@ final readonly class FacilityInterventionPatchApplier
       $record->parentFacility = null;
     } elseif (is_string($parentIri)) {
       $parent = $this->entityManager->find(FacilityRecord::class, $this->id($parentIri));
-      if (!$parent instanceof FacilityRecord || $parent->organization?->id !== $organizationId) {
+      if (!$parent instanceof FacilityRecord || $parent->organizationId !== $organizationId) {
         throw new FacilityPatchConflictException('Proposed parent facility is invalid.');
       }
       if (!$this->publicationContext?->covers($organizationId, $record->id)) {

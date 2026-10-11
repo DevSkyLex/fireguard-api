@@ -9,7 +9,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\{UserDataPurgePort, UserRepositoryPort};
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
+use User\Application\Port\Outbound\UserDataPurgePort;
 use User\Application\UseCase\Command\User\DeleteUser\{DeleteUserCommand, DeleteUserHandler, DeleteUserResult};
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\Model\User\User;
@@ -47,6 +48,7 @@ final class DeleteUserHandlerTest extends TestCase
   #[Test]
   public function testInvokeDeletesUser(): void
   {
+    $purged = false;
     $user = User::register(
       id: new UserId('550e8400-e29b-41d4-a716-446655440001'),
       username: new Username('jdoe'),
@@ -63,14 +65,21 @@ final class DeleteUserHandlerTest extends TestCase
       ->willReturn($user);
     $repository->expects(self::once())
       ->method('delete')
-      ->with($user);
+      ->with($user)
+      ->willReturnCallback(static function () use (&$purged): void {
+        /** @var bool $purged */
+        self::assertTrue($purged, 'Authorization links must be purged before the user row is deleted.');
+      });
 
     /** @var UserDataPurgePort&MockObject $purgePort */
     $purgePort = $this->createMock(UserDataPurgePort::class);
     $purgePort->method('withUserLock')->willReturnCallback(static fn (string $userId, callable $operation): mixed => $operation());
     $purgePort->expects(self::once())
       ->method('purgeForUser')
-      ->with($user->id()->value);
+      ->with($user->id()->value)
+      ->willReturnCallback(static function () use (&$purged): void {
+        $purged = true;
+      });
 
     $handler = new DeleteUserHandler($repository, $purgePort);
 

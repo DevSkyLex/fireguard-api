@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Adapter\Inspection;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\ValueObject\FacilityId;
 use Inspection\Application\Port\Outbound\FacilityValidationPort;
-use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function sprintf;
 
@@ -60,11 +60,11 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
     $facility = $this->facilityRepository->findById(FacilityId::fromString($facilityId));
 
     if (null === $facility || (string) $facility->organizationId() !== $organizationId) {
-      throw new InvalidArgumentException(sprintf('Facility with ID "%s" not found.', $facilityId));
+      throw InvalidValueException::because(sprintf('Facility with ID "%s" not found.', $facilityId));
     }
 
     if (!$facility->status()->isActive()) {
-      throw new InvalidArgumentException(sprintf('Facility with ID "%s" is archived and cannot be used.', $facilityId));
+      throw InvalidValueException::because(sprintf('Facility with ID "%s" is archived and cannot be used.', $facilityId));
     }
     $this->lifecycle?->assertReference($organizationId, $facilityId, $interventionId);
   }

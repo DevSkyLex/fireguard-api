@@ -6,7 +6,7 @@ namespace Tests\Unit\Inspection\Infrastructure\Adapter\Assistant;
 
 use Assistant\Application\Contract\Context\{AssistantContextBudget, AssistantContextScope};
 use Doctrine\ORM\EntityManagerInterface;
-use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort;
 use Inspection\Infrastructure\Adapter\Assistant\InspectionAssistantContextProviderAdapter;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

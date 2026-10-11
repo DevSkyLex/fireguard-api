@@ -6,7 +6,7 @@ namespace Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Query\GeocodeAddress\{GeocodeAddressQuery, GeocodeAddressResult};
 use Facility\Presentation\Api\Dto\Output\Facility\GeocodeAddressOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -87,7 +87,7 @@ final readonly class GeocodeAddressProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): GeocodeAddressOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -98,7 +98,7 @@ final readonly class GeocodeAddressProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $address = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('address');
+    $address = \Facility\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('address');
     if (!is_string($address) || '' === $address) {
       throw new BadRequestHttpException('Address query parameter is required.');
     }

@@ -9,13 +9,11 @@ use ApiPlatform\State\ProviderInterface;
 use Assistant\Application\UseCase\Query\Thread\GetAssistantThread\{GetAssistantThreadQuery, GetAssistantThreadResult};
 use Assistant\Presentation\Api\Dto\Output\AssistantThreadDetailOutput;
 use Assistant\Presentation\Api\Factory\{AssistantMessageOutputFactory, AssistantThreadOutputFactory};
-use Assistant\Presentation\Api\Trait\AssistantExceptionMapperTrait;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function array_map;
 use function is_string;
@@ -34,8 +32,6 @@ use function min;
  */
 final readonly class GetAssistantThreadProvider implements ProviderInterface
 {
-  use AssistantExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -73,7 +69,7 @@ final readonly class GetAssistantThreadProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): AssistantThreadDetailOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -84,22 +80,18 @@ final readonly class GetAssistantThreadProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId and threadId URI parameters are required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Assistant\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $messagesPage = max(1, $query->getInt('messagesPage', 1));
     $messagesItemsPerPage = max(1, min(200, $query->getInt('messagesItemsPerPage', 50)));
 
-    try {
-      /** @var GetAssistantThreadResult $result */
-      $result = $this->queryBus->ask(new GetAssistantThreadQuery(
-        organizationId: $organizationId,
-        threadId: $threadId,
-        actorUserId: $user->getId(),
-        messagesPage: $messagesPage,
-        messagesItemsPerPage: $messagesItemsPerPage,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapAssistantException($exception);
-    }
+    /** @var GetAssistantThreadResult $result */
+    $result = $this->queryBus->ask(new GetAssistantThreadQuery(
+      organizationId: $organizationId,
+      threadId: $threadId,
+      actorUserId: $user->getId(),
+      messagesPage: $messagesPage,
+      messagesItemsPerPage: $messagesItemsPerPage,
+    ));
 
     $threadOutput = $this->threadOutputFactory->fromView($result->thread);
 

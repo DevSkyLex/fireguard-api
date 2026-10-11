@@ -135,7 +135,7 @@ final class FacilityComplianceDirectoryAdapterTest extends KernelTestCase
   ): FacilityRecord {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = $parentFacility;
     $facility->type = $type;
     $facility->name = $name;
@@ -152,11 +152,11 @@ final class FacilityComplianceDirectoryAdapterTest extends KernelTestCase
 
   private function removeOrganization(string $id): void
   {
-    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organization' => $id]) as $record) {
+    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organizationId' => $id]) as $record) {
       $record->parentFacility = null;
     }
     $this->entityManager->flush();
-    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organization' => $id]) as $record) {
+    foreach ($this->entityManager->getRepository(FacilityRecord::class)->findBy(['organizationId' => $id]) as $record) {
       $this->entityManager->remove($record);
     }
     $organization = $this->entityManager->find(OrganizationRecord::class, $id);

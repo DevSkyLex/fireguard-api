@@ -58,6 +58,10 @@ archival do not alter that snapshot.
 
 ## Architecture
 
+CustomerView exposes only pure projection data. CustomerViewMapper converts owner
+aggregates inside Application; CustomerRepositoryPort remains owner-private under
+Application/Port/Outbound/Internal. Foreign consumers use CustomerLookupPort.
+
 Domain Customer enforces names, contact shapes and lifecycle. Application handlers
 own permission decisions, pagination and mutations through ports. Infrastructure
 persists PostgreSQL rows on main and exposes `CustomerLookupPort` plus the

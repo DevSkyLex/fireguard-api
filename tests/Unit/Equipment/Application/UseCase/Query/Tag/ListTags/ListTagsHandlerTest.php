@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Tag\ListTags;
 
-use Equipment\Application\Port\Outbound\TagRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\TagRepositoryPort;
 use Equipment\Application\UseCase\Query\Tag\ListTags\{ListTagsHandler, ListTagsQuery, ListTagsResult};
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentOrganizationId, TagId};

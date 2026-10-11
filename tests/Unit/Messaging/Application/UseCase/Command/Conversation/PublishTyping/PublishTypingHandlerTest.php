@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Conversation\PublishT
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Conversation\PublishTyping\{PublishTypingCommand, PublishTypingHandler};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingValidationException};

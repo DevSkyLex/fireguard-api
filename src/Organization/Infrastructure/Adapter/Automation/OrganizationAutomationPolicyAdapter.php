@@ -6,7 +6,7 @@ namespace Organization\Infrastructure\Adapter\Automation;
 
 use Automation\Application\Contract\Policy\AutomationPolicy;
 use Automation\Application\Port\Outbound\AutomationPolicyPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;

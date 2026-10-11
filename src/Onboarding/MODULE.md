@@ -100,6 +100,13 @@ disappeared keeps resetting the flow, as described above.
 
 ## Architecture
 
+Flow orchestration consumes Organization's published onboarding directory and archive
+capability, plus Facility and Equipment availability ports. Foreign queries, results,
+aggregates and archive commands remain inside their owning adapters. Rollback keeps its
+independent creator, owner and creation-time checks before delegating archive.
+Completion uses the pure event dispatcher port; notification lookup uses User's
+published account directory and the stable integration-event name.
+
 - Presentation: API resource, provider, processors, DTOs
 - Domain: onboarding session aggregate + flow state/step value objects
 - Infrastructure: Doctrine session record/mapper/repository

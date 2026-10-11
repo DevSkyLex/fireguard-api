@@ -6,7 +6,7 @@ namespace Notification\Presentation\Api\Provider\Notification;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Notification\Application\UseCase\Query\Notification\GetUnreadNotificationsCount\{GetUnreadNotificationsCountQuery, GetUnreadNotificationsCountResult};
 use Notification\Presentation\Api\Dto\Output\Notification\UnreadNotificationsCountOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -62,11 +62,11 @@ final readonly class GetUnreadNotificationsCountProvider implements ProviderInte
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): UnreadNotificationsCountOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $organizationId = $this->toNullableString(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization'));
+    $organizationId = $this->toNullableString(\Notification\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization'));
 
     /** @var GetUnreadNotificationsCountResult $result */
     $result = $this->queryBus->ask(new GetUnreadNotificationsCountQuery(

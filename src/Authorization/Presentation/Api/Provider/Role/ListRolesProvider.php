@@ -70,7 +70,7 @@ final readonly class ListRolesProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Authorization\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $isSystem = null;
     if (isset($filters['isSystem'])) {

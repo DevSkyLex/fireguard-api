@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus};

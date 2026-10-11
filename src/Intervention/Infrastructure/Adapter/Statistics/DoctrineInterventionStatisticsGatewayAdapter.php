@@ -10,7 +10,6 @@ use Intervention\Application\Contract\Statistics\{InterventionIdentifierCount, I
 use Intervention\Application\Port\Outbound\InterventionStatisticsGatewayPort;
 use Intervention\Domain\ValueObject\InterventionStatus;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 use function is_numeric;
@@ -87,13 +86,13 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
    */
   public function aggregate(string $organizationId, DateTimeImmutable $now): InterventionStatisticsAggregate
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     $base = $this->entityManager->createQueryBuilder()
       ->from(InterventionRecord::class, 'intervention')
-      ->where('intervention.organization = :organization')
-      ->setParameter('organization', $organization);
+      ->where('intervention.organizationId = :organizationId')
+      ->setParameter('organizationId', $organization);
 
     $total = (int) (clone $base)
       ->select(self::INTERVENTION_COUNT_EXPRESSION)

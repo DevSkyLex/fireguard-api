@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\MetadataField\ListMetadataFields;
 
-use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Model\MetadataField\FacilityMetadataField;
 use Facility\Domain\ValueObject\FacilityOrganizationId;
 use Shared\Application\Message\QueryHandler;

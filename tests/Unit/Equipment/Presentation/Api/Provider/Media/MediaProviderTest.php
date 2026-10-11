@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Throwable;
 
 /**
  * Test MediaProviderTest.
@@ -29,6 +30,8 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundH
 #[CoversClass(MediaProvider::class)]
 final class MediaProviderTest extends TestCase
 {
+  use \Tests\Unit\Equipment\Support\EquipmentHttpFailures;
+
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440001';
 
   private const string EQUIPMENT_ID = '550e8400-e29b-41d4-a716-446655440002';
@@ -44,7 +47,7 @@ final class MediaProviderTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $output = new MediaProvider($entityManager, $authorization, $this->securityWithUser())
+    $output = $this->provider($entityManager, $authorization, $this->securityWithUser())
       ->provide(new Get(), ['id' => 'attachment-id']);
 
     self::assertInstanceOf(AttachmentOutput::class, $output);
@@ -58,7 +61,7 @@ final class MediaProviderTest extends TestCase
   {
     $this->expectException(NotFoundHttpException::class);
 
-    new MediaProvider(
+    $this->provider(
       $this->createStub(EntityManagerInterface::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->createStub(Security::class),
@@ -73,7 +76,7 @@ final class MediaProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    new MediaProvider(
+    $this->provider(
       $entityManager,
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->createStub(Security::class),
@@ -91,7 +94,7 @@ final class MediaProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    new MediaProvider($entityManager, $authorization, $this->securityWithUser())
+    $this->provider($entityManager, $authorization, $this->securityWithUser())
       ->provide(new Get(), ['id' => 'attachment-id']);
   }
 
@@ -106,7 +109,7 @@ final class MediaProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    new MediaProvider($entityManager, $authorization, $this->securityWithUser())
+    $this->provider($entityManager, $authorization, $this->securityWithUser())
       ->provide(new Get(), ['id' => 'attachment-id']);
   }
 
@@ -121,7 +124,7 @@ final class MediaProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    new MediaProvider($entityManager, $this->createStub(OrganizationAuthorizationPort::class), $security)
+    $this->provider($entityManager, $this->createStub(OrganizationAuthorizationPort::class), $security)
       ->provide(new Get(), ['id' => 'attachment-id']);
   }
 
@@ -133,7 +136,9 @@ final class MediaProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    MediaProvider::output($record);
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($record);
+    $this->provider($entityManager, $this->createStub(OrganizationAuthorizationPort::class), $this->securityWithUser())->provide(new Get(), ['id' => 'attachment-id']);
   }
 
   private function record(): EquipmentAttachmentRecord
@@ -143,7 +148,7 @@ final class MediaProviderTest extends TestCase
 
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
 
     $record = new EquipmentAttachmentRecord();
     $record->id = 'attachment-id';
@@ -166,5 +171,21 @@ final class MediaProviderTest extends TestCase
     );
 
     return $security;
+  }
+
+  private function provider(EntityManagerInterface $entityManager, OrganizationAuthorizationPort $authorization, Security $security): MediaProvider
+  {
+    $access = new \Equipment\Application\Service\EquipmentMediaAccess($authorization, $this->createStub(\Intervention\Application\Port\Inbound\InterventionResourcesPort::class));
+    $handler = new \Equipment\Application\UseCase\Query\Media\GetEquipmentMedia\GetEquipmentMediaHandler(new \Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentMediaReadRepository($entityManager), $access);
+    $queries = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(function (\Equipment\Application\UseCase\Query\Media\GetEquipmentMedia\GetEquipmentMediaQuery $query) use ($handler): object {
+      try {
+        return $handler($query);
+      } catch (Throwable $failure) {
+        throw $this->httpFailure($failure);
+      }
+    });
+
+    return new MediaProvider($queries, $security);
   }
 }

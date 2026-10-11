@@ -12,18 +12,19 @@ use Auth\Application\Contract\Federation\{
   FederatedLoginContext,
   FederatedProfile
 };
+use Auth\Application\Contract\Federation\FederatedProvider;
+use Auth\Application\Contract\Token\SignInGrantType;
+use Auth\Application\Port\Inbound\Federation\FederationFlowPort;
+use Auth\Application\Port\Inbound\InteractiveSessionIssuerPort;
 use Auth\Application\Port\Outbound\Federation\{
   FederatedFlowRepositoryPort,
   FederatedIdentityRepositoryPort,
   FederatedProviderClientPort
 };
 use Auth\Domain\Exception\Federation\{FederatedAuthException, FederatedConflictException, FederatedUnauthorizedException};
-use Auth\Domain\ValueObject\Federation\FederatedProvider;
-use Auth\Domain\ValueObject\Security\SignInGrantType;
 use DateInterval;
 use DateTimeImmutable;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use User\Application\Port\Inbound\FederatedUserPort;
 
 use function array_filter;
@@ -52,7 +53,7 @@ use const PHP_URL_SCHEME;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class FederatedAuthenticationService
+final readonly class FederatedAuthenticationService implements FederationFlowPort
 {
   /**
    * Constant LOGIN
@@ -99,7 +100,7 @@ final readonly class FederatedAuthenticationService
    * @param FederatedIdentityRepositoryPort $identities linked identity persistence
    * @param TransactionManagerPort $transaction transaction boundary
    * @param FederatedUserPort $users user account operations
-   * @param SessionIssuer $sessionIssuer session creation service
+   * @param InteractiveSessionIssuerPort $sessionIssuer session creation service
    * @param string $frontendUrl configured frontend base URL
    *
    * @return void
@@ -110,8 +111,7 @@ final readonly class FederatedAuthenticationService
     private FederatedIdentityRepositoryPort $identities,
     private TransactionManagerPort $transaction,
     private FederatedUserPort $users,
-    private SessionIssuer $sessionIssuer,
-    #[Autowire('%env(APP_FRONTEND_URL)%')]
+    private InteractiveSessionIssuerPort $sessionIssuer,
     private string $frontendUrl,
   ) {
   }

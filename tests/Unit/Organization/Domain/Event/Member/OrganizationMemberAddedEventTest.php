@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Organization\Domain\Event\Member;
+namespace Tests\Unit\Organization\Application\Contract\Event\Member;
 
 use DateTimeImmutable;
-use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
+use Organization\Application\Contract\Event\Member\OrganizationMemberAddedEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

@@ -6,18 +6,16 @@ namespace Maintenance\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use Exception;
 use Maintenance\Application\UseCase\Command\Campaign\GenerateInspectionCampaign\{GenerateInspectionCampaignCommand, GenerateInspectionCampaignResult};
 use Maintenance\Presentation\Api\Dto\Input\GenerateInspectionCampaignInput;
 use Maintenance\Presentation\Api\Dto\Output\GenerateInspectionCampaignOutput;
-use Maintenance\Presentation\Api\Trait\MaintenanceExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 /**
  * Processor GenerateInspectionCampaignProcessor.
@@ -33,8 +31,6 @@ use Throwable;
  */
 final readonly class GenerateInspectionCampaignProcessor implements ProcessorInterface
 {
-  use MaintenanceExceptionMapperTrait;
-
   /**
    * Constructor.
    *
@@ -75,19 +71,15 @@ final readonly class GenerateInspectionCampaignProcessor implements ProcessorInt
       throw new BadRequestHttpException('Invalid "dueBefore" value.', $exception);
     }
 
-    try {
-      /** @var GenerateInspectionCampaignResult $result */
-      $result = $this->commandBus->dispatch(new GenerateInspectionCampaignCommand(
-        organizationId: ResourceIriParser::id($data->organization, 'organizations'),
-        actorUserId: $user->getId(),
-        name: $data->name,
-        facilityId: null === $data->facility ? null : ResourceIriParser::id($data->facility, 'facilities'),
-        equipmentType: $data->equipmentType,
-        dueBefore: $dueBefore,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapMaintenanceException($exception);
-    }
+    /** @var GenerateInspectionCampaignResult $result */
+    $result = $this->commandBus->dispatch(new GenerateInspectionCampaignCommand(
+      organizationId: ResourceIriParser::id($data->organization, 'organizations'),
+      actorUserId: $user->getId(),
+      name: $data->name,
+      facilityId: null === $data->facility ? null : ResourceIriParser::id($data->facility, 'facilities'),
+      equipmentType: $data->equipmentType,
+      dueBefore: $dueBefore,
+    ));
 
     $output = new GenerateInspectionCampaignOutput();
     $output->interventionId = $result->interventionId;
@@ -102,12 +94,12 @@ final readonly class GenerateInspectionCampaignProcessor implements ProcessorInt
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

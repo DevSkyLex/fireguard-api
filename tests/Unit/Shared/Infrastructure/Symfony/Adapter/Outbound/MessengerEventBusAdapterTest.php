@@ -8,7 +8,7 @@ use Exception;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter;
 use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
@@ -38,7 +38,7 @@ final class MessengerEventBusAdapterTest extends TestCase
   protected function setUp(): void
   {
     $this->messageBus = $this->createMock(MessageBusInterface::class);
-    $this->adapter = new MessengerEventBusAdapter($this->messageBus);
+    $this->adapter = new MessengerEventBusAdapter($this->messageBus, new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]));
   }
 
   /**

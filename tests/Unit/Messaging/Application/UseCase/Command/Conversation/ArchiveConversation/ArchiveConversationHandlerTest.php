@@ -6,15 +6,16 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Conversation\ArchiveC
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Conversation\ArchiveConversation\{ArchiveConversationCommand, ArchiveConversationHandler};
 use Messaging\Domain\Event\Conversation\MessagingConversationArchivedEvent;
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity};
 use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessagingSubjectType};
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

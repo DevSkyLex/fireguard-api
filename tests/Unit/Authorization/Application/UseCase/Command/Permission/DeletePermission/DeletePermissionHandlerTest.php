@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Command\Permission\DeletePermission;
 
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\PermissionRepositoryPort;
 use Authorization\Application\UseCase\Command\Permission\DeletePermission\{DeletePermissionCommand, DeletePermissionHandler, DeletePermissionResult};
 use Authorization\Domain\Exception\PermissionNotFoundException;
 use Authorization\Domain\Model\Permission\Permission;

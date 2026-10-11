@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Infrastructure\Console\Command\Token;
 
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort;
 use OAuth\Application\UseCase\Command\Token\IssueToken\{IssueTokenCommand, IssueTokenResult};
 use OAuth\Domain\Model\Client\Client;
 use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret, RedirectUri};

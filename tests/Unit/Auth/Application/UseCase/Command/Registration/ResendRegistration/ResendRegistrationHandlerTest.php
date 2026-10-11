@@ -9,8 +9,8 @@ use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\ChallengeInfo;
 use Otp\Application\Contract\Challenge\{OtpChannel as ContractOtpChannel, OtpPurpose as ContractOtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Application\Service\ChallengeResendPolicy;
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
+use Otp\Application\Service\{ChallengeAccessService, ChallengeResendPolicy};
 use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -42,7 +42,7 @@ final class ResendRegistrationHandlerTest extends TestCase
     $otpChallenge->expects(self::never())->method('generate');
 
     $handler = new ResendRegistrationHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -75,7 +75,7 @@ final class ResendRegistrationHandlerTest extends TestCase
     $otpChallenge->expects(self::never())->method('generate');
 
     $handler = new ResendRegistrationHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -118,7 +118,7 @@ final class ResendRegistrationHandlerTest extends TestCase
     $otpChallenge->expects(self::never())->method('generate');
 
     $handler = new ResendRegistrationHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -150,7 +150,7 @@ final class ResendRegistrationHandlerTest extends TestCase
     $otpChallenge->expects(self::never())->method('generate');
 
     $handler = new ResendRegistrationHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 
@@ -211,7 +211,7 @@ final class ResendRegistrationHandlerTest extends TestCase
       ->willReturn($challenge);
 
     $handler = new ResendRegistrationHandler(
-      otpRepository: $otpRepository,
+      otpRepository: new ChallengeAccessService($otpRepository),
       otpChallenge: $otpChallenge,
     );
 

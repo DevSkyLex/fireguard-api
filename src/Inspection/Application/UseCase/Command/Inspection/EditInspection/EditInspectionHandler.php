@@ -6,8 +6,8 @@ namespace Inspection\Application\UseCase\Command\Inspection\EditInspection;
 
 use DateTimeImmutable;
 use Exception;
-use Inspection\Application\Port\Outbound\ChecklistLockPort;
-use Inspection\Application\Port\Outbound\{ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort, InspectionRepositoryPort};
+use Inspection\Application\Port\Outbound\{ChecklistLockPort, ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort};
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionChecklistId, InspectionEquipmentId, InspectionFacilityId, InspectionFindingPatch, InspectionId, InspectionOrganizationId, InspectionReferencePatch, InspectionResult, InspectionTextPatch};
 use InvalidArgumentException;

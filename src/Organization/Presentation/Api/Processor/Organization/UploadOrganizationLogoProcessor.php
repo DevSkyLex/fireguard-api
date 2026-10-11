@@ -6,11 +6,10 @@ namespace Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsCommand;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Organization\Application\UseCase\Command\Organization\UploadOrganizationLogo\UploadOrganizationLogoCommand;
+use Organization\Application\UseCase\Query\Organization\AuthorizeOrganizationLogoUpload\AuthorizeOrganizationLogoUploadQuery;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Infrastructure\Image\OrganizationLogoResizer;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationRegisteredAddressOutput};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\ImageInputValidationPort;
@@ -28,7 +27,6 @@ use function implode;
 use function in_array;
 use function is_string;
 use function sprintf;
-use function time;
 
 /**
  * Processor UploadOrganizationLogoProcessor.
@@ -82,18 +80,14 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
    * @since 1.0.0
    *
    * @param RequestStack $requestStack provides the current HTTP request
-   * @param OrganizationLogoResizer $logoResizer resizes and stores the logo
    * @param CommandBusPort $commandBus dispatches domain commands
    * @param QueryBusPort $queryBus executes domain queries
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param Security $security the security service
    */
   public function __construct(
     private RequestStack $requestStack,
-    private OrganizationLogoResizer $logoResizer,
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
-    private OrganizationAuthorizationPort $authorization,
     private Security $security,
   ) {
   }
@@ -119,7 +113,7 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -128,9 +122,7 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
       throw new BadRequestHttpException('Organization identifier is required.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.settings.write')) {
-      throw new AccessDeniedHttpException('Missing organization.settings.write permission.');
-    }
+    $this->queryBus->ask(new AuthorizeOrganizationLogoUploadQuery($organizationId, $user->getId()));
 
     $request = $this->requestStack->getCurrentRequest();
     if (null === $request) {
@@ -170,20 +162,11 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
       throw new UnprocessableEntityHttpException('Failed to read the uploaded file.');
     }
 
-    $this->logoResizer->resize($organizationId, $sourceContents);
-
-    // Append an upload-time version token so the canonical URL changes on each
-    // upload and bypasses the 24h cache served by the logo endpoint.
-    $logoUrl = sprintf(
-      '%s/api/organizations/%s/logo.webp?v=%d',
-      $request->getSchemeAndHttpHost(),
-      $organizationId,
-      time(),
-    );
-
-    $this->commandBus->dispatch(new UpdateOrganizationSettingsCommand(
+    $this->commandBus->dispatch(new UploadOrganizationLogoCommand(
       organizationId: $organizationId,
-      logoUrl: $logoUrl,
+      actingUserId: $user->getId(),
+      contents: $sourceContents,
+      publicBaseUrl: $request->getSchemeAndHttpHost(),
     ));
 
     return $this->buildOutput($organizationId);

@@ -41,7 +41,21 @@ final readonly class RefreshTokenHandler implements QueryHandler
    */
   public function __invoke(RefreshTokenQuery $query): RefreshTokenResult
   {
-    return $this->tokenRefresh->refresh($query->refreshToken, $query->ipAddress);
+    $tokens = $this->tokenRefresh->refresh($query->refreshToken, $query->ipAddress);
+
+    return new RefreshTokenResult(
+      success: $tokens->success,
+      userId: $tokens->userId,
+      accessToken: $tokens->accessToken,
+      refreshToken: $tokens->refreshToken,
+      tokenType: $tokens->tokenType,
+      expiresIn: $tokens->expiresIn,
+      scopes: $tokens->scopes,
+      errorMessage: $tokens->errorMessage,
+      accessTokenId: $tokens->accessTokenId,
+      refreshTokenId: $tokens->refreshTokenId,
+      rememberMe: $tokens->rememberMe,
+    );
   }
   // #endregion
 }

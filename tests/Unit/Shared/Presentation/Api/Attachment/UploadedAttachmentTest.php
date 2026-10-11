@@ -6,7 +6,7 @@ namespace Tests\Unit\Shared\Presentation\Api\Attachment;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Presentation\Api\Attachment\UploadedAttachment;
+use Shared\Application\Contract\Attachment\UploadedAttachment;
 
 /**
  * Test UploadedAttachmentTest.

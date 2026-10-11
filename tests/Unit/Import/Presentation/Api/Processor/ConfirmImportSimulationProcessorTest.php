@@ -24,7 +24,7 @@ final class ConfirmImportSimulationProcessorTest extends TestCase
     $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (ConfirmImportSimulationCommand $c): bool => 'actor' === $c->userId && 'simulation' === $c->simulationId))->willReturn(GetImportJobResult::fromDomain($job));
     $actor = $this->createStub(CurrentActorPort::class);
     $actor->method('userId')->willReturn('actor');
-    $result = new ConfirmImportSimulationProcessor($bus, $actor, new ImportJobOutputFactory())->process(null, new Post(), ['id' => 'simulation']);
+    $result = \Tests\Support\Http\ModuleExceptionKernel::invoke('Import', fn () => new ConfirmImportSimulationProcessor($bus, $actor, new ImportJobOutputFactory())->process(null, new Post(), ['id' => 'simulation']));
     self::assertSame((string) $job->id(), $result->id);
     self::assertFalse($result->dryRun);
   }

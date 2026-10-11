@@ -4,23 +4,30 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Otp;
 
+use Authorization\Infrastructure\Adapter\Lifecycle\AuthorizationDataLifecycleAdapter;
 use DateTimeImmutable;
 use Doctrine\DBAL\{Connection, DriverManager};
 use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\ORM\{EntityManager, EntityManagerInterface};
+use OAuth\Infrastructure\Adapter\Lifecycle\OAuthDataLifecycleAdapter;
 use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
-use Otp\Application\Port\Outbound\Totp\TotpServicePort;
+use Otp\Application\Port\Outbound\Internal\Totp\TotpServicePort;
 use Otp\Application\UseCase\Command\Totp\SetupTotp\{SetupTotpCommand, SetupTotpHandler};
 use Otp\Domain\Exception\TotpEnrollmentUnavailableException;
 use Otp\Domain\ValueObject\TotpSecret;
 use Otp\Infrastructure\Adapter\Crypto\OpensslTotpSecretCipherAdapter;
+use Otp\Infrastructure\Adapter\Lifecycle\OtpDataLifecycleAdapter;
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\TotpEnrollmentMapper;
 use Otp\Infrastructure\Persistence\Doctrine\Repository\TotpEnrollmentRepository;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use Session\Infrastructure\Adapter\Lifecycle\SessionDataLifecycleAdapter;
+use Shared\Application\Port\Outbound\FileCleanupPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use TrustedDevice\Infrastructure\Adapter\Lifecycle\TrustedDeviceDataLifecycleAdapter;
 use User\Application\UseCase\Command\User\DeleteUser\{DeleteUserCommand, DeleteUserHandler};
 use User\Infrastructure\Adapter\User\{AccountStatusAdapter, UserDataPurgeAdapter};
+use User\Infrastructure\Adapter\User\AvatarPersistenceAdapter;
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 use User\Infrastructure\Persistence\Doctrine\Repository\UserRepository;
@@ -115,7 +122,7 @@ final class TotpEnrollmentDeletionConcurrencyTest extends KernelTestCase
     $deletionRepository = new TotpEnrollmentRepository($this->deletionManager, $mapper);
     $this->deletionHandler = new DeleteUserHandler(
       new UserRepository($this->deletionManager, new UserMapper()),
-      new UserDataPurgeAdapter($this->deletionManager, $deletionRepository),
+      $this->purgeAdapter($this->deletionManager, $deletionRepository),
     );
     $record = new UserRecord();
     $record->id = $this->userId;
@@ -246,7 +253,7 @@ final class TotpEnrollmentDeletionConcurrencyTest extends KernelTestCase
     });
     $delete = new DeleteUserHandler(
       new UserRepository($this->deletionManager, new UserMapper()),
-      new UserDataPurgeAdapter($this->deletionManager, $purge),
+      $this->purgeAdapter($this->deletionManager, $purge),
     );
     $delete->__invoke(new DeleteUserCommand($this->userId));
 
@@ -285,7 +292,7 @@ final class TotpEnrollmentDeletionConcurrencyTest extends KernelTestCase
     });
     $delete = new DeleteUserHandler(
       new UserRepository($this->deletionManager, new UserMapper()),
-      new UserDataPurgeAdapter($this->deletionManager, $purge),
+      $this->purgeAdapter($this->deletionManager, $purge),
     );
 
     try {
@@ -297,5 +304,20 @@ final class TotpEnrollmentDeletionConcurrencyTest extends KernelTestCase
       self::assertSame($this->userId, $this->setupConnection->fetchOne('SELECT user_id FROM totp_enrollments WHERE user_id = ?', [$this->userId]));
     }
   }
+
   // #endregion
+  private function purgeAdapter(EntityManagerInterface $manager, TotpEnrollmentPurgePort $totp): UserDataPurgeAdapter
+  {
+    return new UserDataPurgeAdapter(
+      entityManager: $manager,
+      totpEnrollmentPurge: $totp,
+      authorizationLifecycle: new AuthorizationDataLifecycleAdapter($manager),
+      sessionLifecycle: new SessionDataLifecycleAdapter($manager),
+      otpLifecycle: new OtpDataLifecycleAdapter($manager),
+      trusteddeviceLifecycle: new TrustedDeviceDataLifecycleAdapter($manager),
+      oauthLifecycle: new OAuthDataLifecycleAdapter($manager),
+      avatars: new AvatarPersistenceAdapter($manager, $totp),
+      avatarCleanup: $this->createStub(FileCleanupPort::class),
+    );
+  }
 }

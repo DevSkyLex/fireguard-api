@@ -12,11 +12,10 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use UnexpectedValueException;
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Query\User\GetUser\GetUserResult;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * Test RefreshTokenHandlerTest.
@@ -35,7 +34,7 @@ final class RefreshTokenHandlerTest extends TestCase
     $handler = new RefreshTokenHandler(
       sessions: $this->rotation(),
       tokenService: $this->createStub(JwtTokenServicePort::class),
-      queryBus: $this->createStub(QueryBusPort::class),
+      queryBus: $this->createStub(UserDirectoryPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
@@ -68,7 +67,7 @@ final class RefreshTokenHandlerTest extends TestCase
     $handler = new RefreshTokenHandler(
       sessions: $this->rotation(),
       tokenService: $tokenService,
-      queryBus: $this->createStub(QueryBusPort::class),
+      queryBus: $this->createStub(UserDirectoryPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -91,11 +90,11 @@ final class RefreshTokenHandlerTest extends TestCase
         'scopes' => ['openid'],
       ]);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new GetUserResult(user: $this->createUserView(canLogin: false)));
+      ->method('findById')
+      ->willReturn($this->createUserView(canLogin: false));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -132,11 +131,11 @@ final class RefreshTokenHandlerTest extends TestCase
         'scopes' => ['openid'],
       ]);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new GetUserResult(user: null));
+      ->method('findById')
+      ->willReturn(null);
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -176,7 +175,7 @@ final class RefreshTokenHandlerTest extends TestCase
     $handler = new RefreshTokenHandler(
       sessions: $this->rotation(),
       tokenService: $tokenService,
-      queryBus: $this->createStub(QueryBusPort::class),
+      queryBus: $this->createStub(UserDirectoryPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
@@ -199,10 +198,10 @@ final class RefreshTokenHandlerTest extends TestCase
         'scopes' => ['openid'],
       ]);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
+      ->method('findById')
       ->willThrowException(new RuntimeException('boom'));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
@@ -253,11 +252,11 @@ final class RefreshTokenHandlerTest extends TestCase
         'remember_me' => true,
       ]);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+      ->method('findById')
+      ->willReturn($this->createUserView(canLogin: true));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -308,11 +307,11 @@ final class RefreshTokenHandlerTest extends TestCase
         'remember_me' => false,
       ]);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var UserDirectoryPort&MockObject $queryBus */
+    $queryBus = $this->createMock(UserDirectoryPort::class);
     $queryBus->expects(self::once())
-      ->method('ask')
-      ->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+      ->method('findById')
+      ->willReturn($this->createUserView(canLogin: true));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);

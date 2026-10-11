@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Service\Federation;
 
+use Auth\Application\Port\Inbound\Federation\PasswordSetupPort;
 use Auth\Domain\Exception\Federation\{FederatedAuthException, FederatedConflictException, FederatedUnauthorizedException};
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
@@ -20,7 +21,7 @@ use User\Application\Port\Inbound\FederatedUserPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class InitialPasswordService
+final readonly class InitialPasswordService implements PasswordSetupPort
 {
   // #region Constructor
   /**

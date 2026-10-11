@@ -6,7 +6,7 @@ namespace Calendar\Presentation\Api\Trait;
 
 use Calendar\Domain\Exception\{CalendarEventNotFoundException, CalendarEventValidationException, CalendarFeedTokenNotFoundException};
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
 

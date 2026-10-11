@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Query\EquipmentTypeCatalog\ListEquipmentTypes;
 
 use Equipment\Application\Contract\EquipmentTypeCatalog\EquipmentTypeDescriptor;
-use Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
 use Shared\Application\Message\QueryHandler;
 

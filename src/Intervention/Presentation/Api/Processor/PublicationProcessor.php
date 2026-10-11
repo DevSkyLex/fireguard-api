@@ -6,15 +6,15 @@ namespace Intervention\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Command\Publication\RequestPublication\{RequestPublicationCommand, RequestPublicationResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionBlockedException, InterventionConflictException, InterventionNotFoundException};
 use Intervention\Presentation\Api\Dto\Input\CreatePublicationInput;
 use Intervention\Presentation\Api\Dto\Output\PublicationOutput;
 use Intervention\Presentation\Api\Factory\PublicationOutputFactory;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
@@ -67,7 +67,7 @@ final readonly class PublicationProcessor implements ProcessorInterface
   {
     /** @var CreatePublicationInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

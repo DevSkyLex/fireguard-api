@@ -195,6 +195,12 @@ Key folders:
 - `src/Tenant/Domain`
 - `src/Tenant/Infrastructure`
 
+### Published and private capabilities
+
+Tenant commands/queries own lifecycle and settings decisions. External consumers use scalar contracts. PKCE, public-client constraints and explicit tenant scoping remain mandatory.
+
+Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
+
 ## Configuration
 
 - Service wiring: `config/modules/tenant.yaml`

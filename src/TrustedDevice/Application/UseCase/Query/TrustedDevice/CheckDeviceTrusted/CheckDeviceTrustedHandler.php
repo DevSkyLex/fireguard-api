@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TrustedDevice\Application\UseCase\Query\TrustedDevice\CheckDeviceTrusted;
 
 use Shared\Application\Message\QueryHandler;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 
 use function hash;
 

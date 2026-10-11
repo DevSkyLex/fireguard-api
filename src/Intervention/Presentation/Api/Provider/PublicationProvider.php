@@ -6,12 +6,12 @@ namespace Intervention\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Query\Publication\GetPublication\{GetPublicationQuery, GetPublicationResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, PublicationNotFoundException};
 use Intervention\Presentation\Api\Dto\Output\PublicationOutput;
 use Intervention\Presentation\Api\Factory\PublicationOutputFactory;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
@@ -69,7 +69,7 @@ final readonly class PublicationProvider implements ProviderInterface
       throw new NotFoundHttpException('Publication not found.');
     }
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

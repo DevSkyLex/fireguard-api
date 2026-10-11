@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Inspection\Application\Port\Outbound\InspectionAttachmentRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionAttachmentRepositoryPort;
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
 use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionAttachmentMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionAttachmentRecord, InspectionRecord, NonConformityRecord};
+use LogicException;
 
 use function array_map;
 
@@ -50,6 +51,20 @@ final readonly class InspectionAttachmentRepository implements InspectionAttachm
   // #endregion
 
   // #region Methods
+  public function lockUpload(string $inspectionId, string $attachmentId): void
+  {
+    $connection = $this->entityManager->getConnection();
+    if (!$connection->isTransactionActive()) {
+      throw new LogicException('Inspection upload locks require an active main transaction.');
+    }
+    $connection->executeQuery('SELECT pg_advisory_xact_lock(hashtext(:key))', ['key' => 'inspection:attachment:' . $attachmentId])->free();
+    $connection->executeQuery('SELECT id FROM inspections WHERE id = :id FOR UPDATE', ['id' => $inspectionId])->free();
+    $parent = $this->entityManager->find(InspectionRecord::class, $inspectionId);
+    if ($parent instanceof InspectionRecord) {
+      $this->entityManager->refresh($parent);
+    }
+  }
+
   /**
    * Method save.
    *

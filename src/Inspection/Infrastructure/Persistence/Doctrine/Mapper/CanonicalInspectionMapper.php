@@ -16,7 +16,6 @@ use Inspection\Domain\ValueObject\{
 };
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper CanonicalInspectionMapper.
@@ -45,13 +44,13 @@ final class CanonicalInspectionMapper
    */
   public static function toDomain(InspectionRecord $record): CanonicalInspection
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Inspection record must reference an organization.');
     }
 
     return CanonicalInspection::reconstitute(
       id: InspectionId::fromString($record->id),
-      organizationId: InspectionOrganizationId::fromString($record->organization->id),
+      organizationId: InspectionOrganizationId::fromString($record->organizationId),
       equipmentId: InspectionEquipmentId::fromString($record->equipmentId),
       state: new RestoredCanonicalInspectionState(
         recordStatus: InspectionRecordStatus::from($record->recordStatus),
@@ -81,13 +80,13 @@ final class CanonicalInspectionMapper
    */
   public static function toReadView(InspectionRecord $record): CanonicalInspectionReadView
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new LogicException('Inspection record must reference an organization.');
     }
 
     return new CanonicalInspectionReadView(
       id: $record->id,
-      organizationId: $record->organization->id,
+      organizationId: $record->organizationId,
       interventionId: $record->interventionId,
       recordStatus: $record->recordStatus,
       revision: $record->revision,

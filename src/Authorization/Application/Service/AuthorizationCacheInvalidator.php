@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Application\Service;
 
-use Auth\Application\Service\SecurityUserCacheInvalidator;
+use Auth\Application\Port\Inbound\SecurityUserCacheInvalidationPort;
 use Shared\Application\Port\Outbound\CachePort;
 use Throwable;
 
@@ -26,13 +26,13 @@ final readonly class AuthorizationCacheInvalidator
    * @access public
    *
    * @param CachePort $cache deletes authorization cache entries
-   * @param SecurityUserCacheInvalidator|null $securityUserCacheInvalidator optionally invalidates the security user cache
+   * @param SecurityUserCacheInvalidationPort|null $securityUserCacheInvalidator optionally invalidates the security user cache
    *
    * @return void
    */
   public function __construct(
     private CachePort $cache,
-    private ?SecurityUserCacheInvalidator $securityUserCacheInvalidator = null,
+    private ?SecurityUserCacheInvalidationPort $securityUserCacheInvalidator = null,
   ) {
   }
 

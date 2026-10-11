@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Intervention\Application\Service;
 
-use DateTimeImmutable;
 use Intervention\Application\Service\InterventionMemberPolicy;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Port\Inbound\OrganizationMemberDirectoryPort;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -27,7 +25,7 @@ final class InterventionMemberPolicyTest extends TestCase
   public function itAcceptsTheActiveResponsibleMember(): void
   {
     $member = $this->member(self::ORGANIZATION_ID);
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($member);
 
     new InterventionMemberPolicy($repository)->assertResponsible(
@@ -42,7 +40,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itRejectsAResponsibleMemberFromAnotherOrganization(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findById')->willReturn($this->member(self::OTHER_ORGANIZATION_ID));
 
     $this->expectException(InterventionConflictException::class);
@@ -53,7 +51,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itRejectsSubmissionWhenNoResponsibleMemberIsSet(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
 
     $this->expectException(InterventionConflictException::class);
     $this->expectExceptionMessage('A responsible member is required to submit the intervention.');
@@ -64,7 +62,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itRejectsSubmissionByAnotherMember(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
 
     $this->expectException(InterventionConflictException::class);
@@ -80,7 +78,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itNamesTheRequestedActionWhenRejectingAnotherMember(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
 
     $this->expectException(InterventionConflictException::class);
@@ -97,7 +95,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itAllowsTheAssignedMemberToExecuteAWorkItem(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
 
     new InterventionMemberPolicy($repository)->assertCanExecuteWorkItem(
@@ -114,7 +112,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itRejectsExecutionOfAnotherMembersAssignedWorkItem(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
 
     $this->expectException(InterventionAccessDeniedException::class);
@@ -132,7 +130,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itAllowsAInterventionParticipantToMutateInterventionResources(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
 
     new InterventionMemberPolicy($repository)->assertCanExecuteIntervention(
@@ -148,7 +146,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itRejectsANonParticipantMutatingInterventionResources(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
 
     $this->expectException(InterventionAccessDeniedException::class);
@@ -164,7 +162,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itResolvesTheActiveMemberIdForAnAuthenticatedUser(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
     $repository->method('findById')->willReturn($this->member(self::ORGANIZATION_ID));
 
@@ -179,7 +177,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itRejectsAUserWithNoMembershipInTheOrganization(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn(null);
 
     $this->expectException(InterventionConflictException::class);
@@ -193,7 +191,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itFindsTheMemberIdWithoutThrowingWhenActive(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
 
     $memberId = new InterventionMemberPolicy($repository)->findMemberId(self::ORGANIZATION_ID, self::USER_ID);
@@ -204,7 +202,7 @@ final class InterventionMemberPolicyTest extends TestCase
   #[Test]
   public function itFindsNoMemberIdWhenTheUserIsNotAMember(): void
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn(null);
 
     $memberId = new InterventionMemberPolicy($repository)->findMemberId(self::ORGANIZATION_ID, self::USER_ID);
@@ -212,14 +210,8 @@ final class InterventionMemberPolicyTest extends TestCase
     self::assertNull($memberId);
   }
 
-  private function member(string $organizationId): OrganizationMember
+  private function member(string $organizationId): OrganizationMemberView
   {
-    return OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::MEMBER_ID),
-      OrganizationId::fromString($organizationId),
-      self::USER_ID,
-      true,
-      new DateTimeImmutable(),
-    );
+    return new OrganizationMemberView(self::MEMBER_ID, $organizationId, self::USER_ID, true);
   }
 }

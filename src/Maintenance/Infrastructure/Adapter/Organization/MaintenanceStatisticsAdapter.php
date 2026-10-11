@@ -50,7 +50,7 @@ final readonly class MaintenanceStatisticsAdapter implements MaintenanceStatisti
     $base = $this->entityManager->createQueryBuilder()
       ->select('COUNT(schedule.id)')
       ->from(MaintenanceScheduleRecord::class, 'schedule')
-      ->where('IDENTITY(schedule.organization) = :organizationId')
+      ->where('schedule.organizationId = :organizationId')
       ->andWhere('schedule.nextDueAt IS NOT NULL')
       ->setParameter('organizationId', $organizationId);
 
@@ -80,7 +80,7 @@ final readonly class MaintenanceStatisticsAdapter implements MaintenanceStatisti
     $records = $this->entityManager->createQueryBuilder()
       ->select('schedule')
       ->from(MaintenanceScheduleRecord::class, 'schedule')
-      ->where('IDENTITY(schedule.organization) = :organizationId')
+      ->where('schedule.organizationId = :organizationId')
       ->andWhere('schedule.nextDueAt IS NOT NULL')
       ->andWhere('schedule.nextDueAt <= :windowEnd')
       ->setParameter('organizationId', $organizationId)

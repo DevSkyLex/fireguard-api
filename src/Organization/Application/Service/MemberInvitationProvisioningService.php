@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace Organization\Application\Service;
 
 use InvalidArgumentException;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionMemberInvitationResult, ProvisionOutcome};
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\MemberInvitationProvisioningPort;
-use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRoleRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMembershipConflictException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationMembershipConflictException, OrganizationRoleNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleName};
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;

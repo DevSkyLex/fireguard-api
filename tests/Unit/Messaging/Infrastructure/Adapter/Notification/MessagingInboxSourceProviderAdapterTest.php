@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Infrastructure\Adapter\Notification;
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Infrastructure\Adapter\Notification\MessagingInboxSourceProviderAdapter;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;

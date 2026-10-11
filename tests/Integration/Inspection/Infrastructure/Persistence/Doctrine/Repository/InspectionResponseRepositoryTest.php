@@ -86,7 +86,7 @@ final class InspectionResponseRepositoryTest extends KernelTestCase
     foreach ([self::INSPECTION_ID => null, self::SCOPED_INSPECTION_ID => self::INTERVENTION_ID] as $id => $interventionId) {
       $inspection = new InspectionRecord();
       $inspection->id = $id;
-      $inspection->organization = $organization;
+      $inspection->organizationId = $organization->id;
       $inspection->interventionId = $interventionId;
       $inspection->equipmentId = '660e8400-e29b-41d4-a716-446655468889';
       $inspection->inspectorType = 'user';

@@ -414,6 +414,14 @@ The order matters, and each step exists because skipping it was a defect:
      preceding the token's own. MFA `pre_auth` tokens cannot authenticate an API
      request. Inactive user accounts are rejected when loading the passport.
 
+### Published and private capabilities
+
+Federation and initial password setup enter through typed command/query handlers. HTTP owns cookies and rate limits; Application preserves browser binding, state, PKCE, nonce, locks and principal checks. FederatedExceptionSubscriber maps bus-wrapped failures centrally to the existing 400/401/409 codes. Provider/grant enums and issued-session snapshots are pure contracts.
+
+Password flows consume User-owned credential/registration capabilities and Otp-owned challenge projections. Confirmation binds expected purpose and, for authenticated changes, owner. Owner modules persist attempts and account transitions. AuthenticatedUser/AuthenticatedPrincipal expose verified identity without security infrastructure. Retention delegates each foreign dataset to its owner; Auth cleans its own federation flows.
+
+Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
+
 ## Configuration
 
 Environment variables (see `.env`):

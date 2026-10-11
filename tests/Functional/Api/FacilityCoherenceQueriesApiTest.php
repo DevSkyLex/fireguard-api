@@ -449,7 +449,7 @@ final class FacilityCoherenceQueriesApiTest extends WebTestCase
     $this->facility(52, 'site', 'Archived root')->status = 'archived';
     $this->facility(53, 'site', 'Draft root')->recordStatus = 'draft';
     $foreign = $this->facility(54, 'site', 'Foreign root');
-    $foreign->organization = $manager->getReference(OrganizationRecord::class, self::OTHER_ORGANIZATION);
+    $foreign->organizationId = self::OTHER_ORGANIZATION;
     $manager->flush();
     $client->loginUser(new SecurityUser(self::USER, 'coherence-queries@example.com', 'hashed-password', ['ROLE_USER']), 'api');
 
@@ -460,7 +460,7 @@ final class FacilityCoherenceQueriesApiTest extends WebTestCase
   {
     $record = new FacilityRecord();
     $record->id = $this->id($suffix);
-    $record->organization = $this->manager()->getReference(OrganizationRecord::class, self::ORGANIZATION);
+    $record->organizationId = self::ORGANIZATION;
     $record->type = $type;
     $record->name = $name;
     $record->parentFacility = $parent;
@@ -475,7 +475,7 @@ final class FacilityCoherenceQueriesApiTest extends WebTestCase
   {
     $record = new InterventionRecord();
     $record->id = $this->id($suffix);
-    $record->organization = $this->manager()->getReference(OrganizationRecord::class, $organizationId);
+    $record->organizationId = $organizationId;
     $record->name = 'Prepare hierarchy';
     $record->number = $suffix;
     $record->status = $status;
@@ -499,7 +499,7 @@ final class FacilityCoherenceQueriesApiTest extends WebTestCase
     for ($index = 0; $index < 209; ++$index) {
       $record = new EquipmentRecord();
       $record->id = $this->id(5000 + $index);
-      $record->organization = $this->manager()->getReference(OrganizationRecord::class, self::ORGANIZATION);
+      $record->organizationId = self::ORGANIZATION;
       $record->type = 'fire_extinguisher';
       $record->facilityId = $this->id(205 === $index ? 20 : 40);
       $record->status = match ($index) {

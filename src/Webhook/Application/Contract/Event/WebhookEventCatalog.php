@@ -15,8 +15,7 @@ use function in_array;
  * {@see \Webhook\Infrastructure\EventSubscriber\WebhookEventSubscriber}
  * reacts to, mirroring {@see \Automation\Application\Contract\Trigger\AutomationTriggers}:
  * each constant is the exact name
- * {@see \Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter}
- * derives as `<module>.<snake_case_class_name>`, cross-checked against
+ * the event dispatcher derives as `<module>.<snake_case_class_name>`, cross-checked against
  * the `Audit\Infrastructure\EventSubscriber\` subscriber set,
  * which already subscribes to every one of them — do not rename a source
  * domain event without updating both subscribers.
@@ -33,86 +32,86 @@ final class WebhookEventCatalog
 {
   // #region Constants
   /**
-   * Equipment\Domain\Event\Equipment\EquipmentCommissionedEvent. Fields:
+   * Equipment\Application\Contract\Event\Equipment\EquipmentCommissionedEvent. Fields:
    * `organizationId`, `equipmentId`, `facilityId`, `previousStatus`.
    */
   public const string EQUIPMENT_COMMISSIONED_EVENT = 'equipment.equipment_commissioned_event';
 
   /**
-   * Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent. Fields:
+   * Equipment\Application\Contract\Event\Equipment\EquipmentDecommissionedEvent. Fields:
    * `organizationId`, `equipmentId`, `previousStatus`.
    */
   public const string EQUIPMENT_DECOMMISSIONED_EVENT = 'equipment.equipment_decommissioned_event';
 
   /**
-   * Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent.
+   * Equipment\Application\Contract\Event\Equipment\EquipmentPutUnderMaintenanceEvent.
    * Fields: `organizationId`, `equipmentId`, `facilityId`, `previousStatus`.
    */
   public const string EQUIPMENT_PUT_UNDER_MAINTENANCE_EVENT = 'equipment.equipment_put_under_maintenance_event';
 
   /**
-   * Equipment\Domain\Event\Equipment\EquipmentReturnedToStockEvent. Fields:
+   * Equipment\Application\Contract\Event\Equipment\EquipmentReturnedToStockEvent. Fields:
    * `organizationId`, `equipmentId`, `previousStatus`.
    */
   public const string EQUIPMENT_RETURNED_TO_STOCK_EVENT = 'equipment.equipment_returned_to_stock_event';
 
   /**
-   * Inspection\Domain\Event\Inspection\InspectionSubmittedEvent. Fields:
+   * Inspection\Application\Contract\Event\Inspection\InspectionSubmittedEvent. Fields:
    * `organizationId`, `inspectionId`, `equipmentId`, `result`.
    */
   public const string INSPECTION_SUBMITTED_EVENT = 'inspection.inspection_submitted_event';
 
   /**
-   * Inspection\Domain\Event\Inspection\InspectionClosedEvent. Fields:
+   * Inspection\Application\Contract\Event\Inspection\InspectionClosedEvent. Fields:
    * `organizationId`, `inspectionId`, `equipmentId`, `result`.
    */
   public const string INSPECTION_CLOSED_EVENT = 'inspection.inspection_closed_event';
 
   /**
-   * Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent.
+   * Inspection\Application\Contract\Event\NonConformity\NonConformityRecordedEvent.
    * Fields: `organizationId`, `inspectionId`, `nonConformityId`, `severity`.
    */
   public const string NON_CONFORMITY_RECORDED_EVENT = 'inspection.non_conformity_recorded_event';
 
   /**
-   * Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent.
+   * Inspection\Application\Contract\Event\NonConformity\NonConformityStatusChangedEvent.
    * Fields: `organizationId`, `inspectionId`, `nonConformityId`,
    * `previousStatus`, `status`.
    */
   public const string NON_CONFORMITY_STATUS_CHANGED_EVENT = 'inspection.non_conformity_status_changed_event';
 
   /**
-   * Intervention\Domain\Event\Publication\InterventionPublishedEvent.
+   * Intervention\Application\Contract\Event\Publication\InterventionPublishedEvent.
    * Fields: `organizationId`, `interventionId`, `publicationId`.
    */
   public const string INTERVENTION_PUBLISHED_EVENT = 'intervention.intervention_published_event';
 
   /**
-   * Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent.
+   * Maintenance\Application\Contract\Event\Campaign\MaintenanceCampaignGeneratedEvent.
    * Fields: `organizationId`, `interventionId`, `workItemsCount`, `actorUserId`.
    */
   public const string MAINTENANCE_CAMPAIGN_GENERATED_EVENT = 'maintenance.maintenance_campaign_generated_event';
 
   /**
-   * Facility\Domain\Event\Facility\FacilityCreatedEvent. Fields:
+   * Facility\Application\Contract\Event\Facility\FacilityCreatedEvent. Fields:
    * `organizationId`, `facilityId`.
    */
   public const string FACILITY_CREATED_EVENT = 'facility.facility_created_event';
 
   /**
-   * Facility\Domain\Event\Facility\FacilityArchivedEvent. Fields:
+   * Facility\Application\Contract\Event\Facility\FacilityArchivedEvent. Fields:
    * `organizationId`, `facilityId`.
    */
   public const string FACILITY_ARCHIVED_EVENT = 'facility.facility_archived_event';
 
   /**
-   * Facility\Domain\Event\Facility\FacilityRestoredEvent. Fields:
+   * Facility\Application\Contract\Event\Facility\FacilityRestoredEvent. Fields:
    * `organizationId`, `facilityId`.
    */
   public const string FACILITY_RESTORED_EVENT = 'facility.facility_restored_event';
 
   /**
-   * Facility\Domain\Event\Facility\FacilityUpdatedEvent. Fields:
+   * Facility\Application\Contract\Event\Facility\FacilityUpdatedEvent. Fields:
    * `organizationId`, `facilityId`, `changedFields`.
    */
   public const string FACILITY_UPDATED_EVENT = 'facility.facility_updated_event';

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection;
 
 use Inspection\Application\Contract\Inspection\CanonicalInspectionView;
-use Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\CanonicalInspectionRepositoryPort;
 use Inspection\Domain\ValueObject\InspectionId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace OAuth\Application\UseCase\Query\Token\IntrospectToken;
 
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort, RefreshTokenRepositoryPort, TokenCachePort};
+use OAuth\Application\Port\Outbound\Internal\Token\{AccessTokenRepositoryPort, RefreshTokenRepositoryPort};
+use OAuth\Application\Port\Outbound\Token\{JwtParserPort, TokenCachePort};
 use Shared\Application\Message\QueryHandler;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 use function array_map;
@@ -49,7 +49,6 @@ final readonly class IntrospectTokenHandler implements QueryHandler
     private readonly AccessTokenRepositoryPort $accessTokenRepository,
     private readonly RefreshTokenRepositoryPort $refreshTokenRepository,
     private readonly TokenCachePort $tokenCache,
-    #[Autowire('%env(OAUTH_ISSUER)%')]
     private readonly string $issuer = '',
   ) {
   }

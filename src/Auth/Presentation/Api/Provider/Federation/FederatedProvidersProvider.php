@@ -6,8 +6,9 @@ namespace Auth\Presentation\Api\Provider\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Application\Service\Federation\FederatedAuthenticationService;
+use Auth\Application\UseCase\Query\Federation\ListFederatedProviders\ListFederatedProvidersQuery;
 use Auth\Presentation\Api\Dto\Output\Federation\FederatedProviderOutput;
+use Shared\Application\Port\Inbound\QueryBusPort;
 
 use function array_map;
 
@@ -28,11 +29,11 @@ final readonly class FederatedProvidersProvider implements ProviderInterface
    *
    * @access public
    *
-   * @param FederatedAuthenticationService $federation service that exposes configured federated providers
+   * @param QueryBusPort $federation service that exposes configured federated providers
    *
    * @return void
    */
-  public function __construct(private FederatedAuthenticationService $federation)
+  public function __construct(private QueryBusPort $federation)
   {
   }
   // #endregion
@@ -44,9 +45,12 @@ final readonly class FederatedProvidersProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
+    /** @var \Auth\Application\UseCase\Query\Federation\ListFederatedProviders\ListFederatedProvidersResult $result */
+    $result = $this->federation->ask(new ListFederatedProvidersQuery());
+
     return array_map(
       static fn ($provider): FederatedProviderOutput => new FederatedProviderOutput($provider->value),
-      $this->federation->enabledProviders(),
+      $result->providers,
     );
   }
   // #endregion

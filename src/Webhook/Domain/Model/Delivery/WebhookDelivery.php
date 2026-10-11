@@ -13,8 +13,7 @@ use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, Webhoo
  *
  * One outbound delivery attempt log row for a single (subscription, source
  * event) pair — the `(subscription_id, event_id)` uniqueness is enforced at
- * the reservation site ({@see \Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookDeliveryRepository::reserve()}),
- * mirroring `Import\Domain\Model\ImportJob\ImportJob`'s lifecycle style.
+ * the reservation boundary. Each manual redelivery creates a distinct generation.
  *
  * State machine: `pending` -> (`delivered` | `failed`). `pending` may be
  * re-attempted any number of times (each attempt increments `attempts` and
@@ -65,6 +64,10 @@ final class WebhookDelivery
     private ?string $lastError = null,
     private ?DateTimeImmutable $nextRetryAt = null,
     private ?DateTimeImmutable $deliveredAt = null,
+    private int $generation = 0,
+    private ?DateTimeImmutable $leaseUntil = null,
+    private bool $quarantined = false,
+    private bool $httpAttemptStarted = false,
   ) {
   }
   // #endregion
@@ -151,6 +154,9 @@ final class WebhookDelivery
       lastError: $attempt->lastError,
       nextRetryAt: $attempt->nextRetryAt,
       deliveredAt: $attempt->deliveredAt,
+      generation: $attempt->generation,
+      leaseUntil: $attempt->leaseUntil,
+      quarantined: $attempt->quarantined,
     );
   }
 
@@ -237,6 +243,40 @@ final class WebhookDelivery
   }
 
   /**
+   * Method generation. Returns the durable generation fenced by delivery workers.
+   */
+  public function generation(): int
+  {
+    return $this->generation;
+  }
+
+  /**
+   * Method leaseUntil. Returns the latest durable worker lease, if any.
+   */
+  public function leaseUntil(): ?DateTimeImmutable
+  {
+    return $this->leaseUntil;
+  }
+
+  /**
+   * Method quarantined. Indicates technical exhaustion requiring manual redelivery.
+   */
+  public function quarantined(): bool
+  {
+    return $this->quarantined;
+  }
+
+  /**
+   * Counts HTTP only after the durable attempt has been recorded.
+   */
+  public function beginHttpAttempt(): void
+  {
+    $this->assertPending();
+    ++$this->attempts;
+    $this->httpAttemptStarted = true;
+  }
+
+  /**
    * Method httpStatus.
    *
    * @since 1.0.0
@@ -314,7 +354,9 @@ final class WebhookDelivery
       return;
     }
 
-    ++$this->attempts;
+    if (!$this->httpAttemptStarted) {
+      ++$this->attempts;
+    }
     $this->status = WebhookDeliveryStatus::DELIVERED;
     $this->httpStatus = $httpStatus;
     $this->lastError = null;
@@ -341,7 +383,9 @@ final class WebhookDelivery
   {
     $this->assertPending();
 
-    ++$this->attempts;
+    if (!$this->httpAttemptStarted) {
+      ++$this->attempts;
+    }
     $this->httpStatus = $httpStatus;
     $this->lastError = $error;
     $this->nextRetryAt = $nextRetryAt;
@@ -360,11 +404,13 @@ final class WebhookDelivery
    * @param string $error the terminal failure reason
    * @param DateTimeImmutable $now the current time
    */
-  public function markFailed(?int $httpStatus, string $error, DateTimeImmutable $now): void
+  public function markFailed(?int $httpStatus, string $error, DateTimeImmutable $now, bool $countAttempt = true): void
   {
     $this->assertPending();
 
-    ++$this->attempts;
+    if ($countAttempt && !$this->httpAttemptStarted) {
+      ++$this->attempts;
+    }
     $this->status = WebhookDeliveryStatus::FAILED;
     $this->httpStatus = $httpStatus;
     $this->lastError = $error;
@@ -386,6 +432,11 @@ final class WebhookDelivery
   {
     $this->status = WebhookDeliveryStatus::PENDING;
     $this->attempts = 0;
+    ++$this->generation;
+    $this->leaseUntil = null;
+    $this->quarantined = false;
+    $this->httpAttemptStarted = false;
+    $this->deliveredAt = null;
     $this->httpStatus = null;
     $this->lastError = null;
     $this->nextRetryAt = null;

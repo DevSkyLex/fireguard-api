@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility;
 
 use Facility\Application\Port\Inbound\{FacilityArchivalGuardPort, FacilityHierarchyPort};
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, InterventionScopePort};
+use Facility\Application\Port\Outbound\Internal\CanonicalFacilityRepositoryPort;
+use Facility\Application\Port\Outbound\InterventionScopePort;
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\{CanonicalFacilityConflictException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\CanonicalFacility;
 use Facility\Domain\ValueObject\FacilityId;
+use LogicException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
@@ -59,6 +61,9 @@ final readonly class DeleteCanonicalFacilityHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
     private TransactionManagerPort $transactionManager,
     private ?FacilityHierarchyPort $hierarchy = null,
+    private ?\Facility\Application\Port\Inbound\FacilityMutationAuthorizationPort $authorization = null,
+    private ?\Facility\Application\Port\Outbound\Internal\FacilityAttachmentRepositoryPort $attachments = null,
+    private ?\Shared\Application\Port\Outbound\FileCleanupPort $cleanup = null,
   ) {
   }
   // #endregion
@@ -92,6 +97,15 @@ final readonly class DeleteCanonicalFacilityHandler implements CommandHandler
             ?? throw FacilityNotFoundException::withId($command->facilityId);
         }
 
+        if (null !== $command->userId) {
+          ($this->authorization ?? throw new LogicException('Facility mutation authorization is unavailable.'))->assertCanMutate($command->userId, new \Facility\Application\Contract\Facility\CanonicalFacilityView(
+            (string) $facility->id(),
+            (string) $facility->organizationId(),
+            $facility->recordStatus()->value,
+            $facility->interventionId(),
+            $facility->revision(),
+          ));
+        }
         $facility->assertRevisionMatches($command->expectedRevision);
         if ($facility->isScratchpad()) {
           $this->deleteScratchpad($facility);
@@ -139,6 +153,9 @@ final readonly class DeleteCanonicalFacilityHandler implements CommandHandler
       throw CanonicalFacilityConflictException::stillHasChildren();
     }
     $this->archivalGuard->assertNoActiveDependents((string) $facility->organizationId(), (string) $facility->id());
+    foreach ($this->attachments?->findByFacilityId($facility->id()) ?? [] as $attachment) {
+      ($this->cleanup ?? throw new LogicException('File cleanup is unavailable.'))->request($attachment->file()->storagePath);
+    }
     $this->facilities->delete($facility->id());
   }
 

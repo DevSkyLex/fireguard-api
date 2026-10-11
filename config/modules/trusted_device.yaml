@@ -8,7 +8,7 @@ services:
     resource: '../../src/TrustedDevice/Application/UseCase/'
 
   # TrustedDevice Module - Ports
-  TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort:
+  TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort:
     alias: TrustedDevice\Infrastructure\Persistence\Doctrine\Repository\TrustedDeviceRepository
 
   # Infrastructure
@@ -48,3 +48,9 @@ services:
 
   # Adapters (cross-module integration)
   TrustedDevice\Infrastructure\Adapter\Auth\TrustedDeviceCheckAdapter: ~
+
+  TrustedDevice\Application\Port\Inbound\TrustedDeviceDataLifecyclePort:
+    alias: TrustedDevice\Infrastructure\Adapter\Lifecycle\TrustedDeviceDataLifecycleAdapter
+  TrustedDevice\Infrastructure\Adapter\Lifecycle\TrustedDeviceDataLifecycleAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'

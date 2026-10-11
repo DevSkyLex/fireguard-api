@@ -114,7 +114,7 @@ final class InterventionStatisticsAdapterTest extends KernelTestCase
 
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organizationId;
     $record->name = $name;
     $record->number = ++$this->sequence;
     $record->status = $status;

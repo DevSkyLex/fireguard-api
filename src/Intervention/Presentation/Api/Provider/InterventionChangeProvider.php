@@ -8,14 +8,14 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
 use Intervention\Presentation\Api\Dto\Output\InterventionChangeOutput;
 use Intervention\Presentation\Api\Factory\InterventionChangeOutputFactory;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -87,7 +87,7 @@ final readonly class InterventionChangeProvider implements ProviderInterface
 
       return $this->mapper->fromView($result->view);
     }
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Intervention\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $intervention = $query->get('intervention');
     if (!is_string($intervention) || '' === $intervention) {
       throw new BadRequestHttpException('The intervention filter is required.');
@@ -129,12 +129,12 @@ final readonly class InterventionChangeProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

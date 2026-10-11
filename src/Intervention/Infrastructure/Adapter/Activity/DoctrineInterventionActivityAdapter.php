@@ -12,7 +12,7 @@ use Intervention\Application\Port\Outbound\InterventionActivityPort;
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionRecord};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 use function array_map;
 use function max;
@@ -36,12 +36,12 @@ final readonly class DoctrineInterventionActivityAdapter implements Intervention
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    * @param InterventionViewMapper $views the view mapper value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private InterventionViewMapper $views,
   ) {
   }
@@ -76,7 +76,7 @@ final readonly class DoctrineInterventionActivityAdapter implements Intervention
     }
 
     $record = new InterventionActivityRecord();
-    $record->id = $this->uuidFactory->generateRaw();
+    $record->id = $this->uuidFactory->generate();
     $record->clientId = $request->clientId;
     $record->intervention = $intervention;
     $record->organizationId = $request->organizationId;

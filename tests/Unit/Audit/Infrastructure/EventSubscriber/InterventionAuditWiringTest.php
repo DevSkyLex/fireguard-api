@@ -7,7 +7,7 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, InterventionAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
-use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
+use Intervention\Application\Contract\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -80,6 +80,7 @@ final class InterventionAuditWiringTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     foreach ($events as $event) {

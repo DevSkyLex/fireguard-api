@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Infrastructure\Adapter\Messaging;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 use Organization\Infrastructure\Adapter\Messaging\OrganizationMessagingMemberDirectoryAdapter;
@@ -38,7 +38,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
     $members->method('findByOrganizationAndUser')->willReturn($this->member(true));
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertSame(self::MEMBER_ID, $adapter->resolveActiveMemberId(self::ORG_ID, self::USER_ID));
   }
@@ -49,7 +49,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
     $members->method('findByOrganizationAndUser')->willReturn($this->member(false));
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertNull($adapter->resolveActiveMemberId(self::ORG_ID, self::USER_ID));
   }
@@ -60,7 +60,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
     $members->method('findById')->willReturn($this->member(true));
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertFalse($adapter->memberIsActive('550e8400-e29b-41d4-a716-446655440099', self::MEMBER_ID));
   }
@@ -70,7 +70,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
   {
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertFalse($adapter->memberIsActive(self::ORG_ID, 'not-a-uuid'));
   }
@@ -80,7 +80,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
   {
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertNull($adapter->resolveActiveMemberId('not-a-uuid', self::USER_ID));
   }
@@ -91,7 +91,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
     $members->method('findById')->willReturn($this->member(true));
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertSame(self::USER_ID, $adapter->resolveUserIdForMember(self::ORG_ID, self::MEMBER_ID));
   }
@@ -101,7 +101,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
   {
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertNull($adapter->resolveUserIdForMember(self::ORG_ID, 'not-a-uuid'));
   }
@@ -112,7 +112,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
     $members->method('findById')->willReturn($this->member(true));
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertNull($adapter->resolveUserIdForMember('550e8400-e29b-41d4-a716-446655440099', self::MEMBER_ID));
   }
@@ -126,7 +126,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new GetUserResult($this->user('Amelie', 'Rousseau')));
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $queryBus);
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus));
 
     self::assertSame(
       [self::MEMBER_ID => 'Amelie Rousseau'],
@@ -143,7 +143,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new GetUserResult(null));
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $queryBus);
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus));
 
     // Absent from the map, never rendered as its identifier.
     self::assertSame([], $adapter->displayNamesFor(self::ORG_ID, [self::MEMBER_ID]));
@@ -155,7 +155,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
     $members->method('findByOrganizationId')->willReturn([$this->member(true)]);
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertSame([], $adapter->displayNamesFor(self::ORG_ID, ['550e8400-e29b-41d4-a716-446655440098']));
   }
@@ -165,7 +165,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
   {
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertSame([], $adapter->displayNamesFor('not-a-uuid', [self::MEMBER_ID]));
   }
@@ -176,7 +176,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $members = $this->createMock(OrganizationMemberRepositoryPort::class);
     $members->expects(self::never())->method('findByOrganizationId');
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(\User\Application\Port\Inbound\UserDirectoryPort::class));
 
     self::assertSame([], $adapter->displayNamesFor(self::ORG_ID, []));
   }
@@ -190,7 +190,7 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(new RuntimeException('User read model is unavailable.'));
 
-    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $queryBus);
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus));
 
     // A failing directory lookup degrades to "no name", never to an exception.
     self::assertSame([], $adapter->displayNamesFor(self::ORG_ID, [self::MEMBER_ID]));

@@ -6,7 +6,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Organization\Application\Port\Outbound\TeamRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\TeamRepositoryPort;
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, TeamId, TeamName};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\TeamMapper;

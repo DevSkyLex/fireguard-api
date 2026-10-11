@@ -6,8 +6,9 @@ namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\ListEquipment
 
 use DateTimeImmutable;
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
 use Equipment\Application\Port\Outbound\{FacilityNamingPort, FacilitySubtreeScopePort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\MaintenanceDueStatusPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\{ListEquipmentsHandler, ListEquipmentsQuery};
 use Equipment\Domain\Exception\EquipmentNotFoundException;

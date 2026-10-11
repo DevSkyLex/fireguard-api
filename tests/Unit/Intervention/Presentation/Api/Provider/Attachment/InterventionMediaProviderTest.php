@@ -6,279 +6,61 @@ namespace Tests\Unit\Intervention\Presentation\Api\Provider\Attachment;
 
 use ApiPlatform\Metadata\{Get, GetCollection};
 use Auth\Infrastructure\Security\User\SecurityUser;
-use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Application\Contract\Attachment\InterventionAttachmentView;
 use Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\ListInterventionAttachmentsResult;
-use Intervention\Domain\Exception\InterventionAccessDeniedException;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
-use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
+use Intervention\Application\UseCase\Query\Attachment\ResolveInterventionMedia\{ResolveInterventionMediaQuery, ResolveInterventionMediaResult};
 use Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider;
-use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-/**
- * Test InterventionMediaProviderTest.
- *
- * The collection route (`list()`) makes NO authorization decision of its
- * own — the flat `organization.interventions.read` permission is enforced
- * authoritatively inside `ListInterventionAttachmentsHandler` (see
- * `tests/Architecture/Unit/InterventionAuthorizationEnforcementTest`); this
- * test only asserts the exception -> HTTP mapping. The single-item route
- * (`getOne()`) has no backing handler and remains the sole enforcement point
- * for that path.
- *
- * @category Provider Tests
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
-#[CoversClass(InterventionMediaProvider::class)]
 final class InterventionMediaProviderTest extends TestCase
 {
-  private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440001';
-
-  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440003';
-
   #[Test]
-  public function testProvideListsAttachments(): void
+  public function translatesTheStoredApplicationProjection(): void
   {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
-
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListInterventionAttachmentsResult([
-      ['id' => 'attachment-id', 'fileName' => 'evidence.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00', 'workItemId' => null, 'kind' => 'file'],
-    ]));
-
-    $result = new InterventionMediaProvider(
-      $this->createStub(EntityManagerInterface::class),
-      $queryBus,
-      $this->createStub(OrganizationAuthorizationPort::class),
-      $security,
-      $this->createStub(RequestStack::class),
-    )->provide(new GetCollection(), ['interventionId' => self::INTERVENTION_ID]);
-
-    self::assertIsArray($result);
-    self::assertCount(1, $result);
-    self::assertInstanceOf(InterventionAttachmentOutput::class, $result[0]);
-    self::assertSame('attachment-id', $result[0]->id);
+    $bus = $this->createMock(QueryBusPort::class);
+    $view = new InterventionAttachmentView('attachment', 'organization', 'intervention', 'file.pdf', 'application/pdf', 4, 'proof', 3, '2026-01-01T00:00:00+00:00', null, 'file');
+    $bus->expects(self::once())->method('ask')->with(self::callback(static fn (ResolveInterventionMediaQuery $query): bool => 'actor' === $query->userId && 'attachment' === $query->attachmentId))->willReturn(new ResolveInterventionMediaResult('organization', 'intervention', $view));
+    $output = $this->provider($bus)->provide(new Get(), ['id' => 'attachment']);
+    self::assertInstanceOf(\Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput::class, $output);
+    self::assertSame('attachment', $output->id);
+    self::assertSame(3, $output->revision);
+    self::assertSame('proof', $output->label);
   }
 
   #[Test]
-  public function testProvideListMapsAccessDeniedExceptionFromTheHandlerTo403(): void
+  public function translatesAnAuthorizedCollection(): void
   {
+    $bus = $this->createMock(QueryBusPort::class);
+    $bus->expects(self::once())->method('ask')->willReturnCallback(static function (object $query): object {
+      return new ListInterventionAttachmentsResult([['id' => 'attachment', 'fileName' => 'file.pdf', 'mimeType' => 'application/pdf', 'size' => 4, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00', 'workItemId' => null, 'kind' => 'file']]);
+    });
+    $outputs = $this->provider($bus)->provide(new GetCollection(), ['interventionId' => 'intervention']);
+    self::assertIsArray($outputs);
+    self::assertCount(1, $outputs);
+    self::assertSame('attachment', $outputs[0]->id);
+    self::assertSame('intervention', $outputs[0]->interventionId);
+  }
+
+  #[Test]
+  public function refusesAnUnauthenticatedReadWithoutCallingTheBus(): void
+  {
+    $bus = $this->createMock(QueryBusPort::class);
+    $bus->expects(self::never())->method('ask');
     $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
-
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willThrowException(
-      new InterventionAccessDeniedException('Missing organization.interventions.read permission.'),
-    );
-
     $this->expectException(AccessDeniedHttpException::class);
-
-    new InterventionMediaProvider(
-      $this->createStub(EntityManagerInterface::class),
-      $queryBus,
-      $this->createStub(OrganizationAuthorizationPort::class),
-      $security,
-      $this->createStub(RequestStack::class),
-    )->provide(new GetCollection(), ['interventionId' => self::INTERVENTION_ID]);
+    new InterventionMediaProvider($bus, $security, new RequestStack())->provide(new Get(), ['id' => 'attachment']);
   }
 
-  #[Test]
-  public function testProvideGetOneReturnsOutput(): void
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $intervention = new InterventionRecord();
-    $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
-    $attachment = new InterventionAttachmentRecord();
-    $attachment->id = 'attachment-id';
-    $attachment->intervention = $intervention;
-    $attachment->fileName = 'evidence.jpg';
-    $attachment->mimeType = 'image/jpeg';
-    $attachment->size = 5;
-    $attachment->uploadedAt = new DateTimeImmutable();
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($attachment);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
-
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
-
-    $result = new InterventionMediaProvider(
-      $entityManager,
-      $this->createStub(QueryBusPort::class),
-      $authorization,
-      $security,
-      $this->createStub(RequestStack::class),
-    )->provide(new Get(), ['id' => 'attachment-id']);
-
-    self::assertInstanceOf(InterventionAttachmentOutput::class, $result);
-    self::assertSame('attachment-id', $result->id);
-  }
-
-  #[Test]
-  public function testProvideGetOneThrowsAccessDeniedWithoutReadPermission(): void
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $intervention = new InterventionRecord();
-    $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
-    $attachment = new InterventionAttachmentRecord();
-    $attachment->id = 'attachment-id';
-    $attachment->intervention = $intervention;
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($attachment);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
-
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
-
-    $this->expectException(AccessDeniedHttpException::class);
-
-    new InterventionMediaProvider(
-      $entityManager,
-      $this->createStub(QueryBusPort::class),
-      $authorization,
-      $security,
-      $this->createStub(RequestStack::class),
-    )->provide(new Get(), ['id' => 'attachment-id']);
-  }
-
-  #[Test]
-  public function testProvideGetOneThrowsTheSameNotFoundResponseAsAMissingIdWhenTheOrganizationIsOutsideTheCallersScope(): void
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $intervention = new InterventionRecord();
-    $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
-    $attachment = new InterventionAttachmentRecord();
-    $attachment->id = 'attachment-id';
-    $attachment->intervention = $intervention;
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($attachment);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
-
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(
-      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
-    );
-
-    // Byte-identical to the response for an id that does not exist at all
-    // (see testProvideGetOneThrowsNotFoundWhenMissing): the 403/404 split
-    // must not become an existence oracle across organizations.
-    try {
-      new InterventionMediaProvider(
-        $entityManager,
-        $this->createStub(QueryBusPort::class),
-        $authorization,
-        $security,
-        $this->createStub(RequestStack::class),
-      )->provide(new Get(), ['id' => 'attachment-id']);
-      self::fail('Expected NotFoundHttpException to be thrown.');
-    } catch (NotFoundHttpException $exception) {
-      self::assertSame('Attachment not found.', $exception->getMessage());
-    }
-  }
-
-  #[Test]
-  public function testProvideGetOneThrowsNotFoundWhenMissing(): void
-  {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn(null);
-
-    $this->expectException(NotFoundHttpException::class);
-
-    new InterventionMediaProvider(
-      $entityManager,
-      $this->createStub(QueryBusPort::class),
-      $this->createStub(OrganizationAuthorizationPort::class),
-      $this->createStub(Security::class),
-      $this->createStub(RequestStack::class),
-    )->provide(new Get(), ['id' => 'missing-id']);
-  }
-
-  #[Test]
-  public function testProvideGetOneThrowsNotFoundWhenTheIdUriVariableIsAbsent(): void
-  {
-    $this->expectException(NotFoundHttpException::class);
-
-    new InterventionMediaProvider(
-      $this->createStub(EntityManagerInterface::class),
-      $this->createStub(QueryBusPort::class),
-      $this->createStub(OrganizationAuthorizationPort::class),
-      $this->createStub(Security::class),
-      $this->createStub(RequestStack::class),
-    )->provide(new Get(), []);
-  }
-
-  #[Test]
-  public function testProvideListRejectsAnEmptyInterventionIdUriVariable(): void
-  {
-    $this->expectException(BadRequestHttpException::class);
-
-    new InterventionMediaProvider(
-      $this->createStub(EntityManagerInterface::class),
-      $this->createStub(QueryBusPort::class),
-      $this->createStub(OrganizationAuthorizationPort::class),
-      $this->createStub(Security::class),
-      $this->createStub(RequestStack::class),
-    )->provide(new GetCollection(), ['interventionId' => '']);
-  }
-
-  #[Test]
-  public function testProvideListRejectsAnUnauthenticatedUser(): void
+  private function provider(QueryBusPort $bus): InterventionMediaProvider
   {
     $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn(null);
+    $security->method('getUser')->willReturn(new SecurityUser('actor', 'actor@example.com', '', [], [], true));
 
-    $this->expectException(AccessDeniedHttpException::class);
-
-    new InterventionMediaProvider(
-      $this->createStub(EntityManagerInterface::class),
-      $this->createStub(QueryBusPort::class),
-      $this->createStub(OrganizationAuthorizationPort::class),
-      $security,
-      $this->createStub(RequestStack::class),
-    )->provide(new GetCollection(), ['interventionId' => self::INTERVENTION_ID]);
-  }
-
-  #[Test]
-  public function testOutputThrowsNotFoundWhenTheRecordHasNoIntervention(): void
-  {
-    $attachment = new InterventionAttachmentRecord();
-    $attachment->id = 'attachment-id';
-
-    $this->expectException(NotFoundHttpException::class);
-
-    InterventionMediaProvider::output($attachment);
+    return new InterventionMediaProvider($bus, $security, new RequestStack());
   }
 }

@@ -8,16 +8,12 @@ use ApiPlatform\Metadata\{Get, GetCollection};
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowPage, InterventionWorkflowView};
-use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
 use Intervention\Domain\Exception\InterventionNotFoundException;
-use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Provider\InterventionProvider;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -255,7 +251,7 @@ final class InterventionProviderTest extends TestCase
 
     $provider = new InterventionProvider(
       $this->createStub(QueryBusPort::class),
-      new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy()),
+      new InterventionOutputFactory(),
       $security,
       $this->requestStack(''),
     );
@@ -298,26 +294,9 @@ final class InterventionProviderTest extends TestCase
   {
     return new InterventionProvider(
       $queryBus,
-      new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy()),
+      new InterventionOutputFactory(),
       $this->security(),
       $requestStack,
-    );
-  }
-
-  /**
-   * The shared {@see InterventionActionPolicy}, wired with inert
-   * collaborators sufficient to compute `allowedActions` without asserting
-   * on its content — these tests cover the provider's routing, not the
-   * policy's matrix (see InterventionActionPolicyTest for that).
-   */
-  private function actionPolicy(): InterventionActionPolicy
-  {
-    return new InterventionActionPolicy(
-      $this->createStub(OrganizationAuthorizationPort::class),
-      new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class)),
-      new InterventionTransitionPolicy(),
-      new InterventionMutabilityPolicy(),
-      new InterventionChangePolicy(),
     );
   }
 
@@ -354,6 +333,8 @@ final class InterventionProviderTest extends TestCase
       'name' => 'Mission',
       'description' => null,
       'status' => 'draft',
+      'allowedTransitions' => ['planned', 'abandoned'],
+      'allowedActions' => new \Intervention\Application\Contract\Workflow\InterventionAllowedActions(false, false, false, false, false, false, false, false, false, false, false, false),
       'site' => null,
       'responsible' => null,
       'participants' => [],

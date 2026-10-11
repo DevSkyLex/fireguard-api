@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Intervention\Application\Service;
 
-use DateTimeImmutable;
-use Intervention\Application\Contract\Workflow\InterventionWorkflowContext;
-use Intervention\Application\Service\{InterventionActionPolicy, InterventionAllowedActions, InterventionMemberPolicy};
+use Intervention\Application\Contract\Workflow\{InterventionAllowedActions, InterventionWorkflowContext};
+use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationMemberDirectoryPort};
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -342,22 +339,16 @@ final class InterventionActionPolicyTest extends TestCase
    * still a real active member: an outsider to THIS intervention, not a
    * non-member of the organization.
    */
-  private function members(): OrganizationMemberRepositoryPort
+  private function members(): OrganizationMemberDirectoryPort
   {
-    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository = $this->createStub(OrganizationMemberDirectoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturnCallback(
-      function (OrganizationId $organizationId, string $userId): ?OrganizationMember {
+      function (string $organizationId, string $userId): ?OrganizationMemberView {
         if (!in_array($userId, [self::RESPONSIBLE_MEMBER_ID, self::PARTICIPANT_MEMBER_ID, self::OUTSIDER_MEMBER_ID], true)) {
           return null;
         }
 
-        return OrganizationMember::reconstitute(
-          OrganizationMemberId::fromString($userId),
-          $organizationId,
-          $userId,
-          true,
-          new DateTimeImmutable(),
-        );
+        return new OrganizationMemberView($userId, $organizationId, $userId, true);
       },
     );
 

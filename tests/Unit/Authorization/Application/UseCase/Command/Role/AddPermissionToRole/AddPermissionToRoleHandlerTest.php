@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Command\Role\AddPermissionToRole;
 
-use Authorization\Application\Port\Outbound\{PermissionRepositoryPort, RoleRepositoryPort};
+use Authorization\Application\Port\Outbound\Internal\{PermissionRepositoryPort, RoleRepositoryPort};
 use Authorization\Application\UseCase\Command\Role\AddPermissionToRole\{AddPermissionToRoleCommand, AddPermissionToRoleHandler, AddPermissionToRoleResult};
 use Authorization\Domain\Exception\{PermissionNotFoundException, RoleNotFoundException};
 use Authorization\Domain\Model\Permission\Permission;

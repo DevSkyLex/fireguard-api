@@ -7,9 +7,10 @@ namespace Intervention\Infrastructure\Persistence\Doctrine\Mapper;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Resource\InterventionListMetrics;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
+use Intervention\Infrastructure\Persistence\Doctrine\Projection\InterventionWorkItemReadMetrics;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionActivityRecord,
   InterventionAttachmentRecord,
@@ -18,9 +19,9 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionRecord,
   InterventionRecurrenceRecord,
   InterventionRecurrenceRunRecord,
+  InterventionTimeEntryRecord,
   InterventionWorkItemRecord
 };
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_filter;
 use function array_map;
@@ -87,32 +88,27 @@ final readonly class InterventionViewMapper
   public function interventionView(InterventionRecord $intervention, ?InterventionListMetrics $metrics = null): InterventionWorkflowView
   {
     $organizationId = $this->organizationId($intervention);
-    $commentsCount = $this->entityManager->getRepository(InterventionActivityRecord::class)->count([
-      'intervention' => $intervention,
-      'kind' => 'comment',
-    ]);
-    // Bounded per-row lazy load, mirroring commentsCount above — the input
-    // of the "no signature yet" recommendation surfaced by the client.
-    $hasSignature = $this->entityManager->getRepository(InterventionAttachmentRecord::class)->count([
-      'intervention' => $intervention,
-      'kind' => 'signature',
-    ]) > 0;
-    // Bounded per-row lazy load (mirrors the commentsCount decision above);
-    // never fetch-joined into the paginated intervention list query.
-    $labels = array_map(
-      static fn (InterventionLabelRecord $label): array => [
-        'id' => $label->id,
-        'name' => $label->name,
-        'color' => $label->color,
-      ],
-      $intervention->labels->toArray(),
-    );
     // Detail and write paths only. The recurrence origin is a per-row lookup
-    // in another table, and unlike commentsCount it answers a question the
-    // list never asks — adding it to the paginated path would buy a query per
-    // row for a field no row in a list renders.
+    // in another table. Paginated projections omit it rather than issuing a
+    // lookup for each intervention.
     $recurrenceId = null === $metrics ? $this->recurrenceIdOf($intervention->id) : null;
     if (null === $metrics) {
+      $commentsCount = $this->entityManager->getRepository(InterventionActivityRecord::class)->count([
+        'intervention' => $intervention,
+        'kind' => 'comment',
+      ]);
+      $hasSignature = $this->entityManager->getRepository(InterventionAttachmentRecord::class)->count([
+        'intervention' => $intervention,
+        'kind' => 'signature',
+      ]) > 0;
+      $labels = array_map(
+        static fn (InterventionLabelRecord $label): array => [
+          'id' => $label->id,
+          'name' => $label->name,
+          'color' => $label->color,
+        ],
+        $intervention->labels->toArray(),
+      );
       $summary = $this->resources->summary($intervention->id);
       $workItems = $this->resources->workItemSummary($intervention->id);
       $issues = $this->issueFinder->find(
@@ -132,6 +128,9 @@ final readonly class InterventionViewMapper
         'status' => 'proposed',
       ]);
     } else {
+      $commentsCount = $metrics->commentsCount;
+      $hasSignature = $metrics->hasSignature;
+      $labels = $metrics->labels;
       $facilitiesCount = $metrics->facilities;
       $equipmentCount = $metrics->equipment;
       $inspectionsCount = $metrics->inspections;
@@ -186,19 +185,22 @@ final readonly class InterventionViewMapper
    * @since 1.0.0
    *
    * @param InterventionWorkItemRecord $record the record value
+   * @param ?InterventionWorkItemReadMetrics $metrics preloaded counters for a paginated work item
    *
    * @return InterventionWorkflowView the work item view result
    */
-  public function workItemView(InterventionWorkItemRecord $record): InterventionWorkflowView
+  public function workItemView(InterventionWorkItemRecord $record, ?InterventionWorkItemReadMetrics $metrics = null): InterventionWorkflowView
   {
     $intervention = $this->owningIntervention($record);
     $organizationId = $this->organizationId($intervention);
-    // Bounded per-row lazy load, mirroring the commentsCount decision in
-    // interventionView() above: cheap (indexed FK count) and correct without
-    // batching the work item list/get paths through a separate grouped query.
-    $evidenceCount = $this->entityManager->getRepository(InterventionAttachmentRecord::class)->count([
+    $evidenceCount = null !== $metrics ? $metrics->evidenceCount : $this->entityManager->getRepository(InterventionAttachmentRecord::class)->count([
       'workItem' => $record,
     ]);
+    $spentMinutes = null !== $metrics ? $metrics->spentMinutes : (int) $this->entityManager->createQueryBuilder()
+      ->select('COALESCE(SUM(t.minutes), 0)')
+      ->from(InterventionTimeEntryRecord::class, 't')
+      ->where('t.workItem = :item AND t.cancelled = false')->setParameter('item', $record)
+      ->getQuery()->getSingleScalarResult();
 
     return new InterventionWorkflowView('work_item', $organizationId, [
       'id' => $record->id,
@@ -216,11 +218,7 @@ final readonly class InterventionViewMapper
       'required' => $record->required,
       'skipReason' => $record->skipReason,
       'estimatedMinutes' => $record->estimatedMinutes,
-      'spentMinutes' => (int) $this->entityManager->createQueryBuilder()
-        ->select('COALESCE(SUM(t.minutes), 0)')
-        ->from(\Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionTimeEntryRecord::class, 't')
-        ->where('t.workItem = :item AND t.cancelled = false')->setParameter('item', $record)
-        ->getQuery()->getSingleScalarResult(),
+      'spentMinutes' => $spentMinutes,
       'remainingMinutes' => $record->remainingMinutes,
       'workStartsOn' => $record->workStartsOn,
       'workEndsOn' => $record->workEndsOn,
@@ -323,11 +321,11 @@ final readonly class InterventionViewMapper
    */
   private function organizationId(InterventionRecord $intervention): string
   {
-    if (!$intervention->organization instanceof OrganizationRecord) {
+    if (!isset($intervention->organizationId)) {
       throw new InterventionConflictException('Intervention organization is missing.');
     }
 
-    return $intervention->organization->id;
+    return $intervention->organizationId;
   }
 
   /**

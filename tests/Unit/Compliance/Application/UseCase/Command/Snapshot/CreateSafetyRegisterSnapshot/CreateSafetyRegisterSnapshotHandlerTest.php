@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Compliance\Application\UseCase\Command\Snapshot\CreateSafetyRegisterSnapshot;
 
-use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort, SafetyRegisterSnapshotRepositoryPort};
+use Compliance\Application\Contract\ComplianceStatus;
+use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort};
+use Compliance\Application\Port\Outbound\Internal\SafetyRegisterSnapshotRepositoryPort;
 use Compliance\Application\Service\SafetyRegisterContextBuilder;
 use Compliance\Application\UseCase\Command\Snapshot\CreateSafetyRegisterSnapshot\{CreateSafetyRegisterSnapshotCommand, CreateSafetyRegisterSnapshotHandler};
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
@@ -12,14 +14,12 @@ use Compliance\Application\UseCase\Query\Snapshot\GetSafetyRegisterSnapshotConte
 use Compliance\Domain\Event\SafetyRegisterSnapshotCreatedEvent;
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceExportNotEntitledException, ComplianceNotFoundException};
 use Compliance\Domain\Model\Snapshot\SafetyRegisterSnapshot;
-use Compliance\Domain\ValueObject\ComplianceStatus;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, FileStoragePort, TransactionManagerPort, UuidGeneratorPort};
 
@@ -388,7 +388,7 @@ final class CreateSafetyRegisterSnapshotHandlerTest extends TestCase
       renderer: $renderer,
       fileStorage: $fileStorage ?? $this->createStub(FileStoragePort::class),
       repository: $repository ?? $this->createStub(SafetyRegisterSnapshotRepositoryPort::class),
-      uuidFactory: new UuidFactory($uuidGenerator),
+      uuidFactory: $uuidGenerator,
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
       transactionManager: $transactions,
     );

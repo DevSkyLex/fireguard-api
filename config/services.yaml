@@ -32,10 +32,10 @@ services:
 
 
   # MFA Port/Adapter Configuration
-  Auth\Application\Port\Outbound\Mfa\ChallengeGeneratorPort:
+  Auth\Application\Port\Outbound\Internal\Mfa\ChallengeGeneratorPort:
     class: Auth\Infrastructure\Adapter\Mfa\OtpModuleChallengeGeneratorAdapter
 
-  Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort:
+  Auth\Application\Port\Outbound\Internal\Mfa\ChallengeVerifierPort:
     class: Auth\Infrastructure\Adapter\Mfa\OtpModuleChallengeVerifierAdapter
 
   app.doctrine_migrations.main_schema_filter_listener:
@@ -51,6 +51,11 @@ services:
   # express) so schema:validate and migrations:diff stop flagging them as drift.
   Shared\Infrastructure\Doctrine\PartialIndexSchemaListener:
     tags:
+      - { name: 'doctrine.event_listener', event: 'postGenerateSchema', connection: 'main' }
+
+  Shared\Infrastructure\Doctrine\ScalarForeignKeySchemaListener:
+    tags:
+      - { name: 'doctrine.event_listener', event: 'postGenerateSchema', connection: 'auth' }
       - { name: 'doctrine.event_listener', event: 'postGenerateSchema', connection: 'main' }
 
 

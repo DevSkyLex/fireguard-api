@@ -7,12 +7,12 @@ namespace Tests\Support\Notification;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
-use Notification\Application\Port\Outbound\{MercureNotificationChannelPort, NotificationPreferenceRepositoryPort, NotificationRepositoryPort, RecipientDirectoryPort};
+use Notification\Application\Port\Outbound\Internal\{MercureNotificationChannelPort, NotificationPreferenceRepositoryPort, NotificationRepositoryPort};
+use Notification\Application\Port\Outbound\RecipientDirectoryPort;
 use Notification\Application\Service\NotificationService;
 use Notification\Application\UseCase\Command\Notification\SendNotification\SendNotificationHandler;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{LoggerPort, MailerPort, UuidGeneratorPort};
 use Symfony\Bridge\Twig\Extension\TranslationExtension;
 use Symfony\Component\Translation\Translator;
@@ -72,7 +72,7 @@ trait EmailPipelineTestTrait
       mercureChannel: $mercure,
       recipientDirectory: $directory,
       logger: $logger,
-      uuidFactory: new UuidFactory($generator),
+      uuidFactory: $generator,
     ));
   }
 

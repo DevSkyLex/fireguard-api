@@ -6,18 +6,19 @@ namespace Equipment\Presentation\Api\Provider\Media;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentAttachmentRecord;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Equipment\Application\Contract\Media\EquipmentMediaView;
+use Equipment\Application\UseCase\Command\Equipment\AddAttachment\AddAttachmentResult;
+use Equipment\Application\UseCase\Query\Media\GetEquipmentMedia\{GetEquipmentMediaQuery, GetEquipmentMediaResult};
 use Equipment\Presentation\Api\Dto\Output\Equipment\AttachmentOutput;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 use function is_string;
 
 /**
- * Provider MediaProvider.
+ * Translates authorized attachment projections to HTTP output.
  *
  * @category Provider
  * @version 1.0.0
@@ -28,98 +29,48 @@ use function is_string;
  */
 final readonly class MediaProvider implements ProviderInterface
 {
-  // #region Constants
+  // #region Constructor
   /**
-   * Constant MEDIA_NOT_FOUND_MESSAGE
+   * Constructor. @since 1.0.0
    */
-  private const string MEDIA_NOT_FOUND_MESSAGE = 'Media not found.';
+  public function __construct(private QueryBusPort $queries, private Security $security)
+  {
+  }
   // #endregion
 
+  // #region Methods
   /**
-   * Constructor.
-   *
-   * Initializes a new instance of the MediaProvider class.
-   *
-   * @since 1.0.0
-   *
-   * @param EntityManagerInterface $entityManager the entity manager value
-   * @param OrganizationAuthorizationPort $authorization the authorization value
-   * @param Security $security the security value
-   */
-  public function __construct(
-    private EntityManagerInterface $entityManager,
-    private OrganizationAuthorizationPort $authorization,
-    private Security $security,
-  ) {
-  }
-
-  /**
-   * Method provide.
-   *
-   * Loads one attachment, verifies its owning organization is readable, and returns the attachment output.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param Operation $operation the operation value
-   * @param array<string, mixed> $uriVariables the uri variables value
-   * @param array<string, mixed> $context the context value
-   *
-   * @return AttachmentOutput the provide result
+   * @param array<string, mixed> $uriVariables @param array<string, mixed> $context @since 1.0.0
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): AttachmentOutput
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
-      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
-    }
-    $record = $this->entityManager->find(EquipmentAttachmentRecord::class, $id);
-    if (!$record instanceof EquipmentAttachmentRecord || null === $record->equipment?->organization) {
-      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
+      throw new NotFoundHttpException('Media not found.');
     }
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
-      throw new AccessDeniedHttpException('Authentication required.');
-    }
+    /** @var GetEquipmentMediaResult $result */
+    $result = $this->queries->ask(new GetEquipmentMediaQuery($id, $user instanceof AuthenticatedUser ? $user->getId() : null));
 
-    $decision = $this->authorization->resolveAccess($user->getId(), $record->equipment->organization->id, 'organization.equipment.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
-    }
-
-    return self::output($record);
+    return self::output($result->view);
   }
 
   /**
-   * Method output.
-   *
-   * Projects an equipment attachment record and its owning equipment identifier into API output.
-   *
-   * @access public
    * @since 1.0.0
-   *
-   * @param EquipmentAttachmentRecord $record the record value
-   *
-   * @return AttachmentOutput the output result
    */
-  public static function output(EquipmentAttachmentRecord $record): AttachmentOutput
+  public static function output(EquipmentMediaView|AddAttachmentResult $view): AttachmentOutput
   {
-    if (null === $record->equipment) {
-      throw new NotFoundHttpException('Media equipment not found.');
-    }
     $output = new AttachmentOutput();
-    $output->id = $record->id;
-    $output->equipmentId = $record->equipment->id;
-    $output->fileName = $record->fileName;
-    $output->mimeType = $record->mimeType;
-    $output->size = $record->size;
-    $output->label = $record->label;
-    $output->revision = $record->revision;
-    $output->uploadedAt = $record->uploadedAt->format('c');
+    $output->id = $view instanceof EquipmentMediaView ? $view->id : $view->attachmentId;
+    $output->equipmentId = $view->equipmentId;
+    $output->fileName = $view->fileName;
+    $output->mimeType = $view->mimeType;
+    $output->size = $view->size;
+    $output->label = $view->label;
+    $output->revision = $view->revision;
+    $output->uploadedAt = $view->uploadedAt->format('c');
 
     return $output;
   }
+  // #endregion
 }

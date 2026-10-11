@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Intervention\Application\Contract\Inventory\InventoryInterventionContext;
 use Intervention\Application\Port\Inbound\InterventionInventoryContextPort;
 use Inventory\Application\Contract\Stock\InventoryOperationReceipt;
-use Inventory\Application\Port\Outbound\InventoryStorePort;
+use Inventory\Application\Port\Outbound\Internal\InventoryStorePort;
 use Inventory\Application\UseCase\Command\ApplyInventoryStock\{ApplyInventoryStockCommand, ApplyInventoryStockHandler};
 use Inventory\Domain\Exception\InventoryConflictException;
 use Inventory\Domain\Model\Stock\{ConsumptionDeclaration, InventoryReference, StockBalance, StockMovement};

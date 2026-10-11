@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Billing\Application\UseCase;
 
 use Billing\Application\Contract\Plan\PlanSummary;
-use Billing\Application\Port\Outbound\{OrganizationPlanPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\SubscriptionRepositoryPort;
+use Billing\Application\Port\Outbound\OrganizationPlanPort;
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Application\UseCase\Query\GetOrganizationSubscription\{
   GetOrganizationSubscriptionHandler,

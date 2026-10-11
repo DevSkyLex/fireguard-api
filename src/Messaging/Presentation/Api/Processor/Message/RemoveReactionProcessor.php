@@ -6,7 +6,7 @@ namespace Messaging\Presentation\Api\Processor\Message;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Messaging\Application\UseCase\Command\Message\RemoveReaction\RemoveReactionCommand;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -85,12 +85,12 @@ final readonly class RemoveReactionProcessor implements ProcessorInterface
    *
    * @since 1.1.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

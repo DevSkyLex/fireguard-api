@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\Model;
 
 use Facility\Application\Contract\Spatial\FacilitySpatialContext;
-use Facility\Application\Port\Outbound\{FacilityModelRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Port\Outbound\FacilitySpatialReadPort;
+use Facility\Application\Port\Outbound\Internal\{FacilityModelRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\{FacilityModelAccessGuard, FacilitySpatialValidityResolver};
 use Facility\Application\UseCase\Command\Model\ActivateFacilityModel\{ActivateFacilityModelCommand, ActivateFacilityModelHandler};
 use Facility\Application\UseCase\Command\Model\DeleteFacilityModel\{DeleteFacilityModelCommand, DeleteFacilityModelHandler};
@@ -24,7 +24,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Outbound\{FileStoragePort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\{FileCleanupPort, FileStoragePort, RootTransactionManagerPort, UuidGeneratorPort};
 use Tests\Helper\GlbFixture;
 
 /**
@@ -60,7 +60,7 @@ final class FacilityModelHandlersTest extends TestCase
     $storage = $this->createMock(FileStoragePort::class);
     $storage->expects(self::once())->method('write')->with('facility-model/' . self::BUILDING . '/' . self::MODEL . '/model.glb', GlbFixture::contents());
     $storage->expects(self::never())->method('delete');
-    $handler = new UploadFacilityModelHandler($this->access($models), $models, $storage, $this->uuids());
+    $handler = new UploadFacilityModelHandler($this->access($models), $models, $storage, $this->uuids(), $this->transactionManager());
     $result = $handler(new UploadFacilityModelCommand('member', self::ORG, self::BUILDING, 'Model.glb', GlbFixture::contents()));
     self::assertSame(self::MODEL, $result->model->id);
     self::assertSame(1, $result->model->revision);
@@ -73,7 +73,7 @@ final class FacilityModelHandlersTest extends TestCase
     $models->method('findByBuilding')->willReturn([]);
     $storage = $this->createMock(FileStoragePort::class);
     $storage->expects(self::never())->method('write');
-    $handler = new UploadFacilityModelHandler($this->access($models), $models, $storage, $this->uuids());
+    $handler = new UploadFacilityModelHandler($this->access($models), $models, $storage, $this->uuids(), $this->transactionManager());
     $this->expectException(FacilityModelException::class);
     $handler(new UploadFacilityModelCommand('member', self::ORG, self::BUILDING, 'Bad.glb', 'invalid'));
   }
@@ -87,7 +87,7 @@ final class FacilityModelHandlersTest extends TestCase
     $storage = $this->createMock(FileStoragePort::class);
     $storage->expects(self::once())->method('write');
     $storage->expects(self::once())->method('delete')->with('facility-model/' . self::BUILDING . '/' . self::MODEL . '/model.glb');
-    $handler = new UploadFacilityModelHandler($this->access($models), $models, $storage, $this->uuids());
+    $handler = new UploadFacilityModelHandler($this->access($models), $models, $storage, $this->uuids(), $this->transactionManager());
     $this->expectExceptionMessage('database failed');
     $handler(new UploadFacilityModelCommand('member', self::ORG, self::BUILDING, 'Model.glb', GlbFixture::contents()));
   }
@@ -137,9 +137,9 @@ final class FacilityModelHandlersTest extends TestCase
     $models = $this->createMock(FacilityModelRepositoryPort::class);
     $models->method('find')->willReturn($model);
     $models->expects(self::once())->method('delete')->with($model, 1)->willReturnCallback(static function () use (&$deleted): void { $deleted = true; });
-    $storage = $this->createMock(FileStoragePort::class);
-    $storage->expects(self::once())->method('delete')->with($model->storagePath)->willReturnCallback(static function () use (&$deleted): void { self::assertTrue($deleted); });
-    $result = new DeleteFacilityModelHandler($this->access($models), $models, $storage)(new DeleteFacilityModelCommand('member', self::MODEL, 1));
+    $cleanup = $this->createMock(FileCleanupPort::class);
+    $cleanup->expects(self::once())->method('request')->with($model->storagePath)->willReturnCallback(static function () use (&$deleted): void { self::assertTrue($deleted); });
+    $result = new DeleteFacilityModelHandler($this->access($models), $models, $cleanup, $this->transactionManager())(new DeleteFacilityModelCommand('member', self::MODEL, 1));
     self::assertSame(self::MODEL, $result->id);
   }
 
@@ -349,5 +349,13 @@ final class FacilityModelHandlersTest extends TestCase
   private function model(array $nodes = [['index' => 0, 'name' => 'shell']]): FacilityModel
   {
     return FacilityModel::create(self::MODEL, self::ORG, self::BUILDING, 'Building.glb', 100, $nodes);
+  }
+
+  private function transactionManager(): RootTransactionManagerPort
+  {
+    $port = $this->createStub(RootTransactionManagerPort::class);
+    $port->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $port;
   }
 }

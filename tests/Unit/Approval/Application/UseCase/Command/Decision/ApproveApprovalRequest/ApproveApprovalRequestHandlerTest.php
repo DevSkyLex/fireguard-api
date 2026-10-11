@@ -4,20 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest;
 
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
 use Approval\Application\Contract\Execution\DeferredActionContext;
 use Approval\Application\Contract\Policy\ApprovalPolicy;
-use Approval\Application\Port\Outbound\{ApprovalActionExecutorPort, ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalActionExecutorPort, ApprovalMemberDirectoryPort, ApprovalPolicyPort};
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Application\Service\ApprovalActionExecutorRegistry;
 use Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest\{ApproveApprovalRequestCommand, ApproveApprovalRequestHandler};
 use Approval\Domain\Event\Request\{ApprovalApprovedEvent, ApprovalExecutionFailedEvent};
-use Approval\Domain\Exception\{
-  ApprovalRequestNotFoundException,
-  ApprovalRequestNotPendingException,
-  ApproverNotAuthorizedException,
-  DeferredActionNoLongerApplicableException,
-  SelfApprovalNotAllowedException
-};
 use Approval\Domain\Exception\ApprovalAccessDeniedException;
+use Approval\Domain\Exception\{ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApproverNotAuthorizedException, SelfApprovalNotAllowedException};
 use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;

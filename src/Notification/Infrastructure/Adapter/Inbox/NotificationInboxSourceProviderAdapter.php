@@ -7,7 +7,8 @@ namespace Notification\Infrastructure\Adapter\Inbox;
 use DateTimeImmutable;
 use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
 use Notification\Application\Contract\Notification\NotificationListCriteria;
-use Notification\Application\Port\Outbound\{InboxSourceProviderPort, NotificationRepositoryPort};
+use Notification\Application\Port\Outbound\InboxSourceProviderPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Notification\Domain\Model\Notification\Notification;
 
 use function array_map;

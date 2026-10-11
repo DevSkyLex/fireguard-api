@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Adapter\Organization;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Inspection\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\NonConformityRecord;
 use Organization\Application\Contract\Search\OrganizationSearchHit;
 use Organization\Application\Port\Outbound\NonConformitySearchPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function max;
 use function mb_strlen;
@@ -63,14 +62,14 @@ final readonly class NonConformitySearchAdapter implements NonConformitySearchPo
    */
   public function search(string $organizationId, string $term, int $limit): array
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    /** @var string $organization */
+    $organization = $organizationId;
 
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('nonConformity')
       ->from(NonConformityRecord::class, 'nonConformity')
       ->join('nonConformity.inspection', 'inspection')
-      ->where('inspection.organization = :organization')
+      ->where('inspection.organizationId = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('nonConformity.updatedAt', 'DESC')
       ->setMaxResults(max(1, $limit));

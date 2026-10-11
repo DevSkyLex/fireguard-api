@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace Import\Application\UseCase\Command\CreateImportJob;
 
-use Import\Application\Port\Outbound\{ImportJobQueuePort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\ImportJobQueuePort;
+use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{FileStoragePort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 use ValueError;
@@ -53,14 +54,14 @@ final readonly class CreateImportJobHandler implements CommandHandler
    * @param FileStoragePort $fileStorage the file storage port
    * @param ImportJobQueuePort $queue the import job queue port
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    */
   public function __construct(
     private ImportJobRepositoryPort $repository,
     private FileStoragePort $fileStorage,
     private ImportJobQueuePort $queue,
     private OrganizationAuthorizationPort $authorization,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private TransactionManagerPort $transactionManager,
   ) {
   }
@@ -99,7 +100,7 @@ final readonly class CreateImportJobHandler implements CommandHandler
     }
 
     /** @var ImportJobId $id */
-    $id = $this->uuidFactory->create(ImportJobId::class);
+    $id = new ImportJobId($this->uuidFactory->generate());
     $storagePath = sprintf('imports/%s/%s.csv', $command->organizationId, (string) $id);
 
     $job = ImportJob::create(

@@ -9,7 +9,7 @@ namespace Import\Presentation\Api\Service;
  *
  * Presentation-layer read model for a validated multipart CSV upload,
  * produced by {@see CsvUploadGuard} and consumed by `CreateImportJobProcessor`.
- * Mirrors `Shared\Presentation\Api\Attachment\UploadedAttachment`.
+ * Mirrors `Shared\Application\Contract\Attachment\UploadedAttachment`.
  *
  * @category DTO
  * @version 1.0.0

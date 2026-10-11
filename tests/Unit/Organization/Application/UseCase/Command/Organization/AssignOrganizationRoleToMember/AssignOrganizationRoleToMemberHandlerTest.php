@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Contract\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\{AssignOrganizationRoleToMemberCommand, AssignOrganizationRoleToMemberHandler, AssignOrganizationRoleToMemberResult};
-use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;

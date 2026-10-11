@@ -13,7 +13,6 @@ use Intervention\Domain\Exception\{InterventionConflictException, InterventionNo
 use Intervention\Infrastructure\Adapter\Template\DoctrineInterventionTemplateAdapter;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Throwable;
@@ -50,7 +49,9 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
 
     /** @var UuidGeneratorPort $generator */
     $generator = static::getContainer()->get(UuidGeneratorPort::class);
-    $this->adapter = new DoctrineInterventionTemplateAdapter($this->entityManager, new UuidFactory($generator));
+    $owners = self::getContainer()->get(\Organization\Application\Port\Inbound\OrganizationOwnerReadPort::class);
+    self::assertInstanceOf(\Organization\Application\Port\Inbound\OrganizationOwnerReadPort::class, $owners);
+    $this->adapter = new DoctrineInterventionTemplateAdapter($this->entityManager, $generator, $owners);
 
     $this->createOrganization(self::ORGANIZATION_ID, 'template-adapter-test');
     $this->createOrganization(self::OTHER_ORGANIZATION_ID, 'template-adapter-other');

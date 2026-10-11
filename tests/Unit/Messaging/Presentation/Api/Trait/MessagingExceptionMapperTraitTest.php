@@ -7,7 +7,7 @@ namespace Tests\Unit\Messaging\Presentation\Api\Trait;
 use InvalidArgumentException;
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingAttachmentNotFoundException, MessagingConflictException, MessagingNotFoundException, MessagingSubjectNotFoundException, MessagingValidationException};
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversTrait, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;

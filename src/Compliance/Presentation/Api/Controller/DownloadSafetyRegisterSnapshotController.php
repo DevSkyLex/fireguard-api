@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Compliance\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Compliance\Application\UseCase\Query\Snapshot\GetSafetyRegisterSnapshotContent\{GetSafetyRegisterSnapshotContentQuery, GetSafetyRegisterSnapshotContentResult};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -64,7 +64,7 @@ final class DownloadSafetyRegisterSnapshotController extends AbstractController
   public function __invoke(Request $request): Response
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

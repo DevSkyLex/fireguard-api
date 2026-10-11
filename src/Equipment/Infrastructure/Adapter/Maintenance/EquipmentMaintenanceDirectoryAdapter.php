@@ -41,7 +41,7 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
    *
    * Keeps the scalar directory view identical across single, batch and paginated reads.
    */
-  private const string TRACKABLE_EQUIPMENT_PROJECTION = 'e.id AS equipmentId, IDENTITY(e.organization) AS organizationId, e.facilityId AS facilityId, e.type AS equipmentType, e.status AS status';
+  private const string TRACKABLE_EQUIPMENT_PROJECTION = 'e.id AS equipmentId, e.organizationId AS organizationId, e.facilityId AS facilityId, e.type AS equipmentType, e.status AS status';
   // #endregion
 
   // #region Constructor
@@ -125,7 +125,7 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
       ->setMaxResults(max(1, $limit));
 
     if (null !== $organizationId) {
-      $qb->andWhere('IDENTITY(e.organization) = :organization')->setParameter('organization', $organizationId);
+      $qb->andWhere('e.organizationId = :organization')->setParameter('organization', $organizationId);
     }
 
     /** @var list<array{equipmentId: string, organizationId: string, facilityId: ?string, equipmentType: string, status: string}> $rows */

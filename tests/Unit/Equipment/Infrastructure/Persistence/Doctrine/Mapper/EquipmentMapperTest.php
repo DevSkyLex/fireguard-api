@@ -17,7 +17,6 @@ use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssi
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -87,8 +86,7 @@ final class EquipmentMapperTest extends TestCase
   #[Test]
   public function testToDomainRefusesARecordWithoutAnOrganization(): void
   {
-    $record = $this->record();
-    $record->organization = null;
+    $record = new EquipmentRecord();
 
     $this->expectException(LogicException::class);
     $this->expectExceptionMessage('Equipment record must reference an organization.');
@@ -115,13 +113,11 @@ final class EquipmentMapperTest extends TestCase
   }
 
   #[Test]
-  public function testToRecordDoesNotCarryTheOrganizationAssociation(): void
+  public function testToRecordCarriesTheScalarOrganizationIdentity(): void
   {
-    // The association is owned by the repository (it resolves the managed
-    // OrganizationRecord); the mapper must leave it untouched.
     $record = EquipmentMapper::toRecord(EquipmentMapper::toDomain($this->record()));
 
-    self::assertNull($record->organization);
+    self::assertSame(self::ORGANIZATION_ID, $record->organizationId);
   }
 
   #[Test]
@@ -169,7 +165,7 @@ final class EquipmentMapperTest extends TestCase
     );
 
     $record = EquipmentMapper::toRecord($equipment);
-    $record->organization = $this->organization();
+    $record->organizationId = self::ORGANIZATION_ID;
 
     $roundTripped = EquipmentMapper::toDomain($record);
 
@@ -178,19 +174,11 @@ final class EquipmentMapperTest extends TestCase
     self::assertSame(EquipmentStatus::DECOMMISSIONED, $roundTripped->status());
   }
 
-  private function organization(): OrganizationRecord
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-
-    return $organization;
-  }
-
   private function record(): EquipmentRecord
   {
     $record = new EquipmentRecord();
     $record->id = self::EQUIPMENT_ID;
-    $record->organization = $this->organization();
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->facilityId = self::FACILITY_ID;
     $record->type = 'fire_extinguisher';
     $record->subType = 'CO2';

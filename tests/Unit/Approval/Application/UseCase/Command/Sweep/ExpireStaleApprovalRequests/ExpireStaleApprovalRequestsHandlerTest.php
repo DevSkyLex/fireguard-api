@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests;
 
-use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests\{
   ExpireStaleApprovalRequestsCommand,
   ExpireStaleApprovalRequestsHandler

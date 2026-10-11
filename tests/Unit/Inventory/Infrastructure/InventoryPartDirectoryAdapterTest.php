@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inventory\Infrastructure;
 
 use InvalidArgumentException;
-use Inventory\Application\Port\Outbound\InventoryStorePort;
+use Inventory\Application\Port\Outbound\Internal\InventoryStorePort;
 use Inventory\Domain\Model\Stock\InventoryReference;
 use Inventory\Infrastructure\Adapter\Procurement\InventoryPartDirectoryAdapter;
 use PHPUnit\Framework\Attributes\Test;

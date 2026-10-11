@@ -9,7 +9,6 @@ use Facility\Application\Port\Inbound\FacilityHierarchyPort;
 use Facility\Application\Port\Outbound\FacilityHierarchySnapshotPort;
 use Facility\Domain\Exception\FacilityHierarchyException;
 use Facility\Domain\ValueObject\{FacilityHierarchyPolicy, FacilityType};
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function count;
 
@@ -31,7 +30,6 @@ final readonly class FacilityHierarchyGuard implements FacilityHierarchyPort
    */
   public function __construct(
     private FacilityHierarchySnapshotPort $snapshot,
-    #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
   ) {
   }

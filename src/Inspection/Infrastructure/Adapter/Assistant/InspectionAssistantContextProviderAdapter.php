@@ -8,7 +8,7 @@ use Assistant\Application\Contract\Context\{AssistantContextBudget, AssistantCon
 use Assistant\Application\Port\Outbound\AssistantContextProviderPort;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort;
 use Inspection\Domain\ValueObject\InspectionOrganizationId;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\NonConformityRecord;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -228,8 +228,7 @@ final readonly class InspectionAssistantContextProviderAdapter implements Assist
       ->select('r.description AS description, r.severity AS severity, r.status AS status, r.dueAt AS dueAt')
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
+      ->andWhere('i.organizationId = :organizationId')
       ->andWhere('r.status IN (:openStatuses)')
       ->setParameter('organizationId', $organizationId)
       ->setParameter('openStatuses', self::OPEN_STATUSES)

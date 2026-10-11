@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Messaging\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment\{DownloadMessageAttachmentQuery, DownloadMessageAttachmentResult};
+use Messaging\Presentation\Api\Attachment\AttachmentDownloadResponder;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
+use Shared\Application\Contract\Storage\FileStorageException;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Infrastructure\Exception\FileStorageException;
-use Shared\Presentation\Api\Attachment\AttachmentDownloadResponder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
@@ -74,7 +74,7 @@ final class DownloadMessagingAttachmentController extends AbstractController
   public function __invoke(Request $request): Response
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Application\UseCase\Command\Mfa\MfaChallenge;
 
-use Auth\Application\Port\Outbound\Mfa\ChallengeGeneratorPort;
+use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeGeneratorPort;
 use Auth\Application\UseCase\Command\Mfa\MfaChallenge\{MfaChallengeCommand, MfaChallengeHandler, MfaChallengeResult};
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

@@ -8,14 +8,13 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Application\UseCase\Query\Notification\ListUserNotifications\{ListUserNotificationsQuery, ListUserNotificationsResult};
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
-use Shared\Application\Contract\Pagination\Pagination;
+use Shared\Application\Contract\Pagination\{Pagination, PaginationExtractor};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -74,12 +73,12 @@ final readonly class ListNotificationsProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): TraversablePaginator
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
     /** @var array<string, mixed> $filters */
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Notification\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
 
     $onlyUnread = $this->toBool($filters['unreadOnly'] ?? false);
     $type = $this->toNullableString($filters['type'] ?? null);

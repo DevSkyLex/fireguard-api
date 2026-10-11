@@ -14,7 +14,7 @@ use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -186,17 +186,16 @@ final class CanonicalEquipmentProviderTest extends KernelTestCase
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
     );
 
-    $detail = static::getContainer()->get(\Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory::class);
-    self::assertInstanceOf(\Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory::class, $detail);
-
-    return new CanonicalEquipmentProvider(
-      $this->entityManager,
+    $handler = new \Equipment\Application\UseCase\Query\Equipment\ListCanonicalEquipment\ListCanonicalEquipmentHandler(
+      new \Equipment\Infrastructure\Persistence\Doctrine\Repository\CanonicalEquipmentCollectionRepository($this->entityManager),
       $authorization,
-      $security,
-      $requestStack,
-      new InterventionResourceManager($resources),
-      detail: $detail,
+      new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($resources)),
     );
+    $queries = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static fn (\Equipment\Application\UseCase\Query\Equipment\ListCanonicalEquipment\ListCanonicalEquipmentQuery $query): object => $handler($query));
+    $detail = new \Equipment\Presentation\Api\Service\EquipmentDetailReader($queries, new \Equipment\Presentation\Api\Factory\EquipmentOutputFactory());
+
+    return new CanonicalEquipmentProvider($queries, $security, $requestStack, $detail);
   }
 
   private function persistEquipment(
@@ -208,7 +207,7 @@ final class CanonicalEquipmentProviderTest extends KernelTestCase
   ): void {
     $record = new EquipmentRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->interventionId = $interventionId;
     $record->facilityId = $facilityId;
     $record->recordStatus = 'draft';

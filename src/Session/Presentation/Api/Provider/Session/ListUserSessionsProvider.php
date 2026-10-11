@@ -8,16 +8,16 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Session\Application\UseCase\Query\Session\GetSession\GetSessionResult;
 use Session\Application\UseCase\Query\Session\ListUserSessions\ListUserSessionsQuery;
 use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
 use Session\Presentation\Api\Support\ResolvesCurrentSessionId;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Application\Contract\Sorting\{CollectionSorter, SortingExtractor};
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -71,13 +71,13 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required');
     }
 
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authenticated user type is not supported');
     }
 
     $userId = $user->getId();
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Session\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

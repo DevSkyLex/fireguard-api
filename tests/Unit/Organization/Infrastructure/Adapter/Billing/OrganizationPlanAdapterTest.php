@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Infrastructure\Adapter\Billing;
 
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationSlug, PlanId, PlanKey};

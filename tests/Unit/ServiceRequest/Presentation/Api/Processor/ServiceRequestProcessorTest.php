@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Patch;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use ServiceRequest\Application\Contract\ServiceRequestView;
+use ServiceRequest\Application\Service\ServiceRequestViewMapper;
 use ServiceRequest\Application\UseCase\Command\ChangeServiceRequest\{ChangeServiceRequestCommand, ChangeServiceRequestResult};
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
@@ -125,7 +125,7 @@ final class ServiceRequestProcessorTest extends TestCase
   {
     $request = ServiceRequest::create('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', new ServiceRequestTarget('550e8400-e29b-41d4-a716-446655440003', null, []), new ServiceRequestContent('Repair', 'Repair needed'), new DateTimeImmutable('2026-10-07T12:00:00Z'));
 
-    return new ChangeServiceRequestResult(ServiceRequestView::fromRequest($request));
+    return new ChangeServiceRequestResult(ServiceRequestViewMapper::fromRequest($request));
   }
   // #endregion
 }

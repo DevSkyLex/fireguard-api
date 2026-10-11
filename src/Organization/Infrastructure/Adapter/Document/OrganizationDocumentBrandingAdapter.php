@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Adapter\Document;
 
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
+use Organization\Application\Contract\Logo\OrganizationLogoStorageKey;
 use Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRegionalSettings};
-use Organization\Infrastructure\Image\OrganizationLogoResizer;
+use Shared\Application\Contract\Storage\FileStorageException;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Exception\InvalidValueException;
-use Shared\Infrastructure\Exception\FileStorageException;
 
 use function base64_encode;
 
@@ -89,7 +89,7 @@ final readonly class OrganizationDocumentBrandingAdapter implements Organization
 
     return new OrganizationDocumentBranding(
       organizationName: $organization->name()->__toString(),
-      logoDataUri: $this->readLogoDataUri($organizationId),
+      logoDataUri: $this->readLogoDataUri($organizationId, $organization->logoUrl()),
       legalName: $organization->legalName(),
       registrationNumber: $registrationNumber?->__toString(),
       vatNumber: $vatNumber?->__toString(),
@@ -112,10 +112,10 @@ final readonly class OrganizationDocumentBrandingAdapter implements Organization
    *
    * @return ?string the logo data URI when a logo is stored
    */
-  private function readLogoDataUri(string $organizationId): ?string
+  private function readLogoDataUri(string $organizationId, ?string $logoUrl): ?string
   {
     try {
-      $contents = $this->fileStorage->read(OrganizationLogoResizer::pathFor($organizationId));
+      $contents = $this->fileStorage->read(OrganizationLogoStorageKey::fromUrl($organizationId, $logoUrl));
     } catch (FileStorageException) {
       return null;
     }

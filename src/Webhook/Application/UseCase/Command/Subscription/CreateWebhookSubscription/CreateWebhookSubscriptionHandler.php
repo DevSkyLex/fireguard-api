@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscription;
 
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 use Webhook\Application\Contract\Event\WebhookEventCatalog;
-use Webhook\Application\Port\Outbound\{WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\WebhookSecretCipherPort;
 use Webhook\Domain\Event\Subscription\WebhookSubscriptionCreatedEvent;
 use Webhook\Domain\Exception\WebhookValidationException;
 use Webhook\Domain\Model\Subscription\WebhookSubscription;
@@ -64,7 +64,7 @@ final readonly class CreateWebhookSubscriptionHandler implements CommandHandler
    * @param WebhookSecretCipherPort $cipher the signing secret cipher port
    * @param WebhookUrlPolicy $urlPolicy the SSRF hardening URL policy
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the UUID generator
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
@@ -72,7 +72,7 @@ final readonly class CreateWebhookSubscriptionHandler implements CommandHandler
     private WebhookSecretCipherPort $cipher,
     private WebhookUrlPolicy $urlPolicy,
     private OrganizationAuthorizationPort $authorization,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -107,8 +107,7 @@ final readonly class CreateWebhookSubscriptionHandler implements CommandHandler
     $plaintextSecret = self::generateSecret();
     $ciphertext = $this->cipher->encrypt($plaintextSecret);
 
-    /** @var WebhookSubscriptionId $id */
-    $id = $this->uuidFactory->create(WebhookSubscriptionId::class);
+    $id = WebhookSubscriptionId::fromString($this->uuidFactory->generate());
 
     $subscription = WebhookSubscription::create(
       id: $id,

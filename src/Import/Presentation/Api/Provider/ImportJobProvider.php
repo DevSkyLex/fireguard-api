@@ -6,15 +6,13 @@ namespace Import\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\{Operation, QueryParameterInterface};
 use ApiPlatform\State\{ParameterNotFound, ProviderInterface};
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Import\Application\UseCase\Query\GetImportJob\{GetImportJobQuery, GetImportJobResult};
 use Import\Presentation\Api\Dto\Output\ImportJobOutput;
 use Import\Presentation\Api\Factory\ImportJobOutputFactory;
-use Import\Presentation\Api\Trait\ImportExceptionMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function ctype_digit;
 use function is_array;
@@ -35,8 +33,6 @@ use function is_string;
  */
 final readonly class ImportJobProvider implements ProviderInterface
 {
-  use ImportExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -70,7 +66,7 @@ final readonly class ImportJobProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ImportJobOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -79,13 +75,9 @@ final readonly class ImportJobProvider implements ProviderInterface
       throw new BadRequestHttpException('The id URI parameter is required.');
     }
 
-    try {
-      $pagination = $this->reportPagination($operation, $context);
-      /** @var GetImportJobResult $result */
-      $result = $this->queryBus->ask(new GetImportJobQuery($user->getId(), $id, $pagination['page'], $pagination['itemsPerPage']));
-    } catch (Throwable $exception) {
-      throw $this->mapImportException($exception);
-    }
+    $pagination = $this->reportPagination($operation, $context);
+    /** @var GetImportJobResult $result */
+    $result = $this->queryBus->ask(new GetImportJobQuery($user->getId(), $id, $pagination['page'], $pagination['itemsPerPage']));
 
     return $this->outputFactory->fromView($result);
   }

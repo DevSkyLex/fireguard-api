@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Import\Application\UseCase\Command\ConfirmImportSimulation;
 
-use Import\Application\Port\Outbound\{ImportConfirmationLockPort, ImportJobQueuePort, ImportJobRepositoryPort};
+use Import\Application\Port\Outbound\{ImportConfirmationLockPort, ImportJobQueuePort};
+use Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort;
 use Import\Application\Service\ImportPermissions;
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportConfirmationNotAllowedException, ImportJobNotFoundException};

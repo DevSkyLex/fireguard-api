@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Response\GetInspectionResponse;
 
-use Inspection\Application\Contract\Response\InspectionResponseView;
-use Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionResponseRepositoryPort;
 use Inspection\Domain\ValueObject\InspectionResponseId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -62,7 +61,7 @@ final readonly class GetInspectionResponseHandler implements QueryHandler
     $response = $this->responses->findById($id);
 
     return new GetInspectionResponseResult(
-      null === $response ? null : InspectionResponseView::fromModel($response),
+      null === $response ? null : \Inspection\Application\Service\InspectionResponseViewMapper::fromModel($response),
     );
   }
   // #endregion

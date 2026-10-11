@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Assistant\Application\UseCase\Command\Thread\StartAssistantThread;
 
-use Assistant\Application\Contract\Thread\AssistantThreadView;
-use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
-use Assistant\Application\Service\AssistantAccessPolicy;
+use Assistant\Application\Port\Outbound\Internal\AssistantThreadRepositoryPort;
+use Assistant\Application\Service\{AssistantAccessPolicy, AssistantThreadViewMapper};
 use Assistant\Domain\Event\Thread\AssistantThreadStartedEvent;
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\Service\AssistantModelPolicy;
 use Assistant\Domain\ValueObject\AssistantThreadId;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * UseCase StartAssistantThreadHandler.
@@ -54,7 +53,7 @@ final readonly class StartAssistantThreadHandler implements CommandHandler
    * @param AssistantThreadRepositoryPort $threads the assistant thread repository port
    * @param AssistantAccessPolicy $accessPolicy the permission and organization-toggle gate
    * @param AssistantModelPolicy $modelPolicy the tenant model allowlist policy
-   * @param UuidFactory $uuidFactory the uuid factory
+   * @param UuidGeneratorPort $uuidFactory the uuid factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param ClockPort $clock the clock port
    */
@@ -62,7 +61,7 @@ final readonly class StartAssistantThreadHandler implements CommandHandler
     private AssistantThreadRepositoryPort $threads,
     private AssistantAccessPolicy $accessPolicy,
     private AssistantModelPolicy $modelPolicy,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
   ) {
@@ -90,7 +89,7 @@ final readonly class StartAssistantThreadHandler implements CommandHandler
     $memberId = $command->actorUserId;
 
     /** @var AssistantThreadId $id */
-    $id = $this->uuidFactory->create(AssistantThreadId::class);
+    $id = new AssistantThreadId($this->uuidFactory->generate());
 
     $thread = AssistantThread::start(
       id: $id,
@@ -109,7 +108,7 @@ final readonly class StartAssistantThreadHandler implements CommandHandler
       memberId: $memberId,
     ));
 
-    return new StartAssistantThreadResult(AssistantThreadView::fromDomain($thread));
+    return new StartAssistantThreadResult(AssistantThreadViewMapper::fromDomain($thread));
   }
   // #endregion
 }

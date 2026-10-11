@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Facility\Application\Contract\Model;
 
 use DateTimeImmutable;
-use Facility\Domain\Model\FacilityModel\FacilityModel;
 
 /**
  * Contract FacilityModelView.
@@ -60,38 +59,4 @@ final readonly class FacilityModelView
   }
   // #endregion
 
-  // #region Methods
-  /**
-   * Method fromModel.
-   *
-   * Maps a domain model snapshot into a public application contract.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param FacilityModel $model the model
-   * @param ?list<array{nodeIndex: int, facilityId: string}> $bindings the usable associations
-   * @param list<array{nodeIndex: int, code: 'target_unavailable'}> $bindingIssues the unavailable node associations
-   *
-   * @return self the operation result
-   */
-  public static function fromModel(FacilityModel $model, ?array $bindings = null, array $bindingIssues = []): self
-  {
-    return new self(
-      $model->id,
-      $model->organizationId,
-      $model->buildingId,
-      $model->fileName,
-      $model->fileSize,
-      $model->nodes,
-      $model->revision,
-      $model->active,
-      $model->transform->toArray(),
-      $bindings ?? $model->bindings,
-      $model->createdAt,
-      $model->updatedAt,
-      $bindingIssues,
-    );
-  }
-  // #endregion
 }

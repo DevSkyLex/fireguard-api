@@ -13,7 +13,7 @@ services:
     resource: '../../src/Import/Infrastructure'
     exclude: '../../src/Import/Infrastructure/Persistence/Doctrine/Record/'
 
-  Import\Application\Port\Outbound\ImportExecutionPort:
+  Import\Application\Port\Outbound\Internal\ImportExecutionPort:
     alias: Import\Infrastructure\Persistence\Doctrine\Execution\PostgresImportExecutionAdapter
 
   Import\Infrastructure\Persistence\Doctrine\Execution\PostgresImportExecutionAdapter:
@@ -22,7 +22,7 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Outbound ports
-  Import\Application\Port\Outbound\ImportJobRepositoryPort:
+  Import\Application\Port\Outbound\Internal\ImportJobRepositoryPort:
     alias: Import\Infrastructure\Persistence\Doctrine\Repository\ImportJobRepository
 
   Import\Application\Port\Outbound\ImportJobQueuePort:

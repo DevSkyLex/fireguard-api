@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Infrastructure\Exception;
 use Exception;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 
 /**
  * Class MessengerRuntimeExceptionTest.
@@ -18,7 +18,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
- * @covers \Shared\Application\Exception\MessengerRuntimeException
+ * @covers \Shared\Application\Contract\Exception\MessengerRuntimeException
  */
 #[CoversClass(className: MessengerRuntimeException::class)]
 final class MessengerRuntimeExceptionTest extends TestCase

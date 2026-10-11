@@ -5,12 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay;
 
 use Facility\Application\Contract\Spatial\FacilitySpatialContext;
-use Facility\Application\Port\Outbound\{
-  FacilityAttachmentRepositoryPort,
-  FacilityEquipmentPlanPositionPort,
-  FacilityRepositoryPort
-};
-use Facility\Application\Port\Outbound\FacilitySpatialReadPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentPlanPositionPort, FacilitySpatialReadPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\{FacilityAttachmentAncestryGuard, FacilitySpatialValidityResolver};
 use Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\{
   GetFacilityPlanOverlayHandler,

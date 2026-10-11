@@ -12,8 +12,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ObjectManager;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionRecord, InterventionTimeEntryRecord, InterventionTimeEntryVersionRecord, InterventionWorkItemAssignmentRecord, InterventionWorkItemRecord};
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
+use Shared\Application\Contract\Seed\SeedUuid;
 use Shared\Application\Port\Outbound\ClockPort;
-use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Workload\Application\Port\Inbound\WorkloadCoordinationPort;
 
 use function array_keys;
@@ -163,8 +163,8 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
       throw new InterventionWorkloadFixtureException('Workload fixtures require the main ORM entity manager.');
     }
     $context = $this->workforce->context(self::ORGANIZATION);
-    $source = $manager->getRepository(InterventionRecord::class)->findOneBy(['organization' => self::ORGANIZATION], ['number' => 'ASC']);
-    if (null === $context || null === $source || null === $source->organization || null === $source->siteId) {
+    $source = $manager->getRepository(InterventionRecord::class)->findOneBy(['organizationId' => self::ORGANIZATION], ['number' => 'ASC']);
+    if (null === $context || null === $source || self::ORGANIZATION !== $source->organizationId || null === $source->siteId) {
       throw new InterventionWorkloadFixtureException('Workload fixtures require the existing seed organization and an intervention with a site. No baseline is auto-loaded.');
     }
     $active = [];
@@ -324,16 +324,16 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     }
     // The same atomic allocator as live creation; never reset an existing counter.
     $number = $manager->getConnection()->fetchOne(
-      'INSERT INTO intervention_number_counters (organization_id, last_number) VALUES (:organization, 1) '
+      'INSERT INTO intervention_number_counters (organization_id, last_number) VALUES (:organizationId, 1) '
       . 'ON CONFLICT (organization_id) DO UPDATE SET last_number = intervention_number_counters.last_number + 1 RETURNING last_number',
-      ['organization' => self::ORGANIZATION],
+      ['organizationId' => self::ORGANIZATION],
     );
     if (!is_numeric($number)) {
       throw new InterventionWorkloadFixtureException('Could not allocate a workload demo intervention number.');
     }
     $intervention = new InterventionRecord();
     $intervention->id = $id;
-    $intervention->organization = $source->organization;
+    $intervention->organizationId = $source->organizationId;
     $intervention->number = (int) $number;
     $intervention->name = $scenario->name;
     $intervention->type = 'inventory';

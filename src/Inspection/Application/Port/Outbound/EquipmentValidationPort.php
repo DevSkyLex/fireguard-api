@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\Port\Outbound;
 
 use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Port EquipmentValidationPort.
@@ -65,7 +66,7 @@ interface EquipmentValidationPort
    * @param string $organizationId the expected organization identifier
    * @param string|null $facilityId the inspection facility, when set
    *
-   * @throws InvalidArgumentException when the equipment is not found, belongs to another organization, is decommissioned, or is not assigned to the given facility
+   * @throws InvalidValueException when the equipment is not found, belongs to another organization, is decommissioned, or is not assigned to the given facility
    */
   public function assertEquipmentIsInspectable(string $equipmentId, string $organizationId, ?string $facilityId): void;
   // #endregion

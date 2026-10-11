@@ -6,7 +6,6 @@ namespace Tests\Unit\Audit\Presentation\Api\Controller;
 
 use Audit\Application\Contract\{AuditEventView, AuditExportTooLargeException};
 use Audit\Application\UseCase\Query\ExportAuditEvents\{ExportAuditEventsQuery, ExportAuditEventsResult};
-use Audit\Domain\Event\AuditEventsExportedEvent;
 use Audit\Presentation\Api\Controller\ExportAuditEventsController;
 use Audit\Presentation\Api\Service\{AuditEventCsvWriter, AuditEventExportCriteriaFactory};
 use Auth\Infrastructure\Security\User\SecurityUser;
@@ -20,10 +19,8 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-use function json_encode;
 use function ob_get_clean;
 use function ob_start;
-use function str_contains;
 
 /**
  * Test ExportAuditEventsControllerTest.
@@ -90,37 +87,19 @@ final class ExportAuditEventsControllerTest extends TestCase
   }
 
   #[Test]
-  public function testItAuditsTheExportWithFilterNamesOnly(): void
+  public function testItForwardsTheAuthenticatedActorAndFiltersToApplication(): void
   {
     $request = new Request();
     $request->query->set('actorId', 'a-very-identifying-user-id');
     $request->query->set('tenantId', self::TENANT_ID);
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())->method('ask')
+      ->with(self::callback(static fn (ExportAuditEventsQuery $query): bool => self::USER_ID === $query->actorUserId
+        && 'a-very-identifying-user-id' === $query->criteria->actorId
+        && self::TENANT_ID === $query->criteria->tenantId))
+      ->willReturn(new ExportAuditEventsResult(rows: [], total: 42));
 
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ExportAuditEventsResult(rows: [], total: 42));
-
-    $dispatched = null;
-
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())
-      ->method('dispatch')
-      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
-        $dispatched = $event;
-      });
-
-    $this->createController($queryBus, $eventDispatcher)->__invoke($request);
-
-    self::assertInstanceOf(AuditEventsExportedEvent::class, $dispatched);
-    self::assertSame(self::USER_ID, $dispatched->actorUserId);
-    self::assertSame(self::TENANT_ID, $dispatched->tenantId);
-    self::assertSame('csv', $dispatched->format);
-    self::assertSame(42, $dispatched->rowCount);
-    self::assertSame(['actorId', 'tenantId'], $dispatched->filterKeys);
-    self::assertFalse(
-      str_contains((string) json_encode($dispatched->filterKeys), 'a-very-identifying-user-id'),
-      'The export audit trail must never carry raw filter values.',
-    );
+    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke($request);
   }
 
   #[Test]
@@ -207,7 +186,6 @@ final class ExportAuditEventsControllerTest extends TestCase
   {
     return new ExportAuditEventsController(
       queryBus: $queryBus,
-      eventDispatcher: $eventDispatcher,
       security: $this->security(isGranted: true),
       criteriaFactory: new AuditEventExportCriteriaFactory(),
       csvWriter: new AuditEventCsvWriter(),
@@ -238,7 +216,6 @@ final class ExportAuditEventsControllerTest extends TestCase
   {
     return new ExportAuditEventsController(
       queryBus: $queryBus,
-      eventDispatcher: $eventDispatcher,
       security: $security,
       criteriaFactory: new AuditEventExportCriteriaFactory(),
       csvWriter: new AuditEventCsvWriter(),

@@ -6,21 +6,25 @@ namespace Organization\Application\UseCase\Query\Organization\GetOrganizationDas
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, InterventionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, InterventionStatisticsPort, NonConformityStatisticsPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Support\{DashboardDateTimeParser, DashboardSeriesBuilder};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationStatus};
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\CachePort;
 use Throwable;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_keys;
 use function hash;
+use function in_array;
 use function json_encode;
 use function max;
+use function trim;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -115,6 +119,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    * @param InspectionStatisticsPort $inspectionStatistics the inspection statistics service
    * @param NonConformityStatisticsPort $nonConformityStatistics the non-conformity statistics service
    * @param InterventionStatisticsPort $interventionStatistics the intervention statistics service
+   * @param UserDirectoryPort $users the batched account profile directory
    */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
@@ -127,6 +132,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     private InspectionStatisticsPort $inspectionStatistics,
     private NonConformityStatisticsPort $nonConformityStatistics,
     private InterventionStatisticsPort $interventionStatistics,
+    private UserDirectoryPort $users,
     private ?CachePort $cache = null,
     private int $cacheTtl = self::DEFAULT_CACHE_TTL_SECONDS,
   ) {
@@ -171,7 +177,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $cacheKey = $this->buildCacheKey($query, $includeInterventions);
     $cached = $this->readCache($cacheKey);
     if ($cached instanceof GetOrganizationDashboardResult) {
-      return $cached;
+      return $this->enrichResponsibleProfiles($cached);
     }
 
     $generatedAt = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
@@ -272,7 +278,57 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     );
     $this->writeCache($cacheKey, $result);
 
-    return $result;
+    return $this->enrichResponsibleProfiles($result);
+  }
+
+  /**
+   * Method enrichResponsibleProfiles.
+   *
+   * Resolves one batch after the aggregate cache so current account names and avatars
+   * are never retained in the shared dashboard cache. Missing profiles keep the member fallback.
+   *
+   * @param GetOrganizationDashboardResult $result the authorized aggregate projection
+   *
+   * @return GetOrganizationDashboardResult the projection enriched with current responsible profiles
+   */
+  private function enrichResponsibleProfiles(GetOrganizationDashboardResult $result): GetOrganizationDashboardResult
+  {
+    if ([] === $result->recentInterventions) {
+      return $result;
+    }
+    $ids = [];
+    foreach ($result->recentInterventions as $row) {
+      $id = $row['responsibleUserId'];
+      if (null !== $id && !in_array($id, $ids, true)) {
+        $ids[] = $id;
+      }
+    }
+
+    try {
+      $profiles = [] !== $ids ? $this->users->findByIds($ids) : [];
+    } catch (Throwable) {
+      $profiles = [];
+    }
+    $rows = [];
+    foreach ($result->recentInterventions as $row) {
+      $profile = null !== $row['responsibleUserId'] ? ($profiles[$row['responsibleUserId']] ?? null) : null;
+      $row['responsibleName'] = null !== $profile
+        ? (trim($profile->firstName . ' ' . $profile->lastName) ?: $profile->username ?: $row['responsibleId'])
+        : $row['responsibleId'];
+      $row['responsibleAvatarUrl'] = $profile?->avatarUrl;
+      $rows[] = $row;
+    }
+
+    return new GetOrganizationDashboardResult(
+      generatedAt: $result->generatedAt,
+      period: $result->period,
+      overview: $result->overview,
+      health: $result->health,
+      alerts: $result->alerts,
+      comparison: $result->comparison,
+      trends: $result->trends,
+      recentInterventions: $rows,
+    );
   }
 
   /**

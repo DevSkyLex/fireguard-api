@@ -9,17 +9,17 @@ use Intervention\Application\Exception\InterventionNotificationDeliveryException
 use Intervention\Application\Service\{InterventionNotificationService, InterventionRecurrenceRecipientResolver, InterventionReviewerRecipientResolver};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\{OrganizationMemberDirectoryPort, OrganizationNotificationPolicyPort};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
+use function array_filter;
+use function array_intersect;
 use function array_keys;
 use function count;
-use function sprintf;
 
 final class InterventionNotificationServiceTest extends TestCase
 {
@@ -34,7 +34,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itSendsAnInAppAssignmentNotification(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())
@@ -61,7 +61,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotNotifyWhenTheAssignmentCategoryIsDisabled(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -83,7 +83,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotNotifyWhenInAppDeliveryIsDisabled(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -105,7 +105,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotFailTheInterventionWhenNotificationDeliveryFails(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createStub(NotificationPort::class);
     $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
@@ -127,7 +127,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotFailTheCommentWhenMentionDeliveryFails(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createStub(NotificationPort::class);
     $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
@@ -149,7 +149,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDeliversAMentionInAppAndByEmail(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())
@@ -175,7 +175,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDropsTheEmailChannelForMentionsWhenEmailDeliveryIsDisabled(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())
@@ -198,7 +198,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itNeverNotifiesAMentionedMemberFromAnotherOrganization(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -220,7 +220,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotNotifyChangesRequestedWhenThereIsNoResponsible(): void
   {
-    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $members = $this->createMock(OrganizationMemberDirectoryPort::class);
     $members->expects(self::never())->method('findById');
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -242,7 +242,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itNotifiesTheResponsibleWhenChangesAreRequested(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())
@@ -272,7 +272,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itPublishesToEachUniqueMemberExactlyOnce(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::exactly(2))
@@ -298,7 +298,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotPublishWhenThePublicationCategoryIsDisabled(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -320,7 +320,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotNotifyWhenTheAssignedMemberIsUnknown(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn(null);
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -342,7 +342,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotNotifyAnInactiveMember(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member(isActive: false));
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -364,7 +364,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itNeverNotifiesAMentionForAnUnknownMember(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn(null);
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -386,7 +386,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itNeverNotifiesAMentionForAnInactiveMember(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member(isActive: false));
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -408,7 +408,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotDeliverAMentionWhenAllChannelsAreDisabled(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -446,7 +446,7 @@ final class InterventionNotificationServiceTest extends TestCase
 
     new InterventionNotificationService(
       $notifications,
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->policy(),
       $this->reviewers(
         ['user-reviewer-1' => ['organization.interventions.review'], 'user-reviewer-2' => ['organization.*']],
@@ -470,7 +470,7 @@ final class InterventionNotificationServiceTest extends TestCase
 
     new InterventionNotificationService(
       $notifications,
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->policy(),
       $this->reviewers(
         ['user-reviewer-1' => ['organization.interventions.review'], 'user-reviewer-2' => ['organization.interventions.review']],
@@ -492,7 +492,7 @@ final class InterventionNotificationServiceTest extends TestCase
 
     new InterventionNotificationService(
       $notifications,
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->policy(emailEnabled: false),
       $this->reviewers(
         ['user-reviewer-1' => ['organization.interventions.review']],
@@ -511,7 +511,7 @@ final class InterventionNotificationServiceTest extends TestCase
 
     new InterventionNotificationService(
       $notifications,
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->policy(inAppEnabled: false, emailEnabled: false),
       $this->reviewers(
         ['user-reviewer-1' => ['organization.interventions.review']],
@@ -536,7 +536,7 @@ final class InterventionNotificationServiceTest extends TestCase
     // submission itself never bubbles the delivery error.
     new InterventionNotificationService(
       $notifications,
-      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->createStub(OrganizationMemberDirectoryPort::class),
       $this->policy(),
       $this->reviewers(
         ['user-reviewer-1' => ['organization.interventions.review'], 'user-reviewer-2' => ['organization.interventions.review']],
@@ -552,7 +552,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDeliversADueSoonReminderInAppAndByEmail(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())
@@ -579,7 +579,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDeliversAnOverdueReminderInAppAndByEmail(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())
@@ -604,7 +604,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itEscalatesAnOverdueReminderToTheOrganizationAdministrators(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
 
     $recipients = [];
@@ -638,7 +638,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itNeverEscalatesADueSoonReminderToTheAdministrators(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())->method('send')->willReturn($this->sent());
@@ -659,7 +659,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itNotifiesEachUniqueReminderRecipientExactlyOnce(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())->method('send')->willReturn($this->sent());
@@ -679,7 +679,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itNeverSendsADueSoonReminderToAMemberFromAnotherOrganization(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -699,7 +699,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itNeverSendsAnOverdueReminderToAnInactiveMember(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member(isActive: false));
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -719,7 +719,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotSendReminderWhenAllChannelsAreDisabled(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -739,7 +739,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function itDoesNotFailWhenAReminderDeliveryFails(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $notifications = $this->createStub(NotificationPort::class);
     $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
@@ -761,7 +761,7 @@ final class InterventionNotificationServiceTest extends TestCase
   #[Test]
   public function durableWorkflowDeliveryRetriesAFailedChannelWithTheSameRecipientKeyAndAcceptsSuppression(): void
   {
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members = $this->createStub(OrganizationMemberDirectoryPort::class);
     $members->method('findById')->willReturn($this->member());
     $requests = [];
     $notifications = $this->createMock(NotificationPort::class);
@@ -785,15 +785,9 @@ final class InterventionNotificationServiceTest extends TestCase
     self::assertNull($context->eventId());
   }
 
-  private function member(bool $isActive = true): OrganizationMember
+  private function member(bool $isActive = true): OrganizationMemberView
   {
-    return OrganizationMember::reconstitute(
-      OrganizationMemberId::fromString(self::MEMBER_ID),
-      OrganizationId::fromString(self::ORGANIZATION_ID),
-      self::USER_ID,
-      $isActive,
-      new DateTimeImmutable(),
-    );
+    return new OrganizationMemberView(self::MEMBER_ID, self::ORGANIZATION_ID, self::USER_ID, $isActive);
   }
 
   /**
@@ -804,27 +798,11 @@ final class InterventionNotificationServiceTest extends TestCase
    */
   private function reviewers(array $permissionsByUserId = []): InterventionReviewerRecipientResolver
   {
-    $organizationMembers = [];
-    $suffix = 0x40;
-    foreach (array_keys($permissionsByUserId) as $userId) {
-      $organizationMembers[] = OrganizationMember::reconstitute(
-        OrganizationMemberId::fromString(sprintf('018f0b68-6758-7a12-8a1d-3f0d97f63c%02x', ++$suffix)),
-        OrganizationId::fromString(self::ORGANIZATION_ID),
-        $userId,
-        true,
-        new DateTimeImmutable(),
-      );
-    }
+    $directory = $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class);
+    $ids = array_keys(array_filter($permissionsByUserId, static fn (array $permissions): bool => [] !== array_intersect($permissions, ['organization.interventions.review', 'organization.interventions.*', 'organization.*', '*', '*.*', '*.*.*'])));
+    $directory->method('administratorUserIds')->willReturn($ids);
 
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $members->method('findByOrganizationId')->willReturn($organizationMembers);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('getUserPermissions')->willReturnCallback(
-      static fn (string $userId): array => $permissionsByUserId[$userId] ?? [],
-    );
-
-    return new InterventionReviewerRecipientResolver($members, $authorization);
+    return new InterventionReviewerRecipientResolver($directory);
   }
 
   /**
@@ -832,27 +810,11 @@ final class InterventionNotificationServiceTest extends TestCase
    */
   private function admins(array $permissionsByUserId = []): InterventionRecurrenceRecipientResolver
   {
-    $organizationMembers = [];
-    $suffix = 0x60;
-    foreach (array_keys($permissionsByUserId) as $userId) {
-      $organizationMembers[] = OrganizationMember::reconstitute(
-        OrganizationMemberId::fromString(sprintf('018f0b68-6758-7a12-8a1d-3f0d97f63d%02x', ++$suffix)),
-        OrganizationId::fromString(self::ORGANIZATION_ID),
-        $userId,
-        true,
-        new DateTimeImmutable(),
-      );
-    }
+    $directory = $this->createStub(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class);
+    $ids = array_keys(array_filter($permissionsByUserId, static fn (array $permissions): bool => [] !== array_intersect($permissions, ['organization.interventions.plan', 'organization.interventions.*', 'organization.*', '*', '*.*', '*.*.*'])));
+    $directory->method('administratorUserIds')->willReturn($ids);
 
-    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $members->method('findByOrganizationId')->willReturn($organizationMembers);
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('getUserPermissions')->willReturnCallback(
-      static fn (string $userId): array => $permissionsByUserId[$userId] ?? [],
-    );
-
-    return new InterventionRecurrenceRecipientResolver($members, $authorization);
+    return new InterventionRecurrenceRecipientResolver($directory);
   }
 
   private function policy(bool $inAppEnabled = true, bool $interventionAssigned = true, bool $emailEnabled = true, bool $interventionPublished = true): OrganizationNotificationPolicyPort

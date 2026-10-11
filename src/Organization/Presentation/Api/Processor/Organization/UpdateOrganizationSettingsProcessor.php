@@ -6,22 +6,18 @@ namespace Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use InvalidArgumentException;
 use JsonException;
 use LogicException;
+use Organization\Application\Contract\Exception\{OrganizationNotFoundException, OrganizationSlugAlreadyExistsException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\EquipmentTypeCatalogPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{
   UpdateOrganizationSettingsCommand,
   UpdateOrganizationSettingsResult
 };
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\{
-  OrganizationArchivedException,
-  OrganizationNotFoundException,
-  OrganizationSlugAlreadyExistsException
-};
+use Organization\Domain\Exception\OrganizationArchivedException;
 use Organization\Presentation\Api\Dto\Input\Organization\{
   UpdateOrganizationApprovalInput,
   UpdateOrganizationAssistantInput,
@@ -34,7 +30,7 @@ use Organization\Presentation\Api\Dto\Input\Organization\{
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Domain\Exception\InvalidValueException;
 use stdClass;
@@ -51,11 +47,9 @@ use ValueError;
 use function array_key_exists;
 use function array_keys;
 use function get_object_vars;
-use function implode;
 use function in_array;
 use function is_string;
 use function json_decode;
-use function sprintf;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -107,14 +101,12 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
    * @param CommandBusPort $commandBus the command bus
    * @param QueryBusPort $queryBus the query bus
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   * @param EquipmentTypeCatalogPort $equipmentTypeCatalog the equipment-type catalog port
    * @param Security $security the security service
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
-    private EquipmentTypeCatalogPort $equipmentTypeCatalog,
     private Security $security,
   ) {
   }
@@ -137,7 +129,7 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
   {
     /** @var UpdateOrganizationSettingsInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -163,7 +155,7 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
         isActive: $data->isActive,
         notifications: self::mapNotifications($data->notifications),
         regional: self::mapRegional($data->regional),
-        compliance: $this->mapCompliance($data->compliance),
+        compliance: self::mapCompliance($data->compliance),
         automation: self::mapAutomation($data->automation),
         approval: self::mapApproval($data->approval),
         assistant: self::mapAssistant($data->assistant),
@@ -343,9 +335,7 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
   /**
    * Method mapCompliance.
    *
-   * Maps the optional compliance input to a partial snake_case section payload,
-   * validating periodicity keys against the equipment-type catalog (the domain
-   * value object cannot: it never depends on the Equipment module).
+   * Maps the optional compliance input to the Application settings payload.
    *
    * @since 1.1.0
    *
@@ -353,24 +343,10 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
    *
    * @return ?array<string, mixed> the partial payload, or null when not provided
    */
-  private function mapCompliance(?UpdateOrganizationComplianceInput $input): ?array
+  private static function mapCompliance(?UpdateOrganizationComplianceInput $input): ?array
   {
     if (null === $input) {
       return null;
-    }
-
-    if (null !== $input->inspectionPeriodicityDefaults) {
-      $knownTypes = $this->equipmentTypeCatalog->values();
-
-      foreach (array_keys($input->inspectionPeriodicityDefaults) as $equipmentType) {
-        if (!in_array((string) $equipmentType, $knownTypes, true)) {
-          throw new BadRequestHttpException(sprintf(
-            'Unknown equipment type "%s". Supported types: %s.',
-            (string) $equipmentType,
-            implode(', ', $knownTypes),
-          ));
-        }
-      }
     }
 
     return [

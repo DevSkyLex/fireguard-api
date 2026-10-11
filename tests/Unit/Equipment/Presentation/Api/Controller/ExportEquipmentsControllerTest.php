@@ -6,8 +6,7 @@ namespace Tests\Unit\Equipment\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\Contract\Export\EquipmentExportRow;
-use Equipment\Application\UseCase\Query\ExportEquipments\ExportEquipmentsResult;
-use Equipment\Domain\Event\Export\EquipmentsExportedEvent;
+use Equipment\Application\UseCase\Query\ExportEquipments\{ExportEquipmentsQuery, ExportEquipmentsResult};
 use Equipment\Domain\Exception\{EquipmentAccessDeniedException, EquipmentExportTooLargeException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Controller\ExportEquipmentsController;
 use Equipment\Presentation\Api\Service\EquipmentCsvWriter;
@@ -102,30 +101,16 @@ final class ExportEquipmentsControllerTest extends TestCase
   }
 
   #[Test]
-  public function testItDispatchesTheEquipmentsExportedEvent(): void
+  public function testItDelegatesExportAuditingToTheOwnerUseCase(): void
   {
-    $request = new Request(attributes: ['organizationId' => self::ORGANIZATION_ID]);
-
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ExportEquipmentsResult(rows: [], total: 7));
-
-    $dispatched = null;
-
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())
-      ->method('dispatch')
-      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
-        $dispatched = $event;
-      });
-
-    $this->createController($queryBus, $eventDispatcher)->__invoke($request);
-
-    self::assertInstanceOf(EquipmentsExportedEvent::class, $dispatched);
-    self::assertSame(self::USER_ID, $dispatched->actorUserId);
-    self::assertSame(self::ORGANIZATION_ID, $dispatched->organizationId);
-    self::assertSame('csv', $dispatched->format);
-    self::assertSame(7, $dispatched->rowCount);
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())->method('ask')->with(self::callback(static fn (object $query): bool => $query instanceof ExportEquipmentsQuery && self::USER_ID === $query->userId && self::ORGANIZATION_ID === $query->organizationId))->willReturn(new ExportEquipmentsResult([], 0));
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::never())->method('dispatch');
+    $request = Request::create('/api/organizations/' . self::ORGANIZATION_ID . '/equipment/export');
+    $request->attributes->set('organizationId', self::ORGANIZATION_ID);
+    $response = $this->createController($queryBus, $events)($request);
+    self::assertSame(200, $response->getStatusCode());
   }
 
   #[Test]
@@ -139,7 +124,6 @@ final class ExportEquipmentsControllerTest extends TestCase
 
     $controller = new ExportEquipmentsController(
       queryBus: $queryBus,
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       security: $security,
       csvWriter: new EquipmentCsvWriter(new SpreadsheetSafeTextAdapter()),
     );
@@ -215,7 +199,6 @@ final class ExportEquipmentsControllerTest extends TestCase
 
     return new ExportEquipmentsController(
       queryBus: $queryBus,
-      eventDispatcher: $eventDispatcher,
       security: $security,
       csvWriter: new EquipmentCsvWriter(new SpreadsheetSafeTextAdapter()),
     );

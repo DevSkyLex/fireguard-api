@@ -16,7 +16,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\{KernelBrowser, Test\WebTestCase};
 use Tests\Support\Auth\InteractiveTokenFactory;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
 use function json_decode;
@@ -497,7 +497,7 @@ final class MaintenanceCostApiTest extends WebTestCase
     $now = new DateTimeImmutable();
     $work = new InterventionRecord();
     $work->id = $id;
-    $work->organization = $organization;
+    $work->organizationId = $organization->id;
     $work->name = 'Fire park repair';
     $work->number = 1;
     $work->type = 'corrective_maintenance';

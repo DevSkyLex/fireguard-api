@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Organization\Presentation\Api\Controller;
 
 use Audit\Application\Contract\AuditExportTooLargeException;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\UseCase\Query\Organization\ExportOrganizationAuditEvents\{ExportOrganizationAuditEventsQuery, ExportOrganizationAuditEventsResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Presentation\Api\Service\OrganizationAuditEventCsvWriter;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
@@ -91,7 +92,7 @@ final readonly class ExportOrganizationAuditEventsController
   public function __invoke(Request $request, string $organizationId): StreamedResponse
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

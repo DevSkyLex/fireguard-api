@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Query\Inspection\ListCanonicalInspections;
 
 use Inspection\Application\Contract\Inspection\CanonicalInspectionReadView;
-use Inspection\Application\Port\Outbound\{CanonicalInspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{CanonicalInspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, InspectionRecordStatus};
 use Shared\Application\Message\QueryHandler;
 

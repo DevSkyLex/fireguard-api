@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inspection\Application\UseCase\Query\NonConformity\ListOrganizationNonConformities;
 
-use Inspection\Application\Port\Outbound\{EquipmentNamingPort, InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\EquipmentNamingPort;
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\NonConformity\ListOrganizationNonConformities\{ListOrganizationNonConformitiesHandler, ListOrganizationNonConformitiesQuery, OrganizationNonConformityResult};
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId, NonConformitySeverity};

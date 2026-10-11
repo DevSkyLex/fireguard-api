@@ -132,7 +132,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
     if ([] === $interventionIds) {
       return [];
     }
-    $rows = $this->rows("i.organization_id = :organization AND i.status = 'published' AND i.id IN (:ids)", ['organization' => $organizationId, 'ids' => $interventionIds], ['ids' => ArrayParameterType::STRING], count($interventionIds), 0, 10000);
+    $rows = $this->rows("i.organization_id = :organizationId AND i.status = 'published' AND i.id IN (:ids)", ['organizationId' => $organizationId, 'ids' => $interventionIds], ['ids' => ArrayParameterType::STRING], count($interventionIds), 0, 10000);
 
     $facts = array_map(fn (array $row): InterventionPublicationFacts => $this->publication($row), $rows);
     usort($facts, static fn (InterventionPublicationFacts $left, InterventionPublicationFacts $right): int => strcmp($left->id, $right->id));
@@ -155,8 +155,8 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
   public function publishedPage(string $organizationId, int $page = 1, int $itemsPerPage = 50, ?string $search = null): InterventionPublicationFactsPage
   {
     $this->pagination($page, $itemsPerPage, 100);
-    $where = "i.organization_id = :organization AND i.status = 'published'";
-    $parameters = ['organization' => $organizationId];
+    $where = "i.organization_id = :organizationId AND i.status = 'published'";
+    $parameters = ['organizationId' => $organizationId];
     if (null !== $search && '' !== $search) {
       if (mb_strlen($search, 'UTF-8') > 160) {
         throw new InvalidArgumentException('The source search may contain at most 160 characters.');
@@ -181,7 +181,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
    */
   public function economicContext(string $organizationId, string $interventionId): ?InterventionEconomicContext
   {
-    $rows = $this->rows('i.organization_id = :organization AND i.id = :id', ['organization' => $organizationId, 'id' => $interventionId], [], 1, 0);
+    $rows = $this->rows('i.organization_id = :organizationId AND i.id = :id', ['organizationId' => $organizationId, 'id' => $interventionId], [], 1, 0);
 
     return [] === $rows ? null : $this->context($rows[0]);
   }
@@ -250,8 +250,8 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
     if (null !== $filter->from && null !== $filter->to && $filter->from >= $filter->to) {
       throw new InvalidArgumentException('The source window must have an exclusive end after its start.');
     }
-    $filters = ['i.organization_id = :organization'];
-    $parameters = ['organization' => $organizationId];
+    $filters = ['i.organization_id = :organizationId'];
+    $parameters = ['organizationId' => $organizationId];
     $types = [];
     if (null !== $filter->from) {
       $filters[] = self::SOURCE_DATE . ' >= :from';
@@ -543,7 +543,7 @@ final readonly class InterventionPublicationFactsAdapter implements Intervention
    */
   private function liveItems(string $organizationId, string $interventionId): array
   {
-    $rows = $this->entityManager->getConnection()->fetchAllAssociative('SELECT w.*, (SELECT COALESCE(SUM(t.minutes), 0) FROM intervention_time_entries t WHERE t.work_item_id = w.id AND t.organization_id = :organization AND NOT t.cancelled) AS spent_minutes, (SELECT COUNT(*) FROM intervention_attachments a WHERE a.work_item_id = w.id AND a.intervention_id = :intervention) AS evidence_count FROM intervention_work_items w WHERE w.intervention_id = :intervention ORDER BY w.id LIMIT 10001', ['organization' => $organizationId, 'intervention' => $interventionId]);
+    $rows = $this->entityManager->getConnection()->fetchAllAssociative('SELECT w.*, (SELECT COALESCE(SUM(t.minutes), 0) FROM intervention_time_entries t WHERE t.work_item_id = w.id AND t.organization_id = :organizationId AND NOT t.cancelled) AS spent_minutes, (SELECT COUNT(*) FROM intervention_attachments a WHERE a.work_item_id = w.id AND a.intervention_id = :intervention) AS evidence_count FROM intervention_work_items w WHERE w.intervention_id = :intervention ORDER BY w.id LIMIT 10001', ['organizationId' => $organizationId, 'intervention' => $interventionId]);
     if (count($rows) > 10000) {
       throw new InterventionFactsScopeTooLarge('The current source exceeds 10000 tasks; narrow the source scope.');
     }

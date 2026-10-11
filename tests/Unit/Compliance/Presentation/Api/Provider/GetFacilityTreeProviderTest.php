@@ -46,7 +46,7 @@ final class GetFacilityTreeProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $provider->provide(new Get(), ['organizationId' => self::ORG_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $provider->provide(new Get(), ['organizationId' => self::ORG_ID]));
   }
 
   #[Test]
@@ -66,7 +66,7 @@ final class GetFacilityTreeProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $provider->provide(new Get(), []);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $provider->provide(new Get(), []));
   }
 
   #[Test]
@@ -87,7 +87,7 @@ final class GetFacilityTreeProviderTest extends TestCase
       security: $security,
     );
 
-    $output = $provider->provide(new Get(), ['organizationId' => self::ORG_ID]);
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $provider->provide(new Get(), ['organizationId' => self::ORG_ID]));
 
     self::assertInstanceOf(FacilityTreeOutput::class, $output);
     self::assertSame(self::ORG_ID, $output->organizationId);
@@ -114,7 +114,7 @@ final class GetFacilityTreeProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $provider->provide(new Get(), ['organizationId' => self::ORG_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $provider->provide(new Get(), ['organizationId' => self::ORG_ID]));
   }
 
   private function createSecurityUser(): SecurityUser

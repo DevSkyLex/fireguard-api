@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Billing\Application\UseCase\Command\StartCheckout;
 
-use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Application\UseCase\Command\StartCheckout\{
   StartCheckoutCommand,
@@ -15,7 +15,7 @@ use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{SubscriptionId, SubscriptionStatus};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Tests\Support\Billing\ImmediateBillingReconciliation;
 
@@ -42,11 +42,10 @@ final class StartCheckoutHandlerTest extends TestCase
   {
     $subscriptionId = SubscriptionId::fromString(self::SUBSCRIPTION_ID);
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(SubscriptionId::class)
-      ->willReturn($subscriptionId);
+      ->method('generate')
+      ->willReturn((string) $subscriptionId);
 
     $stripe = $this->createMock(StripeGatewayPort::class);
     $stripe->expects(self::once())
@@ -63,7 +62,7 @@ final class StartCheckoutHandlerTest extends TestCase
     $subscriptions->expects(self::once())
       ->method('save')
       ->with(self::callback(static function (Subscription $subscription) use ($subscriptionId): bool {
-        self::assertSame($subscriptionId, $subscription->id());
+        self::assertSame((string) $subscriptionId, (string) $subscription->id());
         self::assertSame('org-42', $subscription->organizationId());
         self::assertSame('cus_new', $subscription->stripeCustomerId());
         self::assertSame(SubscriptionStatus::INCOMPLETE, $subscription->status());
@@ -95,8 +94,8 @@ final class StartCheckoutHandlerTest extends TestCase
       'cus_existing',
     );
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $stripe = $this->createMock(StripeGatewayPort::class);
     $stripe->expects(self::once())
@@ -141,7 +140,7 @@ final class StartCheckoutHandlerTest extends TestCase
       $this->priceCatalog('pro', 'month', 'price_pro_month'),
       $stripe,
       $subscriptions,
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
       $this->transactionManager(),
       self::FRONTEND_URL,
     );
@@ -167,7 +166,7 @@ final class StartCheckoutHandlerTest extends TestCase
       $this->priceCatalog('pro', 'month', 'price_pro_month'),
       $stripe,
       $subscriptions,
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
       $this->transactionManager(),
       self::FRONTEND_URL,
     );

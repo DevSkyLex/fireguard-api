@@ -6,7 +6,8 @@ namespace Facility\Application\UseCase\Query\Facility\ListFacilities;
 
 use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\FacilityEquipmentDependencyPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus, FacilityType};

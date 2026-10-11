@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Command\Consent\GrantConsent;
 
-use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Consent\ConsentRepositoryPort;
 use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
 use OAuth\Domain\Model\Consent\Consent;
 use OAuth\Domain\ValueObject\Consent\ConsentId;
 use OAuth\Domain\ValueObject\Scope\Scopes;
-use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 /**
  * Handler GrantConsentHandler.
@@ -32,11 +31,11 @@ final readonly class GrantConsentHandler implements \Shared\Application\Message\
    * @since 1.0.0
    *
    * @param ConsentRepositoryPort $consentRepository the consent repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    */
   public function __construct(
     private readonly ConsentRepositoryPort $consentRepository,
-    private readonly UuidFactory $uuidFactory,
+    private readonly UuidGeneratorPort $uuidFactory,
     private readonly EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -83,7 +82,7 @@ final readonly class GrantConsentHandler implements \Shared\Application\Message\
     }
 
     // Create new consent
-    $consentId = $this->uuidFactory->create(ConsentId::class);
+    $consentId = new ConsentId($this->uuidFactory->generate());
 
     $consent = Consent::grant(
       id: $consentId,

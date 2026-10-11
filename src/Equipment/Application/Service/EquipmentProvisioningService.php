@@ -11,7 +11,7 @@ use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquip
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use InvalidArgumentException;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Exception\InvalidValueException;
 

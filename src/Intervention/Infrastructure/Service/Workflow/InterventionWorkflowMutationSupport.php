@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionMemberPolicy;
 use Intervention\Domain\Exception\{
   InterventionConflictException,
@@ -30,7 +30,6 @@ use Inventory\Application\Port\Inbound\InventoryInterventionHistoryPort;
 use Maintenance\Application\Port\Inbound\MaintenanceInterventionHistoryPort;
 use MaintenanceCost\Application\Port\Inbound\MaintenanceCostInterventionHistoryPort;
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function in_array;
 use function is_numeric;
@@ -196,11 +195,11 @@ final readonly class InterventionWorkflowMutationSupport
    */
   public function organizationId(InterventionRecord $intervention): string
   {
-    if (!$intervention->organization instanceof OrganizationRecord) {
+    if (!isset($intervention->organizationId)) {
       throw new InterventionConflictException('Intervention organization is missing.');
     }
 
-    return $intervention->organization->id;
+    return $intervention->organizationId;
   }
 
   /**
@@ -337,7 +336,7 @@ final readonly class InterventionWorkflowMutationSupport
     $labels = [];
     foreach (InterventionWorkflowPayload::stringList($labelIds) as $labelId) {
       $label = $this->entityManager->find(InterventionLabelRecord::class, $labelId);
-      if (!$label instanceof InterventionLabelRecord || $label->organization?->id !== $organizationId) {
+      if (!$label instanceof InterventionLabelRecord || $label->organizationId !== $organizationId) {
         throw new InterventionValidationException('Intervention labels must belong to the intervention organization.');
       }
       $labels[] = $label;
@@ -382,10 +381,10 @@ final readonly class InterventionWorkflowMutationSupport
   public function allocateNumber(string $organizationId): int
   {
     $number = $this->entityManager->getConnection()->fetchOne(
-      'INSERT INTO intervention_number_counters (organization_id, last_number) VALUES (:organization, 1) '
+      'INSERT INTO intervention_number_counters (organization_id, last_number) VALUES (:organizationId, 1) '
       . 'ON CONFLICT (organization_id) DO UPDATE SET last_number = intervention_number_counters.last_number + 1 '
       . 'RETURNING last_number',
-      ['organization' => $organizationId],
+      ['organizationId' => $organizationId],
     );
     if (!is_numeric($number)) {
       throw new InterventionConflictException('Failed to allocate an intervention number.');

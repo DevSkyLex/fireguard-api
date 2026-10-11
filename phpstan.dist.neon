@@ -35,3 +35,7 @@ services:
         class: App\Tests\Architecture\Rule\SharedContractsDependenciesTest
         tags:
             - phpat.test
+    -
+        class: App\Tests\Architecture\Rule\PresentationDependenciesTest
+        tags:
+            - phpat.test

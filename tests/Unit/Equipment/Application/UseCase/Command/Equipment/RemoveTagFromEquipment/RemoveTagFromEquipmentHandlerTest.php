@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\RemoveTagFromEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\RemoveTagFromEquipment\{RemoveTagFromEquipmentCommand, RemoveTagFromEquipmentHandler, RemoveTagFromEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentNotFoundException, TagNotFoundException};
 use Equipment\Domain\Model\Equipment\Equipment;

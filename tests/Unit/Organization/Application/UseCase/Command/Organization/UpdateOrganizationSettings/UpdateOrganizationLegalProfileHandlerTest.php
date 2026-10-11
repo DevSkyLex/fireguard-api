@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings;
 
 use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{UpdateOrganizationSettingsCommand, UpdateOrganizationSettingsHandler};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
@@ -43,7 +43,7 @@ final class UpdateOrganizationLegalProfileHandlerTest extends TestCase
         && self::ORGANIZATION_ID === $event->organizationId
         && ['legal'] === $event->changedFields,
     ));
-    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher);
+    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes());
 
     $handler(new UpdateOrganizationSettingsCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -103,7 +103,7 @@ final class UpdateOrganizationLegalProfileHandlerTest extends TestCase
       $events[] = $event;
       $saved = false;
     });
-    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher);
+    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes());
 
     $command = new UpdateOrganizationSettingsCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -145,7 +145,7 @@ final class UpdateOrganizationLegalProfileHandlerTest extends TestCase
     $transaction->expects(self::never())->method('transactional');
     $dispatcher = $this->createMock(EventDispatcherPort::class);
     $dispatcher->expects(self::never())->method('dispatch');
-    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher);
+    $handler = new UpdateOrganizationSettingsHandler($repository, $transaction, $dispatcher, equipmentTypeCatalog: $this->equipmentTypes());
 
     $this->expectException(InvalidValueException::class);
     $handler($command);
@@ -172,5 +172,13 @@ final class UpdateOrganizationLegalProfileHandlerTest extends TestCase
   {
     self::assertSame($expectedAddress, $organization->registeredAddress()?->toArray());
     self::assertSame($expectedEmail, $organization->privacyContactEmail()?->__toString());
+  }
+
+  private function equipmentTypes(): \Organization\Application\Port\Outbound\EquipmentTypeCatalogPort
+  {
+    $catalog = $this->createStub(\Organization\Application\Port\Outbound\EquipmentTypeCatalogPort::class);
+    $catalog->method('values')->willReturn(['fire_extinguisher', 'camera']);
+
+    return $catalog;
   }
 }

@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Presentation\Api\EventSubscriber;
 use Facility\Domain\Exception\{FacilityHierarchyException, FacilityRevisionMismatchException};
 use Facility\Presentation\Api\EventSubscriber\FacilityHierarchyExceptionSubscriber;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, HttpExceptionInterface};

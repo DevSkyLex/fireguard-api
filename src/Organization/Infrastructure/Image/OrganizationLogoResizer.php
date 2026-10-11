@@ -8,10 +8,10 @@ use Intervention\Image\Drivers\Gd\Decoders\BinaryImageDecoder;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\Exceptions\DecoderException;
 use Intervention\Image\ImageManager;
+use Organization\Application\Contract\Logo\OrganizationLogoStorageKey;
+use Organization\Application\Port\Outbound\OrganizationLogoImagePort;
 use Shared\Application\Contract\Image\InvalidImageInputException;
 use Shared\Application\Port\Outbound\{FileStoragePort, ImageInputValidationPort};
-
-use function sprintf;
 
 /**
  * Service OrganizationLogoResizer.
@@ -24,7 +24,7 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-readonly class OrganizationLogoResizer
+readonly class OrganizationLogoResizer implements OrganizationLogoImagePort
 {
   // #region Constants
   /**
@@ -37,17 +37,6 @@ readonly class OrganizationLogoResizer
    * @var int
    */
   public const int MAX_DIMENSION = 512;
-
-  /**
-   * Constant STORAGE_BASE.
-   *
-   * Base path inside the file storage for organization logo files.
-   *
-   * @since 1.0.0
-   *
-   * @var string
-   */
-  private const string STORAGE_BASE = 'organization-logos';
 
   /**
    * Constant WEBP_QUALITY.
@@ -95,6 +84,14 @@ readonly class OrganizationLogoResizer
    */
   public function resize(string $organizationId, string $sourceContents): void
   {
+    $this->fileStorage->write(path: self::pathFor($organizationId), contents: $this->encode($sourceContents));
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function encode(string $sourceContents): string
+  {
     $this->imageInputValidation->validate($sourceContents);
     $manager = new ImageManager(new Driver(), decodeAnimation: false);
 
@@ -107,10 +104,7 @@ readonly class OrganizationLogoResizer
     $image->scaleDown(self::MAX_DIMENSION, self::MAX_DIMENSION);
     $encoded = $image->toWebp(self::WEBP_QUALITY);
 
-    $this->fileStorage->write(
-      path: self::pathFor($organizationId),
-      contents: (string) $encoded,
-    );
+    return (string) $encoded;
   }
 
   /**
@@ -146,7 +140,7 @@ readonly class OrganizationLogoResizer
    */
   public static function pathFor(string $organizationId): string
   {
-    return sprintf('%s/%s/logo.webp', self::STORAGE_BASE, $organizationId);
+    return OrganizationLogoStorageKey::fromUrl($organizationId, null);
   }
   // #endregion
 }

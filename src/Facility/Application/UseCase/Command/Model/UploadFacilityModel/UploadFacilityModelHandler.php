@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Model\UploadFacilityModel;
 
-use Facility\Application\Contract\Model\FacilityModelView;
-use Facility\Application\Port\Outbound\FacilityModelRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityModelRepositoryPort;
 use Facility\Application\Service\FacilityModelAccessGuard;
 use Facility\Domain\Exception\FacilityModelException;
 use Facility\Domain\Model\FacilityModel\FacilityModel;
 use Facility\Domain\ValueObject\GlbDocument;
+use Shared\Application\Contract\Transaction\CommitOutcomeUnknownException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{FileStoragePort, UuidGeneratorPort};
+use Shared\Application\Port\Outbound\{FileStoragePort, RootTransactionManagerPort, UuidGeneratorPort};
 use Throwable;
 
 use function count;
@@ -48,6 +48,7 @@ final readonly class UploadFacilityModelHandler implements CommandHandler
     private FacilityModelRepositoryPort $models,
     private FileStoragePort $storage,
     private UuidGeneratorPort $uuids,
+    private RootTransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -67,6 +68,7 @@ final readonly class UploadFacilityModelHandler implements CommandHandler
    */
   public function __invoke(UploadFacilityModelCommand $command): UploadFacilityModelResult
   {
+    $this->transactionManager->assertCanStart();
     $this->access->building($command->userId, $command->organizationId, $command->buildingId, true);
     if (count($this->models->findByBuilding($command->organizationId, $command->buildingId)) >= 2) {
       throw FacilityModelException::limit();
@@ -80,17 +82,25 @@ final readonly class UploadFacilityModelHandler implements CommandHandler
       strlen($command->contents),
       $document->nodes,
     );
-    $this->storage->write($model->storagePath, $command->contents);
 
     try {
-      $this->models->insert($model);
+      $this->transactionManager->transactional(function () use ($model, $command): void {
+        $this->storage->write($model->storagePath, $command->contents);
+        $this->models->insert($model);
+      });
+    } catch (CommitOutcomeUnknownException $exception) {
+      throw $exception;
     } catch (Throwable $exception) {
-      $this->storage->delete($model->storagePath);
+      try {
+        $this->storage->delete($model->storagePath);
+      } catch (Throwable) {
+        // Preserve the original transaction failure.
+      }
 
       throw $exception;
     }
 
-    return new UploadFacilityModelResult(FacilityModelView::fromModel($model));
+    return new UploadFacilityModelResult(\Facility\Application\Service\FacilityModelViewFactory::fromModel($model));
   }
   // #endregion
 }

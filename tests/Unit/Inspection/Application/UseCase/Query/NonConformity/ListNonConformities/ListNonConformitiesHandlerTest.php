@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\NonConformity\ListNonConformities;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\NonConformity\ListNonConformities\{ListNonConformitiesHandler, ListNonConformitiesQuery, NonConformityResult};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\Model\Inspection\Inspection;

@@ -13,9 +13,8 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use User\Application\Contract\User\UserView;
-use User\Application\UseCase\Command\User\UpdateUser\UpdateUserCommand;
+use User\Application\UseCase\Command\Avatar\UploadUserAvatar\UploadUserAvatarCommand;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
-use User\Infrastructure\Image\AvatarResizer;
 use User\Presentation\Api\Dto\Output\User\UserOutput;
 
 use function file_get_contents;
@@ -78,13 +77,11 @@ final readonly class UploadUserAvatarProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param RequestStack $requestStack provides the current HTTP request
-   * @param AvatarResizer $avatarResizer resizes and stores image variants
    * @param CommandBusPort $commandBus dispatches domain commands
    * @param QueryBusPort $queryBus executes domain queries
    */
   public function __construct(
     private RequestStack $requestStack,
-    private AvatarResizer $avatarResizer,
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
   ) {
@@ -149,25 +146,11 @@ final readonly class UploadUserAvatarProcessor implements ProcessorInterface
       throw new UnprocessableEntityHttpException('Failed to read the uploaded file.');
     }
 
-    $this->avatarResizer->resize($id, $sourceContents);
-
-    // Append an upload-time version token so the canonical URL changes on each
-    // upload. The image endpoint serves variants with a 24h cache; without this
-    // token the URL would stay identical and browsers would keep showing the
-    // previous avatar. The token is ignored by the avatar endpoint (it only
-    // reads the size from the path) and propagated to every size variant by
-    // AvatarUrls::fromAvatarUrl.
-    $avatarUrl = sprintf(
-      '%s/api/users/%s/avatar/%d.webp?v=%d',
-      $request->getSchemeAndHttpHost(),
-      $id,
-      AvatarResizer::SIZES[0],
-      time(),
-    );
-
-    $this->commandBus->dispatch(new UpdateUserCommand(
-      id: $id,
-      avatarUrl: $avatarUrl,
+    $this->commandBus->dispatch(new UploadUserAvatarCommand(
+      userId: $id,
+      sourceContents: $sourceContents,
+      baseUrl: $request->getSchemeAndHttpHost(),
+      version: time(),
     ));
 
     /** @var GetUserResult $result */

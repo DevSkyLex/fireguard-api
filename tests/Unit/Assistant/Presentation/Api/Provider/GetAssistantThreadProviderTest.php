@@ -60,10 +60,10 @@ final class GetAssistantThreadProviderTest extends TestCase
 
     $provider = $this->provider($queryBus, $this->requestStack(['messagesPage' => '2', 'messagesItemsPerPage' => '25']));
 
-    $output = $provider->provide(new Get(), [
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
 
     self::assertInstanceOf(GetAssistantThreadQuery::class, $captured);
     self::assertSame(self::ORGANIZATION_ID, $captured->organizationId);
@@ -104,10 +104,10 @@ final class GetAssistantThreadProviderTest extends TestCase
 
     $provider = $this->provider($queryBus, new RequestStack());
 
-    $provider->provide(new Get(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
 
     self::assertInstanceOf(GetAssistantThreadQuery::class, $captured);
     self::assertSame(1, $captured->messagesPage);
@@ -138,10 +138,10 @@ final class GetAssistantThreadProviderTest extends TestCase
       $this->requestStack(['messagesPage' => '-3', 'messagesItemsPerPage' => '9999']),
     );
 
-    $provider->provide(new Get(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
 
     self::assertInstanceOf(GetAssistantThreadQuery::class, $captured);
     self::assertSame(1, $captured->messagesPage);
@@ -164,10 +164,10 @@ final class GetAssistantThreadProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $provider->provide(new Get(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
   }
 
   #[Test]
@@ -177,7 +177,7 @@ final class GetAssistantThreadProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]));
   }
 
   #[Test]
@@ -190,10 +190,10 @@ final class GetAssistantThreadProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $provider->provide(new Get(), [
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Assistant', fn () => $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,
       'threadId' => self::THREAD_ID,
-    ]);
+    ]));
   }
   // #endregion
 

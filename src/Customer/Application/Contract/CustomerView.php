@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Customer\Application\Contract;
 
-use Customer\Domain\Model\Customer\Customer;
 use DateTimeImmutable;
 
 /** Class CustomerView. Customer read projection. @category Contract */
@@ -17,8 +16,5 @@ final readonly class CustomerView
   {
   }
 
-  public static function fromCustomer(Customer $customer): self
-  {
-    return new self($customer->id, $customer->organizationId, $customer->name, $customer->code, $customer->email, $customer->phone, $customer->contacts, $customer->archivedAt, $customer->createdAt, $customer->updatedAt, $customer->revision);
-  }
+
 }

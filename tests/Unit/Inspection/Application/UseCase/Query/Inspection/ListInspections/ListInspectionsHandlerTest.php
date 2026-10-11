@@ -6,8 +6,8 @@ namespace Tests\Unit\Inspection\Application\UseCase\Query\Inspection\ListInspect
 
 use DateTimeImmutable;
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
-use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort};
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
+use Inspection\Application\Port\Outbound\Internal\{ChecklistRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Application\UseCase\Query\Inspection\ListInspections\{ListInspectionsHandler, ListInspectionsQuery};
 use Inspection\Domain\Model\Inspection\Inspection;
@@ -21,9 +21,12 @@ use Inspection\Domain\ValueObject\{
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Domain\Exception\InvalidValueException;
+use User\Application\Contract\User\UserView;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 #[CoversClass(ListInspectionsHandler::class)]
 final class ListInspectionsHandlerTest extends TestCase
@@ -128,12 +131,17 @@ final class ListInspectionsHandlerTest extends TestCase
     $nonConformityRepository = $this->createMock(NonConformityRepositoryPort::class);
     $nonConformityRepository->expects(self::once())->method('countsByInspectionIds')->with([])->willReturn([]);
 
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::never())->method('findByIds');
+    $users->expects(self::never())->method('findById');
+
     $handler = new ListInspectionsHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $nonConformityRepository,
       equipmentNaming: $this->createStub(EquipmentNamingPort::class),
       facilityNaming: $this->createStub(FacilityNamingPort::class),
       checklistRepository: $this->createStub(ChecklistRepositoryPort::class),
+      users: $users,
     );
 
     $result = $handler->__invoke(new ListInspectionsQuery(
@@ -145,6 +153,64 @@ final class ListInspectionsHandlerTest extends TestCase
     self::assertSame(0, $result->total);
     self::assertSame(20, $result->limit);
     self::assertSame(0, $result->offset);
+  }
+
+  #[Test]
+  public function testInspectorProfilesAreResolvedOnceForTheWholePage(): void
+  {
+    $knownUser = '550e8400-e29b-41d4-a716-446655449004';
+    $unknownUser = '550e8400-e29b-41d4-a716-446655449007';
+    $inspections = [
+      $this->inspection(self::INSPECTION_ID, Inspector::forUser($knownUser, 'Stored inspector')),
+      $this->inspection('550e8400-e29b-41d4-a716-446655449008', Inspector::forUser($knownUser, 'Same inspector')),
+      $this->inspection('550e8400-e29b-41d4-a716-446655449009', Inspector::forUser($unknownUser, 'Retained inspector')),
+      $this->inspection('550e8400-e29b-41d4-a716-446655449010', Inspector::forExternal('External auditor', 'Audit Ltd')),
+    ];
+    $profile = $this->profile($knownUser);
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::once())->method('findByIds')->with([$knownUser, $unknownUser])->willReturn([$knownUser => $profile]);
+    $users->expects(self::never())->method('findById');
+    $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
+    $inspectionRepository->method('findByOrganizationId')->willReturn($inspections);
+    $inspectionRepository->method('countByOrganizationId')->willReturn(4);
+    $nonConformities = $this->createMock(NonConformityRepositoryPort::class);
+    $nonConformities->expects(self::once())->method('countsByInspectionIds')
+      ->with([self::INSPECTION_ID, '550e8400-e29b-41d4-a716-446655449008', '550e8400-e29b-41d4-a716-446655449009', '550e8400-e29b-41d4-a716-446655449010'])
+      ->willReturn([self::INSPECTION_ID => 2]);
+
+    $handler = new ListInspectionsHandler($inspectionRepository, $nonConformities, $this->createStub(EquipmentNamingPort::class), $this->createStub(FacilityNamingPort::class), $this->createStub(ChecklistRepositoryPort::class), users: $users);
+    $result = $handler->__invoke(new ListInspectionsQuery(self::ORG_ID));
+
+    self::assertCount(4, $result->items);
+    self::assertSame(4, $result->total);
+    self::assertSame($profile, $result->items[0]->inspectorProfile);
+    self::assertSame($profile, $result->items[1]->inspectorProfile);
+    self::assertSame(2, $result->items[0]->nonConformitiesCount);
+    self::assertNull($result->items[2]->inspectorProfile);
+    self::assertSame('Retained inspector', $result->items[2]->inspectorName);
+    self::assertNull($result->items[3]->inspectorProfile);
+    self::assertSame('External auditor', $result->items[3]->inspectorName);
+  }
+
+  #[Test]
+  public function testAnUnavailableAccountDirectoryPreservesTheAuthorizedInspectionPage(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655449004';
+    $inspection = $this->inspection(self::INSPECTION_ID, Inspector::forUser($userId, 'Retained inspector'));
+    $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
+    $inspectionRepository->method('findByOrganizationId')->willReturn([$inspection]);
+    $inspectionRepository->method('countByOrganizationId')->willReturn(1);
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::once())->method('findByIds')->with([$userId])->willThrowException(new RuntimeException('Account directory unavailable.'));
+
+    $handler = new ListInspectionsHandler($inspectionRepository, $this->createStub(NonConformityRepositoryPort::class), $this->createStub(EquipmentNamingPort::class), $this->createStub(FacilityNamingPort::class), $this->createStub(ChecklistRepositoryPort::class), users: $users);
+    $result = $handler->__invoke(new ListInspectionsQuery(self::ORG_ID));
+
+    self::assertCount(1, $result->items);
+    self::assertSame(self::INSPECTION_ID, $result->items[0]->inspectionId);
+    self::assertSame($userId, $result->items[0]->inspectorUserId);
+    self::assertSame('Retained inspector', $result->items[0]->inspectorName);
+    self::assertNull($result->items[0]->inspectorProfile);
   }
 
   #[Test]
@@ -184,5 +250,22 @@ final class ListInspectionsHandlerTest extends TestCase
       organizationId: self::ORG_ID,
       equipmentId: 'not-a-uuid',
     ));
+  }
+
+  private function inspection(string $id, Inspector $inspector): Inspection
+  {
+    return Inspection::create(
+      id: InspectionId::fromString($id),
+      organizationId: InspectionOrganizationId::fromString(self::ORG_ID),
+      equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
+      inspector: $inspector,
+      result: InspectionResult::PASS,
+      performedAt: new DateTimeImmutable('2026-01-15T10:00:00+00:00'),
+    );
+  }
+
+  private function profile(string $id): UserView
+  {
+    return new UserView($id, 'inspector', 'inspector@example.com', 'Ada', 'Example', 'avatar.png', 'active', true, null, new DateTimeImmutable('2026-01-15T10:00:00+00:00'), null, true);
   }
 }

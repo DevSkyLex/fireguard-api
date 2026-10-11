@@ -8,17 +8,16 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\SentNotification;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Exception\OrganizationInvitationDeliveryException;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\DeliverOrganizationInvitation\{DeliverOrganizationInvitationCommand, DeliverOrganizationInvitationHandler};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationName};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\IdempotentConsumerPort;
+use Shared\Application\Port\Outbound\{IdempotentConsumerPort, TranslationPort};
 use Shared\Domain\ValueObject\Email;
-use Symfony\Contracts\Translation\TranslatorInterface;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 final class DeliverOrganizationInvitationHandlerTest extends TestCase
 {
@@ -95,8 +94,8 @@ final class DeliverOrganizationInvitationHandlerTest extends TestCase
     return new DeliverOrganizationInvitationHandler(
       $invitations,
       $organizations,
-      $this->createStub(UserRepositoryPort::class),
-      new OrganizationInvitationNotifier($port, 'https://app.example.test', new OrganizationInvitationTokenHasher(), $this->createStub(TranslatorInterface::class)),
+      $this->createStub(UserDirectoryPort::class),
+      new OrganizationInvitationNotifier($port, 'https://app.example.test', new OrganizationInvitationTokenHasher(), $this->createStub(TranslationPort::class)),
       $consumer,
     );
   }

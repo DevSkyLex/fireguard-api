@@ -137,10 +137,11 @@ final class FacilityEquipmentDependencyAdapterTest extends KernelTestCase
     string $recordStatus,
   ): void {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
 
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = $facilityId;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = $status;

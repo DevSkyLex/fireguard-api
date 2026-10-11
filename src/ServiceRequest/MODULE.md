@@ -90,6 +90,10 @@ Target scope stays consistent while the conversion commits.
 
 ## Architecture
 
+ServiceRequestView publishes only retained scalar identities and timestamps. The
+owner-local ServiceRequestViewMapper builds and sanitizes snapshots before returning
+results; ServiceRequestRepositoryPort stays in Application/Port/Outbound/Internal.
+
 Domain owns immutable lifecycle rules, snapshot values and receipts. Application
 handlers are the single business entry points for permissions, target validation,
 revision checks and transaction coordination. Presentation only translates DTOs,

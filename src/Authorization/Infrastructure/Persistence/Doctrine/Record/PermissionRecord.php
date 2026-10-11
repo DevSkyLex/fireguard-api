@@ -6,7 +6,7 @@ namespace Authorization\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
-use Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt;
+use Shared\Application\Contract\Tenancy\TenantFilterExempt;
 
 /**
  * Record PermissionRecord.

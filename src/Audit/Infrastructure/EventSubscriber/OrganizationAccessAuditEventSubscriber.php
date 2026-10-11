@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\EventSubscriber;
 
-use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
-use Organization\Domain\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
-use Organization\Domain\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
-use Organization\Domain\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
-use Organization\Domain\Event\Team\{TeamCreatedEvent, TeamDeletedEvent, TeamMemberAddedEvent, TeamMemberRemovedEvent, TeamUpdatedEvent};
+use Organization\Application\Contract\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
+use Organization\Application\Contract\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
+use Organization\Application\Contract\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
+use Organization\Application\Contract\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
+use Organization\Application\Contract\Event\Team\{TeamCreatedEvent, TeamDeletedEvent, TeamMemberAddedEvent, TeamMemberRemovedEvent, TeamUpdatedEvent};
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /** Records the organizationaccess event family. */

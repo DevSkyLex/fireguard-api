@@ -10,10 +10,10 @@ namespace Facility\Application\Contract\Export;
  * One facility row ready for the CSV export, carrying the parent facility's
  * `code` already resolved in bulk by
  * {@see \Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesHandler}
- * through {@see \Facility\Application\Port\Outbound\FacilityRepositoryPort::getFacilityCodesByIds()} —
+ * through {@see \Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort::getFacilityCodesByIds()} —
  * the Presentation-layer CSV writer only formats, it never resolves a code
  * itself. `parentCode` (not `parentFacilityId`) is the import round-trip
- * contract: {@see \Import\Application\Service\FacilityRowFactory} resolves a
+ * contract: the Import module CSV reader resolves a
  * parent by its `code`, not its identifier. Deliberately a type distinct
  * from {@see FacilityExportCandidate}, per the module's naming convention
  * that contract types stay distinct from use case Results and from each

@@ -6,7 +6,7 @@ namespace Tests\Unit\Notification\Application\UseCase\Query\Notification\ListUse
 
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationListCriteria, NotificationType};
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Application\UseCase\Query\Notification\ListUserNotifications\{ListUserNotificationsHandler, ListUserNotificationsQuery, ListUserNotificationsResult};
 use Notification\Domain\Model\Notification\{Notification, NotificationTarget};

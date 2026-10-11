@@ -32,6 +32,7 @@ final readonly class DeleteCanonicalEquipmentCommand implements CommandMessage
   public function __construct(
     public string $equipmentId,
     public int $expectedRevision,
+    public ?string $userId = null,
   ) {
   }
   // #endregion

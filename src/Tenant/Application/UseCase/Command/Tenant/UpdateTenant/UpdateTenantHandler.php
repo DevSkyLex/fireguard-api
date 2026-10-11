@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Tenant\Application\UseCase\Command\Tenant\UpdateTenant;
 
 use DateTimeImmutable;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 use Shared\Domain\ValueObject\Uuid;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Domain\Event\TenantSettingsUpdatedEvent;
 use Tenant\Domain\Exception\TenantNotFoundException;
 use Tenant\Domain\ValueObject\{TenantId, TenantName};
@@ -31,12 +30,12 @@ final readonly class UpdateTenantHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param TenantRepositoryPort $tenantRepository the tenant repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
    */
   public function __construct(
     private readonly TenantRepositoryPort $tenantRepository,
-    private readonly UuidFactory $uuidFactory,
+    private readonly UuidGeneratorPort $uuidFactory,
     private readonly EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -79,7 +78,7 @@ final readonly class UpdateTenantHandler implements CommandHandler
 
     if ($settingsUpdated) {
       $this->eventDispatcher->dispatch(new TenantSettingsUpdatedEvent(
-        eventId: $this->uuidFactory->create(Uuid::class),
+        eventId: new Uuid($this->uuidFactory->generate()),
         tenantId: (string) $tenant->id(),
         settings: $tenant->settings()->toArray(),
         occurredAt: new DateTimeImmutable(),

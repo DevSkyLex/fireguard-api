@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Query\Time\ListTimeEntries;
 
 use Intervention\Application\Contract\Time\TimeEntryTaskContext;
-use Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionTimeEntryRepositoryPort;
 use Intervention\Application\Service\InterventionTimeAccessPolicy;
 use Intervention\Application\UseCase\Query\Time\ListTimeEntries\{ListTimeEntriesHandler, ListTimeEntriesQuery};
 use Organization\Application\Contract\Workforce\OrganizationWorkforceMember;

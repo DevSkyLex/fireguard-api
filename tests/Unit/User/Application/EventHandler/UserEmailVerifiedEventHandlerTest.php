@@ -13,9 +13,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\LoggerPort;
-use Shared\Domain\ValueObject\Uuid;
+use User\Application\Contract\Event\UserEmailVerifiedEvent;
 use User\Application\EventHandler\UserEmailVerifiedEventHandler;
-use User\Domain\Event\UserEmailVerifiedEvent;
 
 /**
  * Test UserEmailVerifiedEventHandlerTest.
@@ -74,7 +73,7 @@ final class UserEmailVerifiedEventHandlerTest extends TestCase
     $handler = new UserEmailVerifiedEventHandler($notificationPort, $logger);
 
     $event = new UserEmailVerifiedEvent(
-      eventId: new Uuid('00000000-0000-4000-a000-000000000002'),
+      eventId: '00000000-0000-4000-a000-000000000002',
       userId: 'user-1',
       email: 'jdoe@example.com',
       occurredAt: new DateTimeImmutable('2024-01-01T00:00:00+00:00'),
@@ -109,7 +108,7 @@ final class UserEmailVerifiedEventHandlerTest extends TestCase
     $handler = new UserEmailVerifiedEventHandler($notificationPort, $logger);
 
     $event = new UserEmailVerifiedEvent(
-      eventId: new Uuid('00000000-0000-4000-a000-000000000003'),
+      eventId: '00000000-0000-4000-a000-000000000003',
       userId: 'user-1',
       email: 'jdoe@example.com',
       occurredAt: new DateTimeImmutable('2024-01-01T00:00:00+00:00'),

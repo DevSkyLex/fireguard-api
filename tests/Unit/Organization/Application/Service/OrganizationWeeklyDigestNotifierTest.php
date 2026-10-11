@@ -11,7 +11,7 @@ use Organization\Application\Contract\Inspection\OpenNonConformitySummary;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Contract\Maintenance\MaintenanceDueSummary;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationMemberRepositoryPort;
 use Organization\Application\Service\{OrganizationWeeklyDigest, OrganizationWeeklyDigestNotifier, OrganizationWeeklyDigestRecipientResolver};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
@@ -19,8 +19,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\LoggerPort;
-use Symfony\Contracts\Translation\TranslatorInterface;
+use Shared\Application\Port\Outbound\{LoggerPort, TranslationPort};
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
@@ -111,7 +110,7 @@ final class OrganizationWeeklyDigestNotifierTest extends TestCase
     $notifier = new OrganizationWeeklyDigestNotifier(
       $notifications,
       $this->recipients(['user-missing', 'user-ok']),
-      $queryBus,
+      \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
       $this->translator(),
       $this->createStub(LoggerPort::class),
       self::FRONTEND_URL,
@@ -177,7 +176,7 @@ final class OrganizationWeeklyDigestNotifierTest extends TestCase
     return new OrganizationWeeklyDigestNotifier(
       $notifications,
       $this->recipients($userIds),
-      $queryBus,
+      \Tests\Support\Factory\UserDirectoryTestFactory::fromQueries($queryBus),
       $this->translator(),
       $this->createStub(LoggerPort::class),
       self::FRONTEND_URL,
@@ -214,10 +213,10 @@ final class OrganizationWeeklyDigestNotifierTest extends TestCase
     return new OrganizationWeeklyDigestRecipientResolver($memberRepository, $authorization);
   }
 
-  private function translator(): TranslatorInterface
+  private function translator(): TranslationPort
   {
-    $translator = $this->createStub(TranslatorInterface::class);
-    $translator->method('trans')->willReturnCallback(
+    $translator = $this->createStub(TranslationPort::class);
+    $translator->method('translate')->willReturnCallback(
       static fn (string $id): string => $id,
     );
 

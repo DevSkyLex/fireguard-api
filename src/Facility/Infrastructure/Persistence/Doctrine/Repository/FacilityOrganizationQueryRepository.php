@@ -9,7 +9,7 @@ use DateTimeZone;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
-use Facility\Application\Port\Outbound\FacilityOrganizationQueryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityOrganizationQueryPort;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityOrganizationId, FacilityStatus};
 use Facility\Infrastructure\Exception\InvalidStorageTimeZoneException;
@@ -31,7 +31,7 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Constant ORGANIZATION_PREDICATE
    */
-  protected const string ORGANIZATION_PREDICATE = 'f.organization = :organization';
+  protected const string ORGANIZATION_PREDICATE = 'f.organizationId = :organization';
   // #endregion
 
   // #region Properties
@@ -103,7 +103,7 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
     $organization = $this->organizationReference($organizationId);
 
     return (int) $this->repository->count([
-      'organization' => $organization,
+      'organizationId' => $organization,
       'status' => FacilityStatus::ACTIVE->value,
     ]);
   }
@@ -371,7 +371,7 @@ abstract readonly class FacilityOrganizationQueryRepository implements FacilityO
   /**
    * Resolves the existing organization association without moving its ORM dependency into this query concern.
    */
-  abstract protected function organizationReference(FacilityOrganizationId $organizationId): object;
+  abstract protected function organizationReference(FacilityOrganizationId $organizationId): string;
 
   /**
    * Applies the facility search semantics shared with the existing repository.

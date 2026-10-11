@@ -6,7 +6,7 @@ namespace Organization\Infrastructure\Adapter\Billing;
 
 use Billing\Application\Contract\Plan\PlanSummary;
 use Billing\Application\Port\Outbound\OrganizationPlanPort;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;
 

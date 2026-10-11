@@ -10,7 +10,7 @@ use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Intervention\Domain\Exception\InterventionConflictException;
+use Intervention\Application\Contract\Resource\InterventionConflictException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -236,7 +236,7 @@ final class EquipmentInterventionResourceAdapterTest extends TestCase
     $organization->id = self::ORGANIZATION_ID;
     $record = new EquipmentRecord();
     $record->id = self::EQUIPMENT_ID;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->interventionId = self::INTERVENTION_ID;
     $record->recordStatus = 'draft';
     $record->revision = 1;

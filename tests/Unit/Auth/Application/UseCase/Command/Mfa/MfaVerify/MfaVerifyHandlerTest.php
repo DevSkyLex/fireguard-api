@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Application\UseCase\Command\Mfa\MfaVerify;
 
+use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeVerifierPort;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort};
-use Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort;
 use Auth\Application\UseCase\Command\Mfa\MfaVerify\{MfaVerifyCommand, MfaVerifyHandler, MfaVerifyResult};
 use Auth\Domain\Event\Session\UserLoggedInEvent;
 use Auth\Domain\Event\Token\TokenIssuedEvent;

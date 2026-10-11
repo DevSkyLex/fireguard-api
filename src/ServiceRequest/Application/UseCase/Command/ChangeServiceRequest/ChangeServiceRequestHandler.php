@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace ServiceRequest\Application\UseCase\Command\ChangeServiceRequest;
 
 use DateTimeImmutable;
-use ServiceRequest\Application\Contract\ServiceRequestView;
-use ServiceRequest\Application\Port\Outbound\{ServiceRequestOriginPort, ServiceRequestRepositoryPort};
+use ServiceRequest\Application\Port\Outbound\Internal\ServiceRequestRepositoryPort;
+use ServiceRequest\Application\Port\Outbound\ServiceRequestOriginPort;
 use ServiceRequest\Application\Service\{ServiceRequestAccessGuard, ServiceRequestTargetGuard};
+use ServiceRequest\Application\Service\ServiceRequestViewMapper;
 use ServiceRequest\Domain\Event\ServiceRequestChangedEvent;
 use ServiceRequest\Domain\Exception\ServiceRequestException;
 use ServiceRequest\Domain\Model\ServiceRequest\ServiceRequest;
@@ -41,7 +42,7 @@ final readonly class ChangeServiceRequestHandler implements CommandHandler
         $this->events->dispatch(new ServiceRequestChangedEvent($changed->organizationId, $changed->id, $command->action, $changed->revision, $changed->updatedAt));
       }
 
-      return new ChangeServiceRequestResult(ServiceRequestView::fromRequest($changed));
+      return new ChangeServiceRequestResult(ServiceRequestViewMapper::fromRequest($changed));
     });
   }
 

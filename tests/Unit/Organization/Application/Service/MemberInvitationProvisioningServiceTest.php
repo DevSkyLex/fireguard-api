@@ -7,7 +7,7 @@ namespace Tests\Unit\Organization\Application\Service;
 use DateTimeImmutable;
 use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionOutcome};
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
-use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRoleRepositoryPort;
 use Organization\Application\Service\MemberInvitationProvisioningService;
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
 use Organization\Domain\Exception\{OrganizationMembershipConflictException, OrganizationRoleNotFoundException};
@@ -16,7 +16,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, Organiz
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 
 /**
@@ -220,7 +220,7 @@ final class MemberInvitationProvisioningServiceTest extends TestCase
   {
     $roles = $this->createStub(OrganizationRoleRepositoryPort::class);
     $roles->method('findByOrganizationAndName')->willReturn($this->role('member'));
-    $denial = \Organization\Domain\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.read');
+    $denial = \Organization\Application\Contract\Exception\OrganizationAccessDeniedException::cannotGrantPermission('organization.read');
     foreach ([$denial, MessengerRuntimeException::wrap($denial)] as $exception) {
       $bus = $this->createStub(CommandBusPort::class);
       $bus->method('dispatch')->willThrowException($exception);

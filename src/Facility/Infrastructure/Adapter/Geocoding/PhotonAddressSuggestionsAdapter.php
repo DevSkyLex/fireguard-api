@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Adapter\Geocoding;
 
 use Facility\Application\Contract\Geocoding\AddressSuggestion;
-use Facility\Application\Port\Outbound\AddressSuggestionsPort;
+use Facility\Application\Port\Outbound\Internal\AddressSuggestionsPort;
 use Facility\Domain\Exception\FacilityAddressSuggestionsUnavailableException;
 use Shared\Application\Port\Outbound\CachePort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;

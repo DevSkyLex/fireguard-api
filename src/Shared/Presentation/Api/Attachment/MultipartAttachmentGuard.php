@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Presentation\Api\Attachment;
 
+use Shared\Application\Contract\Attachment\UploadedAttachment;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;

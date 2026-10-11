@@ -6,7 +6,7 @@ namespace Equipment\Presentation\Api\Processor\Equipment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\UseCase\Command\Equipment\AddTagToEquipment\{AddTagToEquipmentCommand, AddTagToEquipmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\AddTagInput;
@@ -14,7 +14,7 @@ use Equipment\Presentation\Api\Dto\Output\Equipment\TagOutput;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -67,7 +67,7 @@ final readonly class AddTagToEquipmentProcessor implements ProcessorInterface
   {
     /** @var AddTagInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

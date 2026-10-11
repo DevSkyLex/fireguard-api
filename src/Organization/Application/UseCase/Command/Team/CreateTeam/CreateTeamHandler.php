@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Team\CreateTeam;
 
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepositoryPort};
-use Organization\Domain\Event\Team\TeamCreatedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNameAlreadyExistsException};
+use Organization\Application\Contract\Event\Team\TeamCreatedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Domain\Exception\TeamNameAlreadyExistsException;
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, TeamId, TeamName};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 /**
  * UseCase CreateTeamHandler.
@@ -33,13 +33,13 @@ final readonly class CreateTeamHandler implements CommandHandler
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param TeamRepositoryPort $teamRepository the team repository
-   * @param UuidFactory $uuidFactory the UUID factory
+   * @param UuidGeneratorPort $uuidFactory the UUID factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private TeamRepositoryPort $teamRepository,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -71,7 +71,7 @@ final readonly class CreateTeamHandler implements CommandHandler
     }
 
     /** @var TeamId $teamId */
-    $teamId = $this->uuidFactory->create(TeamId::class);
+    $teamId = new TeamId($this->uuidFactory->generate());
 
     $team = Team::create(
       id: $teamId,

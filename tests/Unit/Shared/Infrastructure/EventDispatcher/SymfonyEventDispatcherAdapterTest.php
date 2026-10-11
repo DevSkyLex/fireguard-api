@@ -39,6 +39,7 @@ final class SymfonyEventDispatcherAdapterTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $dispatcher,
       logger: $logger,
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     $adapter->dispatch($event);
@@ -68,6 +69,7 @@ final class SymfonyEventDispatcherAdapterTest extends TestCase
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $dispatcher,
       logger: $logger,
+      eventDecoder: new \Shared\Infrastructure\EventDispatcher\CompositeIntegrationEventDecoder([]),
     );
 
     $adapter->dispatchAll([$eventOne, $eventTwo]);

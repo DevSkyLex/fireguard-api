@@ -6,7 +6,8 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\DeleteCanonic
 
 use DateTimeImmutable;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, InterventionScopePort};
+use Facility\Application\Port\Outbound\Internal\CanonicalFacilityRepositoryPort;
+use Facility\Application\Port\Outbound\InterventionScopePort;
 use Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility\{DeleteCanonicalFacilityCommand, DeleteCanonicalFacilityHandler};
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\{CanonicalFacilityConflictException, FacilityHasActiveDependentsException, FacilityNotFoundException, FacilityRevisionMismatchException};

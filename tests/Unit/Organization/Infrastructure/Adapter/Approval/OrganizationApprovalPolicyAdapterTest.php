@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Infrastructure\Adapter\Approval;
 
 use Approval\Application\Contract\Action\ApprovalActionTypes;
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationApprovalDefaults;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};

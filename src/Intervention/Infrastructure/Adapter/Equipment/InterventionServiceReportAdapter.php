@@ -9,7 +9,6 @@ use Equipment\Application\Contract\Intervention\{InterventionServiceReport, Serv
 use Equipment\Application\Port\Outbound\InterventionServiceReportPort;
 use Intervention\Domain\ValueObject\WorkItemExecutionResult;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, InterventionWorkItemRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_key_exists;
 use function is_string;
@@ -62,7 +61,7 @@ final readonly class InterventionServiceReportAdapter implements InterventionSer
   public function serviceReport(string $interventionId): ?InterventionServiceReport
   {
     $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
-    if (!$intervention instanceof InterventionRecord || !$intervention->organization instanceof OrganizationRecord) {
+    if (!$intervention instanceof InterventionRecord || !isset($intervention->organizationId)) {
       return null;
     }
 

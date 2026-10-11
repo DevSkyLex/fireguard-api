@@ -6,7 +6,7 @@ namespace Tests\Unit\Tenant\Application\UseCase\Command\Tenant\DeleteTenant;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Application\UseCase\Command\Tenant\DeleteTenant\{DeleteTenantCommand, DeleteTenantHandler, DeleteTenantResult};
 use Tenant\Domain\Exception\TenantNotFoundException;
 use Tenant\Domain\Model\Tenant\Tenant;

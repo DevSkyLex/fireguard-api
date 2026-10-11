@@ -6,7 +6,7 @@ namespace Organization\Infrastructure\Adapter\Inspection;
 
 use Inspection\Application\Contract\Sla\NonConformitySlaPolicy;
 use Inspection\Application\Port\Outbound\Compliance\NonConformitySlaPolicyPort;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;

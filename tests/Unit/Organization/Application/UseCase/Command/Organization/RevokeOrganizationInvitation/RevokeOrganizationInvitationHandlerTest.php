@@ -8,9 +8,9 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\{NotificationType, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
+use Organization\Application\Contract\Event\Invitation\OrganizationInvitationRevokedEvent;
+use Organization\Application\Port\Outbound\Internal\OrganizationInvitationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation\{RevokeOrganizationInvitationCommand, RevokeOrganizationInvitationHandler, RevokeOrganizationInvitationResult};
-use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
@@ -22,7 +22,7 @@ use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\UserTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function is_string;
 use function sprintf;
@@ -75,12 +75,12 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
       ->method('findRoleIdsForInvitation')
       ->willReturn([$roleId]);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findByEmail')
-      ->with(self::callback(static fn (Email $value): bool => $email === (string) $value))
-      ->willReturn(UserTestFactory::createActive('550e8400-e29b-41d4-a716-446655442205', $email));
+      ->with(self::callback(static fn (string $value): bool => $email === $value))
+      ->willReturn(UserTestFactory::createActiveView('550e8400-e29b-41d4-a716-446655442205', $email));
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -190,8 +190,8 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
     $invitationRepository->expects(self::once())->method('save')->with(self::isInstanceOf(OrganizationInvitation::class));
     $invitationRepository->expects(self::once())->method('findRoleIdsForInvitation')->willReturn([]);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())
       ->method('findByEmail')
       ->willReturn(null);
@@ -287,8 +287,8 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
     $invitationRepository->expects(self::never())->method('save');
     $invitationRepository->expects(self::never())->method('findRoleIdsForInvitation');
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::never())->method('findByEmail');
 
     /** @var NotificationPort&MockObject $notificationPort */
@@ -439,8 +439,8 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
    */
   private function buildGuardHandler(OrganizationInvitationRepositoryPort $invitationRepository): RevokeOrganizationInvitationHandler
   {
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::never())->method('findByEmail');
 
     /** @var NotificationPort&MockObject $notificationPort */

@@ -8,9 +8,8 @@ use DateTimeImmutable;
 use Intervention\Application\Exception\InterventionNotificationDeliveryException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\ValueObject\{OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\{OrganizationMemberDirectoryPort, OrganizationNotificationPolicyPort};
 use Shared\Application\Port\Outbound\{DurableEventContextPort, IdempotentConsumerPort};
 use Throwable;
 
@@ -37,14 +36,14 @@ final readonly class InterventionNotificationService
    * @since 1.0.0
    *
    * @param NotificationPort $notifications the notifications value
-   * @param OrganizationMemberRepositoryPort $members the members value
+   * @param OrganizationMemberDirectoryPort $members the members value
    * @param OrganizationNotificationPolicyPort $policy the organization notification policy port
    * @param InterventionReviewerRecipientResolver $reviewers the submission reviewer resolver
    * @param InterventionRecurrenceRecipientResolver $admins the organization administrator resolver
    */
   public function __construct(
     private NotificationPort $notifications,
-    private OrganizationMemberRepositoryPort $members,
+    private OrganizationMemberDirectoryPort $members,
     private OrganizationNotificationPolicyPort $policy,
     private InterventionReviewerRecipientResolver $reviewers,
     private InterventionRecurrenceRecipientResolver $admins,
@@ -288,8 +287,8 @@ final readonly class InterventionNotificationService
   public function mentioned(string $interventionId, string $organizationId, string $memberId): void
   {
     try {
-      $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
-      if (null === $member || !$member->isActive() || (string) $member->organizationId() !== $organizationId) {
+      $member = $this->members->findById($memberId);
+      if (null === $member || !$member->active || $member->organizationId !== $organizationId) {
         return;
       }
 
@@ -312,7 +311,7 @@ final readonly class InterventionNotificationService
         body: 'A teammate mentioned you in an intervention comment.',
         channels: $channels,
         payload: ['interventionId' => $interventionId],
-        recipientUserId: $member->userId(),
+        recipientUserId: $member->userId,
         organizationId: $organizationId,
       ));
     } catch (Throwable $exception) {
@@ -395,13 +394,13 @@ final readonly class InterventionNotificationService
   {
     $notifiedUserIds = [];
     foreach (array_values(array_unique($memberIds)) as $memberId) {
-      $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
-      if (null === $member || !$member->isActive() || (string) $member->organizationId() !== $organizationId) {
+      $member = $this->members->findById($memberId);
+      if (null === $member || !$member->active || $member->organizationId !== $organizationId) {
         continue;
       }
 
-      $notifiedUserIds[] = $member->userId();
-      $this->sendReminderToUser($member->userId(), $message);
+      $notifiedUserIds[] = $member->userId;
+      $this->sendReminderToUser($member->userId, $message);
     }
 
     return $notifiedUserIds;
@@ -470,12 +469,12 @@ final readonly class InterventionNotificationService
   private function send(string $memberId, string $type, string $subject, string $body, string $interventionId): void
   {
     try {
-      $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
-      if (null === $member || !$member->isActive()) {
+      $member = $this->members->findById($memberId);
+      if (null === $member || !$member->active) {
         return;
       }
 
-      $policy = $this->policy->notificationPolicy((string) $member->organizationId());
+      $policy = $this->policy->notificationPolicy($member->organizationId);
 
       // Respect the organization policy: skip the event category when disabled,
       // and the real-time channel when in-app delivery is turned off.
@@ -489,8 +488,8 @@ final readonly class InterventionNotificationService
         body: $body,
         channels: [NotificationChannel::MERCURE],
         payload: ['interventionId' => $interventionId],
-        recipientUserId: $member->userId(),
-        organizationId: (string) $member->organizationId(),
+        recipientUserId: $member->userId,
+        organizationId: $member->organizationId,
       ));
     } catch (Throwable $exception) {
       if (null !== $this->eventContext->eventId()) {

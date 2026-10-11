@@ -16,12 +16,12 @@ use Intervention\Presentation\Api\Dto\Input\{
   CreateInterventionWorkItemInput,
   UpdateInterventionWorkItemInput
 };
+use Intervention\Presentation\Api\Http\{CreationPreconditionGuard, MergePatchFields, RevisionGuard};
 use Intervention\Presentation\Api\Processor\InterventionWorkItemProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{CreationPreconditionGuard, MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};

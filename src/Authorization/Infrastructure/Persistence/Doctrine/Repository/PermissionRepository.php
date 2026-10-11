@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Persistence\Doctrine\Repository;
 
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\PermissionRepositoryPort;
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\ValueObject\{PermissionId, PermissionName};
 use Authorization\Infrastructure\Persistence\Doctrine\Mapper\PermissionMapper;

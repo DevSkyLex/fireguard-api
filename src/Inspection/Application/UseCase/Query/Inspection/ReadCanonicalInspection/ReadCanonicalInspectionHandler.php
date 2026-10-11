@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection;
 
-use Inspection\Application\Port\Outbound\{CanonicalInspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{CanonicalInspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\ValueObject\InspectionId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;

@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Adapter\User;
 
-use Authorization\Domain\ValueObject\SubjectType;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleAssignmentRecord;
+use Authorization\Application\Port\Inbound\AuthorizationDataLifecyclePort;
 use Doctrine\ORM\EntityManagerInterface;
-use OAuth\Infrastructure\Persistence\Doctrine\Record\{AccessTokenRecord, AuthCodeRecord, ConsentRecord, RefreshTokenRecord};
+use OAuth\Application\Port\Inbound\OAuthDataLifecyclePort;
+use Otp\Application\Port\Inbound\OtpDataLifecyclePort;
 use Otp\Application\Port\Inbound\Totp\TotpEnrollmentPurgePort;
-use Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord;
-use Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord;
-use TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord;
-use User\Application\Port\Outbound\UserDataPurgePort;
+use Session\Application\Port\Inbound\SessionDataLifecyclePort;
+use Shared\Application\Port\Outbound\FileCleanupPort;
+use TrustedDevice\Application\Port\Inbound\TrustedDeviceDataLifecyclePort;
+use User\Application\Contract\User\AvatarPaths;
+use User\Application\Port\Outbound\{AvatarPersistencePort, UserDataPurgePort};
 use User\Infrastructure\Persistence\Doctrine\Record\UserPresencePreferenceRecord;
 
-use function sprintf;
 use function trim;
 
 /**
@@ -39,6 +39,13 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
   public function __construct(
     private EntityManagerInterface $entityManager,
     private TotpEnrollmentPurgePort $totpEnrollmentPurge,
+    private AuthorizationDataLifecyclePort $authorizationLifecycle,
+    private SessionDataLifecyclePort $sessionLifecycle,
+    private OtpDataLifecyclePort $otpLifecycle,
+    private TrustedDeviceDataLifecyclePort $trusteddeviceLifecycle,
+    private OAuthDataLifecyclePort $oauthLifecycle,
+    private AvatarPersistencePort $avatars,
+    private FileCleanupPort $avatarCleanup,
   ) {
   }
   // #endregion
@@ -71,81 +78,18 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
       return;
     }
 
+    foreach (AvatarPaths::variants($normalizedUserId, $this->avatars->generation($normalizedUserId)) as $path) {
+      $this->avatarCleanup->request($path);
+    }
+
     $this->deleteWhere(UserPresencePreferenceRecord::class, 'presence', 'presence.userId = :userId', ['userId' => $normalizedUserId]);
 
-    // Sessions
-    $this->deleteWhere(
-      entityClass: SessionRecord::class,
-      alias: 's',
-      where: 's.userId = :userId',
-      parameters: ['userId' => $normalizedUserId],
-    );
-
     $this->totpEnrollmentPurge->purgeForUser($normalizedUserId);
-
-    // OTP challenges
-    $this->deleteWhere(
-      entityClass: OtpRecord::class,
-      alias: 'o',
-      where: 'o.userId = :userId',
-      parameters: ['userId' => $normalizedUserId],
-    );
-
-    // Trusted devices
-    $this->deleteWhere(
-      entityClass: TrustedDeviceRecord::class,
-      alias: 'td',
-      where: 'td.userId = :userId',
-      parameters: ['userId' => $normalizedUserId],
-    );
-
-    // OAuth consents
-    $this->deleteWhere(
-      entityClass: ConsentRecord::class,
-      alias: 'c',
-      where: 'c.userId = :userId',
-      parameters: ['userId' => $normalizedUserId],
-    );
-
-    // OAuth refresh tokens (linked via access tokens)
-    $subQuery = $this->entityManager->createQueryBuilder()
-      ->select('a.identifier')
-      ->from(AccessTokenRecord::class, 'a')
-      ->where('a.userIdentifier = :userId');
-
-    $this->entityManager->createQueryBuilder()
-      ->delete(RefreshTokenRecord::class, 'r')
-      ->where(sprintf('r.accessTokenIdentifier IN (%s)', $subQuery->getDQL()))
-      ->setParameter('userId', $normalizedUserId)
-      ->getQuery()
-      ->execute();
-
-    // OAuth auth codes
-    $this->deleteWhere(
-      entityClass: AuthCodeRecord::class,
-      alias: 'ac',
-      where: 'ac.userIdentifier = :userId',
-      parameters: ['userId' => $normalizedUserId],
-    );
-
-    // OAuth access tokens
-    $this->deleteWhere(
-      entityClass: AccessTokenRecord::class,
-      alias: 'at',
-      where: 'at.userIdentifier = :userId',
-      parameters: ['userId' => $normalizedUserId],
-    );
-
-    // Role assignments
-    $this->deleteWhere(
-      entityClass: RoleAssignmentRecord::class,
-      alias: 'ra',
-      where: 'ra.subjectType = :subjectType AND ra.subjectId = :userId',
-      parameters: [
-        'subjectType' => SubjectType::USER->value,
-        'userId' => $normalizedUserId,
-      ],
-    );
+    $this->authorizationLifecycle->purgeForUser($normalizedUserId);
+    $this->sessionLifecycle->purgeForUser($normalizedUserId);
+    $this->otpLifecycle->purgeForUser($normalizedUserId);
+    $this->trusteddeviceLifecycle->purgeForUser($normalizedUserId);
+    $this->oauthLifecycle->purgeForUser($normalizedUserId);
   }
 
   /**

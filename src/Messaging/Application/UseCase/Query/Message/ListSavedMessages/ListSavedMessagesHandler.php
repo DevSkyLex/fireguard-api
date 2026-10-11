@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Query\Message\ListSavedMessages;
 
-use Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort;
+use Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Shared\Application\Message\QueryHandler;
 

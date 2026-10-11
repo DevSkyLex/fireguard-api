@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Command\Plan\UpdatePlan;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Application\UseCase\Command\Plan\UpdatePlan\{UpdatePlanCommand, UpdatePlanHandler};
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};

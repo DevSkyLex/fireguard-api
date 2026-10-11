@@ -7,7 +7,7 @@ namespace Tests\Integration\Facility\Infrastructure\Adapter\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
@@ -20,7 +20,7 @@ use Facility\Domain\ValueObject\{
 };
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Intervention\Domain\Exception\InterventionConflictException;
+use Intervention\Application\Contract\Resource\InterventionConflictException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -475,7 +475,7 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
   ): void {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $facility->organizationId = self::ORGANIZATION_ID;
     $facility->parentFacility = null === $parentId
       ? null
       : $this->entityManager->getReference(FacilityRecord::class, $parentId);

@@ -6,14 +6,13 @@ namespace Tests\Unit\Session\Application\Service;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\Service\SessionTrackingService;
 use Session\Application\UseCase\Command\Session\CreateSession\CreateSessionHandler;
 use Session\Application\UseCase\Command\Session\RevokeSessionByToken\RevokeSessionByTokenHandler;
 use Session\Application\UseCase\Command\Session\UpdateSessionTokens\UpdateSessionTokensHandler;
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 
@@ -186,7 +185,7 @@ final class SessionTrackingServiceTest extends TestCase
     $service->revokeSessionByToken(null, 'access-1');
   }
 
-  private function createUuidFactory(string $uuid): UuidFactory
+  private function createUuidFactory(string $uuid): UuidGeneratorPort
   {
     $generator = new class ($uuid) implements UuidGeneratorPort {
       public function __construct(private string $uuid)
@@ -199,7 +198,7 @@ final class SessionTrackingServiceTest extends TestCase
       }
     };
 
-    return new UuidFactory(generator: $generator);
+    return $generator;
   }
 
   private function createSession(): Session

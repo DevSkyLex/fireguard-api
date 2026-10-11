@@ -6,16 +6,13 @@ namespace Facility\Presentation\Api\Provider\Attachment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
-use Facility\Application\Service\FacilitySpatialValidityResolver;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\{GetFacilityMediaContextQuery, GetFacilityMediaContextResult};
 use Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\{ListFacilityAttachmentsQuery, ListFacilityAttachmentsResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
-use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Facility\Presentation\Api\Dto\Output\Attachment\FacilityAttachmentOutput;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -59,21 +56,16 @@ final readonly class FacilityMediaProvider implements ProviderInterface
    *
    * @access public
    *
-   * @param EntityManagerInterface $entityManager the main entity manager
    * @param QueryBusPort $queryBus dispatches attachment queries
-   * @param OrganizationAuthorizationPort $authorization enforces organization access
    * @param Security $security resolves the authenticated user
    * @param RequestStack $requestStack provides the current request
    *
    * @return void
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
     private QueryBusPort $queryBus,
-    private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
-    private FacilitySpatialValidityResolver $spatial,
   ) {
   }
   // #endregion
@@ -105,29 +97,9 @@ final readonly class FacilityMediaProvider implements ProviderInterface
    *
    * @since 1.0.0
    */
-  public static function output(FacilityAttachmentRecord $record): FacilityAttachmentOutput
+  public static function output(\Facility\Application\Contract\Attachment\FacilityAttachmentView $view): FacilityAttachmentOutput
   {
-    if (null === $record->facility) {
-      throw new NotFoundHttpException('Attachment facility not found.');
-    }
-
-    $output = new FacilityAttachmentOutput();
-    $output->id = $record->id;
-    $output->facilityId = $record->facility->id;
-    $output->fileName = $record->fileName;
-    $output->mimeType = $record->mimeType;
-    $output->size = $record->size;
-    $output->label = $record->label;
-    $output->revision = $record->revision;
-    $output->uploadedAt = $record->uploadedAt->format('c');
-    $output->kind = $record->kind;
-    $output->isPrimaryPlan = $record->isPrimaryPlan;
-    $output->imageWidth = $record->imageWidth;
-    $output->imageHeight = $record->imageHeight;
-    $output->calibration = $record->calibration;
-    $output->calibrationBuildingId = $record->calibrationBuildingId;
-
-    return $output;
+    return new \Facility\Presentation\Api\Factory\FacilityAttachmentOutputFactory()->create($view);
   }
 
   /**
@@ -146,26 +118,15 @@ final readonly class FacilityMediaProvider implements ProviderInterface
       throw new BadRequestHttpException('The facilityId URI parameter is required.');
     }
 
-    $user = $this->user();
-    $facility = $this->entityManager->find(FacilityRecord::class, $facilityId);
-    if (!$facility instanceof FacilityRecord || null === $facility->organization) {
-      throw new NotFoundHttpException('Facility not found.');
-    }
-
-    $decision = $this->authorization->resolveAccess($user->getId(), $facility->organization->id, 'organization.facilities.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Facility not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
-    }
+    /** @var GetFacilityMediaContextResult $media */
+    $media = $this->queryBus->ask(new GetFacilityMediaContextQuery($this->user()->getId(), facilityId: $facilityId));
 
     $kind = $this->requestStack->getCurrentRequest()?->query->get('kind');
 
     try {
       /** @var ListFacilityAttachmentsResult $result */
       $result = $this->queryBus->ask(new ListFacilityAttachmentsQuery(
-        organizationId: $facility->organization->id,
+        organizationId: $media->organizationId,
         facilityId: $facilityId,
         kind: is_string($kind) ? $kind : null,
       ));
@@ -225,26 +186,13 @@ final readonly class FacilityMediaProvider implements ProviderInterface
       throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
-    $record = $this->entityManager->find(FacilityAttachmentRecord::class, $id);
-    if (!$record instanceof FacilityAttachmentRecord || null === $record->facility?->organization) {
+    /** @var GetFacilityMediaContextResult $media */
+    $media = $this->queryBus->ask(new GetFacilityMediaContextQuery($this->user()->getId(), attachmentId: $id));
+    if (null === $media->attachment) {
       throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $record->facility->organization->id, 'organization.facilities.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
-    }
-
-    $output = self::output($record);
-    $spatialContext = $this->spatial->context($record->facility->organization->id, [$record->facility->id], [$record->id]);
-    $output->calibrationBuildingId = $spatialContext->plans[$record->id]['calibrationBuildingId'] ?? null;
-    $output->calibrationIssue = $this->spatial->calibrationIssue($spatialContext, $record->facility->id, $output->calibrationBuildingId, null !== $record->calibration);
-
-    return $output;
+    return self::output($media->attachment);
   }
 
   /**
@@ -252,10 +200,10 @@ final readonly class FacilityMediaProvider implements ProviderInterface
    *
    * @since 1.0.0
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

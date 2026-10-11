@@ -7,7 +7,7 @@ namespace Intervention\Infrastructure\Adapter\Facility;
 use Facility\Application\Contract\Hierarchy\InterventionParentAccess;
 use Facility\Application\Port\Outbound\InterventionScopePort;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionMemberPolicy;
 use Intervention\Domain\Exception\InterventionAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;

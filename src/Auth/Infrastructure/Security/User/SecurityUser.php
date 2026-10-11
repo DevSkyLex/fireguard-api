@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Security\User;
 
-use Auth\Application\Contract\User\AuthenticatedUser;
+use Auth\Application\Contract\User\AuthenticatedPrincipal;
 use Symfony\Component\Security\Core\User\{PasswordAuthenticatedUserInterface, UserInterface};
 
 use function array_map;
@@ -21,7 +21,7 @@ use function strtolower;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class SecurityUser implements UserInterface, PasswordAuthenticatedUserInterface, AuthenticatedUser
+final readonly class SecurityUser implements UserInterface, PasswordAuthenticatedUserInterface, AuthenticatedPrincipal
 {
   // #region Constructor
   /**

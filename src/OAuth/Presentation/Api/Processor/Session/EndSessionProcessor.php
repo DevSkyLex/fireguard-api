@@ -6,10 +6,10 @@ namespace OAuth\Presentation\Api\Processor\Session;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\{ProcessorInterface, ProviderInterface};
-use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use OAuth\Application\Port\Outbound\Token\JwtParserPort;
 use OAuth\Application\UseCase\Command\Token\RevokeToken\RevokeTokenCommand;
 use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
+use OAuth\Presentation\Api\Service\RefreshTokenCookieService;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Component\HttpFoundation\{JsonResponse, RedirectResponse, Request, RequestStack, Response};
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;

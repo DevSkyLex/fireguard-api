@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Approval\Application\UseCase\Command\Decision\WithdrawApprovalRequest;
 
 use Approval\Application\Contract\Event\ApprovalWithdrawnEvent;
-use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort};
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Domain\Event\Request\ApprovalExpiredEvent;
 use Approval\Domain\Exception\{
   ApprovalRequestNotFoundException,

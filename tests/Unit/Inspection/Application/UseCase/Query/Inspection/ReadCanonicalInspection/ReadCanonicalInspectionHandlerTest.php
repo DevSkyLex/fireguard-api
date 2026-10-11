@@ -6,7 +6,7 @@ namespace Tests\Unit\Inspection\Application\UseCase\Query\Inspection\ReadCanonic
 
 use DateTimeImmutable;
 use Inspection\Application\Contract\Inspection\CanonicalInspectionReadView;
-use Inspection\Application\Port\Outbound\{CanonicalInspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\Internal\{CanonicalInspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection\{ReadCanonicalInspectionHandler, ReadCanonicalInspectionQuery};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;

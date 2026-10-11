@@ -165,7 +165,7 @@ an already-used id with `MessagingClientMessageAlreadyExistsException`, which
 the processor maps to the codebase-wide
 `/problems/client-resource-already-exists` problem type (`409`). Callers should
 read that conflict as **success** — the message is already stored. The check is
-a read-then-write with no transaction; a genuine concurrent double-submit of
+a read before the root write transaction; a concurrent double-submit of
 the same id still collides on the primary key, which is the database enforcing
 the same rule. This mirrors the client-uuid creation already used by Facility,
 Equipment, Inspection and Intervention, and reuses their
@@ -200,7 +200,14 @@ sequenceDiagram
 
 ### Post a message (mention fan-out + realtime, both best-effort)
 
-Message persistence precedes mention notifications and realtime publication. A best-effort notification failure does not erase the confirmed message.
+Message insertion, conversation counters and extracted links commit in one root
+`main` transaction. Replies commit insertion, conversation counters and the
+parent's reply counter together. A failure in any write rolls back the complete
+group, including a failed channel participant lookup: recipients are captured
+inside the same transaction. Realtime publication and mention/channel notifications
+run only after the final commit and remain best-effort, including diagnostic
+logging failures. These commands reject an enclosing
+transaction rather than treating a savepoint as a committed message.
 
 ```mermaid
 ---
@@ -219,6 +226,7 @@ sequenceDiagram
   H->>Conv: findAggregateById (not archived, resolve subject, assertCanWrite)
   H->>Msg: append(Message::create(...))
   H->>Conv: touchOnNewMessage(id, at) — atomic UPDATE
+  Note over H,Msg: extracted links and counters commit together before external publication
   H->>RT: publishMessage(orgId, conversationId, payload)
   Note over H,RT: try/catch — realtime publish failure never fails the post
   loop each mentioned member (author excluded)
@@ -407,9 +415,10 @@ request in the first place.
 
 ### Mercure real-time
 
-`GetMessagingSubscriptionProvider` (clone of Notification's
-`GetMercureSubscriptionProvider`) reuses `GetConversationHandler` through the
-query bus to enforce the identical access rule, then mints a subscriber JWT
+`GetMessagingSubscriptionProvider` dispatches `GetMessagingSubscriptionQuery`.
+Its handler reuses `GetConversationHandler` through the query bus to enforce the
+identical access rule, then issues a token through `MessagingSubscriptionTokenPort`.
+The Mercure adapter mints a subscriber JWT
 scoped to exactly `/organizations/{orgId}/conversations/{conversationId}` —
 **never a wildcard**, so a JWT for one conversation can never read another's
 updates (re-tested when v2 introduces `visibility: participants`).
@@ -446,10 +455,8 @@ updates (re-tested when v2 introduces `visibility: participants`).
   mentions that ever resolved were the ones written straight to the database by
   fixtures. Anything reading mention markers out of a **stored** body must
   expect the escaped form. `MessagingMediaProcessor`/`MessagingMediaProvider` mirror
-  `Inspection\...\InspectionMediaProcessor`/`InspectionMediaProvider`
-  (multipart upload via `Shared\Presentation\Api\Attachment\{UploadedAttachment,
-MultipartAttachmentGuard}`, an `If-Match`/`RevisionGuard` precondition on
-  delete) but keep authorization entirely inside the command handlers via
+  the other media endpoints (multipart upload and an `If-Match` precondition on
+  delete) but keep authorization and revision checks entirely inside the command handlers via
   `MessagingAccessPolicy` — the processor never re-implements a permission
   check. `AddMessageAttachmentHandler` also enforces
   `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` (**25**) **per message**
@@ -469,16 +476,17 @@ MultipartAttachmentGuard}`, an `If-Match`/`RevisionGuard` precondition on
   `X-Content-Type-Options: nosniff` so a user-uploaded file can never render
   as HTML/SVG in the app origin. `MessageAttachmentOutput` now carries a
   `contentUrl` (`/api/messaging-attachments/{id}/content`), populated by both
-  `MessageAttachmentOutputFactory::fromAttachment()` and
-  `MessagingMediaProvider::output()`, so the frontend links the file instead
+  `MessageAttachmentOutputFactory::fromView()`, so the frontend links the file instead
   of showing name/size metadata only — the raw `storagePath` is still never
-  exposed. `MessageOutputFactory::fromViews()` batch-loads a whole message
+  exposed. `EnrichMessagesHandler` batch-loads a whole message
   page's attachments, reactions, AND the current member's saved state in one
   query each (`MessagingAttachmentRepositoryPort::findByMessageIds()`,
   `MessagingReactionRepositoryPort::findByMessageIds()`,
   `MessagingSavedMessageRepositoryPort::findSavedMessageIds()`) to populate
   `MessageOutput::$attachments`/`$reactions`/`$isSaved` without N+1;
-  `fromView()` (single message) delegates to it and now always takes the
+  `MessageOutputPresenter` dispatches that query for single messages and whole
+  pages; `MessageOutputFactory` deterministically maps its typed result. The
+  single-message path always takes the
   CURRENT member's id, so `reactions[].reactedByMe`/`isSaved` are computed
   relative to that member and never leak another member's state.
   `pinnedAt`/`pinnedBy` need no such batching (see Persistence) since they
@@ -543,7 +551,10 @@ hosts its own adapter under `Infrastructure/Adapter/Messaging/`, implementing
 `MessagingSubjectResolverPort`, tagged `messaging.subject_resolver` in its own
 `config/modules/<module>.yaml`. `MessagingSubjectResolverRegistry` (consumed
 via `!tagged_iterator messaging.subject_resolver`) routes a subject type to
-the adapter that supports it.
+the adapter that supports it. Its public `supports()` signature uses
+`Application/Contract/Subject/MessagingSubjectType`; the registry converts the
+module's internal Domain enum at this boundary. Aggregate persistence ports live
+under `Application/Port/Outbound/Internal` and are not integration capabilities.
 
 | Subject type     | Adapter                                                                                     | Required read permission          |
 | ---------------- | ------------------------------------------------------------------------------------------- | --------------------------------- |
@@ -723,8 +734,8 @@ posted alongside a message, and the row shown in the owning conversation's
 Files tab. `MessagingAttachmentId` (Uuid-backed). Mirrors
 `Inspection\Domain\Model\Attachment\InspectionAttachment` exactly (create/
 reconstitute factories, no framework types); `revision` is a
-persistence/Presentation-only concept (the `messaging_attachments.revision`
-column, echoed through `MessageAttachmentOutput` for the delete precondition)
+persistence/Application projection concept (the `messaging_attachments.revision`
+column, carried by `MessagingAttachmentView` for the delete precondition)
 and is deliberately NOT part of the aggregate, matching the Inspection
 precedent — there is no edit use case, so it never advances past `1`.
 
@@ -954,8 +965,8 @@ MessagingSavedMessageRecord::class, 's', 'WITH', 's.message = m')`)
   `non_conformity_id`). The genuinely shared parts ARE reused:
   `Shared\Domain\Attachment\{AttachmentCategory,AttachmentConstraints,StoragePathScheme}`,
   `Shared\Presentation\Api\Attachment\{UploadedAttachment,MultipartAttachmentGuard}`,
-  `FileStoragePort`, and the write-then-persist-with-rollback ordering from
-  `AddInspectionAttachmentHandler`. **Revisit at N=6, or at the first request
+  `FileStoragePort`, attempt-owned keys and root-commit compensation.
+  **Revisit at N=6, or at the first request
   for cross-module attachment search.**
 - Doctrine mapping: `src/Messaging/Infrastructure/Persistence/Doctrine/Record`.
 - **Migrations here are hand-written, not generated.** The `auth` and `main`
@@ -1441,6 +1452,19 @@ No endpoint enumerates all online members; reads remain bounded to supplied iden
 
 ## Configuration
 
+- Message writes and attachment commands use Shared's explicitly wired `main`
+  `RootTransactionManagerPort`. Uploads lock their parent message while checking
+  identity and the attachment cap. A replay returns the winning metadata without
+  writing bytes; every new attempt has a unique storage key.
+- Attachment removal records `FileCleanupPort` work in the same transaction as
+  metadata removal. Shared's `main_outbox` consumer deletes bytes after commit,
+  with idempotent retries. Commit or rollback uncertainty preserves the attempted
+  file until its persistence outcome can be established. Failed compensation is
+  logged and scheduled durably when possible without hiding the original failure.
+- `MessagingExceptionSubscriber` centralizes uncaught HTTP failure mapping;
+  existing transport translators share its mapper. Codes and denial ordering are
+  preserved, including attachment existence before revision checks.
+
 - Service wiring: `config/modules/messaging.yaml` — L2.4 adds
   `GetOrCreateDirectConversationHandler` (`messenger.message_handler`); no
   new port/adapter (reuses `MessagingConversationRepositoryPort`,
@@ -1506,6 +1530,15 @@ No endpoint enumerates all online members; reads remain bounded to supplied iden
 
 Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
 
+`MessageWriteAtomicityTest` injects PostgreSQL failures after insertion, counters,
+links, participant reads and cleanup enqueue on independent writer/observer connections.
+It verifies complete rollback, successful retry, publication only after commit and
+no repeated publication when a committed client identifier is replayed. File tests
+also cover preserved replay bytes, failed compensation, uncertain commit and
+rejection of enclosing transactions before storage writes. The message projection
+tests keep whole-page attachment/reaction/saved/name reads bounded independently
+of page size.
+
 Authenticated HTTP E2E coverage creates an organization, grants messaging permissions to a second member, and exercises channel participants, message edits and tombstones, replies, multipart attachment download, delivery acknowledgements and read receipts. It checks exact PostgreSQL state and outbound event payloads, including unchanged state on nonparticipant and cross-organization denial. Anonymous route guards alone do not establish these write contracts. Actual Mercure delivery requires the separate web live-API smoke against its isolated worker/hub stack.
 
 Detailed cases and regression rationale are retained in the [Messaging testing reference](../../docs/guides/messaging.md#messaging-testing-reference). Use the [testing guide](../../docs/guides/testing.md) for current commands and isolated database setup.
@@ -1514,7 +1547,7 @@ Detailed cases and regression rationale are retained in the [Messaging testing r
 
 | Exception                                                                                                   | HTTP                                                                |
 | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `MessagingAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException`        | 403 Forbidden                                                       |
+| `MessagingAccessDeniedException` / `Organization\Application\Contract\Exception\OrganizationAccessDeniedException`        | 403 Forbidden                                                       |
 | `MessagingNotFoundException` / `MessagingSubjectNotFoundException` / `MessagingAttachmentNotFoundException` | 404 Not Found                                                       |
 | `MessagingValidationException`                                                                              | 422 Unprocessable Entity                                            |
 | `MessagingConflictException` (L2.6 — a channel-hierarchy cycle, self-parenting, or a max-depth violation)   | 409 Conflict                                                        |

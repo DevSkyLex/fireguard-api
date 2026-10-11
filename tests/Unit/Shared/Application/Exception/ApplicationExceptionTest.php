@@ -6,7 +6,7 @@ namespace Tests\Shared\Application\Exception;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\ApplicationException;
+use Shared\Application\Contract\Exception\ApplicationException;
 
 /**
  * Test ApplicationException.

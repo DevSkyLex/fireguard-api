@@ -9,10 +9,9 @@ use Intervention\Application\Service\{InterventionNotificationService, Intervent
 use Notification\Application\Service\NotificationService;
 use Notification\Application\UseCase\Command\Notification\SendNotification\SendNotificationHandler;
 use Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
+use Organization\Application\Contract\Member\OrganizationMemberView;
+use Organization\Application\Contract\Notification\OrganizationNotificationSettings;
+use Organization\Application\Port\Inbound\{OrganizationMemberDirectoryPort, OrganizationNotificationPolicyPort};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{DurableEventContextPort, IdempotentConsumerPort};
@@ -40,25 +39,17 @@ final class InterventionNotificationEmailTest extends TestCase
   #[DataProvider('notificationSources')]
   public function interventionMarkupIsTextInRenderedEmail(string $source, string $type, string $subject, string $plainBody): void
   {
-    $member = OrganizationMember::reconstitute(
-      id: new OrganizationMemberId(self::MEMBER_ID),
-      organizationId: new OrganizationId(self::ORGANIZATION_ID),
-      userId: self::USER_ID,
-      isActive: true,
-      joinedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-    );
-    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $member = new OrganizationMemberView(id: self::MEMBER_ID, organizationId: self::ORGANIZATION_ID, userId: self::USER_ID, active: true);
+    $members = $this->createMock(OrganizationMemberDirectoryPort::class);
     if ('submitted' === $source) {
       $members->expects(self::never())->method('findById');
     } else {
-      $members->expects(self::once())->method('findById')->with(new OrganizationMemberId(self::MEMBER_ID))->willReturn($member);
+      $members->expects(self::once())->method('findById')->with(self::MEMBER_ID)->willReturn($member);
     }
     $resolvesOrganizationRecipients = 'dueSoon' !== $source;
-    $members->expects($resolvesOrganizationRecipients ? self::once() : self::never())->method('findByOrganizationId')
-      ->with(new OrganizationId(self::ORGANIZATION_ID))->willReturn([$member]);
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects($resolvesOrganizationRecipients ? self::once() : self::never())->method('getUserPermissions')
-      ->with(self::USER_ID, self::ORGANIZATION_ID)->willReturn(['organization.interventions.review', 'organization.interventions.plan']);
+    $directory = $this->createMock(\Organization\Application\Port\Inbound\OrganizationMemberNotificationDirectoryPort::class);
+    $directory->expects($resolvesOrganizationRecipients ? self::once() : self::never())->method('administratorUserIds')
+      ->with(self::ORGANIZATION_ID, 'submitted' === $source ? 'organization.interventions.review' : 'organization.interventions.plan')->willReturn([self::USER_ID]);
     $policy = $this->createMock(OrganizationNotificationPolicyPort::class);
     $policy->expects(self::once())->method('notificationPolicy')->with(self::ORGANIZATION_ID)
       ->willReturn(OrganizationNotificationSettings::fromArray(['email_enabled' => true, 'in_app_enabled' => true]));
@@ -70,8 +61,8 @@ final class InterventionNotificationEmailTest extends TestCase
       notifications: $this->emailPipeline(self::USER_ID, 'reviewer@example.com', 'intervention', $subject, resolveEmail: true),
       members: $members,
       policy: $policy,
-      reviewers: new InterventionReviewerRecipientResolver($members, $authorization),
-      admins: new InterventionRecurrenceRecipientResolver($members, $authorization),
+      reviewers: new InterventionReviewerRecipientResolver($directory),
+      admins: new InterventionRecurrenceRecipientResolver($directory),
       eventContext: $eventContext,
       eventConsumer: $consumer,
     );

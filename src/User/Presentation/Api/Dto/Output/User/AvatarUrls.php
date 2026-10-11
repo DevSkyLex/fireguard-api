@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace User\Presentation\Api\Dto\Output\User;
 
-use User\Infrastructure\Image\AvatarResizer;
+use User\Application\Contract\User\AvatarVariants;
 
 use function preg_match;
 use function sprintf;
@@ -51,7 +51,7 @@ final readonly class AvatarUrls
     $query = $matches[2] ?? '';
 
     $urls = [];
-    foreach (AvatarResizer::SIZES as $size) {
+    foreach (AvatarVariants::SIZES as $size) {
       $urls[$size] = sprintf('%s/%d.webp%s', $matches[1], $size, $query);
     }
 

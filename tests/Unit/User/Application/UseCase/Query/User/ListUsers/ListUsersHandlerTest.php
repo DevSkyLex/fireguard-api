@@ -11,7 +11,7 @@ use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Application\UseCase\Query\User\ListUsers\{ListUsersHandler, ListUsersQuery};
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};

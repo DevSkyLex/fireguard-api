@@ -6,7 +6,7 @@ namespace OAuth\Infrastructure\Adapter\Auth;
 
 use Auth\Application\Contract\Token\AccessTokenStatus;
 use Auth\Application\Port\Outbound\AccessTokenLookupPort;
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AccessTokenRepositoryPort;
 
 /**
  * Adapter AccessTokenLookupAdapter.

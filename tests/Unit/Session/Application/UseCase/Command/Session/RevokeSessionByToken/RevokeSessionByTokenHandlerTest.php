@@ -7,7 +7,7 @@ namespace Tests\Unit\Session\Application\UseCase\Command\Session\RevokeSessionBy
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\UseCase\Command\Session\RevokeSessionByToken\{RevokeSessionByTokenCommand, RevokeSessionByTokenHandler, RevokeSessionByTokenResult};
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;

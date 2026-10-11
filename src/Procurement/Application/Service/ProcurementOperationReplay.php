@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Procurement\Application\Service;
 
 use Procurement\Application\Contract\ProcurementOperationState;
-use Procurement\Application\Port\Outbound\Persistence\ProcurementRepositoryPort;
+use Procurement\Application\Port\Outbound\Internal\Persistence\ProcurementRepositoryPort;
 use Procurement\Application\UseCase\Command\ManageProcurement\{ManageProcurementCommand, ManageProcurementResult};
 use Procurement\Domain\Exception\ProcurementException;
 

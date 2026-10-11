@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\UseCase\Query\Role\GetRole;
 
-use Authorization\Application\Port\Outbound\RoleRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\RoleRepositoryPort;
 use Authorization\Application\UseCase\Query\Role\GetRole\{GetRoleHandler, GetRoleQuery, GetRoleResult};
 use Authorization\Domain\Exception\RoleNotFoundException;
 use Authorization\Domain\Model\Permission\Permission;

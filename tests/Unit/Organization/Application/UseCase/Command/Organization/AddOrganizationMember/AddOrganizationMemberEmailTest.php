@@ -9,16 +9,17 @@ use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use Notification\Application\Contract\Notification\NotificationType;
-use Notification\Application\Port\Outbound\{MercureNotificationChannelPort, NotificationPreferenceRepositoryPort, NotificationRepositoryPort, RecipientDirectoryPort};
+use Notification\Application\Port\Outbound\Internal\{MercureNotificationChannelPort, NotificationPreferenceRepositoryPort, NotificationRepositoryPort};
+use Notification\Application\Port\Outbound\RecipientDirectoryPort;
 use Notification\Application\Service\NotificationService;
 use Notification\Application\UseCase\Command\Notification\SendNotification\SendNotificationHandler;
 use Notification\Domain\Model\Notification\Notification;
-use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter;
 use Organization\Application\Contract\Member\OrganizationMemberGrant;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
-use Organization\Application\Port\Inbound\{OrganizationMemberGrantGuardPort, OrganizationQuotaPort};
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Inbound\Internal\OrganizationMemberGrantGuardPort;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler};
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -26,14 +27,14 @@ use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, MailerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bridge\Twig\Extension\TranslationExtension;
 use Symfony\Component\Translation\Translator;
 use Tests\Support\Factory\UserTestFactory;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function dirname;
 
@@ -81,9 +82,9 @@ final class AddOrganizationMemberEmailTest extends TestCase
 
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())->method('findById')
-      ->willReturn(UserTestFactory::createActive($userId, 'member@example.com'));
+      ->willReturn(UserTestFactory::createActiveView($userId, 'member@example.com'));
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::once())->method('findByIdsInOrganization')->willReturn([$role]);
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -101,11 +102,8 @@ final class AddOrganizationMemberEmailTest extends TestCase
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())->method('dispatch');
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturnMap([
-      [OrganizationMemberId::class, new OrganizationMemberId($memberId)],
-      [NotificationId::class, new NotificationId('550e8400-e29b-41d4-a716-446655449010')],
-    ]);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturnOnConsecutiveCalls($memberId, '550e8400-e29b-41d4-a716-446655449010');
     $warnings = [];
     $logger = $this->createStub(LoggerPort::class);
     $logger->method('warning')->willReturnCallback(static function (string $message, array $context) use (&$warnings): void {

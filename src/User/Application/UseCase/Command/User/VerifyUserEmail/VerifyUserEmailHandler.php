@@ -7,7 +7,7 @@ namespace User\Application\UseCase\Command\User\VerifyUserEmail;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\Service\EventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\Internal\UserRepositoryPort;
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\ValueObject\UserId;
 

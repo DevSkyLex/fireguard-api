@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Billing\Application\UseCase\Command\ResumeSubscription;
 
 use Billing\Application\Port\Outbound\BillingReconciliationPort;
-use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
+use Billing\Application\Port\Outbound\Internal\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Domain\Exception\NoActiveSubscriptionException;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 

@@ -7,7 +7,7 @@ namespace Webhook\Application\UseCase\Command\Subscription\DeleteWebhookSubscrip
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Webhook\Application\Port\Outbound\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
 use Webhook\Domain\Event\Subscription\WebhookSubscriptionDeletedEvent;
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;

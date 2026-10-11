@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Approval\Application\UseCase\Query\Request\GetApprovalRequest;
 
-use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Application\UseCase\Query\Request\GetApprovalRequest\{GetApprovalRequestHandler, GetApprovalRequestQuery};
 use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException};
 use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};

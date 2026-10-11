@@ -242,7 +242,7 @@ final class InterventionOverdueFilterApiTest extends WebTestCase
     foreach ($seeds as $case => $seed) {
       $intervention = new InterventionRecord();
       $intervention->id = $seed['id'];
-      $intervention->organization = $organization;
+      $intervention->organizationId = self::ORGANIZATION_ID;
       $intervention->type = 'site_setup';
       $intervention->name = 'Overdue Filter Test Intervention — ' . $case;
       $intervention->number = $number++;

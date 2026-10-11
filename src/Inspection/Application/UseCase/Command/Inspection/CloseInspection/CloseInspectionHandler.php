@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Inspection\CloseInspection;
 
-use Inspection\Application\Port\Outbound\{InspectionMaintenanceSynchronizerPort, InspectionRepositoryPort};
+use Inspection\Application\Port\Outbound\InspectionMaintenanceSynchronizerPort;
+use Inspection\Application\Port\Outbound\Internal\InspectionRepositoryPort;
 use Inspection\Domain\Event\Inspection\InspectionClosedEvent;
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
-use Psr\Log\LoggerInterface;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 use Throwable;
 
 /**
@@ -34,7 +34,7 @@ final readonly class CloseInspectionHandler implements CommandHandler
    * @param InspectionRepositoryPort $inspectionRepository port used to load and persist the inspection lifecycle
    * @param EventDispatcherPort $eventDispatcher port used to publish the committed inspection event
    * @param InspectionMaintenanceSynchronizerPort $maintenanceSynchronizer port used to reconcile maintenance state after closure
-   * @param LoggerInterface $logger logger used to record synchronization failures
+   * @param LoggerPort $logger logger used to record synchronization failures
    *
    * @return void
    */
@@ -42,7 +42,7 @@ final readonly class CloseInspectionHandler implements CommandHandler
     private InspectionRepositoryPort $inspectionRepository,
     private EventDispatcherPort $eventDispatcher,
     private InspectionMaintenanceSynchronizerPort $maintenanceSynchronizer,
-    private LoggerInterface $logger,
+    private LoggerPort $logger,
   ) {
   }
   // #endregion

@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\ExportFacilities;
 
+use Facility\Application\Contract\Event\Export\FacilitiesExportedEvent;
 use Facility\Application\Contract\Export\{FacilityExportCandidate, FacilityExportRow};
 use Facility\Application\Contract\Facility\FacilityListCriteria;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityExportTooLargeException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus, FacilityType};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Message\QueryHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
 use function array_filter;
+use function array_keys;
 use function array_map;
 use function array_unique;
 use function array_values;
@@ -71,6 +74,7 @@ final readonly class ExportFacilitiesHandler implements QueryHandler
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private OrganizationAuthorizationPort $authorization,
+    private EventDispatcherPort $events,
   ) {
   }
   // #endregion
@@ -187,6 +191,10 @@ final readonly class ExportFacilitiesHandler implements QueryHandler
       ),
       $candidates,
     );
+
+    $applied = $query->filters;
+    unset($applied['includeArchived']);
+    $this->events->dispatch(new FacilitiesExportedEvent($query->organizationId, $query->userId, 'csv', $total, array_keys($applied)));
 
     return new ExportFacilitiesResult($rows, $total);
   }

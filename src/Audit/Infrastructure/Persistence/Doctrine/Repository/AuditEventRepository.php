@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Audit\Infrastructure\Persistence\Doctrine\Repository;
 
 use Audit\Application\Contract\{AuditEventSearchCriteria, AuditEventView};
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Audit\Domain\Model\AuditEvent;
 use Audit\Infrastructure\Persistence\Doctrine\Record\AuditEventRecord;
 use Audit\Infrastructure\Service\AuditHashService;

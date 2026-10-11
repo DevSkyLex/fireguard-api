@@ -7,7 +7,7 @@ namespace Tests\Unit\Import\Presentation\Api\Trait;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Presentation\Api\Trait\ImportExceptionMapperTrait;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversTrait, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

@@ -6,6 +6,7 @@ namespace Inspection\Application\UseCase\Query\Inspection\GetInspection;
 
 use DateTimeImmutable;
 use Shared\Application\Message\ResultMessage;
+use User\Application\Contract\User\UserView;
 
 /**
  * UseCase GetInspectionResult.
@@ -69,6 +70,7 @@ final readonly class GetInspectionResult implements ResultMessage
     public ?string $equipmentSerialNumber = null,
     public ?string $facilityName = null,
     public ?string $checklistName = null,
+    public ?UserView $inspectorProfile = null,
   ) {
   }
   // #endregion

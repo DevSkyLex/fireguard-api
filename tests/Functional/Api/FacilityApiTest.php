@@ -10,7 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityMetadataFieldRecord, FacilityRecord};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -823,6 +823,55 @@ final class FacilityApiTest extends WebTestCase
 
   // #region Canonical resource
 
+  /**
+   * @return iterable<string, array{string}> public creation surfaces sharing the client identity contract
+   */
+  public static function duplicateClientIdentityRoutes(): iterable
+  {
+    yield 'canonical POST' => ['/api/facilities'];
+    yield 'organization POST' => ['/api/organizations/' . self::ORGANIZATION_ID . '/facilities'];
+  }
+
+  #[Test]
+  #[DataProvider('duplicateClientIdentityRoutes')]
+  public function testPostWithAnExistingClientIdentityKeepsThe409ProblemContract(string $uri): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $facilityId = $this->seedCanonicalPublishedFacility();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $client->request(
+      method: 'POST',
+      uri: $uri,
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: (string) json_encode([
+        'organization' => '/api/organizations/' . self::ORGANIZATION_ID,
+        'clientId' => $facilityId,
+        'type' => 'site',
+        'name' => 'Rejected duplicate client identity',
+      ]),
+    );
+    self::assertSame(409, $client->getResponse()->getStatusCode());
+    $problem = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($problem);
+    self::assertSame('/problems/client-resource-already-exists', $problem['type'] ?? null);
+    self::assertSame('Client resource already exists', $problem['title'] ?? null);
+    self::assertSame('A resource with this client identifier already exists.', $problem['detail'] ?? null);
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $duplicateCount = $entityManager->getConnection()->fetchOne(
+      'SELECT COUNT(*) FROM facilities WHERE organization_id = ? AND name = ?',
+      [self::ORGANIZATION_ID, 'Rejected duplicate client identity'],
+    );
+    self::assertIsNumeric($duplicateCount);
+    self::assertSame(0, (int) $duplicateCount);
+    self::assertSame('Canonical published Facility', $entityManager->getConnection()->fetchOne(
+      'SELECT name FROM facilities WHERE id = ?',
+      [$facilityId],
+    ));
+  }
+
   #[Test]
   public function testCanonicalFacilityPutUpsertByClientIdReturns201(): void
   {
@@ -1310,7 +1359,7 @@ final class FacilityApiTest extends WebTestCase
 
     $intervention = new InterventionRecord();
     $intervention->id = self::ARCHIVE_INTERVENTION_ID;
-    $intervention->organization = $organization;
+    $intervention->organizationId = $organization->id;
     $intervention->name = 'Archive Guard Intervention';
     $intervention->number = 1;
     $intervention->status = $interventionStatus;
@@ -1390,7 +1439,7 @@ final class FacilityApiTest extends WebTestCase
   ): FacilityRecord {
     $record = new FacilityRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->parentFacility = $parent;
     $record->type = $type;
     $record->name = $name;
@@ -1423,7 +1472,7 @@ final class FacilityApiTest extends WebTestCase
 
     $record = new FacilityMetadataFieldRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->key = $key;
     $record->label = 'Label for ' . $key;
     $record->fieldType = 'number';

@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace Tests\Unit\Webhook\Infrastructure\EventSubscriber;
 
 use DateTimeImmutable;
-use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
-use Inspection\Domain\Event\Inspection\{InspectionClosedEvent, InspectionSubmittedEvent};
-use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
-use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
-use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
+use Equipment\Application\Contract\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
+use Facility\Application\Contract\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
+use Inspection\Application\Contract\Event\Inspection\{InspectionClosedEvent, InspectionSubmittedEvent};
+use Inspection\Application\Contract\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
+use Intervention\Application\Contract\Event\Publication\InterventionPublishedEvent;
+use Maintenance\Application\Contract\Event\Campaign\MaintenanceCampaignGeneratedEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\{LoggerInterface, NullLogger};
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
@@ -352,14 +351,14 @@ final class WebhookEventSubscriberTest extends TestCase
   /**
    * Method uuidFactory.
    *
-   * @return UuidFactory a uuid factory generating deterministic-enough raw ids for assertions
+   * @return UuidGeneratorPort a uuid factory generating deterministic-enough raw ids for assertions
    */
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn('018f0b68-6758-7a12-8a1d-3f0d97f64aff');
 
-    return new UuidFactory($generator);
+    return $generator;
   }
 
   /**

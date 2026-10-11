@@ -11,12 +11,12 @@ use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder}
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
 use Inspection\Domain\Model\Inspection\{Inspection, InspectionFinding, InspectionReferences};
 use Inspection\Domain\ValueObject\{InspectionEquipmentId, InspectionId, InspectionOrganizationId, InspectionResult, InspectionStatus, Inspector};
+use Inspection\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function str_contains;
 
@@ -48,7 +48,7 @@ final class InspectionRepositoryTest extends TestCase
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::once())->method('getRepository')->with(InspectionRecord::class)->willReturn($doctrineRepository);
-    $entityManager->expects(self::once())->method('getReference')->with(OrganizationRecord::class, (string) $organizationId)->willReturn(new OrganizationRecord());
+    $entityManager->expects(self::never())->method('getReference');
     $entityManager->expects(self::once())->method('createQueryBuilder')->willReturn($queryBuilder);
 
     $repository = new InspectionRepository(
@@ -80,7 +80,7 @@ final class InspectionRepositoryTest extends TestCase
 
     $record = new InspectionRecord();
     $record->id = '550e8400-e29b-41d4-a716-446655440011';
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->equipmentId = '550e8400-e29b-41d4-a716-446655440012';
     $record->inspectorType = 'user';
     $record->inspectorName = 'Inspector';
@@ -147,7 +147,7 @@ final class InspectionRepositoryTest extends TestCase
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::once())->method('getRepository')->with(InspectionRecord::class)->willReturn($doctrineRepository);
-    $entityManager->expects(self::once())->method('getReference')->with(OrganizationRecord::class, '550e8400-e29b-41d4-a716-446655440022')->willReturn($organization);
+    $entityManager->expects(self::never())->method('getReference');
     $entityManager->expects(self::once())
       ->method('persist')
       ->with(self::callback(static function (InspectionRecord $record): bool {
@@ -289,7 +289,7 @@ final class InspectionRepositoryTest extends TestCase
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::once())->method('getRepository')->with(InspectionRecord::class)->willReturn($doctrineRepository);
-    $entityManager->expects(self::once())->method('getReference')->with(OrganizationRecord::class, (string) $organizationId)->willReturn(new OrganizationRecord());
+    $entityManager->expects(self::never())->method('getReference');
     $entityManager->expects(self::once())->method('createQueryBuilder')->willReturn($queryBuilder);
 
     $repository = new InspectionRepository(

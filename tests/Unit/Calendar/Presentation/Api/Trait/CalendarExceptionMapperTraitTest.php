@@ -7,7 +7,7 @@ namespace Tests\Unit\Calendar\Presentation\Api\Trait;
 use Calendar\Domain\Exception\{CalendarEventNotFoundException, CalendarEventValidationException};
 use Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversTrait, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

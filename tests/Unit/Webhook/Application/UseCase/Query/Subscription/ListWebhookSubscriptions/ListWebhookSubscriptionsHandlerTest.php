@@ -7,7 +7,7 @@ namespace Tests\Unit\Webhook\Application\UseCase\Query\Subscription\ListWebhookS
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Application\Port\Outbound\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
 use Webhook\Application\UseCase\Query\Subscription\ListWebhookSubscriptions\{ListWebhookSubscriptionsHandler, ListWebhookSubscriptionsQuery, ListWebhookSubscriptionsResult};
 use Webhook\Domain\Model\Subscription\WebhookSubscription;
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;

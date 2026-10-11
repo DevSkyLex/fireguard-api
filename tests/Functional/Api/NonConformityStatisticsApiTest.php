@@ -386,7 +386,7 @@ final class NonConformityStatisticsApiTest extends WebTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->type = 'site';
     $facility->name = 'NC Stats Test Site';
     $facility->status = 'active';
@@ -396,7 +396,7 @@ final class NonConformityStatisticsApiTest extends WebTestCase
 
     $extinguisher = new EquipmentRecord();
     $extinguisher->id = self::EQUIPMENT_EXTINGUISHER_ID;
-    $extinguisher->organization = $organization;
+    $extinguisher->organizationId = $organization->id;
     $extinguisher->type = 'fire_extinguisher';
     $extinguisher->status = 'operational';
     $extinguisher->createdAt = $june;
@@ -405,7 +405,7 @@ final class NonConformityStatisticsApiTest extends WebTestCase
 
     $detector = new EquipmentRecord();
     $detector->id = self::EQUIPMENT_DETECTOR_ID;
-    $detector->organization = $organization;
+    $detector->organizationId = $organization->id;
     $detector->type = 'smoke_detector';
     $detector->status = 'operational';
     $detector->createdAt = $june;
@@ -414,7 +414,7 @@ final class NonConformityStatisticsApiTest extends WebTestCase
 
     $inspectionWithFacility = new InspectionRecord();
     $inspectionWithFacility->id = self::INSPECTION_WITH_FACILITY_ID;
-    $inspectionWithFacility->organization = $organization;
+    $inspectionWithFacility->organizationId = $organization->id;
     $inspectionWithFacility->equipmentId = self::EQUIPMENT_EXTINGUISHER_ID;
     $inspectionWithFacility->facilityId = self::FACILITY_ID;
     $inspectionWithFacility->inspectorType = 'user';
@@ -428,7 +428,7 @@ final class NonConformityStatisticsApiTest extends WebTestCase
 
     $inspectionWithoutFacility = new InspectionRecord();
     $inspectionWithoutFacility->id = self::INSPECTION_WITHOUT_FACILITY_ID;
-    $inspectionWithoutFacility->organization = $organization;
+    $inspectionWithoutFacility->organizationId = $organization->id;
     $inspectionWithoutFacility->equipmentId = self::EQUIPMENT_DETECTOR_ID;
     $inspectionWithoutFacility->facilityId = null;
     $inspectionWithoutFacility->inspectorType = 'user';

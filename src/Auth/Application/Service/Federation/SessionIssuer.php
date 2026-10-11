@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Auth\Application\Service\Federation;
 
+use Auth\Application\Contract\Token\{AuthenticationSession, SignInGrantType};
+use Auth\Application\Port\Inbound\InteractiveSessionIssuerPort;
+use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeGeneratorPort;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, TrustedDeviceCheckPort};
-use Auth\Application\Port\Outbound\Mfa\{ChallengeGeneratorPort, TotpEnrollmentCheckPort};
+use Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort;
 use Auth\Application\UseCase\Command\Mfa\MfaChallenge\MfaChallengeCommand;
-use Auth\Application\UseCase\Command\Session\Login\LoginResult;
 use Auth\Domain\Event\Session\UserLoggedInEvent;
 use Auth\Domain\Event\Token\TokenIssuedEvent;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
-use Auth\Domain\ValueObject\Security\SignInGrantType;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 use UnexpectedValueException;
 use User\Application\Port\Inbound\FederatedUserPort;
@@ -33,7 +33,7 @@ use function is_string;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class SessionIssuer
+final readonly class SessionIssuer implements InteractiveSessionIssuerPort
 {
   // #region Constructor
   /**
@@ -62,7 +62,6 @@ final readonly class SessionIssuer
     private TrustedDeviceCheckPort $trustedDeviceCheck,
     private TotpEnrollmentCheckPort $totpEnrollmentCheck,
     private FederatedUserPort $users,
-    #[Autowire('%env(bool:MFA_ENABLED)%')]
     private bool $mfaEnabled,
   ) {
   }
@@ -84,7 +83,7 @@ final readonly class SessionIssuer
    * @param bool $rememberMe whether the session uses the remembered duration
    * @param SignInGrantType $grantType the authentication method that established the identity
    *
-   * @return LoginResult the MFA challenge or issued session credentials
+   * @return AuthenticationSession the MFA challenge or issued session credentials
    *
    * @throws UnexpectedValueException when the user identifier is empty or token identifiers are unavailable
    */
@@ -96,7 +95,7 @@ final readonly class SessionIssuer
     ?string $trustedDeviceToken,
     bool $rememberMe,
     SignInGrantType $grantType,
-  ): LoginResult {
+  ): AuthenticationSession {
     if ('' === $userId) {
       throw new UnexpectedValueException('A session requires a user identifier.');
     }
@@ -120,7 +119,7 @@ final readonly class SessionIssuer
         grantType: $grantType,
       );
 
-      return new LoginResult(
+      return new AuthenticationSession(
         authenticated: true,
         userId: $userId,
         email: $email,
@@ -146,7 +145,7 @@ final readonly class SessionIssuer
       expiresIn: $tokens['expires_in'],
     ));
 
-    return new LoginResult(
+    return new AuthenticationSession(
       authenticated: true,
       userId: $userId,
       email: $email,

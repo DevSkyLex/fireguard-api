@@ -6,7 +6,7 @@ namespace TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevic
 
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 
 use function count;
 

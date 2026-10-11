@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Billing\Infrastructure\Adapter\Stripe;
 
 use Billing\Application\Contract\Stripe\{StripeEvent, StripePaymentMethod};
-use Billing\Application\Port\Outbound\StripeGatewayPort;
+use Billing\Application\Port\Outbound\Internal\StripeGatewayPort;
 use Billing\Domain\Exception\InvalidWebhookSignatureException;
 
 use function bin2hex;

@@ -6,13 +6,13 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\Service\Federation\InitialPasswordService;
-use Auth\Domain\Exception\Federation\{FederatedAuthException, FederatedConflictException, FederatedUnauthorizedException};
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Auth\Application\UseCase\Command\PasswordSetup\RequestPasswordSetup\RequestPasswordSetupCommand;
 use Auth\Presentation\Api\Dto\Output\PasswordChange\RequestPasswordChangeOutput;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, TooManyRequestsHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 use function max;
@@ -41,14 +41,14 @@ final readonly class RequestPasswordSetupProcessor implements ProcessorInterface
    *
    * @access public
    *
-   * @param InitialPasswordService $passwordSetup the password setup
+   * @param CommandBusPort $passwordSetup the password setup
    * @param Security $security the security
    * @param RateLimiterFactory $rateLimiter the rate limiter
    *
    * @return void
    */
   public function __construct(
-    private InitialPasswordService $passwordSetup,
+    private CommandBusPort $passwordSetup,
     private Security $security,
     #[Autowire(service: 'limiter.password_setup')]
     private RateLimiterFactory $rateLimiter,
@@ -74,7 +74,7 @@ final readonly class RequestPasswordSetupProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RequestPasswordChangeOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
     $limit = $this->rateLimiter->create($user->getId())->consume();
@@ -82,15 +82,9 @@ final readonly class RequestPasswordSetupProcessor implements ProcessorInterface
       throw new TooManyRequestsHttpException(max(0, $limit->getRetryAfter()->getTimestamp() - time()));
     }
 
-    try {
-      $challenge = $this->passwordSetup->request($user->getId());
-    } catch (FederatedConflictException $exception) {
-      throw new ConflictHttpException($exception->errorCode, $exception);
-    } catch (FederatedUnauthorizedException $exception) {
-      throw new UnauthorizedHttpException('Bearer', $exception->errorCode, $exception);
-    } catch (FederatedAuthException $exception) {
-      throw new BadRequestHttpException($exception->errorCode, $exception);
-    }
+    /** @var \Auth\Application\UseCase\Command\PasswordSetup\RequestPasswordSetup\RequestPasswordSetupResult $result */
+    $result = $this->passwordSetup->dispatch(new RequestPasswordSetupCommand($user->getId()));
+    $challenge = $result->challenge;
 
     return new RequestPasswordChangeOutput(
       success: true,

@@ -4,24 +4,24 @@ declare(strict_types=1);
 
 namespace Intervention\Presentation\Api\Controller;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
+use Intervention\Application\Contract\Event\InterventionReportExportedEvent;
 use Intervention\Application\Contract\Resource\InterventionIssue;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
 use Intervention\Application\Port\Outbound\{InterventionMemberNamingPort, InterventionReportPdfRendererPort, InterventionSiteNamingPort};
+use Intervention\Application\UseCase\Command\Export\RecordInterventionExport\RecordInterventionExportCommand;
 use Intervention\Application\UseCase\Query\Activity\ListInterventionActivities\{ListInterventionActivitiesQuery, ListInterventionActivitiesResult};
 use Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\{ListInterventionAttachmentsQuery, ListInterventionAttachmentsResult};
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionIssues\{ListInterventionIssuesQuery, ListInterventionIssuesResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
-use Intervention\Domain\Event\InterventionReportExportedEvent;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
 use Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort;
-use Shared\Application\Document\DocumentDateFormatter;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
+use Shared\Application\Contract\Document\DocumentDateFormatter;
+use Shared\Application\Contract\Http\ResourceIriParser;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
@@ -86,7 +86,7 @@ final class ExportInterventionReportController extends AbstractController
    * @param OrganizationDocumentBrandingPort $branding the organization document branding port
    * @param InterventionMemberNamingPort $memberNaming the organization member naming port
    * @param InterventionSiteNamingPort $siteNaming the facility (site) naming port
-   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param CommandBusPort $commandBus the domain event dispatcher
    * @param Security $security the security service
    */
   public function __construct(
@@ -95,7 +95,7 @@ final class ExportInterventionReportController extends AbstractController
     private readonly OrganizationDocumentBrandingPort $branding,
     private readonly InterventionMemberNamingPort $memberNaming,
     private readonly InterventionSiteNamingPort $siteNaming,
-    private readonly EventDispatcherPort $eventDispatcher,
+    private readonly CommandBusPort $commandBus,
     private readonly Security $security,
   ) {
   }
@@ -114,7 +114,7 @@ final class ExportInterventionReportController extends AbstractController
   public function __invoke(Request $request): Response
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -196,11 +196,11 @@ final class ExportInterventionReportController extends AbstractController
 
     $pdf = $this->renderer->render($context);
 
-    $this->eventDispatcher->dispatch(new InterventionReportExportedEvent(
+    $this->commandBus->dispatch(new RecordInterventionExportCommand(new InterventionReportExportedEvent(
       interventionId: $id,
       organizationId: $organizationId,
       actorUserId: $user->getId(),
-    ));
+    )));
 
     $reportNumber = $context['number'] ?? null;
     $fileName = sprintf('intervention-FG-%d-report.pdf', is_int($reportNumber) ? $reportNumber : 0);

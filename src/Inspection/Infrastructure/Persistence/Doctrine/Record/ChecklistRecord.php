@@ -7,7 +7,6 @@ namespace Inspection\Infrastructure\Persistence\Doctrine\Record;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Class ChecklistRecord
@@ -44,9 +43,8 @@ class ChecklistRecord
    *
    * @access public
    */
-  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'checklists')]
-  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-  public ?OrganizationRecord $organization = null;
+  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
+  public string $organizationId;
 
   /**
    * Property referenceCode

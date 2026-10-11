@@ -10,14 +10,15 @@ use Intervention\Image\Exceptions\DecoderException;
 use Intervention\Image\ImageManager;
 use Shared\Application\Contract\Image\InvalidImageInputException;
 use Shared\Application\Port\Outbound\{FileStoragePort, ImageInputValidationPort};
-
-use function sprintf;
+use Throwable;
+use User\Application\Contract\User\{AvatarPaths, AvatarVariants};
+use User\Application\Port\Outbound\AvatarStoragePort;
 
 /**
  * Service AvatarResizer.
  *
  * Resizes an uploaded image into the four canonical
- * avatar sizes and stores each variant as WebP via the
+ * avatar sizes and stores each immutable attempt as WebP via the
  * FileStoragePort.
  *
  * @category Infrastructure Service
@@ -25,7 +26,7 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-readonly class AvatarResizer
+readonly class AvatarResizer implements AvatarStoragePort
 {
   // #region Constants
   /**
@@ -37,18 +38,7 @@ readonly class AvatarResizer
    *
    * @var list<int>
    */
-  public const array SIZES = [256, 128, 64, 32];
-
-  /**
-   * Constant STORAGE_BASE.
-   *
-   * Base path inside the file storage for avatar files.
-   *
-   * @since 1.0.0
-   *
-   * @var string
-   */
-  private const string STORAGE_BASE = 'avatars';
+  public const array SIZES = AvatarVariants::SIZES;
 
   /**
    * Constant WEBP_QUALITY.
@@ -84,7 +74,7 @@ readonly class AvatarResizer
    *
    * Generates all size variants from the raw source image
    * contents and stores each one as a WebP file. Validation, single-frame
-   * decoding and all encodings succeed before existing variants are replaced.
+   * decoding and all encodings succeed before the attempt variants are written.
    *
    * @since 1.0.0
    *
@@ -95,7 +85,7 @@ readonly class AvatarResizer
    *
    * @throws InvalidImageInputException if the source is invalid or exceeds the image budget
    */
-  public function resize(string $userId, string $sourceContents): void
+  public function resize(string $userId, string $sourceContents, string $generation): void
   {
     $this->imageInputValidation->validate($sourceContents);
     $manager = new ImageManager(new Driver(), decodeAnimation: false);
@@ -115,7 +105,7 @@ readonly class AvatarResizer
 
     foreach ($variants as $size => $contents) {
       $this->fileStorage->write(
-        path: sprintf('%s/%s/%d.webp', self::STORAGE_BASE, $userId, $size),
+        path: AvatarPaths::variant($userId, $generation, $size),
         contents: $contents,
       );
     }
@@ -133,14 +123,22 @@ readonly class AvatarResizer
    *
    * @return void no return value
    */
-  public function delete(string $userId): void
+  public function delete(string $userId, string $generation): void
   {
+    $failure = null;
     foreach (self::SIZES as $size) {
-      $path = sprintf('%s/%s/%d.webp', self::STORAGE_BASE, $userId, $size);
+      $path = AvatarPaths::variant($userId, $generation, $size);
 
-      if ($this->fileStorage->exists($path)) {
-        $this->fileStorage->delete($path);
+      try {
+        if ($this->fileStorage->exists($path)) {
+          $this->fileStorage->delete($path);
+        }
+      } catch (Throwable $exception) {
+        $failure ??= $exception;
       }
+    }
+    if (null !== $failure) {
+      throw $failure;
     }
   }
   // #endregion

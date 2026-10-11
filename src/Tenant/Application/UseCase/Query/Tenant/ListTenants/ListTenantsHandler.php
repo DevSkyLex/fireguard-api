@@ -6,7 +6,7 @@ namespace Tenant\Application\UseCase\Query\Tenant\ListTenants;
 
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
-use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Application\Port\Outbound\Internal\TenantRepositoryPort;
 use Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantResult;
 use Tenant\Domain\Model\Tenant\Tenant;
 

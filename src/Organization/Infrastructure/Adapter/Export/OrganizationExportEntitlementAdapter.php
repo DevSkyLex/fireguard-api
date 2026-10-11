@@ -7,7 +7,7 @@ namespace Organization\Infrastructure\Adapter\Export;
 use Compliance\Application\Port\Outbound\ComplianceExportEntitlementPort;
 use Equipment\Application\Port\Outbound\EquipmentReportEntitlementPort;
 use Inspection\Application\Port\Outbound\InspectionReportEntitlementPort;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;
 

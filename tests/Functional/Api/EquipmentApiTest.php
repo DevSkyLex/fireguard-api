@@ -133,6 +133,8 @@ final class EquipmentApiTest extends WebTestCase
     $client = static::createClient();
     $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment-summary');
     self::assertContains($client->getResponse()->getStatusCode(), [401, 403]);
+    static::ensureKernelShutdown();
+    $client = static::createClient();
     $this->seedContractFixtures();
     $this->loginAsAdmin($client);
     $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/equipment-summary?customerId=' . self::DUMMY_UUID);
@@ -392,9 +394,9 @@ final class EquipmentApiTest extends WebTestCase
     }
     $this->authenticatedClient = $client;
     $client->disableReboot();
-    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users = $this->createStub(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class);
     $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
-    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    static::getContainer()->set(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class, $users);
     $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), self::ADMIN_USER_ID, 'equipment-admin@example.com'));
     $user = new SecurityUser(
       id: self::ADMIN_USER_ID,
@@ -470,7 +472,7 @@ final class EquipmentApiTest extends WebTestCase
 
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->type = 'site';
     $facility->name = self::FACILITY_NAME;
     $facility->status = 'active';
@@ -481,7 +483,7 @@ final class EquipmentApiTest extends WebTestCase
 
     $assigned = new EquipmentRecord();
     $assigned->id = self::ASSIGNED_EQUIPMENT_ID;
-    $assigned->organization = $organization;
+    $assigned->organizationId = $organization->id;
     $assigned->facilityId = self::FACILITY_ID;
     $assigned->type = 'fire_extinguisher';
     $assigned->status = 'in_stock';
@@ -492,7 +494,7 @@ final class EquipmentApiTest extends WebTestCase
 
     $unassigned = new EquipmentRecord();
     $unassigned->id = self::UNASSIGNED_EQUIPMENT_ID;
-    $unassigned->organization = $organization;
+    $unassigned->organizationId = $organization->id;
     $unassigned->facilityId = null;
     $unassigned->type = 'smoke_detector';
     $unassigned->status = 'in_stock';
@@ -503,7 +505,7 @@ final class EquipmentApiTest extends WebTestCase
 
     $operational = new EquipmentRecord();
     $operational->id = self::OPERATIONAL_EQUIPMENT_ID;
-    $operational->organization = $organization;
+    $operational->organizationId = $organization->id;
     $operational->facilityId = self::FACILITY_ID;
     $operational->type = 'sprinkler';
     $operational->status = 'operational';

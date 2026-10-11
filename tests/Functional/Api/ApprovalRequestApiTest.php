@@ -633,9 +633,9 @@ final class ApprovalRequestApiTest extends WebTestCase
   private function authenticateRequests(KernelBrowser $client, string $userId): void
   {
     $client->disableReboot();
-    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users = $this->createStub(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class);
     $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
-    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    static::getContainer()->set(\User\Application\Port\Outbound\Internal\UserRepositoryPort::class, $users);
     $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), $userId, $userId . '@corp.example'));
   }
 

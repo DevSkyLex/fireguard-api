@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Query\Equipment\ListEquipments;
 
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
 use Equipment\Application\Port\Outbound\{FacilityNamingPort, FacilitySubtreeScopePort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\MaintenanceDueStatusPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;

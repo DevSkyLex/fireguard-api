@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization;
 
 use DateTimeImmutable;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\ResendOrganizationInvitation\{ResendOrganizationInvitationCommand, ResendOrganizationInvitationHandler};
 use Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation\{RevokeOrganizationInvitationCommand, RevokeOrganizationInvitationHandler};
@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 /**
  * Prevent stale invitation commands from overwriting concurrently accepted invitations.
@@ -87,7 +87,7 @@ final class InvitationConcurrencyTest extends TestCase
     $events->expects(self::never())->method('dispatch');
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
-    $users = $this->createStub(UserRepositoryPort::class);
+    $users = $this->createStub(UserDirectoryPort::class);
     $logger = $this->createStub(LoggerPort::class);
     $this->expectException(OrganizationInvitationNotPendingException::class);
     if ('revoke' === $operation) {
@@ -104,7 +104,7 @@ final class InvitationConcurrencyTest extends TestCase
           createdAt: new DateTimeImmutable('-1 day'),
         ),
       ));
-      $notifier = new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), EmailTranslatorTestFactory::create());
+      $notifier = new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()));
       $handler = new ResendOrganizationInvitationHandler($invitations, $organizations, $users, $notifier, $logger, $tx, $events, $joins);
       $handler(new ResendOrganizationInvitationCommand($orgId, $invitationId, $actor));
     }

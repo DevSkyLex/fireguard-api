@@ -6,15 +6,15 @@ namespace Facility\Presentation\Api\Processor\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\Facility\RestoreFacility\{RestoreFacilityCommand, RestoreFacilityResult};
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -35,12 +35,12 @@ final readonly class RestoreFacilityProcessor implements ProcessorInterface
    *
    * @param FacilityDetailOutputFactory $detail reloads the restored facility details
    * @param CommandBusPort $commandBus dispatches facility restoration
-   * @param OrganizationAuthorizationPort $authorization checks organization access
    * @param Security $security resolves the authenticated user
    *
    * @return void
    */
   public function __construct(
+    private QueryBusPort $detailQueries,
     private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -67,7 +67,7 @@ final readonly class RestoreFacilityProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -115,7 +115,10 @@ final readonly class RestoreFacilityProcessor implements ProcessorInterface
       throw $exception;
     }
 
-    return $this->detail->read($organizationId, $result->facilityId);
+    /** @var \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult $detailResult */
+    $detailResult = $this->detailQueries->ask(new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery($organizationId, $result->facilityId));
+
+    return $this->detail->create($detailResult);
   }
 
   /**

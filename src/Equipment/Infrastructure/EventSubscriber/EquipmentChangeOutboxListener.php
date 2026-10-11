@@ -113,8 +113,8 @@ final readonly class EquipmentChangeOutboxListener
    */
   private function enqueue(object $record, bool $previouslyPublished = false): void
   {
-    if ($record instanceof EquipmentRecord && ($previouslyPublished || 'published' === $record->recordStatus) && null !== $record->organization) {
-      $this->events->dispatch(new EquipmentChangedEvent($record->organization->id, $record->id));
+    if ($record instanceof EquipmentRecord && ($previouslyPublished || 'published' === $record->recordStatus) && '' !== $record->organizationId) {
+      $this->events->dispatch(new EquipmentChangedEvent($record->organizationId, $record->id));
     }
   }
   // #endregion

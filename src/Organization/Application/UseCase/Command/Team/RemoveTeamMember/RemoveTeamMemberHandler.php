@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Team\RemoveTeamMember;
 
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepositoryPort};
-use Organization\Domain\Event\Team\TeamMemberRemovedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamMemberNotFoundException, TeamNotFoundException};
+use Organization\Application\Contract\Event\Team\TeamMemberRemovedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Domain\Exception\{TeamMemberNotFoundException, TeamNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, TeamId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;

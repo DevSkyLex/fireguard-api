@@ -20,11 +20,11 @@ final readonly class InterventionPublicationResourcesIssuesAdapter implements In
   public function issues(string $interventionId): array
   {
     $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
-    if (!$intervention instanceof InterventionRecord || null === $intervention->organization) {
+    if (!$intervention instanceof InterventionRecord || !isset($intervention->organizationId)) {
       return [];
     }
     $issues = [];
-    foreach ($this->inventory->publicationBlockers($intervention->organization->id, $interventionId) as $reason) {
+    foreach ($this->inventory->publicationBlockers($intervention->organizationId, $interventionId) as $reason) {
       $issues[] = new InterventionIssue('blocker', 'intervention', $interventionId, 'resources', $reason);
     }
 

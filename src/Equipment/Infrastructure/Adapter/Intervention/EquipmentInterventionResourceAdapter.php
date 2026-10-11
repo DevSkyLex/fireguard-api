@@ -12,11 +12,10 @@ use Equipment\Application\Service\EquipmentPublicationFacilityValidator;
 use Equipment\Domain\ValueObject\PlanPosition;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Application\Port\Inbound\FacilityLifecycleReferencePort;
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionResourceAssignment};
+use Intervention\Application\Contract\Resource\InterventionResourceType;
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionEquipmentDraftProviderPort, InterventionResourceOwnerPort};
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
-use Intervention\Domain\ValueObject\InterventionResourceType;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -104,7 +103,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     private EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer,
     private \Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort $floorPlans,
     ?FacilityLifecycleReferencePort $retainedReferences = null,
-    private ?\Equipment\Application\Port\Outbound\EquipmentTypeCatalogPort $typeCatalog = null,
+    private ?\Equipment\Application\Port\Outbound\Internal\EquipmentTypeCatalogPort $typeCatalog = null,
   ) {
     $this->publicationFacilities = new EquipmentPublicationFacilityValidator($facilityValidation, $retainedReferences);
   }
@@ -177,7 +176,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   {
     $record = $this->entityManager->find(EquipmentRecord::class, $resourceId);
 
-    return $record instanceof EquipmentRecord && $record->organization?->id === $organizationId;
+    return $record instanceof EquipmentRecord && $record->organizationId === $organizationId;
   }
 
   /**
@@ -221,7 +220,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     $record->interventionId = $interventionId;
     $record->recordStatus = null === $interventionId ? 'published' : 'draft';
     if (null !== $record->facilityId) {
-      $this->facilityValidation->assertFacilityIsAssignable($record->facilityId, $this->organizationId($record->organization), $interventionId);
+      $this->facilityValidation->assertFacilityIsAssignable($record->facilityId, $record->organizationId, $interventionId);
     }
     $this->entityManager->flush();
 
@@ -318,7 +317,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   {
     $this->assertPatchFields($patch);
     $record = $this->entityManager->find(EquipmentRecord::class, $this->id($resource));
-    if (!$record instanceof EquipmentRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
+    if (!$record instanceof EquipmentRecord || $record->organizationId !== $organizationId || 'published' !== $record->recordStatus) {
       throw new InterventionConflictException('Proposed equipment change target is invalid.');
     }
     $previousStatus = $record->status;
@@ -371,9 +370,9 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     ]);
 
     foreach ($records as $record) {
-      $this->typeCatalog?->validateAvailableType($this->organizationId($record->organization), $record->type);
+      $this->typeCatalog?->validateAvailableType($record->organizationId, $record->type);
       if (null !== $record->facilityId) {
-        $this->publicationFacilities->assertReference($this->organizationId($record->organization), $record->facilityId, $record->status);
+        $this->publicationFacilities->assertReference($record->organizationId, $record->facilityId, $record->status);
       }
       // Retained placements are diagnosed after hierarchy moves; explicit
       // placement writes continue to be validated by applyPlanPosition().
@@ -393,11 +392,11 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       $record->recordStatus = 'published';
       $record->updatedAt = new DateTimeImmutable();
 
-      $organization = $record->organization;
-      if ($organization instanceof OrganizationRecord && 'under_maintenance' === $record->status) {
+      $organizationId = $record->organizationId;
+      if ('under_maintenance' === $record->status) {
         $this->maintenanceLogSynchronizer->syncForStatusTransition(
           $record->id,
-          $organization->id,
+          $organizationId,
           'in_stock',
           'under_maintenance',
         );
@@ -480,7 +479,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       if (!is_string($type) || '' === $type) {
         throw new InterventionConflictException('Equipment type cannot be empty.');
       }
-      $this->typeCatalog?->validateAvailableType($this->organizationId($record->organization), $type, $record->type);
+      $this->typeCatalog?->validateAvailableType($record->organizationId, $type, $record->type);
       $record->type = $type;
     }
   }
@@ -801,23 +800,5 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     }
 
     return $counts;
-  }
-
-  /**
-   * Resolves the stored owner before validating an equipment relation.
-   *
-   * @since 1.0.0
-   *
-   * @param ?OrganizationRecord $organization the owning organization
-   *
-   * @return string the organization identifier
-   */
-  private function organizationId(?OrganizationRecord $organization): string
-  {
-    if (null === $organization) {
-      throw new InterventionConflictException('The equipment organization is unavailable.');
-    }
-
-    return $organization->id;
   }
 }

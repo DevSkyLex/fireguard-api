@@ -5,14 +5,10 @@ declare(strict_types=1);
 namespace Auth\Application\UseCase\Command\Registration\RegisterUser;
 
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
-use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Service\ChallengeResendPolicy;
+use Otp\Application\Port\Inbound\Challenge\{ChallengeAccessPort, OtpChallengePort};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\ValueObject\Email;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateUserResult};
-use User\Domain\ValueObject\Username;
+use User\Application\Port\Inbound\UserRegistrationPort;
 
 use function preg_replace;
 use function random_int;
@@ -28,7 +24,7 @@ use const STR_PAD_RIGHT;
  * Handler RegisterUserHandler.
  *
  * Handles public self-service registration: creates a pending-verification user
- * (reusing the User module's {@see CreateUserCommand}) and issues an
+ * (reusing the User module's the owned registration capability) and issues an
  * email-verification OTP challenge. Mirrors the password-reset request handler.
  *
  * @category Handler
@@ -54,13 +50,11 @@ final readonly class RegisterUserHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param CommandBusPort $commandBus the command bus (reuses CreateUser)
-   * @param UserRepositoryPort $userRepository the user repository port
+   * @param UserRegistrationPort $userRepository the user repository port
    * @param OtpChallengePort $otpChallenge the OTP challenge port
    */
   public function __construct(
-    private readonly CommandBusPort $commandBus,
-    private readonly UserRepositoryPort $userRepository,
+    private readonly UserRegistrationPort $userRepository,
     private readonly OtpChallengePort $otpChallenge,
   ) {
   }
@@ -83,7 +77,7 @@ final readonly class RegisterUserHandler implements CommandHandler
     $email = new Email(strtolower($command->email));
 
     // Unlike password reset, a sign-up must report a taken email (409).
-    if ($this->userRepository->existsByEmail($email)) {
+    if ($this->userRepository->emailExists($email->value)) {
       return RegisterUserResult::failed(
         message: 'An account already exists with this email address.',
         errorCode: RegisterUserResult::ERROR_EMAIL_TAKEN,
@@ -92,7 +86,7 @@ final readonly class RegisterUserHandler implements CommandHandler
 
     $username = $this->deriveUniqueUsername($email->value);
 
-    $createCommand = new CreateUserCommand(
+    $userId = $this->userRepository->register(
       username: $username,
       email: $email->value,
       password: $command->password,
@@ -100,11 +94,8 @@ final readonly class RegisterUserHandler implements CommandHandler
       lastName: $command->lastName,
     );
 
-    /** @var CreateUserResult $created */
-    $created = $this->commandBus->dispatch($createCommand);
-
     $challenge = $this->otpChallenge->generate(
-      userId: $created->userId,
+      userId: $userId,
       purpose: OtpPurpose::EMAIL_VERIFICATION,
       channel: OtpChannel::EMAIL,
       recipient: $email->value,
@@ -115,7 +106,7 @@ final readonly class RegisterUserHandler implements CommandHandler
       maskedRecipient: $challenge->maskedRecipient,
       expiresAt: $challenge->expiresAt,
       maxAttempts: $challenge->maxAttempts,
-      canResendIn: ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS,
+      canResendIn: ChallengeAccessPort::RESEND_COOLDOWN_SECONDS,
     );
   }
 
@@ -129,13 +120,13 @@ final readonly class RegisterUserHandler implements CommandHandler
    *
    * @param string $email the (lowercased) email address
    *
-   * @return string a username matching the {@see Username} pattern and not yet taken
+   * @return string a username matching the owned username pattern and not yet taken
    */
   private function deriveUniqueUsername(string $email): string
   {
     $base = $this->normalizeUsernameBase($email);
 
-    if (!$this->userRepository->existsByUsername(new Username($base))) {
+    if (!$this->userRepository->usernameExists($base)) {
       return $base;
     }
 
@@ -143,7 +134,7 @@ final readonly class RegisterUserHandler implements CommandHandler
       $suffix = (string) random_int(1000, 999999);
       $candidate = substr($base, 0, 50 - 1 - strlen($suffix)) . '-' . $suffix;
 
-      if (!$this->userRepository->existsByUsername(new Username($candidate))) {
+      if (!$this->userRepository->usernameExists($candidate)) {
         return $candidate;
       }
     }

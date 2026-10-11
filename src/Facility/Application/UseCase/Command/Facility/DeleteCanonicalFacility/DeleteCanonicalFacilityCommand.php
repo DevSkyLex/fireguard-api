@@ -32,6 +32,7 @@ final readonly class DeleteCanonicalFacilityCommand implements CommandMessage
   public function __construct(
     public string $facilityId,
     public int $expectedRevision,
+    public ?string $userId = null,
   ) {
   }
   // #endregion

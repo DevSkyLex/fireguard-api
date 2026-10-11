@@ -13,11 +13,12 @@ use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
+use Equipment\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
 use Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor;
+use Intervention\Application\Contract\Resource\ClientResourceAlreadyExistsException;
 use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, InterventionResourceAssignment};
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\ClientResourceAlreadyExistsException;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
@@ -26,9 +27,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -401,7 +401,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
       creationPreconditionGuard: new CreationPreconditionGuard($requestStack),
     );
 
@@ -435,7 +435,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
       creationPreconditionGuard: new CreationPreconditionGuard($requestStack),
     );
 
@@ -467,7 +467,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       outputFactory: new EquipmentOutputFactory(),
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
       creationPreconditionGuard: new CreationPreconditionGuard($requestStack),
     );
     $input = $this->makeInput();
@@ -494,7 +494,7 @@ final class CreateEquipmentProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessWrapsAnInterventionScopedCreationInATransactionAndAttachesIt(): void
+  public function testProcessDispatchesInterventionCreationToItsOwningTransaction(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -505,7 +505,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     });
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(
+    $gateway->method('interventionAssignmentContext')->willReturn(
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'draft'),
     );
     $gateway->method('interventionAssignmentContext')->willReturn(
@@ -534,8 +534,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $authorization,
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
-      entityManager: $entityManager,
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
     );
 
     $output = $processor->process(data: $input, operation: new Post(), uriVariables: ['organizationId' => self::ORG_ID]);
@@ -548,7 +547,7 @@ final class CreateEquipmentProcessorTest extends TestCase
   public function testProcessReportsAnUnknownInterventionAsNotFound(): void
   {
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(null);
+    $gateway->method('interventionAssignmentContext')->willReturn(null);
 
     $input = $this->makeInput();
     $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
@@ -558,7 +557,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -570,7 +569,7 @@ final class CreateEquipmentProcessorTest extends TestCase
   public function testProcessReportsAnImmutableInterventionAsConflict(): void
   {
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(
+    $gateway->method('interventionAssignmentContext')->willReturn(
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'submitted'),
     );
 
@@ -582,7 +581,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
     );
 
     $this->expectException(ConflictHttpException::class);
@@ -594,7 +593,7 @@ final class CreateEquipmentProcessorTest extends TestCase
   public function testProcessReportsAVanishedEquipmentDuringAttachmentAsNotFound(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(\Intervention\Domain\Exception\InterventionResourceNotFoundException::withId(\Intervention\Domain\ValueObject\InterventionResourceType::EQUIPMENT, self::EQUIPMENT_ID));
+    $commandBus->method('dispatch')->willThrowException(\Intervention\Application\Contract\Resource\InterventionResourceNotFoundException::withId(\Intervention\Application\Contract\Resource\InterventionResourceType::EQUIPMENT, self::EQUIPMENT_ID));
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
     $gateway->method('resourceExists')->willReturn(false);
@@ -604,7 +603,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -613,15 +612,12 @@ final class CreateEquipmentProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessReportsACrossOrganizationAttachmentAsConflict(): void
+  public function testProcessRejectsACrossOrganizationInterventionBeforeCommandDispatch(): void
   {
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(new \Intervention\Domain\Exception\InterventionConflictException('Intervention and resource must belong to the same organization.'));
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
 
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'draft'),
-    );
     $gateway->method('resourceExists')->willReturn(true);
     $gateway->method('interventionAssignmentContext')->willReturn(
       new InterventionAssignmentContext(self::INTERVENTION_ID, '550e8400-e29b-41d4-a716-4466554411ff', 'draft'),
@@ -635,10 +631,10 @@ final class CreateEquipmentProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
+      interventionResourceManager: new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($gateway)),
     );
 
-    $this->expectException(ConflictHttpException::class);
+    $this->expectException(NotFoundHttpException::class);
 
     $processor->process(data: $input, operation: new Post(), uriVariables: ['organizationId' => self::ORG_ID]);
   }

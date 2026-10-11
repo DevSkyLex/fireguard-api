@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Session\Application\UseCase\Command\Session\RevokeSessionByToken;
 
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Shared\Application\Message\CommandHandler;
 
 use function trim;

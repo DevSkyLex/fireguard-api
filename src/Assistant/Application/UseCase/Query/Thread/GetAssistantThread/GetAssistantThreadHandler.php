@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Assistant\Application\UseCase\Query\Thread\GetAssistantThread;
 
-use Assistant\Application\Contract\Message\AssistantMessageView;
-use Assistant\Application\Contract\Thread\AssistantThreadView;
-use Assistant\Application\Port\Outbound\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
-use Assistant\Application\Service\AssistantAccessPolicy;
+use Assistant\Application\Port\Outbound\Internal\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Service\{AssistantAccessPolicy, AssistantMessageViewMapper, AssistantThreadViewMapper};
 use Assistant\Domain\Exception\AssistantThreadNotFoundException;
 use Assistant\Domain\ValueObject\AssistantThreadId;
 use Shared\Application\Message\QueryHandler;
@@ -77,8 +75,8 @@ final readonly class GetAssistantThreadHandler implements QueryHandler
     $total = $this->messages->countByThread($query->threadId);
 
     return new GetAssistantThreadResult(
-      thread: AssistantThreadView::fromDomain($thread),
-      messages: array_map(AssistantMessageView::fromDomain(...), $messages),
+      thread: AssistantThreadViewMapper::fromDomain($thread),
+      messages: array_map(AssistantMessageViewMapper::fromDomain(...), $messages),
       messagesPage: $query->messagesPage,
       messagesItemsPerPage: $itemsPerPage,
       messagesTotal: $total,

@@ -38,7 +38,7 @@ final class InterventionTemplateRecordTest extends TestCase
     self::assertSame('site_setup', $record->type);
     self::assertSame('normal', $record->priority);
     self::assertSame([], $record->labelIds);
-    self::assertNull($record->organization);
+    self::assertFalse(isset($record->organizationId));
     self::assertNull($record->description);
     self::assertNull($record->defaultSiteId);
     self::assertNull($record->defaultResponsibleId);

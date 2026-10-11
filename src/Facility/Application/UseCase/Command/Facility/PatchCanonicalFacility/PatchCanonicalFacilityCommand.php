@@ -59,6 +59,7 @@ final readonly class PatchCanonicalFacilityCommand implements CommandMessage
     public ?float $heightMeters = null,
     public ?string $customerId = null,
     public bool $hasCustomerId = false,
+    public ?string $userId = null,
   ) {
   }
   // #endregion

@@ -26,12 +26,14 @@ final readonly class DeleteMessageAttachmentCommand implements CommandMessage
    *
    * @param string $userId user requesting deletion
    * @param string $attachmentId attachment identifier to delete
+   * @param ?string $ifMatch raw revision precondition, checked after existence
    *
    * @return void
    */
   public function __construct(
     public string $userId,
     public string $attachmentId,
+    public ?string $ifMatch = null,
   ) {
   }
   // #endregion

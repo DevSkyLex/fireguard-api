@@ -6,7 +6,7 @@ namespace Tests\Unit\OAuth\Infrastructure\OAuth2\League\Repository;
 
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\{ClientEntityInterface, ScopeEntityInterface};
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AccessTokenRepositoryPort;
 use OAuth\Domain\Model\Token\AccessToken as DomainAccessToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;

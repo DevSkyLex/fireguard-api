@@ -8,6 +8,25 @@ Treat auth and main as separate backup and migration histories. A rollback of an
 
 Auth and main keep separate migration histories and backups. Apply compatible migrations before starting current workers, then validate dependency and security health.
 
+For the first Webhook auth-to-main migration, the
+[manual cutover](../../src/Webhook/MODULE.md#transport-cutover-and-recovery-runbook)
+is a prerequisite to this ordinary rollout. Generic writer shutdown does not
+drain the old auth `webhook` queue, including delayed rows. Complete that drain
+and wait for active HTTP calls before replacing the old worker. Apply both
+additive Webhook migrations and initialize main transports before restarting;
+generation-unaware image rollback is prohibited after activation.
+
+For avatar storage, keep uploads and user purge paused while applying the additive
+nullable `users.avatar_storage_key` auth migration. Deploy every reader that
+supports generation keys and the null legacy fallback before enabling the new
+producers and the `auth_outbox` cleanup consumer. Initialize that auth transport
+before resuming the ordinary async worker; its retries retain the existing auth
+`failed` queue and its cleanup receipts commit only on auth. Main attachment
+cleanup remains independent. After the first generation-key mutation or deletion
+of a legacy avatar key, an image with canonical-path-only readers is incompatible.
+Use a compatible image or restore the matching auth snapshot and storage files
+together; neither a nullable schema nor an image rollback restores deleted bytes.
+
 ```mermaid
 flowchart TD
   Revision["Verify source, image and quality gate"] --> Identity["Validate environment and installation identity"]

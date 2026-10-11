@@ -7,7 +7,8 @@ namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\ReplaceEqui
 use DateTimeImmutable;
 use Equipment\Application\Contract\Replacement\{EquipmentReplacementReceipt, EquipmentReplacementSuccessor};
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
-use Equipment\Application\Port\Outbound\{EquipmentReplacementRepositoryPort, FacilityValidationPort};
+use Equipment\Application\Port\Outbound\FacilityValidationPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentReplacementRepositoryPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Application\UseCase\Command\Equipment\ReplaceEquipment\{ReplaceEquipmentCommand, ReplaceEquipmentHandler};
 use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentReplacementConflictException};

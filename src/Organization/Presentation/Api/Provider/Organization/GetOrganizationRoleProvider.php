@@ -6,10 +6,10 @@ namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationRole\{GetOrganizationRoleQuery, GetOrganizationRoleResult};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\OrganizationRoleNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -70,7 +70,7 @@ final readonly class GetOrganizationRoleProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): OrganizationRoleOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\RestoreOrganization;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Contract\Event\Organization\OrganizationRestoredEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\RestoreOrganization\{RestoreOrganizationCommand, RestoreOrganizationHandler, RestoreOrganizationResult};
-use Organization\Domain\Event\Organization\OrganizationRestoredEvent;
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationStatus};

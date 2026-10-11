@@ -7,13 +7,13 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Conversation\GetOrCre
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingSubjectResolverPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Conversation\GetOrCreateConversation\{GetOrCreateConversationCommand, GetOrCreateConversationHandler};
 use Messaging\Domain\Exception\{MessagingSubjectNotFoundException, MessagingValidationException};
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -113,7 +113,7 @@ final class GetOrCreateConversationHandlerTest extends TestCase
   private function facilityResolver(bool $exists, ?string $label = null): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (MessagingSubjectType $type): bool => MessagingSubjectType::FACILITY === $type);
+    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $type): bool => \Messaging\Application\Contract\Subject\MessagingSubjectType::FACILITY === $type);
     $resolver->method('resolve')->willReturn(new MessagingSubjectResolution($exists, $label, 'organization.facilities.read'));
 
     return $resolver;

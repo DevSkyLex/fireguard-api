@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Authorization\Application\EventHandler;
 
 use Authorization\Application\EventHandler\AssignDefaultRoleOnUserCreatedHandler;
-use Authorization\Application\Port\Outbound\{RoleAssignmentRepositoryPort, RoleRepositoryPort};
+use Authorization\Application\Port\Outbound\Internal\{RoleAssignmentRepositoryPort, RoleRepositoryPort};
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\Model\RoleAssignment\RoleAssignment;
 use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleId, RoleName};
@@ -13,10 +13,8 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
-use Shared\Domain\ValueObject\Uuid;
-use User\Domain\Event\UserCreatedEvent;
+use User\Application\Contract\Event\UserCreatedEvent;
 
 /**
  * Test AssignDefaultRoleOnUserCreatedHandlerTest.
@@ -158,18 +156,18 @@ final class AssignDefaultRoleOnUserCreatedHandlerTest extends TestCase
     );
   }
 
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn(self::ASSIGNMENT_ID);
 
-    return new UuidFactory($generator);
+    return $generator;
   }
 
   private function event(): UserCreatedEvent
   {
     return new UserCreatedEvent(
-      eventId: new Uuid('00000000-0000-4000-a000-000000000001'),
+      eventId: '00000000-0000-4000-a000-000000000001',
       userId: self::USER_ID,
       username: 'testuser',
       email: 'test@fireguard.local',

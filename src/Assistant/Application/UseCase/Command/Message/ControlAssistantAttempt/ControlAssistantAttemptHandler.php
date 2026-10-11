@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Assistant\Application\UseCase\Command\Message\ControlAssistantAttempt;
 
-use Assistant\Application\Contract\Message\AssistantMessageView;
-use Assistant\Application\Port\Outbound\{AssistantAttemptLockPort, AssistantGenerationDispatcherPort, AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Port\Outbound\{AssistantAttemptLockPort, AssistantGenerationDispatcherPort};
+use Assistant\Application\Port\Outbound\Internal\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
 use Assistant\Application\Service\{AssistantAccessPolicy, AssistantAttemptWriter};
+use Assistant\Application\Service\AssistantMessageViewMapper;
 use Assistant\Domain\Exception\AssistantThreadNotFoundException;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantThreadId};
 use Shared\Application\Message\CommandHandler;
@@ -74,7 +75,7 @@ final readonly class ControlAssistantAttemptHandler implements CommandHandler
       }
       $this->writer->publish($message);
 
-      return new ControlAssistantAttemptResult(AssistantMessageView::fromDomain($message));
+      return new ControlAssistantAttemptResult(AssistantMessageViewMapper::fromDomain($message));
     });
   }
   // #endregion

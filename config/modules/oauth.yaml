@@ -66,6 +66,8 @@ services:
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Query\Token\IntrospectToken\IntrospectTokenHandler:
+    arguments:
+      $issuer: '%env(OAUTH_ISSUER)%'
     tags: ['messenger.message_handler']
 
   OAuth\Application\UseCase\Query\Token\RefreshToken\RefreshTokenHandler:
@@ -116,16 +118,16 @@ services:
   OAuth\Application\Port\Outbound\Token\JwtParserPort:
     alias: OAuth\Infrastructure\Adapter\Jwt\JwtParserAdapter
 
-  OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort:
+  OAuth\Application\Port\Outbound\Internal\Token\AccessTokenRepositoryPort:
     alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\AccessTokenRepository
 
-  OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort:
+  OAuth\Application\Port\Outbound\Internal\Token\RefreshTokenRepositoryPort:
     alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\RefreshTokenRepository
 
-  OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort:
+  OAuth\Application\Port\Outbound\Internal\Token\AuthCodeRepositoryPort:
     alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\AuthCodeRepository
 
-  OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort:
+  OAuth\Application\Port\Outbound\Internal\Consent\ConsentRepositoryPort:
     alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository
 
   OAuth\Application\Port\Outbound\Token\TokenCachePort:
@@ -134,22 +136,22 @@ services:
   OAuth\Application\Port\Outbound\Token\TokenRevocationPort:
     alias: OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter
 
-  OAuth\Application\Port\Outbound\Token\AuthorizationServerPort:
+  OAuth\Application\Port\Outbound\Internal\Token\AuthorizationServerPort:
     class: OAuth\Infrastructure\OAuth2\League\Server\AuthorizationServerAdapter
 
   OAuth\Application\Port\Outbound\Client\ClientValidationPort:
     class: OAuth\Infrastructure\OAuth2\League\Adapter\ClientValidationAdapter
 
-  OAuth\Application\Port\Outbound\Client\ClientRepositoryPort:
+  OAuth\Application\Port\Outbound\Internal\Client\ClientRepositoryPort:
     alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository
 
-  OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort:
+  OAuth\Application\Port\Outbound\Internal\Client\OAuthClientRepositoryPort:
     alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository
 
   OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort:
     alias: OAuth\Infrastructure\Oidc\Adapter\IdTokenIssuerAdapter
 
-  OAuth\Application\Port\Outbound\User\OidcUserProviderPort:
+  OAuth\Application\Port\Outbound\Internal\User\OidcUserProviderPort:
     alias: OAuth\Infrastructure\Oidc\Adapter\OidcUserProviderAdapter
 
   # Auth Bridge Adapters
@@ -271,3 +273,16 @@ services:
       $authCodeRepository: '@League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface'
       $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
       $authCodeTTL: '@auth_code_ttl'
+
+  OAuth\Application\Port\Inbound\OAuthDataLifecyclePort:
+    alias: OAuth\Infrastructure\Adapter\Lifecycle\OAuthDataLifecycleAdapter
+  OAuth\Infrastructure\Adapter\Lifecycle\OAuthDataLifecycleAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  OAuth\Application\Port\Outbound\Internal\User\OidcClaimsBuilderPort:
+    alias: OAuth\Application\Service\OidcClaimsBuilder
+  OAuth\Application\UseCase\Query\User\GetUserInfo\GetUserInfoHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Presentation\Api\Service\RefreshTokenCookieService: ~

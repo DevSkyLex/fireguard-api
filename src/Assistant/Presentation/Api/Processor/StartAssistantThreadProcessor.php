@@ -10,12 +10,10 @@ use Assistant\Application\UseCase\Command\Thread\StartAssistantThread\{StartAssi
 use Assistant\Presentation\Api\Dto\Input\StartAssistantThreadInput;
 use Assistant\Presentation\Api\Dto\Output\AssistantThreadOutput;
 use Assistant\Presentation\Api\Factory\AssistantThreadOutputFactory;
-use Assistant\Presentation\Api\Trait\AssistantExceptionMapperTrait;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -34,8 +32,6 @@ use function is_string;
  */
 final readonly class StartAssistantThreadProcessor implements ProcessorInterface
 {
-  use AssistantExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -69,7 +65,7 @@ final readonly class StartAssistantThreadProcessor implements ProcessorInterface
   {
     /** @var StartAssistantThreadInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -79,17 +75,13 @@ final readonly class StartAssistantThreadProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    try {
-      /** @var StartAssistantThreadResult $result */
-      $result = $this->commandBus->dispatch(new StartAssistantThreadCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        title: $data->title,
-        model: $data->model,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapAssistantException($exception);
-    }
+    /** @var StartAssistantThreadResult $result */
+    $result = $this->commandBus->dispatch(new StartAssistantThreadCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      title: $data->title,
+      model: $data->model,
+    ));
 
     return $this->outputFactory->fromView($result->thread);
   }

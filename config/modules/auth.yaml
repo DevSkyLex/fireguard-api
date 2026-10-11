@@ -4,6 +4,8 @@ services:
     autoconfigure: true
 
   # Auth Module - Ports
+  Auth\Application\Port\Inbound\SecurityUserCacheInvalidationPort:
+    alias: Auth\Application\Service\SecurityUserCacheInvalidator
   Auth\Application\Port\Outbound\JwtTokenServicePort:
     alias: Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter
 
@@ -13,7 +15,7 @@ services:
   Auth\Application\Port\Outbound\UserAuthenticationPort:
     alias: Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter
 
-  Auth\Application\Port\Outbound\DPoPValidatorPort:
+  Auth\Application\Port\Outbound\Internal\DPoPValidatorPort:
     alias: Auth\Infrastructure\Security\DPoP\DPoPValidator
 
   Auth\Application\Port\Outbound\SessionTrackingPort:
@@ -69,10 +71,13 @@ services:
 
   Auth\Application\Service\SecurityUserCacheInvalidator: ~
 
-  Auth\Application\Service\Federation\SessionIssuer: ~
+  Auth\Application\Service\Federation\SessionIssuer:
+    arguments:
+      $mfaEnabled: '%env(bool:MFA_ENABLED)%'
   Auth\Application\Service\Federation\FederatedAuthenticationService:
     arguments:
       $transaction: '@auth.federated_transaction_manager'
+      $frontendUrl: '%env(APP_FRONTEND_URL)%'
   Auth\Application\Service\Federation\InitialPasswordService: ~
 
   # Use Case Command Handlers
@@ -178,3 +183,39 @@ services:
   Auth\Application\UseCase\Command\EmailOwnership\ConfirmEmailOwnership\ConfirmEmailOwnershipHandler:
     tags: ['messenger.message_handler']
   Auth\Presentation\Api\Processor\EmailOwnership\ConfirmEmailOwnershipProcessor: ~
+
+  Auth\Application\Port\Inbound\Federation\FederationFlowPort:
+    alias: Auth\Application\Service\Federation\FederatedAuthenticationService
+  Auth\Application\Port\Inbound\Federation\PasswordSetupPort:
+    alias: Auth\Application\Service\Federation\InitialPasswordService
+
+  Auth\Application\UseCase\Command\Federation\StartFederation\StartFederationHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Federation\CompleteFederation\CompleteFederationHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Federation\DisconnectFederation\DisconnectFederationHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Query\Federation\ListFederatedConnections\ListFederatedConnectionsHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Query\Federation\ListFederatedProviders\ListFederatedProvidersHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\PasswordSetup\RequestPasswordSetup\RequestPasswordSetupHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\PasswordSetup\ConfirmPasswordSetup\ConfirmPasswordSetupHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\Port\Inbound\InteractiveSessionIssuerPort:
+    alias: Auth\Application\Service\Federation\SessionIssuer
+
+  Auth\Presentation\Api\EventSubscriber\FederatedExceptionSubscriber: ~
+
+  Auth\Presentation\Api\Service\TrustedDeviceCookieService: ~
+
+  Auth\Application\Port\Outbound\SecurityLogSanitizerPort:
+    alias: Auth\Infrastructure\Logging\SecurityLogSanitizer

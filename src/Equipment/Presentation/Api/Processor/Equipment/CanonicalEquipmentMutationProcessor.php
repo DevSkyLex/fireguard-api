@@ -6,21 +6,21 @@ namespace Equipment\Presentation\Api\Processor\Equipment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\Contract\Equipment\CanonicalEquipmentView;
 use Equipment\Application\UseCase\Command\Equipment\DeleteCanonicalEquipment\DeleteCanonicalEquipmentCommand;
 use Equipment\Application\UseCase\Command\Equipment\PatchCanonicalEquipment\PatchCanonicalEquipmentCommand;
 use Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\{GetCanonicalEquipmentQuery, GetCanonicalEquipmentResult};
 use Equipment\Presentation\Api\Dto\Input\Equipment\PatchCanonicalEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
-use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionNotFoundException};
+use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -50,7 +50,7 @@ use function is_string;
  * The **authorization gate**, because which permission applies is a function
  * of the request — a published row needs `organization.equipment.write`, a
  * scratchpad inside an intervention needs whatever
- * `InterventionResourceManager::mutationPermission()` resolves — and because
+ * `InterventionResourcesPort::mutationPermission()` resolves — and because
  * a row loaded by GLOBAL id must answer 404, not 403, outside the caller's
  * organization.
  *
@@ -98,7 +98,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
    * @param CanonicalEquipmentProvider $provider the provider value
-   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
+   * @param InterventionResourcesPort $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
    */
@@ -109,7 +109,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     private Security $security,
     private RequestStack $requestStack,
     private CanonicalEquipmentProvider $provider,
-    private InterventionResourceManager $interventionResourceManager,
+    private InterventionResourcesPort $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MergePatchFields $mergePatchFields,
   ) {
@@ -136,13 +136,14 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     // the payload shape matter. Moving `assertMatches()` up would turn a 404
     // on an unknown id into a 428 for a caller that forgot the header.
     $view = $this->view($uriVariables);
-    $this->assertPermission($view);
+    $userId = $this->assertPermission($view);
     $this->revisionGuard->assertMatches($view->revision);
 
     if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
       $this->commandBus->dispatch(new DeleteCanonicalEquipmentCommand(
         equipmentId: $view->id,
         expectedRevision: $view->revision,
+        userId: $userId,
       ));
 
       return null;
@@ -162,6 +163,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     $this->commandBus->dispatch(new PatchCanonicalEquipmentCommand(
       equipmentId: $view->id,
       expectedRevision: $view->revision,
+      userId: $userId,
       hasType: $present['type'],
       type: $data->type,
       hasStatus: $present['status'],
@@ -232,17 +234,17 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
    *
    * @param CanonicalEquipmentView $view the targeted equipment
    */
-  private function assertPermission(CanonicalEquipmentView $view): void
+  private function assertPermission(CanonicalEquipmentView $view): string
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
     try {
       $permission = 'draft' !== $view->recordStatus || null === $view->interventionId
         ? 'organization.equipment.write'
-        : $this->interventionResourceManager->mutationPermission($view->interventionId, $user->getId());
+        : $this->interventionResourceManager->mutationPermission($view->interventionId, $user->getId(), $view->organizationId, forUpdate: false);
     } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InterventionConflictException $exception) {
@@ -258,6 +260,8 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
+
+    return $user->getId();
   }
   // #endregion
 }

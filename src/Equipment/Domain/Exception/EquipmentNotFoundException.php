@@ -44,7 +44,7 @@ final class EquipmentNotFoundException extends RuntimeException
    * the SAME class, and therefore the same 404, that an unknown identifier
    * produces: a distinct status here would tell an outsider which
    * organization identifiers are real. Mirrors
-   * `Intervention\Domain\Exception\InterventionNotFoundException::forOrganizationScope()`.
+   * `Intervention\Application\Contract\Resource\InterventionNotFoundException::forOrganizationScope()`.
    *
    * @since 1.1.0
    *

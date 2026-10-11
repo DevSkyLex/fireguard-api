@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Approval\Infrastructure\Persistence\Doctrine\Repository;
 
 use Approval\Application\Contract\Reservation\ApprovalReservation;
-use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
+use Approval\Application\Port\Outbound\Internal\ApprovalRequestRepositoryPort;
 use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use Approval\Infrastructure\Persistence\Doctrine\Mapper\ApprovalRequestMapper;

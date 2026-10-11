@@ -17,10 +17,10 @@ final readonly class ListTimeEntriesHandler implements \Shared\Application\Messa
   /**
    * @since 1.0.0
    *
-   * @param \Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort $entries persistence port for the independent time journal
+   * @param \Intervention\Application\Port\Outbound\Internal\InterventionTimeEntryRepositoryPort $entries persistence port for the independent time journal
    * @param \Intervention\Application\Service\InterventionTimeAccessPolicy $access authorizes journal operations for the current contributor
    */
-  public function __construct(private \Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort $entries, private \Intervention\Application\Service\InterventionTimeAccessPolicy $access)
+  public function __construct(private \Intervention\Application\Port\Outbound\Internal\InterventionTimeEntryRepositoryPort $entries, private \Intervention\Application\Service\InterventionTimeAccessPolicy $access)
   {
   }
 

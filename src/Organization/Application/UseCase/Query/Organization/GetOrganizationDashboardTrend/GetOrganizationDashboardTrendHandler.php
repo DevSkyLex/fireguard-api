@@ -6,11 +6,12 @@ namespace Organization\Application\UseCase\Query\Organization\GetOrganizationDas
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort};
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
 use Organization\Application\Support\{DashboardDateTimeParser, DashboardSeriesBuilder};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\CachePort;

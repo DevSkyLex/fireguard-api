@@ -8,15 +8,15 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\Contract\Inspection\CanonicalInspectionReadView;
 use Inspection\Application\UseCase\Query\Inspection\ListCanonicalInspections\{ListCanonicalInspectionsQuery, ListCanonicalInspectionsResult};
 use Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection\{ReadCanonicalInspectionQuery, ReadCanonicalInspectionResult};
 use Inspection\Application\UseCase\Query\Inspection\ResolveCanonicalInspectionScope\{ResolveCanonicalInspectionScopeQuery, ResolveCanonicalInspectionScopeResult};
 use Inspection\Presentation\Api\Dto\Output\Inspection\{InspectionOutput, InspectorOutput};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -108,9 +108,9 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $interventionId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('intervention'), 'interventions');
-    $organizationId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization'), 'organizations');
-    $equipmentId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('equipment'), 'equipment');
+    $interventionId = $this->filterId(\Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('intervention'), 'interventions');
+    $organizationId = $this->filterId(\Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization'), 'organizations');
+    $equipmentId = $this->filterId(\Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('equipment'), 'equipment');
 
     /** @var ResolveCanonicalInspectionScopeResult $scope */
     $scope = $this->queryBus->ask(new ResolveCanonicalInspectionScopeQuery(
@@ -124,8 +124,8 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
 
     $this->assertRead($scope->organizationId);
 
-    $recordStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('recordStatus');
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $recordStatus = \Inspection\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('recordStatus');
+    $filters = \Inspection\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
 
     /** @var ListCanonicalInspectionsResult $result */
     $result = $this->queryBus->ask(new ListCanonicalInspectionsQuery(
@@ -201,7 +201,7 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
   private function assertRead(string $organizationId): void
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 

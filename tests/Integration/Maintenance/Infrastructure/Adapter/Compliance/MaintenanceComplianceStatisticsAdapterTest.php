@@ -180,13 +180,13 @@ final class MaintenanceComplianceStatisticsAdapterTest extends KernelTestCase
     ?DateTimeImmutable $lastInspectionClosedAt,
     ?DateTimeImmutable $evaluatedAt = null,
   ): void {
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
 
     $sequence = ++$this->scheduleSequence;
 
     $schedule = new MaintenanceScheduleRecord();
     $schedule->id = sprintf('770e8400-e29b-41d4-a716-4466554702%02d', $sequence);
-    $schedule->organization = $organization;
+    $schedule->organizationId = $organization;
     $schedule->equipmentId = sprintf('770e8400-e29b-41d4-a716-4466554703%02d', $sequence);
     $schedule->facilityId = $facilityId;
     $schedule->equipmentType = 'fire_extinguisher';

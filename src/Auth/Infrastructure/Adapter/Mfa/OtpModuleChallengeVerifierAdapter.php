@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Adapter\Mfa;
 
-use Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort;
+use Auth\Application\Port\Outbound\Internal\Mfa\ChallengeVerifierPort;
 use Auth\Application\UseCase\Command\Mfa\MfaVerify\MfaVerifyResult;
 use Otp\Application\Contract\Challenge\VerificationInfo;
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;

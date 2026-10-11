@@ -6,7 +6,7 @@ namespace Facility\Infrastructure\Adapter\Equipment;
 
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
 

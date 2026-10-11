@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Adapter\Organization;
 
-use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformitySeverity, NonConformityStatus};
 use Organization\Application\Contract\Inspection\OpenNonConformitySummary;

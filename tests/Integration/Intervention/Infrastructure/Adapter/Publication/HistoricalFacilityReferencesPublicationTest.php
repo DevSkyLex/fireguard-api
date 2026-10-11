@@ -80,7 +80,7 @@ final class HistoricalFacilityReferencesPublicationTest extends KernelTestCase
     $equipment = $this->equipment('decommissioned', 'draft', self::FACILITY_ID);
     $inspection = new InspectionRecord();
     $inspection->id = self::INSPECTION_ID;
-    $inspection->organization = $intervention->organization;
+    $inspection->organizationId = $intervention->organizationId;
     $inspection->interventionId = self::INTERVENTION_ID;
     $inspection->recordStatus = 'draft';
     $inspection->equipmentId = $equipment->id;
@@ -200,7 +200,7 @@ final class HistoricalFacilityReferencesPublicationTest extends KernelTestCase
       $facility->interventionId = '890e8400-e29b-41d4-a716-446655449098';
     } else {
       $foreign = $this->organization('890e8400-e29b-41d4-a716-446655449097');
-      $facility->organization = $foreign;
+      $facility->organizationId = $foreign->id;
       $facility->parentFacility = null;
       $facility->type = 'site';
     }
@@ -226,7 +226,7 @@ final class HistoricalFacilityReferencesPublicationTest extends KernelTestCase
     $organization = $this->organization(self::ORGANIZATION_ID);
     $site = new FacilityRecord();
     $site->id = self::SITE_ID;
-    $site->organization = $organization;
+    $site->organizationId = $organization->id;
     $site->name = 'Historical reference site';
     $site->type = 'site';
     $site->createdAt = new DateTimeImmutable();
@@ -234,7 +234,7 @@ final class HistoricalFacilityReferencesPublicationTest extends KernelTestCase
     $this->entityManager->persist($site);
     $facility = new FacilityRecord();
     $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = $site;
     $facility->name = 'Historical reference building';
     $facility->type = 'building';
@@ -243,7 +243,7 @@ final class HistoricalFacilityReferencesPublicationTest extends KernelTestCase
     $this->entityManager->persist($facility);
     $intervention = new InterventionRecord();
     $intervention->id = self::INTERVENTION_ID;
-    $intervention->organization = $organization;
+    $intervention->organizationId = $organization->id;
     $intervention->name = 'Historical reference publication';
     $intervention->number = 9901;
     $intervention->status = 'submitted';
@@ -294,7 +294,7 @@ final class HistoricalFacilityReferencesPublicationTest extends KernelTestCase
   {
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
-    $equipment->organization = $this->intervention()->organization;
+    $equipment->organizationId = $this->intervention()->organizationId;
     $equipment->type = 'fire_extinguisher';
     $equipment->status = $status;
     $equipment->recordStatus = $publicationState;

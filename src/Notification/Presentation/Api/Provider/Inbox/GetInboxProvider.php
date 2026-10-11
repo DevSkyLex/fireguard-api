@@ -6,7 +6,7 @@ namespace Notification\Presentation\Api\Provider\Inbox;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use DateTimeImmutable;
 use Exception;
 use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
@@ -72,15 +72,15 @@ final readonly class GetInboxProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): InboxOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $organizationId = $this->toNullableString(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization'));
-    $before = $this->toCursor(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('before'));
-    $limit = $this->toLimit(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('limit'));
-    $rawCursor = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('cursor');
+    $organizationId = $this->toNullableString(\Notification\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization'));
+    $before = $this->toCursor(\Notification\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('before'));
+    $limit = $this->toLimit(\Notification\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('limit'));
+    $rawCursor = \Notification\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('cursor');
     if (null !== $rawCursor && (!is_string($rawCursor) || '' === $rawCursor)) {
       throw new BadRequestHttpException('Invalid inbox cursor.');
     }

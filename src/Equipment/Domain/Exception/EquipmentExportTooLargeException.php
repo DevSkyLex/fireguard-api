@@ -15,7 +15,7 @@ use function sprintf;
  * row cap ({@see \Equipment\Application\UseCase\Query\ExportEquipments\ExportEquipmentsHandler::MAX_EXPORT_ROWS}).
  * Checked with a cheap COUNT before any row is fetched, so the caller fails
  * fast with actionable guidance instead of downloading a multi-hour CSV —
- * mirrors `Intervention\Domain\Exception\InterventionExportTooLargeException`.
+ * mirrors `Intervention\Application\Contract\Resource\InterventionExportTooLargeException`.
  *
  * @category Exception
  * @version 1.0.0

@@ -7,7 +7,8 @@ namespace Tests\Unit\Intervention\Application\UseCase\Command\Publication\Reques
 use DateTimeImmutable;
 use Intervention\Application\Contract\Publication\{InterventionPublicationContext, PublicationView};
 use Intervention\Application\Contract\Resource\{InterventionResourceSummary, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort, PublicationQueuePort, PublicationRepositoryPort};
+use Intervention\Application\Port\Outbound\Internal\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\{InterventionPublicationResourcesIssuesPort, PublicationQueuePort, PublicationRepositoryPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\RequestPublication\{RequestPublicationCommand, RequestPublicationHandler};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionBlockedException, InterventionConflictException, InterventionNotFoundException};
@@ -16,7 +17,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 #[CoversClass(RequestPublicationHandler::class)]
 final class RequestPublicationHandlerTest extends TestCase
@@ -230,8 +231,8 @@ final class RequestPublicationHandlerTest extends TestCase
   ): RequestPublicationHandler {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn($decision);
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('generateRaw')->willReturn('publication-1');
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn('publication-1');
 
     return new RequestPublicationHandler(
       $repository,

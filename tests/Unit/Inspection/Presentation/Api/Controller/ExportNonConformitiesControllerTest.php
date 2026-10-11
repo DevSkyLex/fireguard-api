@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Inspection\Application\Contract\Event\Export\NonConformitiesExportedEvent;
 use Inspection\Application\Contract\Export\NonConformityExportRow;
+use Inspection\Application\UseCase\Command\Export\RecordInspectionExport\RecordInspectionExportCommand;
 use Inspection\Application\UseCase\Query\ExportNonConformities\ExportNonConformitiesResult;
-use Inspection\Domain\Event\Export\NonConformitiesExportedEvent;
 use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException};
 use Inspection\Presentation\Api\Controller\ExportNonConformitiesController;
 use Inspection\Presentation\Api\Service\{NonConformityCsvWriter, NonConformityExportCriteriaFactory};
@@ -15,8 +16,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Message\VoidResult;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -63,7 +64,7 @@ final class ExportNonConformitiesControllerTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new ExportNonConformitiesResult(rows: [$row], total: 1));
 
-    $response = $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke($request);
+    $response = $this->createController($queryBus, $this->createStub(CommandBusPort::class))->__invoke($request);
 
     self::assertSame('text/csv; charset=utf-8', $response->headers->get('Content-Type'));
     self::assertSame('no', $response->headers->get('X-Accel-Buffering'));
@@ -90,7 +91,7 @@ final class ExportNonConformitiesControllerTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('OrganizationId URI parameter is required.');
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke(new Request());
+    $this->createController($queryBus, $this->createStub(CommandBusPort::class))->__invoke(new Request());
   }
 
   #[Test]
@@ -103,15 +104,17 @@ final class ExportNonConformitiesControllerTest extends TestCase
 
     $dispatched = null;
 
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(static function (object $event) use (&$dispatched): void {
-        $dispatched = $event;
+      ->willReturnCallback(static function (RecordInspectionExportCommand $command) use (&$dispatched): VoidResult {
+        $dispatched = $command->event;
+
+        return new VoidResult();
       });
 
-    $this->createController($queryBus, $eventDispatcher)->__invoke($request);
+    $this->createController($queryBus, $commandBus)->__invoke($request);
 
     self::assertInstanceOf(NonConformitiesExportedEvent::class, $dispatched);
     self::assertSame(self::USER_ID, $dispatched->actorUserId);
@@ -132,7 +135,7 @@ final class ExportNonConformitiesControllerTest extends TestCase
 
     $controller = new ExportNonConformitiesController(
       queryBus: $queryBus,
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       criteriaFactory: new NonConformityExportCriteriaFactory(),
       csvWriter: new NonConformityCsvWriter(),
@@ -152,7 +155,7 @@ final class ExportNonConformitiesControllerTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke($this->requestWithOrganization());
+    $this->createController($queryBus, $this->createStub(CommandBusPort::class))->__invoke($this->requestWithOrganization());
   }
 
   #[Test]
@@ -163,7 +166,7 @@ final class ExportNonConformitiesControllerTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    $this->createController($queryBus, $this->createStub(EventDispatcherPort::class))->__invoke($this->requestWithOrganization());
+    $this->createController($queryBus, $this->createStub(CommandBusPort::class))->__invoke($this->requestWithOrganization());
   }
 
   #[Test]
@@ -180,13 +183,13 @@ final class ExportNonConformitiesControllerTest extends TestCase
       ),
     ));
 
-    /** @var EventDispatcherPort&MockObject $eventDispatcher */
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::never())->method('dispatch');
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
 
     $this->expectException(UnprocessableEntityHttpException::class);
 
-    $this->createController($queryBus, $eventDispatcher)->__invoke($this->requestWithOrganization());
+    $this->createController($queryBus, $commandBus)->__invoke($this->requestWithOrganization());
   }
 
   /**
@@ -200,7 +203,7 @@ final class ExportNonConformitiesControllerTest extends TestCase
     return $request;
   }
 
-  private function createController(QueryBusPort $queryBus, EventDispatcherPort $eventDispatcher): ExportNonConformitiesController
+  private function createController(QueryBusPort $queryBus, CommandBusPort $commandBus): ExportNonConformitiesController
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(new SecurityUser(
@@ -214,7 +217,7 @@ final class ExportNonConformitiesControllerTest extends TestCase
 
     return new ExportNonConformitiesController(
       queryBus: $queryBus,
-      eventDispatcher: $eventDispatcher,
+      commandBus: $commandBus,
       security: $security,
       criteriaFactory: new NonConformityExportCriteriaFactory(),
       csvWriter: new NonConformityCsvWriter(),

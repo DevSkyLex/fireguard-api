@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -62,7 +62,8 @@ final class ArchiveFacilityProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new ArchiveFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility(null),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries(null),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -126,7 +127,8 @@ final class ArchiveFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new ArchiveFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility(null),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries(null),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -284,7 +286,8 @@ final class ArchiveFacilityProcessorTest extends TestCase
     }
 
     return new ArchiveFacilityProcessor(
-      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
+      detailQueries: \Tests\Unit\Facility\Presentation\FacilityPresentationFixtures::detailQueries($detailResult),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,

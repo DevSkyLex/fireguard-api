@@ -9,9 +9,9 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Application\Contract\Sorting\{CollectionSorter, SortingExtractor};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantResult;
@@ -65,7 +65,7 @@ final readonly class ListTenantsProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required');
     }
 
-    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
+    $filters = \Tenant\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

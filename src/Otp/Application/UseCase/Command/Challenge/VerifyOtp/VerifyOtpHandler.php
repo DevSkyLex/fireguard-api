@@ -6,8 +6,8 @@ namespace Otp\Application\UseCase\Command\Challenge\VerifyOtp;
 
 use InvalidArgumentException;
 use Otp\Application\Exception\OtpNotFoundException;
-use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
+use Otp\Application\Port\Outbound\Internal\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Internal\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Domain\Exception\{OtpExpiredException, OtpMaxAttemptsException};
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpId};

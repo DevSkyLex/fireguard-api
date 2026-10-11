@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganization;
 
-use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationCallerMembershipPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;

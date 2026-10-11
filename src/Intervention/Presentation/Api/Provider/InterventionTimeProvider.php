@@ -6,7 +6,7 @@ namespace Intervention\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\{Operation, QueryParameterInterface};
 use ApiPlatform\State\{ParameterNotFound, ProviderInterface};
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Query\Time\GetTimeEntry\{GetTimeEntryQuery, GetTimeEntryResult};
 use Intervention\Application\UseCase\Query\Time\ListTimeEntries\{ListTimeEntriesQuery, ListTimeEntriesResult};
 use Intervention\Application\UseCase\Query\Time\ListTimeEntryVersions\{ListTimeEntryVersionsQuery, ListTimeEntryVersionsResult};
@@ -67,7 +67,7 @@ final readonly class InterventionTimeProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): TimeJournalOutput|TimeEntryHistoryOutput|TimeEntryOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
     $taskId = is_string($uriVariables['taskId'] ?? null) ? $uriVariables['taskId'] : '';

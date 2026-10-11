@@ -6,31 +6,28 @@ namespace Equipment\Presentation\Api\Processor\Media;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Equipment\Application\UseCase\Command\Equipment\AddAttachment\{AddAttachmentCommand, AddAttachmentResult};
 use Equipment\Application\UseCase\Command\Equipment\DeleteAttachment\DeleteAttachmentCommand;
+use Equipment\Application\UseCase\Query\Media\GetEquipmentMedia\{GetEquipmentMediaQuery, GetEquipmentMediaResult};
+use Equipment\Application\UseCase\Query\Media\PrepareEquipmentMediaUpload\{PrepareEquipmentMediaUploadQuery, PrepareEquipmentMediaUploadResult};
 use Equipment\Domain\ValueObject\AttachmentId;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
+use Equipment\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Equipment\Presentation\Api\Dto\Output\Equipment\AttachmentOutput;
+use Equipment\Presentation\Api\Http\RevisionGuard;
 use Equipment\Presentation\Api\Provider\Media\MediaProvider;
-use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException};
-use Intervention\Domain\ValueObject\InterventionResourceType;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Domain\Exception\InvalidValueException;
-use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
-use Shared\Presentation\Api\Http\{ResourceIriParser, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function is_string;
 
 /**
- * Processor MediaProcessor.
+ * Translates multipart requests into commands owning their final commit.
  *
  * @category Processor
  * @version 1.0.0
@@ -41,78 +38,32 @@ use function is_string;
  */
 final readonly class MediaProcessor implements ProcessorInterface
 {
-  // #region Constants
+  // #region Constructor
   /**
-   * Constant MEDIA_NOT_FOUND_MESSAGE.
-   *
-   * Stable public message returned when an uploaded media item is unavailable.
-   *
-   * @access private
-   */
-  private const string MEDIA_NOT_FOUND_MESSAGE = 'Media not found.';
-  // #endregion
-
-  /**
-   * Constructor.
-   *
-   * Initializes a new instance of the MediaProcessor class.
-   *
-   * @since 1.0.0
-   *
-   * @param EntityManagerInterface $entityManager the entity manager value
-   * @param CommandBusPort $commandBus the command bus value
-   * @param OrganizationAuthorizationPort $authorization the authorization value
-   * @param Security $security the security value
-   * @param RequestStack $requestStack the request stack value
-   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
-   * @param RevisionGuard $revisionGuard the revision guard value
-   * @param MultipartAttachmentGuard $attachmentGuard validates the uploaded file's MIME type and size
+   * Constructor. @since 1.0.0
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,
-    private OrganizationAuthorizationPort $authorization,
+    private QueryBusPort $queries,
     private Security $security,
     private RequestStack $requestStack,
-    private InterventionResourceManager $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MultipartAttachmentGuard $attachmentGuard,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
-   * Method process.
-   *
-   * Runs attachment deletion or upload inside the entity manager transaction according to the HTTP method.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param mixed $data the data value
-   * @param Operation $operation the operation value
-   * @param array<string, mixed> $uriVariables the uri variables value
-   * @param array<string, mixed> $context the context value
-   *
-   * @return ?AttachmentOutput the process result
+   * @param array<string, mixed> $uriVariables @param array<string, mixed> $context @since 1.0.0
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?AttachmentOutput
   {
-    return $this->entityManager->wrapInTransaction(
-      fn (): ?AttachmentOutput => 'DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()
-        ? $this->delete($uriVariables)
-        : $this->upload(),
-    );
+    return 'DELETE' === $this->requestStack->getCurrentRequest()?->getMethod() ? $this->delete($uriVariables) : $this->upload();
   }
 
   /**
-   * Method upload.
-   *
-   * Validates multipart equipment scope and file data before dispatching the attachment upload command.
-   *
-   * @access private
    * @since 1.0.0
-   *
-   * @return AttachmentOutput the upload result
    */
   private function upload(): AttachmentOutput
   {
@@ -120,64 +71,47 @@ final readonly class MediaProcessor implements ProcessorInterface
     if (!$request instanceof Request) {
       throw new BadRequestHttpException('Request payload is required.');
     }
-
-    [$equipmentValue, $interventionValue, $clientId] = self::uploadFields($request);
-    $equipment = $this->entityManager->find(EquipmentRecord::class, ResourceIriParser::id($equipmentValue, 'equipment'));
-    if (!$equipment instanceof EquipmentRecord || null === $equipment->organization) {
-      throw new NotFoundHttpException('Equipment not found.');
+    [$equipment, $intervention, $clientId] = self::uploadFields($request);
+    /** @var PrepareEquipmentMediaUploadResult $scope */
+    $scope = $this->queries->ask(new PrepareEquipmentMediaUploadQuery(
+      ResourceIriParser::id($equipment, 'equipment'),
+      $this->userId(),
+      null === $intervention ? null : ResourceIriParser::id($intervention, 'interventions'),
+      $clientId,
+    ));
+    if (null !== $scope->replay) {
+      return MediaProvider::output($scope->replay);
     }
-    $organizationId = $equipment->organization->id;
-    $interventionId = null;
-    if (null !== $interventionValue) {
-      $interventionId = ResourceIriParser::id($interventionValue, 'interventions');
-    } elseif ('draft' === $equipment->recordStatus) {
-      $interventionId = $equipment->interventionId;
-    }
-    $this->assertWrite($equipment, $interventionId);
-    $replayed = $this->replayedUpload($clientId, $equipment);
-    if ($replayed instanceof AttachmentOutput) {
-      return $replayed;
-    }
-
-    // MIME/size validation happens LAST, only once the clientId dedup
-    // short-circuit above has ruled out a retry — a retry never needs the
-    // file re-read or re-checked. See MultipartAttachmentGuard, the same
-    // kernel Facility/Intervention/Inspection/Messaging already route
-    // through.
     $uploaded = $this->attachmentGuard->fromRequest($request);
-
     /** @var AddAttachmentResult $result */
     $result = $this->commandBus->dispatch(new AddAttachmentCommand(
-      organizationId: $organizationId,
-      equipmentId: $equipment->id,
+      organizationId: $scope->organizationId,
+      equipmentId: $scope->equipmentId,
       fileName: $uploaded->fileName,
       contents: $uploaded->contents,
       mimeType: $uploaded->mimeType,
       size: $uploaded->size,
       label: $uploaded->label,
       attachmentId: null !== $clientId && '' !== $clientId ? $clientId : null,
+      userId: $this->userId(),
+      interventionId: $scope->interventionId,
     ));
-    $record = $this->entityManager->find(EquipmentAttachmentRecord::class, $result->attachmentId);
-    if (!$record instanceof EquipmentAttachmentRecord) {
-      throw new NotFoundHttpException('Uploaded media not found.');
-    }
-    $this->interventionResourceManager->touchDraftIntervention($interventionId);
 
-    return MediaProvider::output($record);
+    return MediaProvider::output($result);
   }
 
   /**
-   * @return array{string, ?string, ?string}
+   * @return array{string, ?string, ?string} @since 1.0.0
    */
   private static function uploadFields(Request $request): array
   {
-    $equipmentValue = $request->request->get('equipment');
-    $interventionValue = $request->request->get('intervention');
+    $equipment = $request->request->get('equipment');
+    $intervention = $request->request->get('intervention');
     $clientId = $request->request->get('clientId');
-    if (!is_string($equipmentValue) || !$request->files->get('file') instanceof UploadedFile) {
+    if (!is_string($equipment) || !$request->files->get('file') instanceof UploadedFile) {
       throw new BadRequestHttpException('Multipart fields "equipment" and "file" are required.');
     }
-    if (null !== $interventionValue && !is_string($interventionValue)) {
+    if (null !== $intervention && !is_string($intervention)) {
       throw new BadRequestHttpException('Multipart field "intervention" must be a intervention IRI.');
     }
     if (null !== $clientId && !is_string($clientId)) {
@@ -191,144 +125,45 @@ final readonly class MediaProcessor implements ProcessorInterface
       }
     }
 
-    return [$equipmentValue, $interventionValue, $clientId];
+    return [$equipment, $intervention, $clientId];
   }
 
   /**
-   * Method replayedUpload.
-   *
-   * Resolves a previously stored upload for the same equipment or rejects reuse by another equipment.
-   *
-   * @access private
-   *
-   * @param string|null $clientId the idempotency identifier supplied by the upload client
-   * @param EquipmentRecord $equipment the equipment expected to own the uploaded media
-   *
-   * @return AttachmentOutput|null the existing attachment output when a matching upload exists
-   *
-   * @throws ConflictHttpException when the identifier belongs to another equipment
-   */
-  private function replayedUpload(?string $clientId, EquipmentRecord $equipment): ?AttachmentOutput
-  {
-    if (null === $clientId || '' === $clientId) {
-      return null;
-    }
-
-    $existing = $this->entityManager->find(EquipmentAttachmentRecord::class, $clientId);
-    if (!$existing instanceof EquipmentAttachmentRecord) {
-      return null;
-    }
-    if ($existing->equipment?->id !== $equipment->id) {
-      throw new ConflictHttpException('Media client UUID is already assigned to another equipment.');
-    }
-
-    return MediaProvider::output($existing);
-  }
-
-  /**
-   * Method delete.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   *
-   * @return null the delete result
+   * @param array<string, mixed> $uriVariables @since 1.0.0
    */
   private function delete(array $uriVariables): null
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
-      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
+      throw new NotFoundHttpException('Media not found.');
     }
-    $record = $this->entityManager->find(EquipmentAttachmentRecord::class, $id);
-    if (!$record instanceof EquipmentAttachmentRecord || null === $record->equipment) {
-      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
-    }
-    $equipment = $record->equipment;
-    if (null === $equipment->organization) {
-      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
-    }
-    $organization = $equipment->organization;
-    $interventionId = 'draft' === $equipment->recordStatus ? $equipment->interventionId : null;
-    $this->assertWrite($equipment, $interventionId);
-    $this->revisionGuard->assertMatches($record->revision);
+    /** @var GetEquipmentMediaResult $result */
+    $result = $this->queries->ask(new GetEquipmentMediaQuery($id, $this->userId(), write: true));
+    $view = $result->view;
+    $this->revisionGuard->assertMatches($view->revision);
     $this->commandBus->dispatch(new DeleteAttachmentCommand(
-      organizationId: $organization->id,
-      equipmentId: $equipment->id,
-      attachmentId: $record->id,
+      organizationId: $view->organizationId,
+      equipmentId: $view->equipmentId,
+      attachmentId: $view->id,
+      userId: $this->userId(),
+      interventionId: 'draft' === $view->recordStatus ? $view->interventionId : null,
+      expectedRevision: $view->revision,
     ));
-    if (null !== $interventionId) {
-      $this->interventionResourceManager->touchDraftIntervention($interventionId);
-    }
 
     return null;
   }
 
   /**
-   * Method assertWrite.
-   *
-   * `intervention` on the upload path (see {@see self::upload()}) is read
-   * straight off the multipart request body — an attacker-controlled value,
-   * independent of the `equipment` field's own organization. Resolving
-   * `mutationPermission()` FIRST, with `$equipment->organization->id` passed
-   * as `$expectedOrganizationId`, gates a cross-organization intervention id
-   * on the module-wide 404 (`InterventionNotFoundException`) before the
-   * `interventionContext()`-based checks below are ever reached — those used
-   * to answer first and, being a 409 (`InterventionConflictException`), told
-   * an outside caller both that the intervention exists and that it belongs
-   * to another organization. They stay in place as defense in depth for a
-   * same-organization caller: `resourceInInterventionScope()` still refuses
-   * an intervention that legitimately belongs to the caller's own
-   * organization but not to this equipment's assignment.
-   *
-   * @access private
    * @since 1.0.0
-   *
-   * @param EquipmentRecord $equipment the equipment value
-   * @param ?string $interventionId the intervention authorizing the mutation
-   *
-   * @return void no return value
    */
-  private function assertWrite(EquipmentRecord $equipment, ?string $interventionId): void
+  private function userId(): string
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser || null === $equipment->organization) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    try {
-      if (null !== $interventionId) {
-        $permission = $this->interventionResourceManager->mutationPermission($interventionId, $user->getId(), $equipment->organization->id);
-        $intervention = $this->interventionResourceManager->interventionContext($interventionId);
-        if (null === $intervention || $intervention->organizationId !== $equipment->organization->id) {
-          throw new InterventionConflictException('Intervention and equipment must belong to the same organization.');
-        }
-        if (
-          $equipment->interventionId !== $interventionId
-          && !$this->interventionResourceManager->resourceInInterventionScope(
-            InterventionResourceType::EQUIPMENT,
-            $equipment->id,
-            $interventionId,
-          )
-        ) {
-          throw new InterventionConflictException('Equipment is outside the intervention scope.');
-        }
-      } else {
-        $permission = 'organization.equipment.write';
-      }
-    } catch (InterventionAccessDeniedException $exception) {
-      throw new AccessDeniedHttpException($exception->getMessage(), $exception);
-    } catch (InterventionNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InterventionConflictException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    }
-    $decision = $this->authorization->resolveAccess($user->getId(), $equipment->organization->id, $permission);
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Equipment not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
-    }
+    return $user->getId();
   }
+  // #endregion
 }

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Assistant\Application\UseCase\Query\Thread\ListAssistantThreads;
 
-use Assistant\Application\Contract\Thread\AssistantThreadView;
-use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
-use Assistant\Application\Service\AssistantAccessPolicy;
+use Assistant\Application\Port\Outbound\Internal\AssistantThreadRepositoryPort;
+use Assistant\Application\Service\{AssistantAccessPolicy, AssistantThreadViewMapper};
 use Shared\Application\Message\QueryHandler;
 
 use function array_map;
@@ -66,7 +65,7 @@ final readonly class ListAssistantThreadsHandler implements QueryHandler
     $total = $this->threads->countByOrganizationAndMember($query->organizationId, $memberId);
 
     return new ListAssistantThreadsResult(
-      items: array_map(AssistantThreadView::fromDomain(...), $threads),
+      items: array_map(AssistantThreadViewMapper::fromDomain(...), $threads),
       page: $query->page,
       itemsPerPage: $itemsPerPage,
       total: $total,

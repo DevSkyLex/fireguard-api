@@ -10,7 +10,6 @@ use Equipment\Domain\ValueObject\{EquipmentOrganizationId, TagId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\TagMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\TagRecord;
 use LogicException;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -42,8 +41,7 @@ final class TagMapperTest extends TestCase
   #[Test]
   public function testToDomainRefusesARecordWithoutAnOrganization(): void
   {
-    $record = $this->record();
-    $record->organization = null;
+    $record = new TagRecord();
 
     $this->expectException(LogicException::class);
     $this->expectExceptionMessage('Tag record must reference an organization.');
@@ -52,7 +50,7 @@ final class TagMapperTest extends TestCase
   }
 
   #[Test]
-  public function testToRecordMapsTheAggregateWithoutTheOrganizationAssociation(): void
+  public function testToRecordMapsTheAggregateWithItsScalarOrganizationIdentity(): void
   {
     $createdAt = new DateTimeImmutable('2026-02-03T09:30:00+00:00');
 
@@ -68,14 +66,14 @@ final class TagMapperTest extends TestCase
     self::assertSame(self::TAG_ID, $record->id);
     self::assertSame('Critique', $record->name);
     self::assertEquals($createdAt, $record->createdAt);
-    self::assertNull($record->organization);
+    self::assertSame((string) $tag->organizationId(), $record->organizationId);
   }
 
   #[Test]
   public function testARoundTripPreservesTheTagIdentity(): void
   {
     $record = TagMapper::toRecord(TagMapper::toDomain($this->record()));
-    $record->organization = $this->organization();
+    $record->organizationId = self::ORGANIZATION_ID;
 
     $roundTripped = TagMapper::toDomain($record);
 
@@ -83,19 +81,11 @@ final class TagMapperTest extends TestCase
     self::assertSame('Étage 2', $roundTripped->name());
   }
 
-  private function organization(): OrganizationRecord
-  {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-
-    return $organization;
-  }
-
   private function record(): TagRecord
   {
     $record = new TagRecord();
     $record->id = self::TAG_ID;
-    $record->organization = $this->organization();
+    $record->organizationId = self::ORGANIZATION_ID;
     $record->name = 'Étage 2';
     $record->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 

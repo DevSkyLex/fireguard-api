@@ -99,6 +99,12 @@ Key folders:
 - `src/TrustedDevice/Domain`
 - `src/TrustedDevice/Infrastructure`
 
+### Published and private capabilities
+
+TrustedDeviceDataLifecyclePort owns account purge and expiration/revocation retention on auth. Consumers receive no mutable aggregates. Trust remains separate from mandatory bearer and session authorization.
+
+Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
+
 ## Configuration
 
 - Service wiring: `config/modules/trusted_device.yaml`

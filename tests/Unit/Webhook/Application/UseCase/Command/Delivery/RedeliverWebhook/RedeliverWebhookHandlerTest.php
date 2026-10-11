@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Webhook\Application\UseCase\Command\Delivery\RedeliverWebhook;
 
+use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Application\Port\Outbound\{WebhookDeliveryQueuePort, WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
+use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Webhook\Application\Port\Outbound\Internal\{WebhookDeliveryRepositoryPort, WebhookDeliveryWorkPort, WebhookSubscriptionRepositoryPort};
+use Webhook\Application\Port\Outbound\WebhookDeliverySchedulePort;
 use Webhook\Application\UseCase\Command\Delivery\RedeliverWebhook\{RedeliverWebhookCommand, RedeliverWebhookHandler, RedeliverWebhookResult};
 use Webhook\Domain\Exception\{WebhookDeliveryNotFoundException, WebhookSubscriptionNotFoundException};
 use Webhook\Domain\Model\Delivery\WebhookDelivery;
@@ -38,18 +41,21 @@ final class RedeliverWebhookHandlerTest extends TestCase
     $subscriptionRepository = $this->createStub(WebhookSubscriptionRepositoryPort::class);
     $subscriptionRepository->method('findById')->willReturn($this->subscription());
 
-    $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
+    $deliveryRepository = $this->createStub(WebhookDeliveryRepositoryPort::class);
     $deliveryRepository->method('findById')->willReturn($this->delivery());
-    $deliveryRepository->expects(self::once())->method('save');
+    $work = $this->createMock(WebhookDeliveryWorkPort::class);
+    $work->expects(self::once())->method('reopen')->with(self::DELIVERY_ID, self::SUBSCRIPTION_ID, self::isInstanceOf(DateTimeImmutable::class))->willReturn(1);
 
-    $queue = $this->createMock(WebhookDeliveryQueuePort::class);
-    $queue->expects(self::once())->method('dispatch')->with(self::DELIVERY_ID);
+    $queue = $this->createMock(WebhookDeliverySchedulePort::class);
+    $queue->expects(self::once())->method('enqueue')->with(self::DELIVERY_ID, 1);
 
     $handler = new RedeliverWebhookHandler(
       $subscriptionRepository,
       $deliveryRepository,
       $queue,
       $this->createStub(OrganizationAuthorizationPort::class),
+      $work,
+      $this->transactions(),
     );
 
     $result = $handler->__invoke(new RedeliverWebhookCommand(
@@ -73,8 +79,10 @@ final class RedeliverWebhookHandlerTest extends TestCase
     $handler = new RedeliverWebhookHandler(
       $subscriptionRepository,
       $this->createStub(WebhookDeliveryRepositoryPort::class),
-      $this->createStub(WebhookDeliveryQueuePort::class),
+      $this->createStub(WebhookDeliverySchedulePort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
+      $this->createStub(WebhookDeliveryWorkPort::class),
+      $this->transactions(),
     );
 
     $this->expectException(WebhookSubscriptionNotFoundException::class);
@@ -99,8 +107,10 @@ final class RedeliverWebhookHandlerTest extends TestCase
     $handler = new RedeliverWebhookHandler(
       $subscriptionRepository,
       $deliveryRepository,
-      $this->createStub(WebhookDeliveryQueuePort::class),
+      $this->createStub(WebhookDeliverySchedulePort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
+      $this->createStub(WebhookDeliveryWorkPort::class),
+      $this->transactions(),
     );
 
     $this->expectException(WebhookDeliveryNotFoundException::class);
@@ -144,5 +154,16 @@ final class RedeliverWebhookHandlerTest extends TestCase
       eventId: 'event-1',
       payload: ['foo' => 'bar'],
     );
+  }
+
+  /**
+   * Executes the owning transaction callback without a database in handler unit tests.
+   */
+  private function transactions(): TransactionManagerPort
+  {
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    return $transactions;
   }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Query\Message\ListPinnedMessages;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};

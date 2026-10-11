@@ -6,15 +6,14 @@ namespace Equipment\Infrastructure\DataFixtures;
 
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Equipment\Domain\ValueObject\{EquipmentStatus, EquipmentType};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentMaintenanceLogRecord, EquipmentRecord, EquipmentTagRecord, TagRecord};
-use Facility\Infrastructure\DataFixtures\FacilityFixtures;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
+use Facility\Application\Contract\Seed\SeedCatalog as FacilityFixtures;
+use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
+use Shared\Application\Contract\Seed\SeedReference;
+use Shared\Application\Contract\Seed\{SeedTimeline, SeedUuid};
+use Shared\Application\Port\Inbound\{SeedReferenceConsumerPort, SeedReferenceRegistryPort};
 
 use function count;
 use function intdiv;
@@ -29,8 +28,10 @@ use function ucfirst;
  *
  * @category DataFixtures
  */
-final class EquipmentFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+final class EquipmentFixtures extends Fixture implements FixtureGroupInterface, SeedReferenceConsumerPort
 {
+  // #endregion
+
   // #region Constants
   /**
    * Constant EXTINGUISHER_REFERENCE
@@ -460,6 +461,22 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     'equipment-seed-bulk-22' => ['x' => 0.33, 'y' => 0.41],
   ];
 
+  // #region Properties
+  /**
+   * Scalar fixture facts supplied by the composition root.
+   */
+  private SeedReferenceRegistryPort $seedReferences;
+  // #endregion
+
+  // #region Methods
+  /**
+   * {@inheritdoc}
+   */
+  public function setSeedReferences(SeedReferenceRegistryPort $references): void
+  {
+    $this->seedReferences = $references;
+  }
+
   // #endregion
 
   // #region Methods
@@ -488,10 +505,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
    */
   public function getDependencies(): array
   {
-    return [
-      OrganizationFixtures::class,
-      FacilityFixtures::class,
-    ];
+    return [];
   }
 
   /**
@@ -507,28 +521,28 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
    */
   public function load(ObjectManager $manager): void
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
-    /** @var FacilityRecord $zone */
-    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $site */
-    $site = $this->getReference(FacilityFixtures::SITE_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $building */
-    $building = $this->getReference(FacilityFixtures::BUILDING_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $floorOne */
-    $floorOne = $this->getReference(FacilityFixtures::FLOOR_ONE_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $floorTwo */
-    $floorTwo = $this->getReference(FacilityFixtures::FLOOR_TWO_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $area */
-    $area = $this->getReference(FacilityFixtures::AREA_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $zoneB */
-    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $storageRoom */
-    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
+    /** @var SeedReference $organization */
+    $organization = $this->seedReferences->get(OrganizationFixtures::ORGANIZATION_REFERENCE);
+    /** @var SeedReference $zone */
+    $zone = $this->seedReferences->get(FacilityFixtures::ZONE_REFERENCE);
+    /** @var SeedReference $site */
+    $site = $this->seedReferences->get(FacilityFixtures::SITE_REFERENCE);
+    /** @var SeedReference $building */
+    $building = $this->seedReferences->get(FacilityFixtures::BUILDING_REFERENCE);
+    /** @var SeedReference $floorOne */
+    $floorOne = $this->seedReferences->get(FacilityFixtures::FLOOR_ONE_REFERENCE);
+    /** @var SeedReference $floorTwo */
+    $floorTwo = $this->seedReferences->get(FacilityFixtures::FLOOR_TWO_REFERENCE);
+    /** @var SeedReference $area */
+    $area = $this->seedReferences->get(FacilityFixtures::AREA_REFERENCE);
+    /** @var SeedReference $zoneB */
+    $zoneB = $this->seedReferences->get(FacilityFixtures::ZONE_B_REFERENCE);
+    /** @var SeedReference $storageRoom */
+    $storageRoom = $this->seedReferences->get(FacilityFixtures::STORAGE_ROOM_REFERENCE);
 
     $criticalTag = new TagRecord();
     $criticalTag->id = '33333333-3333-4333-8333-333333333331';
-    $criticalTag->organization = $organization;
+    $criticalTag->organizationId = $organization->id;
     $criticalTag->name = 'critical-safety';
     $criticalTag->createdAt = SeedTimeline::at('2026-03-01T09:00:00+00:00');
     $manager->persist($criticalTag);
@@ -536,7 +550,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
 
     $inspectedTag = new TagRecord();
     $inspectedTag->id = '33333333-3333-4333-8333-333333333332';
-    $inspectedTag->organization = $organization;
+    $inspectedTag->organizationId = $organization->id;
     $inspectedTag->name = 'annually-inspected';
     $inspectedTag->createdAt = SeedTimeline::at('2026-03-01T09:01:00+00:00');
     $manager->persist($inspectedTag);
@@ -546,7 +560,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     foreach (self::ADDITIONAL_TAG_SEEDS as $tagSeed) {
       $tag = new TagRecord();
       $tag->id = $tagSeed['id'];
-      $tag->organization = $organization;
+      $tag->organizationId = $organization->id;
       $tag->name = $tagSeed['name'];
       $tag->createdAt = SeedTimeline::at($tagSeed['createdAt']);
       $manager->persist($tag);
@@ -569,14 +583,14 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     ];
 
     foreach (FacilityFixtures::REGIONAL_SITE_SEEDS as $regionalSeed) {
-      /** @var FacilityRecord $regionalSite */
-      $regionalSite = $this->getReference($regionalSeed['reference'], FacilityRecord::class);
+      /** @var SeedReference $regionalSite */
+      $regionalSite = $this->seedReferences->get($regionalSeed['reference']);
       $facilitiesByReference[$regionalSeed['reference']] = $regionalSite;
     }
 
     foreach (FacilityFixtures::REGIONAL_CHILD_SEEDS as $childSeed) {
-      /** @var FacilityRecord $regionalChild */
-      $regionalChild = $this->getReference($childSeed['reference'], FacilityRecord::class);
+      /** @var SeedReference $regionalChild */
+      $regionalChild = $this->seedReferences->get($childSeed['reference']);
       $facilitiesByReference[$childSeed['reference']] = $regionalChild;
     }
 
@@ -630,7 +644,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
   /**
    * @return array<string, EquipmentRecord>
    */
-  private function seedPrimaryEquipment(ObjectManager $manager, OrganizationRecord $organization, FacilityRecord $zone, FacilityRecord $area, TagRecord $criticalTag, TagRecord $inspectedTag): array
+  private function seedPrimaryEquipment(ObjectManager $manager, SeedReference $organization, SeedReference $zone, SeedReference $area, TagRecord $criticalTag, TagRecord $inspectedTag): array
   {
     $extinguisher = $this->createEquipment(
       id: '33333333-3333-4333-8333-333333333333',
@@ -712,20 +726,20 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
   /**
    * @return array<string, EquipmentRecord>
    */
-  private function seedBuildingEquipment(ObjectManager $manager, OrganizationRecord $organization): array
+  private function seedBuildingEquipment(ObjectManager $manager, SeedReference $organization): array
   {
-    /** @var FacilityRecord $zoneB */
-    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $storageRoom */
-    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $site */
-    $site = $this->getReference(FacilityFixtures::SITE_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $building */
-    $building = $this->getReference(FacilityFixtures::BUILDING_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $floorOne */
-    $floorOne = $this->getReference(FacilityFixtures::FLOOR_ONE_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $floorTwo */
-    $floorTwo = $this->getReference(FacilityFixtures::FLOOR_TWO_REFERENCE, FacilityRecord::class);
+    /** @var SeedReference $zoneB */
+    $zoneB = $this->seedReferences->get(FacilityFixtures::ZONE_B_REFERENCE);
+    /** @var SeedReference $storageRoom */
+    $storageRoom = $this->seedReferences->get(FacilityFixtures::STORAGE_ROOM_REFERENCE);
+    /** @var SeedReference $site */
+    $site = $this->seedReferences->get(FacilityFixtures::SITE_REFERENCE);
+    /** @var SeedReference $building */
+    $building = $this->seedReferences->get(FacilityFixtures::BUILDING_REFERENCE);
+    /** @var SeedReference $floorOne */
+    $floorOne = $this->seedReferences->get(FacilityFixtures::FLOOR_ONE_REFERENCE);
+    /** @var SeedReference $floorTwo */
+    $floorTwo = $this->seedReferences->get(FacilityFixtures::FLOOR_TWO_REFERENCE);
 
     $sprinkler = $this->createEquipment(
       id: '4cd977b8-c8e8-4af2-a808-fc6a0ac5197a',
@@ -823,7 +837,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
   }
 
   /**
-   * @param array<string, FacilityRecord> $facilitiesByReference
+   * @param array<string, SeedReference> $facilitiesByReference
    * @param array<string, EquipmentRecord> $equipmentByReference
    * @param list<TagRecord> $tagCatalogue
    *
@@ -831,7 +845,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
    */
   private function seedAdditionalEquipment(
     ObjectManager $manager,
-    OrganizationRecord $organization,
+    SeedReference $organization,
     array $facilitiesByReference,
     array $equipmentByReference,
     array $tagCatalogue,
@@ -876,9 +890,9 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
   }
 
   /**
-   * @param array<string, FacilityRecord> $facilitiesByReference
+   * @param array<string, SeedReference> $facilitiesByReference
    */
-  private function seedExtraRegionalEquipment(ObjectManager $manager, OrganizationRecord $organization, array $facilitiesByReference): void
+  private function seedExtraRegionalEquipment(ObjectManager $manager, SeedReference $organization, array $facilitiesByReference): void
   {
     $extraRegionalIndex = 0;
     foreach (self::EXTRA_REGIONAL_SLUGS as $slug) {
@@ -913,7 +927,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
    */
   private function createEquipment(
     string $id,
-    OrganizationRecord $organization,
+    SeedReference $organization,
     ?string $facilityId,
     string $type,
     string $status,
@@ -922,7 +936,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
   ): EquipmentRecord {
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = $facilityId;
     $equipment->type = $type;
     $equipment->brand = $details->brand;

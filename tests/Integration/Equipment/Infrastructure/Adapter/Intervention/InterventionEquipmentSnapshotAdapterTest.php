@@ -156,7 +156,7 @@ final class InterventionEquipmentSnapshotAdapterTest extends KernelTestCase
   {
     $record = new FacilityRecord();
     $record->id = self::id($number);
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->type = $type;
     $record->name = 'Facility ' . $number;
     $record->parentFacility = $parent;
@@ -175,7 +175,7 @@ final class InterventionEquipmentSnapshotAdapterTest extends KernelTestCase
   {
     $record = new EquipmentRecord();
     $record->id = self::id($number);
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->facilityId = $facilityId;
     $record->type = 'fire_extinguisher';
     $record->createdAt = $record->updatedAt = new DateTimeImmutable('2026-01-01T10:00:00Z');

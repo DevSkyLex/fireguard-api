@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Infrastructure\Adapter\Billing;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\ChangeOrganizationPlanCommand;
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Domain\Model\Plan\Plan;

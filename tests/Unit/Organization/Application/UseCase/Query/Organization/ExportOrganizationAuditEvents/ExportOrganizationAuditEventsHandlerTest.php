@@ -7,11 +7,12 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ExportO
 use Audit\Application\Contract\{AuditExportTooLargeException, OrganizationAuditEntry};
 use Audit\Application\Port\Inbound\OrganizationAuditFeedPort;
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationAuditEntryProjector;
 use Organization\Application\UseCase\Query\Organization\ExportOrganizationAuditEvents\{ExportOrganizationAuditEventsHandler, ExportOrganizationAuditEventsQuery};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};

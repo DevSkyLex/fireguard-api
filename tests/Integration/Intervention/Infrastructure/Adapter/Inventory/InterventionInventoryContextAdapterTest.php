@@ -114,7 +114,7 @@ final class InterventionInventoryContextAdapterTest extends KernelTestCase
     }
     $order = new InterventionRecord();
     $order->id = self::ORDER;
-    $order->organization = $org;
+    $order->organizationId = $org->id;
     $order->number = 1;
     $order->type = 'corrective_maintenance';
     $order->name = 'Actual stock declarations';

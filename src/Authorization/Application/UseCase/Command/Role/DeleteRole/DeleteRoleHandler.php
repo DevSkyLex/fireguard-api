@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Application\UseCase\Command\Role\DeleteRole;
 
-use Authorization\Application\Port\Outbound\RoleRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\RoleRepositoryPort;
 use Authorization\Domain\Exception\{RoleNotFoundException, SystemRoleDeletionException};
 use Authorization\Domain\ValueObject\RoleId;
 use Shared\Application\Message\CommandHandler;

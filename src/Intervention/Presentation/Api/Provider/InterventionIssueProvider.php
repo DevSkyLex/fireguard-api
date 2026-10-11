@@ -6,7 +6,7 @@ namespace Intervention\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\Contract\Resource\InterventionIssue;
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionIssues\{ListInterventionIssuesQuery, ListInterventionIssuesResult};
 use Intervention\Presentation\Api\Dto\Output\InterventionIssueOutput;
@@ -68,7 +68,7 @@ final readonly class InterventionIssueProvider implements ProviderInterface
       throw new NotFoundHttpException('Intervention not found.');
     }
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

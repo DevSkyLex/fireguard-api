@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Equipment\Infrastructure\Adapter\Inspection;
 
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\EquipmentRepositoryPort;
 use Equipment\Domain\ValueObject\EquipmentId;
 use Inspection\Application\Port\Outbound\EquipmentValidationPort;
 use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function sprintf;
 
@@ -71,7 +72,7 @@ final readonly class EquipmentValidationAdapter implements EquipmentValidationPo
   {
     try {
       $equipment = $this->equipmentRepository->findPublishedById(EquipmentId::fromString($equipmentId));
-    } catch (\Shared\Domain\Exception\InvalidValueException) {
+    } catch (InvalidValueException) {
       $equipment = null;
     }
     if (null === $equipment || (string) $equipment->organizationId() !== $organizationId) {
@@ -87,18 +88,18 @@ final readonly class EquipmentValidationAdapter implements EquipmentValidationPo
     $equipment = $this->equipmentRepository->findById(EquipmentId::fromString($equipmentId));
 
     if (null === $equipment || (string) $equipment->organizationId() !== $organizationId) {
-      throw new InvalidArgumentException(sprintf(self::NOT_FOUND_MESSAGE, $equipmentId));
+      throw InvalidValueException::because(sprintf(self::NOT_FOUND_MESSAGE, $equipmentId));
     }
 
     if ($equipment->status()->isDecommissioned()) {
-      throw new InvalidArgumentException(sprintf('Equipment with ID "%s" is decommissioned and cannot be inspected.', $equipmentId));
+      throw InvalidValueException::because(sprintf('Equipment with ID "%s" is decommissioned and cannot be inspected.', $equipmentId));
     }
 
     if (null !== $facilityId) {
       $equipmentFacilityId = $equipment->facilityId();
 
       if (null === $equipmentFacilityId || (string) $equipmentFacilityId !== $facilityId) {
-        throw new InvalidArgumentException(sprintf(
+        throw InvalidValueException::because(sprintf(
           'Equipment with ID "%s" is not assigned to facility "%s" and cannot be inspected there.',
           $equipmentId,
           $facilityId,

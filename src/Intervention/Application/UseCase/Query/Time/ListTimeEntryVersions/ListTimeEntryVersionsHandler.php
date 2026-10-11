@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Query\Time\ListTimeEntryVersions;
 
-use Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionTimeEntryRepositoryPort;
 use Intervention\Application\Service\InterventionTimeAccessPolicy;
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Shared\Application\Message\QueryHandler;

@@ -8,11 +8,12 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Contract\Event\Invitation\OrganizationInvitationSentEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\ResendOrganizationInvitation\{ResendOrganizationInvitationCommand, ResendOrganizationInvitationHandler, ResendOrganizationInvitationResult};
-use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
-use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotificationFailedException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotificationFailedException};
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
@@ -24,7 +25,7 @@ use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function is_array;
 use function is_string;
@@ -83,8 +84,8 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())->method('findByEmail')->willReturn(null);
 
     /** @var NotificationPort&MockObject $notificationPort */
@@ -141,7 +142,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       $notificationPort,
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
-      EmailTranslatorTestFactory::create(),
+      new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
     );
 
     $handler = new ResendOrganizationInvitationHandler(
@@ -199,8 +200,8 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::never())->method('findById');
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::never())->method('findByEmail');
 
     /** @var NotificationPort&MockObject $notificationPort */
@@ -223,7 +224,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       $notificationPort,
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
-      EmailTranslatorTestFactory::create(),
+      new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
     );
 
     $handler = new ResendOrganizationInvitationHandler(
@@ -293,8 +294,8 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())->method('findByEmail')->willReturn(null);
 
     /** @var NotificationPort&MockObject $notificationPort */
@@ -333,7 +334,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       $notificationPort,
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
-      EmailTranslatorTestFactory::create(),
+      new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
     );
 
     $handler = new ResendOrganizationInvitationHandler(
@@ -469,8 +470,8 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
 
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::once())->method('findByEmail')->willReturn(null);
 
     /** @var NotificationPort&MockObject $notificationPort */
@@ -511,7 +512,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       $notificationPort,
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
-      EmailTranslatorTestFactory::create(),
+      new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
     );
 
     $handler = new ResendOrganizationInvitationHandler(
@@ -571,8 +572,8 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
     OrganizationInvitationRepositoryPort $invitationRepository,
     OrganizationRepositoryPort $organizationRepository,
   ): ResendOrganizationInvitationHandler {
-    /** @var UserRepositoryPort&MockObject $userRepository */
-    $userRepository = $this->createMock(UserRepositoryPort::class);
+    /** @var UserDirectoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserDirectoryPort::class);
     $userRepository->expects(self::never())->method('findByEmail');
 
     /** @var NotificationPort&MockObject $notificationPort */
@@ -595,7 +596,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       $notificationPort,
       'http://localhost:4200',
       new OrganizationInvitationTokenHasher(),
-      EmailTranslatorTestFactory::create(),
+      new \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter(EmailTranslatorTestFactory::create()),
     );
 
     return new ResendOrganizationInvitationHandler(

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\AssignToFacility;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, FacilityValidationPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{FacilityNamingPort, FacilityValidationPort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\{AssignToFacilityCommand, AssignToFacilityHandler, AssignToFacilityResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;

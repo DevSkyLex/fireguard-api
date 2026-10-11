@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Webhook\Application\UseCase\Query\Subscription\GetWebhookSubscription\{GetWebhookSubscriptionQuery, GetWebhookSubscriptionResult};
 use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Presentation\Api\Dto\Output\WebhookSubscriptionOutput;
@@ -124,7 +124,7 @@ final class GetWebhookSubscriptionProviderTest extends TestCase
 
     $provider = new GetWebhookSubscriptionProvider($queryBus, $security, new WebhookSubscriptionOutputFactory());
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(WebhookSubscriptionNotFoundException::class);
 
     $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID, 'webhookId' => self::WEBHOOK_ID]);
   }

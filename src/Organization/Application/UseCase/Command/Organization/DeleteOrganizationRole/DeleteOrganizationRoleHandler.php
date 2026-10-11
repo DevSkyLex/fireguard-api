@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole;
 
-use Organization\Application\Port\Inbound\{OrganizationJoinAccessPort, OrganizationLastAdminGuardPort};
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Event\Role\OrganizationRoleDeletedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
-use Organization\Domain\Exception\OrganizationSystemRoleImmutableException;
+use Organization\Application\Contract\Event\Role\OrganizationRoleDeletedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\{OrganizationJoinAccessPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Exception\{OrganizationRoleNotFoundException, OrganizationSystemRoleImmutableException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};

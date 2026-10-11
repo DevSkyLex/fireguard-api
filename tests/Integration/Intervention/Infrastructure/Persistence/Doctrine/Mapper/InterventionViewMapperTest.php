@@ -12,7 +12,8 @@ use Intervention\Application\Contract\Resource\{
   InterventionValidationContext,
   InterventionWorkItemSummary
 };
-use Intervention\Application\Port\Outbound\{InterventionPublicationResourcesIssuesPort, InterventionResourceGatewayPort};
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\InterventionPublicationResourcesIssuesPort;
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
@@ -29,6 +30,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
 use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Port\Outbound\RootTransactionManagerPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -114,7 +116,7 @@ final class InterventionViewMapperTest extends KernelTestCase
     $this->mapper = new InterventionViewMapper(
       $this->entityManager,
       $resources,
-      new InterventionIssueFinder($resources, new InterventionAttachmentRepository($this->entityManager), $this->createStub(InterventionPublicationResourcesIssuesPort::class)),
+      new InterventionIssueFinder($resources, new InterventionAttachmentRepository($this->entityManager, $this->createStub(RootTransactionManagerPort::class)), $this->createStub(InterventionPublicationResourcesIssuesPort::class)),
     );
 
     $this->seed();
@@ -142,6 +144,9 @@ final class InterventionViewMapperTest extends KernelTestCase
       requiredIncomplete: 2,
       proposedChanges: 3,
       resourceBlockers: 1,
+      commentsCount: 2,
+      hasSignature: true,
+      labels: [['id' => self::LABEL_ID, 'name' => 'Priority', 'color' => '#ff8800']],
     );
 
     $view = $this->mapper->interventionView($intervention, $metrics);
@@ -180,7 +185,7 @@ final class InterventionViewMapperTest extends KernelTestCase
     self::assertSame(4, $data['completedWorkItemsCount']);
     self::assertSame(3, $data['proposedChangesCount']);
 
-    // Comment count and labels are read live from the real database.
+    // The paginated path uses only the supplied counters and label snapshot.
     self::assertSame(2, $data['commentsCount']);
     // A signature attachment was seeded for this intervention.
     self::assertTrue($data['hasSignature']);
@@ -405,7 +410,7 @@ final class InterventionViewMapperTest extends KernelTestCase
 
     $template = new InterventionTemplateRecord();
     $template->id = self::TEMPLATE_ID;
-    $template->organization = $organization;
+    $template->organizationId = $organization->id;
     $template->name = 'Quarterly panel check';
     $template->createdAt = $timestamp;
     $template->updatedAt = $timestamp;
@@ -413,7 +418,7 @@ final class InterventionViewMapperTest extends KernelTestCase
 
     $recurrence = new InterventionRecurrenceRecord();
     $recurrence->id = self::RECURRENCE_ID;
-    $recurrence->organization = $organization;
+    $recurrence->organizationId = $organization->id;
     $recurrence->template = $template;
     $recurrence->name = 'Quarterly panel check';
     $recurrence->frequency = 'quarterly';
@@ -434,7 +439,7 @@ final class InterventionViewMapperTest extends KernelTestCase
 
     $label = new InterventionLabelRecord();
     $label->id = self::LABEL_ID;
-    $label->organization = $organization;
+    $label->organizationId = $organization->id;
     $label->name = 'Priority';
     $label->color = '#ff8800';
     $label->createdAt = $timestamp;
@@ -499,7 +504,7 @@ final class InterventionViewMapperTest extends KernelTestCase
   ): InterventionRecord {
     $record = new InterventionRecord();
     $record->id = $id;
-    $record->organization = $organization;
+    $record->organizationId = $organization->id;
     $record->type = $type;
     $record->name = 'Intervention ' . $number;
     $record->number = $number;

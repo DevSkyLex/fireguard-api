@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeDevice;
 
 use Shared\Application\Message\CommandHandler;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 use TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException;
 use TrustedDevice\Domain\ValueObject\TrustedDeviceId;
 

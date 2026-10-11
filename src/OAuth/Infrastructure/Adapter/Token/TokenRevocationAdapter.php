@@ -6,7 +6,8 @@ namespace OAuth\Infrastructure\Adapter\Token;
 
 use Auth\Application\Port\Outbound\TokenRevocationPort as AuthTokenRevocationPort;
 use League\OAuth2\Server\CryptTrait;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort, RefreshTokenRepositoryPort, TokenCachePort, TokenRevocationPort as OAuthTokenRevocationPort, UserTokenRevocationPort};
+use OAuth\Application\Port\Outbound\Internal\Token\{AccessTokenRepositoryPort, RefreshTokenRepositoryPort};
+use OAuth\Application\Port\Outbound\Token\{JwtParserPort, TokenCachePort, TokenRevocationPort as OAuthTokenRevocationPort, UserTokenRevocationPort};
 use OAuth\Domain\Event\Token\TokenRevokedEvent;
 use Psr\Log\LoggerInterface;
 use Session\Application\Port\Inbound\Tracking\SessionTrackingPort;

@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\DataFixtures;
 
-use Authorization\Domain\ValueObject\SubjectType;
-use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
+use Authorization\Application\Port\Inbound\AuthorizationSeedRoleAssignmentsPort;
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
+use Shared\Application\Contract\Seed\SeedUuid;
+use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\{Email, TenantId};
-use Shared\Infrastructure\DataFixtures\SeedUuid;
-use Shared\Infrastructure\Service\UuidEventIdProvider;
-use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 use Symfony\Component\Uid\Uuid;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Username};
@@ -36,7 +32,7 @@ use const PASSWORD_BCRYPT;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-class UserFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+class UserFixtures extends Fixture implements FixtureGroupInterface
 {
   // #region Constants
   /** Constant ADMIN_USER_REFERENCE
@@ -314,6 +310,8 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
   public function __construct(
     private readonly UserMapper $userMapper,
     private readonly FixtureUserPasswords $passwords,
+    private readonly AuthorizationSeedRoleAssignmentsPort $roles,
+    private readonly EventIdProvider $eventIds,
   ) {
   }
   // #endregion
@@ -340,9 +338,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
    */
   public function getDependencies(): array
   {
-    return [
-      AuthorizationFixtures::class,
-    ];
+    return [];
   }
 
   /**
@@ -598,7 +594,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
         lastName: $lastName,
       ),
       tenantId: TenantId::fromString('00000000-0000-4000-8000-000000000001'),
-      eventIdProvider: new UuidEventIdProvider(new UuidGeneratorAdapter()),
+      eventIdProvider: $this->eventIds,
     );
 
     // Clear domain events to avoid handler issues during fixtures
@@ -615,18 +611,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
    */
   private function assignAdminRole(ObjectManager $manager, string $userId): void
   {
-    /** @var RoleRecord $adminRole */
-    $adminRole = $this->getReference(AuthorizationFixtures::ROLE_ADMIN, RoleRecord::class);
-
-    $assignment = new RoleAssignmentRecord();
-    $assignment->id = Uuid::v7()->toRfc4122();
-    $assignment->role = $adminRole;
-    $assignment->roleId = $adminRole->id;
-    $assignment->subjectType = SubjectType::USER->value;
-    $assignment->subjectId = $userId;
-    $assignment->assignedAt = new DateTimeImmutable();
-
-    $manager->persist($assignment);
+    $this->roles->assign($userId, 'admin', Uuid::v7()->toRfc4122(), new DateTimeImmutable());
   }
 
   /**
@@ -642,18 +627,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
    */
   private function assignUserRole(ObjectManager $manager, string $userId): void
   {
-    /** @var RoleRecord $userRole */
-    $userRole = $this->getReference(AuthorizationFixtures::ROLE_USER, RoleRecord::class);
-
-    $assignment = new RoleAssignmentRecord();
-    $assignment->id = Uuid::v7()->toRfc4122();
-    $assignment->role = $userRole;
-    $assignment->roleId = $userRole->id;
-    $assignment->subjectType = SubjectType::USER->value;
-    $assignment->subjectId = $userId;
-    $assignment->assignedAt = new DateTimeImmutable();
-
-    $manager->persist($assignment);
+    $this->roles->assign($userId, 'user', Uuid::v7()->toRfc4122(), new DateTimeImmutable());
   }
   // #endregion
 }

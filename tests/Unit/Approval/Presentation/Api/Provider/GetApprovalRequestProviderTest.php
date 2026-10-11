@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Approval\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Get;
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
 use Approval\Application\UseCase\Query\Request\GetApprovalRequest\{
   GetApprovalRequestQuery,
   GetApprovalRequestResult
 };
-use Approval\Domain\Exception\{
-  ApprovalRequestNotFoundException,
-  ApprovalRequestNotPendingException,
-  ApproverNotAuthorizedException,
-  DeferredActionNoLongerApplicableException,
-  SelfApprovalNotAllowedException
-};
+use Approval\Domain\Exception\{ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApproverNotAuthorizedException, SelfApprovalNotAllowedException};
 use Approval\Presentation\Api\Factory\ApprovalRequestOutputFactory;
 use Approval\Presentation\Api\Provider\GetApprovalRequestProvider;
 use Auth\Infrastructure\Security\User\SecurityUser;
@@ -115,7 +110,7 @@ final class GetApprovalRequestProviderTest extends TestCase
         && self::USER_ID === $query->userId))
       ->willReturn($this->approvalResult());
 
-    $output = $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables()));
 
     self::assertSame(self::REQUEST_ID, $output->id);
     self::assertSame('equipment_decommission', $output->actionType);
@@ -131,7 +126,7 @@ final class GetApprovalRequestProviderTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn($this->approvalResult(decided: true));
 
-    $output = $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables()));
 
     self::assertSame('approved', $output->status);
     self::assertSame('2026-01-10T00:00:00+00:00', $output->decidedAt);
@@ -158,7 +153,7 @@ final class GetApprovalRequestProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $provider->provide(new Get(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $provider->provide(new Get(), $this->uriVariables()));
   }
 
   /**
@@ -173,7 +168,7 @@ final class GetApprovalRequestProviderTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
 
-    $this->createProvider($queryBus)->provide(new Get(), $uriVariables);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus)->provide(new Get(), $uriVariables));
   }
 
   /**
@@ -190,7 +185,7 @@ final class GetApprovalRequestProviderTest extends TestCase
 
     $this->expectException($expected);
 
-    $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables()));
   }
 
   #[Test]
@@ -202,7 +197,7 @@ final class GetApprovalRequestProviderTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('database is down');
 
-    $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Approval', fn () => $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables()));
   }
 
   /**

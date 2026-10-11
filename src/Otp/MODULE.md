@@ -158,6 +158,14 @@ OTP HTTP endpoints; Auth must confirm it through the User capability.
 - Cross-module adapter: `Otp\Infrastructure\Adapter\Auth\TotpEnrollmentCheckAdapter` implements `Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort` (Auth-owned port), delegating to `TotpStatusPort`.
 - `Otp\Application\UseCase\Command\Challenge\VerifyOtp\VerifyOtpHandler` checks the OTP's channel: for `totp`, the submitted code is verified against the user's ACTIVE TOTP secret (via `TotpEnrollmentRepositoryPort` + `TotpServicePort`) instead of the challenge's own random code; challenge-level expiry/attempt bookkeeping is unchanged (`Otp::verifyExternal()`).
 
+### Published and private capabilities
+
+ChallengeAccessPort exposes immutable challenge projections and resend timing without a mutable aggregate. Auth confirmations use OtpChallengePort::verifyFor for purpose/owner binding and persisted attempts. The resend cooldown remains 60 seconds.
+
+OtpDataLifecyclePort owns challenge purge/retention; enrollment erasure continues through the existing locked enrollment purge capability.
+
+Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
+
 ## Configuration
 
 Email enrichment uses Shared's GeoIP switch and local database. It is disabled by default

@@ -28,7 +28,7 @@ use function array_values;
  * (not here, since it depends on the PARENT's state) via
  * {@see self::isReply()}. `replyCount` mirrors `Conversation::$messagesCount`:
  * populated on reconstitution, but the hot path bumps it through a single
- * atomic `UPDATE` ({@see \Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort::incrementReplyCount()}),
+ * atomic `UPDATE` ({@see \Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort::incrementReplyCount()}),
  * never a load-modify-save cycle.
  *
  * Structured references (B3): `references` is a bounded (at most
@@ -396,7 +396,7 @@ final class Message
    * Exists for domain completeness and unit testing, mirroring
    * `Conversation::incrementMessagesCount()` — the hot path of posting a
    * reply increments `reply_count` on the PARENT through a single atomic SQL
-   * `UPDATE` ({@see \Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort::incrementReplyCount()}),
+   * `UPDATE` ({@see \Messaging\Application\Port\Outbound\Internal\MessagingMessageRepositoryPort::incrementReplyCount()}),
    * never a load-modify-save cycle on this aggregate, to stay correct under
    * concurrent replies.
    *

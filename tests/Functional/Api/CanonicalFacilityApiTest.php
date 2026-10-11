@@ -754,7 +754,7 @@ final class CanonicalFacilityApiTest extends WebTestCase
   ): FacilityRecord {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->recordStatus = $recordStatus;
     $facility->revision = 1;
     $facility->parentFacility = $parent;

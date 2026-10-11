@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\DeleteOrganization;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\Event\Organization\OrganizationArchivedEvent;
-use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationNotFoundException};
+use Organization\Application\Contract\Event\Organization\OrganizationArchivedEvent;
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\OrganizationRepositoryPort;
+use Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;

@@ -8,16 +8,14 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 use Webhook\Application\UseCase\Query\Delivery\ListWebhookDeliveries\{ListWebhookDeliveriesQuery, ListWebhookDeliveriesResult};
 use Webhook\Presentation\Api\Dto\Output\WebhookDeliveryOutput;
 use Webhook\Presentation\Api\Factory\WebhookDeliveryOutputFactory;
-use Webhook\Presentation\Api\Trait\WebhookExceptionMapperTrait;
 
 use function array_map;
 use function is_string;
@@ -36,8 +34,6 @@ use function min;
  */
 final readonly class ListWebhookDeliveriesProvider implements ProviderInterface
 {
-  use WebhookExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -73,7 +69,7 @@ final readonly class ListWebhookDeliveriesProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -83,24 +79,20 @@ final readonly class ListWebhookDeliveriesProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId and webhookId URI parameters are required.');
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Webhook\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $status = $query->get('status');
     $page = max(1, $query->getInt('page', 1));
     $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
-    try {
-      /** @var ListWebhookDeliveriesResult $result */
-      $result = $this->queryBus->ask(new ListWebhookDeliveriesQuery(
-        userId: $user->getId(),
-        organizationId: $organizationId,
-        subscriptionId: $webhookId,
-        status: is_string($status) && '' !== $status ? $status : null,
-        page: $page,
-        itemsPerPage: $itemsPerPage,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapWebhookException($exception);
-    }
+    /** @var ListWebhookDeliveriesResult $result */
+    $result = $this->queryBus->ask(new ListWebhookDeliveriesQuery(
+      userId: $user->getId(),
+      organizationId: $organizationId,
+      subscriptionId: $webhookId,
+      status: is_string($status) && '' !== $status ? $status : null,
+      page: $page,
+      itemsPerPage: $itemsPerPage,
+    ));
 
     return new TraversablePaginator(
       new ArrayIterator(array_map($this->outputFactory->fromView(...), $result->items)),

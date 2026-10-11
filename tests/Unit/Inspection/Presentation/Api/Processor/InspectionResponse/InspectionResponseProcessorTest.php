@@ -12,17 +12,17 @@ use Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse\Del
 use Inspection\Application\UseCase\Query\Response\GetInspectionResponse\GetInspectionResponseResult;
 use Inspection\Domain\Exception\InspectionResponseClientIdAlreadyExistsException;
 use Inspection\Presentation\Api\Dto\Input\InspectionResponse\{CreateInspectionResponseInput, PatchInspectionResponseInput};
+use Inspection\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard, RevisionGuard};
 use Inspection\Presentation\Api\Processor\InspectionResponse\InspectionResponseProcessor;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack, Response};
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -203,7 +203,7 @@ final class InspectionResponseProcessorTest extends TestCase
       $authorization,
       $security,
       $requestStack,
-      new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class)),
+      new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter(new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class))),
       new CreationPreconditionGuard($requestStack),
       new RevisionGuard($requestStack),
     );

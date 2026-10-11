@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\RestoreFacility;
 
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Port\Inbound\FacilityHierarchyPort;
-use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{CanonicalFacilityRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Event\Facility\FacilityRestoredEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException, FacilityOrganizationNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
+use Shared\Application\Contract\Persistence\ForeignKeyConstraintViolationException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Throwable;

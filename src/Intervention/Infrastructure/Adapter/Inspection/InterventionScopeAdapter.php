@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Infrastructure\Adapter\Inspection;
 
 use Inspection\Application\Port\Outbound\InterventionScopePort;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 
 /**
  * Adapter InterventionScopeAdapter.

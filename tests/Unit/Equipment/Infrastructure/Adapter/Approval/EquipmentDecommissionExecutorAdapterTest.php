@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Infrastructure\Adapter\Approval;
 
+use Approval\Application\Contract\Exception\DeferredActionNoLongerApplicableException;
 use Approval\Application\Contract\Execution\DeferredActionContext;
-use Approval\Domain\Exception\DeferredActionNoLongerApplicableException;
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\DecommissionEquipmentCommand;
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Infrastructure\Adapter\Approval\EquipmentDecommissionExecutorAdapter;
@@ -13,7 +13,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 
 /**

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\Service;
 
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedPrincipal;
 use Shared\Application\Port\Outbound\DurableEventContextPort;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -39,8 +39,8 @@ final readonly class AuditActorResolver
   public function resolve(?string $explicitUserId = null, ?string $explicitEmail = null): array
   {
     $user = $this->security->getUser();
-    $tokenId = $user instanceof SecurityUser ? $user->getId() : null;
-    $tokenEmail = $user instanceof SecurityUser ? $user->getUserIdentifier() : null;
+    $tokenId = $user instanceof AuthenticatedPrincipal ? $user->getId() : null;
+    $tokenEmail = $user instanceof AuthenticatedPrincipal ? $user->getUserIdentifier() : null;
     $actorId = $explicitUserId ?? (null !== $this->eventContext->eventId() ? $this->eventContext->actorUserId() : $tokenId);
 
     if (null === $actorId) {

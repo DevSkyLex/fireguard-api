@@ -16,11 +16,11 @@ use Intervention\Application\Contract\Resource\{
   InterventionValidationContext,
   InterventionWorkItemSummary
 };
-use Intervention\Application\Port\Outbound\{InterventionEquipmentDraftProviderPort, InterventionResourceGatewayPort, InterventionResourceOwnerPort};
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\{InterventionEquipmentDraftProviderPort, InterventionResourceOwnerPort};
 use Intervention\Domain\Exception\InterventionResourceNotFoundException;
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, InterventionWorkItemRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function in_array;
 use function iterator_to_array;
@@ -85,13 +85,13 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   public function interventionAssignmentContext(string $interventionId): ?InterventionAssignmentContext
   {
     $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
-    if (!$intervention instanceof InterventionRecord || !$intervention->organization instanceof OrganizationRecord) {
+    if (!$intervention instanceof InterventionRecord || !isset($intervention->organizationId)) {
       return null;
     }
 
     return new InterventionAssignmentContext(
       $intervention->id,
-      $intervention->organization->id,
+      $intervention->organizationId,
       $intervention->status,
       $intervention->responsibleId,
       $intervention->participants,
@@ -112,13 +112,13 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   public function interventionMutationContext(string $interventionId): ?InterventionAssignmentContext
   {
     $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId, LockMode::PESSIMISTIC_WRITE);
-    if (!$intervention instanceof InterventionRecord || !$intervention->organization instanceof OrganizationRecord) {
+    if (!$intervention instanceof InterventionRecord || !isset($intervention->organizationId)) {
       return null;
     }
 
     return new InterventionAssignmentContext(
       $intervention->id,
-      $intervention->organization->id,
+      $intervention->organizationId,
       $intervention->status,
       $intervention->responsibleId,
       $intervention->participants,
@@ -379,7 +379,7 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
     if ([] === $interventionIds) {
       return [];
     }
-    /** @var array<string, array{facilities: int, equipment: int, inspections: int, workItems: int, completedWorkItems: int, requiredIncomplete: int, proposedChanges: int, resourceBlockers: int}> $values */
+    /** @var array<string, array{facilities: int, equipment: int, inspections: int, workItems: int, completedWorkItems: int, requiredIncomplete: int, proposedChanges: int, resourceBlockers: int, commentsCount: int, hasSignature: bool, labels: list<array{id: string, name: string, color: string}>}> $values */
     $values = [];
     foreach ($interventionIds as $interventionId) {
       $values[$interventionId] = [
@@ -391,6 +391,9 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
         'requiredIncomplete' => 0,
         'proposedChanges' => 0,
         'resourceBlockers' => 0,
+        'commentsCount' => 0,
+        'hasSignature' => false,
+        'labels' => [],
       ];
     }
     $this->addOwnedResourceMetrics($values, $interventionIds);
@@ -434,6 +437,30 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
       }
     }
 
+    $connection = $this->entityManager->getConnection();
+    $types = ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING];
+    /** @var list<array{intervention_id: string, total: int|string}> $comments */
+    $comments = $connection->fetchAllAssociative("SELECT intervention_id, COUNT(*) AS total FROM intervention_activities WHERE intervention_id IN (:ids) AND kind = 'comment' GROUP BY intervention_id", ['ids' => $interventionIds], $types);
+    foreach ($comments as $row) {
+      if (isset($values[$row['intervention_id']])) {
+        $values[$row['intervention_id']]['commentsCount'] = (int) $row['total'];
+      }
+    }
+    /** @var list<string> $signatures */
+    $signatures = $connection->fetchFirstColumn("SELECT DISTINCT intervention_id FROM intervention_attachments WHERE intervention_id IN (:ids) AND kind = 'signature'", ['ids' => $interventionIds], $types);
+    foreach ($signatures as $interventionId) {
+      if (isset($values[$interventionId])) {
+        $values[$interventionId]['hasSignature'] = true;
+      }
+    }
+    /** @var list<array{intervention_id: string, id: string, name: string, color: string}> $labels */
+    $labels = $connection->fetchAllAssociative('SELECT a.intervention_id, l.id, l.name, l.color FROM intervention_label_assignments a JOIN intervention_labels l ON l.id = a.label_id WHERE a.intervention_id IN (:ids) ORDER BY a.intervention_id, l.id', ['ids' => $interventionIds], $types);
+    foreach ($labels as $label) {
+      if (isset($values[$label['intervention_id']])) {
+        $values[$label['intervention_id']]['labels'][] = ['id' => $label['id'], 'name' => $label['name'], 'color' => $label['color']];
+      }
+    }
+
     $metrics = [];
     foreach ($values as $interventionId => $value) {
       $metrics[$interventionId] = new InterventionListMetrics(...$value);
@@ -459,7 +486,7 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   }
 
   /**
-   * @param array<string, array{facilities: int, equipment: int, inspections: int, workItems: int, completedWorkItems: int, requiredIncomplete: int, proposedChanges: int, resourceBlockers: int}> $values
+   * @param array<string, array{facilities: int, equipment: int, inspections: int, workItems: int, completedWorkItems: int, requiredIncomplete: int, proposedChanges: int, resourceBlockers: int, commentsCount: int, hasSignature: bool, labels: list<array{id: string, name: string, color: string}>}> $values
    * @param list<string> $interventionIds
    */
   private function addOwnedResourceMetrics(array &$values, array $interventionIds): void
@@ -515,7 +542,7 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   private function owner(InterventionResourceType $type): InterventionResourceOwnerPort
   {
     foreach ($this->owners as $owner) {
-      if ($owner->supportsResourceType($type)) {
+      if ($owner->supportsResourceType(\Intervention\Application\Contract\Resource\InterventionResourceType::from($type->value))) {
         return $owner;
       }
     }

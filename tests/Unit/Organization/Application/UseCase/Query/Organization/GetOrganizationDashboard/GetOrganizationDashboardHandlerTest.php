@@ -6,12 +6,13 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrga
 
 use DateInterval;
 use DateTimeImmutable;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, InterventionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, InterventionStatisticsPort, NonConformityStatisticsPort};
+use Organization\Application\Port\Outbound\Internal\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\{GetOrganizationDashboardHandler, GetOrganizationDashboardQuery, GetOrganizationDashboardResult};
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
@@ -20,6 +21,8 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
 use Shared\Domain\Exception\InvalidValueException;
+use User\Application\Contract\User\UserView;
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function array_column;
 use function array_keys;
@@ -878,6 +881,8 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
       'responsibleUserId' => 'user-1',
       'dueAt' => '2026-03-10T12:00:00+00:00',
       'updatedAt' => '2026-03-09T08:30:00+00:00',
+      'responsibleName' => 'member-1',
+      'responsibleAvatarUrl' => null,
     ], $result->recentInterventions[0]);
     self::assertSame([
       'id' => 'intervention-2',
@@ -891,6 +896,8 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
       'responsibleUserId' => null,
       'dueAt' => null,
       'updatedAt' => '2026-03-09T08:30:00+00:00',
+      'responsibleName' => null,
+      'responsibleAvatarUrl' => null,
     ], $result->recentInterventions[1]);
   }
 
@@ -1156,6 +1163,51 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     ];
   }
 
+  #[Test]
+  public function testResponsibleProfilesUseOneBatchAndRefreshOutsideTheAggregateCache(): void
+  {
+    $cached = $this->cachedRecentDashboard();
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willReturn($cached);
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::exactly(2))->method('findByIds')->with(['user-1'])
+      ->willReturnOnConsecutiveCalls(
+        ['user-1' => $this->responsibleUser('Ada', 'ada.png')],
+        ['user-1' => $this->responsibleUser('Grace', 'grace.png')],
+      );
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::exactly(2))->method('assertGrantedPermissions')
+      ->with(self::USER_ID, self::ORG_ID, OrganizationPermissionCatalog::dashboardReadDependencies());
+    $authorization->method('hasPermission')->willReturn(true);
+    $handler = $this->createHandler(authorization: $authorization, organizationRepository: $this->createOrganizationRepository(2), users: $users, cache: $cache);
+    $query = new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID, compareWithPreviousPeriod: false);
+    $first = $handler->__invoke($query);
+    $second = $handler->__invoke($query);
+
+    self::assertSame('Ada Example', $first->recentInterventions[0]['responsibleName'] ?? null);
+    self::assertSame('Ada Example', $first->recentInterventions[1]['responsibleName'] ?? null);
+    self::assertSame('Grace Example', $second->recentInterventions[0]['responsibleName'] ?? null);
+    self::assertSame('grace.png', $second->recentInterventions[1]['responsibleAvatarUrl'] ?? null);
+    self::assertArrayNotHasKey('responsibleName', $cached->recentInterventions[0]);
+    self::assertArrayNotHasKey('responsibleAvatarUrl', $cached->recentInterventions[0]);
+  }
+
+  #[Test]
+  public function testUnavailableResponsibleProfilesPreserveTheScopedMemberFallback(): void
+  {
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willReturn($this->cachedRecentDashboard());
+    $users = $this->createMock(UserDirectoryPort::class);
+    $users->expects(self::once())->method('findByIds')->with(['user-1'])->willThrowException(new RuntimeException('Account directory unavailable.'));
+    $result = $this->createHandler(users: $users, cache: $cache)->__invoke(new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID, compareWithPreviousPeriod: false));
+
+    self::assertCount(2, $result->recentInterventions);
+    self::assertSame('member-1', $result->recentInterventions[0]['responsibleName'] ?? null);
+    self::assertSame('member-2', $result->recentInterventions[1]['responsibleName'] ?? null);
+    self::assertArrayHasKey('responsibleAvatarUrl', $result->recentInterventions[0]);
+    self::assertNull($result->recentInterventions[0]['responsibleAvatarUrl'] ?? null);
+  }
+
   /**
    * @param list<string> $deniedPermissions
    */
@@ -1185,10 +1237,10 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   /**
    * @return OrganizationRepositoryPort&MockObject
    */
-  private function createOrganizationRepository(): OrganizationRepositoryPort
+  private function createOrganizationRepository(int $lookupCount = 1): OrganizationRepositoryPort
   {
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::once())
+    $organizationRepository->expects(self::exactly($lookupCount))
       ->method('findById')
       ->with(self::callback(static fn (OrganizationId $id): bool => self::ORG_ID === (string) $id))
       ->willReturn(Organization::create(
@@ -1320,6 +1372,27 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     return $interventionStatistics;
   }
 
+  private function responsibleUser(string $firstName, string $avatar): UserView
+  {
+    return new UserView(id: 'user-1', username: 'example', email: 'example@example.com', firstName: $firstName, lastName: 'Example', avatarUrl: $avatar, status: 'active', emailVerified: true, tenantId: null, createdAt: new DateTimeImmutable(), lastLoginAt: null, canLogin: true);
+  }
+
+  private function cachedRecentDashboard(): GetOrganizationDashboardResult
+  {
+    $row = ['id' => 'intervention-1', 'number' => 1, 'name' => 'Inspection', 'status' => 'draft', 'priority' => 'normal', 'siteId' => null, 'siteName' => null, 'responsibleId' => 'member-1', 'responsibleUserId' => 'user-1', 'dueAt' => null, 'updatedAt' => '2026-10-11T12:00:00+00:00'];
+
+    return new GetOrganizationDashboardResult(
+      generatedAt: '2026-10-11T12:00:00+00:00',
+      period: [],
+      overview: [],
+      health: [],
+      alerts: [],
+      comparison: [],
+      trends: ['facilities' => [], 'members' => [], 'equipment' => [], 'inspections' => []],
+      recentInterventions: [$row, [...$row, 'id' => 'intervention-2', 'responsibleId' => 'member-2']],
+    );
+  }
+
   private function createHandler(
     ?OrganizationAuthorizationPort $authorization = null,
     ?OrganizationRepositoryPort $organizationRepository = null,
@@ -1331,6 +1404,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     ?InspectionStatisticsPort $inspectionStatistics = null,
     ?NonConformityStatisticsPort $nonConformityStatistics = null,
     ?InterventionStatisticsPort $interventionStatistics = null,
+    ?UserDirectoryPort $users = null,
     ?CachePort $cache = null,
   ): GetOrganizationDashboardHandler {
     return new GetOrganizationDashboardHandler(
@@ -1344,6 +1418,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
       inspectionStatistics: $inspectionStatistics ?? $this->createZeroInspectionStatistics(0),
       nonConformityStatistics: $nonConformityStatistics ?? $this->createZeroNonConformityStatistics(0),
       interventionStatistics: $interventionStatistics ?? $this->createZeroInterventionStatistics(),
+      users: $users ?? $this->createStub(UserDirectoryPort::class),
       cache: $cache,
     );
   }

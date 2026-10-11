@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Messaging\Application\UseCase\Command\Channel\CreateChannel;
 
 use DateTimeImmutable;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Event\Channel\MessagingChannelCreatedEvent;
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Conversation\Conversation;
 use Messaging\Domain\ValueObject\{ChannelName, ConversationId};
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, UuidGeneratorPort};
 
 /**
  * UseCase CreateChannelHandler.
@@ -38,7 +38,7 @@ final readonly class CreateChannelHandler implements CommandHandler
    * @param MessagingParticipantRepositoryPort $participants the participant repository port
    * @param MessagingReadMarkerRepositoryPort $readMarkers the read marker repository port
    * @param MessagingAccessPolicy $accessPolicy the messaging access policy
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    */
   public function __construct(
@@ -46,7 +46,7 @@ final readonly class CreateChannelHandler implements CommandHandler
     private MessagingParticipantRepositoryPort $participants,
     private MessagingReadMarkerRepositoryPort $readMarkers,
     private MessagingAccessPolicy $accessPolicy,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -68,7 +68,7 @@ final readonly class CreateChannelHandler implements CommandHandler
     $name = new ChannelName($command->name);
 
     /** @var ConversationId $id */
-    $id = $this->uuidFactory->create(ConversationId::class);
+    $id = new ConversationId($this->uuidFactory->generate());
 
     $channel = Conversation::createChannel($id, $command->organizationId, $name, $createdByMemberId);
     $this->conversations->createChannel($channel);

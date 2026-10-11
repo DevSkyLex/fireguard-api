@@ -6,7 +6,7 @@ namespace Customer\Infrastructure\Adapter\Directory;
 
 use Customer\Application\Contract\CustomerSnapshot;
 use Customer\Application\Port\Inbound\CustomerLookupPort;
-use Customer\Application\Port\Outbound\CustomerRepositoryPort;
+use Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort;
 
 /** Class CustomerLookupAdapter. Exposes owner-scoped customer identity without persistence objects. @category Adapter */
 final readonly class CustomerLookupAdapter implements CustomerLookupPort

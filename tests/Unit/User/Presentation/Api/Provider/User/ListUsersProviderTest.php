@@ -16,6 +16,7 @@ use Shared\Domain\ValueObject\Email;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, UnauthorizedHttpException};
 use Tests\Helper\TestEventIdProvider;
+use Tests\Support\Factory\UserTestFactory;
 use User\Application\UseCase\Query\User\ListUsers\ListUsersQuery;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
@@ -48,7 +49,7 @@ final class ListUsersProviderTest extends TestCase
     );
 
     $result = new PaginatedResult(
-      items: [$user],
+      items: [UserTestFactory::view($user)],
       total: 1,
       limit: 10,
       offset: 0,

@@ -65,7 +65,7 @@ final class MessagingSubjectResolverRegistryTest extends TestCase
     string $permission = 'organization.facilities.read',
   ): MessagingSubjectResolverPort {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
-    $resolver->method('supports')->willReturnCallback(static fn (MessagingSubjectType $candidate): bool => $candidate === $type);
+    $resolver->method('supports')->willReturnCallback(static fn (\Messaging\Application\Contract\Subject\MessagingSubjectType $candidate): bool => $candidate->value === $type->value);
     $resolver->method('resolve')->willReturn(new MessagingSubjectResolution($exists, $label, $permission));
 
     return $resolver;

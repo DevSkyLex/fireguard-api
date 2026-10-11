@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Audit\Infrastructure\EventSubscriber;
 
 use Approval\Application\Contract\Event\ApprovalWithdrawnEvent;
-use Approval\Domain\Event\Request\{
+use Approval\Application\Contract\Event\Request\{
   ApprovalApprovedEvent,
   ApprovalExecutionFailedEvent,
   ApprovalExpiredEvent,
   ApprovalRejectedEvent,
   ApprovalRequestedEvent
 };
-use Compliance\Domain\Event\SafetyRegisterSnapshotCreatedEvent;
+use Compliance\Application\Contract\Event\SafetyRegisterSnapshotCreatedEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Webhook\Domain\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
+use Webhook\Application\Contract\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
 
 /** Records the governance event family. */
 final readonly class GovernanceAuditEventSubscriber extends AbstractAuditEventSubscriber implements EventSubscriberInterface

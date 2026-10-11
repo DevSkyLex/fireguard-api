@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Session\Application\UseCase\Query\Session\ListUserSessions;
 
-use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Session\Application\Port\Outbound\Internal\SessionRepositoryPort;
 use Session\Application\UseCase\Query\Session\GetSession\GetSessionResult;
 use Session\Domain\Model\Session\Session;
 use Shared\Application\Contract\Pagination\PaginatedResult;

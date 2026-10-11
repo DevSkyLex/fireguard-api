@@ -7,8 +7,8 @@ namespace Inspection\Application\UseCase\Query\Inspection\ListInspections;
 use DateTimeImmutable;
 use Exception;
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
-use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort};
-use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
+use Inspection\Application\Port\Outbound\Internal\{ChecklistRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{
@@ -24,6 +24,8 @@ use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Uuid;
+use Throwable;
+use User\Application\Port\Inbound\UserDirectoryPort;
 use ValueError;
 
 use function array_keys;
@@ -63,6 +65,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
     private FacilityNamingPort $facilityNaming,
     private ChecklistRepositoryPort $checklistRepository,
     private ?\Equipment\Application\Port\Inbound\EquipmentParkScopePort $parkScopes = null,
+    private ?UserDirectoryPort $users = null,
   ) {
   }
   // #endregion
@@ -138,6 +141,19 @@ final readonly class ListInspectionsHandler implements QueryHandler
   private function mapResults(array $inspections): array
   {
     $results = [];
+    $userIds = [];
+    foreach ($inspections as $inspection) {
+      if (null !== $inspection->inspector()->userId) {
+        $userIds[$inspection->inspector()->userId] = true;
+      }
+    }
+
+    try {
+      $profiles = [] === $userIds ? [] : ($this->users?->findByIds(array_keys($userIds)) ?? []);
+    } catch (Throwable) {
+      $profiles = [];
+    }
+
 
     $inspectionIds = [];
     foreach ($inspections as $inspection) {
@@ -173,6 +189,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
       $nonConformitiesCount = $countsByInspectionId[(string) $inspection->id()] ?? 0;
 
       $results[] = new GetInspectionResult(
+        inspectorProfile: $profiles[$inspection->inspector()->userId ?? ''] ?? null,
         inspectionId: (string) $inspection->id(),
         organizationId: (string) $inspection->organizationId(),
         equipmentId: (string) $inspection->equipmentId(),

@@ -8,14 +8,14 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Intervention\Application\UseCase\Query\Template\GetInterventionTemplate\{GetInterventionTemplateQuery, GetInterventionTemplateResult};
 use Intervention\Application\UseCase\Query\Template\ListInterventionTemplates\{ListInterventionTemplatesQuery, ListInterventionTemplatesResult};
 use Intervention\Presentation\Api\Dto\Output\InterventionTemplateOutput;
 use Intervention\Presentation\Api\Factory\InterventionTemplateOutputFactory;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -86,7 +86,7 @@ final readonly class InterventionTemplateProvider implements ProviderInterface
       return $this->mapper->fromView($result->template);
     }
 
-    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $query = \Intervention\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
     $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
@@ -123,12 +123,12 @@ final readonly class InterventionTemplateProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @return SecurityUser the user result
+   * @return AuthenticatedUser the user result
    */
-  private function user(): SecurityUser
+  private function user(): AuthenticatedUser
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

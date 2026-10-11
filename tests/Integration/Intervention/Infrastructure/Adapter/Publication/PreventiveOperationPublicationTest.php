@@ -170,7 +170,7 @@ final class PreventiveOperationPublicationTest extends KernelTestCase
     $manager->persist($customer);
     $site = new FacilityRecord();
     $site->id = '880e8400-e29b-41d4-a716-446655448010';
-    $site->organization = $organization;
+    $site->organizationId = $organization->id;
     $site->name = 'Fire prevention site';
     $site->type = 'site';
     $site->status = 'active';
@@ -179,7 +179,7 @@ final class PreventiveOperationPublicationTest extends KernelTestCase
     $manager->persist($site);
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->facilityId = $site->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->name = 'Initial fire extinguisher';
@@ -191,7 +191,7 @@ final class PreventiveOperationPublicationTest extends KernelTestCase
     $manager->persist($equipment);
     $order = new InterventionRecord();
     $order->id = self::ORDER;
-    $order->organization = $organization;
+    $order->organizationId = $organization->id;
     $order->siteId = $site->id;
     $order->type = 'control' === $kind ? 'inspection_campaign' : 'preventive_maintenance';
     $order->name = 'Real preventive publication';
@@ -212,7 +212,7 @@ final class PreventiveOperationPublicationTest extends KernelTestCase
     if ('control' === $kind) {
       $inspection = new InspectionRecord();
       $inspection->id = '880e8400-e29b-41d4-a716-446655448011';
-      $inspection->organization = $organization;
+      $inspection->organizationId = $organization->id;
       $inspection->equipmentId = self::EQUIPMENT;
       $inspection->facilityId = $site->id;
       $inspection->interventionId = self::ORDER;

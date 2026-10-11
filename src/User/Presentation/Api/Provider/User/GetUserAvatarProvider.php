@@ -6,18 +6,13 @@ namespace User\Presentation\Api\Provider\User;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Infrastructure\Exception\FileStorageException;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\UserId;
-use User\Infrastructure\Image\AvatarResizer;
+use User\Application\UseCase\Query\Avatar\GetUserAvatar\GetUserAvatarQuery;
 
-use function abs;
 use function is_numeric;
 use function is_string;
-use function sprintf;
 
 /**
  * Provider GetUserAvatarProvider.
@@ -58,12 +53,10 @@ final readonly class GetUserAvatarProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param FileStoragePort $fileStorage reads stored avatar files
-   * @param UserRepositoryPort $userRepository verifies the user exists
+   * @param QueryBusPort $queryBus reads public avatar bytes
    */
   public function __construct(
-    private FileStoragePort $fileStorage,
-    private UserRepositoryPort $userRepository,
+    private QueryBusPort $queryBus,
   ) {
   }
   // #endregion
@@ -90,58 +83,21 @@ final readonly class GetUserAvatarProvider implements ProviderInterface
     $idValue = $uriVariables['id'] ?? '';
     $id = is_string($idValue) ? $idValue : '';
 
-    $userId = new UserId($id);
-    $user = $this->userRepository->findById($userId);
-
-    if (null === $user) {
-      throw new NotFoundHttpException('User not found.');
-    }
-
     $request = $context['request'] ?? null;
     $requested = $uriVariables['size']
-      ?? ($request instanceof Request ? \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('size') : null)
+      ?? ($request instanceof Request ? \User\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('size') : null)
       ?? self::DEFAULT_SIZE;
-    $size = $this->resolveSize(is_numeric($requested) ? (int) $requested : self::DEFAULT_SIZE);
-    $path = sprintf('avatars/%s/%d.webp', $id, $size);
-
-    try {
-      $contents = $this->fileStorage->read($path);
-    } catch (FileStorageException) {
-      throw new NotFoundHttpException('Avatar not found.');
+    /** @var \User\Application\UseCase\Query\Avatar\GetUserAvatar\GetUserAvatarResult $result */
+    $result = $this->queryBus->ask(new GetUserAvatarQuery($id, is_numeric($requested) ? (int) $requested : self::DEFAULT_SIZE));
+    if (null === $result->contents) {
+      throw new NotFoundHttpException($result->missingReason ?? 'Avatar not found.');
     }
 
-    return new Response($contents, Response::HTTP_OK, [
+    return new Response($result->contents, Response::HTTP_OK, [
       'Content-Type' => 'image/webp',
       'Cache-Control' => 'public, max-age=86400',
       'X-Content-Type-Options' => 'nosniff',
     ]);
-  }
-
-  /**
-   * Method resolveSize.
-   *
-   * Returns the canonical size closest to the requested value.
-   *
-   * @since 1.0.0
-   *
-   * @param int $requested the size requested by the caller
-   *
-   * @return int the nearest canonical size
-   */
-  private function resolveSize(int $requested): int
-  {
-    $closest = AvatarResizer::SIZES[0];
-    $closestDiff = abs($requested - $closest);
-
-    foreach (AvatarResizer::SIZES as $size) {
-      $diff = abs($requested - $size);
-      if ($diff < $closestDiff) {
-        $closest = $size;
-        $closestDiff = $diff;
-      }
-    }
-
-    return $closest;
   }
   // #endregion
 }

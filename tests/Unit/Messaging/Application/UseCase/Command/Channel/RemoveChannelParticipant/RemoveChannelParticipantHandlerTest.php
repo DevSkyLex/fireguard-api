@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Messaging\Application\UseCase\Command\Channel\RemoveChannelParticipant;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Channel\RemoveChannelParticipant\{RemoveChannelParticipantCommand, RemoveChannelParticipantHandler};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};

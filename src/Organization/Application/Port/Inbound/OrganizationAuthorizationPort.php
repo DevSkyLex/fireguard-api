@@ -92,8 +92,8 @@ interface OrganizationAuthorizationPort
    * @param string $organizationId the organization identifier
    * @param list<string> $permissions the permission names to check
    *
-   * @throws \Organization\Domain\Exception\OrganizationAccessDeniedException
-   *                                                                          when any of the required permissions is not granted
+   * @throws \Organization\Application\Contract\Exception\OrganizationAccessDeniedException
+   *                                                                                        when any of the required permissions is not granted
    */
   public function assertGrantedPermissions(string $userId, string $organizationId, array $permissions): void;
 

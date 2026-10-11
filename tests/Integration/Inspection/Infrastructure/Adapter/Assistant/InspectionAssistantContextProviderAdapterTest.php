@@ -160,7 +160,7 @@ final class InspectionAssistantContextProviderAdapterTest extends KernelTestCase
   {
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = '880e8400-e29b-41d4-a716-446655488888';
     $inspection->inspectorType = 'user';
     $inspection->inspectorName = 'Jane Doe';

@@ -31,6 +31,7 @@ final readonly class LogoutCommand implements CommandMessage
   public function __construct(
     public readonly ?string $refreshToken = null,
     public readonly ?string $accessToken = null,
+    public ?string $ipAddress = null,
   ) {
   }
   // #endregion

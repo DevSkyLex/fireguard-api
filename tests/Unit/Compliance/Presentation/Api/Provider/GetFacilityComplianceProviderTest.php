@@ -6,10 +6,9 @@ namespace Tests\Unit\Compliance\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Compliance\Application\Contract\FacilityComplianceView;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityComplianceView};
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceNotFoundException};
-use Compliance\Domain\ValueObject\ComplianceStatus;
 use Compliance\Presentation\Api\Factory\ComplianceSummaryOutputFactory;
 use Compliance\Presentation\Api\Provider\GetFacilityComplianceProvider;
 use InvalidArgumentException;
@@ -85,7 +84,7 @@ final class GetFacilityComplianceProviderTest extends TestCase
         && self::USER_ID === $query->userId))
       ->willReturn($this->facilityResult());
 
-    $output = $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables()));
 
     self::assertSame(self::ORGANIZATION_ID, $output->organizationId);
     self::assertSame(self::FACILITY_ID, $output->facilityId);
@@ -100,7 +99,7 @@ final class GetFacilityComplianceProviderTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn($this->facilityResult());
 
-    $output = $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
+    $output = \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables()));
 
     self::assertSame(5, $output->totals['totalEquipmentCount']);
     self::assertSame(4, $output->totals['trackedEquipmentCount']);
@@ -126,7 +125,7 @@ final class GetFacilityComplianceProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $provider->provide(new Get(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $provider->provide(new Get(), $this->uriVariables()));
   }
 
   /**
@@ -142,7 +141,7 @@ final class GetFacilityComplianceProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Facility not found.');
 
-    $this->createProvider($queryBus)->provide(new Get(), $uriVariables);
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), $uriVariables));
   }
 
   /**
@@ -157,7 +156,7 @@ final class GetFacilityComplianceProviderTest extends TestCase
 
     $this->expectException($expected);
 
-    $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables()));
   }
 
   #[Test]
@@ -169,7 +168,7 @@ final class GetFacilityComplianceProviderTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('database is down');
 
-    $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
+    \Tests\Support\Http\ModuleExceptionKernel::invoke('Compliance', fn () => $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables()));
   }
 
   /**

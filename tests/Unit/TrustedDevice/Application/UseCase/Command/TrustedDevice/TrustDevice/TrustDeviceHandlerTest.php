@@ -8,8 +8,8 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
-use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
+use TrustedDevice\Application\Port\Outbound\Internal\TrustedDeviceRepositoryPort;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\TrustDevice\{TrustDeviceCommand, TrustDeviceHandler, TrustDeviceResult};
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
 use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId, TrustedDeviceTimeline};
@@ -69,11 +69,10 @@ final class TrustDeviceHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('save');
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(TrustedDeviceId::class)
-      ->willReturn($newId);
+      ->method('generate')
+      ->willReturn((string) $newId);
 
     $handler = new TrustDeviceHandler(
       repository: $repository,
@@ -124,11 +123,10 @@ final class TrustDeviceHandlerTest extends TestCase
       ->method('save')
       ->with(self::isInstanceOf(TrustedDevice::class));
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(TrustedDeviceId::class)
-      ->willReturn($deviceId);
+      ->method('generate')
+      ->willReturn((string) $deviceId);
 
     $handler = new TrustDeviceHandler(
       repository: $repository,
@@ -187,11 +185,10 @@ final class TrustDeviceHandlerTest extends TestCase
       ->method('save')
       ->with(self::isInstanceOf(TrustedDevice::class));
 
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
     $uuidFactory->expects(self::once())
-      ->method('create')
-      ->with(TrustedDeviceId::class)
-      ->willReturn($newId);
+      ->method('generate')
+      ->willReturn((string) $newId);
 
     $handler = new TrustDeviceHandler(
       repository: $repository,

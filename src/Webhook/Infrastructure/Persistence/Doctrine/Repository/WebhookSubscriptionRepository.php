@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Webhook\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
-use Webhook\Application\Port\Outbound\WebhookSubscriptionRepositoryPort;
+use Webhook\Application\Port\Outbound\Internal\WebhookSubscriptionRepositoryPort;
 use Webhook\Domain\Model\Subscription\WebhookSubscription;
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
 use Webhook\Infrastructure\Persistence\Doctrine\Mapper\WebhookSubscriptionMapper;

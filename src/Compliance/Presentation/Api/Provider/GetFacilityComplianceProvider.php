@@ -6,15 +6,13 @@ namespace Compliance\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Presentation\Api\Dto\Output\ComplianceSummaryOutput;
 use Compliance\Presentation\Api\Factory\ComplianceSummaryOutputFactory;
-use Compliance\Presentation\Api\Trait\ComplianceExceptionMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -30,8 +28,6 @@ use function is_string;
  */
 final readonly class GetFacilityComplianceProvider implements ProviderInterface
 {
-  use ComplianceExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -65,7 +61,7 @@ final readonly class GetFacilityComplianceProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ComplianceSummaryOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -75,16 +71,12 @@ final readonly class GetFacilityComplianceProvider implements ProviderInterface
       throw new NotFoundHttpException('Facility not found.');
     }
 
-    try {
-      /** @var GetFacilityComplianceResult $result */
-      $result = $this->queryBus->ask(new GetFacilityComplianceQuery(
-        organizationId: $organizationId,
-        facilityId: $facilityId,
-        userId: $user->getId(),
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapComplianceException($exception);
-    }
+    /** @var GetFacilityComplianceResult $result */
+    $result = $this->queryBus->ask(new GetFacilityComplianceQuery(
+      organizationId: $organizationId,
+      facilityId: $facilityId,
+      userId: $user->getId(),
+    ));
 
     return $this->outputFactory->fromFacilityRegister(
       organizationId: $organizationId,

@@ -6,7 +6,7 @@ namespace Tests\Unit\Onboarding\Presentation\Api\Processor\Onboarding;
 
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
+use Onboarding\Application\Port\Inbound\Internal\OrganizationOnboardingServicePort;
 use Onboarding\Application\Service\OrganizationOnboardingSessionState;
 use Onboarding\Presentation\Api\Processor\Onboarding\ResumeOrganizationOnboardingProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

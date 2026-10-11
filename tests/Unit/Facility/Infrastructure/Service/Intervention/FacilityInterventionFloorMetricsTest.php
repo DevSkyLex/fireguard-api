@@ -6,12 +6,11 @@ namespace Tests\Unit\Facility\Infrastructure\Service\Intervention;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\{FacilityAttachmentAncestryGuard, FacilityMetadataSchemaGuard};
 use Facility\Infrastructure\Exception\FacilityPatchConflictException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Service\Intervention\FacilityInterventionPatchApplier;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -29,8 +28,7 @@ final class FacilityInterventionFloorMetricsTest extends TestCase
   public function explicitNullClearsOnlyOneMetric(): void
   {
     $record = $this->record();
-    self::assertInstanceOf(OrganizationRecord::class, $record->organization);
-    $this->applier($record)->apply($record->organization->id, '/api/facilities/' . $record->id, ['elevationMeters' => null]);
+    $this->applier($record)->apply($record->organizationId, '/api/facilities/' . $record->id, ['elevationMeters' => null]);
     self::assertNull($record->elevationMeters);
     self::assertSame(2.5, $record->heightMeters);
   }
@@ -42,8 +40,7 @@ final class FacilityInterventionFloorMetricsTest extends TestCase
   public function typeChangeClearsPhysicalDimensions(): void
   {
     $record = $this->record();
-    self::assertInstanceOf(OrganizationRecord::class, $record->organization);
-    $this->applier($record)->apply($record->organization->id, '/api/facilities/' . $record->id, ['type' => 'area']);
+    $this->applier($record)->apply($record->organizationId, '/api/facilities/' . $record->id, ['type' => 'area']);
     self::assertNull($record->elevationMeters);
     self::assertNull($record->heightMeters);
   }
@@ -60,9 +57,8 @@ final class FacilityInterventionFloorMetricsTest extends TestCase
   public function invalidMetricsConflict(array $patch): void
   {
     $record = $this->record();
-    self::assertInstanceOf(OrganizationRecord::class, $record->organization);
     $this->expectException(FacilityPatchConflictException::class);
-    $this->applier($record)->apply($record->organization->id, '/api/facilities/' . $record->id, $patch);
+    $this->applier($record)->apply($record->organizationId, '/api/facilities/' . $record->id, $patch);
   }
 
   /**
@@ -85,8 +81,7 @@ final class FacilityInterventionFloorMetricsTest extends TestCase
   {
     $record = new FacilityRecord();
     $record->id = '550e8400-e29b-41d4-a716-446655442050';
-    $record->organization = new OrganizationRecord();
-    $record->organization->id = '550e8400-e29b-41d4-a716-446655442051';
+    $record->organizationId = '550e8400-e29b-41d4-a716-446655442051';
     $record->type = 'floor';
     $record->name = 'Floor';
     $record->elevationMeters = -3.0;

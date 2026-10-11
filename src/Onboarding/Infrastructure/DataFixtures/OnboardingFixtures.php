@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Onboarding\Infrastructure\DataFixtures;
 
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Onboarding\Infrastructure\Persistence\Doctrine\Record\OrganizationOnboardingSessionRecord;
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
+use Organization\Application\Contract\Seed\SeedCatalog as OrganizationFixtures;
+use Shared\Application\Contract\Seed\SeedTimeline;
 
 /**
  * Class OnboardingFixtures
@@ -19,7 +18,7 @@ use Shared\Infrastructure\DataFixtures\SeedTimeline;
  *
  * @category DataFixtures
  */
-final class OnboardingFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
+final class OnboardingFixtures extends Fixture implements FixtureGroupInterface
 {
   // #region Constants
   /**
@@ -61,7 +60,7 @@ final class OnboardingFixtures extends Fixture implements DependentFixtureInterf
    */
   public function getDependencies(): array
   {
-    return [OrganizationFixtures::class];
+    return [];
   }
 
   /**

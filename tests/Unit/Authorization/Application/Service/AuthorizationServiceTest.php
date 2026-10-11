@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Application\Service;
 
-use Authorization\Application\Port\Outbound\RoleAssignmentRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\RoleAssignmentRepositoryPort;
 use Authorization\Application\Service\AuthorizationService;
 use Authorization\Domain\Model\Permission\Permission;
 use Authorization\Domain\Model\Role\Role;

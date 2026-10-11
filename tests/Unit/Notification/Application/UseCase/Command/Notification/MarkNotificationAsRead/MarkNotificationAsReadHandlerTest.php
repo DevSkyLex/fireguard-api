@@ -6,7 +6,7 @@ namespace Tests\Unit\Notification\Application\UseCase\Command\Notification\MarkN
 
 use DateTimeImmutable;
 use Notification\Application\Exception\NotificationNotFoundException;
-use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\Port\Outbound\Internal\NotificationRepositoryPort;
 use Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead\{MarkNotificationAsReadCommand, MarkNotificationAsReadHandler, MarkNotificationAsReadResult};
 use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\ValueObject\NotificationId;

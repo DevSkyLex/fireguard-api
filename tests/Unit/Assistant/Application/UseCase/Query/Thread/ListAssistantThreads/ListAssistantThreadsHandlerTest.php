@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Application\UseCase\Query\Thread\ListAssistantThreads;
 
-use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
+use Assistant\Application\Port\Outbound\Internal\AssistantThreadRepositoryPort;
 use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
 use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Application\UseCase\Query\Thread\ListAssistantThreads\{ListAssistantThreadsHandler, ListAssistantThreadsQuery};
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\ValueObject\AssistantThreadId;
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

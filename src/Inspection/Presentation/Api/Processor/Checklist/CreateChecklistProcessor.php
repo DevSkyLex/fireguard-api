@@ -6,7 +6,7 @@ namespace Inspection\Presentation\Api\Processor\Checklist;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Command\Checklist\CreateChecklist\{CreateChecklistCommand, CreateChecklistResult};
 use Inspection\Domain\Exception\{ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
 use Inspection\Presentation\Api\Dto\Input\Checklist\CreateChecklistInput;
@@ -14,7 +14,7 @@ use Inspection\Presentation\Api\Dto\Output\Checklist\{ChecklistItemOutput, Check
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
@@ -79,7 +79,7 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
   {
     /** @var CreateChecklistInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

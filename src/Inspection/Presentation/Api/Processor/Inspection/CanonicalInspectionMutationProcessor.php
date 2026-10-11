@@ -6,20 +6,20 @@ namespace Inspection\Presentation\Api\Processor\Inspection;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\Contract\Inspection\CanonicalInspectionView;
 use Inspection\Application\UseCase\Command\Inspection\DeleteCanonicalInspection\DeleteCanonicalInspectionCommand;
 use Inspection\Application\UseCase\Command\Inspection\PatchCanonicalInspection\PatchCanonicalInspectionCommand;
 use Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\{GetCanonicalInspectionQuery, GetCanonicalInspectionResult};
 use Inspection\Presentation\Api\Dto\Input\Inspection\PatchCanonicalInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider;
-use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionNotFoundException};
+use Intervention\Application\Port\Inbound\InterventionResourcesPort;
 use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -49,7 +49,7 @@ use function is_string;
  * The **authorization gate**, because which permission applies is a function
  * of the request — a published row needs `organization.inspection.write`, a
  * scratchpad inside an intervention needs whatever
- * `InterventionResourceManager::mutationPermission()` resolves — and because
+ * `InterventionResourcesPort::mutationPermission()` resolves — and because
  * a row loaded by GLOBAL id must answer 404, not 403, outside the caller's
  * organization.
  *
@@ -94,7 +94,7 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
    * @param CanonicalInspectionProvider $provider the provider value
-   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
+   * @param InterventionResourcesPort $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
    */
@@ -105,7 +105,7 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
     private Security $security,
     private RequestStack $requestStack,
     private CanonicalInspectionProvider $provider,
-    private InterventionResourceManager $interventionResourceManager,
+    private InterventionResourcesPort $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MergePatchFields $mergePatchFields,
   ) {
@@ -212,7 +212,7 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
   private function assertPermission(CanonicalInspectionView $view): void
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

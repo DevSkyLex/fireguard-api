@@ -44,6 +44,13 @@ Disabled rules record a skipped run without creating a draft.
 
 ## Architecture
 
+Execution logging uses Shared's published LoggerPort. Vendor loggers remain in
+Infrastructure, preserving the reservation, transaction and retry contracts above.
+
+Inspection triggers consume its published integration-event contract. Historical
+event envelopes are converted by Inspection before dispatch; stable event names,
+identities and timestamps are preserved.
+
 - `AutomationPolicyPort` is implemented by Organization's public adapter.
 - `AutomationRuleQueuePort` uses the raw Messenger bus because an asynchronous
   send has no synchronous command result.

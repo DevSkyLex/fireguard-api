@@ -14,10 +14,11 @@ use Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\GetCa
 use Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection\ReadCanonicalInspectionResult;
 use Inspection\Presentation\Api\Dto\Input\Inspection\PatchCanonicalInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Inspection\Presentation\Api\Processor\Inspection\CanonicalInspectionMutationProcessor;
 use Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -25,7 +26,6 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -374,7 +374,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
       $security,
       $requestStack,
       new CanonicalInspectionProvider($this->readQueryBus(), $authorization, $security, $requestStack),
-      $manager,
+      new \Intervention\Infrastructure\Adapter\Resource\InterventionResourcesAdapter($manager),
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
     );

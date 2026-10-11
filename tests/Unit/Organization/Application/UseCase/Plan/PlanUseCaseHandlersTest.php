@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Plan;
 
-use Organization\Application\Port\Outbound\PlanRepositoryPort;
+use Organization\Application\Port\Outbound\Internal\PlanRepositoryPort;
 use Organization\Application\UseCase\Command\Plan\CreatePlan\{CreatePlanCommand, CreatePlanHandler};
 use Organization\Application\UseCase\Command\Plan\DeletePlan\{DeletePlanCommand, DeletePlanHandler};
 use Organization\Application\UseCase\Command\Plan\UpdatePlan\{UpdatePlanCommand, UpdatePlanHandler};
@@ -15,7 +15,6 @@ use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
 
 /**
@@ -262,12 +261,12 @@ final class PlanUseCaseHandlersTest extends TestCase
     $handler(new DeletePlanCommand(self::PLAN_ID));
   }
 
-  private function uuidFactory(): UuidFactory
+  private function uuidFactory(): UuidGeneratorPort
   {
     $generator = $this->createStub(UuidGeneratorPort::class);
     $generator->method('generate')->willReturn(self::PLAN_ID);
 
-    return new UuidFactory($generator);
+    return $generator;
   }
 
   private function transactionManager(): TransactionManagerPort

@@ -220,10 +220,11 @@ final class EquipmentPlanPositionAdapterTest extends KernelTestCase
     ?string $facilityId = null,
   ): void {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
 
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->type = $type;
     $equipment->serialNumber = $serialNumber;
     $equipment->status = $status;

@@ -9,7 +9,7 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Messaging\Application\Contract\Subject\MessagingSubjectType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -136,10 +136,11 @@ final class EquipmentMessagingSubjectResolverAdapterTest extends KernelTestCase
     string $recordStatus,
   ): void {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
 
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
-    $equipment->organization = $organization;
+    $equipment->organizationId = $organization->id;
     $equipment->type = 'fire_extinguisher';
     $equipment->serialNumber = $serialNumber;
     $equipment->status = 'operational';

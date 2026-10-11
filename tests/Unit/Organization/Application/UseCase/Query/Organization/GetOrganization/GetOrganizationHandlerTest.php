@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganization;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Inbound\Internal\OrganizationCallerMembershipPort;
+use Organization\Application\Port\Outbound\Internal\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationCallerRoleResult, GetOrganizationHandler, GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRegisteredAddress};

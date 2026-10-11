@@ -6,13 +6,11 @@ namespace Calendar\Presentation\Api\Processor\Event;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Calendar\Application\UseCase\Command\Event\DeleteCalendarEvent\DeleteCalendarEventCommand;
-use Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -28,8 +26,6 @@ use function is_string;
  */
 final readonly class DeleteCalendarEventProcessor implements ProcessorInterface
 {
-  use CalendarExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -60,7 +56,7 @@ final readonly class DeleteCalendarEventProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): mixed
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -70,15 +66,11 @@ final readonly class DeleteCalendarEventProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId and eventId URI parameters are required.');
     }
 
-    try {
-      $this->commandBus->dispatch(new DeleteCalendarEventCommand(
-        organizationId: $organizationId,
-        actorUserId: $user->getId(),
-        eventId: $eventId,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapCalendarException($exception);
-    }
+    $this->commandBus->dispatch(new DeleteCalendarEventCommand(
+      organizationId: $organizationId,
+      actorUserId: $user->getId(),
+      eventId: $eventId,
+    ));
 
     return null;
   }

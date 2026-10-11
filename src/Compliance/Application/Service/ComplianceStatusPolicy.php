@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Compliance\Application\Service;
 
-use Compliance\Domain\ValueObject\ComplianceStatus;
+use Compliance\Application\Contract\ComplianceStatus;
 
 use function array_map;
 use function max;

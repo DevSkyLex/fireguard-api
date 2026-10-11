@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment;
 
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{MessagingAttachmentNotFoundException, MessagingNotFoundException};
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingAttachmentId, MessagingSubjectType};

@@ -7,15 +7,15 @@ namespace Tests\Unit\Facility\Presentation\Api\Processor\Facility;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
-use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
+use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityCodeAlreadyExistsException, FacilityCreationPreconditionFailedException, FacilityHierarchyException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Input\Facility\CreateFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Presentation\Api\Http\CreationPreconditionGuard;
 use Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor;
-use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, InterventionResourceAssignment};
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
-use Intervention\Application\Service\InterventionResourceManager;
+use Intervention\Application\Contract\Resource\{InterventionConflictException, InterventionNotFoundException};
+use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
+use Intervention\Application\Port\Outbound\Internal\InterventionResourceGatewayPort;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
@@ -24,9 +24,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -65,11 +64,7 @@ final class CreateFacilityProcessorTest extends TestCase
       ->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())
-      ->method('resolveAccess')
-      ->with($user->getId(), '550e8400-e29b-41d4-a716-446655441001', 'organization.facilities.write')
-      ->willReturn(OrganizationAccessDecision::GRANTED);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
 
     $domainException = FacilityCodeAlreadyExistsException::withCode('SITE-001');
     $handlerFailure = new HandlerFailedException(
@@ -90,7 +85,6 @@ final class CreateFacilityProcessorTest extends TestCase
 
     $processor = new CreateFacilityProcessor(
       commandBus: $commandBus,
-      authorization: $authorization,
       security: $security,
     );
 
@@ -119,10 +113,7 @@ final class CreateFacilityProcessorTest extends TestCase
       ->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())
-      ->method('resolveAccess')
-      ->willReturn(OrganizationAccessDecision::GRANTED);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
 
     $handlerFailure = new HandlerFailedException(
       new Envelope(new CreateFacilityCommand(
@@ -141,7 +132,6 @@ final class CreateFacilityProcessorTest extends TestCase
 
     $processor = new CreateFacilityProcessor(
       commandBus: $commandBus,
-      authorization: $authorization,
       security: $security,
     );
 
@@ -171,10 +161,7 @@ final class CreateFacilityProcessorTest extends TestCase
       ->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())
-      ->method('resolveAccess')
-      ->willReturn(OrganizationAccessDecision::GRANTED);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -201,7 +188,6 @@ final class CreateFacilityProcessorTest extends TestCase
 
     $processor = new CreateFacilityProcessor(
       commandBus: $commandBus,
-      authorization: $authorization,
       security: $security,
     );
 
@@ -232,10 +218,7 @@ final class CreateFacilityProcessorTest extends TestCase
       ->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())
-      ->method('resolveAccess')
-      ->willReturn(OrganizationAccessDecision::GRANTED);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -259,7 +242,6 @@ final class CreateFacilityProcessorTest extends TestCase
 
     $processor = new CreateFacilityProcessor(
       commandBus: $commandBus,
-      authorization: $authorization,
       security: $security,
     );
 
@@ -281,7 +263,6 @@ final class CreateFacilityProcessorTest extends TestCase
 
     $processor = new CreateFacilityProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
-      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -303,11 +284,8 @@ final class CreateFacilityProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenPermissionDenied(): void
   {
-    $processor = $this->processor(decision: OrganizationAccessDecision::MISSING_PERMISSION);
-
-    $this->expectException(AccessDeniedHttpException::class);
-
-    $this->dispatch($processor);
+    $this->expectException(FacilityAccessDeniedException::class);
+    $this->dispatch($this->processor(decision: OrganizationAccessDecision::MISSING_PERMISSION));
   }
 
   #[Test]
@@ -424,18 +402,10 @@ final class CreateFacilityProcessorTest extends TestCase
   #[Test]
   public function testSetupReplayPreservesTheCurrentRevisionWithoutAnotherAssignment(): void
   {
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willReturn($this->makeResult(replayed: true, revision: 7));
-    $gateway = $this->createMock(InterventionResourceGatewayPort::class);
-    $gateway->expects(self::never())->method('assign');
-    $processor = new CreateFacilityProcessor(
-      commandBus: $commandBus,
-      authorization: $this->permissiveAuthorization(),
-      security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
-    );
-    $output = $processor->process($this->makeInput(), new Post(), ['organizationId' => self::ORG_ID]);
-    self::assertSame(7, $output->revision);
+    $bus = $this->createMock(CommandBusPort::class);
+    $bus->expects(self::once())->method('dispatch')->with(self::isInstanceOf(CreateFacilityCommand::class))->willReturn($this->makeResult(replayed: true, revision: 9));
+    $output = new CreateFacilityProcessor($bus, $this->authenticatedSecurity())->process($this->makeInput(), new Post(), ['organizationId' => self::ORG_ID]);
+    self::assertSame(9, $output->revision);
     self::assertSame('published', $output->recordStatus);
   }
 
@@ -461,9 +431,7 @@ final class CreateFacilityProcessorTest extends TestCase
 
     $processor = new CreateFacilityProcessor(
       commandBus: $commandBus,
-      authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
       creationPreconditionGuard: new CreationPreconditionGuard($requestStack),
     );
 
@@ -481,76 +449,25 @@ final class CreateFacilityProcessorTest extends TestCase
   #[Test]
   public function testProcessRejectsAnOfflineCreateWhoseClientIdIsAlreadyTaken(): void
   {
-    $requestStack = new RequestStack();
+    $bus = $this->createMock(CommandBusPort::class);
+    $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (CreateFacilityCommand $command): bool => $command->createOnly && self::CLIENT_ID === $command->clientId))->willThrowException(new FacilityCreationPreconditionFailedException('Client identity already exists.'));
+    $stack = new RequestStack();
     $request = Request::create('/api/facilities/' . self::CLIENT_ID, 'PUT');
     $request->headers->set('If-None-Match', '*');
-    $requestStack->push($request);
-
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('clientIdExists')->willReturn(true);
-
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $processor = new CreateFacilityProcessor(
-      commandBus: $commandBus,
-      authorization: $this->permissiveAuthorization(),
-      security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
-      creationPreconditionGuard: new CreationPreconditionGuard($requestStack),
-    );
-
-    $this->expectException(ClientResourceAlreadyExistsHttpException::class);
-
-    $processor->process(
-      data: $this->makeInput(),
-      operation: new Post(),
-      uriVariables: ['organizationId' => self::ORG_ID, 'id' => self::CLIENT_ID],
-    );
+    $stack->push($request);
+    $this->expectException(FacilityCreationPreconditionFailedException::class);
+    new CreateFacilityProcessor($bus, $this->authenticatedSecurity(), new CreationPreconditionGuard($stack))->process($this->makeInput(), new Post(), ['organizationId' => self::ORG_ID, 'id' => self::CLIENT_ID]);
   }
 
   #[Test]
-  public function testProcessWrapsAnInterventionScopedCreationInATransactionAndAttachesIt(): void
+  public function testProcessForwardsInterventionCreationInOneTypedCommand(): void
   {
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())->method('dispatch')->willReturn($this->makeResult());
-
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'draft'),
-    );
-    $gateway->method('interventionAssignmentContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'draft'),
-    );
-    $gateway->method('resourceExists')->willReturn(true);
-    $gateway->method('assign')->willReturn(new InterventionResourceAssignment(self::INTERVENTION_ID, 'draft', 1));
-
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())
-      ->method('resolveAccess')
-      ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.plan')
-      ->willReturn(OrganizationAccessDecision::GRANTED);
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('wrapInTransaction')->willReturnCallback(
-      static fn (callable $callback): mixed => $callback(),
-    );
-
+    $bus = $this->createMock(CommandBusPort::class);
+    $now = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
+    $bus->expects(self::once())->method('dispatch')->with(self::callback(static fn (CreateFacilityCommand $command): bool => self::INTERVENTION_ID === $command->interventionId && self::USER_ID === $command->userId))->willReturn(new CreateFacilityResult(self::FACILITY_ID, self::ORG_ID, null, 'site', 'HQ', null, 'active', null, [], $now, $now, interventionId: self::INTERVENTION_ID, recordStatus: 'draft'));
     $input = $this->makeInput();
     $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
-
-    $processor = new CreateFacilityProcessor(
-      commandBus: $commandBus,
-      authorization: $authorization,
-      security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
-      entityManager: $entityManager,
-    );
-
-    $output = $processor->process(data: $input, operation: new Post(), uriVariables: ['organizationId' => self::ORG_ID]);
-
+    $output = new CreateFacilityProcessor($bus, $this->authenticatedSecurity())->process($input, new Post(), ['organizationId' => self::ORG_ID]);
     self::assertSame('/api/interventions/' . self::INTERVENTION_ID, $output->intervention);
     self::assertSame('draft', $output->recordStatus);
   }
@@ -558,97 +475,33 @@ final class CreateFacilityProcessorTest extends TestCase
   #[Test]
   public function testProcessReportsAnUnknownInterventionAsNotFound(): void
   {
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(null);
-
-    $input = $this->makeInput();
-    $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
-
-    $processor = new CreateFacilityProcessor(
-      commandBus: $this->createStub(CommandBusPort::class),
-      authorization: $this->permissiveAuthorization(),
-      security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(data: $input, operation: new Post(), uriVariables: ['organizationId' => self::ORG_ID]);
+    $failure = MessengerRuntimeException::wrap(InterventionNotFoundException::withId(self::INTERVENTION_ID));
+    $this->expectException(MessengerRuntimeException::class);
+    $this->dispatch($this->processor(exception: $failure));
   }
 
   #[Test]
   public function testProcessReportsAnImmutableInterventionAsConflict(): void
   {
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'submitted'),
-    );
-
-    $input = $this->makeInput();
-    $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
-
-    $processor = new CreateFacilityProcessor(
-      commandBus: $this->createStub(CommandBusPort::class),
-      authorization: $this->permissiveAuthorization(),
-      security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
-    );
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(data: $input, operation: new Post(), uriVariables: ['organizationId' => self::ORG_ID]);
+    $failure = MessengerRuntimeException::wrap(new InterventionConflictException('Intervention is immutable.'));
+    $this->expectException(MessengerRuntimeException::class);
+    $this->dispatch($this->processor(exception: $failure));
   }
 
   #[Test]
   public function testProcessReportsAVanishedFacilityDuringAttachmentAsNotFound(): void
   {
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willReturn($this->makeResult());
-
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('resourceExists')->willReturn(false);
-
-    $processor = new CreateFacilityProcessor(
-      commandBus: $commandBus,
-      authorization: $this->permissiveAuthorization(),
-      security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
-    );
-
+    $failure = MessengerRuntimeException::wrap(FacilityNotFoundException::withId(self::FACILITY_ID));
     $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(data: $this->makeInput(), operation: new Post(), uriVariables: ['organizationId' => self::ORG_ID]);
+    $this->dispatch($this->processor(exception: $failure));
   }
 
   #[Test]
   public function testProcessReportsACrossOrganizationAttachmentAsConflict(): void
   {
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willReturn($this->makeResult());
-
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'draft'),
-    );
-    $gateway->method('resourceExists')->willReturn(true);
-    // The intervention belongs to a different organization than the facility.
-    $gateway->method('interventionAssignmentContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, '550e8400-e29b-41d4-a716-4466554400ff', 'draft'),
-    );
-
-    $input = $this->makeInput();
-    $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
-
-    $processor = new CreateFacilityProcessor(
-      commandBus: $commandBus,
-      authorization: $this->permissiveAuthorization(),
-      security: $this->authenticatedSecurity(),
-      interventionResourceManager: new InterventionResourceManager($gateway),
-    );
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(data: $input, operation: new Post(), uriVariables: ['organizationId' => self::ORG_ID]);
+    $failure = MessengerRuntimeException::wrap(new InterventionConflictException('Resource belongs to another organization.'));
+    $this->expectException(MessengerRuntimeException::class);
+    $this->dispatch($this->processor(exception: $failure));
   }
 
   private function dispatch(CreateFacilityProcessor $processor): void
@@ -658,8 +511,9 @@ final class CreateFacilityProcessorTest extends TestCase
 
   private function processor(?Throwable $exception = null, OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED): CreateFacilityProcessor
   {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn($decision);
+    if (null === $exception && OrganizationAccessDecision::GRANTED !== $decision) {
+      $exception = OrganizationAccessDecision::OUTSIDE_SCOPE === $decision ? new FacilityNotFoundException('Organization not found.') : new FacilityAccessDeniedException('Missing organization.facilities.write permission.');
+    }
 
     $commandBus = $this->createStub(CommandBusPort::class);
 
@@ -669,7 +523,6 @@ final class CreateFacilityProcessorTest extends TestCase
 
     return new CreateFacilityProcessor(
       commandBus: $commandBus,
-      authorization: $authorization,
       security: $this->authenticatedSecurity(),
     );
   }
@@ -718,14 +571,6 @@ final class CreateFacilityProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
 
     return $security;
-  }
-
-  private function permissiveAuthorization(): OrganizationAuthorizationPort
-  {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
-
-    return $authorization;
   }
 
   private function createSecurityUser(string $id): SecurityUser

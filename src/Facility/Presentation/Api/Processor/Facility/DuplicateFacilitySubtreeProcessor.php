@@ -6,7 +6,7 @@ namespace Facility\Presentation\Api\Processor\Facility;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree\{DuplicateFacilitySubtreeCommand, DuplicateFacilitySubtreeResult};
 use Facility\Domain\Exception\{
   FacilityHierarchyException,
@@ -20,8 +20,8 @@ use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
 use InvalidArgumentException;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Contract\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
@@ -59,12 +59,12 @@ final readonly class DuplicateFacilitySubtreeProcessor implements ProcessorInter
    *
    * @param FacilityDetailOutputFactory $detail the detail
    * @param CommandBusPort $commandBus the command bus
-   * @param OrganizationAuthorizationPort $authorization the authorization
    * @param Security $security the security
    *
    * @return void
    */
   public function __construct(
+    private QueryBusPort $detailQueries,
     private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
@@ -93,7 +93,7 @@ final readonly class DuplicateFacilitySubtreeProcessor implements ProcessorInter
   {
     /** @var DuplicateFacilitySubtreeInput $data */
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -132,7 +132,10 @@ final readonly class DuplicateFacilitySubtreeProcessor implements ProcessorInter
       throw $this->mapMessengerException($exception);
     }
 
-    return $this->detail->read($organizationId, $result->facilityId);
+    /** @var \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult $detailResult */
+    $detailResult = $this->detailQueries->ask(new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery($organizationId, $result->facilityId));
+
+    return $this->detail->create($detailResult);
   }
 
   /**

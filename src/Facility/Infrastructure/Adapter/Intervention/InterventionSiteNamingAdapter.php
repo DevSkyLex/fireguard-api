@@ -56,7 +56,7 @@ final readonly class InterventionSiteNamingAdapter implements InterventionSiteNa
       ->select('facility.id AS id', 'facility.name AS name')
       ->from(FacilityRecord::class, 'facility')
       ->where('facility.id IN (:siteIds)')
-      ->andWhere('facility.organization = :organizationId')
+      ->andWhere('facility.organizationId = :organizationId')
       ->setParameter('siteIds', $siteIds)
       ->setParameter('organizationId', $organizationId)
       ->getQuery()

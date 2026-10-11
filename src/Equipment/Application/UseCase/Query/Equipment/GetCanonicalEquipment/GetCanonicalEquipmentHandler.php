@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment;
 
 use Equipment\Application\Contract\Equipment\CanonicalEquipmentView;
-use Equipment\Application\Port\Outbound\CanonicalEquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\Internal\CanonicalEquipmentRepositoryPort;
 use Equipment\Domain\ValueObject\EquipmentId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;

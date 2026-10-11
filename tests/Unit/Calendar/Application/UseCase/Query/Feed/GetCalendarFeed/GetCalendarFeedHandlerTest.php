@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Application\UseCase\Query\Feed\GetCalendarFeed;
 
-use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
+use Calendar\Application\Port\Outbound\Internal\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Service\CalendarFeedAggregator;
 use Calendar\Application\UseCase\Query\Feed\GetCalendarFeed\{GetCalendarFeedHandler, GetCalendarFeedQuery, GetCalendarFeedResult};
 use DateTimeImmutable;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Contract\Workforce\OrganizationWorkforceContext;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationWorkforceDirectoryPort};
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\LoggerPort;

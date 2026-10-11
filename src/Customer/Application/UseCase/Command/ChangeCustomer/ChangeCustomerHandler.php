@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Customer\Application\UseCase\Command\ChangeCustomer;
 
-use Customer\Application\Contract\CustomerView;
-use Customer\Application\Port\Outbound\CustomerRepositoryPort;
-use Customer\Application\Service\CustomerAccessGuard;
+use Customer\Application\Port\Outbound\Internal\CustomerRepositoryPort;
+use Customer\Application\Service\{CustomerAccessGuard, CustomerViewMapper};
 use Customer\Domain\Event\CustomerChangedEvent;
 use Customer\Domain\Exception\CustomerException;
 use Shared\Application\Message\CommandHandler;
@@ -47,7 +46,7 @@ final readonly class ChangeCustomerHandler implements CommandHandler
         }, $changed->revision, $changed->updatedAt));
       }
 
-      return new ChangeCustomerResult(CustomerView::fromCustomer($changed));
+      return new ChangeCustomerResult(CustomerViewMapper::fromCustomer($changed));
     });
   }
 }

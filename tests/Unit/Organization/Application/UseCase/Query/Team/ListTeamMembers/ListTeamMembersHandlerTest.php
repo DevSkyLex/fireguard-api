@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Team\ListTeamMembers;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepositoryPort};
+use Organization\Application\Contract\Exception\OrganizationNotFoundException;
+use Organization\Application\Port\Outbound\Internal\{OrganizationRepositoryPort, TeamRepositoryPort};
 use Organization\Application\UseCase\Query\Team\ListTeamMembers\{ListTeamMembersHandler, ListTeamMembersQuery};
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNotFoundException};
+use Organization\Domain\Exception\TeamNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, TeamId, TeamName};

@@ -80,7 +80,7 @@ final readonly class MfaResendProcessor implements ProcessorInterface
 
     $request = $this->requestStack->getCurrentRequest();
     $ipAddress = $request?->getClientIp() ?? '127.0.0.1';
-    $userAgent = \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent');
+    $userAgent = \Auth\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent');
 
     $this->enforceRateLimit($data->preAuthToken, $ipAddress);
 

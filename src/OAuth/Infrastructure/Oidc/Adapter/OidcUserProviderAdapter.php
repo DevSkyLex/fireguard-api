@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\Oidc\Adapter;
 
-use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
+use OAuth\Application\Port\Outbound\Internal\User\OidcUserProviderPort;
 use OAuth\Domain\Model\Oidc\OidcUser;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
-use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
+use User\Application\Port\Inbound\UserDirectoryPort;
 
 use function trim;
 
@@ -31,10 +30,10 @@ final readonly class OidcUserProviderAdapter implements OidcUserProviderPort
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort $queryBus the query bus
+   * @param UserDirectoryPort $queryBus the query bus
    */
   public function __construct(
-    private QueryBusPort $queryBus,
+    private UserDirectoryPort $queryBus,
   ) {
   }
   // #endregion
@@ -54,13 +53,11 @@ final readonly class OidcUserProviderAdapter implements OidcUserProviderPort
     }
 
     try {
-      /** @var GetUserResult $result */
-      $result = $this->queryBus->ask(new GetUserQuery(id: $normalized));
+      $user = $this->queryBus->findById($normalized);
     } catch (Throwable) {
       return null;
     }
 
-    $user = $result->user;
     $oidcUser = null;
     if (null !== $user) {
       $oidcUser = new OidcUser(

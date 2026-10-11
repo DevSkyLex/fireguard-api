@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Application\UseCase\Command\Role\RemovePermissionFromRole;
 
-use Authorization\Application\Port\Outbound\{PermissionRepositoryPort, RoleRepositoryPort};
+use Authorization\Application\Port\Outbound\Internal\{PermissionRepositoryPort, RoleRepositoryPort};
 use Authorization\Application\UseCase\Query\Permission\GetPermission\GetPermissionResult;
 use Authorization\Domain\Exception\{PermissionNotFoundException, RoleNotFoundException};
 use Authorization\Domain\Model\Permission\Permission;

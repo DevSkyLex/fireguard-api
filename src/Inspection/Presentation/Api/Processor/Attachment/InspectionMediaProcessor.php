@@ -6,31 +6,21 @@ namespace Inspection\Presentation\Api\Processor\Attachment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Inspection\Application\UseCase\Command\Attachment\AddInspectionAttachment\{AddInspectionAttachmentCommand, AddInspectionAttachmentResult};
 use Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAttachment\DeleteInspectionAttachmentCommand;
-use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionAttachmentRecord, InspectionRecord, NonConformityRecord};
+use Inspection\Application\UseCase\Query\Attachment\ResolveInspectionMedia\{ResolveInspectionMediaQuery, ResolveInspectionMediaResult};
+use Inspection\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Inspection\Presentation\Api\Dto\Output\Attachment\InspectionAttachmentOutput;
-use Inspection\Presentation\Api\Provider\Attachment\InspectionMediaProvider;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
-use Shared\Presentation\Api\Http\RevisionGuard;
+use Inspection\Presentation\Api\Http\RevisionGuard;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function is_string;
 
-/**
- * Processor InspectionMediaProcessor.
- *
- * Handles the multipart attachment endpoints:
- * `POST /inspections/{inspectionId}/attachments`,
- * `POST /non-conformities/{nonConformityId}/attachments` (field-proof photos)
- * and `DELETE /inspection-attachments/{id}`.
- *
+/** InspectionMediaProcessor translates HTTP media requests through use cases.
  * @category Processor
  * @version 1.0.0
  *
@@ -40,235 +30,80 @@ use function is_string;
  */
 final readonly class InspectionMediaProcessor implements ProcessorInterface
 {
-  // #region Constants
-  /**
-   * Constant MISSING_WRITE_PERMISSION_MESSAGE.
-   *
-   * Public message returned when organization inspection write permission is missing.
-   *
-   * @access private
-   */
-  private const string MISSING_WRITE_PERMISSION_MESSAGE = 'Missing organization.inspection.write permission.';
-
-  /**
-   * Constant NON_CONFORMITY_NOT_FOUND_MESSAGE.
-   *
-   * Stable public message returned when a non-conformity attachment target is unavailable.
-   *
-   * @access private
-   */
-  private const string NON_CONFORMITY_NOT_FOUND_MESSAGE = 'Non-conformity not found.';
-  // #endregion
-
-  // #region Constructor
-  /**
-   * Method __construct
-   *
-   * Provides upload and removal dependencies for authorized inspection attachments.
-   *
-   * @access public
-   *
-   * @param EntityManagerInterface $entityManager the main entity manager
-   * @param CommandBusPort $commandBus dispatches attachment commands
-   * @param OrganizationAuthorizationPort $authorization enforces organization permissions
-   * @param Security $security resolves the authenticated user
-   * @param RequestStack $requestStack provides the current request
-   * @param MultipartAttachmentGuard $attachmentGuard validates uploaded file type and size
-   * @param RevisionGuard $revisionGuard checks inspection revision constraints
-   *
-   * @return void
-   */
   public function __construct(
-    private EntityManagerInterface $entityManager,
     private CommandBusPort $commandBus,
-    private OrganizationAuthorizationPort $authorization,
+    private QueryBusPort $queryBus,
     private Security $security,
     private RequestStack $requestStack,
     private MultipartAttachmentGuard $attachmentGuard,
     private RevisionGuard $revisionGuard,
   ) {
   }
-  // #endregion
 
-  // #region Methods
-  /**
-   * Method process.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
+  /** @param array<string, mixed> $uriVariables
    * @param array<string, mixed> $context
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?InspectionAttachmentOutput
   {
-    return $this->entityManager->wrapInTransaction(function () use ($uriVariables): ?InspectionAttachmentOutput {
-      if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
-        return $this->delete($uriVariables);
+    $user = $this->security->getUser();
+    if (!$user instanceof AuthenticatedUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+    if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
+      $id = $uriVariables['id'] ?? null;
+      if (!is_string($id)) {
+        throw new NotFoundHttpException('Attachment not found.');
       }
-
-      if (isset($uriVariables['nonConformityId'])) {
-        return $this->uploadForNonConformity($uriVariables);
+      /** @var ResolveInspectionMediaResult $scope */
+      $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), attachmentId: $id, write: true, deletion: true));
+      if (null === $scope->attachment) {
+        throw new NotFoundHttpException('Attachment not found.');
       }
+      $this->revisionGuard->assertMatches($scope->attachment->revision);
+      $this->commandBus->dispatch(new DeleteInspectionAttachmentCommand(organizationId: $scope->organizationId, inspectionId: $scope->inspectionId, attachmentId: $scope->attachment->id, expectedRevision: $scope->attachment->revision, userId: $user->getId()));
 
-      return $this->uploadForInspection($uriVariables);
-    });
-  }
-
-  /**
-   * Method uploadForInspection.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   */
-  private function uploadForInspection(array $uriVariables): InspectionAttachmentOutput
-  {
+      return null;
+    }
     $inspectionId = $uriVariables['inspectionId'] ?? null;
-    if (!is_string($inspectionId) || '' === $inspectionId) {
-      throw new BadRequestHttpException('The inspectionId URI parameter is required.');
-    }
-
-    $inspection = $this->entityManager->find(InspectionRecord::class, $inspectionId);
-    if (!$inspection instanceof InspectionRecord || null === $inspection->organization) {
-      throw new NotFoundHttpException('Inspection not found.');
-    }
-
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $inspection->organization->id, 'organization.inspection.write');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Inspection not found.');
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException(self::MISSING_WRITE_PERMISSION_MESSAGE);
-    }
-
-    $uploaded = $this->attachmentGuard->fromRequest($this->currentRequest());
-
-    /** @var AddInspectionAttachmentResult $result */
-    $result = $this->commandBus->dispatch(new AddInspectionAttachmentCommand(
-      organizationId: $inspection->organization->id,
-      inspectionId: $inspection->id,
-      fileName: $uploaded->fileName,
-      contents: $uploaded->contents,
-      mimeType: $uploaded->mimeType,
-      size: $uploaded->size,
-      label: $uploaded->label,
-    ));
-
-    return $this->outputFor($result->attachmentId);
-  }
-
-  /**
-   * Method uploadForNonConformity.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   */
-  private function uploadForNonConformity(array $uriVariables): InspectionAttachmentOutput
-  {
     $nonConformityId = $uriVariables['nonConformityId'] ?? null;
-    if (!is_string($nonConformityId) || '' === $nonConformityId) {
+    if (isset($uriVariables['nonConformityId']) && (!is_string($nonConformityId) || '' === $nonConformityId)) {
       throw new BadRequestHttpException('The nonConformityId URI parameter is required.');
     }
-
-    $nonConformity = $this->entityManager->find(NonConformityRecord::class, $nonConformityId);
-    if (!$nonConformity instanceof NonConformityRecord || !$nonConformity->inspection instanceof InspectionRecord) {
-      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
+    if (isset($uriVariables['inspectionId']) && (!is_string($inspectionId) || '' === $inspectionId)) {
+      throw new BadRequestHttpException('The inspectionId URI parameter is required.');
     }
-
-    $inspection = $nonConformity->inspection;
-    $organization = $inspection->organization;
-    if (null === $organization) {
-      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
+    if (!is_string($inspectionId) && !is_string($nonConformityId)) {
+      throw new BadRequestHttpException('The inspectionId URI parameter is required.');
     }
-
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.write');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException(self::MISSING_WRITE_PERMISSION_MESSAGE);
-    }
-
+    /** @var ResolveInspectionMediaResult $scope */
+    $scope = $this->queryBus->ask(new ResolveInspectionMediaQuery(userId: $user->getId(), inspectionId: is_string($inspectionId) ? $inspectionId : null, nonConformityId: is_string($nonConformityId) ? $nonConformityId : null, write: true));
     $uploaded = $this->attachmentGuard->fromRequest($this->currentRequest());
-
     /** @var AddInspectionAttachmentResult $result */
     $result = $this->commandBus->dispatch(new AddInspectionAttachmentCommand(
-      organizationId: $organization->id,
-      inspectionId: $inspection->id,
+      organizationId: $scope->organizationId,
+      inspectionId: $scope->inspectionId,
       fileName: $uploaded->fileName,
       contents: $uploaded->contents,
       mimeType: $uploaded->mimeType,
       size: $uploaded->size,
-      nonConformityId: $nonConformity->id,
+      nonConformityId: is_string($nonConformityId) ? $nonConformityId : null,
       label: $uploaded->label,
+      userId: $user->getId(),
     ));
+    $output = new InspectionAttachmentOutput();
+    $output->id = $result->attachmentId;
+    $output->inspectionId = $result->inspectionId;
+    $output->fileName = $result->fileName;
+    $output->mimeType = $result->mimeType;
+    $output->size = $result->size;
+    $output->label = $result->label;
+    $output->revision = $result->revision;
+    $output->uploadedAt = $result->uploadedAt->format('c');
+    $output->nonConformityId = $result->nonConformityId;
 
-    return $this->outputFor($result->attachmentId);
+    return $output;
   }
 
-  /**
-   * Method delete.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $uriVariables
-   */
-  private function delete(array $uriVariables): null
-  {
-    $id = $uriVariables['id'] ?? null;
-    if (!is_string($id)) {
-      throw new NotFoundHttpException('Attachment not found.');
-    }
-
-    $record = $this->entityManager->find(InspectionAttachmentRecord::class, $id);
-    if (!$record instanceof InspectionAttachmentRecord || null === $record->inspection?->organization) {
-      throw new NotFoundHttpException('Attachment not found.');
-    }
-
-    $organization = $record->inspection->organization;
-    $user = $this->user();
-    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.write');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException(self::MISSING_WRITE_PERMISSION_MESSAGE);
-    }
-
-    $this->revisionGuard->assertMatches($record->revision);
-
-    $this->commandBus->dispatch(new DeleteInspectionAttachmentCommand(
-      organizationId: $organization->id,
-      inspectionId: $record->inspection->id,
-      attachmentId: $record->id,
-    ));
-
-    return null;
-  }
-
-  /**
-   * Method outputFor.
-   *
-   * @since 1.0.0
-   */
-  private function outputFor(string $attachmentId): InspectionAttachmentOutput
-  {
-    $record = $this->entityManager->find(InspectionAttachmentRecord::class, $attachmentId);
-    if (!$record instanceof InspectionAttachmentRecord) {
-      throw new NotFoundHttpException('Uploaded attachment not found.');
-    }
-
-    return InspectionMediaProvider::output($record);
-  }
-
-  /**
-   * Method currentRequest.
-   *
-   * @since 1.0.0
-   */
   private function currentRequest(): Request
   {
     $request = $this->requestStack->getCurrentRequest();
@@ -278,20 +113,4 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
 
     return $request;
   }
-
-  /**
-   * Method user.
-   *
-   * @since 1.0.0
-   */
-  private function user(): SecurityUser
-  {
-    $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
-      throw new AccessDeniedHttpException('Authentication required.');
-    }
-
-    return $user;
-  }
-  // #endregion
 }

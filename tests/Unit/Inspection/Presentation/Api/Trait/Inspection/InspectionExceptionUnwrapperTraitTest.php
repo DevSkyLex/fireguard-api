@@ -23,7 +23,7 @@ use PHPUnit\Framework\Attributes\{CoversTrait, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use stdClass;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;

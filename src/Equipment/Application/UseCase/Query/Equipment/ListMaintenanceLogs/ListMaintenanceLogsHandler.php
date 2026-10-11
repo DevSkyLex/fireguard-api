@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Shared\Application\Message\QueryHandler;

@@ -6,7 +6,7 @@ namespace OAuth\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
 use League\OAuth2\Server\CryptTrait;
-use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
+use OAuth\Application\Port\Outbound\Internal\Token\AuthCodeRepositoryPort;
 use OAuth\Domain\Model\Token\AuthCode;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;

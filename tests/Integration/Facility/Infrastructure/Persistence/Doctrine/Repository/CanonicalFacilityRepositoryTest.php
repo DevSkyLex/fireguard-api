@@ -258,7 +258,7 @@ final class CanonicalFacilityRepositoryTest extends KernelTestCase
   ): FacilityRecord {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = $parent;
     $facility->recordStatus = 'published';
     $facility->revision = 1;

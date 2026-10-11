@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Application\Service;
 
 use Audit\Application\Contract\{AuditEventSearchCriteria, AuditEventView};
-use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Application\Port\Outbound\Internal\AuditEventRepositoryPort;
 use Audit\Application\Service\OrganizationAuditFeedService;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

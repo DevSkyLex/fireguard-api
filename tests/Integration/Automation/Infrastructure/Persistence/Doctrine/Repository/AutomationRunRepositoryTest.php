@@ -9,7 +9,7 @@ use Automation\Infrastructure\Persistence\Doctrine\Record\AutomationRunRecord;
 use Automation\Infrastructure\Persistence\Doctrine\Repository\AutomationRunRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -44,8 +44,8 @@ final class AutomationRunRepositoryTest extends KernelTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
-    /** @var UuidFactory $uuidFactory */
-    $uuidFactory = static::getContainer()->get(UuidFactory::class);
+    /** @var UuidGeneratorPort $uuidFactory */
+    $uuidFactory = static::getContainer()->get(UuidGeneratorPort::class);
     $this->repository = new AutomationRunRepository($this->entityManager, $uuidFactory);
 
     $this->cleanup();

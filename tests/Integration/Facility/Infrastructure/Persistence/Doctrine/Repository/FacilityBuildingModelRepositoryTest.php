@@ -551,7 +551,7 @@ final class FacilityBuildingModelRepositoryTest extends KernelTestCase
   ): FacilityRecord {
     $facility = new FacilityRecord();
     $facility->id = $id;
-    $facility->organization = $organization;
+    $facility->organizationId = $organization->id;
     $facility->parentFacility = $parentFacility;
     $facility->type = $type;
     $facility->name = $name;

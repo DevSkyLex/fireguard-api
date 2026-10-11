@@ -6,21 +6,14 @@ namespace Assistant\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Assistant\Application\UseCase\Query\Thread\GetAssistantThread\{GetAssistantThreadQuery, GetAssistantThreadResult};
-use Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherAdapter;
+use Assistant\Application\UseCase\Query\Thread\GetAssistantThreadSubscription\{GetAssistantThreadSubscriptionQuery, GetAssistantThreadSubscriptionResult};
 use Assistant\Presentation\Api\Dto\Output\AssistantThreadSubscriptionOutput;
-use Assistant\Presentation\Api\Trait\AssistantExceptionMapperTrait;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use DateTimeImmutable;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
-use Throwable;
 
 use function is_string;
-use function sprintf;
 
 /**
  * Provider GetAssistantThreadSubscriptionProvider.
@@ -37,7 +30,7 @@ use function sprintf;
  *
  * **Never reuses** the Messaging conversation topic scheme or the
  * Notification topic scheme — see
- * `Assistant\Application\Port\Outbound\AssistantRealtimePublisherPort`'s
+ * `Assistant\Application\Port\Outbound\Internal\AssistantRealtimePublisherPort`'s
  * docblock for why.
  *
  * @category Provider
@@ -49,8 +42,6 @@ use function sprintf;
  */
 final readonly class GetAssistantThreadSubscriptionProvider implements ProviderInterface
 {
-  use AssistantExceptionMapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -59,15 +50,10 @@ final readonly class GetAssistantThreadSubscriptionProvider implements ProviderI
    *
    * @param QueryBusPort $queryBus the query bus value
    * @param Security $security the security service
-   * @param TokenFactoryInterface $defaultFactory the Mercure JWT token factory
-   * @param int $tokenTtl the subscriber token lifetime in seconds
    */
   public function __construct(
     private QueryBusPort $queryBus,
     private Security $security,
-    private TokenFactoryInterface $defaultFactory,
-    #[Autowire(value: '%env(default:mercure_subscriber_token_ttl:int:MERCURE_SUBSCRIBER_TOKEN_TTL)%')]
-    private int $tokenTtl = 900,
   ) {
   }
   // #endregion
@@ -87,7 +73,7 @@ final readonly class GetAssistantThreadSubscriptionProvider implements ProviderI
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): AssistantThreadSubscriptionOutput
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    if (!$user instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -98,29 +84,16 @@ final readonly class GetAssistantThreadSubscriptionProvider implements ProviderI
       throw new BadRequestHttpException('OrganizationId and threadId URI parameters are required.');
     }
 
-    try {
-      /** @var GetAssistantThreadResult $result */
-      $result = $this->queryBus->ask(new GetAssistantThreadQuery(
-        organizationId: $organizationId,
-        threadId: $threadId,
-        actorUserId: $user->getId(),
-        messagesPage: 1,
-        messagesItemsPerPage: 1,
-      ));
-    } catch (Throwable $exception) {
-      throw $this->mapAssistantException($exception);
-    }
-
-    $topic = MercureAssistantRealtimePublisherAdapter::topic($result->thread->organizationId, $result->thread->id);
-    $token = $this->defaultFactory->create(
-      subscribe: [$topic],
-      publish: [],
-      additionalClaims: ['exp' => new DateTimeImmutable(sprintf('+%d seconds', $this->tokenTtl))],
-    );
+    /** @var GetAssistantThreadSubscriptionResult $result */
+    $result = $this->queryBus->ask(new GetAssistantThreadSubscriptionQuery(
+      organizationId: $organizationId,
+      threadId: $threadId,
+      actorUserId: $user->getId(),
+    ));
 
     $output = new AssistantThreadSubscriptionOutput();
-    $output->token = $token;
-    $output->topic = $topic;
+    $output->token = $result->token;
+    $output->topic = $result->topic;
 
     return $output;
   }

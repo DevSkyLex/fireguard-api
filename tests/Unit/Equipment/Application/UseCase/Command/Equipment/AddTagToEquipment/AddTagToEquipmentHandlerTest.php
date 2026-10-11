@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\AddTagToEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\Internal\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\AddTagToEquipment\{AddTagToEquipmentCommand, AddTagToEquipmentHandler, AddTagToEquipmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -13,7 +13,7 @@ use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, Equipmen
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(AddTagToEquipmentHandler::class)]
@@ -44,8 +44,8 @@ final class AddTagToEquipmentHandlerTest extends TestCase
     $tagRepository->expects(self::once())->method('saveAndLinkToEquipment');
     $tagRepository->expects(self::never())->method('addTagToEquipment');
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
-    $uuidFactory->method('create')->willReturn(new TagId(self::TAG_ID));
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
+    $uuidFactory->method('generate')->willReturn(self::TAG_ID);
 
     $handler = new AddTagToEquipmentHandler(
       equipmentRepository: $equipmentRepository,
@@ -87,9 +87,9 @@ final class AddTagToEquipmentHandlerTest extends TestCase
     $tagRepository->expects(self::never())->method('saveAndLinkToEquipment');
     $tagRepository->expects(self::once())->method('addTagToEquipment');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    /** @var UuidGeneratorPort&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidGeneratorPort::class);
+    $uuidFactory->expects(self::never())->method('generate');
 
     $handler = new AddTagToEquipmentHandler(
       equipmentRepository: $equipmentRepository,
@@ -115,7 +115,7 @@ final class AddTagToEquipmentHandlerTest extends TestCase
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
-    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidGeneratorPort::class);
 
     $handler = new AddTagToEquipmentHandler(
       equipmentRepository: $equipmentRepository,
@@ -142,7 +142,7 @@ final class AddTagToEquipmentHandlerTest extends TestCase
     $handler = new AddTagToEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
-      uuidFactory: $this->createStub(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidGeneratorPort::class),
     );
 
     $this->expectException(InvalidValueException::class);

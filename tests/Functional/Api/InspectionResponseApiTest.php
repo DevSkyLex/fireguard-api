@@ -579,7 +579,7 @@ final class InspectionResponseApiTest extends WebTestCase
   {
     $inspection = new InspectionRecord();
     $inspection->id = $id;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->equipmentId = '870e8400-e29b-41d4-a716-446655491060';
     $inspection->inspectorType = 'user';
     $inspection->inspectorName = 'Test Inspector';
@@ -614,7 +614,7 @@ final class InspectionResponseApiTest extends WebTestCase
   ): InspectionResponseRecord {
     $response = new InspectionResponseRecord();
     $response->id = $id;
-    $response->organization = $organization;
+    $response->organizationId = $organization->id;
     $response->inspectionId = $inspectionId;
     $response->clientId = $clientId;
     $response->recordStatus = $recordStatus;

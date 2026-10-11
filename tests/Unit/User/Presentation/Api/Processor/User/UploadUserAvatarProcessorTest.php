@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\{File\UploadedFile, Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Tests\Support\Image\ImageFixtures;
 use User\Application\Contract\User\UserView;
+use User\Application\UseCase\Command\Avatar\UploadUserAvatar\UploadUserAvatarCommand;
 use User\Application\UseCase\Command\User\UpdateUser\UpdateUserCommand;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 use User\Infrastructure\Image\AvatarResizer;
@@ -29,6 +30,7 @@ use function file_put_contents;
 use function is_string;
 use function restore_error_handler;
 use function set_error_handler;
+use function sprintf;
 use function str_contains;
 use function str_repeat;
 use function sys_get_temp_dir;
@@ -64,7 +66,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
   {
     $requestStack = new RequestStack();
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $this->createStub(CommandBusPort::class),
@@ -83,7 +85,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $this->createStub(CommandBusPort::class),
@@ -114,7 +116,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $this->createStub(CommandBusPort::class),
@@ -173,7 +175,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
       ->with(self::isInstanceOf(GetUserQuery::class))
       ->willReturn(new GetUserResult(user: $userView));
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $resizer,
       commandBus: $commandBus,
@@ -216,7 +218,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $resizer = $this->createStub(AvatarResizer::class);
     $resizer->method('resize');
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $resizer,
       commandBus: $this->createStub(CommandBusPort::class),
@@ -250,7 +252,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $this->createStub(CommandBusPort::class),
@@ -286,7 +288,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $this->createStub(CommandBusPort::class),
@@ -327,7 +329,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $this->createStub(CommandBusPort::class),
@@ -367,7 +369,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
 
-    $processor = new UploadUserAvatarProcessor(
+    $processor = $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: new AvatarResizer($storage, new ImageInputValidationAdapter()),
       commandBus: $commandBus,
@@ -406,7 +408,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push(new Request());
 
-    return new UploadUserAvatarProcessor(
+    return $this->avatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $this->createStub(AvatarResizer::class),
       commandBus: $this->createStub(CommandBusPort::class),
@@ -450,5 +452,20 @@ final class UploadUserAvatarProcessorTest extends TestCase
 
     return $binary;
   }
+
   // #endregion
+  private function avatarProcessor(RequestStack $requestStack, AvatarResizer $avatarResizer, CommandBusPort $commandBus, QueryBusPort $queryBus): UploadUserAvatarProcessor
+  {
+    $applicationBus = $this->createStub(CommandBusPort::class);
+    $applicationBus->method('dispatch')->willReturnCallback(static function (UploadUserAvatarCommand $command) use ($avatarResizer, $commandBus): mixed {
+      $avatarResizer->resize($command->userId, $command->sourceContents, 'processor-attempt');
+
+      return $commandBus->dispatch(new UpdateUserCommand(
+        id: $command->userId,
+        avatarUrl: sprintf('%s/api/users/%s/avatar/%d.webp?v=%d', $command->baseUrl, $command->userId, AvatarResizer::SIZES[0], $command->version),
+      ));
+    });
+
+    return new UploadUserAvatarProcessor($requestStack, $applicationBus, $queryBus);
+  }
 }

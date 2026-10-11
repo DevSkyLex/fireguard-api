@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Symfony\Adapter\Inbound;
 
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Contract\Exception\MessengerRuntimeException;
 use Shared\Application\Message\{QueryMessage, ResultMessage};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Infrastructure\Exception\NoHandlerResultException;

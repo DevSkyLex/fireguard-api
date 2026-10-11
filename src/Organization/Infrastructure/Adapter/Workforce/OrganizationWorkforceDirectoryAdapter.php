@@ -11,6 +11,8 @@ use Organization\Domain\ValueObject\OrganizationSettings;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord};
 
 use function array_map;
+use function array_unique;
+use function array_values;
 use function trim;
 
 /**
@@ -27,9 +29,9 @@ final readonly class OrganizationWorkforceDirectoryAdapter implements Organizati
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager explicitly configured main entity manager
-   * @param \Shared\Application\Port\Inbound\QueryBusPort $queries dispatches read use cases through the query bus
+   * @param \User\Application\Port\Inbound\UserDirectoryPort $queries reads account projections in a batch
    */
-  public function __construct(private EntityManagerInterface $entityManager, private \Shared\Application\Port\Inbound\QueryBusPort $queries)
+  public function __construct(private EntityManagerInterface $entityManager, private \User\Application\Port\Inbound\UserDirectoryPort $queries)
   {
   }
 
@@ -118,11 +120,10 @@ final readonly class OrganizationWorkforceDirectoryAdapter implements Organizati
     foreach ($assignments as $assignment) {
       $roles[$assignment['memberId']][] = $assignment['roleName'];
     }
+    $users = $this->queries->findByIds(array_values(array_unique(array_map(static fn (OrganizationMemberRecord $member): string => $member->userId, $members))));
     $profiles = [];
     foreach ($members as $member) {
-      /** @var \User\Application\UseCase\Query\User\GetUser\GetUserResult $result */
-      $result = $this->queries->ask(new \User\Application\UseCase\Query\User\GetUser\GetUserQuery($member->userId));
-      $profile = $result->user;
+      $profile = $users[$member->userId] ?? null;
       $displayName = $member->id;
       if (null !== $profile) {
         $displayName = trim($profile->firstName . ' ' . $profile->lastName) ?: $profile->username;

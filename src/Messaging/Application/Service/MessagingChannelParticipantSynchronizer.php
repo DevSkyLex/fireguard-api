@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Messaging\Application\Service;
 
 use DateTimeImmutable;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Organization\Application\Port\Inbound\TeamDirectoryPort;
 
 use function array_diff;

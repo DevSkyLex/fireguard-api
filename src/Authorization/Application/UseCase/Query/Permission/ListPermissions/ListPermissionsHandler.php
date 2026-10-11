@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Application\UseCase\Query\Permission\ListPermissions;
 
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
+use Authorization\Application\Port\Outbound\Internal\PermissionRepositoryPort;
 use Authorization\Application\UseCase\Query\Permission\GetPermission\GetPermissionResult;
 use Authorization\Domain\Model\Permission\Permission;
 use Shared\Application\Message\QueryHandler;

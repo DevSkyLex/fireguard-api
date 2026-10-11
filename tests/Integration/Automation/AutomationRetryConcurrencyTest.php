@@ -18,10 +18,9 @@ use Doctrine\ORM\{EntityManager, EntityManagerInterface};
 use Intervention\Application\Contract\Draft\CreatedInterventionDraft;
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Psr\Log\NullLogger;
 use RuntimeException;
-use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 use Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -40,7 +39,7 @@ final class AutomationRetryConcurrencyTest extends KernelTestCase
 
   private Connection $observer;
 
-  private UuidFactory $ids;
+  private UuidGeneratorPort $ids;
 
   private string $run;
 
@@ -52,8 +51,8 @@ final class AutomationRetryConcurrencyTest extends KernelTestCase
     $em = self::getContainer()->get('doctrine.orm.main_entity_manager');
     self::assertInstanceOf(EntityManagerInterface::class, $em);
     $this->em = $em;
-    $ids = self::getContainer()->get(UuidFactory::class);
-    self::assertInstanceOf(UuidFactory::class, $ids);
+    $ids = self::getContainer()->get(UuidGeneratorPort::class);
+    self::assertInstanceOf(UuidGeneratorPort::class, $ids);
     $this->ids = $ids;
     $url = $_ENV['MAIN_DATABASE_URL'] ?? $_SERVER['MAIN_DATABASE_URL'] ?? null;
     self::assertIsString($url);
@@ -239,6 +238,6 @@ final class AutomationRetryConcurrencyTest extends KernelTestCase
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn(new DateTimeImmutable());
 
-    return new ExecuteAutomationRuleHandler($this->repository($this->em), $this->policy(), $factory, $this->createStub(EventDispatcherPort::class), $clock, new NullLogger(), new DbalTransactionManagerAdapter($this->em->getConnection()));
+    return new ExecuteAutomationRuleHandler($this->repository($this->em), $this->policy(), $factory, $this->createStub(EventDispatcherPort::class), $clock, $this->createStub(LoggerPort::class), new DbalTransactionManagerAdapter($this->em->getConnection()));
   }
 }

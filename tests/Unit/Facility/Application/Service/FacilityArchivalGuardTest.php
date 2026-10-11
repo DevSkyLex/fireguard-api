@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\Service;
 
-use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort, FacilityInterventionDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort, FacilityInterventionDependencyPort};
+use Facility\Application\Port\Outbound\Internal\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityArchivalGuard;
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};

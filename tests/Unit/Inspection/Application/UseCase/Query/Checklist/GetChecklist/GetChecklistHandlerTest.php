@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Checklist\GetChecklist;
 
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\ChecklistRepositoryPort;
 use Inspection\Application\UseCase\Query\Checklist\GetChecklist\{
   ChecklistItemResult,
   GetChecklistHandler,

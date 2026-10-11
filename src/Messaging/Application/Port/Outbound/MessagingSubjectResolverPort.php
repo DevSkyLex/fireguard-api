@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\Port\Outbound;
 
-use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
-use Messaging\Domain\ValueObject\MessagingSubjectType;
+use Messaging\Application\Contract\Subject\{MessagingSubjectResolution, MessagingSubjectType};
 
 /**
  * Port MessagingSubjectResolverPort.

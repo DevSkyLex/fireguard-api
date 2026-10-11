@@ -11,8 +11,8 @@ use Intervention\Application\Contract\Template\{InterventionTemplateCreateReques
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionTemplateItemRecord, InterventionTemplateRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Application\Factory\UuidFactory;
+use Organization\Application\Port\Inbound\OrganizationOwnerReadPort;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Throwable;
 
 use function array_map;
@@ -41,11 +41,12 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param UuidGeneratorPort $uuidFactory the uuid factory value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
-    private UuidFactory $uuidFactory,
+    private UuidGeneratorPort $uuidFactory,
+    private OrganizationOwnerReadPort $organizations,
   ) {
   }
 
@@ -60,15 +61,15 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
    */
   public function create(InterventionTemplateCreateRequest $request): InterventionTemplateView
   {
-    $organization = $this->entityManager->find(OrganizationRecord::class, $request->organizationId);
-    if (!$organization instanceof OrganizationRecord) {
+    $organization = $request->organizationId;
+    if (null === $this->organizations->ownerUserId($organization)) {
       throw InterventionNotFoundException::withId($request->organizationId);
     }
 
     $now = new DateTimeImmutable();
     $record = new InterventionTemplateRecord();
-    $record->id = $this->uuidFactory->generateRaw();
-    $record->organization = $organization;
+    $record->id = $this->uuidFactory->generate();
+    $record->organizationId = $organization;
     $record->name = $request->attributes->name;
     $record->description = $request->attributes->description;
     $record->type = $request->attributes->type;
@@ -186,11 +187,11 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
   {
     $page = max(1, $page);
     $itemsPerPage = max(1, min(100, $itemsPerPage));
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $organization = $organizationId;
     $qb = $this->entityManager->createQueryBuilder()
       ->select('t')
       ->from(InterventionTemplateRecord::class, 't')
-      ->where('t.organization = :organization')
+      ->where('t.organizationId = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('t.name', 'ASC');
 
@@ -238,7 +239,7 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
     $position = 0;
     foreach ($items as $item) {
       $itemRecord = new InterventionTemplateItemRecord();
-      $itemRecord->id = $this->uuidFactory->generateRaw();
+      $itemRecord->id = $this->uuidFactory->generate();
       $itemRecord->template = $record;
       $itemRecord->position = $position;
       $itemRecord->action = $item['action'];
@@ -360,10 +361,10 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
    */
   private function organizationId(InterventionTemplateRecord $record): string
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (!isset($record->organizationId)) {
       throw new InterventionConflictException('Intervention template organization is missing.');
     }
 
-    return $record->organization->id;
+    return $record->organizationId;
   }
 }

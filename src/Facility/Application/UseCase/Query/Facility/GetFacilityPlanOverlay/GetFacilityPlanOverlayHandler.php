@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay;
 
-use Facility\Application\Port\Outbound\{
-  FacilityAttachmentRepositoryPort,
-  FacilityEquipmentPlanPositionPort,
-  FacilityRepositoryPort
-};
+use Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort;
+use Facility\Application\Port\Outbound\Internal\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\{FacilityAttachmentAncestryGuard, FacilitySpatialValidityResolver};
 use Facility\Domain\Exception\{
   FacilityAttachmentNotFloorPlanException,

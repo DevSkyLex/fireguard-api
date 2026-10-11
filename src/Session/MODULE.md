@@ -158,6 +158,14 @@ state. The authenticator sets `_fireguard_session_id` only after signature and
 owner checks; list/current-device and revoke-others read that verified attribute.
 An unresolved current session cannot silently turn revoke-others into revoke-all.
 
+### Published and private capabilities
+
+External account flows revoke sessions through SessionRevocationPort. Tracking/status ports preserve the mandatory signed-subject revocation anchor and atomic rotation. Authentication reads session status on every request; a cached principal cannot replace this decision.
+
+SessionDataLifecyclePort owns account deletion and existing retention predicates through the explicitly wired auth manager.
+
+Repositories and capabilities exposing owner-local types are private under Application/Port/Outbound/Internal; cross-module access uses published ports and pure contracts.
+
 ## Configuration
 
 Collection shares the disabled-by-default Shared GeoIP configuration. Session storage and the

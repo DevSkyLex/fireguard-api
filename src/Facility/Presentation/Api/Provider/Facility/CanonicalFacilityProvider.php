@@ -8,20 +8,17 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
-use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
-use Facility\Application\UseCase\Query\Facility\GetFacilityPaths\{GetFacilityPathsQuery, GetFacilityPathsResult};
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Auth\Application\Contract\User\AuthenticatedUser;
+use Facility\Application\UseCase\Query\Attachment\GetFacilityMediaContext\{GetFacilityMediaContextQuery, GetFacilityMediaContextResult};
+use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityQuery, GetFacilityResult};
+use Facility\Application\UseCase\Query\Facility\ListCanonicalFacilities\{ListCanonicalFacilitiesQuery, ListCanonicalFacilitiesResult};
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
-use Intervention\Application\Service\InterventionResourceManager;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Http\ResourceIriParser;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-use function array_map;
 use function is_array;
 use function is_numeric;
 use function is_string;
@@ -40,13 +37,6 @@ use function min;
  */
 final readonly class CanonicalFacilityProvider implements ProviderInterface
 {
-  // #region Constants
-  /**
-   * Constant FACILITY_NOT_FOUND_MESSAGE
-   */
-  private const string FACILITY_NOT_FOUND_MESSAGE = 'Facility not found.';
-  // #endregion
-
   /**
    * Constructor.
    *
@@ -54,18 +44,12 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param EntityManagerInterface $entityManager the entity manager value
-   * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
-   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
-    private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
-    private InterventionResourceManager $interventionResourceManager,
     private \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail,
     private QueryBusPort $queryBus,
   ) {
@@ -84,64 +68,47 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
+    $user = $this->security->getUser();
+    if (!$user instanceof AuthenticatedUser) {
+      throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
+    }
     $id = $uriVariables['id'] ?? null;
     if (is_string($id) && '' !== $id) {
-      $record = $this->entityManager->find(FacilityRecord::class, $id);
-      if (!$record instanceof FacilityRecord) {
-        throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
-      }
-      if (null === $record->organization) {
-        throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
-      }
-      $this->assertRead($record->organization->id);
+      /** @var GetFacilityMediaContextResult $media */
+      $media = $this->queryBus->ask(new GetFacilityMediaContextQuery($user->getId(), facilityId: $id));
+      /** @var GetFacilityResult $result */
+      $result = $this->queryBus->ask(new GetFacilityQuery($media->organizationId, $id));
 
-      return $this->detail->read($record->organization->id, $record->id);
+      return $this->detail->create($result);
     }
-
-    [$organization, $interventionId, $recordStatus] = $this->filters();
-    $this->assertRead($organization);
-    $query = $this->entityManager->createQueryBuilder()
-      ->select('f')
-      ->from(FacilityRecord::class, 'f')
-      ->where('f.organization = :organization')
-      ->andWhere('f.recordStatus = :recordStatus')
-      ->setParameter('organization', $organization)
-      ->setParameter('recordStatus', $recordStatus)
-      ->orderBy('f.createdAt', 'ASC');
-    if (null !== $interventionId) {
-      $query->andWhere('f.interventionId = :interventionId')->setParameter('interventionId', $interventionId);
-    }
-
-    [$page, $itemsPerPage] = $this->pagination($context);
-    $countQuery = clone $query;
-    $total = (int) $countQuery
-      ->resetDQLPart('orderBy')
-      ->select('COUNT(f.id)')
-      ->getQuery()
-      ->getSingleScalarResult();
-    /** @var list<FacilityRecord> $records */
-    $records = $query
-      ->setFirstResult(($page - 1) * $itemsPerPage)
-      ->setMaxResults($itemsPerPage)
-      ->getQuery()
-      ->getResult();
-    /** @var GetFacilityPathsResult $pathResult */
-    $pathResult = $this->queryBus->ask(new GetFacilityPathsQuery(
-      $organization,
-      array_map(static fn (FacilityRecord $record): string => $record->id, $records),
-      $this->requestStack->getCurrentRequest()?->query->getBoolean('includePath', false) ?? false,
+    $request = $this->requestStack->getCurrentRequest();
+    $organization = $request?->query->get('organization');
+    $intervention = $request?->query->get('intervention');
+    $recordStatus = $request?->query->get('recordStatus');
+    [$page, $perPage] = $this->pagination($context);
+    /** @var ListCanonicalFacilitiesResult $result */
+    $result = $this->queryBus->ask(new ListCanonicalFacilitiesQuery(
+      userId: $user->getId(),
+      organizationId: is_string($organization) && '' !== $organization ? ResourceIriParser::id($organization, 'organizations') : null,
+      interventionId: is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null,
+      recordStatus: is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : null,
+      page: $page,
+      itemsPerPage: $perPage,
+      includePath: $request?->query->getBoolean('includePath', false) ?? false,
     ));
     $output = [];
-    foreach ($records as $record) {
-      // Collection responses never carry planGeometry — the detail branch
-      // above (includeGeometry: true) is the only reader.
-      $item = $this->map($record, includeGeometry: false);
-      $item->path = $pathResult->paths[$record->id] ?? [];
-      $item->hierarchyIssues = $pathResult->hierarchyIssues[$record->id] ?? [];
-      $output[] = $item;
+    foreach ($result->page->items as $item) {
+      $mapped = new FacilityOutput();
+      foreach (['id', 'organizationId', 'recordStatus', 'revision', 'parentFacilityId', 'hasChildren', 'type', 'name', 'code', 'status', 'address', 'latitude', 'longitude', 'metadata', 'levelIndex', 'elevationMeters', 'heightMeters', 'customerId', 'createdAt', 'updatedAt'] as $property) {
+        $mapped->{$property} = $item->{$property};
+      }
+      $mapped->intervention = null === $item->interventionId ? null : '/api/interventions/' . $item->interventionId;
+      $mapped->path = $result->paths[$item->id] ?? [];
+      $mapped->hierarchyIssues = $result->hierarchyIssues[$item->id] ?? [];
+      $output[] = $mapped;
     }
 
-    return new TraversablePaginator(new ArrayIterator($output), (float) $page, (float) $itemsPerPage, (float) $total);
+    return new TraversablePaginator(new ArrayIterator($output), (float) $result->pageNumber, (float) $result->itemsPerPage, (float) $result->page->total);
   }
 
   /**
@@ -160,137 +127,5 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $itemsPerPage = is_array($filters) && is_numeric($filters['itemsPerPage'] ?? null) ? (int) $filters['itemsPerPage'] : 50;
 
     return [max(1, $page), max(1, min(100, $itemsPerPage))];
-  }
-
-  /**
-   * Method filters.
-   *
-   * @since 1.0.0
-   *
-   * @return array{string, ?string, string}
-   */
-  private function filters(): array
-  {
-    $request = $this->requestStack->getCurrentRequest();
-    $organizationValue = $request?->query->get('organization');
-    $intervention = $request?->query->get('intervention');
-    $interventionId = is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null;
-    $organization = $this->organization($organizationValue, $intervention);
-    $recordStatus = $request?->query->get('recordStatus');
-
-    $resolvedRecordStatus = null !== $interventionId ? 'draft' : 'published';
-    if (is_string($recordStatus) && '' !== $recordStatus) {
-      $resolvedRecordStatus = $recordStatus;
-    }
-
-    return [$organization, $interventionId, $resolvedRecordStatus];
-  }
-
-  /**
-   * Method organization.
-   *
-   * Resolves the organization from the organization filter or an intervention’s context, rejecting requests with neither.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param mixed $organizationValue the organization value value
-   * @param mixed $interventionValue the intervention value value
-   *
-   * @return string the organization identifier
-   */
-  private function organization(mixed $organizationValue, mixed $interventionValue): string
-  {
-    $organizationId = null;
-    if (is_string($organizationValue) && '' !== $organizationValue) {
-      $organizationId = ResourceIriParser::id($organizationValue, 'organizations');
-    } elseif (is_string($interventionValue) && '' !== $interventionValue) {
-      $organizationId = $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId;
-    }
-    if (null === $organizationId) {
-      throw new BadRequestHttpException('The organization or intervention filter is required.');
-    }
-
-    // No existence check here. `assertRead()` calls `resolveAccess()`, which
-    // answers OUTSIDE_SCOPE — and therefore the same 404, with the same
-    // message — for an organization that does not exist as for one the caller
-    // is not in. Looking the record up first would issue a second query to
-    // reach an answer the permission gate already gives.
-    return $organizationId;
-  }
-
-  /**
-   * Method assertRead.
-   *
-   * Requires organization.facilities.read access and hides organizations outside the actor’s scope as not found.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   *
-   * @return void no return value
-   */
-  private function assertRead(string $organizationId): void
-  {
-    $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
-      throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
-    }
-
-    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.facilities.read');
-    if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
-    }
-    if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
-    }
-  }
-
-  /**
-   * Method map.
-   *
-   * Maps a facility record to its API output, including plan geometry only for detail reads.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param FacilityRecord $record the record value
-   * @param bool $includeGeometry whether to populate planGeometry — detail reads only, never a collection
-   *
-   * @return FacilityOutput the map result
-   */
-  private function map(FacilityRecord $record, bool $includeGeometry): FacilityOutput
-  {
-    if (null === $record->organization) {
-      throw new NotFoundHttpException('Facility organization not found.');
-    }
-    $output = new FacilityOutput();
-    $output->id = $record->id;
-    $output->organizationId = $record->organization->id;
-    $output->intervention = null !== $record->interventionId ? '/api/interventions/' . $record->interventionId : null;
-    $output->recordStatus = $record->recordStatus;
-    $output->revision = $record->revision;
-    $output->parentFacilityId = $record->parentFacility?->id;
-    $output->hasChildren = !$record->children->isEmpty();
-    $output->type = $record->type;
-    $output->name = $record->name;
-    $output->code = $record->code;
-    $output->status = $record->status;
-    $output->address = $record->address;
-    $output->latitude = $record->latitude;
-    $output->longitude = $record->longitude;
-    $output->metadata = $record->metadata;
-    $output->levelIndex = $record->levelIndex;
-    $output->elevationMeters = $record->elevationMeters;
-    $output->heightMeters = $record->heightMeters;
-    $output->customerId = $record->customerId;
-    if ($includeGeometry) {
-      $output->planGeometry = $record->planGeometry;
-    }
-    $output->createdAt = $record->createdAt->format('c');
-    $output->updatedAt = $record->updatedAt->format('c');
-
-    return $output;
   }
 }

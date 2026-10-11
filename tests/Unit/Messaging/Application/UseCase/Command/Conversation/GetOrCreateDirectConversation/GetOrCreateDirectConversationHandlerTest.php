@@ -6,14 +6,15 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Conversation\GetOrCre
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\Internal\MessagingConversationRepositoryPort;
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Conversation\GetOrCreateDirectConversation\{GetOrCreateDirectConversationCommand, GetOrCreateDirectConversationHandler};
 use Messaging\Domain\Exception\MessagingValidationException;
 use Messaging\Domain\Service\DirectConversationKey;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

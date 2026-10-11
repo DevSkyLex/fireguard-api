@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Compliance\Application\UseCase\Query\GetComplianceOverview;
 
-use Compliance\Application\Contract\FacilityComplianceView;
+use Compliance\Application\Contract\{ComplianceStatus, FacilityComplianceView};
 use Compliance\Application\Service\{ComplianceRegisterAggregator, ComplianceStatusPolicy};
 use Compliance\Domain\Exception\ComplianceAccessDeniedException;
-use Compliance\Domain\ValueObject\ComplianceStatus;
 use DateTimeImmutable;
+use Organization\Application\Contract\Authorization\OrganizationPermissionCatalog;
+use Organization\Application\Contract\Exception\OrganizationAccessDeniedException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\CachePort;
 use Throwable;

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Compliance\Application\UseCase\Query\Snapshot\ListSafetyRegisterSnapshots;
 
 use Compliance\Application\Contract\SafetyRegisterSnapshotView;
-use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterSnapshotRepositoryPort};
+use Compliance\Application\Port\Outbound\ComplianceExportEntitlementPort;
+use Compliance\Application\Port\Outbound\Internal\SafetyRegisterSnapshotRepositoryPort;
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceExportNotEntitledException, ComplianceNotFoundException};
 use Compliance\Domain\Model\Snapshot\SafetyRegisterSnapshot;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;

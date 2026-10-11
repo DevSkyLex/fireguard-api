@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\EventSubscriber;
 
+use Equipment\Application\Contract\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Equipment\Application\Contract\Event\EquipmentPlanPositionChangedEvent;
-use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
+use Facility\Application\Contract\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
 use Facility\Application\Contract\Event\FacilityPlanGeometryChangedEvent;
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
-use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
-use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
+use Inspection\Application\Contract\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
+use Inspection\Application\Contract\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /** Records the resource event family. */

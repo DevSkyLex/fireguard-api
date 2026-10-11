@@ -6,6 +6,8 @@ namespace Shared\Infrastructure\Messaging\Outbox;
 
 use Doctrine\DBAL\Connection;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Infrastructure\Persistence\DatabaseFailureTranslator;
+use Throwable;
 
 /** Adapter DbalTransactionManagerAdapter. Repositories flush their own writes; failures do not flush a closed ORM. */
 final readonly class DbalTransactionManagerAdapter implements TransactionManagerPort
@@ -41,7 +43,11 @@ final readonly class DbalTransactionManagerAdapter implements TransactionManager
    */
   public function transactional(callable $operation): mixed
   {
-    return $this->connection->transactional(static fn () => $operation());
+    try {
+      return $this->connection->transactional(static fn () => $operation());
+    } catch (Throwable $failure) {
+      throw DatabaseFailureTranslator::translate($failure);
+    }
   }
   // #endregion
 }

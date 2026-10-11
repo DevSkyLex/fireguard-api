@@ -6,7 +6,7 @@ namespace Organization\Presentation\Api\Provider\Join;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
+use Auth\Application\Contract\User\AuthenticatedUser;
 use LogicException;
 use Organization\Application\UseCase\Query\Join\ReadOrganizationJoin\{ReadOrganizationJoinQuery, ReadOrganizationJoinResult};
 use Organization\Presentation\Api\Service\Join\OrganizationJoinOutputAssembler;
@@ -54,7 +54,7 @@ final readonly class OrganizationJoinProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $actor = $this->security->getUser();
-    if (!$actor instanceof SecurityUser) {
+    if (!$actor instanceof AuthenticatedUser) {
       throw new AccessDeniedHttpException();
     }
     if (!$this->limiter->create($actor->getId())->consume()->isAccepted()) {

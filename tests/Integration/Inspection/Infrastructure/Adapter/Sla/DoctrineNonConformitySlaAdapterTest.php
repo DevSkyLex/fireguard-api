@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Application\Contract\Sla\NonConformitySlaCandidate;
-use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
+use Inspection\Application\Port\Outbound\Internal\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId, NonConformitySeverity, NonConformityStatus};
 use Inspection\Infrastructure\Adapter\Sla\DoctrineNonConformitySlaAdapter;
@@ -77,7 +77,7 @@ final class DoctrineNonConformitySlaAdapterTest extends KernelTestCase
 
     $inspection = new InspectionRecord();
     $inspection->id = self::INSPECTION_ID;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->facilityId = null;
     $inspection->equipmentId = 'c31e8400-e29b-41d4-a716-446655c31800';
     $inspection->inspectorType = 'user';

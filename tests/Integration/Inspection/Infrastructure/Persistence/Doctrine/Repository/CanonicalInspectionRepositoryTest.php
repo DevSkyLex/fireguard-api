@@ -67,7 +67,7 @@ final class CanonicalInspectionRepositoryTest extends KernelTestCase
 
     $inspection = new InspectionRecord();
     $inspection->id = self::INSPECTION_ID;
-    $inspection->organization = $organization;
+    $inspection->organizationId = $organization->id;
     $inspection->recordStatus = 'draft';
     $inspection->interventionId = self::INTERVENTION_ID;
     $inspection->revision = 4;

@@ -11,7 +11,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecurren
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 
 /**
  * Test DoctrineInterventionRecurrenceAdapterTest.
@@ -45,7 +45,8 @@ final class DoctrineInterventionRecurrenceAdapterTest extends TestCase
   {
     $adapter = new DoctrineInterventionRecurrenceAdapter(
       $this->createStub(EntityManagerInterface::class),
-      $this->createStub(UuidFactory::class),
+      $this->createStub(UuidGeneratorPort::class),
+      $this->createStub(\Organization\Application\Port\Inbound\OrganizationOwnerReadPort::class),
     );
 
     $this->expectException(InterventionNotFoundException::class);

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Query\Time\ListTimeEntryVersions;
 
 use Intervention\Application\Contract\Time\{TimeEntryTaskContext, TimeEntryVersionView, TimeEntryView};
-use Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort;
+use Intervention\Application\Port\Outbound\Internal\InterventionTimeEntryRepositoryPort;
 use Intervention\Application\Service\InterventionTimeAccessPolicy;
 use Intervention\Application\UseCase\Query\Time\ListTimeEntryVersions\{ListTimeEntryVersionsHandler, ListTimeEntryVersionsQuery};
 use Intervention\Domain\Exception\InterventionNotFoundException;
