@@ -99,10 +99,8 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
   private function dispatch(CreateInspectionCommand $command, ?string $resourceId): CreateInspectionResult
   {
     try {
-      /** @var CreateInspectionResult $result */
-      $result = $this->commandBus->dispatch($command);
-
-      return $result;
+      /** @var CreateInspectionResult */
+      return $this->commandBus->dispatch($command);
     } catch (Throwable $exception) {
       for ($current = $exception; null !== $current; $current = $current->getPrevious()) {
         if ($current instanceof ClientResourceAlreadyExistsException) {
