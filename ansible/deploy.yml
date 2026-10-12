@@ -31,6 +31,7 @@
     # with the repository variable FIREGUARD_MANAGED_ENV=true once every key listed
     # by the preflight is set. The file is backed up first, either way.
     fireguard_managed_env: "{{ lookup('env', 'FIREGUARD_MANAGED_ENV') | default('false', true) | bool }}"
+    fireguard_expected_http_idempotency_required: "{{ lookup('env', 'HTTP_IDEMPOTENCY_REQUIRED') | default('true', true) }}"
     # Written by the template rather than supplied: the image ref comes from the
     # build job, and the two connection URLs are derived from the POSTGRES_* parts
     # so the password cannot exist in two places and disagree with itself.
@@ -1191,6 +1192,49 @@
           retries: "{{ fireguard_healthcheck_retries }}"
           delay: "{{ fireguard_healthcheck_delay }}"
           until: fireguard_internal_health.rc == 0
+
+        - name: Verify the managed development runtime HTTP idempotency policy
+          when:
+            - fireguard_deployment_environment == 'development'
+            - fireguard_managed_env
+          block:
+            - name: Read only the running application's HTTP idempotency policy
+              ansible.builtin.command:
+                argv: "{{ fireguard_compose_command.split() + ['exec', '-T', 'app', 'php', '-d', 'memory_limit=1G', '-r', fireguard_http_idempotency_probe, fireguard_expected_http_idempotency_required] }}"
+              vars:
+                fireguard_http_idempotency_probe: |
+                  $expected = $argv[1] ?? '';
+                  if ($expected !== 'true' && $expected !== 'false') {
+                    exit(1);
+                  }
+                  try {
+                    require 'vendor/autoload.php';
+                    $kernel = new \App\Kernel('prod', false);
+                    $kernel->boot();
+                    $actual = $kernel->getContainer()->getParameter('http_idempotency.required');
+                    $valid = is_bool($actual) && $actual === ($expected === 'true');
+                    $kernel->shutdown();
+                    if (!$valid) {
+                      exit(1);
+                    }
+                    echo $actual ? "true\n" : "false\n";
+                  } catch (\Throwable) {
+                    exit(1);
+                  }
+              args:
+                chdir: "{{ fireguard_app_dir }}"
+              register: fireguard_runtime_http_idempotency_policy
+              changed_when: false
+              failed_when: false
+              no_log: true
+
+            - name: Require the expected development runtime HTTP idempotency policy
+              ansible.builtin.assert:
+                that:
+                  - fireguard_runtime_http_idempotency_policy.rc == 0
+                  - fireguard_runtime_http_idempotency_policy.stdout == fireguard_expected_http_idempotency_required
+                fail_msg: The running development container did not confirm the expected HTTP idempotency policy.
+                success_msg: The running development container confirmed the expected HTTP idempotency policy.
 
         - name: Wait for every consumer receiver heartbeat
           ansible.builtin.shell: |

@@ -69,8 +69,16 @@ Owner modules contribute `WebhookEventSourcePort` metadata and curated payload
 mappings through `webhook.event_source`. Each source subscribes to its own
 dispatcher event names (`<module>.<snake_case_class>`) and publishes only its
 selected fields through `WebhookEventPublisherPort`. Webhook has no central
-business-event switch. The installed FireGuard contributions preserve this
-public contract:
+business-event switch.
+
+The published `WebhookEventSourceMappingTrait` applies the common subscription,
+descriptor, source-name/class checks and public-field selection to an owner's
+`sourceDefinitions()`. The definitions remain in each producer module. The trait
+depends only on Webhook contracts and the publisher port; it introduces no
+framework, persistence or cross-module business-event dependency. Publication
+continues through the same durable publisher and source event context.
+
+The installed FireGuard contributions preserve this public contract:
 
 | Public type (`WebhookEventType`)           | Internal dispatched event name                                                   |
 | ------------------------------------------ | -------------------------------------------------------------------------------- |
